@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+artifacts/
+
+# Local-only documentation & workflow system
+AGENTS.local.md
+HANDOFF.md
+.scratch/
+docs/adr/
+docs/agents/
