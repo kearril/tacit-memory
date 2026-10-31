@@ -14,13 +14,14 @@ namespace TacitMemory.Core.Tests;
 /// </summary>
 internal sealed class ModelDouble : IDisposable
 {
-    private static readonly Lazy<ModelDouble> SharedDown = new(() => new ModelDouble(shared: true) { EmbeddingDown = true, RerankDown = true });
+    private static readonly Lazy<ModelDouble> SharedDown = new(() => new ModelDouble(shared: true) { EmbeddingDown = true, RerankDown = true, DecisionDown = true });
 
     private readonly WebApplication _app;
     private readonly bool _shared;
     private readonly ConcurrentQueue<string> _rerankedDocuments = new();
     private int _embeddingCalls;
     private int _rerankCalls;
+    private int _decisionCalls;
 
     public ModelDouble()
         : this(shared: false)
@@ -36,6 +37,7 @@ internal sealed class ModelDouble : IDisposable
         _app = builder.Build();
         _app.MapPost("/v1/embeddings", EmbeddingsAsync);
         _app.MapPost("/v1/rerank", RerankAsync);
+        _app.MapPost("/v1/systemone", DecideAsync);
         _app.StartAsync().GetAwaiter().GetResult();
         Endpoint = new Uri($"http://127.0.0.1:{new Uri(_app.Urls.Single()).Port}/v1");
     }
@@ -62,12 +64,26 @@ internal sealed class ModelDouble : IDisposable
 
     public int EmbeddingCalls => Volatile.Read(ref _embeddingCalls);
 
-    /// <summary>A <c>models</c> section pointing every model at this double.</summary>
-    public string ModelsYaml(string embeddingModel = "double-embedding") => $$"""
+    public bool DecisionDown { get; set; }
+
+    /// <summary>Probabilities for a choice question, given the state and the options by key; by default the last option, "none".</summary>
+    public Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, double>> Choose { get; set; } =
+        (_, options) => options.Keys.ToDictionary(key => key, key => key == options.Keys.Last() ? 1.0 : 0.0);
+
+    /// <summary>The probability that a true-or-false question about the state is true; by default 0.</summary>
+    public Func<string, double> IsTrue { get; set; } = _ => 0;
+
+    public int DecisionCalls => Volatile.Read(ref _decisionCalls);
+
+    /// <summary>The body and the Authorization header of the latest decision request.</summary>
+    public (JsonObject Body, string? Authorization)? LastDecision { get; private set; }
+
+    /// <summary>A <c>models</c> section pointing every model at this double; without a key the decision model has none.</summary>
+    public string ModelsYaml(string embeddingModel = "double-embedding", string? decisionKey = null) => $$"""
         models:
           embedding: { endpoint: '{{Endpoint}}', model: {{embeddingModel}} }
           reranker: { endpoint: '{{Endpoint}}', model: double-reranker }
-          decision: { endpoint: '{{Endpoint}}', model: double-decision, apiKeyEnv: JEV_KEY }
+          decision: { endpoint: '{{Endpoint}}', model: double-decision, {{(decisionKey is null ? "apiKeyEnv: JEV_KEY" : $"apiKey: {decisionKey}")}} }
 
         """;
 
@@ -117,5 +133,37 @@ internal sealed class ModelDouble : IDisposable
             .OrderByDescending(item => item.score)
             .Select(item => (JsonNode)new JsonObject { ["index"] = item.index, ["relevance_score"] = item.score });
         return Results.Json(new JsonObject { ["results"] = new JsonArray(results.ToArray()) });
+    }
+
+    private async Task<IResult> DecideAsync(HttpRequest request)
+    {
+        Interlocked.Increment(ref _decisionCalls);
+        var body = (await JsonNode.ParseAsync(request.Body))!.AsObject();
+        LastDecision = (body, request.Headers.Authorization.ToString());
+        if (DecisionDown)
+            return Results.StatusCode(503);
+        var answers = new JsonObject();
+        foreach (var (id, node) in body["questions"]!.AsObject())
+        {
+            var question = node!.AsObject();
+            var state = body["state"]!.GetValue<string>();
+            answers[id] = question["type"]!.GetValue<string>() switch
+            {
+                "choice" => Choice(state, question["criteria"]!.AsObject()),
+                "noul" => new JsonObject { ["type"] = "noul", ["noul"] = IsTrue(state) },
+                var type => throw new InvalidOperationException($"The double does not answer {type} questions."),
+            };
+        }
+
+        return Results.Json(new JsonObject { ["model"] = "double-decision", ["answers"] = answers });
+    }
+
+    private JsonObject Choice(string state, JsonObject criteria)
+    {
+        var options = criteria.ToDictionary(option => option.Key, option => option.Value!.GetValue<string>());
+        var probabilities = new JsonObject();
+        foreach (var (key, probability) in Choose(state, options))
+            probabilities[key] = probability;
+        return new JsonObject { ["type"] = "choice", ["probabilities"] = probabilities };
     }
 }
