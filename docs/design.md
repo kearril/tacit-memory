@@ -91,7 +91,7 @@
 - 文件不写一级标题，从 `##` 开始分节；细节页标题只在 YAML 头的 `title` 中出现。
 - 来源写在条目下一行的缩进 HTML 注释里：`<!-- 2026-10-25 原话「怎么又搜不到中文了」 -->`，原话可省略。
 - 结构词（节名、`归属：`、`原话` 等）按记忆语言写入；解析时所有支持语言的结构词都识别。
-- 所属项目名转为小写，只允许 `[a-z0-9._-]`，下划线开头的名字保留给系统（如 `_topics`）。
+- 所属项目名转为小写，只允许 `[a-z0-9._-]`；以下划线开头的名字保留给系统（如 `_topics`），以点开头的目录不算项目。
 
 ### 条目与短码
 
@@ -205,6 +205,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 ### Git
 
 - 首次初始化：`git init`，写入 `.gitignore`、各文件的节标题骨架与 `recent/`、`pages/` 下的 `.gitkeep`，提交 `init: create memory repo`。目录非空且不是 Git 仓库时拒绝初始化。
+- 再次执行 `init` 不覆盖任何已有文件：记忆目录已是 Git 仓库时只补缺失的骨架文件，不提交，并列出已存在的文件。传入的 `--language` 或 `--memory` 与已有 `config.yaml` 不一致时拒绝执行。
 - 每次经服务的写入自动提交一次，只提交本次写入的文件，作者固定为 `tacit <tacit@localhost>`。提交信息为 `<区域>: <动作> <对象>`，区域为 `persona`、`candidates`、`recent`、`pages` 之一，例如 `pages: create tacit-memory/db-upgrade`。
 - 要写的文件含有用户未提交的修改时，连同修改一起提交，并在提交信息末尾注明。
 - 体检的提交由主会话完成，提交信息以 `checkup:` 开头；服务据此识别上次体检的时间。
@@ -236,7 +237,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ### 值得记标准
 
-`rules.md` 分"值得记"与"不记"两节，各最多 10 条，原样写入记忆规则。初始化时生成默认模板；文件被删除时，服务启动时重新生成。
+`rules.md` 分"值得记"与"不记"两节，各最多 10 条，原样写入记忆规则。初始化时生成默认模板；文件被删除后，下次加载配置时（启动服务、绑定、解绑）按记忆语言重新生成。
 
 默认值得记：用户纠正或打断 Agent；方案拍板（保留用户原话）；查明根因的排错（含试过但无效的做法）；新的环境事实；用户明确要求记下。默认不记：常规的写代码、改错字、看日志；能从代码、仓库文档、配置中查到的内容。
 
@@ -397,9 +398,9 @@ related: [my-app/backup-script, _topics/pgroonga]
 | `--client claude-code` | `~/.claude/CLAUDE.md` | 调用 `claude mcp add --scope user`；找不到 `claude` 命令时打印该命令 |
 | `--file <路径>` | 指定文件 | 不注册 |
 
-各客户端渲染出的常驻区块完全相同。绑定记录存于 `TACIT_HOME/bindings.json`；绑定文件被删除或标记丢失时跳过该文件并在 `tacit status` 中提示，不自行恢复。
+各客户端渲染出的常驻区块完全相同。绑定记录存于 `TACIT_HOME/bindings.json`。绑定的文件被删除，或区块的起止标记不完整、重复时，跳过该文件并提示，不自行恢复；连同起止标记整段删掉区块时，下次渲染重新追加，要停止维护请解绑。
 
-改写 `mcp.json` 时保留其余服务、字段、顺序、缩进、换行风格与 BOM；文件含注释时不改写，改为给出需要手工加入的条目。绑定会新建不存在的上下文文件与 `mcp.json`，解绑时若它们只剩空内容则一并删除。不是 UTF-8 的上下文文件一律不改动。
+改写 `mcp.json` 时保留其余服务、字段、顺序、缩进、换行风格与 BOM，`tacit` 一项中用户自加的字段也保留；文件含注释时不改写，改为给出需要手工加入的条目。上下文文件或 `mcp.json` 不存在时由绑定新建；解绑后，由绑定新建的文件若只剩空内容（`mcp.json` 只剩空的 `mcpServers`）则一并删除。不是 UTF-8 的上下文文件一律不改动。
 
 ### 备份与恢复
 
@@ -441,7 +442,7 @@ retrieval: { candidates: 30, topK: 5, minRerankScore: … }
 backup: { keep: 7, remote: … }
 ```
 
-- 除 `models` 外各项均有默认值；阈值默认值以真实中文样本测定。向量维度在启动时由嵌入模型的返回确定。
+- 除 `models` 外各项均有默认值；判断阈值与 `minRerankScore` 的默认值内置，测定方式见 `docs/testing.md`。向量维度在启动时由嵌入模型的返回确定。
 
 ### 运行
 
@@ -460,7 +461,7 @@ backup: { keep: 7, remote: … }
 | `tacit backup [--to <目录>] [--push]` | 立即备份 | 是 |
 | `tacit restore <文件> [--config] [--yes]` | 从备份恢复 | 是 |
 
-- `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect`、`disconnect` 只改客户端文件与 `bindings.json`。
+- `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect`、`disconnect` 只改客户端文件与 `bindings.json`（以及按上文补写缺失的 `rules.md`）。
 - 首批适配 omp 与 Claude Code：先实现并验证 omp，Claude Code 随后。
 
 ## 13. 不做的事（v1）
