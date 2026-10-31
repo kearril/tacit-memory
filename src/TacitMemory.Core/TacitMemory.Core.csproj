@@ -11,4 +11,9 @@
     <InternalsVisibleTo Include="TacitMemory.Core.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The official sqlite-vec release; its SHA-256 is checked before every load. -->
+    <None Include="..\..\lib\sqlite-vec\vec0.dll" Link="vec0.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
 </Project>

@@ -1,6 +1,7 @@
 using TacitMemory.Core.Backup;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
+using TacitMemory.Core.Models;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Injection;
@@ -30,7 +31,9 @@ public sealed class MemoryService : IDisposable
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly PageTools _pages;
+    private readonly AuxiliaryModels _models;
     private readonly PageIndex _index;
+    private readonly VectorSync _vectors;
     private readonly RecallTool _recall;
     private string? _instructions;
     private volatile bool _disposed;
@@ -42,9 +45,12 @@ public sealed class MemoryService : IDisposable
         _notice = notice;
         StartupRender = Binder.RenderAll(options, config);
         _pages = new PageTools(options, config, notice);
-        _index = new PageIndex(config.MemoryPath);
+        _models = new AuxiliaryModels(config, options.Time);
+        _index = new PageIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
         _index.SyncAll();
-        _recall = new RecallTool(config, _index, _pages);
+        _vectors = new VectorSync(_index, _models.Embedding);
+        _vectors.FillInBackground();
+        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _vectors);
         _backup = new AutomaticBackup(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
@@ -83,9 +89,12 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes when the backup started by the latest successful write has finished. Tests await it.</summary>
     internal Task BackupCompletion => _backup.Completion;
 
+    /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
+    internal Task VectorCompletion => _vectors.Background;
+
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_recall.Run(request));
+        _recall.RunAsync(request, cancellationToken);
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
     public async Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default)
@@ -97,9 +106,12 @@ public sealed class MemoryService : IDisposable
             // The index follows the file right away; the watcher's later event finds the hash unchanged.
             if (PageId.TryParse(request.Page ?? "", out var id, out _))
                 _index.SyncPage(id);
-            if (!result.IsError)
-                _backup.ScheduleIfDue();
-            return result;
+            if (result.IsError)
+                return result;
+            _backup.ScheduleIfDue();
+            return await _vectors.FillAsync(cancellationToken)
+                ? result
+                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this page is found by full-text search only." };
         }
         finally
         {
@@ -115,7 +127,9 @@ public sealed class MemoryService : IDisposable
             _renderTimer.Dispose();
         lock (_indexTimerGate)
             _indexTimer.Dispose();
+        _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _index.Dispose();
+        _models.Dispose();
         _writeGate.Dispose();
     }
 
@@ -199,6 +213,7 @@ public sealed class MemoryService : IDisposable
             try
             {
                 _index.SyncAll();
+                _vectors.FillInBackground();
             }
             catch (IOException)
             {
