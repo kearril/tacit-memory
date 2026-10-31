@@ -1,3 +1,4 @@
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Backup;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
@@ -12,9 +13,10 @@ namespace TacitMemory.Core;
 
 /// <summary>
 /// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
-/// cached server instructions, and a watcher on the memory repository that re-renders the resident blocks when
+/// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
 /// <c>persona.md</c> changes, syncs the index when page files change, and refreshes the instructions when projects
-/// appear or disappear under <c>pages/</c>. Create it with <see cref="Tacit.OpenService"/>.
+/// appear or disappear under <c>pages/</c>, and a watcher that reloads <c>rules.md</c>. Create it with
+/// <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -25,7 +27,9 @@ public sealed class MemoryService : IDisposable
     private readonly AutomaticBackup _backup;
     private readonly Action<string> _notice;
     private readonly FileSystemWatcher _watcher;
+    private readonly FileSystemWatcher _rulesWatcher;
     private readonly Timer _renderTimer;
+    private readonly Timer _rulesTimer;
     private readonly Timer _indexTimer;
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
@@ -36,7 +40,9 @@ public sealed class MemoryService : IDisposable
     private readonly PageIndex _index;
     private readonly VectorSync _vectors;
     private readonly RecallTool _recall;
+    private RecordingCriteria _rules;
     private string? _instructions;
+    private string? _instructionsStatus;
     private volatile bool _disposed;
 
     internal MemoryService(TacitOptions options, TacitConfig config, Action<string> notice)
@@ -44,6 +50,8 @@ public sealed class MemoryService : IDisposable
         _options = options;
         Config = config;
         _notice = notice;
+        _rules = config.Rules;
+        ServerInstructionText.Check(config.Language, _rules, RulesPath);
         StartupRender = Binder.RenderAll(options, config);
         _models = new AuxiliaryModels(config, options.Time);
         _index = new PageIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
@@ -55,6 +63,7 @@ public sealed class MemoryService : IDisposable
         _backup = new AutomaticBackup(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
+        _rulesTimer = new Timer(_ => ReloadRules());
         _indexTimer = new Timer(_ => SyncIndexNow());
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         _watcher.Changed += OnChange;
@@ -63,6 +72,13 @@ public sealed class MemoryService : IDisposable
         _watcher.Renamed += OnChange;
         _watcher.Error += OnOverflow;
         _watcher.EnableRaisingEvents = true;
+
+        _rulesWatcher = new FileSystemWatcher(options.TacitHome, "rules.md");
+        _rulesWatcher.Changed += OnRulesChange;
+        _rulesWatcher.Created += OnRulesChange;
+        _rulesWatcher.Deleted += OnRulesChange;
+        _rulesWatcher.Renamed += OnRulesChange;
+        _rulesWatcher.EnableRaisingEvents = true;
     }
 
     public TacitConfig Config { get; }
@@ -70,15 +86,32 @@ public sealed class MemoryService : IDisposable
     /// <summary>What happened to each bound context file when the service started.</summary>
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
-    /// <summary>The server instructions, generated on first use and kept until the project list may have changed.</summary>
+    /// <summary>
+    /// The server instructions, generated on first use and kept until <c>rules.md</c> or the project list may have
+    /// changed, or the status (unavailable models, skipped files) differs from when they were generated.
+    /// </summary>
     public string ServerInstructions
     {
         get
         {
+            var unavailable = _models.Unavailable;
+            var skipped = _index.SkippedFiles;
+            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped);
             lock (_instructionsGate)
-                return _instructions ??= ServerInstructionText.Build(Config.Language, ServerInstructionText.Projects(Config.MemoryPath));
+            {
+                if (_instructions is null || _instructionsStatus != status)
+                {
+                    _instructions = ServerInstructionText.Build(
+                        Config.Language, _rules, unavailable, skipped, ServerInstructionText.Projects(Config.MemoryPath));
+                    _instructionsStatus = status;
+                }
+
+                return _instructions;
+            }
         }
     }
+
+    private string RulesPath => Path.Combine(_options.TacitHome, "rules.md");
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
     public string ListeningMessage(Uri endpoint) => Messages.ServiceListening.Format(Config.Language, endpoint);
@@ -124,8 +157,12 @@ public sealed class MemoryService : IDisposable
     {
         _disposed = true;
         _watcher.Dispose();
+        _rulesWatcher.Dispose();
         lock (_renderGate)
+        {
             _renderTimer.Dispose();
+            _rulesTimer.Dispose();
+        }
         lock (_indexTimerGate)
             _indexTimer.Dispose();
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
@@ -160,6 +197,44 @@ public sealed class MemoryService : IDisposable
     {
         lock (_instructionsGate)
             _instructions = null;
+    }
+
+    private void OnRulesChange(object sender, FileSystemEventArgs e)
+    {
+        lock (_renderGate)
+        {
+            if (!_disposed)
+                _rulesTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    /// <summary>Runs on the timer thread. Rules that fail their checks are reported and the previous ones kept.</summary>
+    private void ReloadRules()
+    {
+        lock (_renderGate)
+        {
+            if (_disposed)
+                return;
+            try
+            {
+                var rules = RulesFile.Load(_options.TacitHome, Config.Language);
+                ServerInstructionText.Check(Config.Language, rules, RulesPath);
+                lock (_instructionsGate)
+                {
+                    _rules = rules;
+                    _instructions = null;
+                }
+            }
+            catch (IOException)
+            {
+                // The editor still holds the file; try again once it settles.
+                _rulesTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+            }
+            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
+            {
+                _notice(Messages.RulesNotApplied.Format(Config.Language, e.Message));
+            }
+        }
     }
 
     private void ScheduleRender()
