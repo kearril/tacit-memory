@@ -20,7 +20,7 @@
 
 ## 3. 本地化完整性
 
-一项测试检查每个面向人的文本键在中英两种语言中都存在，结构词对照表覆盖所有结构词；缺任何一项即失败。
+面向人的文本以中英两种写法一并定义，缺一种即无法编译。`TacitMemory.Core.Tests` 中的本地化测试检查：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是唯一直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。
 
 ## 4. 提示词场景评测
 
@@ -42,4 +42,11 @@
 
 ## 5. 运行方式
 
-默认只运行与当前变更直接相关的测试，不自动运行全量测试。具体命令待测试工程建立后补充。
+默认只运行与当前变更直接相关的测试，不自动运行全量测试。测试使用真实 `git`，需要它在 `PATH` 中。
+
+```powershell
+dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝
+dotnet test tests/TacitMemory.Mcp.Tests                                # MCP 接缝
+dotnet test tests/TacitMemory.Core.Tests --filter "FullyQualifiedName~InitTests"   # 单个测试类
+dotnet test TacitMemory.slnx                                           # 全量
+```

@@ -124,6 +124,10 @@ _Avoid_: 存储、数据目录、store
 `tacit serve` 启动的单一 HTTP MCP 服务；对话中的写入都经由它完成。
 _Avoid_: 后端、守护进程、server
 
+**门面**（Facade）：
+`TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 与 MCP 只经由它调用记忆规则。
+_Avoid_: 服务层、API、管理器
+
 **服务端说明**（Server instructions）：
 客户端每次连接时由常驻服务现场生成、注入系统提示的文本，包含记忆规则、语言规范、近期摘要、已有项目与体检提示。
 _Avoid_: 系统提示、服务描述

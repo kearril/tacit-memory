@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TacitMemory.Cli/TacitMemory.Cli.csproj" />
+    <Project Path="src/TacitMemory.Core/TacitMemory.Core.csproj" />
+    <Project Path="src/TacitMemory.Mcp/TacitMemory.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TacitMemory.Core.Tests/TacitMemory.Core.Tests.csproj" />
+    <Project Path="tests/TacitMemory.Mcp.Tests/TacitMemory.Mcp.Tests.csproj" />
+  </Folder>
+</Solution>

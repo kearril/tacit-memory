@@ -1,0 +1,121 @@
+namespace TacitMemory.Core.Tests;
+
+public sealed class InitTests : IDisposable
+{
+    private readonly TestHome _home = new();
+
+    public void Dispose() => _home.Dispose();
+
+    [Fact]
+    public async Task Init_creates_config_rules_and_a_committed_memory_repository()
+    {
+        var result = await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh });
+
+        Assert.True(result.RepositoryCreated);
+        Assert.Equal(_home.DefaultMemory, result.MemoryPath);
+        Assert.True(File.Exists(Path.Combine(_home.TacitHome, "config.yaml")));
+        Assert.StartsWith("## 值得记\n", File.ReadAllText(Path.Combine(_home.TacitHome, "rules.md")));
+
+        var memory = _home.DefaultMemory;
+        Assert.Equal(".cache/\n", File.ReadAllText(Path.Combine(memory, ".gitignore")));
+        Assert.Equal("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n", File.ReadAllText(Path.Combine(memory, "persona.md")));
+        Assert.Equal("## 候选\n\n## 拒绝列表\n", File.ReadAllText(Path.Combine(memory, "candidates.md")));
+        Assert.Equal("## 近期主线\n", File.ReadAllText(Path.Combine(memory, "recent.md")));
+
+        Assert.Equal("tacit <tacit@localhost>|init: create memory repo\n", TestHome.Git(memory, "log", "--format=%an <%ae>|%s"));
+        var committed = TestHome.Git(memory, "ls-files").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal([".gitignore", "candidates.md", "pages/.gitkeep", "persona.md", "recent.md", "recent/.gitkeep"], committed.Order());
+        Assert.Equal("", TestHome.Git(memory, "status", "--porcelain"));
+    }
+
+    [Fact]
+    public async Task Init_refuses_a_non_empty_directory_that_is_not_a_git_repository()
+    {
+        var memory = _home.PathFor("notes");
+        Directory.CreateDirectory(memory);
+        File.WriteAllText(Path.Combine(memory, "todo.txt"), "milk");
+
+        var error = await Assert.ThrowsAsync<TacitException>(() => _home.Tacit().InitAsync(new InitRequest { MemoryPath = memory }));
+
+        Assert.Equal(TacitError.MemoryDirectoryNotEmpty, error.Error);
+        Assert.Contains(memory, error.Message);
+        Assert.Equal(["todo.txt"], Directory.EnumerateFileSystemEntries(memory).Select(Path.GetFileName));
+        Assert.False(Directory.Exists(_home.TacitHome));
+    }
+
+    [Fact]
+    public async Task Init_again_keeps_edited_files_and_only_restores_missing_skeleton_without_committing()
+    {
+        await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh });
+        var config = Path.Combine(_home.TacitHome, "config.yaml");
+        var persona = Path.Combine(_home.DefaultMemory, "persona.md");
+        File.WriteAllText(config, "language: zh\n");
+        File.WriteAllText(persona, "## 偏好\n- 沟通：先要结论\n");
+        File.Delete(Path.Combine(_home.DefaultMemory, "recent.md"));
+
+        var result = await _home.Tacit().InitAsync(new InitRequest());
+
+        Assert.False(result.RepositoryCreated);
+        Assert.Equal("language: zh\n", File.ReadAllText(config));
+        Assert.Equal("## 偏好\n- 沟通：先要结论\n", File.ReadAllText(persona));
+        Assert.Equal([Path.Combine(_home.DefaultMemory, "recent.md")], result.Created);
+        Assert.Contains(config, result.Existing);
+        Assert.Contains(persona, result.Existing);
+        Assert.Single(TestHome.Git(_home.DefaultMemory, "log", "--format=%s").Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(" M persona.md\n", TestHome.Git(_home.DefaultMemory, "status", "--porcelain"));
+    }
+
+    [Fact]
+    public async Task Init_into_an_empty_directory_given_by_memory_records_it_in_the_config()
+    {
+        var memory = Path.Combine(_home.PathFor("sync"), "记忆");
+        Directory.CreateDirectory(memory);
+
+        var result = await _home.Tacit().InitAsync(new InitRequest { MemoryPath = memory });
+
+        Assert.True(result.RepositoryCreated);
+        Assert.True(File.Exists(Path.Combine(memory, "persona.md")));
+        Assert.False(Directory.Exists(_home.DefaultMemory));
+        Assert.Contains($"  path: '{memory}'\n", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+
+        var again = await _home.Tacit().InitAsync(new InitRequest());
+        Assert.Equal(memory, again.MemoryPath);
+        Assert.False(again.RepositoryCreated);
+    }
+
+    [Fact]
+    public async Task Init_refuses_options_that_contradict_the_existing_config()
+    {
+        await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh });
+
+        var error = await Assert.ThrowsAsync<TacitException>(
+            () => _home.Tacit().InitAsync(new InitRequest { MemoryPath = _home.PathFor("elsewhere") }));
+
+        Assert.Equal(TacitError.ConflictsWithConfig, error.Error);
+        Assert.False(Directory.Exists(_home.PathFor("elsewhere")));
+    }
+
+    [Theory]
+    [InlineData("zh-CN", "## 红线\n")]
+    [InlineData("zh-TW", "## 红线\n")]
+    [InlineData("en-US", "## Red lines\n")]
+    [InlineData("ja-JP", "## Red lines\n")]
+    public async Task Init_without_a_language_follows_the_system_ui_language(string uiCulture, string personaStart)
+    {
+        var result = await _home.Tacit(uiCulture).InitAsync(new InitRequest());
+
+        Assert.StartsWith(personaStart, File.ReadAllText(Path.Combine(result.MemoryPath, "persona.md")));
+        Assert.Contains($"language: {(personaStart.Contains("红线") ? "zh" : "en")} ", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+    }
+
+    [Fact]
+    public async Task Init_in_english_writes_english_templates_and_report()
+    {
+        var result = await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
+
+        Assert.StartsWith("## Worth recording\n", File.ReadAllText(Path.Combine(_home.TacitHome, "rules.md")));
+        Assert.Equal("## Candidates\n\n## Rejection list\n", File.ReadAllText(Path.Combine(result.MemoryPath, "candidates.md")));
+        Assert.StartsWith("# TacitMemory configuration.", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+        Assert.StartsWith("Created the memory repository: ", result.Report);
+    }
+}
