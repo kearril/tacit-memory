@@ -36,20 +36,26 @@ public sealed class CredentialTests : IDisposable
     private bool Exists(string page = "my-app/deploy") => File.Exists(Path.Combine(_home.DefaultMemory, "pages", page + ".md"));
 
     // Secret-shaped samples are assembled at run time so no scanner mistakes this file for a leak.
+    private static readonly string OpenAiKey = "sk-" + "proj-Abc123def456GHI789jkl012MNO345";
+
     private static readonly string GitHubToken = "gh" + "p_aB3dE5fG7hI9jK1lM3nO5pQ7rS9tU1vW3xY5";
 
     private static readonly string AwsKeyId = "AK" + "IAIOSFODNN7EXAMPLE";
 
     private static readonly string PrivateKey = "-----BEGIN " + "OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH PRIVATE KEY-----";
 
+    private static readonly string PasswordAssign = "pass" + "word=hunter2xyz";
+
+    private static readonly string LongBase64 = "dGhpcyBpcyBhIHNlY3JldCB2YWx1ZSB0aGF0IHNo" + "b3VsZCBub3QgbGVhaw1234XYZ";
+
     public static TheoryData<string, string> Secrets => new()
     {
-        { "OpenAI 的 key 是 sk-proj-Abc123def456GHI789jkl012MNO345", "sk-pro" },
+        { $"OpenAI 的 key 是 {OpenAiKey}", "sk-pro" },
         { $"令牌 {GitHubToken} 别外传", "ghp_aB" },
         { $"AWS 用 {AwsKeyId} 登录", "AKIAIO" },
         { PrivateKey, "-----B" },
-        { "连接串里写了 password=hunter2xyz", "passwo" },
-        { "数据是 dGhpcyBpcyBhIHNlY3JldCB2YWx1ZSB0aGF0IHNob3VsZCBub3QgbGVhaw1234XYZ", "dGhpcy" },
+        { $"连接串里写了 {PasswordAssign}", "passwo" },
+        { $"数据是 {LongBase64}", "dGhpcy" },
     };
 
     [Theory]
@@ -139,7 +145,7 @@ public sealed class CredentialTests : IDisposable
     {
         _models.IsTrue = _ => 0.99;
 
-        var result = await Create("示例 key：sk-proj-Abc123def456GHI789jkl012MNO345 是文档里的假值", confirm: true);
+        var result = await Create($"示例 key：{OpenAiKey} 是文档里的假值", confirm: true);
 
         Assert.False(result.IsError, result.Text);
         Assert.True(Exists());

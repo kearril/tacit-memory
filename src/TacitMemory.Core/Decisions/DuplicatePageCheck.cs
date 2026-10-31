@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Index;
-using TacitMemory.Core.Injection;
 using TacitMemory.Core.Models;
 using TacitMemory.Core.Pages;
 
@@ -14,7 +13,7 @@ internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 /// Before a page is created, asks whether a page of the same project already records the same matter: the nearest
 /// pages by embedding, plus "none of these", go to the decision model as a choice question.
 /// </summary>
-internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, EmbeddingModel embedding, IDecisionModel decision)
+internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
 {
     /// <summary>Candidate pages offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int Candidates = 9;
@@ -39,12 +38,17 @@ internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, Em
 
     /// <summary>Characters taken from the start of each section when summarizing a candidate page.</summary>
     private const int SectionStartLength = 80;
+
     public async Task<DuplicateCheck> RunAsync(PageId id, PageHeader header, IReadOnlyList<PageSectionInput> sections, CancellationToken cancellationToken)
     {
+        if (!index.HasOtherPagesInProject(id))
+            return new DuplicateCheck(null, null);
+
         var vector = await embedding.EmbedAsync([string.Join('\n', [header.Title, .. header.Aliases])], cancellationToken);
         if (vector is null)
             return new DuplicateCheck(null, EmbeddingDown);
 
+        await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var nearest = index.SearchVector(vector[0], new IndexFilter(id.Project, null, null), int.MaxValue)
             .Select(hit => hit.PageId)
             .Where(page => page != id.ToString())
@@ -90,9 +94,8 @@ internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, Em
     /// <summary>One candidate page in a line: title, aliases and the start of each section.</summary>
     private string? Describe(PageId page)
     {
-        if (TextFile.Read(Path.Combine(config.MemoryPath, page.RelativePath)) is not { } read)
+        if (PageDocument.TryLoad(config.MemoryPath, page) is not { } document)
             return null;
-        var document = PageDocument.Parse(read.Text, read.HasBom, page.Slug);
         var sections = string.Join("; ", document.Sections.Select(section =>
         {
             var body = section.Body.ReplaceLineEndings(" ").Trim();

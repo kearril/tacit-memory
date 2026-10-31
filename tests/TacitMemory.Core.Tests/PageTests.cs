@@ -174,7 +174,7 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
-    public async Task A_page_without_readable_front_matter_is_still_read_titled_after_its_file()
+    public async Task A_page_without_a_readable_header_is_still_read_titled_after_its_file()
     {
         var path = Path.Combine(Memory, "pages", "tacit-memory", "broken.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -495,6 +495,7 @@ public sealed partial class PageTests : IDisposable
             status: draft
             aliases: [a1, a2]
             dates: { first: 2026-10-01, last: 2026-10-01 }
+            # 手写的页头注释
             ---
 
             前言：人工写的段落。
@@ -531,6 +532,11 @@ public sealed partial class PageTests : IDisposable
         var text = File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md"));
         Assert.Contains("first: 2026-11-02", text);
         Assert.Contains("last: 2026-11-03", text);
+
+        _home.Clock.Advance(TimeSpan.FromDays(1));
+        var unchanged = await _service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
+        Assert.Equal("Nothing changed: the page already has this content.", unchanged.Text);
+        Assert.Contains("last: 2026-11-03", File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md")));
     }
 
     [GeneratedRegex(@"\[([0-9a-f]{6})\]")]

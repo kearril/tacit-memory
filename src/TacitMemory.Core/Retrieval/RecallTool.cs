@@ -69,11 +69,8 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
             notes.Add(EmbeddingDown);
         else
         {
-            if (index.Dimension is { } dimension && dimension != queryVector[0].Length)
-                index.ResetVectors();
+            await vectors.PrepareSearchAsync(queryVector[0].Length, cancellationToken);
             nearest = index.SearchVector(queryVector[0], filter, candidates);
-            if (index.PendingUnits(1).Count > 0)
-                vectors.FillInBackground();
         }
 
         var ranked = await RerankAsync(request.Query!, Fuse([fullText, nearest], candidates), notes, cancellationToken);
@@ -124,10 +121,8 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
         var shown = 0;
         foreach (var result in results)
         {
-            if (!PageId.TryParse(result.Key, out var id, out _) || TextFile.Read(Path.Combine(config.MemoryPath, id.RelativePath)) is not { } read)
+            if (!PageId.TryParse(result.Key, out var id, out _) || PageDocument.TryLoad(config.MemoryPath, id) is not { } document)
                 continue;
-
-            var document = PageDocument.Parse(read.Text, read.HasBom, id.Slug);
             var matched = result.Select(hit => hit.Section).OfType<string>().ToHashSet(StringComparer.Ordinal);
             var sections = matched.Count > 0
                 ? document.Sections.Where(section => matched.Contains(section.Name)).ToList()

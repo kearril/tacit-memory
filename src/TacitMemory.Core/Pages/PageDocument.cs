@@ -59,6 +59,15 @@ internal sealed partial class PageDocument
     /// <summary>The whole file as text, with <see cref="Newline"/> as the line break and no BOM.</summary>
     public string Text => JoinLines(Lines);
 
+    /// <summary>Reads and parses <paramref name="id"/> from <paramref name="memoryPath"/>, or <c>null</c> when missing or not UTF-8.</summary>
+    public static PageDocument? TryLoad(string memoryPath, PageId id)
+    {
+        var path = Path.Combine(memoryPath, id.RelativePath);
+        if (!File.Exists(path) || Injection.TextFile.Read(path) is not { } read)
+            return null;
+        return Parse(read.Text, read.HasBom, id.Slug);
+    }
+
     public static PageDocument Parse(string text, bool hasBom, string fallbackTitle)
     {
         var newline = Injection.TextFile.NewlineOf(text);
@@ -183,7 +192,9 @@ internal sealed partial class PageDocument
             var key = BlockKey().Match(line);
             if (!key.Success)
             {
-                // Continuation lines of a replaced block go with it; blank lines always stay.
+                if (line.StartsWith('#'))
+                    skipping = false;
+                // Indented continuation lines of a replaced block go with it; blank lines and top-level comments stay.
                 if (!skipping || line.Trim().Length == 0)
                     result.Add(line);
                 continue;

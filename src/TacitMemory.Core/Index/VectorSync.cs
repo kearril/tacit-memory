@@ -9,7 +9,7 @@ namespace TacitMemory.Core.Index;
 internal sealed class VectorSync(PageIndex index, EmbeddingModel model)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private int _requested;
+    private readonly Lock _backgroundGate = new();
 
     /// <summary>Embeds every unit still missing a vector. <c>false</c> when the model could not be reached.</summary>
     public async Task<bool> FillAsync(CancellationToken cancellationToken)
@@ -34,25 +34,43 @@ internal sealed class VectorSync(PageIndex index, EmbeddingModel model)
         }
     }
 
-    /// <summary>Starts a fill in the background unless one is already queued; failures only leave units waiting.</summary>
-    public void FillInBackground()
+    /// <summary>
+    /// Ensures stored vectors match <paramref name="dimension"/> and fills any missing vectors so a vector search right
+    /// after can reach every indexed unit.
+    /// </summary>
+    public async Task PrepareSearchAsync(int dimension, CancellationToken cancellationToken)
     {
-        if (Interlocked.Exchange(ref _requested, 1) == 1)
-            return;
-        Background = Task.Run(async () =>
-        {
-            Interlocked.Exchange(ref _requested, 0);
-            try
-            {
-                await FillAsync(CancellationToken.None);
-            }
-            catch (Exception e) when (e is ObjectDisposedException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException or IOException)
-            {
-                // The service is shutting down, or the index is busy: the units stay pending for the next fill.
-            }
-        });
+        if (index.Dimension is { } stored && stored != dimension)
+            index.ResetVectors();
+        if (index.PendingUnits(1).Count > 0)
+            await FillAsync(cancellationToken);
     }
 
-    /// <summary>The latest background fill; tests wait for it.</summary>
+    /// <summary>Queues a fill in the background; runs one after another and failures only leave units waiting.</summary>
+    public void FillInBackground()
+    {
+        lock (_backgroundGate)
+        {
+            Background = Background.ContinueWith(
+                _ => FillSafelyAsync(),
+                CancellationToken.None,
+                TaskContinuationOptions.None,
+                TaskScheduler.Default).Unwrap();
+        }
+    }
+
+    /// <summary>Completes when all queued background fills have finished; tests wait for it.</summary>
     public Task Background { get; private set; } = Task.CompletedTask;
+
+    private async Task FillSafelyAsync()
+    {
+        try
+        {
+            await FillAsync(CancellationToken.None);
+        }
+        catch (Exception e) when (e is ObjectDisposedException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException or IOException)
+        {
+            // The service is shutting down, or the index is busy: the units stay pending for the next fill.
+        }
+    }
 }

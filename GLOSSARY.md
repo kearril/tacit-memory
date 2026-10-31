@@ -55,9 +55,9 @@ _Avoid_: 段落、分块、chunk
 细节页开头以 `---` 围起的 YAML 块，含 `title`、`aliases`、`dates`、`related`；服务只改写其中的顶层键，其余字节保持不变。
 _Avoid_: 前言、元数据、front matter
 
-**页面标识**（Page identifier）：
+**页面标识**（Page identifier / `PageId`）：
 `<所属项目>/<slug>` 形式的细节页名称（专题为 `_topics/<slug>`），slug 为小写字母、数字与连字符，创建后不变；`related` 用它引用其他页。
-_Avoid_: 页面 ID、路径、文件名
+_Avoid_: 路径、文件名
 
 **专题**（Topic）：
 不属于任何项目的细节页，存放在 `pages/_topics/`。
@@ -80,8 +80,8 @@ _Avoid_: 关键词、标签、tags
 从记忆仓库中的 Markdown 生成的全文与向量索引，存于 `.cache/`，可随时删除重建。
 _Avoid_: 数据库、缓存库
 
-**短码**（Hash）：
-服务返回条目或小节时附带的内容哈希前缀，用于在后续调用中引用它；内容一改即失效。
+**短码**（Hash / `Short code`）：
+服务返回条目或小节时附带在方括号里的内容哈希前 6 位，用于在后续调用的 `hash` 参数中引用它；内容一改即失效。
 _Avoid_: 条目 ID、编号
 
 ### 写入

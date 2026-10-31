@@ -132,10 +132,10 @@ internal sealed class PageTools(
         if (existing is not null && RefuseStaleSection(existing, request.Hash, "replace", "op=upsert_section") is { } stale)
             return stale;
 
-        var after = WithToday(document.WithSection(existing, name, body));
-        var written = after.Sections.First(section => section.Name == name);
+        var changed = document.WithSection(existing, name, body);
+        var written = changed.Sections.First(section => section.Name == name);
         var reply = existing is null ? $"Added section {name} [{written.Code}]." : $"Replaced section {name} [{written.Code}].";
-        return await SaveAsync(id, document, after, $"pages: upsert {id} {name}", reply, cancellationToken);
+        return await SaveAsync(id, document, changed, $"pages: upsert {id} {name}", reply, cancellationToken);
     }
 
     private async Task<ToolResult> DeleteSectionAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
@@ -159,8 +159,8 @@ internal sealed class PageTools(
         if (RefuseStaleSection(existing, request.Hash, "delete", "op=delete_section") is { } stale)
             return stale;
 
-        var after = WithToday(document.WithoutSection(existing));
-        return await SaveAsync(id, document, after, $"pages: delete {id} {name}", $"Deleted section {name}.", cancellationToken);
+        var changed = document.WithoutSection(existing);
+        return await SaveAsync(id, document, changed, $"pages: delete {id} {name}", $"Deleted section {name}.", cancellationToken);
     }
 
     private async Task<ToolResult> UpdateHeaderAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
@@ -206,8 +206,8 @@ internal sealed class PageTools(
         if (related is not null && !related.SequenceEqual(header.Related))
             changes.Add(("related", PageDocument.RelatedBlock(related)));
 
-        var after = WithToday(document.WithHeaderBlocks(changes));
-        return await SaveAsync(id, document, after, $"pages: header {id}", $"Updated the header of page {id}.", cancellationToken);
+        var changed = document.WithHeaderBlocks(changes);
+        return await SaveAsync(id, document, changed, $"pages: header {id}", $"Updated the header of page {id}.", cancellationToken);
     }
 
     /// <summary>The credential check's refusal, or <c>null</c> when the texts may be written or the agent confirmed.</summary>
@@ -256,11 +256,12 @@ internal sealed class PageTools(
     }
 
     /// <summary>Writes the changed page and commits it. An unchanged page is neither written nor committed.</summary>
-    private async Task<ToolResult> SaveAsync(PageId id, PageDocument before, PageDocument after, string message, string reply, CancellationToken cancellationToken)
+    private async Task<ToolResult> SaveAsync(PageId id, PageDocument before, PageDocument changed, string message, string reply, CancellationToken cancellationToken)
     {
-        if (after.Text == before.Text)
+        if (changed.Text == before.Text)
             return ToolText.Ok("Nothing changed: the page already has this content.");
 
+        var after = WithToday(changed);
         // Checked before the write: a file that already had user edits gets that noted in its commit subject.
         var dirty = await _git.IsDirtyAsync(id.RelativePath, cancellationToken);
         TextFile.Write(PathOf(id), after.Text, after.HasBom);

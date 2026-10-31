@@ -108,6 +108,15 @@ internal sealed class PageIndex : IDisposable
         }
     }
 
+    /// <summary>Whether the index has any page in the same project as <paramref name="except"/> other than <paramref name="except"/> itself.</summary>
+    public bool HasOtherPagesInProject(PageId except)
+    {
+        lock (_gate)
+            return _connection.ExecuteScalar<long>(
+                "SELECT count(*) FROM pages WHERE project = @project AND id <> @id",
+                new { project = except.Project, id = except.ToString() }) > 0;
+    }
+
     /// <summary>The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first.</summary>
     public IReadOnlyList<IndexHit> Search(string query, IndexFilter filter, int limit)
     {
