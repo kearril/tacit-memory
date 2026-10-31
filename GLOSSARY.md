@@ -51,6 +51,10 @@ _Avoid_: 笔记、卡片、事件页、文档
 细节页正文中以二级标题开始的一段，小节名由主会话决定，在页内唯一。检索以小节为单位返回内容。
 _Avoid_: 段落、分块、chunk
 
+**页头**（Header）：
+细节页开头以 `---` 围起的 YAML 块，含 `title`、`aliases`、`dates`、`related`；服务只改写其中的顶层键，其余字节保持不变。
+_Avoid_: 前言、元数据、front matter
+
 **页面标识**（Page identifier）：
 `<所属项目>/<slug>` 形式的细节页名称（专题为 `_topics/<slug>`），slug 为小写字母、数字与连字符，创建后不变；`related` 用它引用其他页。
 _Avoid_: 页面 ID、路径、文件名

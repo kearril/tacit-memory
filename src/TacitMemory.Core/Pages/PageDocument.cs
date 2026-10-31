@@ -24,7 +24,7 @@ internal sealed partial class PageDocument
     private static readonly string DateFormat = "yyyy-MM-dd";
 
     private PageDocument(IReadOnlyList<string> lines, string newline, bool hasBom, PageHeader header, bool headerBroken,
-        int headerEndLine, IReadOnlyList<PageSection> sections)
+        int headerEndLine, IReadOnlyList<PageSection> sections, bool endsWithNewline)
     {
         Lines = lines;
         Newline = newline;
@@ -33,6 +33,7 @@ internal sealed partial class PageDocument
         HeaderBroken = headerBroken;
         HeaderEndLine = headerEndLine;
         Sections = sections;
+        EndsWithNewline = endsWithNewline;
     }
 
     public IReadOnlyList<string> Lines { get; }
@@ -52,11 +53,18 @@ internal sealed partial class PageDocument
 
     public IReadOnlyList<PageSection> Sections { get; }
 
+    /// <summary>Whether the file ends with a line break; edits keep it that way.</summary>
+    public bool EndsWithNewline { get; }
+
+    /// <summary>The whole file as text, with <see cref="Newline"/> as the line break and no BOM.</summary>
+    public string Text => JoinLines(Lines);
+
     public static PageDocument Parse(string text, bool hasBom, string fallbackTitle)
     {
         var newline = Injection.TextFile.NewlineOf(text);
         var lines = text.ReplaceLineEndings("\n").Split('\n').ToList();
-        if (lines.Count > 0 && lines[^1].Length == 0)
+        var endsWithNewline = lines.Count > 0 && lines[^1].Length == 0;
+        if (endsWithNewline)
             lines.RemoveAt(lines.Count - 1);
 
         var headerEnd = 0;
@@ -73,7 +81,7 @@ internal sealed partial class PageDocument
 
         var sections = ReadSections(lines, headerEnd);
         return new PageDocument(lines, newline, hasBom, header ?? new PageHeader(fallbackTitle, [], null, null, []),
-            header is null, headerEnd, sections);
+            header is null, headerEnd, sections, endsWithNewline);
     }
 
     /// <summary>The text of a new page, in the format the service writes: LF, ending with a line break.</summary>
@@ -88,18 +96,32 @@ internal sealed partial class PageDocument
 
     public static string RenderHeader(PageHeader header)
     {
-        var text = new StringBuilder();
-        text.Append(Fence).Append('\n');
-        text.Append("title: ").Append(Scalar(header.Title, inFlow: false)).Append('\n');
-        text.Append("aliases: ").Append(FlowList(header.Aliases)).Append('\n');
+        var lines = new List<string> { Fence };
+        lines.AddRange(TitleBlock(header.Title));
+        lines.AddRange(AliasBlock(header.Aliases));
         if (header.First is { } first && header.Last is { } last)
-            text.Append("dates: { first: ").Append(first.ToString(DateFormat, CultureInfo.InvariantCulture))
-                .Append(", last: ").Append(last.ToString(DateFormat, CultureInfo.InvariantCulture)).Append(" }\n");
-        if (header.Related.Count > 0)
-            text.Append("related: ").Append(FlowList(header.Related)).Append('\n');
-        text.Append(Fence).Append('\n');
-        return text.ToString();
+            lines.AddRange(DatesBlock(first, last));
+        if (RelatedBlock(header.Related) is { } related)
+            lines.AddRange(related);
+        lines.Add(Fence);
+        return string.Concat(lines.Select(line => line + "\n"));
     }
+
+    /// <summary>The header line for <c>title</c>.</summary>
+    public static IReadOnlyList<string> TitleBlock(string title) => ["title: " + Scalar(title, inFlow: false)];
+
+    /// <summary>The header line for <c>aliases</c>.</summary>
+    public static IReadOnlyList<string> AliasBlock(IEnumerable<string> aliases) => ["aliases: " + FlowList(aliases)];
+
+    /// <summary>The header line for <c>dates</c>.</summary>
+    public static IReadOnlyList<string> DatesBlock(DateOnly first, DateOnly last) =>
+        [$"dates: {{ first: {Day(first)}, last: {Day(last)} }}"];
+
+    /// <summary>The header line for <c>related</c>; null when there is nothing to relate, so the key is dropped.</summary>
+    public static IReadOnlyList<string>? RelatedBlock(IReadOnlyList<string> related) =>
+        related.Count == 0 ? null : ["related: " + FlowList(related)];
+
+    private static string Day(DateOnly day) => day.ToString(DateFormat, CultureInfo.InvariantCulture);
 
     /// <summary>Whether <paramref name="body"/> has a <c>#</c> or <c>##</c> heading outside code fences, which would split the page.</summary>
     public static bool BreaksStructure(string body)
@@ -107,6 +129,89 @@ internal sealed partial class PageDocument
         var lines = body.ReplaceLineEndings("\n").Split('\n');
         return OutsideFences(lines, 0).Any(i => TopHeading().IsMatch(lines[i]));
     }
+
+    /// <summary>The page with section <paramref name="existing"/> replaced, or section <paramref name="name"/> appended when it is null.</summary>
+    public PageDocument WithSection(PageSection? existing, string name, string body)
+    {
+        var section = new List<string> { "## " + name };
+        section.AddRange(ShortCode.Normalize(body).Split('\n'));
+        var result = Lines.ToList();
+        if (existing is null)
+        {
+            if (result.Count > 0 && result[^1].Length > 0)
+                result.Add("");
+            result.AddRange(section);
+        }
+        else
+        {
+            // The blank line that separates a section from the next one stays where it is.
+            var end = existing.EndLine;
+            if (end - 1 > existing.HeadingLine && Lines[end - 1].Length == 0)
+                end--;
+            result.RemoveRange(existing.HeadingLine, end - existing.HeadingLine);
+            result.InsertRange(existing.HeadingLine, section);
+        }
+        return Compose(result);
+    }
+
+    /// <summary>The page without <paramref name="section"/>; the blank line before it goes too when it was the last section.</summary>
+    public PageDocument WithoutSection(PageSection section)
+    {
+        var result = Lines.ToList();
+        result.RemoveRange(section.HeadingLine, section.EndLine - section.HeadingLine);
+        if (section.EndLine == Lines.Count && section.HeadingLine > 0 && Lines[section.HeadingLine - 1].Length == 0)
+            result.RemoveAt(section.HeadingLine - 1);
+        return Compose(result);
+    }
+
+    /// <summary>
+    /// The page with header keys replaced. A block replaces its key's lines in place (null drops the key); a key the
+    /// file lacks is appended before the closing fence. Other header lines stay exactly as they are.
+    /// </summary>
+    public PageDocument WithHeaderBlocks(IReadOnlyList<(string Key, IReadOnlyList<string>? Block)> changes)
+    {
+        if (changes.Count == 0)
+            return this;
+        var replacements = changes.ToDictionary(change => change.Key, change => change.Block, StringComparer.Ordinal);
+        var replaced = new HashSet<string>(StringComparer.Ordinal);
+        var close = HeaderEndLine - 1;
+        var result = new List<string> { Lines[0] };
+        var skipping = false;
+        for (var i = 1; i < close; i++)
+        {
+            var line = Lines[i];
+            var key = BlockKey().Match(line);
+            if (!key.Success)
+            {
+                // Continuation lines of a replaced block go with it; blank lines always stay.
+                if (!skipping || line.Trim().Length == 0)
+                    result.Add(line);
+                continue;
+            }
+
+            var name = key.Groups[1].Value;
+            skipping = replacements.TryGetValue(name, out var block);
+            if (!skipping)
+            {
+                result.Add(line);
+                continue;
+            }
+            replaced.Add(name);
+            if (block is not null)
+                result.AddRange(block);
+        }
+        foreach (var change in changes)
+            if (change.Block is not null && !replaced.Contains(change.Key))
+                result.AddRange(change.Block);
+        result.Add(Lines[close]);
+        result.AddRange(Lines.Skip(HeaderEndLine));
+        return Compose(result);
+    }
+
+    private PageDocument Compose(IReadOnlyList<string> lines) => Parse(JoinLines(lines), HasBom, Header.Title);
+
+    private string JoinLines(IReadOnlyList<string> lines) =>
+        string.Join(Newline, lines) + (EndsWithNewline && lines.Count > 0 ? Newline : "");
 
     private static PageHeader? ReadHeader(string yaml, string fallbackTitle)
     {
@@ -124,7 +229,7 @@ internal sealed partial class PageDocument
             return null;
         }
 
-        var title = Text(root, "title");
+        var title = ScalarOf(root, "title");
         var dates = Child(root, "dates") as YamlMappingNode;
         return new PageHeader(
             string.IsNullOrWhiteSpace(title) ? fallbackTitle : title,
@@ -181,7 +286,7 @@ internal sealed partial class PageDocument
     private static YamlNode? Child(YamlMappingNode mapping, string key) =>
         mapping.Children.TryGetValue(new YamlScalarNode(key), out var node) ? node : null;
 
-    private static string? Text(YamlMappingNode mapping, string key) => (Child(mapping, key) as YamlScalarNode)?.Value;
+    private static string? ScalarOf(YamlMappingNode mapping, string key) => (Child(mapping, key) as YamlScalarNode)?.Value;
 
     private static List<string> List(YamlMappingNode mapping, string key) => Child(mapping, key) switch
     {
@@ -192,7 +297,7 @@ internal sealed partial class PageDocument
     };
 
     private static DateOnly? Date(YamlMappingNode mapping, string key) =>
-        DateOnly.TryParseExact(Text(mapping, key), DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+        DateOnly.TryParseExact(ScalarOf(mapping, key), DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             ? date
             : null;
 
@@ -214,6 +319,9 @@ internal sealed partial class PageDocument
 
     [GeneratedRegex(@"^#{1,2}(\s|$)")]
     private static partial Regex TopHeading();
+
+    [GeneratedRegex(@"^([A-Za-z_][\w-]*):(\s|$)")]
+    private static partial Regex BlockKey();
 
     [GeneratedRegex(@"^ {0,3}(`{3,}|~{3,})")]
     private static partial Regex FenceLine();

@@ -13,7 +13,16 @@ namespace TacitMemory.Core.Pages;
 /// </summary>
 internal sealed class PageTools(TacitOptions options, TacitConfig config, Action<string> notice, DuplicatePageCheck duplicates)
 {
-    private const string Ops = "create";
+    private const string Ops = "create, upsert_section, delete_section, update_header";
+
+    /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
+    private static readonly Dictionary<string, string[]> OpParameters = new()
+    {
+        ["create"] = ["title", "aliases", "sections", "related"],
+        ["upsert_section"] = ["section", "body", "hash"],
+        ["delete_section"] = ["section", "hash"],
+        ["update_header"] = ["title", "aliases", "add_aliases", "related"],
+    };
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
@@ -37,9 +46,17 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
         if (!PageId.TryParse(request.Page, out var id, out var problem))
             return ToolText.Refuse(problem, "Call write_page again with a valid page ID.");
 
+        if (OpParameters.TryGetValue(request.Op, out var taken) && MisplacedParameters(request, taken) is { Count: > 0 } misplaced)
+            return ToolText.Refuse(
+                misplaced.Select(name => $"Parameter {name} does not apply to op {request.Op}.").ToList(),
+                $"Call write_page again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.");
+
         return request.Op switch
         {
             "create" => await CreateAsync(id, request, cancellationToken),
+            "upsert_section" => await UpsertSectionAsync(id, request, cancellationToken),
+            "delete_section" => await DeleteSectionAsync(id, request, cancellationToken),
+            "update_header" => await UpdateHeaderAsync(id, request, cancellationToken),
             _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_page again with op set to one of: {Ops}."),
         };
     }
@@ -87,6 +104,173 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
         return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
     }
 
+    private async Task<ToolResult> UpsertSectionAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Section))
+            return ToolText.Refuse("Missing parameter section.", "Call write_page op=upsert_section again with section set to the section's name.");
+        var name = request.Section.Trim();
+        var body = request.Body ?? "";
+        var problems = new List<string>();
+        CheckSections([new PageSectionInput(name, body)], problems);
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
+
+        var (document, refusal) = Load(id);
+        if (refusal is not null)
+            return refusal;
+        if (document!.HeaderBroken)
+            return BrokenHeader(id);
+
+        var existing = document.Sections.FirstOrDefault(section => section.Name == name);
+        if (existing is not null && RefuseStaleSection(existing, request.Hash, "replace", "op=upsert_section") is { } stale)
+            return stale;
+
+        var after = WithToday(document.WithSection(existing, name, body));
+        var written = after.Sections.First(section => section.Name == name);
+        var reply = existing is null ? $"Added section {name} [{written.Code}]." : $"Replaced section {name} [{written.Code}].";
+        return await SaveAsync(id, document, after, $"pages: upsert {id} {name}", reply, cancellationToken);
+    }
+
+    private async Task<ToolResult> DeleteSectionAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Section))
+            return ToolText.Refuse("Missing parameter section.", "Call write_page op=delete_section again with section set to the section's name.");
+        var name = request.Section.Trim();
+
+        var (document, refusal) = Load(id);
+        if (refusal is not null)
+            return refusal;
+        if (document!.HeaderBroken)
+            return BrokenHeader(id);
+
+        var existing = document.Sections.FirstOrDefault(section => section.Name == name);
+        if (existing is null)
+            return ToolText.Refuse(
+                $"Section {ToolText.Quote(name)} does not exist on page {id}.",
+                "Call write_page op=delete_section again with the name of a section listed below.",
+                SectionList(document));
+        if (RefuseStaleSection(existing, request.Hash, "delete", "op=delete_section") is { } stale)
+            return stale;
+
+        var after = WithToday(document.WithoutSection(existing));
+        return await SaveAsync(id, document, after, $"pages: delete {id} {name}", $"Deleted section {name}.", cancellationToken);
+    }
+
+    private async Task<ToolResult> UpdateHeaderAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Aliases is not null)
+            return ToolText.Refuse(
+                "update_header does not replace aliases; pass add_aliases to add some.",
+                "Call write_page op=update_header again with add_aliases instead of aliases.");
+        if (request.Title is null && request.AddAliases is null && request.Related is null)
+            return ToolText.Refuse(
+                "Give at least one of title, add_aliases or related.",
+                "Call write_page op=update_header again with the header field to change.");
+
+        var problems = new List<string>();
+        var title = request.Title?.Trim();
+        if (title is not null)
+            CheckTitle(title, problems);
+        var added = request.AddAliases is null ? [] : CheckAddedAliases(request.AddAliases, problems);
+        var related = request.Related is null ? null : CheckRelated(id, request.Related, problems);
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_page op=update_header again.");
+
+        var (document, refusal) = Load(id);
+        if (refusal is not null)
+            return refusal;
+        if (document!.HeaderBroken)
+            return BrokenHeader(id);
+
+        var header = document.Header;
+        var changes = new List<(string Key, IReadOnlyList<string>? Block)>();
+        if (title is not null && title != header.Title)
+            changes.Add(("title", PageDocument.TitleBlock(title)));
+        var newAliases = added.Where(alias => !header.Aliases.Contains(alias)).ToList();
+        if (newAliases.Count > 0)
+            changes.Add(("aliases", PageDocument.AliasBlock(header.Aliases.Concat(newAliases).ToList())));
+        if (related is not null && !related.SequenceEqual(header.Related))
+            changes.Add(("related", PageDocument.RelatedBlock(related)));
+
+        var after = WithToday(document.WithHeaderBlocks(changes));
+        return await SaveAsync(id, document, after, $"pages: header {id}", $"Updated the header of page {id}.", cancellationToken);
+    }
+
+    /// <summary>The refusal when section <paramref name="section"/> exists and the hash does not prove the agent read its current text.</summary>
+    private static ToolResult? RefuseStaleSection(PageSection section, string? hash, string verb, string op)
+    {
+        if (string.IsNullOrWhiteSpace(hash))
+            return ToolText.Refuse(
+                $"Section {section.Name} exists; give its hash to {verb} it.",
+                $"Call write_page {op} again with hash set to the short code in brackets from the latest recall.",
+                SectionBlock(section));
+        if (!string.Equals(hash.Trim(), section.Code, StringComparison.OrdinalIgnoreCase))
+            return ToolText.Refuse(
+                $"The hash for section {section.Name} does not match: it changed since it was read.",
+                "Recall the page, then call write_page again with the section's current short code.",
+                SectionBlock(section));
+        return null;
+    }
+
+    private static string SectionBlock(PageSection section) => $"## {section.Name} [{section.Code}]\n{section.Body}";
+
+    private static ToolResult BrokenHeader(PageId id) => ToolText.Refuse(
+        $"The header of page {id} cannot be read as YAML front matter, so the page is left alone.",
+        "Ask the user to fix the front matter at the top of the page, then try again.");
+
+    /// <summary>The page with its dates set for a write today: last becomes today, and first stays or becomes today when unset.</summary>
+    private PageDocument WithToday(PageDocument document)
+    {
+        var today = options.Today;
+        var header = document.Header;
+        if (header.Last == today && header.First is not null)
+            return document;
+        return document.WithHeaderBlocks([("dates", PageDocument.DatesBlock(header.First ?? today, today))]);
+    }
+
+    /// <summary>Writes the changed page and commits it. An unchanged page is neither written nor committed.</summary>
+    private async Task<ToolResult> SaveAsync(PageId id, PageDocument before, PageDocument after, string message, string reply, CancellationToken cancellationToken)
+    {
+        if (after.Text == before.Text)
+            return ToolText.Ok("Nothing changed: the page already has this content.");
+
+        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
+        var dirty = await _git.IsDirtyAsync(id.RelativePath, cancellationToken);
+        TextFile.Write(PathOf(id), after.Text, after.HasBom);
+        var commitProblem = await CommitAsync(dirty ? $"{message} (with user edits)" : message, id, cancellationToken);
+        return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+    }
+
+    /// <summary>The parameters that were given but the op does not take.</summary>
+    private static List<string> MisplacedParameters(WritePageRequest request, string[] taken)
+    {
+        var given = new (string Name, bool IsGiven)[]
+        {
+            ("title", request.Title is not null),
+            ("aliases", request.Aliases is not null),
+            ("sections", request.Sections is not null),
+            ("related", request.Related is not null),
+            ("section", request.Section is not null),
+            ("body", request.Body is not null),
+            ("hash", request.Hash is not null),
+            ("add_aliases", request.AddAliases is not null),
+        };
+        return given.Where(parameter => parameter.IsGiven && !taken.Contains(parameter.Name)).Select(parameter => parameter.Name).ToList();
+    }
+
+    private void CheckAliasLines(IEnumerable<string> aliases, List<string> problems)
+    {
+        foreach (var alias in aliases.Where(alias => alias.Contains('\n') || Length(alias) > config.Limits.Page.AliasLength))
+            problems.Add($"Alias {ToolText.Quote(alias)} must be one line of at most {config.Limits.Page.AliasLength} characters.");
+    }
+
+    private List<string> CheckAddedAliases(IReadOnlyList<string> raw, List<string> problems)
+    {
+        var aliases = raw.Select(alias => alias.Trim()).Where(alias => alias.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        CheckAliasLines(aliases, problems);
+        return aliases;
+    }
+
     private void CheckTitle(string title, List<string> problems)
     {
         if (title.Length == 0)
@@ -103,8 +287,7 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
         var limits = config.Limits.Page;
         if (aliases.Count < limits.MinAliases)
             problems.Add($"Give at least {limits.MinAliases} distinct aliases (spoken phrasings, Chinese and English names, nicknames); got {aliases.Count}.");
-        foreach (var alias in aliases.Where(alias => alias.Contains('\n') || Length(alias) > limits.AliasLength))
-            problems.Add($"Alias {ToolText.Quote(alias)} must be one line of at most {limits.AliasLength} characters.");
+        CheckAliasLines(aliases, problems);
         return aliases;
     }
 
