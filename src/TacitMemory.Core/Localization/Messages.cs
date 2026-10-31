@@ -73,6 +73,16 @@ internal static class Messages
         "已绑定 {0}，新会话开始生效。MCP 服务需要 tacit serve 在运行。",
         "Bound {0}; it takes effect in new sessions. The MCP server needs tacit serve running.");
     public static readonly Localized Disconnected = new("已解绑 {0}。", "Unbound {0}.");
+    public static readonly Localized FileNotUtf8 = new(
+        "{0} 不是 UTF-8 编码，未改动该文件。",
+        "{0} is not UTF-8 encoded and was left alone.");
+    public static readonly Localized BindingsInvalid = new(
+        "无法读取 {0}：{1}。可修正该文件，或删除后重新执行 tacit connect。",
+        "{0} cannot be read: {1}. Fix the file, or delete it and run tacit connect again.");
+    public static readonly Localized ClientConfigHasComments = new(
+        "{0} 含有注释，自动改写会丢失它们，因此未改动。请手工在 mcpServers 中加入：\"tacit\": {1}",
+        "{0} has comments that rewriting would lose, so it was left alone. Add this under mcpServers by hand: \"tacit\": {1}");
+    public static readonly Localized RenderFailed = new("渲染常驻区块失败：{0}", "Rendering the resident blocks failed: {0}");
 
     public static readonly Localized ServiceListening = new(
         "常驻服务已启动：{0}（Ctrl+C 停止）",

@@ -22,6 +22,9 @@ public enum BlockState
     /// <summary>The block markers are incomplete or repeated; the file is left alone.</summary>
     MarkersBroken,
 
+    /// <summary>The context file is not valid UTF-8; it is left alone.</summary>
+    FileNotUtf8,
+
     /// <summary><c>persona.md</c> is not valid UTF-8; the last rendered block stays.</summary>
     PersonaUnreadable,
 }

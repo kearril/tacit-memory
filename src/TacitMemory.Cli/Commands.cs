@@ -33,9 +33,9 @@ internal sealed class Commands
         MemoryService service;
         try
         {
-            service = _tacit.OpenService(render => Console.WriteLine(render.Message));
+            service = _tacit.OpenService(Console.WriteLine);
         }
-        catch (TacitException e)
+        catch (Exception e) when (IsUserFacing(e))
         {
             return Fail(e);
         }
@@ -83,13 +83,16 @@ internal sealed class Commands
             Console.WriteLine(operation());
             return 0;
         }
-        catch (TacitException e)
+        catch (Exception e) when (IsUserFacing(e))
         {
             return Fail(e);
         }
     }
 
-    private static int Fail(TacitException e)
+    /// <summary>Refusals and file-system failures the user can act on; their messages are shown as they are.</summary>
+    private static bool IsUserFacing(Exception e) => e is TacitException or IOException or UnauthorizedAccessException;
+
+    private static int Fail(Exception e)
     {
         Console.Error.WriteLine(e.Message);
         return 1;

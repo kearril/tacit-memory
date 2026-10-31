@@ -5,7 +5,7 @@ namespace TacitMemory.Core.Injection;
 /// variable parts drop items from the end until the whole text fits <see cref="TotalLimit"/>, and vanish when nothing
 /// of them fits.
 /// </summary>
-internal static class ServerInstructions
+internal static class ServerInstructionText
 {
     public const int TotalLimit = 4000;
 

@@ -17,26 +17,24 @@ internal static class Binder
         var config = ConfigLoader.Load(options);
         var language = config.Language;
         var target = Target(options, client);
-        var store = new BindingStore(options.TacitHome);
+        var store = new BindingStore(options.TacitHome, language);
+        var previous = store.Find(target.Client);
+        var personaPath = PersonaPath(config);
+        var persona = PersonaDocument.Read(personaPath)
+            ?? throw new TacitException(TacitError.FileNotUtf8, Messages.PersonaUnreadable.Format(language, personaPath));
+
+        var createdContextFile = previous?.CreatedContextFile ?? !File.Exists(target.ContextFile);
+        var createdMcpConfig = previous?.CreatedMcpConfig ?? !File.Exists(target.McpConfig);
         var report = new StringBuilder();
 
-        var created = store.Find(target.Client)?.CreatedContextFile ?? !File.Exists(target.ContextFile);
-        var persona = PersonaDocument.Read(PersonaPath(config));
-        if (persona is null)
-        {
-            report.AppendLine(Messages.PersonaUnreadable.Format(language, PersonaPath(config)));
-        }
-        else
-        {
-            var written = ContextFile.Put(target.ContextFile, ResidentBlock.Render(persona), language);
-            report.AppendLine((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, target.ContextFile));
-        }
+        var written = ContextFile.Put(target.ContextFile, ResidentBlock.Render(persona), language);
+        report.AppendLine((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, target.ContextFile));
 
         var server = new JsonObject { ["type"] = "http", ["url"] = $"http://127.0.0.1:{config.Port}/mcp" };
         var registered = McpJsonFile.Put(target.McpConfig, ServerName, server, language);
         report.AppendLine((registered ? Messages.McpRegistered : Messages.McpUnchanged).Format(language, target.McpConfig));
 
-        store.Put(new BindingRecord(target.Client, target.ContextFile, created));
+        store.Put(new BindingRecord(target.Client, target.ContextFile, createdContextFile, createdMcpConfig));
         report.Append(Messages.Connected.Format(language, target.Client));
         return new BindingResult(target.ContextFile, report.ToString());
     }
@@ -45,19 +43,23 @@ internal static class Binder
     {
         var language = LanguageOf(options);
         var target = Target(options, client);
-        var store = new BindingStore(options.TacitHome);
+        var store = new BindingStore(options.TacitHome, language);
+        var binding = store.Find(target.Client);
         var report = new StringBuilder();
 
-        var remaining = File.Exists(target.ContextFile) ? ContextFile.Remove(target.ContextFile, language) : null;
-        if (remaining is not null)
+        if (ContextFile.Remove(target.ContextFile, language) is { } remaining)
         {
             report.AppendLine(Messages.BlockRemoved.Format(language, target.ContextFile));
-            if (remaining.Length == 0 && store.Find(target.Client)?.CreatedContextFile == true)
+            if (remaining.Length == 0 && binding?.CreatedContextFile == true)
                 File.Delete(target.ContextFile);
         }
 
-        if (McpJsonFile.Remove(target.McpConfig, ServerName, language))
+        if (McpJsonFile.Remove(target.McpConfig, ServerName, language) is { } root)
+        {
             report.AppendLine(Messages.McpRemoved.Format(language, target.McpConfig));
+            if (binding?.CreatedMcpConfig == true && root.Count == 1 && root["mcpServers"] is JsonObject { Count: 0 })
+                File.Delete(target.McpConfig);
+        }
 
         store.Remove(target.Client);
         report.Append(Messages.Disconnected.Format(language, target.Client));
@@ -65,36 +67,39 @@ internal static class Binder
     }
 
     /// <summary>Renders the current persona into every context file listed in <c>bindings.json</c> right now.</summary>
+    /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
     public static IReadOnlyList<BlockRender> RenderAll(TacitOptions options, TacitConfig config)
     {
         var language = config.Language;
-        var bindings = new BindingStore(options.TacitHome).Read();
-        var persona = PersonaDocument.Read(PersonaPath(config));
+        var bindings = new BindingStore(options.TacitHome, language).Read();
+        var personaPath = PersonaPath(config);
+        var persona = PersonaDocument.Read(personaPath);
         var block = persona is null ? null : ResidentBlock.Render(persona);
         var results = new List<BlockRender>();
-        foreach (var binding in bindings)
+        foreach (var path in bindings.Select(binding => binding.ContextFile))
         {
-            var path = binding.ContextFile;
             if (block is null)
             {
-                results.Add(new BlockRender(path, BlockState.PersonaUnreadable, Messages.PersonaUnreadable.Format(language, PersonaPath(config))));
+                results.Add(new BlockRender(path, BlockState.PersonaUnreadable, Messages.PersonaUnreadable.Format(language, personaPath)));
+                continue;
             }
-            else if (!File.Exists(path))
+
+            if (!File.Exists(path))
             {
                 results.Add(new BlockRender(path, BlockState.FileMissing, Messages.ContextFileMissing.Format(language, path)));
+                continue;
             }
-            else
+
+            try
             {
-                try
-                {
-                    results.Add(ContextFile.Put(path, block, language)
-                        ? new BlockRender(path, BlockState.Written, Messages.BlockWritten.Format(language, path))
-                        : new BlockRender(path, BlockState.Unchanged, Messages.BlockUnchanged.Format(language, path)));
-                }
-                catch (TacitException e) when (e.Error == TacitError.MarkersBroken)
-                {
-                    results.Add(new BlockRender(path, BlockState.MarkersBroken, e.Message));
-                }
+                results.Add(ContextFile.Put(path, block, language)
+                    ? new BlockRender(path, BlockState.Written, Messages.BlockWritten.Format(language, path))
+                    : new BlockRender(path, BlockState.Unchanged, Messages.BlockUnchanged.Format(language, path)));
+            }
+            catch (TacitException e) when (e.Error is TacitError.MarkersBroken or TacitError.FileNotUtf8)
+            {
+                var state = e.Error == TacitError.MarkersBroken ? BlockState.MarkersBroken : BlockState.FileNotUtf8;
+                results.Add(new BlockRender(path, state, e.Message));
             }
         }
 

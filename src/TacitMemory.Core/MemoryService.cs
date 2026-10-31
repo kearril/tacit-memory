@@ -15,25 +15,28 @@ public sealed class MemoryService : IDisposable
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(300);
 
     private readonly TacitOptions _options;
-    private readonly Action<BlockRender> _rendered;
+    private readonly Action<string> _notice;
     private readonly FileSystemWatcher _watcher;
-    private readonly Timer _personaTimer;
-    private readonly Lock _gate = new();
+    private readonly Timer _renderTimer;
+    private readonly Lock _renderGate = new();
+    private readonly Lock _instructionsGate = new();
     private string? _instructions;
+    private volatile bool _disposed;
 
-    internal MemoryService(TacitOptions options, TacitConfig config, Action<BlockRender> rendered)
+    internal MemoryService(TacitOptions options, TacitConfig config, Action<string> notice)
     {
         _options = options;
         Config = config;
-        _rendered = rendered;
+        _notice = notice;
         StartupRender = Binder.RenderAll(options, config);
 
-        _personaTimer = new Timer(_ => RenderNow());
+        _renderTimer = new Timer(_ => RenderNow());
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
         _watcher.Deleted += OnChange;
         _watcher.Renamed += OnChange;
+        _watcher.Error += OnOverflow;
         _watcher.EnableRaisingEvents = true;
     }
 
@@ -42,13 +45,13 @@ public sealed class MemoryService : IDisposable
     /// <summary>What happened to each bound context file when the service started.</summary>
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
-    /// <summary>The server instructions, generated on first use and kept until the memory repository changes.</summary>
+    /// <summary>The server instructions, generated on first use and kept until the project list may have changed.</summary>
     public string ServerInstructions
     {
         get
         {
-            lock (_gate)
-                return _instructions ??= Injection.ServerInstructions.Build(Config.Language, Injection.ServerInstructions.Projects(Config.MemoryPath));
+            lock (_instructionsGate)
+                return _instructions ??= ServerInstructionText.Build(Config.Language, ServerInstructionText.Projects(Config.MemoryPath));
         }
     }
 
@@ -61,38 +64,67 @@ public sealed class MemoryService : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _watcher.Dispose();
-        _personaTimer.Dispose();
+        lock (_renderGate)
+            _renderTimer.Dispose();
     }
 
     private void OnChange(object sender, FileSystemEventArgs e)
     {
-        var relative = Path.GetRelativePath(Config.MemoryPath, e.FullPath).Replace('\\', '/');
-        var oldRelative = e is RenamedEventArgs renamed ? Path.GetRelativePath(Config.MemoryPath, renamed.OldFullPath).Replace('\\', '/') : null;
-        if (relative == "persona.md" || oldRelative == "persona.md")
-            _personaTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        if (IsProjectDirectory(relative) || (oldRelative is not null && IsProjectDirectory(oldRelative)))
+        var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
+        foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
         {
-            lock (_gate)
-                _instructions = null;
+            if (relative == "persona.md")
+                ScheduleRender();
+            if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
+                InvalidateInstructions();
         }
     }
 
-    /// <summary>A direct child of <c>pages/</c>: creating, deleting or renaming one changes the project list.</summary>
-    private static bool IsProjectDirectory(string relative) =>
-        relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0;
+    /// <summary>Events were lost: assume anything may have changed.</summary>
+    private void OnOverflow(object sender, ErrorEventArgs e)
+    {
+        InvalidateInstructions();
+        ScheduleRender();
+    }
 
+    private void InvalidateInstructions()
+    {
+        lock (_instructionsGate)
+            _instructions = null;
+    }
+
+    private void ScheduleRender()
+    {
+        lock (_renderGate)
+        {
+            if (!_disposed)
+                _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    /// <summary>Runs on the timer thread; renders never overlap, and no failure may escape and end the process.</summary>
     private void RenderNow()
     {
-        try
+        lock (_renderGate)
         {
-            foreach (var result in Binder.RenderAll(_options, Config))
-                _rendered(result);
-        }
-        catch (IOException)
-        {
-            // The editor still holds a file; try again once it settles.
-            _personaTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+            if (_disposed)
+                return;
+            try
+            {
+                foreach (var result in Binder.RenderAll(_options, Config))
+                    _notice(result.Message);
+            }
+            catch (IOException)
+            {
+                // The editor still holds a file; try again once it settles.
+                _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+            }
+            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
+            {
+                _notice(Messages.RenderFailed.Format(Config.Language, e.Message));
+            }
         }
     }
 }

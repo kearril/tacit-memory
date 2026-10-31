@@ -236,4 +236,113 @@ public sealed class BindingTests : IDisposable
 
         Assert.Empty(_home.Tacit().RenderBlocks());
     }
+
+    [Fact]
+    public void Disconnect_restores_a_file_that_had_no_final_line_break()
+    {
+        WriteAgentsMd("# My rules\r\n- be brief");
+
+        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Tacit().RenderBlocks();
+        _home.Tacit().Disconnect(ClientKind.Omp);
+
+        Assert.Equal("# My rules\r\n- be brief", File.ReadAllText(AgentsMd));
+    }
+
+    [Fact]
+    public void Persona_text_that_breaks_the_format_is_rendered_rather_than_dropped()
+    {
+        File.WriteAllText(PersonaMd, """
+            写在第一个标题之前的话
+
+            ## 偏好
+            沟通上喜欢直接，这一段没有写成列表
+            * 星号列表也算
+            <!-- 2026-10-31 一条独立的注释 -->
+            """.ReplaceLineEndings("\n"));
+
+        _home.Tacit().Connect(ClientKind.Omp);
+
+        var text = File.ReadAllText(AgentsMd);
+        Assert.Contains("## Preferences\nDescriptions", text);
+        Assert.Contains("\n沟通上喜欢直接，这一段没有写成列表\n* 星号列表也算\n", text);
+        Assert.Contains("\n写在第一个标题之前的话\n</user_memory>", text);
+        Assert.DoesNotContain("独立的注释", text);
+    }
+
+    [Fact]
+    public void Connect_refuses_a_persona_that_is_not_utf8_and_changes_nothing()
+    {
+        File.WriteAllBytes(PersonaMd, Encoding.Latin1.GetBytes("## Preferences\n- café\n"));
+
+        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+
+        Assert.Equal(TacitError.FileNotUtf8, error.Error);
+        Assert.False(File.Exists(AgentsMd));
+        Assert.False(File.Exists(McpJson));
+        Assert.False(File.Exists(BindingsJson));
+    }
+
+    [Fact]
+    public void A_context_file_that_is_not_utf8_is_left_alone()
+    {
+        _home.Tacit().Connect(ClientKind.Omp);
+        var gbk = Encoding.Latin1.GetBytes("# régles\n");
+        File.WriteAllBytes(AgentsMd, gbk);
+
+        var result = Assert.Single(_home.Tacit().RenderBlocks());
+
+        Assert.Equal(BlockState.FileNotUtf8, result.State);
+        Assert.Equal(gbk, File.ReadAllBytes(AgentsMd));
+    }
+
+    [Fact]
+    public void An_mcp_json_with_comments_is_refused_with_the_entry_to_add_by_hand()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(McpJson)!);
+        const string commented = "{\n  // my servers\n  \"mcpServers\": {}\n}\n";
+        File.WriteAllText(McpJson, commented);
+
+        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+
+        Assert.Equal(TacitError.ClientConfigInvalid, error.Error);
+        Assert.Contains("http://127.0.0.1:18888/mcp", error.Message);
+        Assert.Equal(commented, File.ReadAllText(McpJson));
+    }
+
+    [Fact]
+    public void Fields_the_user_added_to_the_tacit_entry_and_the_bom_are_kept()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(McpJson)!);
+        File.WriteAllBytes(McpJson, [0xEF, 0xBB, 0xBF, .. "{\n  \"mcpServers\": {\n    \"tacit\": {\n      \"type\": \"http\",\n      \"url\": \"http://127.0.0.1:1/mcp\",\n      \"timeout\": 5000\n    }\n  }\n}\n"u8.ToArray()]);
+
+        _home.Tacit().Connect(ClientKind.Omp);
+
+        var bytes = File.ReadAllBytes(McpJson);
+        Assert.Equal([0xEF, 0xBB, 0xBF], bytes[..3]);
+        var server = JsonNode.Parse(Encoding.UTF8.GetString(bytes[3..]))!["mcpServers"]!["tacit"]!;
+        Assert.Equal("http://127.0.0.1:18888/mcp", (string?)server["url"]);
+        Assert.Equal(5000, (int?)server["timeout"]);
+    }
+
+    [Fact]
+    public void Disconnect_removes_an_mcp_json_that_connect_created()
+    {
+        _home.Tacit().Connect(ClientKind.Omp);
+
+        _home.Tacit().Disconnect(ClientKind.Omp);
+
+        Assert.False(File.Exists(McpJson));
+    }
+
+    [Fact]
+    public void A_broken_bindings_json_is_reported()
+    {
+        File.WriteAllText(BindingsJson, "{ not json");
+
+        var error = Assert.Throws<TacitException>(() => _home.Tacit().RenderBlocks());
+
+        Assert.Equal(TacitError.BindingsInvalid, error.Error);
+        Assert.Contains("bindings.json", error.Message);
+    }
 }

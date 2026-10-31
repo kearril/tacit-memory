@@ -34,8 +34,8 @@ public sealed class Tacit(TacitOptions options)
 
     /// <summary>
     /// Starts the memory service's state: loads the config, renders every bound context file once, and watches the
-    /// memory repository. <paramref name="rendered"/> is called, on a background thread, for each context file
-    /// rendered after a change to <c>persona.md</c>.
+    /// memory repository. <paramref name="notice"/> receives, on a background thread, one line for the user per
+    /// context file rendered after <c>persona.md</c> changes, or the reason rendering failed.
     /// </summary>
-    public MemoryService OpenService(Action<BlockRender> rendered) => new(options, LoadConfig(), rendered);
+    public MemoryService OpenService(Action<string> notice) => new(options, LoadConfig(), notice);
 }

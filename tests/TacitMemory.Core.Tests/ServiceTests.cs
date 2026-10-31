@@ -5,7 +5,7 @@ namespace TacitMemory.Core.Tests;
 public sealed class ServiceTests : IDisposable
 {
     private readonly TestHome _home = new();
-    private readonly ConcurrentQueue<BlockRender> _rendered = new();
+    private readonly ConcurrentQueue<string> _notices = new();
 
     public ServiceTests() => _home.InitReady();
 
@@ -15,7 +15,7 @@ public sealed class ServiceTests : IDisposable
 
     private string Pages => Path.Combine(_home.DefaultMemory, "pages");
 
-    private MemoryService Open() => _home.Tacit().OpenService(_rendered.Enqueue);
+    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
 
     [Fact]
     public void Server_instructions_hold_the_memory_rules_language_norms_and_projects()
@@ -91,7 +91,7 @@ public sealed class ServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
 
         await Eventually(() => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
-        Assert.Contains(_rendered, render => render.State == BlockState.Written);
+        await Eventually(() => _notices.Any(notice => notice.Contains("已写入常驻区块")));
     }
 
     [Fact]
@@ -103,6 +103,32 @@ public sealed class ServiceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
 
         await Eventually(() => service.ServerInstructions.EndsWith("## Projects\ndb-migration", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Removing_the_whole_pages_directory_drops_the_projects_part()
+    {
+        Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
+        using var service = Open();
+        Assert.Contains("## Projects", service.ServerInstructions);
+
+        Directory.Delete(Pages, recursive: true);
+
+        await Eventually(() => !service.ServerInstructions.Contains("## Projects", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_broken_bindings_json_is_reported_and_the_service_keeps_running()
+    {
+        _home.Tacit().Connect(ClientKind.Omp);
+        using var service = Open();
+        File.WriteAllText(Path.Combine(_home.TacitHome, "bindings.json"), "{ not json");
+
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+
+        await Eventually(() => _notices.Any(notice => notice.Contains("bindings.json")));
+        File.Delete(Path.Combine(_home.TacitHome, "bindings.json"));
+        Assert.Contains("Memory is written in Chinese.", service.ServerInstructions);
     }
 
     private static async Task Eventually(Func<bool> condition)

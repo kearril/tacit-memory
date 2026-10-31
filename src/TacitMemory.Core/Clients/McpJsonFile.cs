@@ -2,55 +2,80 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Clients;
 
 /// <summary>
 /// Adds or removes one entry under <c>mcpServers</c> in a client's MCP JSON config. Other servers and fields keep
-/// their order; the file is rewritten with its own indentation and line endings, and only when something changed.
+/// their order; the file is rewritten with its own indentation, line endings and BOM, and only when something
+/// changed. A file with comments is refused, since rewriting would lose them.
 /// </summary>
 internal static partial class McpJsonFile
 {
-    private static readonly JsonDocumentOptions ReadOptions = new() { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+    private static readonly JsonDocumentOptions Strict = new() { AllowTrailingCommas = true };
+    private static readonly JsonDocumentOptions WithComments = new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
 
-    /// <summary>Sets <c>mcpServers.&lt;name&gt;</c>; <c>false</c> when it already had exactly that value.</summary>
-    public static bool Put(string path, string name, JsonObject server, MemoryLanguage language)
+    /// <summary>
+    /// Sets <paramref name="fields"/> on <c>mcpServers.&lt;name&gt;</c>, keeping any other fields the user put there;
+    /// <c>false</c> when nothing changed.
+    /// </summary>
+    public static bool Put(string path, string name, JsonObject fields, MemoryLanguage language)
     {
-        var (root, text) = Read(path, language);
+        var (root, text, hasBom) = Read(path, language, fields);
         if (root["mcpServers"] is not JsonObject servers)
         {
             servers = [];
             root["mcpServers"] = servers;
         }
 
-        if (servers[name] is { } current && JsonNode.DeepEquals(current, server))
-            return false;
-        servers[name] = server;
-        Write(path, root, text);
-        return true;
+        if (servers[name] is not JsonObject server)
+        {
+            server = [];
+            servers[name] = server;
+        }
+
+        var changed = false;
+        foreach (var (key, value) in fields)
+        {
+            if (JsonNode.DeepEquals(server[key], value))
+                continue;
+            server[key] = value?.DeepClone();
+            changed = true;
+        }
+
+        if (changed)
+            Write(path, root, text, hasBom);
+        return changed;
     }
 
-    /// <summary>Removes <c>mcpServers.&lt;name&gt;</c>; <c>false</c> when there was none.</summary>
-    public static bool Remove(string path, string name, MemoryLanguage language)
+    /// <summary>Removes <c>mcpServers.&lt;name&gt;</c>; returns the remaining root, or <c>null</c> when there was no entry.</summary>
+    public static JsonObject? Remove(string path, string name, MemoryLanguage language)
     {
         if (!File.Exists(path))
-            return false;
-        var (root, text) = Read(path, language);
+            return null;
+        var (root, text, hasBom) = Read(path, language, null);
         if (root["mcpServers"] is not JsonObject servers || !servers.Remove(name))
-            return false;
-        Write(path, root, text);
-        return true;
+            return null;
+        Write(path, root, text, hasBom);
+        return root;
     }
 
-    private static (JsonObject Root, string Text) Read(string path, MemoryLanguage language)
+    private static (JsonObject Root, string Text, bool HasBom) Read(string path, MemoryLanguage language, JsonObject? fields)
     {
-        if (!File.Exists(path))
-            return ([], "");
-        var text = File.ReadAllText(path);
+        if (TextFile.Read(path) is not var (text, hasBom))
+            throw new TacitException(TacitError.FileNotUtf8, Messages.FileNotUtf8.Format(language, path));
+        if (text.Length == 0)
+            return ([], text, hasBom);
         try
         {
-            return (JsonNode.Parse(text, documentOptions: ReadOptions) as JsonObject ?? throw new JsonException(), text);
+            return (JsonNode.Parse(text, documentOptions: Strict) as JsonObject ?? throw new JsonException(), text, hasBom);
+        }
+        catch (JsonException) when (Parses(text, WithComments))
+        {
+            var entry = fields?.ToJsonString() ?? "";
+            throw new TacitException(TacitError.ClientConfigInvalid, Messages.ClientConfigHasComments.Format(language, path, entry));
         }
         catch (JsonException e)
         {
@@ -58,9 +83,22 @@ internal static partial class McpJsonFile
         }
     }
 
-    private static void Write(string path, JsonObject root, string original)
+    private static bool Parses(string text, JsonDocumentOptions options)
     {
-        var newline = original.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        try
+        {
+            using var _ = JsonDocument.Parse(text, options);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static void Write(string path, JsonObject root, string original, bool hasBom)
+    {
+        var newline = TextFile.NewlineOf(original);
         var indent = IndentPattern().Match(original) is { Success: true } match ? match.Groups[1].Value : "  ";
         var options = new JsonSerializerOptions
         {
@@ -71,8 +109,7 @@ internal static partial class McpJsonFile
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         };
         var trailing = original.Length == 0 || original.EndsWith('\n') ? newline : "";
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, root.ToJsonString(options) + trailing);
+        TextFile.Write(path, root.ToJsonString(options) + trailing, hasBom);
     }
 
     /// <summary>The indentation of the first indented line.</summary>

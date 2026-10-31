@@ -24,6 +24,12 @@ public enum TacitError
     /// <summary>A client's MCP config cannot be read as JSON.</summary>
     ClientConfigInvalid,
 
+    /// <summary>A file TacitMemory must read or edit is not valid UTF-8; it is left alone.</summary>
+    FileNotUtf8,
+
+    /// <summary><c>bindings.json</c> cannot be read.</summary>
+    BindingsInvalid,
+
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,
 }

@@ -42,7 +42,8 @@ internal static class ResidentBlock
                 AppendSection(block, title, guidance, items);
         }
 
-        foreach (var part in persona.Parts.Where(part => part.Kind is null && part.Items.Count > 0))
+        // Sections that are not one of the four, then any text from before the first heading, as the user wrote them.
+        foreach (var part in persona.Parts.Where(part => part.Kind is null && part.Items.Count > 0).OrderBy(part => part.Heading is null))
             AppendSection(block, part.Heading, null, part.Items);
 
         block.Append("</user_memory>\n");
@@ -50,14 +51,16 @@ internal static class ResidentBlock
         return block.ToString();
     }
 
-    private static void AppendSection(StringBuilder block, string title, string? guidance, IEnumerable<PersonaItem> items)
+    private static void AppendSection(StringBuilder block, string? title, string? guidance, IEnumerable<PersonaItem> items)
     {
-        block.Append('\n').Append("## ").Append(title).Append('\n');
+        block.Append('\n');
+        if (title is not null)
+            block.Append("## ").Append(title).Append('\n');
         if (guidance is not null)
             block.Append(guidance).Append('\n');
         foreach (var item in items)
         {
-            block.Append("- ").Append(item.Text).Append('\n');
+            block.Append(item.IsListItem ? "- " : "").Append(item.Text).Append('\n');
             foreach (var line in item.ContinuationWithoutComments)
                 block.Append(line).Append('\n');
         }

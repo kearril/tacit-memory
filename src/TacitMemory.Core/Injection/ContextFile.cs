@@ -1,74 +1,76 @@
-using System.Text;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Injection;
 
 /// <summary>
 /// Puts the resident block into a client context file and takes it out again, leaving every byte outside the block
-/// as it was. The block uses the file's line endings (CRLF if the file has any, otherwise LF) and the file keeps its
-/// UTF-8 byte order mark if it had one.
+/// as it was. The block uses the file's line endings.
 /// </summary>
+/// <remarks>
+/// Appending puts one blank line before the block. A file that ended without a line break gets one before that blank
+/// line, and the block then also ends without one, so removal can tell the two cases apart and restore either.
+/// </remarks>
 internal static class ContextFile
 {
-    private static readonly byte[] Bom = [0xEF, 0xBB, 0xBF];
-    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
-
     /// <summary>Writes <paramref name="block"/> (LF line breaks) into the file; <c>false</c> when the file already had it.</summary>
-    /// <exception cref="TacitException">The markers are broken.</exception>
+    /// <exception cref="TacitException">The file is not UTF-8, or its markers are broken.</exception>
     public static bool Put(string path, string block, MemoryLanguage language)
     {
-        var (text, hasBom) = Read(path);
-        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var (text, hasBom) = ReadOrRefuse(path, language);
+        var newline = TextFile.NewlineOf(text);
         var rendered = block.Replace("\n", newline, StringComparison.Ordinal);
 
         string updated;
         if (FindBlock(path, text, language) is var (start, end))
-        {
             updated = string.Concat(text.AsSpan(0, start), rendered, text.AsSpan(end));
-        }
         else if (text.Length == 0)
-        {
             updated = rendered + newline;
-        }
+        else if (text.EndsWith('\n'))
+            updated = text + newline + rendered + newline;
         else
-        {
-            var body = text.EndsWith('\n') ? text : text + newline;
-            updated = body + newline + rendered + newline;
-        }
+            updated = text + newline + newline + rendered;
 
         if (updated == text)
             return false;
-        Write(path, updated, hasBom);
+        TextFile.Write(path, updated, hasBom);
         return true;
     }
 
     /// <summary>
-    /// Removes the block, its line break and the blank line put before it. Returns the remaining text, or
-    /// <c>null</c> when the file had no block.
+    /// Removes the block with the line breaks put around it. Returns the remaining text, or <c>null</c> when the file
+    /// had no block.
     /// </summary>
-    /// <exception cref="TacitException">The markers are broken.</exception>
+    /// <exception cref="TacitException">The file is not UTF-8, or its markers are broken.</exception>
     public static string? Remove(string path, MemoryLanguage language)
     {
-        var (text, hasBom) = Read(path);
+        var (text, hasBom) = ReadOrRefuse(path, language);
         if (FindBlock(path, text, language) is not var (start, end))
             return null;
 
-        var after = text.AsSpan(end);
-        if (after.StartsWith("\r\n"))
-            after = after[2..];
-        else if (after.StartsWith("\n"))
-            after = after[1..];
+        var before = text[..start];
+        var after = text[end..];
+        if (after.Length == 0)
+        {
+            // Appended to a file without a final line break: drop both breaks added before the block.
+            before = before.EndsWith("\r\n\r\n", StringComparison.Ordinal) ? before[..^4]
+                : before.EndsWith("\n\n", StringComparison.Ordinal) ? before[..^2]
+                : before;
+        }
+        else
+        {
+            after = after.StartsWith("\r\n", StringComparison.Ordinal) ? after[2..] : after.StartsWith('\n') ? after[1..] : after;
+            before = before.EndsWith("\r\n\r\n", StringComparison.Ordinal) ? before[..^2]
+                : before.EndsWith("\n\n", StringComparison.Ordinal) ? before[..^1]
+                : before;
+        }
 
-        var before = text.AsSpan(0, start);
-        if (before.EndsWith("\r\n\r\n"))
-            before = before[..^2];
-        else if (before.EndsWith("\n\n"))
-            before = before[..^1];
-
-        var updated = string.Concat(before, after);
-        Write(path, updated, hasBom);
+        var updated = before + after;
+        TextFile.Write(path, updated, hasBom);
         return updated;
     }
+
+    private static (string Text, bool HasBom) ReadOrRefuse(string path, MemoryLanguage language) =>
+        TextFile.Read(path) ?? throw new TacitException(TacitError.FileNotUtf8, Messages.FileNotUtf8.Format(language, path));
 
     /// <summary>
     /// The block's span, from the start of the begin marker line to the end of the end marker (its line break
@@ -98,21 +100,5 @@ internal static class ContextFile
 
         var lines = string.Join(", ", begins.Concat(ends).Select(marker => marker.Line).Order());
         throw new TacitException(TacitError.MarkersBroken, Messages.MarkersBroken.Format(language, path, lines));
-    }
-
-    private static (string Text, bool HasBom) Read(string path)
-    {
-        if (!File.Exists(path))
-            return ("", false);
-        var bytes = File.ReadAllBytes(path);
-        var hasBom = bytes.AsSpan().StartsWith(Bom);
-        return (Utf8.GetString(hasBom ? bytes[3..] : bytes), hasBom);
-    }
-
-    private static void Write(string path, string text, bool hasBom)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var bytes = Utf8.GetBytes(text);
-        File.WriteAllBytes(path, hasBom ? [.. Bom, .. bytes] : bytes);
     }
 }
