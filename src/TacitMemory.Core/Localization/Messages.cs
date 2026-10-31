@@ -91,4 +91,11 @@ internal static class Messages
     public static readonly Localized PortInUse = new(
         "端口 {0} 已被占用，常驻服务无法启动。请在 {1} 中修改 server.port。",
         "Port {0} is already in use, so the memory service cannot start. Change server.port in {1}.");
+
+    public static readonly Localized BackupFailed = new(
+        "自动备份失败：{0}。写入结果不受影响，下一次写入时会再次尝试。",
+        "The automatic backup failed: {0}. The write itself is unaffected; the next write tries again.");
+    public static readonly Localized BackupPlaintextKey = new(
+        "{0} 含有明文 apiKey，备份文件中也有这个密钥，请妥善保管备份。",
+        "{0} holds a plaintext apiKey, and the backup holds it too; keep the backup safe.");
 }

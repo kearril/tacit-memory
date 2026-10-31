@@ -1,3 +1,4 @@
+using TacitMemory.Core.Backup;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Pages;
@@ -19,6 +20,7 @@ public sealed class MemoryService : IDisposable
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(300);
 
     private readonly TacitOptions _options;
+    private readonly AutomaticBackup _backup;
     private readonly Action<string> _notice;
     private readonly FileSystemWatcher _watcher;
     private readonly Timer _renderTimer;
@@ -43,6 +45,7 @@ public sealed class MemoryService : IDisposable
         _index = new PageIndex(config.MemoryPath);
         _index.SyncAll();
         _recall = new RecallTool(config, _index, _pages);
+        _backup = new AutomaticBackup(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
         _indexTimer = new Timer(_ => SyncIndexNow());
@@ -77,6 +80,9 @@ public sealed class MemoryService : IDisposable
     public string PortInUseMessage() =>
         Messages.PortInUse.Format(Config.Language, Config.Port, Path.Combine(_options.TacitHome, "config.yaml"));
 
+    /// <summary>Completes when the backup started by the latest successful write has finished. Tests await it.</summary>
+    internal Task BackupCompletion => _backup.Completion;
+
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
         Task.FromResult(_recall.Run(request));
@@ -91,6 +97,8 @@ public sealed class MemoryService : IDisposable
             // The index follows the file right away; the watcher's later event finds the hash unchanged.
             if (PageId.TryParse(request.Page ?? "", out var id, out _))
                 _index.SyncPage(id);
+            if (!result.IsError)
+                _backup.ScheduleIfDue();
             return result;
         }
         finally
