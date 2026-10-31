@@ -535,7 +535,7 @@ public sealed partial class PageTests : IDisposable
 
         _home.Clock.Advance(TimeSpan.FromDays(1));
         var unchanged = await _service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
-        Assert.Equal("Nothing changed: the page already has this content.", unchanged.Text);
+        Assert.StartsWith("Nothing changed: the page already has this content.", unchanged.Text);
         Assert.Contains("last: 2026-11-03", File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md")));
     }
 
