@@ -10,14 +10,14 @@ internal static class ServerInstructionText
     public const int TotalLimit = 4000;
 
     private const string Opening = """
-        TacitMemory is the user's personal memory across sessions. The user profile is already in your context inside <user_memory>.
+        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>.
         """;
 
     private const string UsingMemory = """
         ## Using memory
-        - Keep what you know from memory apart from what you infer from the profile; never present a guess as something you remember.
+        - Keep what you know from memory apart from what you infer from the persona; never present a guess as something you remember.
         - Do not bring up past events the user has not mentioned.
-        - When the user's words contradict a profile item, follow what they say now and ask whether to update the memory; do not change it on your own.
+        - When the user's words contradict a persona item, follow what they say now and ask whether to update the memory; do not change it on your own.
         """;
 
     public static string Build(MemoryLanguage language, IReadOnlyList<string> projects)
