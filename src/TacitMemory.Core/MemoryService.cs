@@ -50,7 +50,7 @@ public sealed class MemoryService : IDisposable
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
         _vectors.FillInBackground();
-        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _vectors);
+        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
         _backup = new AutomaticBackup(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
