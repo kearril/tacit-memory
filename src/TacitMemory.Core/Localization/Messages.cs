@@ -83,6 +83,7 @@ internal static class Messages
         "{0} 含有注释，自动改写会丢失它们，因此未改动。请手工在 mcpServers 中加入：\"tacit\": {1}",
         "{0} has comments that rewriting would lose, so it was left alone. Add this under mcpServers by hand: \"tacit\": {1}");
     public static readonly Localized RenderFailed = new("渲染常驻区块失败：{0}", "Rendering the resident blocks failed: {0}");
+    public static readonly Localized IndexSyncFailed = new("同步检索索引失败：{0}", "Syncing the search index failed: {0}");
 
     public static readonly Localized ServiceListening = new(
         "常驻服务已启动：{0}（Ctrl+C 停止）",

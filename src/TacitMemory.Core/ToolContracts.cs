@@ -6,11 +6,26 @@ namespace TacitMemory.Core;
 /// </summary>
 public sealed record ToolResult(string Text, bool IsError);
 
-/// <summary>A <c>recall</c> call as the agent made it; the service checks the arguments.</summary>
+/// <summary>A <c>recall</c> call as the agent made it; exactly one of query and page is given. The service checks the arguments.</summary>
 public sealed record RecallRequest
 {
+    /// <summary>What to look for, in natural language.</summary>
+    public string? Query { get; init; }
+
     /// <summary>Page ID to read in full: <c>&lt;project&gt;/&lt;slug&gt;</c>.</summary>
     public string? Page { get; init; }
+
+    /// <summary>Search only this project.</summary>
+    public string? Project { get; init; }
+
+    /// <summary>Earliest date, <c>YYYY-MM-DD</c>, inclusive.</summary>
+    public string? From { get; init; }
+
+    /// <summary>Latest date, <c>YYYY-MM-DD</c>, inclusive.</summary>
+    public string? To { get; init; }
+
+    /// <summary><c>pages</c> or <c>activities</c>; both when absent.</summary>
+    public string? Kind { get; init; }
 }
 
 /// <summary>One section of a page: its <c>##</c> name and its Markdown body.</summary>

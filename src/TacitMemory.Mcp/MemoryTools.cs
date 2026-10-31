@@ -11,11 +11,21 @@ internal sealed class MemoryTools(MemoryService service)
 {
     [McpServerTool(Name = "recall", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [McpMeta("anthropic/alwaysLoad", true)]
-    [Description("Read the user's memory. Pass page to read one detail page in full, with the short code of each section.")]
+    [Description("""
+        Search the user's memory, or read one detail page in full. Give exactly one of query and page.
+        Results come per page with the matching sections in full and a short code for each section.
+        """)]
     public async Task<CallToolResult> Recall(
-        [Description("Page ID to read: <project>/<slug>, for example my-app/db-upgrade.")] string? page = null,
+        [Description("What to look for, in natural language and in the memory language; names, terms and file names as written.")] string? query = null,
+        [Description("Page ID to read in full: <project>/<slug>, for example my-app/db-upgrade.")] string? page = null,
+        [Description("Search only this project.")] string? project = null,
+        [Description("Earliest date, YYYY-MM-DD; convert phrases like \"last week\" into dates.")] string? from = null,
+        [Description("Latest date, YYYY-MM-DD.")] string? to = null,
+        [Description("pages or activities; both when omitted.")] string? kind = null,
         CancellationToken cancellationToken = default) =>
-        Reply(await service.RecallAsync(new RecallRequest { Page = page }, cancellationToken));
+        Reply(await service.RecallAsync(
+            new RecallRequest { Query = query, Page = page, Project = project, From = from, To = to, Kind = kind },
+            cancellationToken));
 
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""

@@ -47,7 +47,7 @@ public sealed class BackupTests : IDisposable
     public async Task The_first_write_of_the_day_leaves_a_backup_that_holds_the_repository_and_config()
     {
         Directory.CreateDirectory(Path.Combine(Memory, ".cache"));
-        File.WriteAllText(Path.Combine(Memory, ".cache", "index.db"), "cache");
+        File.WriteAllText(Path.Combine(Memory, ".cache", "scratch.bin"), "cache");
 
         await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
         await _service.BackupCompletion;
