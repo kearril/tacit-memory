@@ -23,13 +23,14 @@ public sealed class DuplicatePageTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
     }
 
-    private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。", bool? confirm = null) => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Page = page,
         Title = title,
         Aliases = [title + "的坑", title + "问题"],
         Sections = [new("现象", body)],
+        ConfirmNoSecret = confirm,
     });
 
     /// <summary>Makes the decision model pick the option that mentions <paramref name="title"/> with <paramref name="probability"/>.</summary>
@@ -90,7 +91,7 @@ public sealed class DuplicatePageTests : IDisposable
 
         var lone = await Create("tacit-memory/pg-search", "升级后搜不到中文");
         Assert.False(lone.IsError, lone.Text);
-        Assert.Equal(0, _models.DecisionCalls);
+        Assert.Equal(0, _models.ChoiceCalls);
 
         await Create("tacit-memory/deploy", "部署超时");
         var options = new List<string>();
@@ -129,7 +130,8 @@ public sealed class DuplicatePageTests : IDisposable
         await Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失");
         _models.DecisionDown = true;
 
-        var result = await Create("tacit-memory/pg-search", "升级后搜不到中文");
+        // Confirmed, since without the decision model the credential check asks for confirmation.
+        var result = await Create("tacit-memory/pg-search", "升级后搜不到中文", confirm: true);
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("decision model is unavailable", result.Text);
@@ -140,9 +142,9 @@ public sealed class DuplicatePageTests : IDisposable
     public async Task A_missing_key_environment_variable_makes_the_decision_model_unavailable()
     {
         Configure(decisionKey: null);
-        await Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失");
+        await Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失", confirm: true);
 
-        var result = await Create("tacit-memory/pg-search", "升级后搜不到中文");
+        var result = await Create("tacit-memory/pg-search", "升级后搜不到中文", confirm: true);
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("decision model is unavailable", result.Text);

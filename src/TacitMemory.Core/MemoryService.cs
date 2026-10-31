@@ -56,7 +56,8 @@ public sealed class MemoryService : IDisposable
         _models = new AuxiliaryModels(config, options.Time);
         _index = new PageIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
         _index.SyncAll();
-        _pages = new PageTools(options, config, notice, new DuplicatePageCheck(config, _index, _models.Embedding, _models.Decision));
+        _pages = new PageTools(
+            options, config, notice, new CredentialCheck(config, _models.Decision), new DuplicatePageCheck(config, _index, _models.Embedding, _models.Decision));
         _vectors = new VectorSync(_index, _models.Embedding);
         _vectors.FillInBackground();
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
