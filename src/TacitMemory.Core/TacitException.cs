@@ -32,6 +32,9 @@ public enum TacitError
 
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,
+
+    /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
+    VectorExtensionInvalid,
 }
 
 /// <summary>A refused facade operation. <see cref="Exception.Message"/> is localized and meant for the user.</summary>

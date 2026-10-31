@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Tools;
@@ -10,7 +11,7 @@ namespace TacitMemory.Core.Pages;
 /// The detail page side of the memory tools: reading a page and the <c>write_page</c> operations. Callers serialize
 /// writes; this class assumes it runs one write at a time.
 /// </summary>
-internal sealed class PageTools(TacitOptions options, TacitConfig config, Action<string> notice)
+internal sealed class PageTools(TacitOptions options, TacitConfig config, Action<string> notice, DuplicatePageCheck duplicates)
 {
     private const string Ops = "create, upsert_section, delete_section, update_header";
 
@@ -82,12 +83,24 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
 
         var today = options.Today;
         var header = new PageHeader(title, aliases, today, today, related);
+        var check = await duplicates.RunAsync(id, header, sections, cancellationToken);
+        if (check.Duplicate is { } duplicate)
+        {
+            var (existing, refusal) = Load(duplicate);
+            return refusal ?? ToolText.Refuse(
+                $"Page {duplicate} already records the same matter.",
+                $"Update {duplicate} instead (write_page op=upsert_section or op=update_header); read it first with recall page={duplicate}.",
+                $"{duplicate}: {existing!.Header.Title}\n{SectionList(existing)}");
+        }
+
         var text = PageDocument.Render(header, sections);
         TextFile.Write(PathOf(id), text, hasBom: false);
 
         var commitProblem = await CommitAsync($"pages: create {id}", id, cancellationToken);
         var written = PageDocument.Parse(text, hasBom: false, id.Slug);
         var reply = $"Created page {id}.\nSections:\n{SectionList(written)}";
+        if (check.Note is { } note)
+            reply += $"\n\n{note}";
         return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
     }
 

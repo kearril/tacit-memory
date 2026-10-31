@@ -239,11 +239,8 @@ public sealed partial class PageTests : IDisposable
     private static WritePageRequest Header(string page, string? title = null, string[]? addAliases = null, string[]? related = null) =>
         new() { Op = "update_header", Page = page, Title = title, AddAliases = addAliases, Related = related };
 
-    private void ReopenOn(DateOnly day)
-    {
-        _service.Dispose();
-        _service = _home.Tacit(day: day).OpenService(_ => { });
-    }
+    private void MoveClockTo(DateOnly day) =>
+        _home.Clock.Advance(new DateTimeOffset(day.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero) - _home.Clock.GetUtcNow());
 
     [Fact]
     public async Task Replacing_a_section_with_its_hash_changes_only_that_section()
@@ -269,7 +266,7 @@ public sealed partial class PageTests : IDisposable
     {
         const string page = "tacit-memory/db-upgrade";
         await _service.WritePageAsync(Create(page));
-        ReopenOn(new DateOnly(2026, 11, 5));
+        MoveClockTo(new DateOnly(2026, 11, 5));
         var hash = await CodeOf(page, "根因");
 
         var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
@@ -520,6 +517,20 @@ public sealed partial class PageTests : IDisposable
             File.ReadAllText(path));
         Assert.Equal("pages: header tacit-memory/hand (with user edits)", Git("log", "-1", "--format=%s").Trim());
         Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task A_write_on_a_later_day_moves_dates_last_and_keeps_dates_first()
+    {
+        await _service.WritePageAsync(Create("tacit-memory/dated"));
+        _home.Clock.Advance(TimeSpan.FromDays(1));
+
+        var result = await _service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
+
+        Assert.False(result.IsError, result.Text);
+        var text = File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md"));
+        Assert.Contains("first: 2026-11-02", text);
+        Assert.Contains("last: 2026-11-03", text);
     }
 
     [GeneratedRegex(@"\[([0-9a-f]{6})\]")]

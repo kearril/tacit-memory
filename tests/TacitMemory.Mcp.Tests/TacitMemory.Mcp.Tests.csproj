@@ -17,6 +17,7 @@
   <ItemGroup>
     <!-- The same throwaway home and TACIT_HOME as the facade tests. -->
     <Compile Include="..\TacitMemory.Core.Tests\TestHome.cs" Link="TestHome.cs" />
+    <Compile Include="..\TacitMemory.Core.Tests\ModelDouble.cs" Link="ModelDouble.cs" />
   </ItemGroup>
 
   <ItemGroup>

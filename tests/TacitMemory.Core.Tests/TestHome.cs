@@ -26,16 +26,19 @@ internal sealed class TestHome : IDisposable
     /// <summary>The date the test clock shows.</summary>
     public static readonly DateOnly Today = new(2026, 11, 2);
 
-    public Tacit Tacit(string uiCulture = "zh-CN", DateOnly? day = null) =>
+    /// <summary>The clock of every <see cref="Tacit"/> made here; tests may move it forward.</summary>
+    public FixedTime Clock { get; } = new(new DateTimeOffset(Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero));
+
+    public Tacit Tacit(string uiCulture = "zh-CN") =>
         new(new TacitOptions
         {
             TacitHome = TacitHome,
             UserHome = UserHome,
             UiCulture = CultureInfo.GetCultureInfo(uiCulture),
-            Time = new FixedTime(new DateTimeOffset((day ?? Today).ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero)),
+            Time = Clock,
         });
 
-    /// <summary>A <c>models</c> section that passes validation.</summary>
+    /// <summary>A <c>models</c> section that passes validation; nothing is listening at these addresses in tests.</summary>
     public const string Models = """
         models:
           embedding: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-embedding-0.6b }
@@ -44,24 +47,20 @@ internal sealed class TestHome : IDisposable
 
         """;
 
-    /// <summary>Runs <c>init</c> in Chinese and replaces the config with one that loads.</summary>
-    public void InitReady(string extraConfig = "")
+    /// <summary>
+    /// Runs <c>init</c> in Chinese and replaces the config with one that loads, with every model at
+    /// <paramref name="models"/>, or down when none is given.
+    /// </summary>
+    public void InitReady(string extraConfig = "", ModelDouble? models = null)
     {
         Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh }).GetAwaiter().GetResult();
-        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), (Models + extraConfig).ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Down).ModelsYaml() + extraConfig).ReplaceLineEndings("\n"));
     }
 
     /// <summary>Runs <c>git</c> in <paramref name="directory"/> and returns its standard output.</summary>
     public static string Git(string directory, params string[] args)
     {
-        var start = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = directory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = System.Text.Encoding.UTF8,
-            StandardErrorEncoding = System.Text.Encoding.UTF8,
-        };
+        var start = new ProcessStartInfo("git") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
         foreach (var arg in (string[])["-c", "core.quotepath=off", .. args])
             start.ArgumentList.Add(arg);
         using var process = Process.Start(start)!;
@@ -87,10 +86,14 @@ internal sealed class TestHome : IDisposable
     }
 }
 
-/// <summary>A clock stopped at one moment, in UTC.</summary>
+/// <summary>A clock that stands still unless moved, in UTC.</summary>
 internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
 {
-    public override DateTimeOffset GetUtcNow() => now;
+    private DateTimeOffset _now = now;
+
+    public override DateTimeOffset GetUtcNow() => _now;
+
+    public void Advance(TimeSpan by) => _now += by;
 
     public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
 }
