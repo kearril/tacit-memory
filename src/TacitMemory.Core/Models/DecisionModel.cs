@@ -76,13 +76,18 @@ internal sealed class JevDecisionModel(HttpClient http, DecisionModelEndpoint en
         return probability;
     }
 
+    /// <summary>The API key from the config or the environment variable it names; <c>null</c> when there is none.</summary>
+    public static string? Key(DecisionModelEndpoint endpoint) =>
+        (endpoint.ApiKey ?? (endpoint.ApiKeyEnv is { } name ? Environment.GetEnvironmentVariable(name) : null)) is { } key
+        && !string.IsNullOrWhiteSpace(key) ? key : null;
+
     /// <summary>The answer object of the one question asked, or <c>null</c> after marking the model unavailable.</summary>
     private async Task<JsonObject?> AskAsync(string state, string type, string instructions, JsonNode criteria, CancellationToken cancellationToken)
     {
         if (!health.ShouldTry)
             return null;
-        var key = endpoint.ApiKey ?? (endpoint.ApiKeyEnv is { } name ? Environment.GetEnvironmentVariable(name) : null);
-        if (string.IsNullOrWhiteSpace(key))
+        var key = Key(endpoint);
+        if (key is null)
         {
             health.Failed();
             return null;

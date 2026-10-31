@@ -32,28 +32,18 @@ internal sealed class ModelHealth(TimeProvider time)
         }
     }
 
-    /// <summary>Raised when availability changes; the server instructions mention unavailable models.</summary>
-    public event Action? Changed;
-
-    public void Succeeded() => Set(true);
+    public void Succeeded()
+    {
+        lock (_gate)
+            _available = true;
+    }
 
     public void Failed()
     {
         lock (_gate)
-            _retryAt = time.GetUtcNow() + Cooldown;
-        Set(false);
-    }
-
-    private void Set(bool available)
-    {
-        bool changed;
-        lock (_gate)
         {
-            changed = _available != available;
-            _available = available;
+            _retryAt = time.GetUtcNow() + Cooldown;
+            _available = false;
         }
-
-        if (changed)
-            Changed?.Invoke();
     }
 }

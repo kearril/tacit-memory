@@ -41,6 +41,11 @@ public sealed class McpHostTests : IAsyncLifetime
         var instructions = Assert.IsType<string>(client.ServerInstructions);
         Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
+        Assert.Contains("## When to recall", instructions);
+        Assert.Contains("## Writing pages", instructions);
+        Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
+        // The shared double gives no decision key, so the status names the decision model.
+        Assert.Contains("## Status\n- Unavailable auxiliary models: decision.", instructions);
         Assert.EndsWith("## Projects\ntacit-memory", instructions);
     }
 

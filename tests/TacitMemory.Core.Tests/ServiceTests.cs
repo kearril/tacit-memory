@@ -15,6 +15,10 @@ public sealed class ServiceTests : IDisposable
 
     private string Pages => Path.Combine(_home.DefaultMemory, "pages");
 
+    private string RulesMd => Path.Combine(_home.TacitHome, "rules.md");
+
+    private string ConfigYaml => Path.Combine(_home.TacitHome, "config.yaml");
+
     private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
 
     [Fact]
@@ -32,7 +36,104 @@ public sealed class ServiceTests : IDisposable
         Assert.Contains("Memory is written in Chinese.", instructions);
         Assert.EndsWith("## Projects\nmy-app, tacit-memory", instructions);
         Assert.DoesNotContain("_topics", instructions);
-        Assert.DoesNotContain("recall", instructions);
+        Assert.Contains("## When to recall", instructions);
+        Assert.Contains("## Writing pages", instructions);
+        Assert.Contains("Write `recall` queries in Chinese too.", instructions);
+    }
+
+    [Fact]
+    public void The_recording_criteria_of_rules_md_go_into_the_instructions_word_for_word()
+    {
+        File.WriteAllText(RulesMd, "## 值得记\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## 不记\n- 日常闲聊\n");
+
+        using var service = Open();
+
+        Assert.Contains("## Worth recording\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## Not recorded\n- 日常闲聊", service.ServerInstructions);
+    }
+
+    [Fact]
+    public async Task Editing_rules_md_while_running_changes_the_next_instructions()
+    {
+        using var service = Open();
+        Assert.DoesNotContain("新加的一条", service.ServerInstructions);
+
+        File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
+
+        await Eventually(() => service.ServerInstructions.Contains("- 新加的一条", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Criteria_that_push_the_fixed_part_past_2500_characters_stop_the_service_and_say_by_how_much()
+    {
+        var item = new string('长', 200);
+        File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {item}\n", 10)) + "## 不记\n- 日常闲聊\n");
+
+        var error = Assert.Throws<TacitException>(() => Open());
+
+        Assert.Equal(TacitError.RulesInvalid, error.Error);
+        Assert.Contains("rules.md", error.Message);
+        Assert.Matches(@"超出 \d+ 字符", error.Message);
+    }
+
+    [Fact]
+    public async Task Too_long_criteria_saved_while_running_are_reported_and_the_previous_ones_kept()
+    {
+        using var service = Open();
+        var before = service.ServerInstructions;
+
+        File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
+
+        await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
+        Assert.Equal(before, service.ServerInstructions);
+    }
+
+    [Fact]
+    public void Without_problems_there_is_no_status_part()
+    {
+        using var models = new ModelDouble();
+        File.WriteAllText(ConfigYaml, models.ModelsYaml(decisionKey: "key").ReplaceLineEndings("\n"));
+
+        using var service = Open();
+
+        Assert.DoesNotContain("## Status", service.ServerInstructions);
+    }
+
+    [Fact]
+    public async Task A_model_that_failed_is_named_in_the_status_until_it_answers_again()
+    {
+        using var models = new ModelDouble { EmbeddingDown = true };
+        File.WriteAllText(ConfigYaml, models.ModelsYaml(decisionKey: "key").ReplaceLineEndings("\n"));
+        using var service = Open();
+
+        await service.RecallAsync(new RecallRequest { Query = "部署" });
+        Assert.Contains("## Status\n- Unavailable auxiliary models: embedding.", service.ServerInstructions);
+
+        models.EmbeddingDown = false;
+        _home.Clock.Advance(TimeSpan.FromMinutes(1));
+        await service.RecallAsync(new RecallRequest { Query = "部署" });
+        Assert.DoesNotContain("## Status", service.ServerInstructions);
+    }
+
+    [Fact]
+    public void A_decision_model_without_a_key_is_named_from_the_start()
+    {
+        using var models = new ModelDouble();
+        File.WriteAllText(ConfigYaml, models.ModelsYaml().ReplaceLineEndings("\n"));
+
+        using var service = Open();
+
+        Assert.Contains("- Unavailable auxiliary models: decision.", service.ServerInstructions);
+    }
+
+    [Fact]
+    public void Page_files_that_are_not_utf8_are_named_in_the_status()
+    {
+        Directory.CreateDirectory(Path.Combine(Pages, "demo"));
+        File.WriteAllBytes(Path.Combine(Pages, "demo", "gbk.md"), [0xD6, 0xD0, 0xCE, 0xC4, 0xFF, 0xFE]);
+
+        using var service = Open();
+
+        Assert.Contains("- Pages not searchable because they are not UTF-8: pages/demo/gbk.md.", service.ServerInstructions);
     }
 
     [Fact]

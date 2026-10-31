@@ -50,6 +50,12 @@ internal static class Messages
     public static readonly Localized RulesTooMany = new(
         "{0} 中「{1}」一节有 {2} 条，上限为 {3} 条，多出 {4} 条。",
         "The \"{1}\" section of {0} has {2} items, {4} more than the limit of {3}.");
+    public static readonly Localized InstructionsTooLong = new(
+        "服务端说明的固定部分（含 {0} 中的值得记标准）共 {1} 字符，上限为 {2} 字符，超出 {3} 字符。请精简 {0}。",
+        "The fixed part of the server instructions, including the recording criteria in {0}, is {1} characters, {3} more than the limit of {2}. Shorten {0}.");
+    public static readonly Localized RulesNotApplied = new(
+        "rules.md 的修改未生效，新会话仍用之前的标准：{0}",
+        "The change to rules.md was not applied; new sessions keep the previous criteria: {0}");
 
     public static readonly Localized MarkersBroken = new(
         "{0} 中的常驻区块标记不完整或重复（第 {1} 行），未改动该文件。请手工修正标记后重试。",
