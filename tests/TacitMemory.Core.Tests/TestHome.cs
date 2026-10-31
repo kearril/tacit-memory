@@ -49,12 +49,12 @@ internal sealed class TestHome : IDisposable
 
     /// <summary>
     /// Runs <c>init</c> in Chinese and replaces the config with one that loads, with every model at
-    /// <paramref name="models"/>, or down when none is given.
+    /// <paramref name="models"/>, or at <see cref="ModelDouble.Quiet"/> when none is given; the decision model has a key.
     /// </summary>
     public void InitReady(string extraConfig = "", ModelDouble? models = null)
     {
         Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh }).GetAwaiter().GetResult();
-        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Down).ModelsYaml() + extraConfig).ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Quiet).ModelsYaml(decisionKey: "test-key") + extraConfig).ReplaceLineEndings("\n"));
     }
 
     /// <summary>Runs <c>git</c> in <paramref name="directory"/> and returns its standard output.</summary>

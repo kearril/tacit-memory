@@ -44,8 +44,6 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Contains("## When to recall", instructions);
         Assert.Contains("## Writing pages", instructions);
         Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
-        // The shared double gives no decision key, so the status names the decision model.
-        Assert.Contains("## Status\n- Unavailable auxiliary models: decision.", instructions);
         Assert.EndsWith("## Projects\ntacit-memory", instructions);
     }
 

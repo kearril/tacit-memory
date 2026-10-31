@@ -34,6 +34,7 @@ internal sealed class MemoryTools(MemoryService service)
         op=upsert_section: needs page, section and body; hash is required when the section exists (its short code from recall).
         op=delete_section: needs page, section and hash (its short code from recall).
         op=update_header: needs page and at least one of title, add_aliases, related; related replaces the whole list ([] clears it).
+        Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WritePage(
         [Description("Operation: create, upsert_section, delete_section or update_header.")] string? op = null,
@@ -46,6 +47,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The section's Markdown body; no '#' or '##' headings, use '###' or deeper.")] string? body = null,
         [Description("Short code in brackets from the latest recall; required to replace or delete an existing section.")] string? hash = null,
         [Description("Aliases to add to the page; ones it already has are ignored.")] string[]? add_aliases = null,
+        [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.WritePageAsync(new WritePageRequest
         {
@@ -59,6 +61,7 @@ internal sealed class MemoryTools(MemoryService service)
             Body = body,
             Hash = hash,
             AddAliases = add_aliases,
+            ConfirmNoSecret = confirm_no_secret,
         }, cancellationToken));
 
     private static CallToolResult Reply(ToolResult result) =>

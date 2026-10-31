@@ -38,7 +38,7 @@ public sealed class RerankTests : IDisposable
     /// <summary>Replaces the config, which the service reads when it opens; call before the first use of <see cref="Service"/>.</summary>
     private void Configure(string retrieval) => File.WriteAllText(
         Path.Combine(_home.TacitHome, "config.yaml"),
-        (_models.ModelsYaml() + retrieval + "\n").ReplaceLineEndings("\n"));
+        (_models.ModelsYaml(decisionKey: "test-key") + retrieval + "\n").ReplaceLineEndings("\n"));
 
     [Fact]
     public async Task Pages_the_reranker_scores_higher_come_first()

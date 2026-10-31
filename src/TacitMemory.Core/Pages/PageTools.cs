@@ -11,17 +11,18 @@ namespace TacitMemory.Core.Pages;
 /// The detail page side of the memory tools: reading a page and the <c>write_page</c> operations. Callers serialize
 /// writes; this class assumes it runs one write at a time.
 /// </summary>
-internal sealed class PageTools(TacitOptions options, TacitConfig config, Action<string> notice, DuplicatePageCheck duplicates)
+internal sealed class PageTools(
+    TacitOptions options, TacitConfig config, Action<string> notice, CredentialCheck credentials, DuplicatePageCheck duplicates)
 {
     private const string Ops = "create, upsert_section, delete_section, update_header";
 
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
     {
-        ["create"] = ["title", "aliases", "sections", "related"],
-        ["upsert_section"] = ["section", "body", "hash"],
+        ["create"] = ["title", "aliases", "sections", "related", "confirm_no_secret"],
+        ["upsert_section"] = ["section", "body", "hash", "confirm_no_secret"],
         ["delete_section"] = ["section", "hash"],
-        ["update_header"] = ["title", "aliases", "add_aliases", "related"],
+        ["update_header"] = ["title", "aliases", "add_aliases", "related", "confirm_no_secret"],
     };
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
@@ -81,6 +82,9 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
                 SectionList(existing!));
         }
 
+        if (await CheckSecretsAsync(request, "create", [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)], cancellationToken) is { } secret)
+            return secret;
+
         var today = options.Today;
         var header = new PageHeader(title, aliases, today, today, related);
         var check = await duplicates.RunAsync(id, header, sections, cancellationToken);
@@ -114,6 +118,9 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
         CheckSections([new PageSectionInput(name, body)], problems);
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
+
+        if (await CheckSecretsAsync(request, "upsert_section", SectionTexts([new PageSectionInput(name, body)]), cancellationToken) is { } secret)
+            return secret;
 
         var (document, refusal) = Load(id);
         if (refusal is not null)
@@ -176,6 +183,13 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_page op=update_header again.");
 
+        var written = new List<(string, string)>();
+        if (title is not null)
+            written.Add(("title", title));
+        written.AddRange(added.Select(alias => ("alias", alias)));
+        if (await CheckSecretsAsync(request, "update_header", written, cancellationToken) is { } secret)
+            return secret;
+
         var (document, refusal) = Load(id);
         if (refusal is not null)
             return refusal;
@@ -195,6 +209,19 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
         var after = WithToday(document.WithHeaderBlocks(changes));
         return await SaveAsync(id, document, after, $"pages: header {id}", $"Updated the header of page {id}.", cancellationToken);
     }
+
+    /// <summary>The credential check's refusal, or <c>null</c> when the texts may be written or the agent confirmed.</summary>
+    private async Task<ToolResult?> CheckSecretsAsync(
+        WritePageRequest request, string op, IEnumerable<(string Where, string Text)> texts, CancellationToken cancellationToken)
+    {
+        if (request.ConfirmNoSecret == true)
+            return null;
+        var written = texts.Select(text => new WrittenText(text.Where, text.Text)).ToList();
+        return written.Count == 0 ? null : await credentials.RunAsync(written, op, cancellationToken);
+    }
+
+    private static IEnumerable<(string Where, string Text)> SectionTexts(IEnumerable<PageSectionInput> sections) =>
+        sections.SelectMany(section => new[] { ("section name", section.Name), ($"section {section.Name}", section.Body) });
 
     /// <summary>The refusal when section <paramref name="section"/> exists and the hash does not prove the agent read its current text.</summary>
     private static ToolResult? RefuseStaleSection(PageSection section, string? hash, string verb, string op)
@@ -254,6 +281,7 @@ internal sealed class PageTools(TacitOptions options, TacitConfig config, Action
             ("body", request.Body is not null),
             ("hash", request.Hash is not null),
             ("add_aliases", request.AddAliases is not null),
+            ("confirm_no_secret", request.ConfirmNoSecret is not null),
         };
         return given.Where(parameter => parameter.IsGiven && !taken.Contains(parameter.Name)).Select(parameter => parameter.Name).ToList();
     }

@@ -62,4 +62,10 @@ public sealed record WritePageRequest
 
     /// <summary>Aliases to add for <c>update_header</c>; the page keeps the aliases it has.</summary>
     public IReadOnlyList<string>? AddAliases { get; init; }
+
+    /// <summary>
+    /// The agent made sure with the user that the write holds no secret: the credential check is skipped. For
+    /// <c>create</c>, <c>upsert_section</c> and <c>update_header</c>.
+    /// </summary>
+    public bool? ConfirmNoSecret { get; init; }
 }

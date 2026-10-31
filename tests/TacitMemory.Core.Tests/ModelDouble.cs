@@ -14,7 +14,7 @@ namespace TacitMemory.Core.Tests;
 /// </summary>
 internal sealed class ModelDouble : IDisposable
 {
-    private static readonly Lazy<ModelDouble> SharedDown = new(() => new ModelDouble(shared: true) { EmbeddingDown = true, RerankDown = true, DecisionDown = true });
+    private static readonly Lazy<ModelDouble> SharedQuiet = new(() => new ModelDouble(shared: true) { EmbeddingDown = true, RerankDown = true });
 
     private readonly WebApplication _app;
     private readonly bool _shared;
@@ -22,6 +22,7 @@ internal sealed class ModelDouble : IDisposable
     private int _embeddingCalls;
     private int _rerankCalls;
     private int _decisionCalls;
+    private int _choiceCalls;
 
     public ModelDouble()
         : this(shared: false)
@@ -42,8 +43,11 @@ internal sealed class ModelDouble : IDisposable
         Endpoint = new Uri($"http://127.0.0.1:{new Uri(_app.Urls.Single()).Port}/v1");
     }
 
-    /// <summary>A double whose models are all down; the default for tests that do not exercise the models.</summary>
-    public static ModelDouble Down => SharedDown.Value;
+    /// <summary>
+    /// The default for tests that do not exercise the models: the embedding model and the reranker are down, and the
+    /// decision model answers no to every question, so writes pass the credential check and are never duplicates.
+    /// </summary>
+    public static ModelDouble Quiet => SharedQuiet.Value;
 
     public Uri Endpoint { get; }
 
@@ -74,6 +78,9 @@ internal sealed class ModelDouble : IDisposable
     public Func<string, double> IsTrue { get; set; } = _ => 0;
 
     public int DecisionCalls => Volatile.Read(ref _decisionCalls);
+
+    /// <summary>Decision requests with a choice question, such as the duplicate page check.</summary>
+    public int ChoiceCalls => Volatile.Read(ref _choiceCalls);
 
     /// <summary>The body and the Authorization header of the latest decision request.</summary>
     public (JsonObject Body, string? Authorization)? LastDecision { get; private set; }
@@ -140,6 +147,8 @@ internal sealed class ModelDouble : IDisposable
         Interlocked.Increment(ref _decisionCalls);
         var body = (await JsonNode.ParseAsync(request.Body))!.AsObject();
         LastDecision = (body, request.Headers.Authorization.ToString());
+        if (body["questions"]!.AsObject().Any(question => question.Value!["type"]!.GetValue<string>() == "choice"))
+            Interlocked.Increment(ref _choiceCalls);
         if (DecisionDown)
             return Results.StatusCode(503);
         var answers = new JsonObject();
