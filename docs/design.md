@@ -372,7 +372,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 | 指令 | 参数 | 现场附带的内容 |
 | :--- | :--- | :--- |
-| `remember` | 可选：本次要记的重点 | 写入步骤；今天已有的活动；当前近期主线 |
+| `remember` | 可选 `focus`：本次要记的重点 | 写入步骤；今天已有的活动；当前近期主线 |
 | `checkup` | 无 | 见第 9 节 |
 
 `remember` 写完后列出写了什么，附页面标识或短码；不预先征求确认。
