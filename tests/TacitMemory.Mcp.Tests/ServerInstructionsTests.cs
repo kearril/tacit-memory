@@ -45,12 +45,12 @@ public sealed class ServerInstructionsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task No_tools_or_prompts_are_offered_yet()
+    public async Task Tool_and_prompt_lists_are_answered_and_empty()
     {
         await using var client = await ConnectAsync();
 
-        Assert.Null(client.ServerCapabilities.Tools);
-        Assert.Null(client.ServerCapabilities.Prompts);
+        Assert.Empty(await client.ListToolsAsync());
+        Assert.Empty(await client.ListPromptsAsync());
     }
 
     [Fact]

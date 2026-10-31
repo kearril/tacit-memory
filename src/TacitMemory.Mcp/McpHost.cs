@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Protocol;
 using TacitMemory.Core;
 
 namespace TacitMemory.Mcp;
@@ -41,7 +42,11 @@ public sealed class McpHost : IAsyncDisposable
                     session.ServerInstructions = service.ServerInstructions;
                     return Task.CompletedTask;
                 };
-            });
+            })
+            // No tools or prompts yet, but answer the lists anyway: omp asks for them regardless of the advertised
+            // capabilities and drops the server when the request fails.
+            .WithListToolsHandler((_, _) => ValueTask.FromResult(new ListToolsResult { Tools = [] }))
+            .WithListPromptsHandler((_, _) => ValueTask.FromResult(new ListPromptsResult { Prompts = [] }));
 
         var app = builder.Build();
         app.MapMcp("/mcp");
