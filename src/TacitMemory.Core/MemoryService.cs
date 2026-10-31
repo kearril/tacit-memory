@@ -1,3 +1,4 @@
+using TacitMemory.Core.Backup;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Injection;
@@ -17,6 +18,7 @@ public sealed class MemoryService : IDisposable
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(300);
 
     private readonly TacitOptions _options;
+    private readonly AutomaticBackup _backup;
     private readonly Action<string> _notice;
     private readonly FileSystemWatcher _watcher;
     private readonly Timer _renderTimer;
@@ -34,6 +36,7 @@ public sealed class MemoryService : IDisposable
         _notice = notice;
         StartupRender = Binder.RenderAll(options, config);
         _pages = new PageTools(options, config, notice);
+        _backup = new AutomaticBackup(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
@@ -67,6 +70,9 @@ public sealed class MemoryService : IDisposable
     public string PortInUseMessage() =>
         Messages.PortInUse.Format(Config.Language, Config.Port, Path.Combine(_options.TacitHome, "config.yaml"));
 
+    /// <summary>Completes when the backup started by the latest successful write has finished. Tests await it.</summary>
+    internal Task BackupCompletion => _backup.Completion;
+
     /// <summary>The <c>recall</c> tool: reads a page. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
         Task.FromResult(_pages.Read(request));
@@ -77,7 +83,10 @@ public sealed class MemoryService : IDisposable
         await _writeGate.WaitAsync(cancellationToken);
         try
         {
-            return await _pages.WriteAsync(request, cancellationToken);
+            var result = await _pages.WriteAsync(request, cancellationToken);
+            if (!result.IsError)
+                _backup.ScheduleIfDue();
+            return result;
         }
         finally
         {
