@@ -5,7 +5,7 @@ namespace TacitMemory.Core.Tests;
 public sealed partial class PageTests : IDisposable
 {
     private readonly TestHome _home = new();
-    private readonly MemoryService _service;
+    private MemoryService _service;
 
     public PageTests()
     {
@@ -217,6 +217,309 @@ public sealed partial class PageTests : IDisposable
 
         Assert.All(results, result => Assert.False(result.IsError, result.Text));
         Assert.Equal("6", Git("rev-list", "--count", "HEAD").Trim());
+    }
+
+
+    private string PageText(string page) => File.ReadAllText(Path.Combine(Memory, "pages", page + ".md"));
+
+    private async Task<string> CodeOf(string page, string section)
+    {
+        var read = await _service.RecallAsync(new RecallRequest { Page = page });
+        var code = Regex.Match(read.Text, $@"## {Regex.Escape(section)} \[([0-9a-f]{{6}}(?:-\d+)?)\]").Groups[1].Value;
+        Assert.Matches(@"^[0-9a-f]{6}(-\d+)?$", code);
+        return code;
+    }
+
+    private static WritePageRequest Upsert(string page, string section, string body, string? hash = null) =>
+        new() { Op = "upsert_section", Page = page, Section = section, Body = body, Hash = hash };
+
+    private static WritePageRequest Delete(string page, string section, string? hash = null) =>
+        new() { Op = "delete_section", Page = page, Section = section, Hash = hash };
+
+    private static WritePageRequest Header(string page, string? title = null, string[]? addAliases = null, string[]? related = null) =>
+        new() { Op = "update_header", Page = page, Title = title, AddAliases = addAliases, Related = related };
+
+    private void ReopenOn(DateOnly day)
+    {
+        _service.Dispose();
+        _service = _home.Tacit(day: day).OpenService(_ => { });
+    }
+
+    [Fact]
+    public async Task Replacing_a_section_with_its_hash_changes_only_that_section()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var hash = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(before.Replace("PGroonga 扩展没有随升级重装。", "新的根因。"), PageText(page));
+        var code = await CodeOf(page, "根因");
+        Assert.NotEqual(hash, code);
+        Assert.Contains($"Replaced section 根因 [{code}].", result.Text);
+        Assert.Equal("pages: upsert tacit-memory/db-upgrade 根因", Git("log", "-1", "--format=%s").Trim());
+        Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task Every_successful_write_sets_dates_last_to_today()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        ReopenOn(new DateOnly(2026, 11, 5));
+        var hash = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("dates: { first: 2026-11-02, last: 2026-11-05 }\n", PageText(page));
+    }
+
+    [Fact]
+    public async Task Replacing_a_section_without_its_hash_is_refused_and_shows_it_with_its_code()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var result = await _service.WritePageAsync(Upsert(page, "现象", "覆盖。"));
+
+        var code = await CodeOf(page, "现象");
+        Assert.True(result.IsError);
+        Assert.Contains("Section 现象 exists; give its hash to replace it.", result.Text);
+        Assert.Contains($"Related:\n## 现象 [{code}]\n升级后中文搜索没有结果。", result.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task A_hash_that_no_longer_matches_is_refused_and_shows_the_section_as_it_is_now()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var result = await _service.WritePageAsync(Upsert(page, "现象", "覆盖。", "000000"));
+
+        var code = await CodeOf(page, "现象");
+        Assert.True(result.IsError);
+        Assert.Contains("The hash for section 现象 does not match: it changed since it was read.", result.Text);
+        Assert.Contains($"Related:\n## 现象 [{code}]\n升级后中文搜索没有结果。", result.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task A_section_the_page_lacks_is_appended_at_the_end()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var result = await _service.WritePageAsync(Upsert(page, "后续", "待办。"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(before + "\n## 后续\n待办。\n", PageText(page));
+        var code = await CodeOf(page, "后续");
+        Assert.Contains($"Added section 后续 [{code}].", result.Text);
+    }
+
+    [Fact]
+    public async Task Writing_a_section_with_its_current_text_changes_nothing_and_commits_nothing()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var hash = await CodeOf(page, "现象");
+        var head = Git("rev-parse", "HEAD");
+
+        var result = await _service.WritePageAsync(Upsert(page, "现象", "升级后中文搜索没有结果。", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("Nothing changed", result.Text);
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Fact]
+    public async Task Deleting_a_middle_section_removes_it_with_its_separating_line()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page, sections: [new("现象", "升级后中文搜索没有结果。"), new("根因", "PGroonga 扩展没有随升级重装。"), new("方案", "重装扩展。")]));
+        var before = PageText(page);
+        var hash = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Delete(page, "根因", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(before.Replace("## 根因\nPGroonga 扩展没有随升级重装。\n\n", ""), PageText(page));
+    }
+
+    [Fact]
+    public async Task Deleting_the_last_section_removes_it_and_the_line_before_it()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var hash = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Delete(page, "根因", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(before.Replace("\n## 根因\nPGroonga 扩展没有随升级重装。\n", ""), PageText(page));
+    }
+
+    [Fact]
+    public async Task Deleting_a_section_needs_its_current_hash()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var withoutHash = await _service.WritePageAsync(Delete(page, "根因"));
+        var stale = await _service.WritePageAsync(Delete(page, "根因", "000000"));
+
+        var code = await CodeOf(page, "根因");
+        Assert.True(withoutHash.IsError);
+        Assert.Contains("Section 根因 exists; give its hash to delete it.", withoutHash.Text);
+        Assert.Contains($"Related:\n## 根因 [{code}]\nPGroonga 扩展没有随升级重装。", withoutHash.Text);
+        Assert.True(stale.IsError);
+        Assert.Contains("The hash for section 根因 does not match", stale.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task Deleting_a_missing_section_is_refused_and_lists_the_sections()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+
+        var result = await _service.WritePageAsync(Delete(page, "别的", "000000"));
+
+        Assert.True(result.IsError);
+        Assert.Contains("Section \"别的\" does not exist on page tacit-memory/db-upgrade.", result.Text);
+        Assert.Matches(@"Related:\n- 现象 \[[0-9a-f]{6}\]\n- 根因 \[[0-9a-f]{6}\]", result.Text);
+    }
+
+    [Fact]
+    public async Task Title_aliases_and_related_are_changed_in_the_header_and_duplicate_aliases_are_dropped()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create("tacit-memory/pgroonga"));
+        await _service.WritePageAsync(Create(page));
+
+        var result = await _service.WritePageAsync(Header(page, title: "升级后扩展丢失", addAliases: ["升级后搜索不到中文", "pgroonga 失效"], related: ["tacit-memory/pgroonga"]));
+
+        Assert.False(result.IsError, result.Text);
+        var read = await _service.RecallAsync(new RecallRequest { Page = page });
+        Assert.Contains("# tacit-memory/db-upgrade: 升级后扩展丢失\n", read.Text);
+        Assert.Contains("Aliases: 全文检索插件失效; 升级后搜索不到中文; pgroonga 失效\n", read.Text);
+        Assert.Contains("Related: tacit-memory/pgroonga\n", read.Text);
+        Assert.Contains("related: [tacit-memory/pgroonga]\n", PageText(page));
+        Assert.Equal("pages: header tacit-memory/db-upgrade", Git("log", "-1", "--format=%s").Trim());
+    }
+
+    [Fact]
+    public async Task Related_replaces_the_whole_list_and_an_empty_list_removes_it()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create("tacit-memory/pgroonga"));
+        await _service.WritePageAsync(Create("tacit-memory/other"));
+        await _service.WritePageAsync(Create(page, related: ["tacit-memory/pgroonga"]));
+
+        await _service.WritePageAsync(Header(page, related: ["tacit-memory/other"]));
+        Assert.Contains("related: [tacit-memory/other]\n", PageText(page));
+        Assert.DoesNotContain("tacit-memory/pgroonga", PageText(page));
+
+        await _service.WritePageAsync(Header(page, related: []));
+        Assert.DoesNotContain("related:", PageText(page));
+    }
+
+    [Fact]
+    public async Task An_update_header_needs_a_field_to_change_and_cannot_replace_aliases()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var empty = await _service.WritePageAsync(Header(page));
+        var replace = await _service.WritePageAsync(Header(page) with { Aliases = ["别名一", "别名二"] });
+
+        Assert.True(empty.IsError);
+        Assert.Contains("Give at least one of title, add_aliases or related.", empty.Text);
+        Assert.True(replace.IsError);
+        Assert.Contains("update_header does not replace aliases; pass add_aliases to add some.", replace.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task Header_values_meet_the_same_limits_as_create()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var result = await _service.WritePageAsync(Header(page, title: new string('长', 51), addAliases: [new string('a', 31)]));
+
+        Assert.True(result.IsError);
+        Assert.Contains("51 characters; the limit is 50", result.Text);
+        Assert.Contains("at most 30 characters", result.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task A_page_with_a_broken_header_is_read_but_every_write_to_it_is_refused()
+    {
+        const string page = "tacit-memory/broken";
+        var path = Path.Combine(Memory, "pages", "tacit-memory", "broken.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "---\ntitle: [unclosed\n---\n\n## 现象\n内容\n");
+        var before = File.ReadAllText(path);
+        var section = await _service.WritePageAsync(Upsert(page, "现象", "改。", "000000"));
+
+        var header = await _service.WritePageAsync(Header(page, title: "新标题"));
+
+        Assert.True(section.IsError);
+        Assert.Contains("cannot be read", section.Text);
+        Assert.Contains("\nNext step: Ask the user to fix the front matter", section.Text);
+        Assert.True(header.IsError);
+        Assert.Contains("\nNext step: Ask the user to fix the front matter", header.Text);
+        Assert.Equal(before, File.ReadAllText(path));
+    }
+
+    [Fact]
+    public async Task Lines_the_service_does_not_own_stay_byte_identical_and_user_edits_are_marked_in_the_commit()
+    {
+        const string page = "tacit-memory/hand";
+        var path = Path.Combine(Memory, "pages", "tacit-memory", "hand.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var original = """
+            ---
+            title: 手写标题
+            status: draft
+            aliases: [a1, a2]
+            dates: { first: 2026-10-01, last: 2026-10-01 }
+            ---
+
+            前言：人工写的段落。
+
+            ## 现象
+            ```bash
+            ## 不是小节
+            ```
+
+            ## 根因
+            内容。
+            """.ReplaceLineEndings("\n") + "\n";
+        File.WriteAllText(path, original);
+
+        var result = await _service.WritePageAsync(Header(page, addAliases: ["新别名"]));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(
+            original.Replace("aliases: [a1, a2]", "aliases: [a1, a2, 新别名]").Replace("last: 2026-10-01", "last: 2026-11-02"),
+            File.ReadAllText(path));
+        Assert.Equal("pages: header tacit-memory/hand (with user edits)", Git("log", "-1", "--format=%s").Trim());
+        Assert.Empty(Git("status", "--porcelain").Trim());
     }
 
     [GeneratedRegex(@"\[([0-9a-f]{6})\]")]

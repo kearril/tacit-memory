@@ -35,4 +35,16 @@ public sealed record WritePageRequest
 
     /// <summary>Page IDs of related pages; every one must exist.</summary>
     public IReadOnlyList<string>? Related { get; init; }
+
+    /// <summary>The section to write, by name: for <c>upsert_section</c> and <c>delete_section</c>.</summary>
+    public string? Section { get; init; }
+
+    /// <summary>The Markdown body for <c>upsert_section</c>; the section's text, without its <c>##</c> line.</summary>
+    public string? Body { get; init; }
+
+    /// <summary>The short code the agent last read for the section; required to replace or delete it.</summary>
+    public string? Hash { get; init; }
+
+    /// <summary>Aliases to add for <c>update_header</c>; the page keeps the aliases it has.</summary>
+    public IReadOnlyList<string>? AddAliases { get; init; }
 }

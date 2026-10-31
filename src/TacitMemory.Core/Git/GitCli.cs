@@ -52,4 +52,8 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
         await RunAsync(cancellationToken, ["add", "--", .. files]);
         await RunAsync(cancellationToken, ["commit", "--quiet", "-m", message, "--", .. files]);
     }
+
+    /// <summary>Whether <paramref name="path"/> (relative to the repository) has uncommitted changes, or is untracked.</summary>
+    public async Task<bool> IsDirtyAsync(string path, CancellationToken cancellationToken) =>
+        (await RunAsync(cancellationToken, "status", "--porcelain", "--", path)).Trim().Length > 0;
 }

@@ -26,13 +26,13 @@ internal sealed class TestHome : IDisposable
     /// <summary>The date the test clock shows.</summary>
     public static readonly DateOnly Today = new(2026, 11, 2);
 
-    public Tacit Tacit(string uiCulture = "zh-CN") =>
+    public Tacit Tacit(string uiCulture = "zh-CN", DateOnly? day = null) =>
         new(new TacitOptions
         {
             TacitHome = TacitHome,
             UserHome = UserHome,
             UiCulture = CultureInfo.GetCultureInfo(uiCulture),
-            Time = new FixedTime(new DateTimeOffset(Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero)),
+            Time = new FixedTime(new DateTimeOffset((day ?? Today).ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero)),
         });
 
     /// <summary>A <c>models</c> section that passes validation.</summary>
@@ -54,7 +54,14 @@ internal sealed class TestHome : IDisposable
     /// <summary>Runs <c>git</c> in <paramref name="directory"/> and returns its standard output.</summary>
     public static string Git(string directory, params string[] args)
     {
-        var start = new ProcessStartInfo("git") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = directory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
+        };
         foreach (var arg in (string[])["-c", "core.quotepath=off", .. args])
             start.ArgumentList.Add(arg);
         using var process = Process.Start(start)!;
