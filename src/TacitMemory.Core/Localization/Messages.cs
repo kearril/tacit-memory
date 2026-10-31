@@ -11,8 +11,8 @@ internal static class Messages
         "补上的骨架文件未提交，请在记忆仓库中自行提交。",
         "The added skeleton files are not committed; commit them in the memory repository yourself.");
     public static readonly Localized InitNextSteps = new(
-        "下一步：在 {0} 中填写 models 一节。",
-        "Next: fill in the models section of {0}.");
+        "下一步：在 {0} 中填写 models 一节，然后执行 tacit connect --client omp 与 tacit serve。",
+        "Next: fill in the models section of {0}, then run tacit connect --client omp and tacit serve.");
 
     public static readonly Localized MemoryDirectoryNotEmpty = new(
         "目录 {0} 不为空且不是 Git 仓库，不能用作记忆仓库。请指定空目录或已有的记忆仓库（--memory）。",
@@ -50,4 +50,34 @@ internal static class Messages
     public static readonly Localized RulesTooMany = new(
         "{0} 中「{1}」一节有 {2} 条，上限为 {3} 条，多出 {4} 条。",
         "The \"{1}\" section of {0} has {2} items, {4} more than the limit of {3}.");
+
+    public static readonly Localized MarkersBroken = new(
+        "{0} 中的常驻区块标记不完整或重复（第 {1} 行），未改动该文件。请手工修正标记后重试。",
+        "The resident block markers in {0} are incomplete or repeated (line {1}); the file was left alone. Fix the markers by hand and try again.");
+    public static readonly Localized PersonaUnreadable = new(
+        "{0} 不是 UTF-8 编码，已跳过；常驻区块保持上一次的内容。",
+        "{0} is not UTF-8 encoded and was skipped; the resident blocks keep their last content.");
+    public static readonly Localized ContextFileMissing = new(
+        "绑定的文件 {0} 已不存在，已跳过。要重新绑定请执行 tacit connect。",
+        "The bound file {0} no longer exists and was skipped. Run tacit connect to bind it again.");
+    public static readonly Localized ClientConfigInvalid = new(
+        "{0} 不是有效的 JSON，未改动：{1}",
+        "{0} is not valid JSON and was left alone: {1}");
+    public static readonly Localized BlockWritten = new("已写入常驻区块：{0}", "Wrote the resident block: {0}");
+    public static readonly Localized BlockUnchanged = new("常驻区块已是最新：{0}", "The resident block is up to date: {0}");
+    public static readonly Localized BlockRemoved = new("已移除常驻区块：{0}", "Removed the resident block: {0}");
+    public static readonly Localized McpRegistered = new("已注册 MCP 服务 tacit：{0}", "Registered the MCP server tacit: {0}");
+    public static readonly Localized McpUnchanged = new("MCP 服务 tacit 已注册：{0}", "The MCP server tacit is already registered: {0}");
+    public static readonly Localized McpRemoved = new("已注销 MCP 服务 tacit：{0}", "Unregistered the MCP server tacit: {0}");
+    public static readonly Localized Connected = new(
+        "已绑定 {0}，新会话开始生效。MCP 服务需要 tacit serve 在运行。",
+        "Bound {0}; it takes effect in new sessions. The MCP server needs tacit serve running.");
+    public static readonly Localized Disconnected = new("已解绑 {0}。", "Unbound {0}.");
+
+    public static readonly Localized ServiceListening = new(
+        "常驻服务已启动：{0}（Ctrl+C 停止）",
+        "The memory service is running at {0} (Ctrl+C to stop)");
+    public static readonly Localized PortInUse = new(
+        "端口 {0} 已被占用，常驻服务无法启动。请在 {1} 中修改 server.port。",
+        "Port {0} is already in use, so the memory service cannot start. Change server.port in {1}.");
 }

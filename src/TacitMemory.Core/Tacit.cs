@@ -1,3 +1,4 @@
+using TacitMemory.Core.Clients;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Setup;
 
@@ -18,4 +19,23 @@ public sealed class Tacit(TacitOptions options)
     /// if it was deleted.
     /// </summary>
     public TacitConfig LoadConfig() => ConfigLoader.Load(options);
+
+    /// <summary>
+    /// Binds a client: renders the resident block into its context file now, registers the MCP server and records
+    /// the binding. Running it again changes nothing.
+    /// </summary>
+    public BindingResult Connect(ClientKind client) => Binder.Connect(options, client);
+
+    /// <summary>Removes the resident block, the MCP registration and the binding record of a client.</summary>
+    public BindingResult Disconnect(ClientKind client) => Binder.Disconnect(options, client);
+
+    /// <summary>Renders the current persona into every bound context file, reading <c>bindings.json</c> afresh.</summary>
+    public IReadOnlyList<BlockRender> RenderBlocks() => Binder.RenderAll(options, LoadConfig());
+
+    /// <summary>
+    /// Starts the memory service's state: loads the config, renders every bound context file once, and watches the
+    /// memory repository. <paramref name="rendered"/> is called, on a background thread, for each context file
+    /// rendered after a change to <c>persona.md</c>.
+    /// </summary>
+    public MemoryService OpenService(Action<BlockRender> rendered) => new(options, LoadConfig(), rendered);
 }

@@ -38,15 +38,16 @@ flowchart LR
 | 程序集 | 职责 | 依赖 |
 | :--- | :--- | :--- |
 | `TacitMemory.Core` | 全部记忆规则：存储读写、写入校验与上限、索引与检索、判断、注入渲染、体检报告、客户端适配、备份恢复、Git 提交、文件监听、本地化文本与英文模板。仅公开门面接口与契约类型，其余为 `internal` | 无内部依赖 |
-| `TacitMemory.Mcp` | 将门面操作映射为 MCP 工具、prompt 与服务端说明，不含业务规则 | `Core` |
-| `TacitMemory.Cli` | `tacit` 命令与 `serve` 进程：挂载 MCP 端点与管理 API；其余命令经管理 API 调用服务，`init`、`connect`、`disconnect` 直接调用门面 | `Core`、`Mcp` |
+| `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp`，把门面操作映射为 MCP 工具、prompt 与服务端说明，不含业务规则 | `Core` |
+| `TacitMemory.Cli` | `tacit` 命令与 `serve` 进程：打开常驻服务（门面的 `OpenService`）并启动 `McpHost`；`init`、`connect`、`disconnect` 直接调用门面，其余命令经管理 API 调用服务 | `Core`、`Mcp` |
 
 ## 3. Core 内部模块
 
 | 模块 | 职责 |
 | :--- | :--- |
 | 初始化 | `init`：生成 `config.yaml` 与 `rules.md` 模板，创建记忆仓库骨架并提交；已有文件不覆盖 |
-| 门面 | 对外的唯一入口：检索、各类写入、体检报告、注入内容、绑定、备份恢复、状态 |
+| 门面 | 对外的唯一入口 `Tacit`：初始化、加载配置、绑定与解绑、渲染常驻区块；`OpenService` 返回常驻服务的运行状态 `MemoryService`（配置、服务端说明缓存、文件监听）。后续加入检索、各类写入、体检报告、备份恢复、状态 |
+| 配置 | 逐项读取并校验 `config.yaml`（一次报告全部出错的键路径）；读取 `rules.md`，缺失时按记忆语言重新生成 |
 | 串行写入 | 所有写入排入单一队列；每次写入：校验 → 判断 → 改文件 → 同步索引 → Git 提交 → 必要时重渲染常驻区块 |
 | Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码、记录格式问题 |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；中文两字切分；RRF 合并；调用 reranker；索引版本校验与重建 |
@@ -80,8 +81,8 @@ flowchart LR
 
 ### 注入
 
-- 客户端每次连接时，Mcp 向门面请求服务端说明，现场生成。
-- 画像文件变化（经服务写入或文件监听发现）时，注入渲染重写所有已绑定文件中的常驻区块；结果未变不写。
+- 服务端说明由常驻服务生成后缓存；`pages/` 下增删项目目录时失效，下一次连接拿到新内容。无状态模式下 SDK 对每个请求都要说明，直接给出缓存。
+- 画像文件变化（经服务写入，或文件监听发现，事件去抖 300 ms）时，注入渲染重写所有已绑定文件中的常驻区块；每次渲染都重新读取 `bindings.json`；结果未变不写。
 
 ### 索引重建
 
@@ -90,7 +91,7 @@ flowchart LR
 ## 5. 进程与传输
 
 - `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权。
-- MCP 端点挂载于 `/mcp`，使用 SDK 默认的无状态模式；服务端说明按连接现场生成。
+- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）；端口被占用时 `McpHost` 不启动，由 CLI 报告。
 - 管理 API 挂载于 `/api`，供 `status`、`reindex`、`backup`、`restore` 使用，将来的 Web UI 也走这里。
 
 ## 6. 外部依赖

@@ -18,6 +18,12 @@ public enum TacitError
     /// <summary><c>rules.md</c> breaks its limits.</summary>
     RulesInvalid,
 
+    /// <summary>A context file's resident block markers are incomplete or repeated.</summary>
+    MarkersBroken,
+
+    /// <summary>A client's MCP config cannot be read as JSON.</summary>
+    ClientConfigInvalid,
+
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,
 }

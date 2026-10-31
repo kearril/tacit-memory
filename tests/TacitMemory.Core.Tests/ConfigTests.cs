@@ -2,13 +2,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed class ConfigTests : IDisposable
 {
-    private const string Models = """
-        models:
-          embedding: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-embedding-0.6b }
-          reranker: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-reranker-0.6b }
-          decision: { endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKeyEnv: JEV_KEY }
-
-        """;
+    private const string Models = TestHome.Models;
 
     private readonly TestHome _home = new();
 

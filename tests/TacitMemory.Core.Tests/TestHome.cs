@@ -26,6 +26,22 @@ internal sealed class TestHome : IDisposable
     public Tacit Tacit(string uiCulture = "zh-CN") =>
         new(new TacitOptions { TacitHome = TacitHome, UserHome = UserHome, UiCulture = CultureInfo.GetCultureInfo(uiCulture) });
 
+    /// <summary>A <c>models</c> section that passes validation.</summary>
+    public const string Models = """
+        models:
+          embedding: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-embedding-0.6b }
+          reranker: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-reranker-0.6b }
+          decision: { endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKeyEnv: JEV_KEY }
+
+        """;
+
+    /// <summary>Runs <c>init</c> in Chinese and replaces the config with one that loads.</summary>
+    public void InitReady(string extraConfig = "")
+    {
+        Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh }).GetAwaiter().GetResult();
+        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), (Models + extraConfig).ReplaceLineEndings("\n"));
+    }
+
     /// <summary>Runs <c>git</c> in <paramref name="directory"/> and returns its standard output.</summary>
     public static string Git(string directory, params string[] args)
     {
