@@ -10,15 +10,22 @@ namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
 /// The <c>recall</c> tool: reads one page by ID, or searches pages by full text and by vector, merges the two with
-/// reciprocal rank fusion and returns the best sections, merged per page. It never changes a file.
+/// reciprocal rank fusion, reranks the merged units and returns the best sections, merged per page. It never changes a file.
 /// </summary>
-internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools pages, EmbeddingModel embedding, VectorSync vectors)
+internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
 {
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";
 
     public const string EmbeddingDown =
         "Note: the embedding model is unavailable, so these results come from full-text search only and may miss differently worded memories.";
+
+    /// <summary>Added when the reranker cannot score; the fusion order is kept and no minimum score applies.</summary>
+    public const string RerankerDown =
+        "Note: the reranker model is unavailable, so these results keep the fusion order and no minimum score applies.";
+
+    /// <summary>The minimum rerank score when the config sets none; units scored below it are not shown.</summary>
+    private const double DefaultMinRerankScore = 0.001;
 
     /// <summary>How many sections a page that matched only on its title or aliases shows.</summary>
     private const int PageLevelSections = 2;
@@ -69,7 +76,8 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
                 vectors.FillInBackground();
         }
 
-        var text = Format(Fuse([fullText, nearest], candidates));
+        var ranked = await RerankAsync(request.Query!, Fuse([fullText, nearest], candidates), notes, cancellationToken);
+        var text = Format(ranked);
         return ToolText.Ok(notes.Count == 0 ? text : text + "\n\n" + string.Join('\n', notes));
     }
 
@@ -84,6 +92,29 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
         }
 
         return scores.OrderByDescending(score => score.Value).Select(score => score.Key).Take(limit).ToList();
+    }
+
+    /// <summary>
+    /// Orders the fused units by the reranker's score and drops those under the minimum score. When the reranker
+    /// cannot score, the fusion order stays and nothing is dropped.
+    /// </summary>
+    private async Task<IReadOnlyList<IndexHit>> RerankAsync(
+        string query, IReadOnlyList<IndexHit> units, List<string> notes, CancellationToken cancellationToken)
+    {
+        var scores = await reranker.ScoreAsync(query, units.Select(unit => unit.Text).ToList(), cancellationToken);
+        if (scores is null)
+        {
+            notes.Add(RerankerDown);
+            return units;
+        }
+
+        var floor = config.Retrieval.MinRerankScore ?? DefaultMinRerankScore;
+        return units
+            .Select((unit, index) => (Unit: unit, Score: scores[index]))
+            .Where(scored => scored.Score >= floor)
+            .OrderByDescending(scored => scored.Score)
+            .Select(scored => scored.Unit)
+            .ToList();
     }
 
     private string Format(IReadOnlyList<IndexHit> hits)

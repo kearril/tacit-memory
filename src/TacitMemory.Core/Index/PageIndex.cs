@@ -10,7 +10,8 @@ namespace TacitMemory.Core.Index;
 
 /// <summary>A unit of the index that matched a query: a page section, or the page's title and aliases.</summary>
 /// <param name="Section">The section name; <c>null</c> for the title and aliases.</param>
-internal sealed record IndexHit(string PageId, string? Section);
+/// <param name="Text">The indexed text of the unit: the section name and body, or the title and aliases.</param>
+internal sealed record IndexHit(string PageId, string? Section, string Text);
 
 /// <summary>Filters applied before matching; dates are inclusive and compared with the page's first and last dates.</summary>
 internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To);
@@ -116,7 +117,7 @@ internal sealed class PageIndex : IDisposable
             if (match is not null)
             {
                 return _connection.Query<IndexHit>($"""
-                    SELECT u.page_id AS PageId, u.section AS Section
+                    SELECT u.page_id AS PageId, u.section AS Section, u.raw AS Text
                     FROM units_fts JOIN units u ON u.id = units_fts.rowid JOIN pages p ON p.id = u.page_id
                     WHERE units_fts MATCH @match AND {Filters}
                     ORDER BY bm25(units_fts) LIMIT @limit
@@ -127,7 +128,7 @@ internal sealed class PageIndex : IDisposable
             foreach (var character in IndexText.SingleCharacters(query))
             {
                 hits.AddRange(_connection.Query<IndexHit>($"""
-                    SELECT u.page_id AS PageId, u.section AS Section
+                    SELECT u.page_id AS PageId, u.section AS Section, u.raw AS Text
                     FROM units u JOIN pages p ON p.id = u.page_id
                     WHERE instr(u.raw, @character) > 0 AND {Filters}
                     ORDER BY p.last DESC, u.page_id, u.ordinal LIMIT @limit
@@ -149,7 +150,7 @@ internal sealed class PageIndex : IDisposable
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
             return _connection.Query<IndexHit>($"""
-                SELECT u.page_id AS PageId, u.section AS Section
+                SELECT u.page_id AS PageId, u.section AS Section, u.raw AS Text
                 FROM units_vec v JOIN units u ON u.id = v.rowid JOIN pages p ON p.id = u.page_id
                 WHERE {Filters}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
