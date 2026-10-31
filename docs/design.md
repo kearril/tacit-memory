@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-让 Agent 像一个可靠的老朋友：记得用户的喜好与偏好，记得用户最近在做什么，提起具体的事时能想起细节；不记得时直说，不编造。
+让 Agent 像一个可靠的老朋友：记得用户的偏好与习惯，记得用户最近在做什么，提起具体的事时能想起细节；不记得时直说，不编造。
 
 | 场景 | 用户说 | 期望的反应 | 依靠 |
 | :--- | :--- | :--- | :--- |
@@ -38,13 +38,13 @@
 | :--- | :--- |
 | 嵌入模型 | 生成向量，用于检索召回与判断前的近邻筛选 |
 | reranker | 对检索候选精排，并按分数阈值过滤 |
-| 决策模型 | 回答结构化判断（选择、打分、真伪），返回各选项概率 |
+| 决策模型 | 回答结构化判断，题型为选择、打分、真伪，返回各选项概率 |
 
-三者均为必需配置。决策模型接口与具体模型无关，只包含三种判断；首个实现为 TypeSafe Jev 的原生决策接口。发给决策模型的问题一律使用英文，被判断的内容保持原文。
+三者均为必需配置。决策模型接口与具体模型无关，只包含三种题型；首个实现为 TypeSafe Jev 的原生决策接口。发给决策模型的问题一律使用英文，被判断的内容保持原文。
 
 ### 判断
 
-| 判断 | 类型 | 确定时 | 拿不准时 |
+| 判断 | 题型 | 确定时 | 拿不准时 |
 | :--- | :--- | :--- | :--- |
 | 新画像候选与已有候选或拒绝列表中的某条是否同一偏好 | 选择 | 并入该候选；命中拒绝列表则不记录并告知 | 新建候选 |
 | 新建细节页与同项目已有页是否同一件事 | 选择 | 拒绝新建，列出该页 | 允许新建，留待体检 |
@@ -54,12 +54,12 @@
 
 - 选择题的候选来自嵌入模型的近邻，最多 10 个选项（含"都不是"）。
 - 服务只使用模型返回的概率，自行计算：选择题取最高概率与它和第二名的差，真伪题取为真的概率，打分题取期望与标准差。
-- 每种判断在配置中设上下两个阈值，划出"确定 / 拿不准 / 否定"三档。拿不准的情况不自动处理，由体检重新发现。
+- 每个判断在配置中设上下两个阈值，划出"确定 / 拿不准 / 否定"三档。拿不准的情况不自动处理，由体检重新发现。
 - 凭据检测先用内置正则匹配常见格式（`sk-`、`ghp_`、`AKIA`、私钥块、`password=`、长 base64 等），命中即拒绝；未命中再交决策模型。被拒绝时指出可疑片段，主会话确认无凭据后可带 `confirm_no_secret` 重新提交。
 
 ### 降级
 
-辅助模型不可用时不拒绝写入：
+辅助模型不可用时，除凭据检测外不拒绝写入：
 
 | 不可用 | 写入 | 检索 |
 | :--- | :--- | :--- |
@@ -67,7 +67,7 @@
 | reranker | 不受影响 | 按合并顺序返回，不精排 |
 | 决策模型 | 所有判断按"拿不准"处理；凭据检测仅凭正则，未命中时仍须主会话确认 | 不受影响 |
 
-降级时返回结果末尾注明；启动时连不上任一模型不阻止启动，但在服务端说明与 `tacit status` 中提示。
+降级时返回结果末尾注明；启动时连不上任一模型不阻止启动，但在服务端说明与 `tacit status` 中提示。嵌入模型不可用时，沿用索引中记录的向量维度，恢复后再校验。
 
 ## 5. 存储
 
@@ -97,7 +97,8 @@
 
 | 文件 | 一条 |
 | :--- | :--- |
-| `persona.md`、`recent.md` | 一个顶层列表项 |
+| `persona.md` | 一个顶层列表项 |
+| `recent.md` | 一个顶层列表项；近期主线整体另有一个版本短码，用于整体改写 |
 | `recent/YYYY-MM.md` | 日期标题下的一个列表项 |
 | `candidates.md` | 一个三级标题及其出现记录 |
 | 细节页 | 一个小节，以"页面标识 + 小节名"指代 |
@@ -283,7 +284,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 流程：
 
 1. 按项目与日期筛选；
-2. 全文检索（FTS5，BM25）与向量检索（余弦）各取前 30 条。全文检索中，中文切成相邻两字一组，英文单词与文件名保持完整，单字查询退回子串匹配。向量单位为：每个小节、每页的 `title + aliases`、每条活动；
+2. 全文检索（FTS5，BM25）与向量检索（余弦）各取前 30 条。全文检索中，中文切成相邻两字一组；英文与文件名按 `unicode61` 规则在标点处切分，查询以短语匹配，`env.ps1`、`UTF-8` 这类写法仍可命中；单字查询退回子串匹配。向量单位为：每个小节、每页的 `title + aliases`、每条活动；
 3. 用倒数排名融合（RRF）合并，取前 30 条交 reranker；
 4. 丢弃低于分数阈值的结果，返回前 5 条（均可配置）；一条不剩时明确返回"没有相关记忆"。
 
@@ -295,7 +296,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 | 通道 | 内容 | 何时更新 |
 | :--- | :--- | :--- |
-| 常驻区块 | 画像 | 服务启动时；画像变化时 |
+| 常驻区块 | 画像 | 服务启动时；绑定时；画像变化时 |
 | 服务端说明 | 记忆规则、语言规范、近期摘要、已有项目、体检提示 | 客户端每次连接时现场生成 |
 
 两者都在下一次会话生效，正在进行的会话不会重新加载。
@@ -306,10 +307,11 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 外壳说明（英文）表达：这是记忆，不是配置；写下时准确，但可能有缺漏或过时；项目指令与用户当前消息优先；冲突时听用户的并提出更新记忆；像了解用户的同事那样自然运用，不声明来源，只在与任务相关时提起具体条目，不相关的条目忽略。
 - 四节各有一句引导：红线分量最重，除非用户在本次对话中解除；协作规则默认照做；偏好是描述而非命令，需结合任务权衡；档案在有助于回答时使用。
 - 渲染时去掉来源注释；节标题使用英文，条目保持记忆语言。
+- 每次渲染都重新读取 `bindings.json`，因此运行中的服务能感知新的绑定；`connect` 在绑定时立即渲染一次。
 
 ### 服务端说明
 
-- 总长不超过 4000 字符，超出时服务拒绝启动。
+- 总长不超过 4000 字符。记忆规则与 `rules.md` 等固定部分在启动时校验，超过 2500 字符拒绝启动；生成时若总长超限，依次截断已有项目列表与最早的活动条目，不截断记忆规则。
 - 记忆规则要点：
   - **何时检索**：用户提到过去的事，或提到上下文中没有的人名、项目名、专有名词；开始处理某个项目的任务前按项目检索一次。
   - **何时写入**：按值得记标准当场写入。
@@ -352,15 +354,15 @@ related: [my-app/backup-script, _topics/pgroonga]
 | `write_page` | `create` | `page`、`title`、`aliases`、`sections`；可选 `related` |
 | | `upsert_section` | `page`、`section`、`body`；替换时加 `hash` |
 | | `delete_section` | `page`、`section`、`hash` |
-| | `update_header` | `page`；`title`、`addAliases`、`related` 至少一项 |
+| | `update_header` | `page`；`title`、`add_aliases`、`related` 至少一项 |
 | `write_recent` | `add_activity` | `text`；可选 `project`、`source`、`replaces` |
-| | `update_mainline` | `items`、`hash` |
-| `write_persona` | `add` | `section`、`text`、`source` |
+| | `update_mainline` | `items`、`hash`（近期主线的版本短码） |
+| `write_persona` | `add` | `persona_section`、`text`、`source` |
 | | `replace` | `hash`、`text`、`source` |
 | | `delete` | `hash` |
-| | `propose` | `section`、`text`、`quote` |
+| | `propose` | `persona_section`、`text`、`quote` |
 
-- `section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`。写入凭据检测未通过时，可加 `confirm_no_secret` 重新提交。
+- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时，可加 `confirm_no_secret` 重新提交。
 - 参数结构扁平，由服务按 `op` 校验。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 - 返回 Markdown 风格的纯文本，不返回结构化数据。
@@ -412,7 +414,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 server:
   port: 18888
 memory:
-  path: ~/.tacit/memory
+  path: ~/.tacit/memory       # 默认为 $TACIT_HOME/memory
 language: zh
 
 models:                       # 必填，无默认值
@@ -421,7 +423,7 @@ models:                       # 必填，无默认值
   decision:  { endpoint: …, model: …, apiKey: … }   # 或 apiKeyEnv: <环境变量名>，二选一
 
 limits:
-  persona: { redLines: 5, rules: 20, preferences: 15, profile: 10 }
+  persona: { redLines: 5, workingRules: 20, preferences: 15, profile: 10 }
   itemLength: 100
   mainline: 5
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
@@ -456,7 +458,8 @@ backup: { keep: 7, remote: … }
 | `tacit backup [--to <目录>] [--push]` | 立即备份 | 是 |
 | `tacit restore <文件> [--config] [--yes]` | 从备份恢复 | 是 |
 
-经过验证的客户端为 omp 与 Claude Code。
+- `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect`、`disconnect` 只改客户端文件与 `bindings.json`。
+- 首批适配 omp 与 Claude Code：先实现并验证 omp，Claude Code 随后。
 
 ## 13. 不做的事（v1）
 

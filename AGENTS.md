@@ -18,6 +18,6 @@
 
 ## 2. Agent 开发与代码规范
 
-- **深模块边界**：`TacitMemory.Core` 仅公开核心门面接口与契约类型，内部实现保持 `internal`；`TacitMemory.Mcp` 与 `TacitMemory.Cli` 仅通过 `Core` 的公开接口交互。
+- **深模块边界**：`TacitMemory.Core` 仅公开核心门面接口与契约类型，内部实现保持 `internal`；`TacitMemory.Mcp` 与 `TacitMemory.Cli` 只调用 `Core` 的公开接口，`Cli` 另外引用 `Mcp` 仅用于挂载端点。
 - **语言约定**：代码注释使用英文；仓库文档（`docs/`、`GLOSSARY.md`）使用中文。
 - **提交规范**：遵循 **Conventional Commits**（`<type>(<scope>): <summary>`，如 `feat:`、`fix:`、`refactor:`、`test:`、`docs:`、`build:`）。
