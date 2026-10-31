@@ -84,6 +84,9 @@ internal static class Messages
         "{0} has comments that rewriting would lose, so it was left alone. Add this under mcpServers by hand: \"tacit\": {1}");
     public static readonly Localized RenderFailed = new("渲染常驻区块失败：{0}", "Rendering the resident blocks failed: {0}");
     public static readonly Localized IndexSyncFailed = new("同步检索索引失败：{0}", "Syncing the search index failed: {0}");
+    public static readonly Localized VectorExtensionInvalid = new(
+        "向量检索扩展 {0} 缺失或不是 sqlite-vec {1} 的官方发布文件，为安全起见不加载，常驻服务无法启动。请重新安装 TacitMemory。",
+        "The vector search extension {0} is missing or is not the official sqlite-vec {1} release, so it is not loaded and the memory service cannot start. Reinstall TacitMemory.");
 
     public static readonly Localized ServiceListening = new(
         "常驻服务已启动：{0}（Ctrl+C 停止）",

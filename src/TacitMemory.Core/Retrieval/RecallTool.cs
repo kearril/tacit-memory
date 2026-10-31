@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Index;
+using TacitMemory.Core.Models;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Tools;
@@ -8,18 +9,24 @@ using TacitMemory.Core.Tools;
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The <c>recall</c> tool: reads one page by ID, or searches pages and returns the best sections, merged per page.
-/// It never changes a file.
+/// The <c>recall</c> tool: reads one page by ID, or searches pages by full text and by vector, merges the two with
+/// reciprocal rank fusion and returns the best sections, merged per page. It never changes a file.
 /// </summary>
-internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools pages)
+internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools pages, EmbeddingModel embedding, VectorSync vectors)
 {
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";
 
+    public const string EmbeddingDown =
+        "Note: the embedding model is unavailable, so these results come from full-text search only and may miss differently worded memories.";
+
     /// <summary>How many sections a page that matched only on its title or aliases shows.</summary>
     private const int PageLevelSections = 2;
 
-    public ToolResult Run(RecallRequest request)
+    /// <summary>The usual constant of reciprocal rank fusion; it damps the weight of the very top ranks.</summary>
+    private const int RrfK = 60;
+
+    public async Task<ToolResult> RunAsync(RecallRequest request, CancellationToken cancellationToken)
     {
         var hasQuery = !string.IsNullOrWhiteSpace(request.Query);
         var hasPage = !string.IsNullOrWhiteSpace(request.Page);
@@ -44,8 +51,39 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
             return ToolText.Ok(NoMemory);
 
         var project = string.IsNullOrWhiteSpace(request.Project) ? null : request.Project.Trim().ToLowerInvariant();
-        var hits = index.Search(request.Query!, new IndexFilter(project, from, to), config.Retrieval.Candidates);
-        return ToolText.Ok(Format(hits));
+        var filter = new IndexFilter(project, from, to);
+        var candidates = config.Retrieval.Candidates;
+        var fullText = index.Search(request.Query!, filter, candidates);
+
+        IReadOnlyList<IndexHit> nearest = [];
+        var notes = new List<string>();
+        var queryVector = await embedding.EmbedAsync([request.Query!], cancellationToken);
+        if (queryVector is null)
+            notes.Add(EmbeddingDown);
+        else
+        {
+            if (index.Dimension is { } dimension && dimension != queryVector[0].Length)
+                index.ResetVectors();
+            nearest = index.SearchVector(queryVector[0], filter, candidates);
+            if (index.PendingUnits(1).Count > 0)
+                vectors.FillInBackground();
+        }
+
+        var text = Format(Fuse([fullText, nearest], candidates));
+        return ToolText.Ok(notes.Count == 0 ? text : text + "\n\n" + string.Join('\n', notes));
+    }
+
+    /// <summary>Reciprocal rank fusion: each list adds 1 / (k + rank) to a unit's score.</summary>
+    private static List<IndexHit> Fuse(IReadOnlyList<IReadOnlyList<IndexHit>> lists, int limit)
+    {
+        var scores = new Dictionary<IndexHit, double>();
+        foreach (var list in lists)
+        {
+            for (var rank = 0; rank < list.Count; rank++)
+                scores[list[rank]] = scores.GetValueOrDefault(list[rank]) + 1.0 / (RrfK + rank + 1);
+        }
+
+        return scores.OrderByDescending(score => score.Value).Select(score => score.Key).Take(limit).ToList();
     }
 
     private string Format(IReadOnlyList<IndexHit> hits)

@@ -156,7 +156,7 @@ public sealed class RecallTests : IDisposable
         var result = await Recall("天气预报");
 
         Assert.False(result.IsError);
-        Assert.Equal("No relevant memory.", result.Text);
+        Assert.StartsWith("No relevant memory.", result.Text);
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public sealed class RecallTests : IDisposable
         await Eventually(async () => (await Recall("续期失败")).Text.Contains("tacit-memory/cert", StringComparison.Ordinal));
 
         File.Delete(PagePath("tacit-memory", "cert"));
-        await Eventually(async () => (await Recall("续期失败")).Text == "No relevant memory.");
+        await Eventually(async () => (await Recall("续期失败")).Text.StartsWith("No relevant memory.", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class RecallTests : IDisposable
         File.Delete(PagePath("tacit-memory", "db-upgrade"));
         Hand("tacit-memory", "cert", "证书", "## 现象\n证书续期失败。");
 
-        Assert.Equal("No relevant memory.", (await Recall("数据库升级")).Text);
+        Assert.StartsWith("No relevant memory.", (await Recall("数据库升级")).Text);
         Assert.Contains("tacit-memory/cert", (await Recall("续期失败")).Text);
     }
 

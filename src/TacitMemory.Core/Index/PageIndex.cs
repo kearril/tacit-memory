@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -13,28 +15,44 @@ internal sealed record IndexHit(string PageId, string? Section);
 /// <summary>Filters applied before matching; dates are inclusive and compared with the page's first and last dates.</summary>
 internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To);
 
+/// <summary>A unit that has no vector yet, with the text to embed.</summary>
+internal sealed record PendingUnit(long Id, string Text);
+
 /// <summary>
 /// The derived index of detail pages in <c>.cache/index.db</c>: one row per page with its file hash, one unit per
-/// section and one for the title and aliases, and an FTS5 table over the units. It can be deleted at any time and is
-/// rebuilt from the Markdown files. One connection, used by one caller at a time.
+/// section and one for the title and aliases, an FTS5 table over the units and a <c>vec0</c> table of their vectors.
+/// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
 internal sealed class PageIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "1";
+    private const string SchemaVersion = "2";
+
+    private const string Filters = """
+        (@project IS NULL OR p.project = @project)
+        AND (@from IS NULL OR (p.last IS NOT NULL AND p.last >= @from))
+        AND (@to IS NULL OR (p.first IS NOT NULL AND p.first <= @to))
+        """;
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
     private readonly Lock _gate = new();
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
-    private SqliteConnection _connection;
+    private readonly SqliteConnection _connection;
 
-    public PageIndex(string memoryPath)
+    /// <param name="embeddingModel">The configured embedding model; vectors made by another model are dropped.</param>
+    public PageIndex(string memoryPath, string embeddingModel, MemoryLanguage language)
     {
         _memoryPath = memoryPath;
         _databasePath = Path.Combine(memoryPath, ".cache", "index.db");
         Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
+        VectorExtension.Verify(language);
         _connection = OpenCurrent();
+        if (Meta("embedding_model") != embeddingModel)
+        {
+            DropVectors();
+            SetMeta("embedding_model", embeddingModel);
+        }
     }
 
     /// <summary>Page files that are not UTF-8 and so are not indexed, relative to the memory repository.</summary>
@@ -44,6 +62,16 @@ internal sealed class PageIndex : IDisposable
         {
             lock (_gate)
                 return _skipped.Order(StringComparer.Ordinal).ToList();
+        }
+    }
+
+    /// <summary>The length of the stored vectors; <c>null</c> before the embedding model has answered once.</summary>
+    public int? Dimension
+    {
+        get
+        {
+            lock (_gate)
+                return int.TryParse(Meta("dimension"), CultureInfo.InvariantCulture, out var dimension) ? dimension : null;
         }
     }
 
@@ -79,51 +107,105 @@ internal sealed class PageIndex : IDisposable
         }
     }
 
-    /// <summary>The best <paramref name="limit"/> units for <paramref name="query"/>, best first.</summary>
+    /// <summary>The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first.</summary>
     public IReadOnlyList<IndexHit> Search(string query, IndexFilter filter, int limit)
     {
-        var parameters = new
-        {
-            project = filter.Project,
-            from = filter.From?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
-            to = filter.To?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
-            limit,
-            match = IndexText.ForQuery(query),
-            patterns = IndexText.SingleCharacters(query).Select(c => $"%{c}%").ToList(),
-        };
-        const string Filters = """
-            (@project IS NULL OR p.project = @project)
-            AND (@from IS NULL OR (p.last IS NOT NULL AND p.last >= @from))
-            AND (@to IS NULL OR (p.first IS NOT NULL AND p.first <= @to))
-            """;
-
+        var match = IndexText.ForQuery(query);
         lock (_gate)
         {
-            if (parameters.match is not null)
+            if (match is not null)
             {
                 return _connection.Query<IndexHit>($"""
                     SELECT u.page_id AS PageId, u.section AS Section
                     FROM units_fts JOIN units u ON u.id = units_fts.rowid JOIN pages p ON p.id = u.page_id
                     WHERE units_fts MATCH @match AND {Filters}
                     ORDER BY bm25(units_fts) LIMIT @limit
-                    """, parameters).ToList();
+                    """, Parameters(filter, limit, new { match })).ToList();
             }
 
-            if (parameters.patterns.Count == 0)
-                return [];
             var hits = new List<IndexHit>();
-            foreach (var pattern in parameters.patterns)
+            foreach (var character in IndexText.SingleCharacters(query))
             {
                 hits.AddRange(_connection.Query<IndexHit>($"""
                     SELECT u.page_id AS PageId, u.section AS Section
                     FROM units u JOIN pages p ON p.id = u.page_id
                     WHERE instr(u.raw, @character) > 0 AND {Filters}
                     ORDER BY p.last DESC, u.page_id, u.ordinal LIMIT @limit
-                    """, new { parameters.project, parameters.from, parameters.to, parameters.limit, character = pattern.Trim('%') }));
+                    """, Parameters(filter, limit, new { character })));
             }
 
             return hits.Distinct().Take(limit).ToList();
         }
+    }
+
+    /// <summary>
+    /// The <paramref name="limit"/> units nearest to <paramref name="vector"/> by cosine distance, best first; empty
+    /// when no vectors of that length are stored.
+    /// </summary>
+    public IReadOnlyList<IndexHit> SearchVector(float[] vector, IndexFilter filter, int limit)
+    {
+        lock (_gate)
+        {
+            if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
+                return [];
+            return _connection.Query<IndexHit>($"""
+                SELECT u.page_id AS PageId, u.section AS Section
+                FROM units_vec v JOIN units u ON u.id = v.rowid JOIN pages p ON p.id = u.page_id
+                WHERE {Filters}
+                ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
+                """, Parameters(filter, limit, new { vector = Blob(vector) })).ToList();
+        }
+    }
+
+    /// <summary>Up to <paramref name="limit"/> units that still need a vector.</summary>
+    public IReadOnlyList<PendingUnit> PendingUnits(int limit)
+    {
+        lock (_gate)
+        {
+            var missing = HasVectorTable()
+                ? "SELECT id AS Id, raw AS Text FROM units WHERE id NOT IN (SELECT rowid FROM units_vec) ORDER BY id LIMIT @limit"
+                : "SELECT id AS Id, raw AS Text FROM units ORDER BY id LIMIT @limit";
+            return _connection.Query<PendingUnit>(missing, new { limit }).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Stores vectors for units that still exist with the same text. Vectors of another length than the stored ones
+    /// mean the model changed: every stored vector is dropped and the new length recorded.
+    /// </summary>
+    public void StoreVectors(IReadOnlyList<(PendingUnit Unit, float[] Vector)> vectors)
+    {
+        if (vectors.Count == 0)
+            return;
+        lock (_gate)
+        {
+            var dimension = vectors[0].Vector.Length;
+            if (Meta("dimension") != dimension.ToString(CultureInfo.InvariantCulture))
+            {
+                DropVectors();
+                _connection.Execute($"CREATE VIRTUAL TABLE units_vec USING vec0 (embedding float[{dimension}])");
+                SetMeta("dimension", dimension.ToString(CultureInfo.InvariantCulture));
+            }
+
+            using var transaction = _connection.BeginTransaction();
+            foreach (var (unit, vector) in vectors)
+            {
+                var current = _connection.QuerySingleOrDefault<string>("SELECT raw FROM units WHERE id = @Id", unit, transaction);
+                if (current != unit.Text)
+                    continue;
+                _connection.Execute("DELETE FROM units_vec WHERE rowid = @Id", unit, transaction);
+                _connection.Execute("INSERT INTO units_vec (rowid, embedding) VALUES (@id, @vector)", new { id = unit.Id, vector = Blob(vector) }, transaction);
+            }
+
+            transaction.Commit();
+        }
+    }
+
+    /// <summary>Drops every stored vector, for example because the embedding model now answers with another length.</summary>
+    public void ResetVectors()
+    {
+        lock (_gate)
+            DropVectors();
     }
 
     public void Dispose()
@@ -131,6 +213,19 @@ internal sealed class PageIndex : IDisposable
         lock (_gate)
             _connection.Dispose();
     }
+
+    private static object Parameters(IndexFilter filter, int limit, object extra)
+    {
+        var parameters = new DynamicParameters(extra);
+        parameters.Add("project", filter.Project);
+        parameters.Add("from", filter.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        parameters.Add("to", filter.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        parameters.Add("limit", limit);
+        return parameters;
+    }
+
+    /// <summary>A vector as <c>vec0</c> reads it: little-endian float32s.</summary>
+    private static byte[] Blob(float[] vector) => MemoryMarshal.AsBytes(vector.AsSpan()).ToArray();
 
     private void Sync(PageId id, string fullPath, string? knownHash)
     {
@@ -159,8 +254,8 @@ internal sealed class PageIndex : IDisposable
                 project = id.Project,
                 path = id.RelativePath,
                 hash,
-                first = header.First?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
-                last = header.Last?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                first = header.First?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                last = header.Last?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             },
             transaction);
         AddUnit(id, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), transaction);
@@ -190,9 +285,24 @@ internal sealed class PageIndex : IDisposable
         if (page is null)
             return;
         _connection.Execute("DELETE FROM units_fts WHERE rowid IN (SELECT id FROM units WHERE page_id = @page)", new { page }, transaction);
+        if (HasVectorTable(transaction))
+            _connection.Execute("DELETE FROM units_vec WHERE rowid IN (SELECT id FROM units WHERE page_id = @page)", new { page }, transaction);
         _connection.Execute("DELETE FROM units WHERE page_id = @page", new { page }, transaction);
         _connection.Execute("DELETE FROM pages WHERE id = @page", new { page }, transaction);
     }
+
+    private bool HasVectorTable(SqliteTransaction? transaction = null) =>
+        _connection.ExecuteScalar<long>("SELECT count(*) FROM sqlite_master WHERE name = 'units_vec'", transaction: transaction) > 0;
+
+    private void DropVectors()
+    {
+        _connection.Execute("DROP TABLE IF EXISTS units_vec; DELETE FROM meta WHERE key = 'dimension';");
+    }
+
+    private string? Meta(string key) => _connection.QuerySingleOrDefault<string?>("SELECT value FROM meta WHERE key = @key", new { key });
+
+    private void SetMeta(string key, string value) =>
+        _connection.Execute("INSERT INTO meta (key, value) VALUES (@key, @value) ON CONFLICT (key) DO UPDATE SET value = excluded.value", new { key, value });
 
     /// <summary>Page files named as page IDs: <c>pages/&lt;project&gt;/&lt;slug&gt;.md</c>. Other files are not pages.</summary>
     private IEnumerable<(PageId Id, string FullPath)> PageFiles()
@@ -248,6 +358,8 @@ internal sealed class PageIndex : IDisposable
         connection.Open();
         try
         {
+            connection.EnableExtensions();
+            connection.LoadExtension(VectorExtension.FilePath);
             connection.Execute("PRAGMA journal_mode = WAL;");
             return connection;
         }
