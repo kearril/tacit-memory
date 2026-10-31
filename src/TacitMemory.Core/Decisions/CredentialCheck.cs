@@ -16,7 +16,7 @@ internal sealed record WrittenText(string Where, string Text);
 internal sealed partial class CredentialCheck(TacitConfig config, IDecisionModel decision)
 {
     private const string Instructions =
-        "The state is a Chinese text that may be stored in a personal memory. Does it contain a real credential or secret "
+        "The state is text that may be stored in a personal memory. Does it contain a real credential or secret "
         + "value (password, API key, access token, session value, private key, recovery code, or similar) that must not be "
         + "stored? Placeholders, example values, hashes, commit SHAs, UUIDs, identifiers and descriptions of password "
         + "processes are not secrets. Answer high if a real secret is present, low otherwise.";

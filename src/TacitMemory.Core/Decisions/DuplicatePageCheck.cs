@@ -28,15 +28,17 @@ internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, Em
     private const string None = "none";
 
     private const string Instructions =
-        "The state is a new note for a personal memory. Each option is an existing note of the same project. "
-        + "Choose the option that describes exactly the same issue, bug, decision or subject as the new note. "
+        "The state is a new page for a personal memory. Each option is an existing page of the same project. "
+        + "Choose the option that describes exactly the same issue, bug, decision or subject as the new page. "
         + "If the options only share a product area or component but describe a different matter, choose the none option.";
 
-    private const string NoneText = "None of the existing notes describes the same matter as the new note.";
+    private const string NoneText = "None of the existing pages describes the same matter as the new page.";
 
     /// <summary>Longest description of one candidate.</summary>
     private const int OptionLength = 250;
 
+    /// <summary>Characters taken from the start of each section when summarizing a candidate page.</summary>
+    private const int SectionStartLength = 80;
     public async Task<DuplicateCheck> RunAsync(PageId id, PageHeader header, IReadOnlyList<PageSectionInput> sections, CancellationToken cancellationToken)
     {
         var vector = await embedding.EmbedAsync([string.Join('\n', [header.Title, .. header.Aliases])], cancellationToken);
@@ -85,14 +87,18 @@ internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, Em
         return text.ToString();
     }
 
-    /// <summary>One candidate page in a line: title, aliases and the start of its first section.</summary>
+    /// <summary>One candidate page in a line: title, aliases and the start of each section.</summary>
     private string? Describe(PageId page)
     {
         if (TextFile.Read(Path.Combine(config.MemoryPath, page.RelativePath)) is not { } read)
             return null;
         var document = PageDocument.Parse(read.Text, read.HasBom, page.Slug);
-        var first = document.Sections.Count > 0 ? document.Sections[0].Body.ReplaceLineEndings(" ") : "";
-        var text = $"Title: {document.Header.Title}; Aliases: {string.Join("; ", document.Header.Aliases)}; Summary: {first}";
+        var sections = string.Join("; ", document.Sections.Select(section =>
+        {
+            var body = section.Body.ReplaceLineEndings(" ").Trim();
+            return $"{section.Name}: {(body.Length <= SectionStartLength ? body : body[..SectionStartLength])}";
+        }));
+        var text = $"Title: {document.Header.Title}; Aliases: {string.Join("; ", document.Header.Aliases)}; Sections: {sections}";
         return text.Length <= OptionLength ? text : text[..OptionLength];
     }
 }

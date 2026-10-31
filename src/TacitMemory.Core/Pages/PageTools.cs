@@ -242,8 +242,8 @@ internal sealed class PageTools(
     private static string SectionBlock(PageSection section) => $"## {section.Name} [{section.Code}]\n{section.Body}";
 
     private static ToolResult BrokenHeader(PageId id) => ToolText.Refuse(
-        $"The header of page {id} cannot be read as YAML front matter, so the page is left alone.",
-        "Ask the user to fix the front matter at the top of the page, then try again.");
+        $"The header of page {id} cannot be read as a YAML header, so the page is left alone.",
+        "Ask the user to fix the YAML header at the top of the page, then try again.");
 
     /// <summary>The page with its dates set for a write today: last becomes today, and first stays or becomes today when unset.</summary>
     private PageDocument WithToday(PageDocument document)
@@ -390,7 +390,7 @@ internal sealed class PageTools(
         var text = new StringBuilder();
         text.Append($"# {id}: {header.Title}\n");
         if (document.HeaderBroken)
-            text.Append("Note: this page's header cannot be read as YAML front matter; the user must fix it before the page can be written.\n");
+            text.Append("Note: this page's header cannot be read as a YAML header; the user must fix it before the page can be written.\n");
         if (header.Aliases.Count > 0)
             text.Append($"Aliases: {string.Join("; ", header.Aliases)}\n");
         if (header.First is { } first && header.Last is { } last)

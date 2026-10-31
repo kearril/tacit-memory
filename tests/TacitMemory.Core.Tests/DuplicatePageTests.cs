@@ -109,7 +109,14 @@ public sealed class DuplicatePageTests : IDisposable
     [Fact]
     public async Task The_question_is_in_english_about_the_page_as_written_and_carries_the_key()
     {
-        await Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失");
+        await Service.WritePageAsync(new WritePageRequest
+        {
+            Op = "create",
+            Page = "tacit-memory/db-upgrade",
+            Title = "数据库升级后扩展丢失",
+            Aliases = ["数据库升级后扩展丢失的坑", "数据库升级后扩展丢失问题"],
+            Sections = [new("现象", "升级后中文搜索没有结果。"), new("解决", "重建扩展并重跑索引。")],
+        });
 
         await Create("tacit-memory/pg-search", "升级后搜不到中文", body: "PGroonga 没装。");
 
@@ -118,10 +125,12 @@ public sealed class DuplicatePageTests : IDisposable
         Assert.Equal("double-decision", body["model"]!.GetValue<string>());
         var question = body["questions"]!.AsObject().Single().Value!;
         Assert.Equal("choice", question["type"]!.GetValue<string>());
-        Assert.StartsWith("The state is a new note", question["instructions"]!.GetValue<string>());
+        Assert.StartsWith("The state is a new page", question["instructions"]!.GetValue<string>());
         Assert.Contains("Title: 升级后搜不到中文", body["state"]!.GetValue<string>());
         Assert.Contains("PGroonga 没装。", body["state"]!.GetValue<string>());
-        Assert.InRange(question["criteria"]!.AsObject().Count, 2, 10);
+        var criteria = question["criteria"]!.AsObject();
+        Assert.InRange(criteria.Count, 2, 10);
+        Assert.Contains("现象: 升级后中文搜索没有结果。; 解决: 重建扩展并重跑索引。", criteria["p1"]!.GetValue<string>());
     }
 
     [Fact]

@@ -74,57 +74,35 @@ public sealed class BackupTests : IDisposable
     [Fact]
     public async Task A_second_write_on_the_same_day_does_not_back_up_again()
     {
-        var clock = new MovableTime(new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.Zero));
-        var home = new TestHome();
-        try
-        {
-            home.InitReady();
-            using var service = new Tacit(new TacitOptions { TacitHome = home.TacitHome, UserHome = home.UserHome, Time = clock })
-                .OpenService(_ => { });
+        await _service.WritePageAsync(Create("tacit-memory/first"));
+        await _service.BackupCompletion;
 
-            await service.WritePageAsync(Create("tacit-memory/first"));
-            await service.BackupCompletion;
+        _home.Clock.Advance(TimeSpan.FromHours(8));
+        await _service.WritePageAsync(Create("tacit-memory/second"));
+        await _service.BackupCompletion;
 
-            clock.Set(new DateTimeOffset(2026, 11, 2, 18, 0, 0, TimeSpan.Zero));
-            await service.WritePageAsync(Create("tacit-memory/second"));
-            await service.BackupCompletion;
-
-            using var zip = ZipFile.OpenRead(BackupFor(home.TacitHome, Today));
-            using var manifestStream = zip.GetEntry("manifest.json")!.Open();
-            using var manifest = JsonDocument.Parse(manifestStream);
-            Assert.StartsWith("2026-11-02T10:00:00", manifest.RootElement.GetProperty("generatedAt").GetString(), StringComparison.Ordinal);
-        }
-        finally
-        {
-            home.Dispose();
-        }
+        using var zip = ZipFile.OpenRead(BackupFor(_home.TacitHome, Today));
+        using var manifestStream = zip.GetEntry("manifest.json")!.Open();
+        using var manifest = JsonDocument.Parse(manifestStream);
+        Assert.StartsWith("2026-11-02T10:00:00", manifest.RootElement.GetProperty("generatedAt").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Only_the_newest_keep_automatic_backups_are_kept()
     {
-        var clock = new MovableTime(new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.Zero));
-        var home = new TestHome();
-        try
-        {
-            home.InitReady("backup:\n  keep: 2\n");
-            using var service = new Tacit(new TacitOptions { TacitHome = home.TacitHome, UserHome = home.UserHome, Time = clock })
-                .OpenService(_ => { });
+        using var home = new TestHome();
+        home.InitReady("backup:\n  keep: 2\n");
+        using var service = home.Tacit().OpenService(_ => { });
 
-            for (var day = 0; day < 3; day++)
-            {
-                await service.WritePageAsync(Create($"tacit-memory/day-{day}"));
-                await service.BackupCompletion;
-                clock.AdvanceDays(1);
-            }
-
-            Assert.Equal(["auto-2026-11-03.zip", "auto-2026-11-04.zip"],
-                AutomaticBackups(Path.Combine(home.TacitHome, "backups")));
-        }
-        finally
+        for (var day = 0; day < 3; day++)
         {
-            home.Dispose();
+            await service.WritePageAsync(Create($"tacit-memory/day-{day}"));
+            await service.BackupCompletion;
+            home.Clock.Advance(TimeSpan.FromDays(1));
         }
+
+        Assert.Equal(["auto-2026-11-03.zip", "auto-2026-11-04.zip"],
+            AutomaticBackups(Path.Combine(home.TacitHome, "backups")));
     }
 
     [Fact]
@@ -183,19 +161,5 @@ public sealed class BackupTests : IDisposable
         Assert.Contains(_notices, notice => notice.Contains("自动备份失败", StringComparison.Ordinal));
         var recall = await _service.RecallAsync(new RecallRequest { Page = "tacit-memory/backup-fails" });
         Assert.False(recall.IsError);
-    }
-
-    /// <summary>A clock the test can move, so backups fall on chosen days and times.</summary>
-    private sealed class MovableTime(DateTimeOffset now) : TimeProvider
-    {
-        private DateTimeOffset _now = now;
-
-        public void AdvanceDays(int days) => _now = _now.AddDays(days);
-
-        public void Set(DateTimeOffset now) => _now = now;
-
-        public override DateTimeOffset GetUtcNow() => _now;
-
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 }

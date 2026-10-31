@@ -477,9 +477,9 @@ public sealed partial class PageTests : IDisposable
 
         Assert.True(section.IsError);
         Assert.Contains("cannot be read", section.Text);
-        Assert.Contains("\nNext step: Ask the user to fix the front matter", section.Text);
+        Assert.Contains("\nNext step: Ask the user to fix the YAML header", section.Text);
         Assert.True(header.IsError);
-        Assert.Contains("\nNext step: Ask the user to fix the front matter", header.Text);
+        Assert.Contains("\nNext step: Ask the user to fix the YAML header", header.Text);
         Assert.Equal(before, File.ReadAllText(path));
     }
 

@@ -6,7 +6,7 @@ using YamlDotNet.RepresentationModel;
 
 namespace TacitMemory.Core.Pages;
 
-/// <summary>The front matter of a page. Dates are written by the service; the rest by the agent.</summary>
+/// <summary>The YAML header of a page. Dates are written by the service; the rest by the agent.</summary>
 internal sealed record PageHeader(
     string Title, IReadOnlyList<string> Aliases, DateOnly? First, DateOnly? Last, IReadOnlyList<string> Related);
 
@@ -14,7 +14,7 @@ internal sealed record PageHeader(
 internal sealed record PageSection(string Name, string Body, string Code, int HeadingLine, int EndLine);
 
 /// <summary>
-/// A detail page read line by line: YAML front matter between <c>---</c> lines, then <c>##</c> sections. Anything else
+/// A detail page read line by line: YAML header between <c>---</c> lines, then <c>##</c> sections. Anything else
 /// in the file (text before the first section, deeper headings, fenced code) is kept as it is; edits replace whole
 /// lines only.
 /// </summary>
@@ -45,10 +45,10 @@ internal sealed partial class PageDocument
     /// <summary>The header; when <see cref="HeaderBroken"/>, a stand-in titled after the file.</summary>
     public PageHeader Header { get; }
 
-    /// <summary>The front matter is missing or is not a YAML mapping; the page is readable but not writable.</summary>
+    /// <summary>The header is missing or is not a YAML mapping; the page is readable but not writable.</summary>
     public bool HeaderBroken { get; }
 
-    /// <summary>The line after the closing <c>---</c>; 0 when there is no front matter.</summary>
+    /// <summary>The line after the closing <c>---</c>; 0 when there is no header.</summary>
     public int HeaderEndLine { get; }
 
     public IReadOnlyList<PageSection> Sections { get; }
