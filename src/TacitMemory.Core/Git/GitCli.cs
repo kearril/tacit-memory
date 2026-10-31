@@ -42,4 +42,14 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
             throw new TacitException(TacitError.GitFailed, Messages.GitFailed.Format(language, args[0], detail), e);
         }
     }
+
+    /// <summary>
+    /// Commits exactly <paramref name="files"/> (paths relative to the repository) with <paramref name="message"/>,
+    /// whatever else is staged.
+    /// </summary>
+    public async Task CommitAsync(string message, IReadOnlyList<string> files, CancellationToken cancellationToken)
+    {
+        await RunAsync(cancellationToken, ["add", "--", .. files]);
+        await RunAsync(cancellationToken, ["commit", "--quiet", "-m", message, "--", .. files]);
+    }
 }

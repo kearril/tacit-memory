@@ -14,6 +14,12 @@ public sealed record TacitOptions
     /// <summary>The system UI culture, used to pick the memory language when none is given.</summary>
     public CultureInfo UiCulture { get; init; } = CultureInfo.CurrentUICulture;
 
+    /// <summary>The clock; dates written into memory are its local date.</summary>
+    public TimeProvider Time { get; init; } = TimeProvider.System;
+
+    /// <summary>Today's date on this machine.</summary>
+    internal DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
+
     /// <summary>
     /// Options for this machine: <c>TACIT_HOME</c> from the environment variable of that name, otherwise
     /// <c>~/.tacit</c>.

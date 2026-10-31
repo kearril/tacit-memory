@@ -23,8 +23,17 @@ internal sealed class TestHome : IDisposable
 
     public string PathFor(string name) => Path.Combine(Root, name);
 
+    /// <summary>The date the test clock shows.</summary>
+    public static readonly DateOnly Today = new(2026, 11, 2);
+
     public Tacit Tacit(string uiCulture = "zh-CN") =>
-        new(new TacitOptions { TacitHome = TacitHome, UserHome = UserHome, UiCulture = CultureInfo.GetCultureInfo(uiCulture) });
+        new(new TacitOptions
+        {
+            TacitHome = TacitHome,
+            UserHome = UserHome,
+            UiCulture = CultureInfo.GetCultureInfo(uiCulture),
+            Time = new FixedTime(new DateTimeOffset(Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero)),
+        });
 
     /// <summary>A <c>models</c> section that passes validation.</summary>
     public const string Models = """
@@ -69,4 +78,12 @@ internal sealed class TestHome : IDisposable
             // Left for the system to clean up.
         }
     }
+}
+
+/// <summary>A clock stopped at one moment, in UTC.</summary>
+internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
+{
+    public override DateTimeOffset GetUtcNow() => now;
+
+    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
 }

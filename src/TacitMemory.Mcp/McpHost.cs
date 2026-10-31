@@ -31,6 +31,7 @@ public sealed class McpHost : IAsyncDisposable
         // A taken port is reported to the user in their language; the host's own error log would only repeat it.
         builder.Logging.AddFilter("Microsoft.Extensions.Hosting", LogLevel.None);
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, port));
+        builder.Services.AddSingleton(service);
         builder.Services.AddMcpServer(options => options.ServerInfo = new() { Name = "tacit", Version = Version })
             .WithHttpTransport(options =>
             {
@@ -43,9 +44,9 @@ public sealed class McpHost : IAsyncDisposable
                     return Task.CompletedTask;
                 };
             })
-            // No tools or prompts yet, but answer the lists anyway: omp asks for them regardless of the advertised
-            // capabilities and drops the server when the request fails.
-            .WithListToolsHandler((_, _) => ValueTask.FromResult(new ListToolsResult { Tools = [] }))
+            .WithTools<MemoryTools>()
+            // No prompts yet, but answer the list anyway: omp asks for it regardless of the advertised capabilities
+            // and drops the server when the request fails.
             .WithListPromptsHandler((_, _) => ValueTask.FromResult(new ListPromptsResult { Prompts = [] }));
 
         var app = builder.Build();

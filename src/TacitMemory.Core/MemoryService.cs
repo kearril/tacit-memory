@@ -1,13 +1,15 @@
 using TacitMemory.Core.Clients;
+using TacitMemory.Core.Pages;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core;
 
 /// <summary>
-/// The running memory service's state: the loaded config, the cached server instructions, and a watcher on the
-/// memory repository that re-renders the resident blocks when <c>persona.md</c> changes and refreshes the
-/// instructions when projects appear or disappear under <c>pages/</c>. Create it with <see cref="Tacit.OpenService"/>.
+/// The running memory service: the loaded config, the memory tools (writes run one at a time), the cached server
+/// instructions, and a watcher on the memory repository that re-renders the resident blocks when <c>persona.md</c>
+/// changes and refreshes the instructions when projects appear or disappear under <c>pages/</c>. Create it with
+/// <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -20,6 +22,8 @@ public sealed class MemoryService : IDisposable
     private readonly Timer _renderTimer;
     private readonly Lock _renderGate = new();
     private readonly Lock _instructionsGate = new();
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private readonly PageTools _pages;
     private string? _instructions;
     private volatile bool _disposed;
 
@@ -29,6 +33,7 @@ public sealed class MemoryService : IDisposable
         Config = config;
         _notice = notice;
         StartupRender = Binder.RenderAll(options, config);
+        _pages = new PageTools(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
@@ -62,12 +67,31 @@ public sealed class MemoryService : IDisposable
     public string PortInUseMessage() =>
         Messages.PortInUse.Format(Config.Language, Config.Port, Path.Combine(_options.TacitHome, "config.yaml"));
 
+    /// <summary>The <c>recall</c> tool: reads a page. Never changes a file.</summary>
+    public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_pages.Read(request));
+
+    /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
+    public async Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default)
+    {
+        await _writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await _pages.WriteAsync(request, cancellationToken);
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
     public void Dispose()
     {
         _disposed = true;
         _watcher.Dispose();
         lock (_renderGate)
             _renderTimer.Dispose();
+        _writeGate.Dispose();
     }
 
     private void OnChange(object sender, FileSystemEventArgs e)

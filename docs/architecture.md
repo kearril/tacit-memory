@@ -54,11 +54,11 @@ flowchart LR
 
 | 模块 | 职责 | 状态 |
 | :--- | :--- | :--- |
-| 门面 | 对外的唯一入口 `Tacit`；`OpenService` 返回 `MemoryService`，持有配置、服务端说明缓存与文件监听 | 部分（初始化、加载配置、绑定与解绑、渲染常驻区块、打开常驻服务） |
+| 门面 | 对外的唯一入口 `Tacit`；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听 | 部分（初始化、加载配置、绑定与解绑、渲染常驻区块、打开常驻服务、读取与新建细节页） |
 | 初始化 | 生成 `config.yaml` 与 `rules.md` 模板，创建记忆仓库骨架 | 已实现 |
 | 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；读取 `rules.md`，缺失时按记忆语言重新生成 | 已实现 |
-| 串行写入 | 所有写入排入单一队列；每次写入：校验 → 判断 → 改文件 → 同步索引 → Git 提交 → 必要时重渲染常驻区块 | 计划 |
-| Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码、记录格式问题 | 部分（解析 `persona.md`） |
+| 串行写入 | 所有写入排入单一队列；每次写入：校验 → 判断 → 改文件 → 同步索引 → Git 提交 → 必要时重渲染常驻区块 | 部分（队列；细节页的校验、改文件与提交） |
+| Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码、记录格式问题 | 部分（解析 `persona.md`；细节页的页头与小节、小节短码） |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；中文两字切分；RRF 合并；调用 reranker；索引版本校验与重建 | 计划 |
 | 判断 | 各判断的问题模板（英文）与近邻筛选；三档阈值；凭据正则；降级 | 计划 |
 | 决策模型接口 | 与模型无关的三种题型（选择、打分、真伪）；TypeSafe 适配器 | 计划 |
@@ -66,7 +66,7 @@ flowchart LR
 | 客户端适配 | 定位上下文文件、注册与注销 MCP、`bindings.json` 读写 | 部分（omp） |
 | 体检报告 | 现场计算体检报告各项 | 计划 |
 | 备份与恢复 | zip 打包与解包、保留份数、远端推送；恢复时暂停写入队列 | 计划 |
-| Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间、推送 | 部分（初始化） |
+| Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间、推送 | 部分（初始化、按文件提交） |
 | 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库；启动时按哈希增量同步索引，忽略服务自身写入引起的事件 | 部分（监听 `persona.md` 与 `pages/` 下的项目目录） |
 | 本地化 | 面向人的短文本与结构词：每一项以 `Localized(Zh, En)` 一并定义，缺一种写法即无法编译；面向 Agent 的英文文本只有一份 | 已实现 |
 
@@ -98,7 +98,7 @@ flowchart LR
 ## 5. 进程与传输
 
 - `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权。
-- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。没有工具或 prompt 时仍回应空列表：omp 不看服务器声明的能力，照样请求这两个列表，请求失败就丢弃这个服务器。端口被占用时 `McpHost` 不启动，由 CLI 报告。
+- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。没有 prompt 时仍回应空列表：omp 不看服务器声明的能力，照样请求，请求失败就丢弃这个服务器。端口被占用时 `McpHost` 不启动，由 CLI 报告。
 - 管理 API 挂载于 `/api`，供 `status`、`reindex`、`backup`、`restore` 使用，将来的 Web UI 也走这里（计划）。
 
 ## 6. 外部依赖
@@ -112,10 +112,9 @@ flowchart LR
 | 索引驱动 | `Microsoft.Data.Sqlite` | 计划 |
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），随程序打包，锁定版本并校验 SHA-256；不使用 NuGet 上的第三方包 | 计划 |
 | 查询与映射 | `Dapper` | 计划 |
-| Markdown 小节 | `Markdig` | 计划 |
 | 嵌入 | `Microsoft.Extensions.AI` + OpenAI 适配包，调用 OpenAI 兼容的 `/v1/embeddings` | 计划 |
 | reranker | `HttpClient` 类型化客户端，调用 Cohere/Jina 兼容的 `/v1/rerank` | 计划 |
 | 决策模型 | `HttpClient` 类型化客户端，调用 TypeSafe 的 `/v1/systemone` | 计划 |
 | 重试与超时 | `Microsoft.Extensions.Http.Resilience` | 计划 |
 
-依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。版本以各项目文件为准；尚未引入的依赖在引入时锁定版本。
+依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各项目文件为准；尚未引入的依赖在引入时锁定版本。
