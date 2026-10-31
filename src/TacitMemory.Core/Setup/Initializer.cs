@@ -1,4 +1,5 @@
 using System.Text;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Localization;
 using YamlDotNet.RepresentationModel;
@@ -120,7 +121,7 @@ internal static class Initializer
                 var memory = root.Children.TryGetValue(new YamlScalarNode("memory"), out var node) && node is YamlMappingNode section
                     ? Scalar(section, "path")
                     : null;
-                return new(true, language, string.IsNullOrWhiteSpace(memory) ? null : ExpandHome(memory, userHome));
+                return new(true, language, string.IsNullOrWhiteSpace(memory) ? null : HomePaths.Expand(memory, userHome));
             }
             catch (YamlDotNet.Core.YamlException)
             {
@@ -130,10 +131,5 @@ internal static class Initializer
 
         private static string? Scalar(YamlMappingNode map, string key) =>
             map.Children.TryGetValue(new YamlScalarNode(key), out var node) && node is YamlScalarNode scalar ? scalar.Value : null;
-
-        private static string ExpandHome(string path, string userHome) =>
-            Path.GetFullPath(path == "~" ? userHome
-                : path.StartsWith("~/", StringComparison.Ordinal) || path.StartsWith("~\\", StringComparison.Ordinal) ? Path.Combine(userHome, path[2..])
-                : path);
     }
 }

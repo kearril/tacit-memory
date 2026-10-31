@@ -102,7 +102,7 @@ flowchart LR
 | 查询与映射 | `Dapper` |
 | HTTP MCP 服务 | `ModelContextProtocol.AspNetCore` |
 | Markdown 小节 | `Markdig` |
-| YAML（页头、配置） | `YamlDotNet`；`config.yaml` 由自写的配置提供程序（继承 `FileConfigurationProvider`）接入框架配置系统 |
+| YAML（页头、配置） | `YamlDotNet`（表示模型）；`config.yaml` 由 Core 逐项读取与校验，一次报告全部出错的键路径，不接入框架配置系统 |
 | CLI | `ConsoleAppFramework` |
 | 调用 `git` | `SimpleExec`（只用 `ReadAsync`：不回显命令，可指定编码与取消，非零退出码抛出带输出的异常） |
 | 嵌入 | `Microsoft.Extensions.AI` + OpenAI 适配包，调用 OpenAI 兼容的 `/v1/embeddings` |

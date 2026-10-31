@@ -9,6 +9,15 @@ public enum TacitError
     /// <summary>An option given to <c>init</c> differs from what the existing <c>config.yaml</c> says.</summary>
     ConflictsWithConfig,
 
+    /// <summary><c>config.yaml</c> or the memory repository does not exist yet; <c>tacit init</c> creates them.</summary>
+    NotInitialized,
+
+    /// <summary><c>config.yaml</c> cannot be parsed or has wrong settings; the message names every key path.</summary>
+    ConfigInvalid,
+
+    /// <summary><c>rules.md</c> breaks its limits.</summary>
+    RulesInvalid,
+
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,
 }

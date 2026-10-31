@@ -1,3 +1,4 @@
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Setup;
 
 namespace TacitMemory.Core;
@@ -11,4 +12,10 @@ public sealed class Tacit(TacitOptions options)
     /// </summary>
     public Task<InitResult> InitAsync(InitRequest request, CancellationToken cancellationToken = default) =>
         Initializer.RunAsync(options, request, cancellationToken);
+
+    /// <summary>
+    /// Loads and validates <c>config.yaml</c> and <c>rules.md</c>, writing <c>rules.md</c> again from the template
+    /// if it was deleted.
+    /// </summary>
+    public TacitConfig LoadConfig() => ConfigLoader.Load(options);
 }
