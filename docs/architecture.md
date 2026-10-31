@@ -33,12 +33,16 @@ flowchart LR
     end
     Facade --> Service
     Service --> Inject
-    Facade -.-> Writer
-    Writer -.-> Store
+    Service --> Writer
+    Service --> Index
+    Service --> Backup
+    Writer --> Store
+    Writer --> Judge
+    Writer --> Index
     Store --> Repo[(记忆仓库<br>Markdown + Git)]
-    Index -.-> Db[(.cache/index.db<br>SQLite)]
-    Index -.-> Aux[嵌入模型 / reranker]
-    Judge -.-> Decision[决策模型]
+    Index --> Db[(.cache/index.db<br>SQLite)]
+    Index --> Aux[嵌入模型 / reranker]
+    Judge --> Decision[决策模型]
     Inject --> Files[客户端上下文文件]
 ```
 
