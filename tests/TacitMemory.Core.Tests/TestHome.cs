@@ -60,7 +60,7 @@ internal sealed class TestHome : IDisposable
     /// <summary>Runs <c>git</c> in <paramref name="directory"/> and returns its standard output.</summary>
     public static string Git(string directory, params string[] args)
     {
-        var start = new ProcessStartInfo("git") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo("git") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
         foreach (var arg in (string[])["-c", "core.quotepath=off", .. args])
             start.ArgumentList.Add(arg);
         using var process = Process.Start(start)!;
