@@ -465,7 +465,7 @@ skill 链接：`connect --client omp` 先生成记忆 skill（服务未运行时
 - 位置：`TACIT_HOME/skills/tacit-memory/SKILL.md`，由代码生成，用户不直接修改；成品结构与各部分的措辞见 `docs/prompts.md` 第 11 节。`prompts/skill.md` 存在且非空白时，末尾接 `## User conventions` 一节。
 - `prompts/skill.md` 的长度与格式规则见下文「提示词文档」。
 - 生成时机：服务启动时；`prompts/` 下的文件变化时；门面的 `GenerateSkill` 操作，不需要服务运行，`connect` 绑定时也调用它。内容不变时不写文件。
-- 不进入自动备份；不使用 MCP resources。系统部分正文的措辞按使用中的摩擦点调整，不由自动测试固定。
+- 不进入自动备份；不使用 MCP resources。系统部分正文的措辞验证方式见 `docs/testing.md` 第 4 节。
 
 ### 备份与恢复
 
@@ -541,6 +541,7 @@ backup: { keep: 7, remote: … }
 
 - `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect` 写客户端文件、客户端 skill 目录中的链接、`bindings.json` 与记忆 skill 成品，`disconnect` 写客户端文件、链接与 `bindings.json`；两者加载配置时都会按上文补写缺失的 `rules.md`，只有 `connect` 生成记忆 skill。
 - `show` 与 `init`、`connect` 一样直接调用门面，不读写常驻服务的状态；输出不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）。
+- 上表为 v1 的目标命令；各命令的实现状况见 `docs/architecture.md`。
 - 首批适配 omp 与 Claude Code：先实现并验证 omp，Claude Code 随后。
 
 ## 13. 不做的事（v1）

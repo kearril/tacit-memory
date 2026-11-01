@@ -115,7 +115,7 @@ _Avoid_: 记忆提示词、系统规则
 _Avoid_: 记忆触发器、写入条件
 
 **提示词文档**（Prompt documents）：
-`TACIT_HOME/prompts/` 下用户可修改的四份文档：`rules.md`（值得记标准）、`instructions.md`（核心规则，存在时整份替换内置默认）、`resident.md`（常驻区块的外壳与四节引导语，存在时整份替换内置默认）与 `skill.md`（写法约定，接在记忆 skill 末尾）。启动时校验；运行中修改时，`resident.md` 的变化立即重渲染常驻区块，`skill.md` 的变化立即重新生成记忆 skill，其余文档下一个会话生效。
+`TACIT_HOME/prompts/` 下用户可修改的四份文档：`rules.md`（值得记标准）、`instructions.md`（核心规则，存在时整份替换内置默认）、`resident.md`（常驻区块的外壳与四节引导语，存在时整份替换内置默认）与 `skill.md`（写法约定，接在记忆 skill 末尾）。启动时校验；运行中修改时，`resident.md` 的变化经去抖后重渲染常驻区块，`skill.md` 的变化经去抖后重新生成记忆 skill，其余文档下一个会话生效。
 _Avoid_: 提示词文件、配置文件
 
 **记忆 skill**（Memory skill）：
@@ -208,7 +208,7 @@ _Avoid_: 整理会话、维护、清理
 _Avoid_: 诊断、lint 结果
 
 **待清理的画像候选**（Redundant candidate）：
-与画像中某条或拒绝列表中某条是同一偏好的画像候选；体检中建议删除，不再交用户确认。
+与画像中某条或拒绝列表中某条是同一偏好的画像候选；体检中直接删除，不再交用户确认。
 _Avoid_: 重复候选、过期候选
 
 **客户端**（Client）：
