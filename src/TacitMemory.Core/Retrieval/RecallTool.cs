@@ -139,7 +139,7 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
             var others = document.Sections.Except(sections).Select(section => section.Name).ToList();
 
             shown++;
-            text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] {id}: {document.Header.Title}\n");
+            text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] page {id}: {document.Header.Title}\n");
             if (document.Header.First is { } first && document.Header.Last is { } last)
                 text.Append(CultureInfo.InvariantCulture, $"Dates: {first:yyyy-MM-dd} to {last:yyyy-MM-dd}\n");
             foreach (var section in sections)

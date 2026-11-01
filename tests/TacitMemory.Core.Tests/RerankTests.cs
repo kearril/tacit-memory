@@ -100,7 +100,7 @@ public sealed class RerankTests : IDisposable
 
         var result = await Recall("部署");
 
-        Assert.Contains("[1] ops/second", result.Text);
+        Assert.Contains("[1] page ops/second", result.Text);
         Assert.DoesNotContain("[2] ", result.Text);
         Assert.DoesNotContain("ops/first", result.Text);
     }
