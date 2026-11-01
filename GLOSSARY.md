@@ -226,3 +226,55 @@ _Avoid_: 安装、注册、接入
 **常驻**（Resident）：
 会话开始时就在上下文中的进入方式。与之相对的是**按需**（On-demand）：由 Agent 主动检索取得。
 _Avoid_: Push、Pull、预加载
+
+### MCP 接口
+
+客户端经常驻服务的 MCP 工具读写记忆；工具名、`op` 取值与参数名一律使用英文，下列各条只说明它们对应的概念。`remember` 提示见「记忆指令」。
+
+**检索工具**（`recall`）：
+按 `query` 检索，或以 `page`（页面标识）读取整页；`query` 与 `page` 二选一。结果以小节为单位返回，每节附短码。
+_Avoid_: 搜索、search
+
+**写页工具**（`write_page`）：
+增改细节页。`op` 取 `create`（新建页）、`upsert_section`（新增或改写小节）、`delete_section`（删除小节）、`update_header`（改页头的标题、别名或相关页）。
+_Avoid_: 编辑文档、写文档
+
+**近期写入工具**（`write_recent`）：
+记录活动或改写近期主线。`op` 取 `add_activity`（追加一条活动）与 `update_mainline`（以 `items` 整体替换近期主线）。
+_Avoid_: 写日志、日志工具
+
+**画像写入工具**（`write_persona`）：
+改动画像。`op` 取 `add`（追加到画像节末尾）、`propose`（记为画像候选，不直接进入画像；命中拒绝列表或已在画像中的不记录）、`replace`（按短码原地改写）与 `delete`（按短码删除）。
+_Avoid_: 修改人设、更新画像
+
+**操作**（`op`）：
+写入工具用于分派的参数，取值见上面各工具。
+_Avoid_: action、类型
+
+**画像节参数**（`persona_section`）：
+`add` 与 `propose` 写入的节，取值为 `red_lines`（红线）、`working_rules`（协作规则）、`preferences`（偏好）与 `profile`（档案）。
+_Avoid_: 分类、节名
+
+**原话**（`source`）：
+用户本人的原话，一行，保存为画像条目或活动下的注释；`write_persona` 的 `add`、`replace`、`propose` 必填。
+_Avoid_: 引文、出处
+
+**替换标识**（`replaces`）：
+今日某条活动的短码；传入时原地改写该活动而非新增，只匹配今天的活动。
+_Avoid_: 覆盖、更新标识
+
+**短码参数**（`hash`）：
+按工具与操作指代三种短码之一：小节短码（`write_page` 的 `upsert_section` 改写已有小节、`delete_section`）、画像条目短码（`write_persona` 的 `replace`、`delete`）或版本短码（`write_recent` 的 `update_mainline`）。
+_Avoid_: 哈希、ID
+
+**项目参数**（`project`）：
+所属项目的名称，统一小写；`recall` 中用于筛选，`write_page` 中构成页面标识的第一段（专题用 `_topics`），`write_recent` 中为活动标注。
+_Avoid_: 仓库名、标签
+
+**类型参数**（`kind`）：
+`recall` 的筛选，取值 `pages`（只检索细节页）或 `activities`（只检索活动记录）；缺省两者。
+_Avoid_: 分类、类别
+
+**确认无密钥**（`confirm_no_secret`）：
+仅在写入因疑似密钥被拒、且已与用户确认不含密钥后传入 `true`，跳过凭据检测。
+_Avoid_: 忽略检测、跳过检查

@@ -11,7 +11,7 @@
 | `docs/prompts.md` | 发给模型的每段文字负责什么、放在哪个环节 | 改动服务端说明、常驻区块、工具说明与回复、记忆指令或判断问题的文字 | 提示词的内容、职责或所在环节变化 |
 | `docs/testing.md` | 怎么测 | 编写、修改或运行测试 | 测试接缝或测试方式变化 |
 | `GLOSSARY.md` | 术语的含义与应避免的同义词 | 命名公开类型、配置项、MCP 工具与参数 | 新增术语或命名变化 |
-| `README.md`（v1 可用时创建） | 怎么安装和使用 | — | 用户可见的用法变化 |
+| `README.md` | 怎么安装和使用（只写已实现的部分） | — | 用户可见的用法变化：命令、选项、配置项或提示词文件位置 |
 
 - 文档与代码在同一个提交里更新。
 - 已收入 `GLOSSARY.md` 的术语直接使用，其他文档不再重复解释。
@@ -20,7 +20,7 @@
 ## 2. Agent 开发与代码规范
 
 - **深模块边界**：`TacitMemory.Core` 仅公开核心门面接口与契约类型，内部实现保持 `internal`；`TacitMemory.Mcp` 与 `TacitMemory.Cli` 只调用 `Core` 的公开接口，`Cli` 另外引用 `Mcp` 仅用于挂载端点与读取工具说明（`tacit show tools`）。
-- **语言约定**：代码注释使用英文；仓库文档（`docs/`、`GLOSSARY.md`）使用中文。
+- **语言约定**：代码注释使用英文；仓库文档（`README.md`、`docs/`、`GLOSSARY.md`）使用中文。
 - **提交规范**：遵循 **Conventional Commits**（`<type>(<scope>): <summary>`，如 `feat:`、`fix:`、`refactor:`、`test:`、`docs:`、`build:`）。
 - **`main` 分支的提交信息**：直接落在 `main` 上的提交不得出现工单编号、ADR 编号或带编号的分支名；其他分支（如子代理的工作分支）不受此限。
 - **合并方式**：切片合入 `main` 一律用 squash，提交信息按 Conventional Commits 概括整个切片（如 `feat(recent): ...`）；其他分支之间的合并提交写 `chore(merge): ...`。
