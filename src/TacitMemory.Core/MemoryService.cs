@@ -39,7 +39,7 @@ public sealed class MemoryService : IDisposable
     private readonly PageTools _pages;
     private readonly RecentTools _recent;
     private readonly AuxiliaryModels _models;
-    private readonly PageIndex _index;
+    private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
     private readonly RecallTool _recall;
     private RecordingCriteria _rules;
@@ -56,7 +56,7 @@ public sealed class MemoryService : IDisposable
         ServerInstructionText.Check(config.Language, _rules, RulesPath);
         StartupRender = Binder.RenderAll(options, config);
         _models = new AuxiliaryModels(config, options.Time);
-        _index = new PageIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
+        _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
         _vectors.FillInBackground();

@@ -12,7 +12,7 @@ namespace TacitMemory.Core.Retrieval;
 /// The <c>recall</c> tool: reads one page by ID, or searches pages and activities by full text and by vector, merges the two with
 /// reciprocal rank fusion, reranks the merged units and returns the best sections, merged per page. It never changes a file.
 /// </summary>
-internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
+internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
 {
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";

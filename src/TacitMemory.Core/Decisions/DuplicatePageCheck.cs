@@ -13,7 +13,7 @@ internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 /// Before a page is created, asks whether a page of the same project already records the same matter: the nearest
 /// pages by embedding, plus "none of these", go to the decision model as a choice question.
 /// </summary>
-internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
+internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
 {
     /// <summary>Candidate pages offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int Candidates = 9;

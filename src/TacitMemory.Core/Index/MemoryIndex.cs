@@ -35,7 +35,7 @@ internal static class SourceKinds
     public const string Page = "page";
 
     /// <summary>A month file of the recent activity log, under <c>recent/</c>.</summary>
-    public const string Activity = "activity";
+    public const string ActivityRecord = "activity";
 }
 
 /// <summary>The kinds of unit a source holds.</summary>
@@ -58,16 +58,16 @@ internal static class UnitKinds
 /// over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
-internal sealed class PageIndex : IDisposable
+internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
     private const string SchemaVersion = "4";
 
-    private const string Filters = """
+    private const string Filters = $"""
         (@project IS NULL OR u.project = @project)
         AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
         AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
-        AND (@activities IS NULL OR (u.kind = 'activity') = @activities)
+        AND (@activities IS NULL OR (u.kind = '{UnitKinds.Activity}') = @activities)
         """;
 
     /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
@@ -80,7 +80,7 @@ internal sealed class PageIndex : IDisposable
     private readonly SqliteConnection _connection;
 
     /// <param name="embeddingModel">The configured embedding model; vectors made by another model are dropped.</param>
-    public PageIndex(string memoryPath, string embeddingModel, MemoryLanguage language)
+    public MemoryIndex(string memoryPath, string embeddingModel, MemoryLanguage language)
     {
         _memoryPath = memoryPath;
         _databasePath = Path.Combine(memoryPath, ".cache", "index.db");
@@ -141,7 +141,7 @@ internal sealed class PageIndex : IDisposable
         lock (_gate)
         {
             var months = ActivityFiles().ToDictionary(file => file.RelativePath, file => file.FullPath);
-            var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources WHERE kind = @kind", new { kind = SourceKinds.Activity })
+            var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources WHERE kind = @kind", new { kind = SourceKinds.ActivityRecord })
                 .ToDictionary(row => row.Path, row => row.Hash);
             foreach (var path in known.Keys.Where(path => !months.ContainsKey(path)))
                 Remove(path);
@@ -347,7 +347,7 @@ internal sealed class PageIndex : IDisposable
         RemoveRows(relativePath, transaction);
         _connection.Execute(
             "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
-            new { id = relativePath, kind = SourceKinds.Activity, path = relativePath, hash },
+            new { id = relativePath, kind = SourceKinds.ActivityRecord, path = relativePath, hash },
             transaction);
         foreach (var activity in RecentFile.Activities(read.Text))
         {
