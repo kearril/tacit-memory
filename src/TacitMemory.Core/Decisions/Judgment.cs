@@ -22,8 +22,8 @@ internal static class Judgment
     /// <summary>Defaults measured on real Chinese samples with TypeSafe Jev; <c>config.yaml</c> may override them.</summary>
     public static readonly Threshold SamePage = new(Certain: 0.85, Unlikely: 0.25);
 
-    /// <summary>Defaults for same-day activities: the values of <c>samePage</c>, measured on Chinese same-day samples; <c>config.yaml</c> may override them.</summary>
-    public static readonly Threshold SameActivity = new(Certain: 0.85, Unlikely: 0.25);
+    /// <summary>Defaults for same-topic activity checks: the values of <c>samePage</c>, measured on Chinese same-day samples; <c>config.yaml</c> may override them.</summary>
+    public static readonly Threshold SameTopic = new(Certain: 0.85, Unlikely: 0.25);
 
     /// <summary>
     /// A choice among options plus a "none of these" option: none ranked first is <see cref="Tier.Unlikely"/>;

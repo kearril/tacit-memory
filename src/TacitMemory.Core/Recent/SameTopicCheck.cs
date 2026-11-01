@@ -4,20 +4,20 @@ using TacitMemory.Core.Models;
 
 namespace TacitMemory.Core.Recent;
 
-/// <summary>What the same-activity check found: today's activity that repeats the new one, or a note for the agent.</summary>
-internal sealed record SameActivityVerdict(RecentEntry? Repeat, string? Note);
+/// <summary>What the same-topic check found: today's activity about the same thing as the new one, or a note for the agent.</summary>
+internal sealed record SameTopicVerdict(RecentEntry? Same, string? Note);
 
 /// <summary>
 /// Before an activity is added, asks whether today's log already records the same thing: the latest activities of
 /// the day, plus "none of these", go to the decision model as a choice question.
 /// </summary>
-internal sealed class SameActivityCheck(TacitConfig config, IDecisionModel decision)
+internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision)
 {
     /// <summary>Candidate activities offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int Candidates = 9;
 
     public const string DecisionDown =
-        "Note: the decision model is unavailable, so whether this activity repeats one from today was not checked.";
+        "Note: the decision model is unavailable, so whether this activity is about the same thing as one from today was not checked.";
 
     private const string None = "none";
 
@@ -37,11 +37,11 @@ internal sealed class SameActivityCheck(TacitConfig config, IDecisionModel decis
     private const int OptionLength = 250;
 
     /// <summary>Asks the decision model about <paramref name="state"/> against the latest <see cref="Candidates"/> of <paramref name="today"/>.</summary>
-    public async Task<SameActivityVerdict> RunAsync(string state, IReadOnlyList<RecentEntry> today, CancellationToken cancellationToken)
+    public async Task<SameTopicVerdict> RunAsync(string state, IReadOnlyList<RecentEntry> today, CancellationToken cancellationToken)
     {
         var candidates = today.TakeLast(Candidates).ToList();
         if (candidates.Count == 0)
-            return new SameActivityVerdict(null, null);
+            return new SameTopicVerdict(null, null);
 
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         var entries = new Dictionary<string, RecentEntry>(StringComparer.Ordinal);
@@ -55,11 +55,11 @@ internal sealed class SameActivityCheck(TacitConfig config, IDecisionModel decis
         options[None] = NoneText;
         var probabilities = await decision.ChooseAsync(state, Instructions, options, cancellationToken);
         if (probabilities is null)
-            return new SameActivityVerdict(null, DecisionDown);
+            return new SameTopicVerdict(null, DecisionDown);
 
-        var verdict = Judgment.Choice(probabilities, None, config.Decision.SameActivity ?? Judgment.SameActivity);
+        var verdict = Judgment.Choice(probabilities, None, config.Decision.SameTopic ?? Judgment.SameTopic);
         return verdict.Tier == Tier.Certain
-            ? new SameActivityVerdict(entries[verdict.Option!], null)
-            : new SameActivityVerdict(null, null);
+            ? new SameTopicVerdict(entries[verdict.Option!], null)
+            : new SameTopicVerdict(null, null);
     }
 }

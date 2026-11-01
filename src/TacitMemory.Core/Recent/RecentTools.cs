@@ -25,7 +25,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
     };
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
-    private readonly SameActivityCheck _sameActivity = new(config, decision);
+    private readonly SameTopicCheck _sameTopic = new(config, decision);
 
     public async Task<ToolResult> WriteAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
@@ -117,15 +117,15 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                         ? $"No activities are recorded for {day:yyyy-MM-dd}."
                         : string.Join('\n', today.Select(entry => $"[{entry.Code}] {entry.Body}")));
         }
-        string? sameActivityNote = null;
+        string? sameTopicNote = null;
         if (replaced is null)
         {
-            var verdict = await _sameActivity.RunAsync(label + text, RecentFile.EntriesOn(existing, day), cancellationToken);
-            if (verdict.Repeat is { } repeat)
+            var verdict = await _sameTopic.RunAsync(label + text, RecentFile.EntriesOn(existing, day), cancellationToken);
+            if (verdict.Same is { } same)
                 return ToolText.Ok(
-                    $"Not added: today's activity [{repeat.Code}] is about the same thing: {repeat.Body}\n"
-                    + $"Next step: write one merged sentence that covers both, then call write_recent again with op=add_activity, that sentence as text, and replaces set to {repeat.Code}. Nothing was written.");
-            sameActivityNote = verdict.Note;
+                    $"Not added: today's activity [{same.Code}] is about the same thing: {same.Body}\n"
+                    + $"Next step: write one merged sentence that covers both, then call write_recent again with op=add_activity, that sentence as text, and replaces set to {same.Code}. Nothing was written.");
+            sameTopicNote = verdict.Note;
         }
 
         // Checked before the write: a file that already had user edits gets that noted in its commit subject.
@@ -148,7 +148,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
 
         var code = RecentFile.CodeAt(after, line);
         var verb = replaced is null ? "Added" : "Replaced";
-        var status = sameActivityNote is null ? $"{verb} activity [{code}]." : $"{verb} activity [{code}].\n\n{sameActivityNote}";
+        var status = sameTopicNote is null ? $"{verb} activity [{code}]." : $"{verb} activity [{code}].\n\n{sameTopicNote}";
         if (after == existing)
             return ToolText.Ok($"{status}\n\n{MainlineBlock(CurrentMainline())}\n\n{await ActivitiesBlockAsync(cancellationToken)}");
 

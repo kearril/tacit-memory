@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace TacitMemory.Core.Tests;
 
-public sealed class SameActivityTests : IDisposable
+public sealed class SameTopicTests : IDisposable
 {
     private const string NoneText = "None of the earlier activity notes is about the same thing as the new note.";
 
@@ -12,7 +12,7 @@ public sealed class SameActivityTests : IDisposable
     private readonly ModelDouble _models = new();
     private MemoryService? _service;
 
-    public SameActivityTests() => _home.InitReady(models: _models);
+    public SameTopicTests() => _home.InitReady(models: _models);
 
     public void Dispose()
     {
