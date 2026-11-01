@@ -87,7 +87,7 @@ public sealed record WriteRecentRequest
     /// <summary>The user's own words behind the activity, kept as a comment under the entry.</summary>
     public string? Source { get; init; }
 
-    /// <summary>The activity this one replaces; not available yet.</summary>
+    /// <summary>The short code of today's activity this one rewrites in place; <c>add_activity</c> only.</summary>
     public string? Replaces { get; init; }
 
     /// <summary>The whole mainline for <c>update_mainline</c>, in order; an empty list clears it.</summary>
