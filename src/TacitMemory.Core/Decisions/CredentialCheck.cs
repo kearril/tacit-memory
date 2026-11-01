@@ -1,6 +1,4 @@
-using System.Text;
 using System.Text.RegularExpressions;
-using TacitMemory.Core.Models;
 using TacitMemory.Core.Tools;
 
 namespace TacitMemory.Core.Decisions;
@@ -9,22 +7,11 @@ namespace TacitMemory.Core.Decisions;
 internal sealed record WrittenText(string Where, string Text);
 
 /// <summary>
-/// Keeps secrets out of the memory repository. Common credential formats are refused by pattern; text the patterns
-/// pass goes to the decision model as a true-or-false question, and a secret it is sure of or suspects is refused too.
-/// Without the decision model every write needs the agent's confirmation.
+/// Keeps secrets out of the memory repository by refusing common credential formats. Only local patterns are used, so
+/// the text a write would store never leaves this machine for the check.
 /// </summary>
-internal sealed partial class CredentialCheck(TacitConfig config, IDecisionModel decision)
+internal static partial class CredentialCheck
 {
-    private const string Instructions =
-        "The state is text that may be stored in a personal memory. Does it contain a real credential or secret "
-        + "value (password, API key, access token, session value, private key, recovery code, or similar) that must not be "
-        + "stored? Placeholders, example values, hashes, commit SHAs, UUIDs, identifiers and descriptions of password "
-        + "processes are not secrets. Answer high if a real secret is present, low otherwise.";
-
-    private const string WhenTrue = "The text contains a real secret value that should not be stored.";
-
-    private const string WhenFalse = "The text contains no real secret value; it only has placeholders, hashes, identifiers, examples or descriptions.";
-
     /// <summary>Characters of a suspicious fragment shown back to the agent; the rest is never echoed.</summary>
     private const int ShownLength = 6;
 
@@ -33,33 +20,27 @@ internal sealed partial class CredentialCheck(TacitConfig config, IDecisionModel
         ("API key", ApiKey()),
         ("GitHub token", GitHubToken()),
         ("AWS access key", AwsKey()),
+        ("service token", ServiceToken()),
+        ("JWT", Jwt()),
         ("private key", PrivateKey()),
+        ("credentials in a URL", UrlCredentials()),
+        ("bearer token", Bearer()),
         ("password", Password()),
+        ("assigned secret", AssignedSecret()),
         ("long base64 value", Base64()),
     ];
 
     /// <param name="op">The <c>write_page</c> op, named in the next step.</param>
     /// <returns>The refusal, or <c>null</c> when the write may go ahead.</returns>
-    public async Task<ToolResult?> RunAsync(IReadOnlyList<WrittenText> texts, string op, CancellationToken cancellationToken)
+    public static ToolResult? Run(IReadOnlyList<WrittenText> texts, string op)
     {
-        var retry = $"call write_page op={op} again with confirm_no_secret=true";
         var found = Find(texts);
-        if (found.Count > 0)
-            return ToolText.Refuse(
-                found,
-                $"Remove the secret and write again. If it is not a real secret (a placeholder, an example, a hash), make sure with the user, then {retry}.");
-
-        var probability = await decision.IsTrueAsync(State(texts), Instructions, WhenTrue, WhenFalse, cancellationToken);
-        if (probability is null)
-            return ToolText.Refuse(
-                "The decision model is unavailable, so this write could only be checked for common credential formats.",
-                $"Make sure it holds no password, key, token or other secret, then {retry}.");
-
-        return Judgment.TrueOrFalse(probability.Value, config.Decision.Credential ?? Judgment.Credential) == Tier.Unlikely
+        return found.Count == 0
             ? null
             : ToolText.Refuse(
-                "This write may contain a secret (a password, key, token or similar).",
-                $"Remove any secret and write again. If there is none, make sure with the user, then {retry}.");
+                found,
+                "Remove the secret and write again. If it is not a real secret (a placeholder, an example, a hash), make sure "
+                + $"with the user, then call write_page op={op} again with confirm_no_secret=true.");
     }
 
     /// <summary>
@@ -93,15 +74,6 @@ internal sealed partial class CredentialCheck(TacitConfig config, IDecisionModel
     private static string Mask(string fragment) =>
         $"{fragment[..Math.Min(ShownLength, fragment.Length)]}… ({fragment.Length} characters)";
 
-    /// <summary>The write as the decision model reads it: English labels, the text as written.</summary>
-    private static string State(IReadOnlyList<WrittenText> texts)
-    {
-        var state = new StringBuilder();
-        foreach (var text in texts)
-            state.Append('[').Append(text.Where).Append("]\n").Append(text.Text.Trim()).Append("\n\n");
-        return state.ToString().TrimEnd();
-    }
-
     [GeneratedRegex(@"\bsk-[A-Za-z0-9_-]{20,}")]
     private static partial Regex ApiKey();
 
@@ -114,9 +86,33 @@ internal sealed partial class CredentialCheck(TacitConfig config, IDecisionModel
     [GeneratedRegex(@"-----BEGIN [A-Z ]*PRIVATE KEY-----")]
     private static partial Regex PrivateKey();
 
+    /// <summary>Slack, GitLab, Google, Alibaba Cloud, SendGrid, Docker Hub, Notion and Stripe live keys.</summary>
+    [GeneratedRegex(@"\b(?:xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{35}|LTAI[A-Za-z0-9]{12,}|SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}|dckr_pat_[A-Za-z0-9_-]{20,}|secret_[A-Za-z0-9]{30,}|[rs]k_live_[A-Za-z0-9]{20,})")]
+    private static partial Regex ServiceToken();
+
+    [GeneratedRegex(@"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")]
+    private static partial Regex Jwt();
+
+    /// <summary>A password in a URL such as <c>scheme://user:pass@host</c>; a placeholder password is left alone.</summary>
+    [GeneratedRegex(@"\b[A-Za-z][A-Za-z0-9+.-]*://[^\s:/@]+:(?![<{$%*])[^\s/@]+@")]
+    private static partial Regex UrlCredentials();
+
+    /// <summary>A bearer token with at least one digit; <c>Bearer &lt;token&gt;</c> and prose such as "bearer tokens" are left alone.</summary>
+    [GeneratedRegex(@"(?i)\bbearer[\s:：]+(?![<{$%*])(?=[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{8,}")]
+    private static partial Regex Bearer();
+
     /// <summary>A value assigned to a password; placeholders such as <c>&lt;...&gt;</c>, <c>${...}</c> or <c>***</c> are left alone.</summary>
     [GeneratedRegex(@"(?i)\b(?:password|passwd|pwd)\s*=\s*['""]?(?![<{$%*])[^\s'""]+")]
     private static partial Regex Password();
+
+    /// <summary>
+    /// A value of six or more characters with a digit, assigned with <c>=</c> or <c>:</c> to a key ending in a secret word,
+    /// such as <c>mail_pass</c>, <c>access_token</c>, <c>x-api-key</c> or <c>clientSecret</c>. The word must start the key or
+    /// follow a separator or a camel-case hump, so <c>bypass</c> is no key; placeholders and <c>xxxx</c> or <c>your…</c> values
+    /// are left alone.
+    /// </summary>
+    [GeneratedRegex(@"(?<![A-Za-z0-9])(?:[A-Za-z0-9]+[_.-])*(?:[A-Za-z0-9]*[a-z](?=[A-Z]))?(?i:password|passwd|pass|pwd|token|secret|api[_-]?key|access[_-]?key|session)['""]?\s*[=:：]\s*['""]?(?![<{$%*]|(?i:x{4}|your))(?=[^\s'""`;,，。]*\d)[^\s'""`;,，。]{6,}")]
+    private static partial Regex AssignedSecret();
 
     /// <summary>
     /// 40 or more base64 characters mixing upper case, lower case and digits; hex hashes have no upper case and paths

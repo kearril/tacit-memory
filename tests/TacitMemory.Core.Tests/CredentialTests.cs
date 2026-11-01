@@ -48,6 +48,28 @@ public sealed class CredentialTests : IDisposable
 
     private static readonly string LongBase64 = "dGhpcyBpcyBhIHNlY3JldCB2YWx1ZSB0aGF0IHNo" + "b3VsZCBub3QgbGVhaw1234XYZ";
 
+    private static readonly string BearerHeader = "Authorization: Bear" + "er 5Tq8Lm2Vx7Wn4Rz9Kp1J";
+
+    private static readonly string UrlCredentials = "postgres://admin:" + "S3cretPass9@db.local:5432/memo";
+
+    private static readonly string Jwt = "eyJhbGciOiJIUzI1NiJ9" + ".eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+
+    private static readonly string SlackToken = "xo" + "xb-1234567890-abcdefghijKL";
+
+    private static readonly string GitLabToken = "glp" + "at-aB3dE5fG7hI9jK1lM3nO";
+
+    private static readonly string GoogleKey = "AI" + "zaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q";
+
+    private static readonly string AliyunKeyId = "LT" + "AI5tQwErTyUiOp";
+
+    private static readonly string SendGridKey = "S" + "G.ngeVfQFYQlKU0ufo8x5d1A.TwL2iGABf9DHoTf-09kqeF8tAmbihYzrnopKc-1s5cr";
+
+    private static readonly string DockerToken = "dckr" + "_pat_Xq8LmZ2vR7tW9yK4pN1bH6sJ3dF0";
+
+    private static readonly string NotionSecret = "sec" + "ret_9Kc2Lm7Pq0Rx3Tv5Wz8Nb1Hs4Yd6Uf";
+
+    private static readonly string StripeKey = "sk" + "_live_51H8xYzAbCdEfGhIjKlMnOpQr";
+
     public static TheoryData<string, string> Secrets => new()
     {
         { $"OpenAI 的 key 是 {OpenAiKey}", "sk-pro" },
@@ -56,6 +78,21 @@ public sealed class CredentialTests : IDisposable
         { PrivateKey, "-----B" },
         { $"连接串里写了 {PasswordAssign}", "passwo" },
         { $"数据是 {LongBase64}", "dGhpcy" },
+        { $"curl -H \"{BearerHeader}\" 调接口", "Bearer" },
+        { $"连接串 {UrlCredentials}", "postgr" },
+        { "备用登录码 mail_pass = " + "7731-XKTQ-9920-ZPLM，邮箱二次验证用", "mail_p" },
+        { "返回体 {\"access_token\": \"" + "a1B2c3D4e5F6g7H8\"}", "access" },
+        { "请求头 x-api-key: " + "9fGh3KlZxCvBnM7a 别外传", "x-api-" },
+        { "浏览器里的 session=" + "8f2Kq9Lm4Xw7Zt1Vb6Nc 复制给同事", "sessio" },
+        { $"登录后拿到 {Jwt} 存起来", "eyJhbG" },
+        { $"Slack 机器人用 {SlackToken}", "xoxb-1" },
+        { $"CI 里配了 {GitLabToken}", "glpat-" },
+        { $"地图服务 {GoogleKey}", "AIzaSy" },
+        { $"阿里云 AccessKeyId {AliyunKeyId}", "LTAI5t" },
+        { $"邮件服务 {SendGridKey}", "SG.nge" },
+        { $"Docker Hub 用 {DockerToken} 登录", "dckr_p" },
+        { $"Notion 集成的 {NotionSecret}", "secret" },
+        { $"支付用 {StripeKey}", "sk_liv" },
     };
 
     [Theory]
@@ -78,74 +115,26 @@ public sealed class CredentialTests : IDisposable
     [InlineData("提交 3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39 修好了")]
     [InlineData("请求编号 550e8400-e29b-41d4-a716-446655440000")]
     [InlineData("配置里写 password=<你的密码>，密码放在 1Password 里")]
+    [InlineData("请求头示例：Authorization: Bearer <token>，实际值从环境变量读取")]
+    [InlineData("API_KEY=xxxxxxxxxxxxxxxx 只是占位符")]
+    [InlineData("JSON 示例：{\"token\": \"<redacted>\", \"user\": \"alice\"}")]
+    [InlineData("配置项 apiKeyEnv: OPENAI_API_KEY 指向环境变量")]
+    [InlineData("会话超时 session: 30 分钟，bypass: 2024-11-01 起停用")]
+    [InlineData("数据库地址 postgres://db.local:5432/memo，不带账号")]
+    [InlineData("token 字段统一叫 accessToken，这是命名规范")]
     [InlineData("路径 src/TacitMemory.Core/Pages/PageTools.cs")]
     public async Task Hashes_identifiers_placeholders_and_paths_pass_the_patterns(string body)
     {
         var result = await Create(body);
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal(1, _models.DecisionCalls);
-    }
-
-    [Theory]
-    [InlineData(0.9)]
-    [InlineData(0.5)]
-    public async Task Content_the_model_finds_or_suspects_a_secret_in_is_refused(double probability)
-    {
-        _models.IsTrue = _ => probability;
-
-        var result = await Create("服务器 root 口令是 Tr0ub4dor&3 记一下");
-
-        Assert.True(result.IsError);
-        Assert.StartsWith("Refused: ", result.Text);
-        Assert.Contains("confirm_no_secret", result.Text);
-        Assert.False(Exists());
-    }
-
-    [Fact]
-    public async Task Content_the_model_finds_no_secret_in_is_written()
-    {
-        _models.IsTrue = _ => 0.1;
-
-        var result = await Create("先跑迁移，再重启服务。");
-
-        Assert.False(result.IsError, result.Text);
         Assert.True(Exists());
     }
 
     [Fact]
-    public async Task The_question_is_in_english_and_the_whole_write_goes_into_it_as_written()
+    public async Task A_write_the_patterns_pass_never_reaches_the_decision_model()
     {
-        await Create("先跑迁移，再重启服务。", title: "部署脚本说明");
-
-        var (body, _) = _models.LastDecision!.Value;
-        var question = body["questions"]!.AsObject().Single().Value!.AsObject();
-        Assert.Equal("noul", question["type"]!.GetValue<string>());
-        Assert.StartsWith("The state is", question["instructions"]!.GetValue<string>());
-        var state = body["state"]!.GetValue<string>();
-        Assert.Contains("部署脚本说明", state);
-        Assert.Contains("上线脚本", state);
-        Assert.Contains("步骤", state);
-        Assert.Contains("先跑迁移，再重启服务。", state);
-    }
-
-    [Fact]
-    public async Task Configured_credential_thresholds_replace_the_defaults()
-    {
-        Configure("decision:\n  credential: { certain: 0.95, unlikely: 0.6 }\n");
-        _models.IsTrue = _ => 0.5;
-
-        var result = await Create("先跑迁移，再重启服务。");
-
-        Assert.False(result.IsError, result.Text);
-    }
-
-    [Fact]
-    public async Task Confirming_no_secret_writes_without_patterns_or_model()
-    {
-        _models.IsTrue = _ => 0.99;
-
-        var result = await Create($"示例 key：{OpenAiKey} 是文档里的假值", confirm: true);
+        var result = await Create("服务器 root 口令记在 1Password 里，先跑迁移再重启。");
 
         Assert.False(result.IsError, result.Text);
         Assert.True(Exists());
@@ -153,31 +142,34 @@ public sealed class CredentialTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_the_decision_model_a_write_the_patterns_pass_still_needs_confirming()
+    public async Task Without_the_decision_model_a_write_the_patterns_pass_goes_ahead()
     {
         _models.DecisionDown = true;
 
-        var refused = await Create("先跑迁移，再重启服务。");
+        var result = await Create("先跑迁移，再重启服务。");
 
-        Assert.True(refused.IsError);
-        Assert.Contains("decision model is unavailable", refused.Text);
-        Assert.Contains("confirm_no_secret", refused.Text);
-        Assert.False(Exists());
-
-        var confirmed = await Create("先跑迁移，再重启服务。", confirm: true);
-        Assert.False(confirmed.IsError, confirmed.Text);
+        Assert.False(result.IsError, result.Text);
         Assert.True(Exists());
     }
 
     [Fact]
-    public async Task Without_a_decision_key_a_write_needs_confirming()
+    public async Task Without_a_decision_key_a_write_the_patterns_pass_goes_ahead()
     {
         Configure(decisionKey: null);
 
         var result = await Create("先跑迁移，再重启服务。");
 
-        Assert.True(result.IsError);
-        Assert.Contains("confirm_no_secret", result.Text);
+        Assert.False(result.IsError, result.Text);
+        Assert.True(Exists());
+    }
+
+    [Fact]
+    public async Task Confirming_no_secret_writes_past_the_patterns()
+    {
+        var result = await Create($"示例 key：{OpenAiKey} 是文档里的假值", confirm: true);
+
+        Assert.False(result.IsError, result.Text);
+        Assert.True(Exists());
     }
 
     [Fact]

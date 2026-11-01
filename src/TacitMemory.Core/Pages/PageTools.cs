@@ -12,7 +12,7 @@ namespace TacitMemory.Core.Pages;
 /// writes; this class assumes it runs one write at a time.
 /// </summary>
 internal sealed class PageTools(
-    TacitOptions options, TacitConfig config, Action<string> notice, CredentialCheck credentials, DuplicatePageCheck duplicates)
+    TacitOptions options, TacitConfig config, Action<string> notice, DuplicatePageCheck duplicates)
 {
     private const string Ops = "create, upsert_section, delete_section, update_header";
 
@@ -82,7 +82,7 @@ internal sealed class PageTools(
                 SectionList(existing!));
         }
 
-        if (await CheckSecretsAsync(request, "create", [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)], cancellationToken) is { } secret)
+        if (CheckSecrets(request, "create", [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)]) is { } secret)
             return secret;
 
         var today = options.Today;
@@ -119,7 +119,7 @@ internal sealed class PageTools(
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
 
-        if (await CheckSecretsAsync(request, "upsert_section", SectionTexts([new PageSectionInput(name, body)]), cancellationToken) is { } secret)
+        if (CheckSecrets(request, "upsert_section", SectionTexts([new PageSectionInput(name, body)])) is { } secret)
             return secret;
 
         var (document, refusal) = Load(id);
@@ -187,7 +187,7 @@ internal sealed class PageTools(
         if (title is not null)
             written.Add(("title", title));
         written.AddRange(added.Select(alias => ("alias", alias)));
-        if (await CheckSecretsAsync(request, "update_header", written, cancellationToken) is { } secret)
+        if (CheckSecrets(request, "update_header", written) is { } secret)
             return secret;
 
         var (document, refusal) = Load(id);
@@ -211,13 +211,12 @@ internal sealed class PageTools(
     }
 
     /// <summary>The credential check's refusal, or <c>null</c> when the texts may be written or the agent confirmed.</summary>
-    private async Task<ToolResult?> CheckSecretsAsync(
-        WritePageRequest request, string op, IEnumerable<(string Where, string Text)> texts, CancellationToken cancellationToken)
+    private static ToolResult? CheckSecrets(WritePageRequest request, string op, IEnumerable<(string Where, string Text)> texts)
     {
         if (request.ConfirmNoSecret == true)
             return null;
         var written = texts.Select(text => new WrittenText(text.Where, text.Text)).ToList();
-        return written.Count == 0 ? null : await credentials.RunAsync(written, op, cancellationToken);
+        return written.Count == 0 ? null : CredentialCheck.Run(written, op);
     }
 
     private static IEnumerable<(string Where, string Text)> SectionTexts(IEnumerable<PageSectionInput> sections) =>

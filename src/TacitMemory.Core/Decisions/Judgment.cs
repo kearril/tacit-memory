@@ -22,8 +22,6 @@ internal static class Judgment
     /// <summary>Defaults measured on real Chinese samples with TypeSafe Jev; <c>config.yaml</c> may override them.</summary>
     public static readonly Threshold SamePage = new(Certain: 0.85, Unlikely: 0.25);
 
-    public static readonly Threshold Credential = new(Certain: 0.60, Unlikely: 0.40);
-
     /// <summary>
     /// A choice among options plus a "none of these" option: none ranked first is <see cref="Tier.Unlikely"/>;
     /// otherwise the best real option at or above <c>certain</c> is <see cref="Tier.Certain"/>, at or below

@@ -22,7 +22,6 @@ internal sealed class ModelDouble : IDisposable
     private int _embeddingCalls;
     private int _rerankCalls;
     private int _decisionCalls;
-    private int _choiceCalls;
 
     public ModelDouble()
         : this(shared: false)
@@ -45,7 +44,7 @@ internal sealed class ModelDouble : IDisposable
 
     /// <summary>
     /// The default for tests that do not exercise the models: the embedding model and the reranker are down, and the
-    /// decision model answers no to every question, so writes pass the credential check and are never duplicates.
+    /// decision model answers "none" to every choice, so writes are never duplicates.
     /// </summary>
     public static ModelDouble Quiet => SharedQuiet.Value;
 
@@ -74,13 +73,7 @@ internal sealed class ModelDouble : IDisposable
     public Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, double>> Choose { get; set; } =
         (_, options) => options.Keys.ToDictionary(key => key, key => key == options.Keys.Last() ? 1.0 : 0.0);
 
-    /// <summary>The probability that a true-or-false question about the state is true; by default 0.</summary>
-    public Func<string, double> IsTrue { get; set; } = _ => 0;
-
     public int DecisionCalls => Volatile.Read(ref _decisionCalls);
-
-    /// <summary>Decision requests with a choice question, such as the duplicate page check.</summary>
-    public int ChoiceCalls => Volatile.Read(ref _choiceCalls);
 
     /// <summary>The body and the Authorization header of the latest decision request.</summary>
     public (JsonObject Body, string? Authorization)? LastDecision { get; private set; }
@@ -147,8 +140,6 @@ internal sealed class ModelDouble : IDisposable
         Interlocked.Increment(ref _decisionCalls);
         var body = (await JsonNode.ParseAsync(request.Body))!.AsObject();
         LastDecision = (body, request.Headers.Authorization.ToString());
-        if (body["questions"]!.AsObject().Any(question => question.Value!["type"]!.GetValue<string>() == "choice"))
-            Interlocked.Increment(ref _choiceCalls);
         if (DecisionDown)
             return Results.StatusCode(503);
         var answers = new JsonObject();
@@ -159,7 +150,6 @@ internal sealed class ModelDouble : IDisposable
             answers[id] = question["type"]!.GetValue<string>() switch
             {
                 "choice" => Choice(state, question["criteria"]!.AsObject()),
-                "noul" => new JsonObject { ["type"] = "noul", ["noul"] = IsTrue(state) },
                 var type => throw new InvalidOperationException($"The double does not answer {type} questions."),
             };
         }

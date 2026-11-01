@@ -34,7 +34,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new PageLimits(50, 30, 2), config.Limits.Page);
         Assert.Equal(2, config.CandidateMinDays);
         Assert.Equal(new CheckupConfig(7, 14), config.Checkup);
-        Assert.Equal(new DecisionThresholds(null, null, null, null, null), config.Decision);
+        Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
         Assert.Equal(new Uri("http://127.0.0.1:38417/v1"), config.Models.Embedding.Endpoint);
@@ -101,8 +101,8 @@ public sealed class ConfigTests : IDisposable
     [InlineData("language: fr", "language")]
     [InlineData("limits: { itemLength: -1 }", "limits.itemLength")]
     [InlineData("backup: { keep: 1.5 }", "backup.keep")]
-    [InlineData("decision: { credential: { certain: 0.2, unlikely: 0.8 } }", "decision.credential")]
-    [InlineData("decision: { credential: { certain: 1.5, unlikely: 0.1 } }", "decision.credential.certain")]
+    [InlineData("decision: { samePage: { certain: 0.2, unlikely: 0.8 } }", "decision.samePage")]
+    [InlineData("decision: { samePage: { certain: 1.5, unlikely: 0.1 } }", "decision.samePage.certain")]
     [InlineData("retrieval: { minRerankScore: high }", "retrieval.minRerankScore")]
     public void A_wrong_setting_is_refused_with_its_key_path(string yaml, string keyPath)
     {

@@ -173,7 +173,7 @@ internal static class ConfigLoader
     private static DecisionThresholds ReadDecision(ConfigReader reader, YamlMappingNode root)
     {
         var decision = reader.Mapping(root, "", "decision");
-        reader.OnlyKnown(decision, "decision", "samePreference", "samePage", "sameActivity", "ruleConflict", "credential");
+        reader.OnlyKnown(decision, "decision", "samePreference", "samePage", "sameActivity", "ruleConflict");
 
         Threshold? Read(string key)
         {
@@ -191,7 +191,7 @@ internal static class ConfigLoader
             return new Threshold(certain.Value, unlikely.Value);
         }
 
-        return new DecisionThresholds(Read("samePreference"), Read("samePage"), Read("sameActivity"), Read("ruleConflict"), Read("credential"));
+        return new DecisionThresholds(Read("samePreference"), Read("samePage"), Read("sameActivity"), Read("ruleConflict"));
     }
 
     private static RetrievalConfig ReadRetrieval(ConfigReader reader, YamlMappingNode root)

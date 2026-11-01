@@ -45,8 +45,7 @@ public sealed record PageLimits(int TitleLength, int AliasLength, int MinAliases
 public sealed record CheckupConfig(int RemindAfterDays, int MainlineStaleDays);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
-public sealed record DecisionThresholds(
-    Threshold? SamePreference, Threshold? SamePage, Threshold? SameActivity, Threshold? RuleConflict, Threshold? Credential);
+public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameActivity, Threshold? RuleConflict);
 
 /// <summary>At or above <see cref="Certain"/> a judgment is taken as yes, at or below <see cref="Unlikely"/> as no.</summary>
 public sealed record Threshold(double Certain, double Unlikely);

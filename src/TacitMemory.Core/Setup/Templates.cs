@@ -106,7 +106,6 @@ internal static class Templates
         #   samePage:       { certain: …, unlikely: … }
         #   sameActivity:   { certain: …, unlikely: … }
         #   ruleConflict:   { certain: …, unlikely: … }
-        #   credential:     { certain: …, unlikely: … }
 
         retrieval:
           candidates: 30              # 全文与向量各取的候选数
@@ -167,7 +166,6 @@ internal static class Templates
         #   samePage:       { certain: …, unlikely: … }
         #   sameActivity:   { certain: …, unlikely: … }
         #   ruleConflict:   { certain: …, unlikely: … }
-        #   credential:     { certain: …, unlikely: … }
 
         retrieval:
           candidates: 30              # candidates taken from full-text and vector search each
