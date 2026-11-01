@@ -265,19 +265,163 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Replaces_is_refused_for_now_and_nothing_is_written()
+    public async Task Replaces_rewrites_the_activity_in_place_and_keeps_its_source()
+    {
+        await _service.WriteRecentAsync(Add("先做的事", project: "tacit-memory", source: "原话一"));
+        await _service.WriteRecentAsync(Add("第二件事"));
+        var first = await _service.WriteRecentAsync(Add("第三件事"));
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "改写后的先做的事",
+            Project = "tacit-memory",
+            Replaces = ShortOf("[tacit-memory] 先做的事"),
+        });
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(ShortOf("[tacit-memory] 改写后的先做的事"), CodeOf(result));
+        Assert.Equal(
+            "## 2026-11-02\n- [tacit-memory] 改写后的先做的事\n  <!-- 原话「原话一」 -->\n- 第二件事\n- 第三件事\n",
+            File.ReadAllText(MonthFile));
+        Assert.Equal($"recent: replace {ShortOf("[tacit-memory] 改写后的先做的事")}", Git("log", "-1", "--format=%s").Trim());
+        Assert.NotEqual(CodeOf(first), ShortOf("[tacit-memory] 改写后的先做的事"));
+    }
+
+    [Fact]
+    public async Task Replaces_with_a_source_replaces_the_comment_and_without_one_keeps_it()
+    {
+        var added = await _service.WriteRecentAsync(Add("一件事", source: "旧话"));
+
+        await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "一件事改写",
+            Replaces = CodeOf(added),
+            Source = "新话",
+        });
+        Assert.Equal("## 2026-11-02\n- 一件事改写\n  <!-- 原话「新话」 -->\n", File.ReadAllText(MonthFile));
+
+        var kept = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "一件事再改",
+            Replaces = ShortOf("一件事改写"),
+        });
+
+        Assert.False(kept.IsError, kept.Text);
+        Assert.Equal("## 2026-11-02\n- 一件事再改\n  <!-- 原话「新话」 -->\n", File.ReadAllText(MonthFile));
+    }
+
+    [Fact]
+    public async Task Replaces_takes_the_project_label_from_the_new_call()
+    {
+        var added = await _service.WriteRecentAsync(Add("同一件事", project: "old-one"));
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "同一件事",
+            Project = "new-one",
+            Replaces = CodeOf(added),
+        });
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal("## 2026-11-02\n- [new-one] 同一件事\n", File.ReadAllText(MonthFile));
+    }
+
+    [Fact]
+    public async Task A_code_from_another_day_is_refused_and_today_s_activities_are_listed()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
+        File.WriteAllText(MonthFile, "## 2026-11-01\n- 昨天的事\n");
+        var today = await _service.WriteRecentAsync(Add("今天的事"));
+        var before = File.ReadAllText(MonthFile);
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "误改昨天",
+            Replaces = ShortOf("昨天的事"),
+        });
+
+        Assert.True(result.IsError);
+        Assert.Contains("Parameter replaces does not match an activity from 2026-11-02.", result.Text);
+        Assert.Contains($"[{CodeOf(today)}] 今天的事", result.Text);
+        Assert.DoesNotContain("昨天的事", result.Text);
+        Assert.Equal(before, File.ReadAllText(MonthFile));
+    }
+
+    [Fact]
+    public async Task An_expired_code_is_refused_and_the_current_activities_are_listed()
+    {
+        var added = await _service.WriteRecentAsync(Add("旧的说法"));
+        await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "新的说法",
+            Replaces = CodeOf(added),
+        });
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "又改一次",
+            Replaces = CodeOf(added),
+        });
+
+        Assert.True(result.IsError);
+        Assert.Contains($"[{ShortOf("新的说法")}] 新的说法", result.Text);
+        Assert.Equal("## 2026-11-02\n- 新的说法\n", File.ReadAllText(MonthFile));
+    }
+
+    [Fact]
+    public async Task Replaces_with_no_activity_today_is_refused_and_creates_no_file()
     {
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
             Op = "add_activity",
-            Text = "合并后的一句",
+            Text = "一件事",
             Replaces = "abc123",
         });
 
         Assert.True(result.IsError);
-        Assert.Contains("Parameter replaces is not available yet.", result.Text);
-        Assert.Contains("Next step: Call write_recent again without replaces.", result.Text);
+        Assert.Contains("No activities are recorded for 2026-11-02.", result.Text);
         Assert.False(File.Exists(MonthFile));
+    }
+
+    [Fact]
+    public async Task A_secret_in_the_replacement_is_refused_and_the_activity_is_kept()
+    {
+        var added = await _service.WriteRecentAsync(Add("普通的一句"));
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = $"用的 key 是 {OpenAiKey}",
+            Replaces = CodeOf(added),
+        });
+
+        Assert.True(result.IsError);
+        Assert.Contains("confirm_no_secret=true", result.Text);
+        Assert.Equal("## 2026-11-02\n- 普通的一句\n", File.ReadAllText(MonthFile));
+    }
+
+    [Fact]
+    public async Task Replacing_with_the_same_text_changes_nothing_and_makes_no_commit()
+    {
+        var added = await _service.WriteRecentAsync(Add("不变的一句"));
+        var commits = Git("rev-list", "--count", "HEAD");
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = "add_activity",
+            Text = "不变的一句",
+            Replaces = CodeOf(added),
+        });
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(commits, Git("rev-list", "--count", "HEAD"));
     }
 
     [Fact]
