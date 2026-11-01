@@ -253,7 +253,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
             return "No activities since the last recent.md commit.";
 
         var lines = new List<string> { "Activities since the last recent.md commit, newest first:" };
-        lines.AddRange(newestFirst.Take(listed).Select(activity => $"- {activity.Day:yyyy-MM-dd} [{activity.Code}] {activity.Body}"));
+        lines.AddRange(newestFirst.Take(listed).Select(activity => $"- {activity.Day:yyyy-MM-dd} [{activity.Code}] {(activity.Project is null ? "" : $"[{activity.Project}] ")}{activity.Body}"));
         if (newestFirst.Count > listed)
             lines.Add($"{newestFirst.Count - listed} more not listed.");
         return string.Join("\n", lines);

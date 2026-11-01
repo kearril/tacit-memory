@@ -136,6 +136,24 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_activity_written_through_the_tool_is_recalled_by_kind()
+    {
+        await using var client = await ConnectAsync();
+        await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "想清楚了画像里缺的是人的倾向",
+            ["project"] = "tacit-memory",
+        });
+
+        var read = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "画像", ["kind"] = "activities" });
+
+        Assert.NotEqual(true, read.IsError);
+        Assert.Contains("activity 2026-11-02", Text(read));
+        Assert.Contains("想清楚了画像里缺的是人的倾向", Text(read));
+    }
+
+    [Fact]
     public async Task A_refused_activity_comes_back_as_an_error_with_its_next_step()
     {
         await using var client = await ConnectAsync();
