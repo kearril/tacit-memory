@@ -3,6 +3,7 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Models;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Tools;
 
@@ -12,7 +13,7 @@ namespace TacitMemory.Core.Recent;
 /// The recent activity side of the memory tools: the <c>write_recent</c> operations. Callers serialize writes; this
 /// class assumes it runs one write at a time.
 /// </summary>
-internal sealed class RecentTools(TacitOptions options, TacitConfig config, Action<string> notice)
+internal sealed class RecentTools(TacitOptions options, TacitConfig config, Action<string> notice, IDecisionModel decision)
 {
     private const string Ops = "add_activity, update_mainline";
 
@@ -24,6 +25,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
     };
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
+    private readonly SameActivityCheck _sameActivity = new(config, decision);
 
     public async Task<ToolResult> WriteAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
@@ -117,6 +119,16 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                         ? $"No activities are recorded for {day:yyyy-MM-dd}."
                         : string.Join('\n', today.Select(entry => $"[{entry.Code}] {entry.Body}")));
         }
+        string? sameActivityNote = null;
+        if (replaced is null)
+        {
+            var verdict = await _sameActivity.RunAsync(label + text, RecentFile.EntriesOn(existing, day), cancellationToken);
+            if (verdict.Repeat is { } repeat)
+                return ToolText.Ok(
+                    $"Not added: today's activity [{repeat.Code}] is about the same thing: {repeat.Body}\n"
+                    + $"Next step: write one merged sentence that covers both, then call write_recent again with op=add_activity, that sentence as text, and replaces set to {repeat.Code}. Nothing was written.");
+            sameActivityNote = verdict.Note;
+        }
 
         // Checked before the write: a file that already had user edits gets that noted in its commit subject.
         var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
@@ -138,7 +150,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
 
         var code = RecentFile.CodeAt(after, line);
         var verb = replaced is null ? "Added" : "Replaced";
-        var reply = $"{verb} activity [{code}].";
+        var reply = sameActivityNote is null ? $"{verb} activity [{code}]." : $"{verb} activity [{code}].\n\n{sameActivityNote}";
         if (after == existing)
             return ToolText.Ok(reply);
 
