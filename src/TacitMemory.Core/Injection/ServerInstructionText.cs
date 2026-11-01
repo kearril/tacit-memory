@@ -44,11 +44,11 @@ internal static class ServerInstructionText
 
     private const string WritingRecent = """
         ## Writing activities and mainline
-        - Write an activity when a main matter reaches a conclusion (decision made, cause found, phase goal done). One per session; later progress replaces it with `replaces` and its short code.
-        - Write what the person is doing and concluded, not which files changed. Set `project` for a project.
-        - If a write comes back as same-topic, merge it into one sentence and resubmit with `replaces`.
-        - Rewrite the mainline with `update_mainline` only for a lasting new direction or a clearly ended one.
-        - When the user describes their own situation, link it to the recent summary in half a sentence; never list it.
+        - Write an activity when a main matter concludes; one per session, and later progress uses `replaces`.
+        - Describe what the person is doing or concluded, not files changed; set `project` for a project.
+        - On a same-topic refusal, merge into one sentence and resubmit with `replaces`.
+        - Change the mainline only for a lasting new direction or a clearly ended one.
+        - When the user describes their situation, mention recent context in half a sentence.
         """;
 
     /// <summary>The fixed parts, which every session gets in full.</summary>
