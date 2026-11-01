@@ -76,7 +76,7 @@ internal static class ServerInstructionText
     }
 
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
-    /// <param name="skippedFiles">Page files left out of the index because they are not UTF-8.</param>
+    /// <param name="skippedFiles">Page and activity record files left out of the index because they are not UTF-8.</param>
     /// <param name="recent">The mainline and the last seven days of activities.</param>
     /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
     public static string Build(
@@ -92,7 +92,7 @@ internal static class ServerInstructionText
         if (unavailableModels.Count > 0)
             status.Add($"- Unavailable auxiliary models: {string.Join(", ", unavailableModels)}. Memory tools still work, with weaker search and checks.");
         if (skippedFiles.Count > 0)
-            status.Add($"- Pages not searchable because they are not UTF-8: {string.Join(", ", skippedFiles)}.");
+            status.Add($"- Files not searchable because they are not UTF-8: {string.Join(", ", skippedFiles)}.");
         var statusText = status.Count == 0 ? "" : "## Status\n" + string.Join("\n", status);
 
         // Newest first, so the oldest activity is the last one and goes first.
