@@ -280,19 +280,189 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.False(File.Exists(MonthFile));
     }
 
-    [Fact]
-    public async Task Update_mainline_is_refused_for_now_and_nothing_is_written()
+    private string RecentPath => Path.Combine(Memory, "recent.md");
+
+    private static WriteRecentRequest Mainline(IReadOnlyList<string>? items, string? hash = null, bool? confirmNoSecret = null) => new()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
-        {
-            Op = "update_mainline",
-            Items = ["做记忆库的近期活动"],
-            Hash = "000000",
-        });
+        Op = "update_mainline",
+        Items = items,
+        Hash = hash,
+        ConfirmNoSecret = confirmNoSecret,
+    };
+
+    private static string VersionOf(params string[] items) => ShortOf(string.Join("\n", items));
+
+    [Fact]
+    public async Task Update_mainline_replaces_the_list_under_its_heading_and_keeps_every_other_byte()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n- 旧的二条\n\n手写备注  \n## 其他\n正文\n");
+        Git("add", "recent.md");
+        Git("commit", "-m", "chore: seed mainline");
+
+        var result = await _service.WriteRecentAsync(Mainline(["新的一条", "新的二条"], VersionOf("旧的一条", "旧的二条")));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal("## 近期主线\n- 新的一条\n- 新的二条\n\n手写备注  \n## 其他\n正文\n", File.ReadAllText(RecentPath));
+        Assert.Equal("recent: mainline", Git("log", "-1", "--format=%s").Trim());
+        Assert.Contains(VersionOf("新的一条", "新的二条"), result.Text);
+    }
+
+    [Fact]
+    public async Task An_empty_list_clears_the_mainline_and_keeps_its_heading()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
+        Git("add", "recent.md");
+        Git("commit", "-m", "chore: seed mainline");
+
+        var result = await _service.WriteRecentAsync(Mainline([], VersionOf("旧的一条")));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
+        Assert.Contains(VersionOf(), result.Text);
+    }
+
+    [Fact]
+    public async Task More_items_than_the_mainline_limit_are_refused_and_nothing_is_written()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n");
+
+        var result = await _service.WriteRecentAsync(Mainline(["一", "二", "三", "四", "五", "六"], VersionOf()));
 
         Assert.True(result.IsError);
-        Assert.Contains("Op update_mainline is not available yet.", result.Text);
-        Assert.False(File.Exists(MonthFile));
+        Assert.StartsWith("Refused:", result.Text);
+        Assert.Contains("6 items; the limit is 5", result.Text);
+        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
+    }
+
+    [Fact]
+    public async Task An_item_over_the_length_limit_is_refused_and_the_limit_is_named()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n");
+
+        var result = await _service.WriteRecentAsync(Mainline([new string('字', 101)], VersionOf()));
+
+        Assert.True(result.IsError);
+        Assert.Contains("Item 1 has 101 characters; the limit is 100", result.Text);
+        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
+    }
+
+    [Fact]
+    public async Task A_missing_hash_is_refused_with_the_current_mainline_and_its_version()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
+
+        var result = await _service.WriteRecentAsync(Mainline(["新的一条"]));
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused:", result.Text);
+        Assert.Contains("- 旧的一条", result.Text);
+        Assert.Contains(VersionOf("旧的一条"), result.Text);
+        Assert.Equal("## 近期主线\n- 旧的一条\n", File.ReadAllText(RecentPath));
+    }
+
+    [Fact]
+    public async Task A_stale_hash_is_refused_with_the_current_mainline_and_its_version()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
+
+        var result = await _service.WriteRecentAsync(Mainline(["新的一条"], "000000"));
+
+        Assert.True(result.IsError);
+        Assert.Contains("Next step:", result.Text);
+        Assert.Contains("- 旧的一条", result.Text);
+        Assert.Contains(VersionOf("旧的一条"), result.Text);
+        Assert.Equal("## 近期主线\n- 旧的一条\n", File.ReadAllText(RecentPath));
+    }
+
+    [Fact]
+    public async Task Writing_the_same_list_changes_no_file_and_makes_no_commit()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
+        Git("add", "recent.md");
+        Git("commit", "-m", "chore: seed mainline");
+        var head = Git("rev-parse", "HEAD").Trim();
+
+        var result = await _service.WriteRecentAsync(Mainline(["旧的一条"], VersionOf("旧的一条")));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("unchanged", result.Text);
+        Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
+    }
+
+    [Fact]
+    public async Task A_secret_in_an_item_is_refused_unless_confirmed()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n");
+
+        var refused = await _service.WriteRecentAsync(Mainline([$"用的 key 是 {OpenAiKey}"], VersionOf()));
+
+        Assert.True(refused.IsError);
+        Assert.Contains("sk-pro", refused.Text);
+        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
+
+        var confirmed = await _service.WriteRecentAsync(Mainline([$"示例 {OpenAiKey}"], VersionOf(), confirmNoSecret: true));
+
+        Assert.False(confirmed.IsError, confirmed.Text);
+        Assert.Contains($"- 示例 {OpenAiKey}", File.ReadAllText(RecentPath));
+    }
+
+    [Fact]
+    public async Task The_add_reply_carries_the_mainline_and_its_version_code()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n- 主线二\n");
+
+        var result = await _service.WriteRecentAsync(Add("一件事"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains($"Mainline, version [{VersionOf("主线一", "主线二")}]:\n- 主线一\n- 主线二", result.Text);
+    }
+
+    [Fact]
+    public async Task The_add_reply_lists_activities_dated_from_the_last_mainline_commit_onward()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n");
+        Git("add", "recent.md");
+        Git("commit", "-m", "recent: mainline", "--date=2026-11-01T10:00:00+00:00");
+        Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
+        File.WriteAllText(MonthFile, "## 2026-10-31\n- 更早的事\n## 2026-11-01\n- 昨天的事\n");
+        Git("add", "recent/2026-11.md");
+        Git("commit", "-m", "chore: seed month file");
+
+        var result = await _service.WriteRecentAsync(Add("今天的事"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("昨天的事", result.Text);
+        Assert.Contains("今天的事", result.Text);
+        Assert.DoesNotContain("更早的事", result.Text);
+    }
+
+    [Fact]
+    public async Task Until_the_mainline_is_first_committed_every_activity_is_listed()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
+        File.WriteAllText(MonthFile, "## 2026-10-31\n- 更早的事\n");
+        Git("add", "recent/2026-11.md");
+        Git("commit", "-m", "chore: seed month file");
+
+        var result = await _service.WriteRecentAsync(Add("今天的事"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("更早的事", result.Text);
+    }
+
+    [Fact]
+    public async Task The_add_reply_lists_at_most_ten_activities_and_counts_the_rest()
+    {
+        for (var i = 1; i <= 11; i++)
+            await _service.WriteRecentAsync(Add($"第{i}件事"));
+
+        var result = await _service.WriteRecentAsync(Add("第12件事"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(10, result.Text.Split('\n').Count(line => line.StartsWith("- 2026-11-02 [", StringComparison.Ordinal)));
+        Assert.Contains($"- 2026-11-02 [{ShortOf("第12件事")}] 第12件事", result.Text);
+        Assert.Contains("2 more", result.Text);
+        Assert.DoesNotContain("第2件事", result.Text);
     }
 
     [Fact]

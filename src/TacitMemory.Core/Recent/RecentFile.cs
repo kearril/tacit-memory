@@ -1,3 +1,4 @@
+using System.Globalization;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
 
@@ -61,5 +62,37 @@ internal static class RecentFile
             .ToList();
         var codes = ShortCode.For(entries.Select(entry => ShortCode.Normalize(entry.Body[2..])));
         return codes[entries.FindIndex(entry => entry.Index == line)];
+    }
+
+    /// <summary>One activity read back from a month file: its day, its text as written (with any project label), and its code.</summary>
+    public readonly record struct Activity(DateOnly Day, string Body, string Code);
+
+    /// <summary>
+    /// The activities of a month file in file order, with the codes <see cref="CodeAt"/> would give them. Lines under a
+    /// heading that is not a <c>yyyy-MM-dd</c> day are counted for codes but not returned.
+    /// </summary>
+    public static IReadOnlyList<Activity> Activities(string text)
+    {
+        var lines = text.Split('\n').Select(line => line.TrimEnd('\r')).ToList();
+        var codes = ShortCode.For(lines.Where(line => line.StartsWith("- ", StringComparison.Ordinal))
+            .Select(line => ShortCode.Normalize(line[2..])))
+            .ToList();
+
+        var activities = new List<Activity>();
+        DateOnly? day = null;
+        var entry = 0;
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+                day = DateOnly.TryParseExact(line[3..], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed : null;
+            else if (line.StartsWith("- ", StringComparison.Ordinal))
+            {
+                var code = codes[entry++];
+                if (day is { } current)
+                    activities.Add(new Activity(current, line[2..], code));
+            }
+        }
+
+        return activities;
     }
 }

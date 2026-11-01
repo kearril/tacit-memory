@@ -90,10 +90,10 @@ public sealed record WriteRecentRequest
     /// <summary>The activity this one replaces; not available yet.</summary>
     public string? Replaces { get; init; }
 
-    /// <summary>The mainline items for <c>update_mainline</c>; not available yet.</summary>
+    /// <summary>The whole mainline for <c>update_mainline</c>, in order; an empty list clears it.</summary>
     public IReadOnlyList<string>? Items { get; init; }
 
-    /// <summary>The mainline's short code from recall, for <c>update_mainline</c>; not available yet.</summary>
+    /// <summary>The version code of the mainline the agent read, required by <c>update_mainline</c>.</summary>
     public string? Hash { get; init; }
 
     /// <summary>

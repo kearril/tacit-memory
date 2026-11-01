@@ -37,9 +37,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         return request.Op switch
         {
             "add_activity" => await AddActivityAsync(request, cancellationToken),
-            "update_mainline" => ToolText.Refuse(
-                "Op update_mainline is not available yet.",
-                "Call write_recent again with op=add_activity to record an activity."),
+            "update_mainline" => await UpdateMainlineAsync(request, cancellationToken),
             _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_recent again with op set to one of: {Ops}."),
         };
     }
@@ -114,8 +112,137 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         TextFile.Write(path, after, hasBom);
         var code = RecentFile.CodeAt(after, line);
         var commitProblem = await CommitAsync(dirty ? $"recent: add {code} (with user edits)" : $"recent: add {code}", relative, cancellationToken);
-        var reply = $"Added activity [{code}].";
+        var reply = $"Added activity [{code}].\n\n{MainlineBlock(CurrentMainline())}\n\n{await ActivitiesBlockAsync(cancellationToken)}";
         return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+    }
+
+    private async Task<ToolResult> UpdateMainlineAsync(WriteRecentRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Items is null)
+            return ToolText.Refuse(
+                "Missing parameter items.",
+                "Call write_recent again with op=update_mainline and items set to the whole mainline, in order; an empty list clears it.");
+
+        var relative = MainlineSection.RelativePath;
+        var path = Path.Combine(config.MemoryPath, relative);
+        var read = TextFile.Read(path);
+        if (read is null)
+            return ToolText.Refuse(
+                $"{relative} is not valid UTF-8, so writing to it would change its text.",
+                $"Save {relative} as UTF-8, then call write_recent op=update_mainline again.");
+        var (existing, hasBom) = read.Value;
+
+        var current = MainlineSection.Items(existing);
+        var currentVersion = MainlineSection.VersionOf(current);
+        if (string.IsNullOrWhiteSpace(request.Hash) || !string.Equals(request.Hash.Trim(), currentVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            var reason = string.IsNullOrWhiteSpace(request.Hash)
+                ? "Missing parameter hash."
+                : $"Hash {ToolText.Quote(request.Hash)} does not match the current mainline.";
+            return ToolText.Refuse(
+                reason,
+                $"Call write_recent again with op=update_mainline, hash set to {currentVersion}, and the items you want.",
+                MainlineBlock(current));
+        }
+
+        var items = request.Items.Select(item => item.Trim()).ToList();
+        var problems = new List<string>();
+        var maxItems = config.Limits.Mainline;
+        if (items.Count > maxItems)
+            problems.Add($"Mainline has {items.Count} items; the limit is {maxItems}.");
+        var maxLength = config.Limits.ItemLength;
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (item.Length == 0)
+                problems.Add($"Item {i + 1} is empty.");
+            else if (item.Contains('\n') || item.Contains('\r'))
+                problems.Add($"Item {i + 1} must be one line.");
+            else if (Length(item) > maxLength)
+                problems.Add($"Item {i + 1} has {Length(item)} characters; the limit is {maxLength}.");
+        }
+
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_recent op=update_mainline again with the same hash.", MainlineBlock(current));
+
+        if (request.ConfirmNoSecret != true)
+        {
+            var written = items.Select((item, i) => new WrittenText($"item {i + 1}", item)).ToList();
+            if (CredentialCheck.Run(written, "write_recent", "update_mainline") is { } secret)
+                return secret;
+        }
+
+        if (items.SequenceEqual(current, StringComparer.Ordinal))
+            return ToolText.Ok($"Mainline unchanged.\n\n{MainlineBlock(items)}");
+
+        // Checked before the write, as in add_activity: user edits to recent.md are noted in the commit subject.
+        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
+        var updated = MainlineSection.Replace(existing, items, MainlineSection.HeadingIn(config.Language), TextFile.NewlineOf(existing));
+        TextFile.Write(path, updated, hasBom);
+        var commitProblem = await CommitAsync(dirty ? "recent: mainline (with user edits)" : "recent: mainline", relative, cancellationToken);
+        var reply = $"Mainline updated.\n\n{MainlineBlock(items)}";
+        return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+    }
+
+    /// <summary>The mainline as write replies show it: its version code, then its items, or <c>(empty)</c>.</summary>
+    private static string MainlineBlock(IReadOnlyList<string> items) =>
+        $"Mainline, version [{MainlineSection.VersionOf(items)}]:\n"
+        + (items.Count == 0 ? "(empty)" : string.Join("\n", items.Select(item => "- " + item)));
+
+    private IReadOnlyList<string> CurrentMainline() =>
+        MainlineSection.Items(TextFile.Read(Path.Combine(config.MemoryPath, MainlineSection.RelativePath))?.Text ?? "");
+
+    /// <summary>
+    /// The activities dated on or after the day of the last commit that touched <c>recent.md</c>, newest first, at most
+    /// ten. With no such commit, or only the init commit, every activity is listed.
+    /// </summary>
+    private async Task<string> ActivitiesBlockAsync(CancellationToken cancellationToken)
+    {
+        const int listed = 10;
+        var since = await LastMainlineCommitDayAsync(cancellationToken);
+        var folder = Path.Combine(config.MemoryPath, "recent");
+        var months = Directory.Exists(folder)
+            ? Directory.GetFiles(folder, "*.md").OrderBy(file => file, StringComparer.Ordinal).ToList()
+            : new List<string>();
+
+        var activities = new List<RecentFile.Activity>();
+        foreach (var file in months)
+        {
+            var month = Path.GetFileNameWithoutExtension(file);
+            if (since is { } start && string.CompareOrdinal(month, start.ToString("yyyy-MM", CultureInfo.InvariantCulture)) < 0)
+                continue;
+            if (TextFile.Read(file) is not { } read)
+                continue;
+            activities.AddRange(RecentFile.Activities(read.Text).Where(activity => since is null || activity.Day >= since.Value));
+        }
+
+        // Months and lines are read oldest first; reversing puts the newest line first, and the stable sort keeps that order within a day.
+        var newestFirst = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).ToList();
+        if (newestFirst.Count == 0)
+            return "No activities since the last recent.md commit.";
+
+        var lines = new List<string> { "Activities since the last recent.md commit, newest first:" };
+        lines.AddRange(newestFirst.Take(listed).Select(activity => $"- {activity.Day:yyyy-MM-dd} [{activity.Code}] {activity.Body}"));
+        if (newestFirst.Count > listed)
+            lines.Add($"{newestFirst.Count - listed} more not listed.");
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>The day of the last commit that touched <c>recent.md</c>; null with no such commit or when it is the init commit.</summary>
+    private async Task<DateOnly?> LastMainlineCommitDayAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var line = (await _git.RunAsync(cancellationToken, "log", "-1", "--format=%as%x09%s", "--", MainlineSection.RelativePath)).Trim();
+            var parts = line.Split('\t', 2);
+            if (parts.Length < 2 || parts[1].StartsWith("init:", StringComparison.Ordinal))
+                return null;
+            return DateOnly.ParseExact(parts[0], "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+        catch (TacitException)
+        {
+            return null;
+        }
     }
 
     /// <summary>The parameters that were given but the op does not take.</summary>

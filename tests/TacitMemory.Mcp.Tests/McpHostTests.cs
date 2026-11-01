@@ -117,6 +117,25 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_mainline_update_through_the_tool_replaces_the_list_and_the_reply_shows_the_version()
+    {
+        await using var client = await ConnectAsync();
+
+        // e3b0c4 is the version code of the empty mainline (the short code of an empty string).
+        var updated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "update_mainline",
+            ["items"] = new[] { "主线一", "主线二" },
+            ["hash"] = "e3b0c4",
+        });
+
+        Assert.NotEqual(true, updated.IsError);
+        Assert.Contains("Mainline updated.", Text(updated));
+        Assert.Contains("- 主线一\n- 主线二", Text(updated));
+        Assert.Contains("## 近期主线\n- 主线一\n- 主线二\n", File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent.md")));
+    }
+
+    [Fact]
     public async Task A_refused_activity_comes_back_as_an_error_with_its_next_step()
     {
         await using var client = await ConnectAsync();
