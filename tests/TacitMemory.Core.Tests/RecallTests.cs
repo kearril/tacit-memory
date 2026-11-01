@@ -161,17 +161,6 @@ public sealed class RecallTests : IDisposable
         Assert.StartsWith("No relevant memory.", result.Text);
     }
 
-    [Fact]
-    public async Task Activities_have_no_memory_yet()
-    {
-        DbUpgrade();
-
-        var result = await Recall("数据库升级", kind: "activities");
-
-        Assert.False(result.IsError);
-        Assert.Equal("No relevant memory.", result.Text);
-    }
-
     [Theory]
     [InlineData("q", "p", null, null, "Give query or page, not both.")]
     [InlineData(null, null, null, null, "Missing parameter query or page.")]

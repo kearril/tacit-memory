@@ -9,7 +9,7 @@ using TacitMemory.Core.Tools;
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The <c>recall</c> tool: reads one page by ID, or searches pages by full text and by vector, merges the two with
+/// The <c>recall</c> tool: reads one page by ID, or searches pages and activities by full text and by vector, merges the two with
 /// reciprocal rank fusion, reranks the merged units and returns the best sections, merged per page. It never changes a file.
 /// </summary>
 internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
@@ -54,11 +54,10 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
             problems.Add($"Unknown kind {ToolText.Quote(kind)}; use pages or activities.");
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call recall again.");
-        if (kind == "activities")
-            return ToolText.Ok(NoMemory);
 
         var project = string.IsNullOrWhiteSpace(request.Project) ? null : request.Project.Trim().ToLowerInvariant();
-        var filter = new IndexFilter(project, from, to);
+        var activities = kind switch { "activities" => true, "pages" => false, _ => (bool?)null };
+        var filter = new IndexFilter(project, from, to, activities);
         var candidates = config.Retrieval.Candidates;
         var fullText = index.Search(request.Query!, filter, candidates);
 
@@ -116,12 +115,22 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
 
     private string Format(IReadOnlyList<IndexHit> hits)
     {
-        var results = hits.GroupBy(hit => hit.Source).Take(config.Retrieval.TopK).ToList();
+        // Pages group by source. Each activity is a result of its own, so two activities of one month file stay apart.
+        var results = hits.GroupBy(hit => (hit.Source, Code: hit.Kind == UnitKinds.Activity ? hit.Code : null)).Take(config.Retrieval.TopK).ToList();
         var text = new StringBuilder();
         var shown = 0;
         foreach (var result in results)
         {
-            if (!PageId.TryParse(result.Key, out var id, out _) || PageDocument.TryLoad(config.MemoryPath, id) is not { } document)
+            var sample = result.First();
+            if (sample.Kind == UnitKinds.Activity)
+            {
+                shown++;
+                var label = sample.Project.Length > 0 ? $", project {sample.Project}" : "";
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
+                continue;
+            }
+
+            if (!PageId.TryParse(sample.Source, out var id, out _) || PageDocument.TryLoad(config.MemoryPath, id) is not { } document)
                 continue;
             var matched = result.Select(hit => hit.Section).OfType<string>().ToHashSet(StringComparer.Ordinal);
             var sections = matched.Count > 0
@@ -141,7 +150,7 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
 
         return shown == 0
             ? NoMemory
-            : $"{shown} result(s). Short codes in brackets identify sections for write_page; read a whole page with recall page=<page ID>.\n{text}";
+            : $"{shown} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
     }
 
     private static DateOnly? Date(string? raw, string name, List<string> problems)

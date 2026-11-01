@@ -5,18 +5,25 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Index;
 
 /// <summary>A unit of the index that matched a query.</summary>
-/// <param name="Source">The source the unit hangs off: a detail page's ID.</param>
+/// <param name="Source">The source the unit hangs off: a detail page's ID, or a month file's path.</param>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
-/// <param name="Section">The section name; <c>null</c> for the title and aliases.</param>
-/// <param name="Text">The indexed text of the unit: the section name and body, or the title and aliases.</param>
-internal sealed record IndexHit(string Source, string Kind, string? Section, string Text);
+/// <param name="Section">The section name; <c>null</c> for the title and aliases and for activities.</param>
+/// <param name="Text">The indexed text of the unit: a section's name and body, the title and aliases, or an activity's body.</param>
+/// <param name="Project">The unit's project; empty when an activity has no project label.</param>
+/// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
+/// <param name="Code">An activity's short code; <c>null</c> for pages.</param>
+internal sealed record IndexHit(string Source, string Kind, string? Section, string Text, string Project, string? Date, string? Code);
 
-/// <summary>Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.</summary>
-internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To);
+/// <summary>
+/// Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.
+/// <paramref name="Activities"/> keeps only activities (<c>true</c>) or only pages (<c>false</c>); <c>null</c> keeps both.
+/// </summary>
+internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To, bool? Activities = null);
 
 /// <summary>A unit that has no vector yet, with the text to embed.</summary>
 internal sealed record PendingUnit(long Id, string Text);
@@ -26,6 +33,9 @@ internal static class SourceKinds
 {
     /// <summary>A detail page under <c>pages/</c>.</summary>
     public const string Page = "page";
+
+    /// <summary>A month file of the recent activity log, under <c>recent/</c>.</summary>
+    public const string Activity = "activity";
 }
 
 /// <summary>The kinds of unit a source holds.</summary>
@@ -36,24 +46,32 @@ internal static class UnitKinds
 
     /// <summary>The title and aliases of a detail page: the page-level clue.</summary>
     public const string Clue = "clue";
+
+    /// <summary>A dated line of a month file of the recent activity log.</summary>
+    public const string Activity = "activity";
 }
 
 /// <summary>
-/// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file, now always a detail page:
-/// one row per source with its file hash, and one unit per section and one for the title and aliases, each carrying its
-/// kind, project and dates. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
+/// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file: a detail page, or a month
+/// file of the activity log. One row per source with its file hash; one unit per section and one for the title and
+/// aliases of a page, and one per dated line of a month file, each carrying its kind, project and dates. An FTS5 table
+/// over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
 internal sealed class PageIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "3";
+    private const string SchemaVersion = "4";
 
     private const string Filters = """
         (@project IS NULL OR u.project = @project)
         AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
         AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
+        AND (@activities IS NULL OR (u.kind = 'activity') = @activities)
         """;
+
+    /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
+    private const string HitColumns = "u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.project AS Project, u.first AS Date, u.code AS Code";
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
@@ -76,7 +94,7 @@ internal sealed class PageIndex : IDisposable
         }
     }
 
-    /// <summary>Page files that are not UTF-8 and so are not indexed, relative to the memory repository.</summary>
+    /// <summary>Files that are not UTF-8 and so are not indexed, relative to the memory repository.</summary>
     public IReadOnlyList<string> SkippedFiles
     {
         get
@@ -96,18 +114,40 @@ internal sealed class PageIndex : IDisposable
         }
     }
 
-    /// <summary>Brings every page in line with its file: new and changed files are indexed, deleted ones removed.</summary>
+    /// <summary>
+    /// Brings every page and activity month file in line with its file: new and changed files are indexed, deleted ones
+    /// removed.
+    /// </summary>
     public void SyncAll()
     {
         lock (_gate)
         {
-            var onDisk = PageFiles().ToDictionary(file => file.Id.RelativePath);
+            var pages = PageFiles().ToDictionary(file => file.Id.RelativePath);
+            var months = ActivityFiles().ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
-            foreach (var path in known.Keys.Where(path => !onDisk.ContainsKey(path)))
+            foreach (var path in known.Keys.Where(path => !pages.ContainsKey(path) && !months.ContainsKey(path)))
                 Remove(path);
-            foreach (var (path, file) in onDisk)
+            foreach (var (path, file) in pages)
                 Sync(file.Id, file.FullPath, known.GetValueOrDefault(path));
-            _skipped.RemoveWhere(path => !onDisk.ContainsKey(path));
+            foreach (var (path, fullPath) in months)
+                SyncActivity(path, fullPath, known.GetValueOrDefault(path));
+            _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path));
+        }
+    }
+
+    /// <summary>Brings the activity month files in line with their files. The write path calls it so a new activity is searchable at once.</summary>
+    public void SyncActivities()
+    {
+        lock (_gate)
+        {
+            var months = ActivityFiles().ToDictionary(file => file.RelativePath, file => file.FullPath);
+            var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources WHERE kind = @kind", new { kind = SourceKinds.Activity })
+                .ToDictionary(row => row.Path, row => row.Hash);
+            foreach (var path in known.Keys.Where(path => !months.ContainsKey(path)))
+                Remove(path);
+            foreach (var (path, fullPath) in months)
+                SyncActivity(path, fullPath, known.GetValueOrDefault(path));
+            _skipped.RemoveWhere(path => path.StartsWith("recent/", StringComparison.Ordinal) && !months.ContainsKey(path));
         }
     }
 
@@ -146,7 +186,7 @@ internal sealed class PageIndex : IDisposable
             if (match is not null)
             {
                 return _connection.Query<IndexHit>($"""
-                    SELECT u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text
+                    SELECT {HitColumns}
                     FROM units_fts JOIN units u ON u.id = units_fts.rowid
                     WHERE units_fts MATCH @match AND {Filters}
                     ORDER BY bm25(units_fts) LIMIT @limit
@@ -157,7 +197,7 @@ internal sealed class PageIndex : IDisposable
             foreach (var character in IndexText.SingleCharacters(query))
             {
                 hits.AddRange(_connection.Query<IndexHit>($"""
-                    SELECT u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text
+                    SELECT {HitColumns}
                     FROM units u
                     WHERE instr(u.raw, @character) > 0 AND {Filters}
                     ORDER BY u.last DESC, u.source_id, u.ordinal LIMIT @limit
@@ -179,7 +219,7 @@ internal sealed class PageIndex : IDisposable
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
             return _connection.Query<IndexHit>($"""
-                SELECT u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text
+                SELECT {HitColumns}
                 FROM units_vec v JOIN units u ON u.id = v.rowid
                 WHERE {Filters}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
@@ -250,6 +290,7 @@ internal sealed class PageIndex : IDisposable
         parameters.Add("project", filter.Project);
         parameters.Add("from", filter.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         parameters.Add("to", filter.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        parameters.Add("activities", filter.Activities);
         parameters.Add("limit", limit);
         return parameters;
     }
@@ -288,14 +329,43 @@ internal sealed class PageIndex : IDisposable
         transaction.Commit();
     }
 
+    private void SyncActivity(string relativePath, string fullPath, string? knownHash)
+    {
+        var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(fullPath)));
+        if (hash == knownHash)
+            return;
+
+        if (TextFile.Read(fullPath) is not { } read)
+        {
+            Remove(relativePath);
+            _skipped.Add(relativePath);
+            return;
+        }
+
+        _skipped.Remove(relativePath);
+        using var transaction = _connection.BeginTransaction();
+        RemoveRows(relativePath, transaction);
+        _connection.Execute(
+            "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
+            new { id = relativePath, kind = SourceKinds.Activity, path = relativePath, hash },
+            transaction);
+        foreach (var activity in RecentFile.Activities(read.Text))
+        {
+            var day = DateText(activity.Day);
+            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Body, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
+        }
+
+        transaction.Commit();
+    }
+
     /// <summary>The project and dates every unit of a source carries.</summary>
     private sealed record UnitScope(string Project, string? First, string? Last);
 
-    private void AddUnit(string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction)
+    private void AddUnit(string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction, string? code = null)
     {
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw) VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw) RETURNING id",
-            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw }, transaction);
+            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code) VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code) RETURNING id",
+            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code }, transaction);
         _connection.Execute("INSERT INTO units_fts (rowid, text) VALUES (@unit, @text)", new { unit, text = IndexText.ForIndex(raw) }, transaction);
     }
 
@@ -349,6 +419,20 @@ internal sealed class PageIndex : IDisposable
         }
     }
 
+    /// <summary>The activity month files directly under <c>recent/</c>, named <c>yyyy-MM.md</c>. The mainline file is not one.</summary>
+    private IEnumerable<(string RelativePath, string FullPath)> ActivityFiles()
+    {
+        var recent = Path.Combine(_memoryPath, "recent");
+        if (!Directory.Exists(recent))
+            yield break;
+        foreach (var file in Directory.EnumerateFiles(recent, "*.md", SearchOption.TopDirectoryOnly))
+        {
+            var name = Path.GetFileName(file);
+            if (RecentFile.IsMonthFileName(name))
+                yield return ($"recent/{name}", file);
+        }
+    }
+
     /// <summary>Opens the index, deleting and recreating it when it is unreadable or of another schema version.</summary>
     private SqliteConnection OpenCurrent()
     {
@@ -372,7 +456,7 @@ internal sealed class PageIndex : IDisposable
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
-            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL);
+            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
             INSERT INTO meta (key, value) VALUES ('schema', '{SchemaVersion}');
