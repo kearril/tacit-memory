@@ -505,6 +505,21 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
+    public async Task A_write_with_neither_items_nor_hash_is_refused_with_the_current_mainline_and_its_version()
+    {
+        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
+
+        var result = await _service.WriteRecentAsync(Mainline(null));
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused:", result.Text);
+        Assert.Contains("hash", result.Text);
+        Assert.Contains("- 旧的一条", result.Text);
+        Assert.Contains(VersionOf("旧的一条"), result.Text);
+        Assert.Equal("## 近期主线\n- 旧的一条\n", File.ReadAllText(RecentPath));
+    }
+
+    [Fact]
     public async Task A_stale_hash_is_refused_with_the_current_mainline_and_its_version()
     {
         File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
@@ -531,6 +546,8 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.Contains("unchanged", result.Text);
         Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
+        await _service.BackupCompletion;
+        Assert.False(File.Exists(Path.Combine(_home.TacitHome, "backups", "auto-2026-11-02.zip")));
     }
 
     [Fact]

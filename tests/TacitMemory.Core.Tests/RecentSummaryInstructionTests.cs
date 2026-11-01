@@ -81,6 +81,23 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
+    public void The_window_moves_forward_at_midnight_and_drops_the_oldest_day()
+    {
+        WriteMonth("## 2026-10-27\n- 七天前的事\n## 2026-10-28\n- 最早保留的事\n");
+        var service = Open();
+
+        var before = service.ServerInstructions;
+        Assert.Contains("- 2026-10-27 七天前的事", before);
+        Assert.Contains("- 2026-10-28 最早保留的事", before);
+
+        _home.Clock.Advance(TimeSpan.FromHours(24));
+
+        var after = service.ServerInstructions;
+        Assert.DoesNotContain("七天前的事", after);
+        Assert.Contains("- 2026-10-28 最早保留的事", after);
+    }
+
+    [Fact]
     public void The_recent_block_is_omitted_when_there_is_no_mainline_and_no_activity()
     {
         var instructions = Open().ServerInstructions;

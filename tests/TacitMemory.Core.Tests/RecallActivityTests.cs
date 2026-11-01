@@ -227,4 +227,15 @@ public sealed class RecallActivityTests : IDisposable
 
         Assert.Contains("差旅票据丢了", (await Recall("出差的钱怎么拿回来", kind: "activities")).Text);
     }
+
+    [Fact]
+    public async Task An_activity_is_found_by_its_project_label_alone()
+    {
+        await Write("差旅报销单补交了", project: "tacit-memory");
+
+        var result = await Recall("tacit-memory", kind: "activities");
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("差旅报销单补交了", result.Text);
+    }
 }

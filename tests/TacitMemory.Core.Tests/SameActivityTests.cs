@@ -79,6 +79,24 @@ public sealed class SameActivityTests : IDisposable
         Assert.Equal(before, File.ReadAllText(MonthFile));
     }
 
+    [Fact]
+    public async Task A_same_topic_refusal_makes_no_commit_and_schedules_no_backup()
+    {
+        var backup = Path.Combine(_home.TacitHome, "backups", "auto-2026-11-02.zip");
+        await Service.WriteRecentAsync(Add("先查了索引"));
+        await Service.BackupCompletion;
+        File.Delete(backup);
+        Match("先查了索引", 0.95);
+        var head = TestHome.Git(_home.DefaultMemory, "rev-parse", "HEAD");
+
+        var result = await Service.WriteRecentAsync(Add("索引查完了，问题在分词器"));
+
+        await Service.BackupCompletion;
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(head, TestHome.Git(_home.DefaultMemory, "rev-parse", "HEAD"));
+        Assert.False(File.Exists(backup));
+    }
+
     [Theory]
     [InlineData(0.2, false)]
     [InlineData(0.6, false)]
