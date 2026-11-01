@@ -37,7 +37,6 @@ internal static class ServerInstructionText
         ## Writing pages
         - When something worth recording happens, `recall` it first; if a page already covers the matter, update that page instead of creating one.
         - One page per matter. Write the date and, where the wording matters, the user's own words.
-        - Never write passwords, API keys, tokens or other secrets.
         - When `write_page` refuses, do what its "Next step" says.
         """;
 
@@ -45,7 +44,6 @@ internal static class ServerInstructionText
         ## Writing activities and mainline
         - Write an activity when a main matter concludes; one per session, and later progress uses `replaces`.
         - Describe what the person is doing or concluded, not files changed; set `project` for a project.
-        - On a same-topic refusal, merge into one sentence and resubmit with `replaces`.
         - Change the mainline only for a lasting new direction or a clearly ended one.
         - When the user describes their situation, mention recent context in half a sentence.
         """;
@@ -55,7 +53,6 @@ internal static class ServerInstructionText
         - Propose a habit, preference or working rule the user states, even in passing, with write_persona op=propose and its section; it becomes a candidate.
         - Use op=add only when the user explicitly asks you to remember; only the user sets a red line.
         - If the user's words contradict a persona entry, follow them, propose nothing, ask whether to update it, and op=replace only after the user agrees.
-        - replace and delete need the entry's short code from a refusal's listing; replace also takes text and source, neither takes persona_section.
         """;
 
     /// <summary>The fixed parts, which every session gets in full.</summary>

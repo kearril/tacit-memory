@@ -63,6 +63,19 @@ public sealed class ServiceTests : IDisposable
         await Eventually(() => service.ServerInstructions.Contains("- 新加的一条", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(MemoryLanguage.Zh, "zh")]
+    [InlineData(MemoryLanguage.En, "en")]
+    public void A_freshly_initialized_home_starts_in_either_memory_language(MemoryLanguage language, string key)
+    {
+        using var home = new TestHome();
+        home.InitReady($"language: {key}\n", language: language);
+
+        using var service = home.Tacit().OpenService(_ => { });
+
+        Assert.Contains("## Worth recording", service.ServerInstructions);
+    }
+
     [Fact]
     public void Criteria_that_push_the_fixed_part_past_2500_characters_stop_the_service_and_say_by_how_much()
     {

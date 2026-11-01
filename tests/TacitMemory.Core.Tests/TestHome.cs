@@ -51,9 +51,9 @@ internal sealed class TestHome : IDisposable
     /// Runs <c>init</c> in Chinese and replaces the config with one that loads, with every model at
     /// <paramref name="models"/>, or at <see cref="ModelDouble.Quiet"/> when none is given; the decision model has a key.
     /// </summary>
-    public void InitReady(string extraConfig = "", ModelDouble? models = null)
+    public void InitReady(string extraConfig = "", ModelDouble? models = null, MemoryLanguage language = MemoryLanguage.Zh)
     {
-        Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh }).GetAwaiter().GetResult();
+        Tacit().InitAsync(new InitRequest { Language = language }).GetAwaiter().GetResult();
         File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Quiet).ModelsYaml(decisionKey: "test-key") + extraConfig).ReplaceLineEndings("\n"));
     }
 

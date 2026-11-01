@@ -9,15 +9,15 @@ internal static class Templates
     [
         new("用户纠正或打断 Agent", "The user corrects or interrupts the agent"),
         new("方案拍板，保留用户原话", "A plan is decided; keep the user's own words"),
-        new("查明根因的排错，含试过但无效的做法", "Troubleshooting that found the root cause, including what was tried and did not work"),
+        new("查明根因的排错，含试过但无效的做法", "A root cause found, with what was tried and failed"),
         new("新的环境事实", "New facts about the user's environment"),
-        new("用户明确要求记下", "The user explicitly asks to remember something"),
+        new("用户明确要求记下", "The user asks to remember something"),
     ];
 
     private static readonly Localized[] DefaultNotRecorded =
     [
         new("常规的写代码、改错字、看日志", "Routine coding, typo fixes and log reading"),
-        new("能从代码、仓库文档、配置中查到的内容", "Anything that can be found in code, repository docs or configuration"),
+        new("能从代码、仓库文档、配置中查到的内容", "What code, repository docs or configuration already show"),
     ];
 
     public static string Rules(MemoryLanguage language) =>
