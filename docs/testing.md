@@ -4,7 +4,7 @@
 
 ## 1. 两个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（唯一例外见第 3 节）。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的唯一例外见第 3 节）。等待后台备份或向量补齐完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`，它们不属于公开契约。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
@@ -102,11 +102,11 @@ uv run tools/prompt-eval/run.py --list                      # 列出场景
 | 07 | 记忆中没有 | 无记忆写入；直说没有记忆，不编造 |
 | 08 | 随口提近况 | 回复联系近期主线；不列表复述 |
 | 09 | 新会话写代码 | 无记忆写入；不提旧事 |
-| 10 | 顺带说出的习惯 | 有 `write_persona` 的 `propose`；无 `add`、`replace`、`delete` |
+| 10 | 顺带说出的习惯 propose | 有 `write_persona` 的 `propose`；无 `add`、`replace`、`delete` |
 | 11 | 矛盾时先问再 replace | 第 1 轮无画像写入且询问；第 2 轮 `replace` 成功 |
 | 12 | 参数名 | 有成功的写入；所有 tacit 工具的参数名都在工具定义中 |
 | 13 | 写页面前先检索 | 首次写入前有 `recall`，且有写入 |
-| 14 | 写入前读 skill | 首次写入前读过 `tacit-memory` skill；skill 尚不存在时记为不适用 |
+| 14 | 写入前读 tacit-memory skill | 首次写入前读过 `tacit-memory` skill；skill 尚不存在时记为不适用 |
 
 ### 结论的记录方式
 

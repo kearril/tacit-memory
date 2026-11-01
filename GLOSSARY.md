@@ -77,7 +77,7 @@ _Avoid_: 话题
 ### 检索
 
 **线索**（Cues）：
-细节页 YAML 头中供检索命中的字段：`title`、`aliases`、`dates`、`related`。
+细节页 YAML 头中与检索有关的字段：`title` 与 `aliases` 构成页面级线索，供检索命中；`dates` 与所属项目用于筛选；`related` 不参与检索。
 _Avoid_: 元数据、标签、索引字段
 
 **别名**（Alias）：
@@ -176,7 +176,7 @@ _Avoid_: 存储、数据目录、store
 _Avoid_: 后端、守护进程、server
 
 **门面**（Facade）：
-`TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 与 MCP 只经由它调用记忆规则。
+`TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 经由它调用记忆规则，并由它打开常驻服务 `MemoryService`，MCP 工具经该服务调用记忆规则。
 _Avoid_: 服务层、API、管理器
 
 **服务端说明**（Server instructions）：

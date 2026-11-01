@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-# The profile is the prototype's block (prototypes/prompt-eval/block.md), so results stay comparable.
+# The profile matches the resident block used by the earlier prompt-eval prototype, so results stay comparable.
 # Each entry is (op, persona_section, text). The source comment marks seed data, not something the user said.
 PROFILE: list[tuple[str, str, str]] = [
     ("add", "red_lines", "不要自行发布版本或推送到远端仓库；改为先列出要推送的内容，请用户确认（理由：影响外部，无法撤回）"),
