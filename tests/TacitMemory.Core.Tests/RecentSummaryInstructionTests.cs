@@ -1,6 +1,4 @@
 using System.Text.RegularExpressions;
-using TacitMemory.Core.Injection;
-using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Tests;
 
@@ -127,7 +125,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
         var instructions = Open().ServerInstructions;
 
-        Assert.True(instructions.Length <= ServerInstructionText.TotalLimit);
+        Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
         Assert.Contains("## Using memory", instructions);
         Assert.Contains("## Writing activities and mainline", instructions);
         Assert.Contains("- 2026-11-02 7" + padding, instructions);
