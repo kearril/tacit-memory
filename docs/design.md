@@ -255,6 +255,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ### 近期活动
 
+- 写入时机：一件主事有了结论（定了决定、查明根因、阶段目标完成）时写一条；每个会话至多一条，之后有进展用 `replaces` 改写。
 - 一条活动写"人在做什么、想通了什么"，不写"改了哪些文件"。
 - 写入 `recent/YYYY-MM.md`，按本地日期定位当日标题；缺标题时追加到文件末尾。写入只改动新增的条目与来源注释，文件其余字节不变。
 - 文本限一行，不超过 `limits.itemLength`（默认 100 字符，不计项目标签与来源注释），不以 `[` 开头；项目名小写并校验，允许新项目。
@@ -262,6 +263,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 与当天已有条目同一主题时（决策模型对当日各项目的最近 9 条加上“都不是”作选择题；确信度达到 `sameActivity.certain` 才算同一件事），服务不写入，以普通回复（非错误）退回该条目及其短码，不附主线与活动列表；主会话写出合并后的一句，带 `replaces` 重新提交。决策模型不可用时照常写入，回复中注明未检查；带 `replaces` 时不做同主题判断。
 - `replaces` 只指向当天的活动：短码须是当天某条的短码。其他日期、已过期（条目改写后旧短码即失效）或不存在的短码都被拒绝，拒绝时列出当天的活动及其短码。改写在原位替换条目正文与项目标签；带 `source` 时替换来源注释，否则保留原注释。改写与新增经同样的参数校验与凭据检测，不做同主题判断，返回新短码，提交信息为 `recent: replace <短码>`。
 - "每个会话最多一条"只写在记忆规则中，服务不强制。
+- 近期主线：`update_mainline` 以版本短码整体改写，0 至 `limits.mainline`（默认 5）条，空列表即清空；`hash` 缺失或与当前版本不符时拒绝并返回当前主线与版本短码；内容未变时不写入也不提交。
 
 ### 画像
 
@@ -368,7 +370,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 | | `delete` | `hash` |
 | | `propose` | `persona_section`、`text`、`quote` |
 
-- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`），可加 `confirm_no_secret` 重新提交。`update_mainline` 的 `hash` 须与当前主线的版本短码一致，否则拒绝并返回当前主线与短码；同内容不写入也不提交。
+- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`），可加 `confirm_no_secret` 重新提交。`update_mainline` 的 `items` 为 0 至 `limits.mainline`（默认 5）条，空列表即清空；`hash` 缺失或与当前主线的版本短码不一致时拒绝，并返回当前主线与短码；同内容不写入也不提交。
 - 参数结构扁平，由服务按 `op` 校验。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 - 返回 Markdown 风格的纯文本，不返回结构化数据。
