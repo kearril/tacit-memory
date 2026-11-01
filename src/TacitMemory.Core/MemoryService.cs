@@ -117,6 +117,9 @@ public sealed class MemoryService : IDisposable
         }
     }
 
+    /// <summary>The text of the <c>remember</c> prompt for the given focus, built from the current activities and mainline.</summary>
+    public string RememberPrompt(string? focus = null) => RememberText.Render(_options, Config, focus);
+
     private string RulesPath => Path.Combine(_options.TacitHome, "rules.md");
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
