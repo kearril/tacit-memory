@@ -104,7 +104,7 @@ flowchart LR
 ## 5. 进程与传输
 
 - `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权。
-- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。没有 prompt 时仍回应空列表：omp 不看服务器声明的能力，照样请求，请求失败就丢弃这个服务器。端口被占用时 `McpHost` 不启动，由 CLI 报告。
+- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。prompt 由 `MemoryPrompts` 声明（当前仅 `remember`），文本由 `MemoryService` 现场生成。列表与取回请求都由 `WithPrompts` 注册处理：omp 不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `McpHost` 不启动，由 CLI 报告。
 - 管理 API 挂载于 `/api`，供 `status`、`reindex`、`backup`、`restore` 使用，将来的 Web UI 也走这里（计划）。
 
 ## 6. 外部依赖

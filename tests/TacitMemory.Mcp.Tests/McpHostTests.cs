@@ -48,7 +48,7 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Recall_and_the_write_tools_are_listed_with_their_annotations_and_prompts_are_empty()
+    public async Task Recall_and_the_write_tools_are_listed_with_their_annotations()
     {
         await using var client = await ConnectAsync();
 
@@ -73,7 +73,22 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Equal(
             ["confirm_no_secret", "hash", "items", "op", "project", "replaces", "source", "text"],
             recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
-        Assert.Empty(await client.ListPromptsAsync());
+    }
+
+    [Fact]
+    public async Task The_remember_prompt_is_listed_with_an_optional_focus_and_returns_the_session_state()
+    {
+        await _service.WriteRecentAsync(new TacitMemory.Core.WriteRecentRequest { Op = "add_activity", Text = "通过接口写入了活动" });
+        await using var client = await ConnectAsync();
+
+        var remember = Assert.Single(await client.ListPromptsAsync(), prompt => prompt.Name == "remember");
+        var focus = Assert.Single(remember.ProtocolPrompt.Arguments!, argument => argument.Name == "focus");
+        Assert.False(focus.Required);
+
+        var result = await client.GetPromptAsync("remember", new Dictionary<string, object?> { ["focus"] = "检索策略调整" });
+        var text = string.Concat(result.Messages.Select(message => message.Content).OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
+        Assert.Contains("检索策略调整", text);
+        Assert.Contains("通过接口写入了活动", text);
     }
 
     [Fact]

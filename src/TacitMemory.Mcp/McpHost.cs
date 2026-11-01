@@ -45,9 +45,9 @@ public sealed class McpHost : IAsyncDisposable
                 };
             })
             .WithTools<MemoryTools>()
-            // No prompts yet, but answer the list anyway: omp asks for it regardless of the advertised capabilities
-            // and drops the server when the request fails.
-            .WithListPromptsHandler((_, _) => ValueTask.FromResult(new ListPromptsResult { Prompts = [] }));
+            // Registers both the list and the get handlers. omp asks for the list regardless of the advertised
+            // capabilities and drops the server when that request fails, so it must always answer.
+            .WithPrompts<MemoryPrompts>();
 
         var app = builder.Build();
         app.MapMcp("/mcp");
