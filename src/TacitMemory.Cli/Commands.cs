@@ -81,13 +81,13 @@ internal sealed class Commands
     /// <param name="target">instructions, resident, skill, tools or remember.</param>
     /// <param name="default">Print the built-in text alone, ready to save as the file that replaces it (instructions, resident) or the skill's system part (skill).</param>
     [Command("show")]
-    public int Show([Argument] ShowWhat target, bool @default = false) => Run(() => target switch
+    public Task<int> Show([Argument] ShowWhat target, bool @default = false) => RunAsync(async () => target switch
     {
         ShowWhat.Tools => _tacit.ShowTools(ToolCatalog.Describe(), @default).Report,
-        ShowWhat.Instructions => _tacit.Show(ShowTarget.Instructions, @default).Report,
-        ShowWhat.Resident => _tacit.Show(ShowTarget.Resident, @default).Report,
-        ShowWhat.Skill => _tacit.Show(ShowTarget.Skill, @default).Report,
-        _ => _tacit.Show(ShowTarget.Remember, @default).Report,
+        ShowWhat.Instructions => (await _tacit.ShowAsync(ShowTarget.Instructions, @default)).Report,
+        ShowWhat.Resident => (await _tacit.ShowAsync(ShowTarget.Resident, @default)).Report,
+        ShowWhat.Skill => (await _tacit.ShowAsync(ShowTarget.Skill, @default)).Report,
+        _ => (await _tacit.ShowAsync(ShowTarget.Remember, @default)).Report,
     });
 
     private static int Run(Func<string> operation)
@@ -95,6 +95,19 @@ internal sealed class Commands
         try
         {
             Console.WriteLine(operation());
+            return 0;
+        }
+        catch (Exception e) when (IsUserFacing(e))
+        {
+            return Fail(e);
+        }
+    }
+
+    private static async Task<int> RunAsync(Func<Task<string>> operation)
+    {
+        try
+        {
+            Console.WriteLine(await operation());
             return 0;
         }
         catch (Exception e) when (IsUserFacing(e))

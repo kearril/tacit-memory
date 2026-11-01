@@ -4,12 +4,10 @@ using System.Text.Json.Serialization;
 namespace TacitMemory.Core.Models;
 
 /// <summary>The embedding model behind an OpenAI-compatible <c>/embeddings</c> endpoint.</summary>
-internal sealed class EmbeddingModel(HttpClient http, ModelEndpoint endpoint, ModelHealth health)
+internal sealed class EmbeddingModel(ModelClient client, ModelEndpoint endpoint, ModelHealth health)
 {
     /// <summary>Texts sent in one request.</summary>
     public const int BatchSize = 32;
-
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     public string Name => endpoint.Model;
 
@@ -20,37 +18,38 @@ internal sealed class EmbeddingModel(HttpClient http, ModelEndpoint endpoint, Mo
     {
         if (texts.Count == 0)
             return [];
-        if (!health.ShouldTry)
-            return null;
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(Timeout);
-        try
+        var vectors = new List<float[]>(texts.Count);
+        foreach (var batch in texts.Chunk(BatchSize))
         {
-            var vectors = new List<float[]>(texts.Count);
-            foreach (var batch in texts.Chunk(BatchSize))
-            {
-                using var response = await http.PostAsJsonAsync(
-                    ModelUrls.Append(endpoint.Endpoint, "embeddings"), new Request(endpoint.Model, batch), timeout.Token);
-                response.EnsureSuccessStatusCode();
-                var body = await response.Content.ReadFromJsonAsync<Response>(timeout.Token);
-                var data = body?.Data?.OrderBy(item => item.Index).Select(item => item.Embedding).ToList();
-                if (data is null || data.Count != batch.Length || data.Any(vector => vector is not { Length: > 0 } || vector.Length != data[0]!.Length))
-                    throw new HttpRequestException("The embedding response does not hold one vector per input.");
-                vectors.AddRange(data!);
-            }
-
-            if (vectors.Any(vector => vector.Length != vectors[0].Length))
-                throw new HttpRequestException("The embedding vectors differ in length.");
-            health.Succeeded();
-            return [.. vectors];
+            var answer = await client.SendAsync(
+                health,
+                () => new HttpRequestMessage(HttpMethod.Post, ModelUrls.Append(endpoint.Endpoint, "embeddings"))
+                {
+                    Content = JsonContent.Create(new Request(endpoint.Model, batch)),
+                },
+                (response, token) => ReadVectorsAsync(response, batch.Length, token),
+                cancellationToken);
+            if (answer is null)
+                return null;
+            vectors.AddRange(answer);
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException
-                                      && !cancellationToken.IsCancellationRequested)
+
+        if (vectors.Any(vector => vector.Length != vectors[0].Length))
         {
             health.Failed();
             return null;
         }
+        return [.. vectors];
+    }
+
+    private static async Task<List<float[]>?> ReadVectorsAsync(HttpResponseMessage response, int count, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadFromJsonAsync<Response>(cancellationToken);
+        var data = body?.Data?.OrderBy(item => item.Index).Select(item => item.Embedding).ToList();
+        if (data is null || data.Count != count || data.Any(vector => vector is not { Length: > 0 } || vector.Length != data[0]!.Length))
+            return null;
+        return data!;
     }
 
     private sealed record Request(

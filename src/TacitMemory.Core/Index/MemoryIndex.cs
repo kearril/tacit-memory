@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Dapper;
@@ -84,7 +85,7 @@ internal static class UnitKinds
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "5";
+    private const string SchemaVersion = "6";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
@@ -94,6 +95,9 @@ internal sealed class MemoryIndex : IDisposable
         AND (@activities IS NULL OR (u.kind = '{UnitKinds.Activity}') = @activities)
         AND u.kind NOT IN ('{UnitKinds.PersonaEntry}', '{UnitKinds.Candidate}', '{UnitKinds.RejectedCandidate}')
         """;
+
+    /// <summary>Every kind of judgment unit: the persona entries, the candidates and the rejected candidates.</summary>
+    private static readonly string[] JudgmentKinds = [UnitKinds.PersonaEntry, UnitKinds.Candidate, UnitKinds.RejectedCandidate];
 
     /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
     private const string HitColumns = "u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.project AS Project, u.first AS Date, u.code AS Code";
@@ -271,7 +275,8 @@ internal sealed class MemoryIndex : IDisposable
     /// the given kinds nearest to <paramref name="vector"/>, best first; empty when no vectors of that length are stored.
     /// Judgment units never reach a search; this is the only way to read them back, for judgments.
     /// </summary>
-    public IReadOnlyList<JudgmentHit> SearchJudgments(float[] vector, IReadOnlyCollection<string> sourceKinds, int limit)
+    public IReadOnlyList<JudgmentHit> SearchJudgments(
+        float[] vector, IReadOnlyCollection<string> sourceKinds, int limit, IReadOnlyCollection<string>? unitKinds = null)
     {
         lock (_gate)
         {
@@ -280,9 +285,9 @@ internal sealed class MemoryIndex : IDisposable
             return _connection.Query<IndexHit>($"""
                 SELECT {HitColumns}
                 FROM units_vec v JOIN units u ON u.id = v.rowid JOIN sources s ON s.id = u.source_id
-                WHERE s.kind IN @sourceKinds
+                WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
-                """, new { sourceKinds = sourceKinds.ToList(), vector = Blob(vector), limit })
+                """, new { sourceKinds = sourceKinds.ToList(), unitKinds = (unitKinds ?? JudgmentKinds).ToList(), vector = Blob(vector), limit })
                     .Select(hit => new JudgmentHit(hit.Kind, PersonaSectionNamed(hit.Section), hit.Text)).ToList();
         }
     }
@@ -297,6 +302,26 @@ internal sealed class MemoryIndex : IDisposable
             return _connection.ExecuteScalar<long>(
                 "SELECT EXISTS (SELECT 1 FROM units u JOIN sources s ON s.id = u.source_id WHERE s.kind IN @sourceKinds)",
                 new { sourceKinds = sourceKinds.ToList() }) > 0;
+    }
+
+    /// <summary>The probabilities cached for a question, by option key; <c>null</c> when the question has not been answered.</summary>
+    public IReadOnlyDictionary<string, double>? CachedJudgment(string cacheKey)
+    {
+        lock (_gate)
+        {
+            var stored = _connection.QuerySingleOrDefault<string>("SELECT probabilities FROM judgment_cache WHERE cache_key = @cacheKey", new { cacheKey });
+            return stored is null ? null : JsonSerializer.Deserialize<Dictionary<string, double>>(stored);
+        }
+    }
+
+    /// <summary>Caches the probabilities the decision model answered for a question, as answered: thresholds apply when they are read.</summary>
+    public void StoreJudgment(string cacheKey, IReadOnlyDictionary<string, double> probabilities, DateTimeOffset writtenAt)
+    {
+        lock (_gate)
+            _connection.Execute(
+                "INSERT INTO judgment_cache (cache_key, probabilities, written) VALUES (@cacheKey, @probabilities, @written) "
+                + "ON CONFLICT (cache_key) DO UPDATE SET probabilities = excluded.probabilities, written = excluded.written",
+                new { cacheKey, probabilities = JsonSerializer.Serialize(probabilities), written = writtenAt.ToString("O", CultureInfo.InvariantCulture) });
     }
 
     /// <summary>Up to <paramref name="limit"/> units that still need a vector.</summary>
@@ -372,7 +397,7 @@ internal sealed class MemoryIndex : IDisposable
 
     private void Sync(PageId id, string fullPath, string? knownHash)
     {
-        var bytes = File.ReadAllBytes(fullPath);
+        var bytes = TextFile.ReadSharedBytes(fullPath);
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         if (hash == knownHash)
             return;
@@ -403,7 +428,7 @@ internal sealed class MemoryIndex : IDisposable
 
     private void SyncActivity(string relativePath, string fullPath, string? knownHash)
     {
-        var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(fullPath)));
+        var hash = Convert.ToHexStringLower(SHA256.HashData(TextFile.ReadSharedBytes(fullPath)));
         if (hash == knownHash)
             return;
 
@@ -444,7 +469,7 @@ internal sealed class MemoryIndex : IDisposable
             return;
         }
 
-        var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(fullPath)));
+        var hash = Convert.ToHexStringLower(SHA256.HashData(TextFile.ReadSharedBytes(fullPath)));
         if (hash == knownHash)
             return;
 
@@ -594,6 +619,7 @@ internal sealed class MemoryIndex : IDisposable
             CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
+            CREATE TABLE judgment_cache (cache_key TEXT PRIMARY KEY, probabilities TEXT NOT NULL, written TEXT NOT NULL);
             INSERT INTO meta (key, value) VALUES ('schema', '{SchemaVersion}');
             """);
         return fresh;

@@ -4,10 +4,8 @@ using System.Text.Json.Serialization;
 namespace TacitMemory.Core.Models;
 
 /// <summary>The reranker behind an OpenAI-compatible <c>/rerank</c> endpoint, scoring documents against one query.</summary>
-internal sealed class RerankerModel(HttpClient http, ModelEndpoint endpoint, ModelHealth health)
+internal sealed class RerankerModel(ModelClient client, ModelEndpoint endpoint, ModelHealth health)
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
-
     public ModelHealth Health => health;
 
     /// <summary>One relevance score per document in input order, or <c>null</c> when the model cannot be reached or answers wrongly.</summary>
@@ -15,39 +13,30 @@ internal sealed class RerankerModel(HttpClient http, ModelEndpoint endpoint, Mod
     {
         if (documents.Count == 0)
             return [];
-        if (!health.ShouldTry)
-            return null;
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(Timeout);
-        try
-        {
-            using var response = await http.PostAsJsonAsync(
-                ModelUrls.Append(endpoint.Endpoint, "rerank"), new Request(endpoint.Model, query, documents), timeout.Token);
-            response.EnsureSuccessStatusCode();
-            var body = await response.Content.ReadFromJsonAsync<Response>(timeout.Token);
-            var scores = new double[documents.Count];
-            var scored = new bool[documents.Count];
-            foreach (var item in body?.Results ?? [])
+        return await client.SendAsync(
+            health,
+            () => new HttpRequestMessage(HttpMethod.Post, ModelUrls.Append(endpoint.Endpoint, "rerank"))
             {
-                if (item.Index is not { } index || index < 0 || index >= documents.Count || scored[index]
-                    || item.RelevanceScore is not { } score)
-                    throw new HttpRequestException("The rerank response does not score each document once.");
-                scores[index] = score;
-                scored[index] = true;
-            }
-            if (scored.Any(done => !done))
-                throw new HttpRequestException("The rerank response does not score each document once.");
+                Content = JsonContent.Create(new Request(endpoint.Model, query, documents)),
+            },
+            (response, token) => ReadScoresAsync(response, documents.Count, token),
+            cancellationToken);
+    }
 
-            health.Succeeded();
-            return scores;
-        }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException
-                                      && !cancellationToken.IsCancellationRequested)
+    private static async Task<double[]?> ReadScoresAsync(HttpResponseMessage response, int count, CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadFromJsonAsync<Response>(cancellationToken);
+        var scores = new double[count];
+        var scored = new bool[count];
+        foreach (var item in body?.Results ?? [])
         {
-            health.Failed();
-            return null;
+            if (item.Index is not { } index || index < 0 || index >= count || scored[index] || item.RelevanceScore is not { } score)
+                return null;
+            scores[index] = score;
+            scored[index] = true;
         }
+        return scored.Any(done => !done) ? null : scores;
     }
 
     private sealed record Request(

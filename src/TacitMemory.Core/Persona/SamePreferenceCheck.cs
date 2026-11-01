@@ -33,7 +33,7 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
 
     private const string None = "none";
 
-    private const string Instructions =
+    internal const string Instructions =
         "The state is a new preference or working rule proposed from a conversation, with its section in brackets. "
         + "Each option is an existing entry, with its source and section in brackets: candidate (a pending preference not yet confirmed), "
         + "rejected (a preference the user declined), or persona (a confirmed entry of the user's persona file). "
@@ -42,10 +42,21 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
         + "Entries on the same topic that ask for different things are different, and so are opposite preferences. "
         + "If no option states the same preference or rule, choose the none option. Answer with the option key only.";
 
-    private const string NoneText = "None of the options states the same preference or rule as the new one.";
+    internal const string NoneText = "None of the options states the same preference or rule as the new one.";
 
     /// <summary>Longest description of one option.</summary>
     private const int OptionLength = 250;
+
+    /// <summary>One existing entry as the question offers it: its kind and section in brackets, cut to the option length.</summary>
+    internal static string OptionText(string kind, PersonaSection section, string text, MemoryLanguage language)
+    {
+        var label = $"[{kind} | {PersonaDocument.HeadingOf(section).In(language)}] {text}";
+        return label.Length > OptionLength ? label[..OptionLength] : label;
+    }
+
+    /// <summary>The new preference as the question states it: its section in brackets, then its text.</summary>
+    internal static string StateOf(string text, PersonaSection section, MemoryLanguage language) =>
+        $"[{PersonaDocument.HeadingOf(section).In(language)}] {text}";
 
     public async Task<SamePreferenceVerdict> RunAsync(string text, PersonaSection section, CancellationToken cancellationToken)
     {
@@ -69,13 +80,12 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
                 continue;
             var key = "o" + (matches.Count + 1).ToString(CultureInfo.InvariantCulture);
             var match = new PreferenceMatch(hit.Kind, hitSection, hit.Text);
-            var label = $"[{hit.Kind} | {PersonaDocument.HeadingOf(hitSection).In(config.Language)}] {hit.Text}";
-            options[key] = label.Length > OptionLength ? label[..OptionLength] : label;
+            options[key] = OptionText(hit.Kind, hitSection, hit.Text, config.Language);
             matches[key] = match;
         }
 
         options[None] = NoneText;
-        var state = $"[{PersonaDocument.HeadingOf(section).In(config.Language)}] {text}";
+        var state = StateOf(text, section, config.Language);
         var probabilities = await decision.ChooseAsync(state, Instructions, options, cancellationToken);
         if (probabilities is null)
             return new SamePreferenceVerdict(null, DecisionDown);

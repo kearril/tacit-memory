@@ -22,14 +22,14 @@ public sealed class ServiceTests : IDisposable
     private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
 
     [Fact]
-    public void Server_instructions_hold_the_memory_rules_language_norms_and_projects()
+    public async Task Server_instructions_hold_the_memory_rules_language_norms_and_projects()
     {
         Directory.CreateDirectory(Path.Combine(Pages, "tacit-memory"));
         Directory.CreateDirectory(Path.Combine(Pages, "my-app"));
         Directory.CreateDirectory(Path.Combine(Pages, "_topics"));
 
         using var service = Open();
-        var instructions = service.ServerInstructions;
+        var instructions = await service.ServerInstructionsAsync();
 
         Assert.Contains("<user_memory>", instructions);
         Assert.Contains("## Using memory", instructions);
@@ -43,37 +43,37 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public void The_recording_criteria_of_rules_md_go_into_the_instructions_word_for_word()
+    public async Task The_recording_criteria_of_rules_md_go_into_the_instructions_word_for_word()
     {
         File.WriteAllText(RulesMd, "## 值得记\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## 不记\n- 日常闲聊\n");
 
         using var service = Open();
 
-        Assert.Contains("## Worth recording\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## Not recorded\n- 日常闲聊", service.ServerInstructions);
+        Assert.Contains("## Worth recording\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## Not recorded\n- 日常闲聊", await service.ServerInstructionsAsync());
     }
 
     [Fact]
     public async Task Editing_rules_md_while_running_changes_the_next_instructions()
     {
         using var service = Open();
-        Assert.DoesNotContain("新加的一条", service.ServerInstructions);
+        Assert.DoesNotContain("新加的一条", await service.ServerInstructionsAsync());
 
         File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
 
-        await Eventually(() => service.ServerInstructions.Contains("- 新加的一条", StringComparison.Ordinal));
+        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
     }
 
     [Theory]
     [InlineData(MemoryLanguage.Zh, "zh")]
     [InlineData(MemoryLanguage.En, "en")]
-    public void A_freshly_initialized_home_starts_in_either_memory_language(MemoryLanguage language, string key)
+    public async Task A_freshly_initialized_home_starts_in_either_memory_language(MemoryLanguage language, string key)
     {
         using var home = new TestHome();
         home.InitReady($"language: {key}\n", language: language);
 
         using var service = home.Tacit().OpenService(_ => { });
 
-        Assert.Contains("## Worth recording", service.ServerInstructions);
+        Assert.Contains("## Worth recording", await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -93,23 +93,23 @@ public sealed class ServiceTests : IDisposable
     public async Task Too_long_criteria_saved_while_running_are_reported_and_the_previous_ones_kept()
     {
         using var service = Open();
-        var before = service.ServerInstructions;
+        var before = await service.ServerInstructionsAsync();
 
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
 
         await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
-        Assert.Equal(before, service.ServerInstructions);
+        Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
     [Fact]
-    public void Without_problems_there_is_no_status_part()
+    public async Task Without_problems_there_is_no_status_part()
     {
         using var models = new ModelDouble();
         File.WriteAllText(ConfigYaml, models.ModelsYaml(decisionKey: "key").ReplaceLineEndings("\n"));
 
         using var service = Open();
 
-        Assert.DoesNotContain("## Status", service.ServerInstructions);
+        Assert.DoesNotContain("## Status", await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -120,53 +120,53 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
 
         await service.RecallAsync(new RecallRequest { Query = "部署" });
-        Assert.Contains("## Status\n- Unavailable auxiliary models: embedding.", service.ServerInstructions);
+        Assert.Contains("## Status\n- Unavailable auxiliary models: embedding.", await service.ServerInstructionsAsync());
 
         models.EmbeddingDown = false;
         _home.Clock.Advance(TimeSpan.FromMinutes(1));
         await service.RecallAsync(new RecallRequest { Query = "部署" });
-        Assert.DoesNotContain("## Status", service.ServerInstructions);
+        Assert.DoesNotContain("## Status", await service.ServerInstructionsAsync());
     }
 
     [Fact]
-    public void A_decision_model_without_a_key_is_named_from_the_start()
+    public async Task A_decision_model_without_a_key_is_named_from_the_start()
     {
         using var models = new ModelDouble();
         File.WriteAllText(ConfigYaml, models.ModelsYaml().ReplaceLineEndings("\n"));
 
         using var service = Open();
 
-        Assert.Contains("- Unavailable auxiliary models: decision.", service.ServerInstructions);
+        Assert.Contains("- Unavailable auxiliary models: decision.", await service.ServerInstructionsAsync());
     }
 
     [Fact]
-    public void Page_files_that_are_not_utf8_are_named_in_the_status()
+    public async Task Page_files_that_are_not_utf8_are_named_in_the_status()
     {
         Directory.CreateDirectory(Path.Combine(Pages, "demo"));
         File.WriteAllBytes(Path.Combine(Pages, "demo", "gbk.md"), [0xD6, 0xD0, 0xCE, 0xC4, 0xFF, 0xFE]);
 
         using var service = Open();
 
-        Assert.Contains("- Files not searchable because they are not UTF-8: pages/demo/gbk.md.", service.ServerInstructions);
+        Assert.Contains("- Files not searchable because they are not UTF-8: pages/demo/gbk.md.", await service.ServerInstructionsAsync());
     }
 
     [Fact]
-    public void Without_projects_the_projects_part_is_left_out()
+    public async Task Without_projects_the_projects_part_is_left_out()
     {
         using var service = Open();
 
-        Assert.DoesNotContain("## Projects", service.ServerInstructions);
+        Assert.DoesNotContain("## Projects", await service.ServerInstructionsAsync());
     }
 
     [Fact]
-    public void Too_many_projects_are_cut_from_the_end_and_the_rules_stay_whole()
+    public async Task Too_many_projects_are_cut_from_the_end_and_the_rules_stay_whole()
     {
         var names = Enumerable.Range(0, 200).Select(i => $"project-{i:D3}-with-a-rather-long-name").ToList();
         foreach (var name in names)
             Directory.CreateDirectory(Path.Combine(Pages, name));
 
         using var service = Open();
-        var instructions = service.ServerInstructions;
+        var instructions = await service.ServerInstructionsAsync();
 
         Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
         Assert.Contains("## Using memory", instructions);
@@ -176,13 +176,13 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public void English_memory_language_is_named_in_the_language_norms()
+    public async Task English_memory_language_is_named_in_the_language_norms()
     {
         File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "language: en\n");
 
         using var service = Open();
 
-        Assert.Contains("Memory is written in English.", service.ServerInstructions);
+        Assert.Contains("Memory is written in English.", await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -213,11 +213,11 @@ public sealed class ServiceTests : IDisposable
     public async Task A_new_project_directory_shows_up_in_the_next_server_instructions()
     {
         using var service = Open();
-        Assert.DoesNotContain("## Projects", service.ServerInstructions);
+        Assert.DoesNotContain("## Projects", await service.ServerInstructionsAsync());
 
         Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
 
-        await Eventually(() => service.ServerInstructions.EndsWith("## Projects\ndb-migration", StringComparison.Ordinal));
+        await Eventually(async () => (await service.ServerInstructionsAsync()).EndsWith("## Projects\ndb-migration", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -225,11 +225,11 @@ public sealed class ServiceTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
         using var service = Open();
-        Assert.Contains("## Projects", service.ServerInstructions);
+        Assert.Contains("## Projects", await service.ServerInstructionsAsync());
 
         Directory.Delete(Pages, recursive: true);
 
-        await Eventually(() => !service.ServerInstructions.Contains("## Projects", StringComparison.Ordinal));
+        await Eventually(async () => !(await service.ServerInstructionsAsync()).Contains("## Projects", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public sealed class ServiceTests : IDisposable
 
         await Eventually(() => _notices.Any(notice => notice.Contains("bindings.json")));
         File.Delete(Path.Combine(_home.TacitHome, "bindings.json"));
-        Assert.Contains("Memory is written in Chinese.", service.ServerInstructions);
+        Assert.Contains("Memory is written in Chinese.", await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -253,7 +253,7 @@ public sealed class ServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), new string('长', 3001));
         File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
 
-        await Eventually(() => service.ServerInstructions.Contains("- 新加的一条", StringComparison.Ordinal));
+        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
         await Eventually(() => _notices.Any(notice => notice.Contains("skill.md", StringComparison.Ordinal)));
     }
 
@@ -263,13 +263,13 @@ public sealed class ServiceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_home.TacitHome, "prompts"));
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n- 旧的核心规则\n");
         using var service = Open();
-        var before = service.ServerInstructions;
+        var before = await service.ServerInstructionsAsync();
 
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 1300) + "\n");
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
 
         await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
-        Assert.Equal(before, service.ServerInstructions);
+        Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -289,6 +289,16 @@ public sealed class ServiceTests : IDisposable
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
+            await Task.Delay(50);
+        }
+    }
+
+    private static async Task Eventually(Func<Task<bool>> condition)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (!await condition())
         {
             Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
             await Task.Delay(50);

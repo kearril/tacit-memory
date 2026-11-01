@@ -33,7 +33,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(5, config.Limits.Mainline);
         Assert.Equal(new PageLimits(50, 30, 2), config.Limits.Page);
         Assert.Equal(2, config.CandidateMinDays);
-        Assert.Equal(new CheckupConfig(7, 14), config.Checkup);
+        Assert.Equal(new CheckupConfig(7, 14, 20, 5), config.Checkup);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
@@ -215,5 +215,52 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(TacitError.PromptInvalid, error.Error);
         Assert.Contains("值得记", error.Message);
         Assert.Contains("2", error.Message);
+    }
+
+    [Fact]
+    public void Configured_checkup_budget_and_concurrency_override_the_defaults()
+    {
+        WriteConfig(Models + "checkup: { budgetSeconds: 5, maxConcurrency: 2 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new CheckupConfig(7, 14, 5, 2), config.Checkup);
+    }
+
+    [Theory]
+    [InlineData("budgetSeconds", "0")]
+    [InlineData("budgetSeconds", "-3")]
+    [InlineData("budgetSeconds", "2.5")]
+    [InlineData("maxConcurrency", "0")]
+    [InlineData("maxConcurrency", "nine")]
+    public void A_checkup_budget_or_concurrency_that_is_not_a_positive_whole_number_is_refused(string key, string value)
+    {
+        WriteConfig(Models + $"checkup: {{ {key}: {value} }}\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains($"checkup.{key}", error.Message);
+    }
+
+    [Fact]
+    public void The_chinese_template_documents_the_checkup_budget_and_concurrency()
+    {
+        var lines = File.ReadAllLines(ConfigPath);
+
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("budgetSeconds: 20", StringComparison.Ordinal) && line.Contains('#'));
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("maxConcurrency: 5", StringComparison.Ordinal) && line.Contains('#'));
+    }
+
+    [Fact]
+    public async Task The_english_template_documents_the_checkup_budget_and_concurrency()
+    {
+        using var home = new TestHome();
+        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
+
+        var lines = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
+
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("budgetSeconds: 20", StringComparison.Ordinal) && line.Contains("seconds", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("maxConcurrency: 5", StringComparison.Ordinal) && line.Contains("at once", StringComparison.Ordinal));
     }
 }

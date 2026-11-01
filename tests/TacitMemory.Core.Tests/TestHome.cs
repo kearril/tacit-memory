@@ -86,14 +86,118 @@ internal sealed class TestHome : IDisposable
     }
 }
 
-/// <summary>A clock that stands still unless moved, in UTC.</summary>
+/// <summary>
+/// A clock that stands still unless moved, in UTC. The code under test creates a timer for each attempt's timeout and
+/// for each pause between attempts. <see cref="Advance"/> moves the clock without firing timers; <see cref="Elapse"/>
+/// moves it and fires the timers now due, so a test decides when an attempt times out or a pause ends.
+/// </summary>
 internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
 {
+    private readonly Lock _gate = new();
+    private readonly List<PendingTimer> _pending = [];
+    private readonly List<TimeSpan> _created = [];
+    private readonly List<(TimeSpan Duration, TaskCompletionSource<TimeSpan> Created)> _waiters = [];
+    private int _claimed;
     private DateTimeOffset _now = now;
 
-    public override DateTimeOffset GetUtcNow() => _now;
-
-    public void Advance(TimeSpan by) => _now += by;
+    public override DateTimeOffset GetUtcNow()
+    {
+        lock (_gate)
+            return _now;
+    }
 
     public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+
+    /// <summary>Moves the clock forward; no timer fires.</summary>
+    public void Advance(TimeSpan by)
+    {
+        lock (_gate)
+            _now += by;
+    }
+
+    /// <summary>Moves the clock forward and fires every timer now due, earliest first.</summary>
+    public void Elapse(TimeSpan by)
+    {
+        lock (_gate)
+            _now += by;
+        while (true)
+        {
+            PendingTimer? due;
+            lock (_gate)
+            {
+                due = _pending.Where(timer => timer.Due <= _now).OrderBy(timer => timer.Due).FirstOrDefault();
+                if (due is not null)
+                    _pending.Remove(due);
+            }
+            if (due is null)
+                return;
+            due.Fire();
+        }
+    }
+
+    /// <summary>
+    /// Waits for the next timer of <paramref name="duration"/> the code under test creates, and claims it: the next call
+    /// looks only at timers created after it. Attempt timeouts and pauses are told apart by their lengths, which is
+    /// why a background request that creates timers of its own does not shift what a test waits for.
+    /// </summary>
+    public Task<TimeSpan> NextTimerAsync(TimeSpan duration)
+    {
+        lock (_gate)
+        {
+            for (var i = _claimed; i < _created.Count; i++)
+            {
+                if (_created[i] == duration)
+                {
+                    _claimed = i + 1;
+                    return Task.FromResult(duration);
+                }
+            }
+            var created = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _waiters.Add((duration, created));
+            return created.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        if (period != Timeout.InfiniteTimeSpan)
+            throw new NotSupportedException("Test timers fire once.");
+        lock (_gate)
+        {
+            var timer = new PendingTimer(this, callback, state, _now + dueTime);
+            _pending.Add(timer);
+            _created.Add(dueTime);
+            var waiter = _waiters.FirstOrDefault(candidate => candidate.Duration == dueTime);
+            if (waiter.Created is not null)
+            {
+                _waiters.Remove(waiter);
+                _claimed = _created.Count;
+                waiter.Created.SetResult(dueTime);
+            }
+            return timer;
+        }
+    }
+
+    private void Forget(PendingTimer timer)
+    {
+        lock (_gate)
+            _pending.Remove(timer);
+    }
+
+    private sealed class PendingTimer(FixedTime clock, TimerCallback callback, object? state, DateTimeOffset due) : ITimer
+    {
+        public DateTimeOffset Due => due;
+
+        public void Fire() => callback(state);
+
+        public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException("Test timers are not rescheduled.");
+
+        public void Dispose() => clock.Forget(this);
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
 }

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
+using TacitMemory.Core.Checkup;
 
 namespace TacitMemory.Core.Pages;
 
@@ -58,6 +59,53 @@ internal sealed partial class PageDocument
 
     /// <summary>The whole file as text, with <see cref="Newline"/> as the line break and no BOM.</summary>
     public string Text => JoinLines(Lines);
+
+    /// <summary>
+    /// The format problems of this page against the page limits, in line order. Parsing stays lenient and never reports
+    /// them; the checkup asks for them. The file's name and its related pages are checked by the caller.
+    /// </summary>
+    public IReadOnlyList<FormatIssue> Problems(PageLimits limits)
+    {
+        var problems = new List<FormatIssue>();
+        if (HeaderBroken)
+        {
+            problems.Add(Fix("YAML header", "yaml header", "The YAML header between the --- lines is missing or cannot be parsed."));
+        }
+        else
+        {
+            if (HasHeaderKey("title") && Length(Header.Title) > limits.TitleLength)
+                problems.Add(Fix(LocationOf("title"), "title length", $"The title is {Length(Header.Title)} characters; the limit is {limits.TitleLength}."));
+
+            var aliases = LocationOf("aliases");
+            if (Header.Aliases.Count < limits.MinAliases)
+                problems.Add(Fix(aliases, "alias count", $"The page has {Header.Aliases.Count} aliases; at least {limits.MinAliases} are needed."));
+            foreach (var alias in Header.Aliases.Where(alias => Length(alias) > limits.AliasLength))
+                problems.Add(Fix(aliases, "alias length", $"Alias \"{alias}\" is {Length(alias)} characters; the limit is {limits.AliasLength}."));
+        }
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var section in Sections)
+            if (!names.Add(section.Name))
+                problems.Add(Fix($"line {section.HeadingLine + 1}", "duplicate section", $"Section \"{section.Name}\" appears more than once on this page."));
+        return problems;
+    }
+
+    /// <summary>The location of header key <paramref name="key"/>: its line, or the header itself when the key is missing.</summary>
+    public string LocationOf(string key)
+    {
+        for (var i = 1; i < HeaderEndLine - 1; i++)
+            if (BlockKey().Match(Lines[i]) is { Success: true } match && match.Groups[1].Value == key)
+                return $"line {i + 1}";
+        return "YAML header";
+    }
+
+    /// <summary>Whether header key <paramref name="key"/> is present.</summary>
+    public bool HasHeaderKey(string key) => LocationOf(key) != "YAML header";
+
+    private static FormatIssue Fix(string location, string kind, string description) =>
+        new("", location, kind, description, FormatHandling.FixDirectly);
+
+    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
 
     /// <summary>Reads and parses <paramref name="id"/> from <paramref name="memoryPath"/>, or <c>null</c> when missing or not UTF-8.</summary>
     public static PageDocument? TryLoad(string memoryPath, PageId id)
@@ -235,8 +283,9 @@ internal sealed partial class PageDocument
                 return null;
             root = mapping;
         }
-        catch (YamlException)
+        catch (Exception exception) when (exception is YamlException or InvalidOperationException)
         {
+            // The scanner reports some broken flow sequences as InvalidOperationException rather than YamlException.
             return null;
         }
 

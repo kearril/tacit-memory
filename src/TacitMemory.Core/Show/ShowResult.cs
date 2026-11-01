@@ -44,7 +44,7 @@ public sealed record ShowPart(string Key, ShowSource Source, string? Path, strin
 /// <summary>A length in characters, and the limit it must stay within.</summary>
 public sealed record ShowLimit(int Length, int Limit);
 
-/// <summary>What <see cref="Tacit.Show"/> returns.</summary>
+/// <summary>What <see cref="Tacit.ShowAsync"/> returns.</summary>
 /// <param name="Report">
 /// The text to print. With <c>useDefault</c> it is the built-in text alone, so it can be saved as the file that replaces
 /// the default; otherwise it is the parts with their sources and lengths, and it names what a running service adds.

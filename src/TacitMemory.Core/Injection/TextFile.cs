@@ -17,7 +17,7 @@ internal static class TextFile
     {
         if (!File.Exists(path))
             return ("", false);
-        var bytes = File.ReadAllBytes(path);
+        var bytes = ReadSharedBytes(path);
         var hasBom = bytes.AsSpan().StartsWith(Bom);
         try
         {
@@ -27,6 +27,19 @@ internal static class TextFile
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The file's bytes, read while other processes may still write, replace or delete it. A plain read denies writers
+    /// for its duration, so a background read of the repository would refuse a manual edit or a write from outside the
+    /// service while it runs.
+    /// </summary>
+    public static byte[] ReadSharedBytes(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
     }
 
     public static void Write(string path, string text, bool hasBom)

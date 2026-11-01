@@ -60,6 +60,18 @@ public sealed class PersonaIndexTests : IDisposable
         Assert.Fail("The condition did not hold within 10 seconds.");
     }
 
+    private static async Task Eventually(Func<Task<bool>> condition)
+    {
+        for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
+        {
+            if (await condition())
+                return;
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+
+        Assert.Fail("The condition did not hold within 10 seconds.");
+    }
+
     [Theory]
     [InlineData(null, true)]
     [InlineData("pages", true)]
@@ -114,26 +126,26 @@ public sealed class PersonaIndexTests : IDisposable
     {
         Ready();
         var service = Service;
-        Assert.DoesNotContain(name, service.ServerInstructions);
+        Assert.DoesNotContain(name, await service.ServerInstructionsAsync());
         var path = Path.Combine(Memory, name);
 
         File.WriteAllBytes(path, [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
-        await Eventually(() => service.ServerInstructions.Contains(name, StringComparison.Ordinal));
+        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains(name, StringComparison.Ordinal));
 
         File.WriteAllText(path, "## 偏好\n- 先说结论\n");
-        await Eventually(() => !service.ServerInstructions.Contains(name, StringComparison.Ordinal));
+        await Eventually(async () => !(await service.ServerInstructionsAsync()).Contains(name, StringComparison.Ordinal));
     }
 
     [Theory]
     [InlineData("persona.md")]
     [InlineData("candidates.md")]
-    public void A_judgment_file_that_is_not_utf8_at_startup_is_reported_in_the_status(string name)
+    public async Task A_judgment_file_that_is_not_utf8_at_startup_is_reported_in_the_status(string name)
     {
         Ready();
         File.WriteAllBytes(Path.Combine(Memory, name), [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
 
         using var service = _home.Tacit().OpenService(_ => { });
 
-        Assert.Contains(name, service.ServerInstructions);
+        Assert.Contains(name, await service.ServerInstructionsAsync());
     }
 }

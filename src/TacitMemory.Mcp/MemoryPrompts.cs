@@ -11,4 +11,8 @@ internal sealed class MemoryPrompts(MemoryService service)
     [McpServerPrompt(Name = "remember"), Description("Write this session into memory now: steps, today's activities with their codes, and the current mainline with its version code.")]
     public string Remember([Description("Optional focus: what to emphasize when remembering this session.")] string? focus = null) =>
         service.RememberPrompt(focus);
+
+    [McpServerPrompt(Name = "checkup"), Description("Start a checkup of the memory: fix format problems, settle candidates, duplicates and conflicts with the user, refresh a stale mainline, and commit with a checkup: message. Includes the current checkup report.")]
+    public Task<string> Checkup(CancellationToken cancellationToken) =>
+        service.CheckupPromptAsync(cancellationToken);
 }

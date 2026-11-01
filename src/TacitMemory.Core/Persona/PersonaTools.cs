@@ -383,7 +383,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Act
         Sections.Where(section => section.Name == name).Select(section => (PersonaSection?)section.Kind).FirstOrDefault();
 
     /// <summary>Whether the text contains the structure word in either language: Chinese as written, English as a whole word.</summary>
-    private static bool HasStructureWord(string text, Localized word) =>
+    internal static bool HasStructureWord(string text, Localized word) =>
         text.Contains(word.Zh, StringComparison.Ordinal)
         || Regex.IsMatch(text, $@"\b{Regex.Escape(word.En)}\b", RegexOptions.IgnoreCase);
 
@@ -547,5 +547,5 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Act
     /// <summary>An entry of one of the four sections, found by its short code.</summary>
     private sealed record FoundEntry(PersonaSection Kind, PersonaItem Item, string Code);
 
-    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
+    internal static int Length(string text) => new StringInfo(text).LengthInTextElements;
 }

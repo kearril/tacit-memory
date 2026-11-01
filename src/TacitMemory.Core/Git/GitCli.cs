@@ -56,4 +56,11 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
     /// <summary>Whether <paramref name="path"/> (relative to the repository) has uncommitted changes, or is untracked.</summary>
     public async Task<bool> IsDirtyAsync(string path, CancellationToken cancellationToken) =>
         (await RunAsync(cancellationToken, "status", "--porcelain", "--", path)).Trim().Length > 0;
+
+    /// <summary>The text of <paramref name="path"/> (relative to the repository) at <paramref name="commit"/>; <c>null</c> when the file is not there.</summary>
+    public async Task<string?> ShowAsync(string commit, string path, CancellationToken cancellationToken)
+    {
+        var listed = await RunAsync(cancellationToken, "ls-tree", "--name-only", commit, "--", path);
+        return listed.Trim().Length == 0 ? null : await RunAsync(cancellationToken, "show", $"{commit}:{path}");
+    }
 }

@@ -18,9 +18,9 @@ public sealed class ShowTests : IDisposable
     private static bool IsCjk(char character) => character is >= '\u4e00' and <= '\u9fff';
 
     [Fact]
-    public void Instructions_name_each_part_with_its_source_and_the_fixed_and_total_lengths()
+    public async Task Instructions_name_each_part_with_its_source_and_the_fixed_and_total_lengths()
     {
-        var result = _home.Tacit().Show(ShowTarget.Instructions);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
 
         Assert.Equal(ShowSource.Code, Part(result, "opening").Source);
         Assert.Equal(ShowSource.BuiltInDefault, Part(result, "instructions").Source);
@@ -40,24 +40,24 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void Instructions_leave_out_the_runtime_status()
+    public async Task Instructions_leave_out_the_runtime_status()
     {
-        var result = _home.Tacit().Show(ShowTarget.Instructions);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
 
         Assert.DoesNotContain("## Status", result.Report);
         Assert.DoesNotContain("Unavailable auxiliary models", result.Report);
     }
 
     [Fact]
-    public void The_fixed_part_of_the_instructions_has_the_length_the_service_checks()
+    public async Task The_fixed_part_of_the_instructions_has_the_length_the_service_checks()
     {
         var home = _home.Tacit();
-        var shown = home.Show(ShowTarget.Instructions).Fixed!.Length;
+        var shown = (await home.ShowAsync(ShowTarget.Instructions)).Fixed!.Length;
 
         // Adding the same text to the core rules must grow the fixed part by exactly that much.
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "instructions.md"), "## Extra\n- One more rule.\n");
-        var extended = home.Show(ShowTarget.Instructions);
+        var extended = await home.ShowAsync(ShowTarget.Instructions);
 
         Assert.Equal(ShowSource.UserFile, Part(extended, "instructions").Source);
         Assert.NotEqual(shown, extended.Fixed!.Length);
@@ -67,12 +67,12 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_user_instructions_are_shown_without_their_html_comments()
+    public async Task The_user_instructions_are_shown_without_their_html_comments()
     {
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "instructions.md"), "<!-- editor note -->\n## Custom\n- A custom rule.\n");
 
-        var result = _home.Tacit().Show(ShowTarget.Instructions);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
 
         var part = Part(result, "instructions");
         Assert.Equal(ShowSource.UserFile, part.Source);
@@ -82,9 +82,9 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_default_instructions_keep_their_comments_and_are_the_built_in_text_alone()
+    public async Task The_default_instructions_keep_their_comments_and_are_the_built_in_text_alone()
     {
-        var defaults = _home.Tacit().Show(ShowTarget.Instructions, useDefault: true);
+        var defaults = await _home.Tacit().ShowAsync(ShowTarget.Instructions, useDefault: true);
 
         Assert.Equal(defaults.Report, Assert.Single(defaults.Parts).Text);
         Assert.Contains("<!--", defaults.Report);
@@ -93,14 +93,14 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void Saving_the_default_instructions_as_the_file_gives_the_same_core_rules()
+    public async Task Saving_the_default_instructions_as_the_file_gives_the_same_core_rules()
     {
         var home = _home.Tacit();
-        var before = Part(home.Show(ShowTarget.Instructions), "instructions");
+        var before = Part(await home.ShowAsync(ShowTarget.Instructions), "instructions");
 
         Directory.CreateDirectory(Prompts);
-        File.WriteAllText(Path.Combine(Prompts, "instructions.md"), home.Show(ShowTarget.Instructions, useDefault: true).Report);
-        var after = Part(home.Show(ShowTarget.Instructions), "instructions");
+        File.WriteAllText(Path.Combine(Prompts, "instructions.md"), (await home.ShowAsync(ShowTarget.Instructions, useDefault: true)).Report);
+        var after = Part(await home.ShowAsync(ShowTarget.Instructions), "instructions");
 
         Assert.Equal(ShowSource.BuiltInDefault, before.Source);
         Assert.Equal(ShowSource.UserFile, after.Source);
@@ -108,9 +108,9 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_resident_block_shows_the_built_in_shell_and_four_sections_with_their_lengths()
+    public async Task The_resident_block_shows_the_built_in_shell_and_four_sections_with_their_lengths()
     {
-        var result = _home.Tacit().Show(ShowTarget.Resident);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
 
         Assert.Equal(ShowSource.BuiltInDefault, Part(result, "shell").Source);
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "red_lines").Text));
@@ -121,14 +121,14 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_default_resident_text_saved_as_the_file_gives_the_same_parts()
+    public async Task The_default_resident_text_saved_as_the_file_gives_the_same_parts()
     {
         var home = _home.Tacit();
-        var before = home.Show(ShowTarget.Resident);
+        var before = await home.ShowAsync(ShowTarget.Resident);
 
         Directory.CreateDirectory(Prompts);
-        File.WriteAllText(Path.Combine(Prompts, "resident.md"), home.Show(ShowTarget.Resident, useDefault: true).Report);
-        var after = home.Show(ShowTarget.Resident);
+        File.WriteAllText(Path.Combine(Prompts, "resident.md"), (await home.ShowAsync(ShowTarget.Resident, useDefault: true)).Report);
+        var after = await home.ShowAsync(ShowTarget.Resident);
 
         Assert.Equal(ShowSource.UserFile, Part(after, "shell").Source);
         foreach (var key in new[] { "shell", "red_lines", "working_rules", "preferences", "profile" })
@@ -137,12 +137,12 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void A_resident_file_without_a_section_shows_no_guidance_for_it()
+    public async Task A_resident_file_without_a_section_shows_no_guidance_for_it()
     {
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "resident.md"), "Shell text.\n\n## profile\nFacts only.\n");
 
-        var result = _home.Tacit().Show(ShowTarget.Resident);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
 
         Assert.Equal("", Part(result, "red_lines").Text);
         Assert.Equal("Facts only.", Part(result, "profile").Text);
@@ -150,35 +150,35 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_resident_length_shown_is_the_length_of_the_file_the_limit_checks()
+    public async Task The_resident_length_shown_is_the_length_of_the_file_the_limit_checks()
     {
         // Trailing blank lines are not part of the composed block, but the length limit counts them.
         var raw = "Shell text.\n\n## profile\nFacts only.\n" + new string('\n', 300);
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "resident.md"), raw);
 
-        var result = _home.Tacit().Show(ShowTarget.Resident);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
 
         Assert.Equal(raw.Length, result.Whole!.Length);
         Assert.Contains($"{raw.Length}/", result.Report);
     }
 
     [Fact]
-    public void The_default_skill_is_the_system_part_alone()
+    public async Task The_default_skill_is_the_system_part_alone()
     {
         var home = _home.Tacit();
 
-        var defaults = home.Show(ShowTarget.Skill, useDefault: true);
-        var full = home.Show(ShowTarget.Skill);
+        var defaults = await home.ShowAsync(ShowTarget.Skill, useDefault: true);
+        var full = await home.ShowAsync(ShowTarget.Skill);
 
         Assert.Equal(Part(full, "system").Text, defaults.Report);
         Assert.DoesNotContain("name: tacit-memory", defaults.Report);
     }
 
     [Fact]
-    public void The_skill_shows_its_whole_content_and_has_no_conventions_section_without_skill_md()
+    public async Task The_skill_shows_its_whole_content_and_has_no_conventions_section_without_skill_md()
     {
-        var result = _home.Tacit().Show(ShowTarget.Skill);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Skill);
 
         Assert.Equal(["system"], result.Parts.Select(part => part.Key));
         Assert.Contains("\n\n---\nname: tacit-memory\n", result.Report);
@@ -187,12 +187,12 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_skill_appends_the_user_conventions_with_their_source_and_limit()
+    public async Task The_skill_appends_the_user_conventions_with_their_source_and_limit()
     {
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "skill.md"), "Use Chinese page titles.");
 
-        var result = _home.Tacit().Show(ShowTarget.Skill);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Skill);
 
         var conventions = Part(result, "conventions");
         Assert.Equal(ShowSource.UserFile, conventions.Source);
@@ -204,50 +204,50 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void The_remember_prompt_is_generated_now_from_the_repository_and_has_no_default()
+    public async Task The_remember_prompt_is_generated_now_from_the_repository_and_has_no_default()
     {
-        var result = _home.Tacit().Show(ShowTarget.Remember);
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Remember);
 
         var part = Assert.Single(result.Parts);
         Assert.Equal(ShowSource.Code, part.Source);
         Assert.Contains(TestHome.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), part.Text);
         Assert.Null(result.Fixed);
-        var refused = Assert.Throws<TacitException>(() => _home.Tacit().Show(ShowTarget.Remember, useDefault: true));
+        var refused = await Assert.ThrowsAsync<TacitException>(() => _home.Tacit().ShowAsync(ShowTarget.Remember, useDefault: true));
         Assert.Equal(TacitError.NoBuiltInText, refused.Error);
     }
 
     [Fact]
-    public void Show_is_refused_with_the_usual_error_before_init()
+    public async Task Show_is_refused_with_the_usual_error_before_init()
     {
         using var fresh = new TestHome();
 
-        var error = Assert.Throws<TacitException>(() => fresh.Tacit().Show(ShowTarget.Instructions));
+        var error = await Assert.ThrowsAsync<TacitException>(() => fresh.Tacit().ShowAsync(ShowTarget.Instructions));
 
         Assert.Equal(TacitError.NotInitialized, error.Error);
     }
 
     [Fact]
-    public void The_defaults_need_no_init()
+    public async Task The_defaults_need_no_init()
     {
         using var fresh = new TestHome();
 
-        Assert.False(string.IsNullOrEmpty(fresh.Tacit().Show(ShowTarget.Instructions, useDefault: true).Report));
-        Assert.False(string.IsNullOrEmpty(fresh.Tacit().Show(ShowTarget.Resident, useDefault: true).Report));
+        Assert.False(string.IsNullOrEmpty((await fresh.Tacit().ShowAsync(ShowTarget.Instructions, useDefault: true)).Report));
+        Assert.False(string.IsNullOrEmpty((await fresh.Tacit().ShowAsync(ShowTarget.Resident, useDefault: true)).Report));
     }
 
     [Fact]
-    public void The_labels_follow_the_memory_language()
+    public async Task The_labels_follow_the_memory_language()
     {
         using var english = new TestHome();
         english.InitReady(language: MemoryLanguage.En);
 
-        var result = english.Tacit("en-US").Show(ShowTarget.Instructions);
+        var result = await english.Tacit("en-US").ShowAsync(ShowTarget.Instructions);
 
         var heading = result.Report.Split('\n')[0];
         Assert.Contains($"{result.Fixed!.Length}/2500", heading);
         Assert.Contains($"{result.Whole!.Length}/4000", heading);
         Assert.DoesNotContain(result.Report, IsCjk);
-        Assert.Contains(_home.Tacit().Show(ShowTarget.Instructions).Report, IsCjk);
+        Assert.Contains((await _home.Tacit().ShowAsync(ShowTarget.Instructions)).Report, IsCjk);
     }
 
     [Fact]

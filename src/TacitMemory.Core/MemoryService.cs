@@ -1,5 +1,6 @@
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Backup;
+using TacitMemory.Core.Checkup;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -37,6 +38,7 @@ public sealed class MemoryService : IDisposable
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
     private readonly Lock _instructionsGate = new();
+    private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly PageTools _pages;
     private readonly RecentTools _recent;
@@ -44,10 +46,13 @@ public sealed class MemoryService : IDisposable
     private readonly AuxiliaryModels _models;
     private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
+    private readonly JudgmentPool _judgments;
+    private readonly CheckupServices _checkup;
     private readonly RecallTool _recall;
     private PromptDocuments _prompts;
     private string? _instructions;
     private string? _instructionsStatus;
+    private int _instructionsVersion;
     private volatile bool _disposed;
 
     internal MemoryService(TacitOptions options, TacitConfig config, Action<string> notice)
@@ -62,6 +67,8 @@ public sealed class MemoryService : IDisposable
         _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
+        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Checkup.MaxConcurrency);
+        _checkup = new CheckupServices(_index, _models.Embedding, _vectors, _judgments);
         _vectors.FillInBackground();
         _pages = new PageTools(
             options, config, notice, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
@@ -93,34 +100,59 @@ public sealed class MemoryService : IDisposable
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
     /// <summary>
-    /// The server instructions, generated on first use and kept until a prompt document or the project list may have
-    /// changed, or the status (unavailable models, skipped files) differs from when they were generated.
+    /// The server instructions, generated on first use and kept until something they are built from may have changed: a
+    /// prompt document, the persona or its candidates, a page or activity file, the mainline, the memory repository's
+    /// commits, the project list, or the status (unavailable models, skipped files, the date). Builds run one at a time.
     /// </summary>
-    public string ServerInstructions
+    public async Task<string> ServerInstructionsAsync(CancellationToken cancellationToken = default)
     {
-        get
+        await _instructionsBuild.WaitAsync(cancellationToken);
+        try
         {
             var unavailable = _models.Unavailable;
             var skipped = _index.SkippedFiles;
             var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped) + "\n" + _options.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            int version;
+            PromptDocuments prompts;
             lock (_instructionsGate)
             {
-                if (_instructions is null || _instructionsStatus != status)
+                if (_instructions is not null && _instructionsStatus == status)
+                    return _instructions;
+                version = _instructionsVersion;
+                prompts = _prompts;
+            }
+
+            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
+            var projects = ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels);
+            var checkup = await CheckupReminder.RenderAsync(Config, _options.Today, cancellationToken);
+            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, projects, checkup).Text;
+
+            lock (_instructionsGate)
+            {
+                // A change that arrived while the text was being built makes it stale, so it is not kept.
+                if (version == _instructionsVersion)
                 {
-                    var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
-                    _instructions = ServerInstructionText.Assemble(
-                        Config.Language, _prompts, unavailable, skipped, recent,
-                        ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels)).Text;
+                    _instructions = text;
                     _instructionsStatus = status;
                 }
-
-                return _instructions;
             }
+            return text;
+        }
+        finally
+        {
+            _instructionsBuild.Release();
         }
     }
 
     /// <summary>The text of the <c>remember</c> prompt for the given focus, built from the current activities and mainline.</summary>
     public string RememberPrompt(string? focus = null) => RememberText.Render(_options, Config, focus);
+
+    /// <summary>
+    /// The text of the <c>checkup</c> prompt, built from the repository as it is now: the steps, the structure words and the
+    /// checkup report. Reads only. Cancelling it abandons the report; nothing is written either way.
+    /// </summary>
+    public Task<string> CheckupPromptAsync(CancellationToken cancellationToken = default) =>
+        CheckupPrompt.RenderAsync(_options, Config, _checkup, cancellationToken);
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
     public string ListeningMessage(Uri endpoint) => Messages.ServiceListening.Format(Config.Language, endpoint);
@@ -134,6 +166,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
     internal Task VectorCompletion => _vectors.Background;
+
+    /// <summary>Completes when the checkup judgments started so far have finished and their answers are cached. Tests await it.</summary>
+    internal Task JudgmentCompletion => _judgments.Completion;
 
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
@@ -149,6 +184,8 @@ public sealed class MemoryService : IDisposable
             // The index follows the file right away; the watcher's later event finds the hash unchanged.
             if (PageId.TryParse(request.Page ?? "", out var id, out _))
                 _index.SyncPage(id);
+            // Page counts and format problems come from the pages, so the instructions are rebuilt on their next use.
+            InvalidateInstructions();
             if (result.IsError)
                 return result;
             _backup.ScheduleIfDue();
@@ -197,6 +234,8 @@ public sealed class MemoryService : IDisposable
             // Judgments read the index, so it follows a manual edit first and this write right after; the watcher's later event finds the hash unchanged.
             _index.SyncJudgments();
             var result = await _persona.WriteAsync(request, cancellationToken);
+            // The candidates and the persona feed the checkup reminder, so the instructions are rebuilt on their next use.
+            InvalidateInstructions();
             _index.SyncJudgments();
             if (!result.Written)
                 return result;
@@ -225,10 +264,12 @@ public sealed class MemoryService : IDisposable
         lock (_indexTimerGate)
             _indexTimer.Dispose();
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
+        _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
         _index.Dispose();
         _models.Dispose();
         _writeGate.Dispose();
+        _instructionsBuild.Dispose();
     }
 
     private void OnChange(object sender, FileSystemEventArgs e)
@@ -240,9 +281,7 @@ public sealed class MemoryService : IDisposable
                 ScheduleRender();
             if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
                 ScheduleIndexSync();
-            if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
-                InvalidateInstructions();
-            if (relative == MainlineSection.RelativePath || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+            if (AffectsInstructions(relative))
                 InvalidateInstructions();
             if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
                 ScheduleIndexSync();
@@ -260,8 +299,28 @@ public sealed class MemoryService : IDisposable
     private void InvalidateInstructions()
     {
         lock (_instructionsGate)
-            _instructions = null;
+            ClearInstructionsLocked();
     }
+
+    /// <summary>Drops the cached text. A build that started before this is not kept either.</summary>
+    private void ClearInstructionsLocked()
+    {
+        _instructions = null;
+        _instructionsVersion++;
+    }
+
+    /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
+    private static bool AffectsInstructions(string relative) =>
+        relative is PersonaFiles.Persona or PersonaFiles.Candidates or MainlineSection.RelativePath
+        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
+        || relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal)
+        || IsGitHistory(relative);
+
+    /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>
+    private static bool IsGitHistory(string relative) =>
+        relative is ".git/HEAD" or ".git/packed-refs"
+        || relative.StartsWith(".git/refs/", StringComparison.Ordinal)
+        || relative.StartsWith(".git/logs/", StringComparison.Ordinal);
 
     private void OnPromptsChange(object sender, FileSystemEventArgs e) => SchedulePromptsReload();
 
@@ -317,7 +376,7 @@ public sealed class MemoryService : IDisposable
                 lock (_instructionsGate)
                 {
                     _prompts = prompts;
-                    _instructions = null;
+                    ClearInstructionsLocked();
                 }
                 // The resident blocks show resident.md: render them with the new text, as a persona change does.
                 if (residentChanged)
@@ -344,8 +403,11 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    /// <summary>Runs on the timer thread; renders never overlap, and no failure may escape and end the process.</summary>
-    private void RenderNow()
+    /// <summary>
+    /// Runs on the timer thread, between writes: renders never overlap, and no failure may escape and end the process.
+    /// It reads <c>persona.md</c>, which a write replaces, so it reads only under the write gate.
+    /// </summary>
+    private void RenderNow() => UnderWriteGate(() =>
     {
         lock (_renderGate)
         {
@@ -366,7 +428,7 @@ public sealed class MemoryService : IDisposable
                 _notice(Messages.RenderFailed.Format(Config.Language, e.Message));
             }
         }
-    }
+    });
 
     private void ScheduleIndexSync()
     {
@@ -377,8 +439,37 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    /// <summary>Runs on the timer thread; compares every page file's hash with the index, so missed events do no harm.</summary>
-    private void SyncIndexNow()
+    /// <summary>
+    /// Runs a background read of the memory repository, such as an index sync or a render, between the writes. A write
+    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. Once the
+    /// service is disposed, the read does not run.
+    /// </summary>
+    private void UnderWriteGate(Action read)
+    {
+        try
+        {
+            _writeGate.Wait();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        try
+        {
+            read();
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Runs on the timer thread, between writes: compares every page file's hash with the index, so missed events do no
+    /// harm. It reads the files only under the write gate, as a write replaces them.
+    /// </summary>
+    private void SyncIndexNow() => UnderWriteGate(() =>
     {
         lock (_indexTimerGate)
         {
@@ -399,5 +490,5 @@ public sealed class MemoryService : IDisposable
                 _notice(Messages.IndexSyncFailed.Format(Config.Language, e.Message));
             }
         }
-    }
+    });
 }

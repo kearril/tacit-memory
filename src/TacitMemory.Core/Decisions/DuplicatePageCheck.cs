@@ -11,7 +11,8 @@ internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 
 /// <summary>
 /// Before a page is created, asks whether a page of the same project already records the same matter: the nearest
-/// pages by embedding, plus "none of these", go to the decision model as a choice question.
+/// pages by embedding, plus "none of these", go to the decision model as a choice question. The checkup asks the same
+/// question about changed pages, so the question and its options are built by the members shared below.
 /// </summary>
 internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
 {
@@ -26,12 +27,14 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
 
     private const string None = "none";
 
-    private const string Instructions =
+    /// <summary>The question's instructions, the same for a new page and for a changed one.</summary>
+    public const string Instructions =
         "The state is a new page for a personal memory. Each option is an existing page of the same project. "
         + "Choose the option that describes exactly the same issue, bug, decision or subject as the new page. "
         + "If the options only share a product area or component but describe a different matter, choose the none option.";
 
-    private const string NoneText = "None of the existing pages describes the same matter as the new page.";
+    /// <summary>The text of the "none of these" option, the same for a new page and for a changed one.</summary>
+    public const string NoneText = "None of the existing pages describes the same matter as the new page.";
 
     /// <summary>Longest description of one candidate.</summary>
     private const int OptionLength = 250;
@@ -49,23 +52,14 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
             return new DuplicateCheck(null, EmbeddingDown);
 
         await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
-        var nearest = index.SearchVector(vector[0], new IndexFilter(id.Project, null, null), int.MaxValue)
-            .Select(hit => hit.Source)
-            .Where(page => page != id.ToString())
-            .Distinct()
-            .Take(OtherOptions)
-            .Select(page => PageId.TryParse(page, out var parsed, out _) ? parsed : null)
-            .OfType<PageId>()
-            .ToList();
+        var nearest = Nearest(index, id, vector[0]);
         if (nearest.Count == 0)
             return new DuplicateCheck(null, null);
 
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         var pages = new Dictionary<string, PageId>(StringComparer.Ordinal);
-        foreach (var page in nearest)
+        foreach (var (page, description) in Describe(config.MemoryPath, nearest))
         {
-            if (Describe(page) is not { } description)
-                continue;
             var key = "p" + (pages.Count + 1).ToString(CultureInfo.InvariantCulture);
             options[key] = description;
             pages[key] = page;
@@ -81,7 +75,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
     }
 
     /// <summary>The new page as the decision model reads it: labels in English, content as written.</summary>
-    private static string State(PageHeader header, IReadOnlyList<PageSectionInput> sections)
+    public static string State(PageHeader header, IReadOnlyList<PageSectionInput> sections)
     {
         var text = new StringBuilder();
         text.Append("Title: ").Append(header.Title).Append('\n');
@@ -91,10 +85,34 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
         return text.ToString();
     }
 
-    /// <summary>One candidate page in a line: title, aliases and the start of each section.</summary>
-    private string? Describe(PageId page)
+    /// <summary>
+    /// The nearest pages of the same project as <paramref name="id"/> by <paramref name="vector"/>: at most
+    /// <see cref="OtherOptions"/>, never the page itself, nearest first.
+    /// </summary>
+    public static IReadOnlyList<PageId> Nearest(MemoryIndex index, PageId id, float[] vector) =>
+        index.SearchVector(vector, new IndexFilter(id.Project, null, null), int.MaxValue)
+            .Select(hit => hit.Source)
+            .Where(page => page != id.ToString())
+            .Distinct()
+            .Take(OtherOptions)
+            .Select(page => PageId.TryParse(page, out var parsed, out _) ? parsed : null)
+            .OfType<PageId>()
+            .ToList();
+
+    /// <summary>The pages as option texts, in order; a page whose file cannot be read is left out.</summary>
+    public static IReadOnlyList<(PageId Page, string Text)> Describe(string memoryPath, IEnumerable<PageId> pages)
     {
-        if (PageDocument.TryLoad(config.MemoryPath, page) is not { } document)
+        var described = new List<(PageId Page, string Text)>();
+        foreach (var page in pages)
+            if (DescribeOne(memoryPath, page) is { } text)
+                described.Add((page, text));
+        return described;
+    }
+
+    /// <summary>One candidate page in a line: title, aliases and the start of each section.</summary>
+    private static string? DescribeOne(string memoryPath, PageId page)
+    {
+        if (PageDocument.TryLoad(memoryPath, page) is not { } document)
             return null;
         var sections = string.Join("; ", document.Sections.Select(section =>
         {

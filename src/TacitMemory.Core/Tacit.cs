@@ -35,12 +35,13 @@ public sealed class Tacit(TacitOptions options)
     /// <c>remember</c> prompt: each part with its source and length. Reads the same sources the service reads and needs no
     /// running service. Loading the config may create <c>prompts/</c> and rewrite a missing <c>rules.md</c>, as the service
     /// does at startup; nothing else is written. With <paramref name="useDefault"/> it returns only the built-in text, which
-    /// can be saved as the file that replaces it, and then needs no config.
+    /// can be saved as the file that replaces it, and then needs no config. The instructions end with the checkup reminder
+    /// when one is due, read from the memory repository's history; no model is called.
     /// </summary>
-    public ShowResult Show(ShowTarget target, bool useDefault = false)
+    public async Task<ShowResult> ShowAsync(ShowTarget target, bool useDefault = false, CancellationToken cancellationToken = default)
     {
         if (!useDefault)
-            return Viewer.Show(options, LoadConfig(), target);
+            return await Viewer.Show(options, LoadConfig(), target, cancellationToken);
         if (target == ShowTarget.Remember)
             throw NoBuiltInText("remember");
         return Viewer.Default(target);

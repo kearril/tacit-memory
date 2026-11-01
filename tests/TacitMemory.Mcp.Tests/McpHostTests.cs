@@ -115,6 +115,33 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_checkup_prompt_is_listed_without_arguments_and_returns_the_memory_path_and_the_report()
+    {
+        await using var client = await ConnectAsync();
+
+        var prompts = await client.ListPromptsAsync();
+        Assert.Contains(prompts, prompt => prompt.Name == "remember");
+        var checkup = Assert.Single(prompts, prompt => prompt.Name == "checkup");
+        Assert.True(checkup.ProtocolPrompt.Arguments is null || checkup.ProtocolPrompt.Arguments.Count == 0);
+
+        var result = await client.GetPromptAsync("checkup");
+        var text = string.Concat(result.Messages.Select(message => message.Content).OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
+        Assert.Contains(_home.DefaultMemory, text);
+        foreach (var title in new[]
+        {
+            "Suspected duplicate pages",
+            "Conflicting persona entries",
+            "Confirmable persona candidates",
+            "Persona candidates to remove",
+            "Format and rule violations",
+            "Stale mainline",
+        })
+        {
+            Assert.Contains($"### {title}\n", text);
+        }
+    }
+
+    [Fact]
     public async Task A_page_written_through_the_tool_reads_back_through_recall()
     {
         await using var client = await ConnectAsync();

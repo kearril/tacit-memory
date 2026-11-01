@@ -38,10 +38,9 @@ public sealed class McpHost : IAsyncDisposable
                 options.SessionMode = HttpServerSessionMode.Stateless;
                 // Stateless mode calls this for every request; clients only take the instructions from initialize,
                 // and the service caches them, so handing them out every time costs nothing.
-                options.ConfigureSessionOptions = (_, session, _) =>
+                options.ConfigureSessionOptions = async (_, session, cancellationToken) =>
                 {
-                    session.ServerInstructions = service.ServerInstructions;
-                    return Task.CompletedTask;
+                    session.ServerInstructions = await service.ServerInstructionsAsync(cancellationToken);
                 };
             })
             .WithTools<MemoryTools>()

@@ -1,0 +1,20 @@
+namespace TacitMemory.Core.Checkup;
+
+/// <summary>
+/// The titles of the six report categories, in English. The checkup prompt's steps refer to them by these names, so
+/// they are defined once.
+/// </summary>
+internal static class CheckupTitles
+{
+    public const string DuplicatePages = "Suspected duplicate pages";
+
+    public const string ConflictingEntries = "Conflicting persona entries";
+
+    public const string ConfirmableCandidates = "Confirmable persona candidates";
+
+    public const string RedundantCandidates = "Persona candidates to remove";
+
+    public const string FormatViolations = "Format and rule violations";
+
+    public const string StaleMainline = "Stale mainline";
+}

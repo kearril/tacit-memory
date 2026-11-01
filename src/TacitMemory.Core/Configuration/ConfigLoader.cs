@@ -181,10 +181,12 @@ internal static class ConfigLoader
     private static CheckupConfig ReadCheckup(ConfigReader reader, YamlMappingNode root)
     {
         var checkup = reader.Mapping(root, "", "checkup");
-        reader.OnlyKnown(checkup, "checkup", "remindAfterDays", "mainlineStaleDays");
+        reader.OnlyKnown(checkup, "checkup", "remindAfterDays", "mainlineStaleDays", "budgetSeconds", "maxConcurrency");
         return new CheckupConfig(
             Count(reader, checkup, "checkup", "remindAfterDays", 7),
-            Count(reader, checkup, "checkup", "mainlineStaleDays", 14));
+            Count(reader, checkup, "checkup", "mainlineStaleDays", 14),
+            Count(reader, checkup, "checkup", "budgetSeconds", 20),
+            Count(reader, checkup, "checkup", "maxConcurrency", 5));
     }
 
     private static DecisionThresholds ReadDecision(ConfigReader reader, YamlMappingNode root)

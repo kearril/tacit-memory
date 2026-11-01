@@ -42,7 +42,7 @@ public sealed record PersonaLimits(int RedLines, int WorkingRules, int Preferenc
 
 public sealed record PageLimits(int TitleLength, int AliasLength, int MinAliases);
 
-public sealed record CheckupConfig(int RemindAfterDays, int MainlineStaleDays);
+public sealed record CheckupConfig(int RemindAfterDays, int MainlineStaleDays, int BudgetSeconds, int MaxConcurrency);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
 public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameTopic, Threshold? RuleConflict);
