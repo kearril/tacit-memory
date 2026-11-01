@@ -120,4 +120,50 @@ internal static class RecentFile
             return (content[1..close], content[(close + 2)..].Trim());
         return (null, content.Trim());
     }
+
+    /// <summary>The activities recorded under <paramref name="day"/>'s heading, with their short codes; codes are counted over the whole file, as <see cref="CodeAt"/> does.</summary>
+    public static IReadOnlyList<RecentEntry> EntriesOn(string text, DateOnly day)
+    {
+        var heading = $"## {day:yyyy-MM-dd}";
+        var lines = text.Split('\n');
+        var entries = new List<(int Line, string Body, bool OnDay)>();
+        var onDay = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var content = lines[i].TrimEnd('\r');
+            if (content.StartsWith("## ", StringComparison.Ordinal))
+                onDay = content == heading;
+            else if (content.StartsWith("- ", StringComparison.Ordinal))
+                entries.Add((i, content[2..], onDay));
+        }
+
+        var codes = ShortCode.For(entries.Select(entry => ShortCode.Normalize(entry.Body)));
+        return entries
+            .Select((entry, index) => new RecentEntry(entry.Line, codes[index], entry.Body))
+            .Where((_, index) => entries[index].OnDay)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Rewrites the entry whose first line is <paramref name="line"/> to <paramref name="entry"/>, in place. A
+    /// <paramref name="source"/> replaces the source comment under it; without one the comment stays as it is.
+    /// Every other line is kept byte for byte.
+    /// </summary>
+    /// <returns>The new text.</returns>
+    public static string Replace(string text, int line, string entry, string? source)
+    {
+        var cr = TextFile.NewlineOf(text) == "\r\n" ? "\r" : "";
+        var lines = text.Split('\n').ToList();
+        var span = source is not null && IsSourceComment(lines, line + 1) ? 2 : 1;
+        IReadOnlyList<string> replacement = source is null ? [entry] : [entry, source];
+        lines.RemoveRange(line, span);
+        lines.InsertRange(line, replacement.Select(content => content + cr));
+        return string.Join('\n', lines);
+    }
+
+    private static bool IsSourceComment(IReadOnlyList<string> lines, int index) =>
+        index < lines.Count && lines[index].TrimEnd('\r').StartsWith("  <!--", StringComparison.Ordinal);
 }
+
+/// <summary>An activity in the log: the line of its entry, its short code, and its text with the project label.</summary>
+internal sealed record RecentEntry(int Line, string Code, string Body);

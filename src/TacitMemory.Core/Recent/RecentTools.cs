@@ -90,9 +90,6 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                 return secret;
         }
 
-        if (request.Replaces is not null)
-            return ToolText.Refuse("Parameter replaces is not available yet.", "Call write_recent again without replaces.");
-
         var day = options.Today;
         var relative = RecentFile.RelativePath(day);
         var path = Path.Combine(config.MemoryPath, relative);
@@ -103,18 +100,51 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                 $"Save {relative} as UTF-8, then call write_recent op=add_activity again.");
         var (existing, hasBom) = read.Value;
 
+        var label = project is null ? "" : $"[{project}] ";
+        var entryLine = $"- {label}{text}";
+        var sourceLine = source is null ? null : $"  <!-- {StructureWords.Quote.In(config.Language)}「{source}」 -->";
+
+        RecentEntry? replaced = null;
+        if (request.Replaces is not null)
+        {
+            var today = RecentFile.EntriesOn(existing, day);
+            replaced = today.FirstOrDefault(entry => string.Equals(entry.Code, request.Replaces.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (replaced is null)
+                return ToolText.Refuse(
+                    $"Parameter replaces does not match an activity from {day:yyyy-MM-dd}.",
+                    "Call write_recent again with replaces set to the short code of one of today's activities listed below, or without replaces to add a new one.",
+                    today.Count == 0
+                        ? $"No activities are recorded for {day:yyyy-MM-dd}."
+                        : string.Join('\n', today.Select(entry => $"[{entry.Code}] {entry.Body}")));
+        }
+
         // Checked before the write: a file that already had user edits gets that noted in its commit subject.
         var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
-        var label = project is null ? "" : $"[{project}] ";
-        var entry = new List<string> { $"- {label}{text}" };
-        if (source is not null)
-            entry.Add($"  <!-- {StructureWords.Quote.In(config.Language)}「{source}」 -->");
 
-        var (after, line) = RecentFile.Insert(existing, day, entry);
-        TextFile.Write(path, after, hasBom);
+        string after;
+        int line;
+        if (replaced is null)
+        {
+            var entry = new List<string> { entryLine };
+            if (sourceLine is not null)
+                entry.Add(sourceLine);
+            (after, line) = RecentFile.Insert(existing, day, entry);
+        }
+        else
+        {
+            after = RecentFile.Replace(existing, replaced.Line, entryLine, sourceLine);
+            line = replaced.Line;
+        }
+
         var code = RecentFile.CodeAt(after, line);
-        var commitProblem = await CommitAsync(dirty ? $"recent: add {code} (with user edits)" : $"recent: add {code}", relative, cancellationToken);
-        var reply = $"Added activity [{code}].";
+        var verb = replaced is null ? "Added" : "Replaced";
+        var reply = $"{verb} activity [{code}].";
+        if (after == existing)
+            return ToolText.Ok(reply);
+
+        TextFile.Write(path, after, hasBom);
+        var subject = replaced is null ? "recent: add" : "recent: replace";
+        var commitProblem = await CommitAsync(dirty ? $"{subject} {code} (with user edits)" : $"{subject} {code}", relative, cancellationToken);
         return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
     }
 
