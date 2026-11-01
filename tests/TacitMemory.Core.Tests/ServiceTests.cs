@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using TacitMemory.Core.Injection;
 
 namespace TacitMemory.Core.Tests;
 
@@ -154,7 +155,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         var instructions = service.ServerInstructions;
 
-        Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
+        Assert.True(instructions.Length <= ServerInstructionText.TotalLimit, $"length {instructions.Length}");
         Assert.Contains("## Using memory", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
         Assert.Contains(names[0], instructions);
