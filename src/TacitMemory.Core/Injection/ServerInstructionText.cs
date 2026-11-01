@@ -151,9 +151,7 @@ internal static class ServerInstructionText
         {
             lines.Add("Activities from the last 7 days, newest first:");
             lines.AddRange(activities.Select(activity =>
-                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} "
-                + (activity.Project is null ? "" : $"[{activity.Project}] ")
-                + activity.Body));
+                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.Labeled}"));
         }
         return string.Join("\n", lines);
     }

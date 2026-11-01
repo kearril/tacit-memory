@@ -1,3 +1,4 @@
+using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
 
@@ -33,19 +34,28 @@ internal static class MainlineSection
         return items;
     }
 
+    /// <summary>The items under the mainline heading in the memory repository's recent.md; empty when there is no file.</summary>
+    public static IReadOnlyList<string> ReadItems(string memoryPath) =>
+        Items(TextFile.Read(Path.Combine(memoryPath, RelativePath))?.Text ?? "");
+
+    /// <summary>The mainline as the write replies and the remember prompt show it: its version code, then its items, or <c>(empty)</c>.</summary>
+    public static string Block(IReadOnlyList<string> items) =>
+        $"Mainline, version [{VersionOf(items)}]:\n"
+        + (items.Count == 0 ? "(empty)" : string.Join("\n", items.Select(item => "- " + item)));
+
     /// <summary>
     /// The text with the items under the heading replaced by <paramref name="items"/>. The new items take the place of
     /// the first old item; indented lines under an old item go with it. When there is no heading, one is appended in
     /// <paramref name="heading"/>.
     /// </summary>
-    public static string Replace(string text, IReadOnlyList<string> items, string heading, string newline)
+    public static string Replace(string text, IReadOnlyList<string> items, string heading)
     {
         var lines = text.Split('\n').ToList();
         var endsWithNewline = lines[^1].Length == 0;
         if (endsWithNewline)
             lines.RemoveAt(lines.Count - 1);
 
-        var cr = newline == "\r\n" ? "\r" : "";
+        var cr = TextFile.CarriageReturnOf(text);
         var newLines = items.Select(item => "- " + item + cr).ToList();
         var (headingAt, end) = Section(lines.Select(line => line.TrimEnd('\r')).ToList());
         if (headingAt < 0)

@@ -123,7 +123,7 @@ internal sealed class MemoryIndex : IDisposable
         lock (_gate)
         {
             var pages = PageFiles().ToDictionary(file => file.Id.RelativePath);
-            var months = ActivityFiles().ToDictionary(file => file.RelativePath, file => file.FullPath);
+            var months = RecentFile.MonthFiles(_memoryPath).ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
             foreach (var path in known.Keys.Where(path => !pages.ContainsKey(path) && !months.ContainsKey(path)))
                 Remove(path);
@@ -140,14 +140,14 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
-            var months = ActivityFiles().ToDictionary(file => file.RelativePath, file => file.FullPath);
+            var months = RecentFile.MonthFiles(_memoryPath).ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources WHERE kind = @kind", new { kind = SourceKinds.ActivityRecord })
                 .ToDictionary(row => row.Path, row => row.Hash);
             foreach (var path in known.Keys.Where(path => !months.ContainsKey(path)))
                 Remove(path);
             foreach (var (path, fullPath) in months)
                 SyncActivity(path, fullPath, known.GetValueOrDefault(path));
-            _skipped.RemoveWhere(path => path.StartsWith("recent/", StringComparison.Ordinal) && !months.ContainsKey(path));
+            _skipped.RemoveWhere(path => path.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal) && !months.ContainsKey(path));
         }
     }
 
@@ -352,7 +352,7 @@ internal sealed class MemoryIndex : IDisposable
         foreach (var activity in RecentFile.Activities(read.Text))
         {
             var day = DateText(activity.Day);
-            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, (activity.Project is null ? "" : $"[{activity.Project}] ") + activity.Body, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
+            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
         }
 
         transaction.Commit();
@@ -416,20 +416,6 @@ internal sealed class MemoryIndex : IDisposable
             if (parts.Length == 3 && PageId.TryParse($"{parts[1]}/{Path.GetFileNameWithoutExtension(parts[2])}", out var id, out _)
                 && id.RelativePath == relative)
                 yield return (id, file);
-        }
-    }
-
-    /// <summary>The activity month files directly under <c>recent/</c>, named <c>yyyy-MM.md</c>. The mainline file is not one.</summary>
-    private IEnumerable<(string RelativePath, string FullPath)> ActivityFiles()
-    {
-        var recent = Path.Combine(_memoryPath, "recent");
-        if (!Directory.Exists(recent))
-            yield break;
-        foreach (var file in Directory.EnumerateFiles(recent, "*.md", SearchOption.TopDirectoryOnly))
-        {
-            var name = Path.GetFileName(file);
-            if (RecentFile.IsMonthFileName(name))
-                yield return ($"recent/{name}", file);
         }
     }
 

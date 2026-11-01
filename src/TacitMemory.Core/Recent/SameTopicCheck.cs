@@ -5,7 +5,7 @@ using TacitMemory.Core.Models;
 namespace TacitMemory.Core.Recent;
 
 /// <summary>What the same-topic check found: today's activity about the same thing as the new one, or a note for the agent.</summary>
-internal sealed record SameTopicVerdict(RecentEntry? Same, string? Note);
+internal sealed record SameTopicVerdict(RecentFile.Activity? Same, string? Note);
 
 /// <summary>
 /// Before an activity is added, asks whether today's log already records the same thing: the latest activities of
@@ -37,18 +37,19 @@ internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision
     private const int OptionLength = 250;
 
     /// <summary>Asks the decision model about <paramref name="state"/> against the latest <see cref="Candidates"/> of <paramref name="today"/>.</summary>
-    public async Task<SameTopicVerdict> RunAsync(string state, IReadOnlyList<RecentEntry> today, CancellationToken cancellationToken)
+    public async Task<SameTopicVerdict> RunAsync(string state, IReadOnlyList<RecentFile.Activity> today, CancellationToken cancellationToken)
     {
         var candidates = today.TakeLast(Candidates).ToList();
         if (candidates.Count == 0)
             return new SameTopicVerdict(null, null);
 
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
-        var entries = new Dictionary<string, RecentEntry>(StringComparer.Ordinal);
+        var entries = new Dictionary<string, RecentFile.Activity>(StringComparer.Ordinal);
         foreach (var entry in candidates)
         {
             var key = "p" + (entries.Count + 1).ToString(CultureInfo.InvariantCulture);
-            options[key] = entry.Body.Length > OptionLength ? entry.Body[..OptionLength] : entry.Body;
+            var text = entry.Labeled;
+            options[key] = text.Length > OptionLength ? text[..OptionLength] : text;
             entries[key] = entry;
         }
 

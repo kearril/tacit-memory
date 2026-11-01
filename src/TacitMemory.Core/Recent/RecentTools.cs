@@ -100,14 +100,14 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                 $"Save {relative} as UTF-8, then call write_recent op=add_activity again.");
         var (existing, hasBom) = read.Value;
 
-        var label = project is null ? "" : $"[{project}] ";
+        var label = RecentFile.Label(project);
         var entryLine = $"- {label}{text}";
         var sourceLine = source is null ? null : $"  <!-- {StructureWords.Quote.In(config.Language)}「{source}」 -->";
 
-        RecentEntry? replaced = null;
+        RecentFile.Activity? replaced = null;
         if (request.Replaces is not null)
         {
-            var today = RecentFile.EntriesOn(existing, day);
+            var today = RecentFile.ActivitiesOn(existing, day);
             replaced = today.FirstOrDefault(entry => string.Equals(entry.Code, request.Replaces.Trim(), StringComparison.OrdinalIgnoreCase));
             if (replaced is null)
                 return ToolText.Refuse(
@@ -115,15 +115,15 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                     "Call write_recent again with replaces set to the short code of one of today's activities listed below, or without replaces to add a new one.",
                     today.Count == 0
                         ? $"No activities are recorded for {day:yyyy-MM-dd}."
-                        : string.Join('\n', today.Select(entry => $"[{entry.Code}] {entry.Body}")));
+                        : string.Join('\n', today.Select(entry => $"[{entry.Code}] {entry.Labeled}")));
         }
         string? sameTopicNote = null;
         if (replaced is null)
         {
-            var verdict = await _sameTopic.RunAsync(label + text, RecentFile.EntriesOn(existing, day), cancellationToken);
+            var verdict = await _sameTopic.RunAsync(label + text, RecentFile.ActivitiesOn(existing, day), cancellationToken);
             if (verdict.Same is { } same)
                 return ToolText.Ok(
-                    $"Not added: today's activity [{same.Code}] is about the same thing: {same.Body}\n"
+                    $"Not added: today's activity [{same.Code}] is about the same thing: {same.Labeled}\n"
                     + $"Next step: write one merged sentence that covers both, then call write_recent again with op=add_activity, that sentence as text, and replaces set to {same.Code}. Nothing was written.");
             sameTopicNote = verdict.Note;
         }
@@ -150,12 +150,12 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         var verb = replaced is null ? "Added" : "Replaced";
         var status = sameTopicNote is null ? $"{verb} activity [{code}]." : $"{verb} activity [{code}].\n\n{sameTopicNote}";
         if (after == existing)
-            return ToolText.Ok($"{status}\n\n{MainlineBlock(CurrentMainline())}\n\n{await ActivitiesBlockAsync(cancellationToken)}");
+            return ToolText.Ok($"{status}\n\n{MainlineSection.Block(MainlineSection.ReadItems(config.MemoryPath))}\n\n{await ActivitiesBlockAsync(cancellationToken)}");
 
         TextFile.Write(path, after, hasBom);
         var subject = replaced is null ? "recent: add" : "recent: replace";
         var commitProblem = await CommitAsync(dirty ? $"{subject} {code} (with user edits)" : $"{subject} {code}", relative, cancellationToken);
-        var reply = $"{status}\n\n{MainlineBlock(CurrentMainline())}\n\n{await ActivitiesBlockAsync(cancellationToken)}";
+        var reply = $"{status}\n\n{MainlineSection.Block(MainlineSection.ReadItems(config.MemoryPath))}\n\n{await ActivitiesBlockAsync(cancellationToken)}";
         return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
     }
 
@@ -180,7 +180,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
             return ToolText.Refuse(
                 reason,
                 $"Call write_recent again with op=update_mainline, hash set to {currentVersion}, and the items you want.",
-                MainlineBlock(current));
+                MainlineSection.Block(current));
         }
 
         if (request.Items is null)
@@ -206,7 +206,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         }
 
         if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_recent op=update_mainline again with the same hash.", MainlineBlock(current));
+            return ToolText.Refuse(problems, "Fix these and call write_recent op=update_mainline again with the same hash.", MainlineSection.Block(current));
 
         if (request.ConfirmNoSecret != true)
         {
@@ -216,24 +216,16 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         }
 
         if (items.SequenceEqual(current, StringComparer.Ordinal))
-            return ToolText.Ok($"Mainline unchanged.\n\n{MainlineBlock(items)}");
+            return ToolText.Ok($"Mainline unchanged.\n\n{MainlineSection.Block(items)}");
 
         // Checked before the write, as in add_activity: user edits to recent.md are noted in the commit subject.
         var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
-        var updated = MainlineSection.Replace(existing, items, MainlineSection.HeadingIn(config.Language), TextFile.NewlineOf(existing));
+        var updated = MainlineSection.Replace(existing, items, MainlineSection.HeadingIn(config.Language));
         TextFile.Write(path, updated, hasBom);
         var commitProblem = await CommitAsync(dirty ? "recent: mainline (with user edits)" : "recent: mainline", relative, cancellationToken);
-        var reply = $"Mainline updated.\n\n{MainlineBlock(items)}";
+        var reply = $"Mainline updated.\n\n{MainlineSection.Block(items)}";
         return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
     }
-
-    /// <summary>The mainline as write replies show it: its version code, then its items, or <c>(empty)</c>.</summary>
-    private static string MainlineBlock(IReadOnlyList<string> items) =>
-        $"Mainline, version [{MainlineSection.VersionOf(items)}]:\n"
-        + (items.Count == 0 ? "(empty)" : string.Join("\n", items.Select(item => "- " + item)));
-
-    private IReadOnlyList<string> CurrentMainline() =>
-        MainlineSection.Items(TextFile.Read(Path.Combine(config.MemoryPath, MainlineSection.RelativePath))?.Text ?? "");
 
     /// <summary>
     /// The activities dated on or after the day of the last commit that touched <c>recent.md</c>, newest first, at most
@@ -243,13 +235,9 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
     {
         const int listed = 10;
         var since = await LastMainlineCommitDayAsync(cancellationToken);
-        var folder = Path.Combine(config.MemoryPath, "recent");
-        var months = Directory.Exists(folder)
-            ? Directory.GetFiles(folder, "*.md").OrderBy(file => file, StringComparer.Ordinal).ToList()
-            : new List<string>();
 
         var activities = new List<RecentFile.Activity>();
-        foreach (var file in months)
+        foreach (var (_, file) in RecentFile.MonthFiles(config.MemoryPath))
         {
             var month = Path.GetFileNameWithoutExtension(file);
             if (since is { } start && string.CompareOrdinal(month, start.ToString("yyyy-MM", CultureInfo.InvariantCulture)) < 0)
@@ -265,7 +253,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
             return "No activities since the last recent.md commit.";
 
         var lines = new List<string> { "Activities since the last recent.md commit, newest first:" };
-        lines.AddRange(newestFirst.Take(listed).Select(activity => $"- {activity.Day:yyyy-MM-dd} [{activity.Code}] {(activity.Project is null ? "" : $"[{activity.Project}] ")}{activity.Body}"));
+        lines.AddRange(newestFirst.Take(listed).Select(activity => $"- {activity.Day:yyyy-MM-dd} [{activity.Code}] {activity.Labeled}"));
         if (newestFirst.Count > listed)
             lines.Add($"{newestFirst.Count - listed} more not listed.");
         return string.Join("\n", lines);

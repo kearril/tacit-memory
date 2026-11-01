@@ -13,8 +13,7 @@ internal static class RememberText
     {
         var today = options.Today;
         var recent = TextFile.Read(Path.Combine(config.MemoryPath, RecentFile.RelativePath(today)))?.Text ?? "";
-        var mainline = TextFile.Read(Path.Combine(config.MemoryPath, MainlineSection.RelativePath))?.Text ?? "";
-        var items = MainlineSection.Items(mainline);
+        var items = MainlineSection.ReadItems(config.MemoryPath);
 
         var text = new StringBuilder();
         text.Append("Remember this session in the TacitMemory memory now. Write without asking the user first.\n");
@@ -30,18 +29,14 @@ internal static class RememberText
         text.Append('\n');
 
         text.Append("Today's activities (").Append(today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).Append("):\n");
-        var entries = RecentFile.EntriesOn(recent, today);
+        var entries = RecentFile.ActivitiesOn(recent, today);
         if (entries.Count == 0)
             text.Append("(none)\n");
         foreach (var entry in entries)
-            text.Append("- [").Append(entry.Code).Append("] ").Append(entry.Body).Append('\n');
+            text.Append("- [").Append(entry.Code).Append("] ").Append(entry.Labeled).Append('\n');
         text.Append('\n');
 
-        text.Append("Mainline, version [").Append(MainlineSection.VersionOf(items)).Append("]:\n");
-        if (items.Count == 0)
-            text.Append("(empty)\n");
-        foreach (var item in items)
-            text.Append("- ").Append(item).Append('\n');
+        text.Append(MainlineSection.Block(items)).Append('\n');
 
         return text.ToString();
     }

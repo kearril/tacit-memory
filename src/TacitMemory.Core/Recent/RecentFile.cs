@@ -11,8 +11,11 @@ namespace TacitMemory.Core.Recent;
 /// </summary>
 internal static class RecentFile
 {
+    /// <summary>The folder, relative to the memory repository, that holds the month files of the activity log.</summary>
+    public const string Folder = "recent";
+
     /// <summary>The month file's path, relative to the memory repository, for the month of <paramref name="day"/>.</summary>
-    public static string RelativePath(DateOnly day) => $"recent/{day:yyyy-MM}.md";
+    public static string RelativePath(DateOnly day) => $"{Folder}/{day:yyyy-MM}.md";
 
     /// <summary>
     /// Adds <paramref name="entry"/> under the day's heading, appending the heading at the end of the file when the day
@@ -21,7 +24,7 @@ internal static class RecentFile
     /// <returns>The new text, and the index of the entry's first line in it.</returns>
     public static (string Text, int Line) Insert(string text, DateOnly day, IReadOnlyList<string> entry)
     {
-        var cr = TextFile.NewlineOf(text) == "\r\n" ? "\r" : "";
+        var cr = TextFile.CarriageReturnOf(text);
         var lines = text.Split('\n').ToList();
         if (lines[^1].Length == 0)
             lines.RemoveAt(lines.Count - 1);
@@ -58,7 +61,7 @@ internal static class RecentFile
     public static string CodeAt(string text, int line) => CodesByLine(text)[line];
 
     /// <summary>The short code of every <c>- </c> line, keyed by the line's index in the file.</summary>
-    public static Dictionary<int, string> CodesByLine(string text)
+    private static Dictionary<int, string> CodesByLine(string text)
     {
         var entries = text.Split('\n')
             .Select((content, index) => (Body: content.TrimEnd('\r'), Index: index))
@@ -76,7 +79,11 @@ internal static class RecentFile
     /// <param name="Project">The project label, or <c>null</c> when the line has none.</param>
     /// <param name="Body">The activity text without the label.</param>
     /// <param name="Code">The activity's short code, as <see cref="CodeAt"/> gives it.</param>
-    public sealed record Activity(int Line, DateOnly Day, string? Project, string Body, string Code);
+    public sealed record Activity(int Line, DateOnly Day, string? Project, string Body, string Code)
+    {
+        /// <summary>The activity's text with its project label in front, as the log shows it.</summary>
+        public string Labeled => Label(Project) + Body;
+    }
 
     /// <summary>
     /// The activities of a month file, in file order. Lines before the first day heading, under other headings, or with
@@ -112,6 +119,26 @@ internal static class RecentFile
     /// <summary>Whether a file name is a month file of the activity log: <c>yyyy-MM.md</c>.</summary>
     public static bool IsMonthFileName(string name) => Regex.IsMatch(name, @"^[0-9]{4}-[0-9]{2}\.md$");
 
+    /// <summary>The <c>[project] </c> label in front of an activity's text, or nothing when it has no project.</summary>
+    public static string Label(string? project) => project is null ? "" : $"[{project}] ";
+
+    /// <summary>
+    /// The month files of the activity log under <c>recent/</c>, as the relative and full path of each, in name order.
+    /// The mainline file is not one. Empty when the folder is missing.
+    /// </summary>
+    public static List<(string RelativePath, string FullPath)> MonthFiles(string memoryPath)
+    {
+        var folder = Path.Combine(memoryPath, Folder);
+        if (!Directory.Exists(folder))
+            return [];
+
+        return Directory.EnumerateFiles(folder, "*.md", SearchOption.TopDirectoryOnly)
+            .Where(file => IsMonthFileName(Path.GetFileName(file)))
+            .OrderBy(file => Path.GetFileName(file), StringComparer.Ordinal)
+            .Select(file => ($"{Folder}/{Path.GetFileName(file)}", file))
+            .ToList();
+    }
+
     /// <summary>Splits a leading <c>[project] </c> label off an activity's text, when the label is a project name.</summary>
     private static (string? Project, string Body) SplitLabel(string content)
     {
@@ -121,28 +148,9 @@ internal static class RecentFile
         return (null, content.Trim());
     }
 
-    /// <summary>The activities recorded under <paramref name="day"/>'s heading, with their short codes; codes are counted over the whole file, as <see cref="CodeAt"/> does.</summary>
-    public static IReadOnlyList<RecentEntry> EntriesOn(string text, DateOnly day)
-    {
-        var heading = $"## {day:yyyy-MM-dd}";
-        var lines = text.Split('\n');
-        var entries = new List<(int Line, string Body, bool OnDay)>();
-        var onDay = false;
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var content = lines[i].TrimEnd('\r');
-            if (content.StartsWith("## ", StringComparison.Ordinal))
-                onDay = content == heading;
-            else if (content.StartsWith("- ", StringComparison.Ordinal))
-                entries.Add((i, content[2..], onDay));
-        }
-
-        var codes = ShortCode.For(entries.Select(entry => ShortCode.Normalize(entry.Body)));
-        return entries
-            .Select((entry, index) => new RecentEntry(entry.Line, codes[index], entry.Body))
-            .Where((_, index) => entries[index].OnDay)
-            .ToList();
-    }
+    /// <summary>The activities recorded under <paramref name="day"/>'s heading, in file order.</summary>
+    public static List<Activity> ActivitiesOn(string text, DateOnly day) =>
+        Activities(text).Where(activity => activity.Day == day).ToList();
 
     /// <summary>
     /// Rewrites the entry whose first line is <paramref name="line"/> to <paramref name="entry"/>, in place. A
@@ -152,7 +160,7 @@ internal static class RecentFile
     /// <returns>The new text.</returns>
     public static string Replace(string text, int line, string entry, string? source)
     {
-        var cr = TextFile.NewlineOf(text) == "\r\n" ? "\r" : "";
+        var cr = TextFile.CarriageReturnOf(text);
         var lines = text.Split('\n').ToList();
         var span = source is not null && IsSourceComment(lines, line + 1) ? 2 : 1;
         IReadOnlyList<string> replacement = source is null ? [entry] : [entry, source];
@@ -164,6 +172,3 @@ internal static class RecentFile
     private static bool IsSourceComment(IReadOnlyList<string> lines, int index) =>
         index < lines.Count && lines[index].TrimEnd('\r').StartsWith("  <!--", StringComparison.Ordinal);
 }
-
-/// <summary>An activity in the log: the line of its entry, its short code, and its text with the project label.</summary>
-internal sealed record RecentEntry(int Line, string Code, string Body);

@@ -213,9 +213,9 @@ public sealed class MemoryService : IDisposable
                 ScheduleRender();
             if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
                 InvalidateInstructions();
-            if (relative == "recent.md" || relative == "recent" || relative.StartsWith("recent/", StringComparison.Ordinal))
+            if (relative == MainlineSection.RelativePath || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
                 InvalidateInstructions();
-            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith("recent/", StringComparison.Ordinal))
+            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
                 ScheduleIndexSync();
         }
     }

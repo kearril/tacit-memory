@@ -18,18 +18,13 @@ internal sealed record RecentSummary(
     /// <summary>Reads <c>recent.md</c> and every activity month file under <c>recent/</c>.</summary>
     public static RecentSummary Read(string memoryPath, DateOnly today)
     {
-        var mainline = MainlineSection.Items(TextFile.Read(Path.Combine(memoryPath, MainlineSection.RelativePath))?.Text ?? "");
+        var mainline = MainlineSection.ReadItems(memoryPath);
 
-        var folder = Path.Combine(memoryPath, "recent");
         var activities = new List<RecentFile.Activity>();
-        if (Directory.Exists(folder))
+        foreach (var (_, file) in RecentFile.MonthFiles(memoryPath))
         {
-            foreach (var file in Directory.GetFiles(folder, "*.md").Order(StringComparer.Ordinal))
-            {
-                if (!RecentFile.IsMonthFileName(Path.GetFileName(file)) || TextFile.Read(file) is not { } read)
-                    continue;
+            if (TextFile.Read(file) is { } read)
                 activities.AddRange(RecentFile.Activities(read.Text));
-            }
         }
 
         var start = today.AddDays(1 - WindowDays);
