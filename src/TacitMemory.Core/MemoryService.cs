@@ -62,7 +62,7 @@ public sealed class MemoryService : IDisposable
         _vectors.FillInBackground();
         _pages = new PageTools(
             options, config, notice, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recent = new RecentTools(options, config, notice);
+        _recent = new RecentTools(options, config, notice, _models.Decision);
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
         _backup = new AutomaticBackup(options, config, notice);
 
