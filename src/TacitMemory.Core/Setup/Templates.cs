@@ -104,7 +104,7 @@ internal static class Templates
         # decision:
         #   samePreference: { certain: …, unlikely: … }
         #   samePage:       { certain: …, unlikely: … }
-        #   sameActivity:   { certain: …, unlikely: … }
+        #   sameTopic:      { certain: …, unlikely: … }
         #   ruleConflict:   { certain: …, unlikely: … }
 
         retrieval:
@@ -164,7 +164,7 @@ internal static class Templates
         # decision:
         #   samePreference: { certain: …, unlikely: … }
         #   samePage:       { certain: …, unlikely: … }
-        #   sameActivity:   { certain: …, unlikely: … }
+        #   sameTopic:      { certain: …, unlikely: … }
         #   ruleConflict:   { certain: …, unlikely: … }
 
         retrieval:

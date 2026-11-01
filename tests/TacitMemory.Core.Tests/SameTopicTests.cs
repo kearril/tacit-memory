@@ -190,7 +190,7 @@ public sealed class SameTopicTests : IDisposable
     public async Task The_configured_same_activity_threshold_replaces_the_default()
     {
         using var home = new TestHome();
-        home.InitReady("decision:\n  sameActivity: { certain: 0.5, unlikely: 0.1 }\n", models: _models);
+        home.InitReady("decision:\n  sameTopic: { certain: 0.5, unlikely: 0.1 }\n", models: _models);
         using var service = home.Tacit().OpenService(_ => { });
         await service.WriteRecentAsync(Add("先查了索引"));
         Match("先查了索引", 0.6);
