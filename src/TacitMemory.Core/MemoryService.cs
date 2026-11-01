@@ -8,6 +8,7 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core;
 
@@ -36,6 +37,7 @@ public sealed class MemoryService : IDisposable
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly PageTools _pages;
+    private readonly RecentTools _recent;
     private readonly AuxiliaryModels _models;
     private readonly PageIndex _index;
     private readonly VectorSync _vectors;
@@ -60,6 +62,7 @@ public sealed class MemoryService : IDisposable
         _vectors.FillInBackground();
         _pages = new PageTools(
             options, config, notice, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+        _recent = new RecentTools(options, config, notice);
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
         _backup = new AutomaticBackup(options, config, notice);
 
@@ -147,6 +150,23 @@ public sealed class MemoryService : IDisposable
             return await _vectors.FillAsync(cancellationToken)
                 ? result
                 : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this page is found by full-text search only." };
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
+    /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
+    public async Task<ToolResult> WriteRecentAsync(WriteRecentRequest request, CancellationToken cancellationToken = default)
+    {
+        await _writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            var result = await _recent.WriteAsync(request, cancellationToken);
+            if (!result.IsError)
+                _backup.ScheduleIfDue();
+            return result;
         }
         finally
         {

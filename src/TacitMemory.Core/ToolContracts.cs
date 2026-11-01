@@ -69,3 +69,35 @@ public sealed record WritePageRequest
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }
 }
+
+/// <summary>
+/// A <c>write_recent</c> call as the agent made it. The parameters are flat; which ones are required depends on
+/// <see cref="Op"/>, and the service checks them.
+/// </summary>
+public sealed record WriteRecentRequest
+{
+    public string? Op { get; init; }
+
+    /// <summary>The activity's text: one line, without the project label.</summary>
+    public string? Text { get; init; }
+
+    /// <summary>The project the activity belongs to; lowercased before it is checked.</summary>
+    public string? Project { get; init; }
+
+    /// <summary>The user's own words behind the activity, kept as a comment under the entry.</summary>
+    public string? Source { get; init; }
+
+    /// <summary>The activity this one replaces; not available yet.</summary>
+    public string? Replaces { get; init; }
+
+    /// <summary>The mainline items for <c>update_mainline</c>; not available yet.</summary>
+    public IReadOnlyList<string>? Items { get; init; }
+
+    /// <summary>The mainline's short code from recall, for <c>update_mainline</c>; not available yet.</summary>
+    public string? Hash { get; init; }
+
+    /// <summary>
+    /// The agent made sure with the user that the write holds no secret: the credential check is skipped.
+    /// </summary>
+    public bool? ConfirmNoSecret { get; init; }
+}

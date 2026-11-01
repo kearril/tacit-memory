@@ -48,13 +48,13 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Recall_and_write_page_are_listed_with_their_annotations_and_prompts_are_empty()
+    public async Task Recall_and_the_write_tools_are_listed_with_their_annotations_and_prompts_are_empty()
     {
         await using var client = await ConnectAsync();
 
         var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
 
-        Assert.Equal(["recall", "write_page"], tools.Keys.Order());
+        Assert.Equal(["recall", "write_page", "write_recent"], tools.Keys.Order());
         var recall = tools["recall"].ProtocolTool;
         Assert.True(recall.Annotations?.ReadOnlyHint);
         Assert.True(recall.Annotations?.IdempotentHint);
@@ -65,6 +65,14 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.True(write.Annotations?.DestructiveHint);
         Assert.False(write.Annotations?.IdempotentHint);
         Assert.False(write.Annotations?.OpenWorldHint);
+        var recent = tools["write_recent"].ProtocolTool;
+        Assert.False(recent.Annotations?.ReadOnlyHint);
+        Assert.True(recent.Annotations?.DestructiveHint);
+        Assert.False(recent.Annotations?.IdempotentHint);
+        Assert.False(recent.Annotations?.OpenWorldHint);
+        Assert.Equal(
+            ["confirm_no_secret", "hash", "items", "op", "project", "replaces", "source", "text"],
+            recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         Assert.Empty(await client.ListPromptsAsync());
     }
 
@@ -87,6 +95,40 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.NotEqual(true, read.IsError);
         Assert.Contains("## 根因 [", Text(read));
         Assert.Contains("扩展没有重装。", Text(read));
+    }
+
+    [Fact]
+    public async Task An_activity_written_through_the_tool_lands_in_the_month_file()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "想清楚了画像里缺的是人的倾向",
+            ["project"] = "tacit-memory",
+        });
+
+        Assert.NotEqual(true, written.IsError);
+        Assert.Matches(@"Added activity \[[0-9a-f]{6}\]\.", Text(written));
+        Assert.Equal(
+            "## 2026-11-02\n- [tacit-memory] 想清楚了画像里缺的是人的倾向\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
+    }
+
+    [Fact]
+    public async Task A_refused_activity_comes_back_as_an_error_with_its_next_step()
+    {
+        await using var client = await ConnectAsync();
+
+        var refused = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["items"] = new[] { "不该传" },
+        });
+
+        Assert.True(refused.IsError);
+        Assert.StartsWith("Refused: Parameter items does not apply to op add_activity.\nNext step: ", Text(refused));
     }
 
     [Fact]

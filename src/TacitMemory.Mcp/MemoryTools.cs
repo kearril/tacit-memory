@@ -64,6 +64,34 @@ internal sealed class MemoryTools(MemoryService service)
             ConfirmNoSecret = confirm_no_secret,
         }, cancellationToken));
 
+    [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
+    [Description("""
+        Record an activity in the recent activity log: one line under the day's heading in the month's file.
+        op=add_activity: needs text, one line of at most 100 characters that does not start with '['; project and source are optional.
+        Writes are checked for secrets (passwords, keys, tokens); never store one.
+        """)]
+    public async Task<CallToolResult> WriteRecent(
+        [Description("Operation: add_activity. update_mainline is not available yet.")] string? op = null,
+        [Description("The activity in one line, in the memory language; without a [project] prefix, which the project parameter adds.")] string? text = null,
+        [Description("The project the activity belongs to: the code repository's name in lowercase, for example my-app.")] string? project = null,
+        [Description("The user's own words behind the activity, one line; kept as a comment under the entry.")] string? source = null,
+        [Description("Not available yet: the activity this one replaces.")] string? replaces = null,
+        [Description("Not available yet: mainline items, for update_mainline.")] string[]? items = null,
+        [Description("Not available yet: the mainline's short code from recall, for update_mainline.")] string? hash = null,
+        [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
+        CancellationToken cancellationToken = default) =>
+        Reply(await service.WriteRecentAsync(new WriteRecentRequest
+        {
+            Op = op,
+            Text = text,
+            Project = project,
+            Source = source,
+            Replaces = replaces,
+            Items = items,
+            Hash = hash,
+            ConfirmNoSecret = confirm_no_secret,
+        }, cancellationToken));
+
     private static CallToolResult Reply(ToolResult result) =>
         new() { Content = [new TextContentBlock { Text = result.Text }], IsError = result.IsError };
 }

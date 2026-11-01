@@ -256,6 +256,8 @@ related: [my-app/backup-script, _topics/pgroonga]
 ### 近期活动
 
 - 一条活动写"人在做什么、想通了什么"，不写"改了哪些文件"。
+- 写入 `recent/YYYY-MM.md`，按本地日期定位当日标题；缺标题时追加到文件末尾。写入只改动新增的条目与来源注释，文件其余字节不变。
+- 文本限一行，不超过 `limits.itemLength`（默认 100 字符，不计项目标签与来源注释），不以 `[` 开头；项目名小写并校验，允许新项目。
 - 写入后，服务返回当前近期主线与上次更新主线之后过期的条目，主会话可选择改写主线。
 - 与当天已有条目同一主题时，服务退回已有条目及其短码，主会话写出合并后的一句，带 `replaces` 重新提交。
 - "每个会话最多一条"只写在记忆规则中，服务不强制。
@@ -364,7 +366,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 | | `delete` | `hash` |
 | | `propose` | `persona_section`、`text`、`quote` |
 
-- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时，可加 `confirm_no_secret` 重新提交。
+- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`），可加 `confirm_no_secret` 重新提交。`write_recent` 的 `update_mainline` 与 `replaces` 尚未实现，调用时返回拒绝。
 - 参数结构扁平，由服务按 `op` 校验。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 - 返回 Markdown 风格的纯文本，不返回结构化数据。
