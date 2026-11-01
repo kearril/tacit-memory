@@ -8,31 +8,51 @@ using TacitMemory.Core.Pages;
 
 namespace TacitMemory.Core.Index;
 
-/// <summary>A unit of the index that matched a query: a page section, or the page's title and aliases.</summary>
+/// <summary>A unit of the index that matched a query.</summary>
+/// <param name="Source">The source the unit hangs off: a detail page's ID.</param>
+/// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
 /// <param name="Section">The section name; <c>null</c> for the title and aliases.</param>
 /// <param name="Text">The indexed text of the unit: the section name and body, or the title and aliases.</param>
-internal sealed record IndexHit(string PageId, string? Section, string Text);
+internal sealed record IndexHit(string Source, string Kind, string? Section, string Text);
 
-/// <summary>Filters applied before matching; dates are inclusive and compared with the page's first and last dates.</summary>
+/// <summary>Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.</summary>
 internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To);
 
 /// <summary>A unit that has no vector yet, with the text to embed.</summary>
 internal sealed record PendingUnit(long Id, string Text);
 
+/// <summary>The kinds of source the index holds.</summary>
+internal static class SourceKinds
+{
+    /// <summary>A detail page under <c>pages/</c>.</summary>
+    public const string Page = "page";
+}
+
+/// <summary>The kinds of unit a source holds.</summary>
+internal static class UnitKinds
+{
+    /// <summary>A section of a detail page.</summary>
+    public const string Section = "section";
+
+    /// <summary>The title and aliases of a detail page: the page-level clue.</summary>
+    public const string Clue = "clue";
+}
+
 /// <summary>
-/// The derived index of detail pages in <c>.cache/index.db</c>: one row per page with its file hash, one unit per
-/// section and one for the title and aliases, an FTS5 table over the units and a <c>vec0</c> table of their vectors.
+/// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file, now always a detail page:
+/// one row per source with its file hash, and one unit per section and one for the title and aliases, each carrying its
+/// kind, project and dates. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
 internal sealed class PageIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "2";
+    private const string SchemaVersion = "3";
 
     private const string Filters = """
-        (@project IS NULL OR p.project = @project)
-        AND (@from IS NULL OR (p.last IS NOT NULL AND p.last >= @from))
-        AND (@to IS NULL OR (p.first IS NOT NULL AND p.first <= @to))
+        (@project IS NULL OR u.project = @project)
+        AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
+        AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
         """;
 
     private readonly string _memoryPath;
@@ -82,7 +102,7 @@ internal sealed class PageIndex : IDisposable
         lock (_gate)
         {
             var onDisk = PageFiles().ToDictionary(file => file.Id.RelativePath);
-            var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM pages").ToDictionary(row => row.Path, row => row.Hash);
+            var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
             foreach (var path in known.Keys.Where(path => !onDisk.ContainsKey(path)))
                 Remove(path);
             foreach (var (path, file) in onDisk)
@@ -97,7 +117,7 @@ internal sealed class PageIndex : IDisposable
         lock (_gate)
         {
             var fullPath = Path.Combine(_memoryPath, id.RelativePath);
-            var known = _connection.QuerySingleOrDefault<string>("SELECT hash FROM pages WHERE path = @path", new { path = id.RelativePath });
+            var known = _connection.QuerySingleOrDefault<string>("SELECT hash FROM sources WHERE path = @path", new { path = id.RelativePath });
             if (File.Exists(fullPath))
                 Sync(id, fullPath, known);
             else
@@ -113,8 +133,8 @@ internal sealed class PageIndex : IDisposable
     {
         lock (_gate)
             return _connection.ExecuteScalar<long>(
-                "SELECT count(*) FROM pages WHERE project = @project AND id <> @id",
-                new { project = except.Project, id = except.ToString() }) > 0;
+                "SELECT count(*) FROM sources s WHERE s.kind = @kind AND s.id <> @id AND EXISTS (SELECT 1 FROM units u WHERE u.source_id = s.id AND u.project = @project)",
+                new { kind = SourceKinds.Page, project = except.Project, id = except.ToString() }) > 0;
     }
 
     /// <summary>The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first.</summary>
@@ -126,8 +146,8 @@ internal sealed class PageIndex : IDisposable
             if (match is not null)
             {
                 return _connection.Query<IndexHit>($"""
-                    SELECT u.page_id AS PageId, u.section AS Section, u.raw AS Text
-                    FROM units_fts JOIN units u ON u.id = units_fts.rowid JOIN pages p ON p.id = u.page_id
+                    SELECT u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text
+                    FROM units_fts JOIN units u ON u.id = units_fts.rowid
                     WHERE units_fts MATCH @match AND {Filters}
                     ORDER BY bm25(units_fts) LIMIT @limit
                     """, Parameters(filter, limit, new { match })).ToList();
@@ -137,10 +157,10 @@ internal sealed class PageIndex : IDisposable
             foreach (var character in IndexText.SingleCharacters(query))
             {
                 hits.AddRange(_connection.Query<IndexHit>($"""
-                    SELECT u.page_id AS PageId, u.section AS Section, u.raw AS Text
-                    FROM units u JOIN pages p ON p.id = u.page_id
+                    SELECT u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text
+                    FROM units u
                     WHERE instr(u.raw, @character) > 0 AND {Filters}
-                    ORDER BY p.last DESC, u.page_id, u.ordinal LIMIT @limit
+                    ORDER BY u.last DESC, u.source_id, u.ordinal LIMIT @limit
                     """, Parameters(filter, limit, new { character })));
             }
 
@@ -159,8 +179,8 @@ internal sealed class PageIndex : IDisposable
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
             return _connection.Query<IndexHit>($"""
-                SELECT u.page_id AS PageId, u.section AS Section, u.raw AS Text
-                FROM units_vec v JOIN units u ON u.id = v.rowid JOIN pages p ON p.id = u.page_id
+                SELECT u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text
+                FROM units_vec v JOIN units u ON u.id = v.rowid
                 WHERE {Filters}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
                 """, Parameters(filter, limit, new { vector = Blob(vector) })).ToList();
@@ -256,31 +276,30 @@ internal sealed class PageIndex : IDisposable
         using var transaction = _connection.BeginTransaction();
         RemoveRows(id.RelativePath, transaction);
         var header = document.Header;
+        var source = id.ToString();
         _connection.Execute(
-            "INSERT INTO pages (id, project, path, hash, first, last) VALUES (@id, @project, @path, @hash, @first, @last)",
-            new
-            {
-                id = id.ToString(),
-                project = id.Project,
-                path = id.RelativePath,
-                hash,
-                first = header.First?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                last = header.Last?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            },
+            "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
+            new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
             transaction);
-        AddUnit(id, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), transaction);
+        var scope = new UnitScope(id.Project, DateText(header.First), DateText(header.Last));
+        AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction);
         for (var i = 0; i < document.Sections.Count; i++)
-            AddUnit(id, document.Sections[i].Name, i + 1, document.Sections[i].Name + "\n" + document.Sections[i].Body, transaction);
+            AddUnit(source, UnitKinds.Section, document.Sections[i].Name, i + 1, document.Sections[i].Name + "\n" + document.Sections[i].Body, scope, transaction);
         transaction.Commit();
     }
 
-    private void AddUnit(PageId id, string? section, int ordinal, string raw, SqliteTransaction transaction)
+    /// <summary>The project and dates every unit of a source carries.</summary>
+    private sealed record UnitScope(string Project, string? First, string? Last);
+
+    private void AddUnit(string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction)
     {
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (page_id, section, ordinal, raw) VALUES (@page, @section, @ordinal, @raw) RETURNING id",
-            new { page = id.ToString(), section, ordinal, raw }, transaction);
+            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw) VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw) RETURNING id",
+            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw }, transaction);
         _connection.Execute("INSERT INTO units_fts (rowid, text) VALUES (@unit, @text)", new { unit, text = IndexText.ForIndex(raw) }, transaction);
     }
+
+    private static string? DateText(DateOnly? date) => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private void Remove(string relativePath)
     {
@@ -291,14 +310,14 @@ internal sealed class PageIndex : IDisposable
 
     private void RemoveRows(string relativePath, SqliteTransaction transaction)
     {
-        var page = _connection.QuerySingleOrDefault<string>("SELECT id FROM pages WHERE path = @relativePath", new { relativePath }, transaction);
-        if (page is null)
+        var source = _connection.QuerySingleOrDefault<string>("SELECT id FROM sources WHERE path = @relativePath", new { relativePath }, transaction);
+        if (source is null)
             return;
-        _connection.Execute("DELETE FROM units_fts WHERE rowid IN (SELECT id FROM units WHERE page_id = @page)", new { page }, transaction);
+        _connection.Execute("DELETE FROM units_fts WHERE rowid IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
         if (HasVectorTable(transaction))
-            _connection.Execute("DELETE FROM units_vec WHERE rowid IN (SELECT id FROM units WHERE page_id = @page)", new { page }, transaction);
-        _connection.Execute("DELETE FROM units WHERE page_id = @page", new { page }, transaction);
-        _connection.Execute("DELETE FROM pages WHERE id = @page", new { page }, transaction);
+            _connection.Execute("DELETE FROM units_vec WHERE rowid IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
+        _connection.Execute("DELETE FROM units WHERE source_id = @source", new { source }, transaction);
+        _connection.Execute("DELETE FROM sources WHERE id = @source", new { source }, transaction);
     }
 
     private bool HasVectorTable(SqliteTransaction? transaction = null) =>
@@ -352,9 +371,9 @@ internal sealed class PageIndex : IDisposable
         var fresh = Connect();
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE pages (id TEXT PRIMARY KEY, project TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL, first TEXT, last TEXT);
-            CREATE TABLE units (id INTEGER PRIMARY KEY, page_id TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, raw TEXT NOT NULL);
-            CREATE INDEX units_page ON units (page_id);
+            CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
+            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL);
+            CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
             INSERT INTO meta (key, value) VALUES ('schema', '{SchemaVersion}');
             """);
