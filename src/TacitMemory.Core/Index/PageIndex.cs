@@ -352,7 +352,7 @@ internal sealed class PageIndex : IDisposable
         foreach (var activity in RecentFile.Activities(read.Text))
         {
             var day = DateText(activity.Day);
-            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Body, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
+            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, (activity.Project is null ? "" : $"[{activity.Project}] ") + activity.Body, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
         }
 
         transaction.Commit();

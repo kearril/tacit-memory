@@ -156,16 +156,11 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         var subject = replaced is null ? "recent: add" : "recent: replace";
         var commitProblem = await CommitAsync(dirty ? $"{subject} {code} (with user edits)" : $"{subject} {code}", relative, cancellationToken);
         var reply = $"{status}\n\n{MainlineBlock(CurrentMainline())}\n\n{await ActivitiesBlockAsync(cancellationToken)}";
-        return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
     }
 
     private async Task<ToolResult> UpdateMainlineAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
-        if (request.Items is null)
-            return ToolText.Refuse(
-                "Missing parameter items.",
-                "Call write_recent again with op=update_mainline and items set to the whole mainline, in order; an empty list clears it.");
-
         var relative = MainlineSection.RelativePath;
         var path = Path.Combine(config.MemoryPath, relative);
         var read = TextFile.Read(path);
@@ -187,6 +182,11 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
                 $"Call write_recent again with op=update_mainline, hash set to {currentVersion}, and the items you want.",
                 MainlineBlock(current));
         }
+
+        if (request.Items is null)
+            return ToolText.Refuse(
+                "Missing parameter items.",
+                "Call write_recent again with op=update_mainline and items set to the whole mainline, in order; an empty list clears it.");
 
         var items = request.Items.Select(item => item.Trim()).ToList();
         var problems = new List<string>();
@@ -224,7 +224,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         TextFile.Write(path, updated, hasBom);
         var commitProblem = await CommitAsync(dirty ? "recent: mainline (with user edits)" : "recent: mainline", relative, cancellationToken);
         var reply = $"Mainline updated.\n\n{MainlineBlock(items)}";
-        return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
     }
 
     /// <summary>The mainline as write replies show it: its version code, then its items, or <c>(empty)</c>.</summary>
@@ -315,7 +315,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
             notice(e.Message);
-            return $"Not committed: the activity is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
+            return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
         }
     }
 

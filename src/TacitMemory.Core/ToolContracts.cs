@@ -2,9 +2,9 @@ namespace TacitMemory.Core;
 
 /// <summary>
 /// What a memory tool hands back to the agent: plain Markdown-style text. <see cref="IsError"/> marks a refusal,
-/// whose text reads "Refused / Next step / Related".
+/// whose text reads "Refused / Next step / Related". <see cref="Written"/> is true when the call changed a memory file.
 /// </summary>
-public sealed record ToolResult(string Text, bool IsError);
+public sealed record ToolResult(string Text, bool IsError, bool Written = false);
 
 /// <summary>A <c>recall</c> call as the agent made it; exactly one of query and page is given. The service checks the arguments.</summary>
 public sealed record RecallRequest

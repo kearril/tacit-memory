@@ -22,8 +22,8 @@ internal sealed class SameActivityCheck(TacitConfig config, IDecisionModel decis
     private const string None = "none";
 
     private const string Instructions =
-        "The state is a new activity note from today's log, written in Chinese. "
-        + "Each option is an earlier activity note from the same day, also in Chinese. "
+        "The state is a new activity note from today's log. "
+        + "Each option is an earlier activity note from the same day. "
         + "Choose the option if it is about the same thing as the new note: the same matter, even if phrased differently, "
         + "or a later step, result or follow-up of that matter on the same day. "
         + "Project tags in square brackets do not decide this; ignore them. "

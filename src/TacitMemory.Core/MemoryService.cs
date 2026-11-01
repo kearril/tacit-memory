@@ -100,7 +100,7 @@ public sealed class MemoryService : IDisposable
         {
             var unavailable = _models.Unavailable;
             var skipped = _index.SkippedFiles;
-            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped);
+            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped) + "\n" + _options.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             lock (_instructionsGate)
             {
                 if (_instructions is null || _instructionsStatus != status)
@@ -172,7 +172,7 @@ public sealed class MemoryService : IDisposable
             // Like write_page, the index follows the file right away, so the new activity is searchable at once.
             _index.SyncActivities();
             InvalidateInstructions();
-            if (result.IsError)
+            if (!result.Written)
                 return result;
             _backup.ScheduleIfDue();
             return await _vectors.FillAsync(cancellationToken)
