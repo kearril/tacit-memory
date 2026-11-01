@@ -6,7 +6,7 @@ namespace TacitMemory.Core.Index;
 /// Gives every index unit a vector. Units without one are embedded in batches; when the embedding model is down
 /// they wait, and the next successful call to the model fills them in. One fill runs at a time.
 /// </summary>
-internal sealed class VectorSync(PageIndex index, EmbeddingModel model)
+internal sealed class VectorSync(MemoryIndex index, EmbeddingModel model)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _backgroundGate = new();

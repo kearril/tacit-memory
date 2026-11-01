@@ -8,6 +8,7 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core;
 
@@ -36,8 +37,9 @@ public sealed class MemoryService : IDisposable
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly PageTools _pages;
+    private readonly RecentTools _recent;
     private readonly AuxiliaryModels _models;
-    private readonly PageIndex _index;
+    private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
     private readonly RecallTool _recall;
     private RecordingCriteria _rules;
@@ -54,12 +56,13 @@ public sealed class MemoryService : IDisposable
         ServerInstructionText.Check(config.Language, _rules, RulesPath);
         StartupRender = Binder.RenderAll(options, config);
         _models = new AuxiliaryModels(config, options.Time);
-        _index = new PageIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
+        _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
         _vectors.FillInBackground();
         _pages = new PageTools(
             options, config, notice, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+        _recent = new RecentTools(options, config, notice, _models.Decision);
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
         _backup = new AutomaticBackup(options, config, notice);
 
@@ -97,13 +100,15 @@ public sealed class MemoryService : IDisposable
         {
             var unavailable = _models.Unavailable;
             var skipped = _index.SkippedFiles;
-            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped);
+            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped) + "\n" + _options.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             lock (_instructionsGate)
             {
                 if (_instructions is null || _instructionsStatus != status)
                 {
+                    var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
                     _instructions = ServerInstructionText.Build(
-                        Config.Language, _rules, unavailable, skipped, ServerInstructionText.Projects(Config.MemoryPath));
+                        Config.Language, _rules, unavailable, skipped, recent,
+                        ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels));
                     _instructionsStatus = status;
                 }
 
@@ -111,6 +116,9 @@ public sealed class MemoryService : IDisposable
             }
         }
     }
+
+    /// <summary>The text of the <c>remember</c> prompt for the given focus, built from the current activities and mainline.</summary>
+    public string RememberPrompt(string? focus = null) => RememberText.Render(_options, Config, focus);
 
     private string RulesPath => Path.Combine(_options.TacitHome, "rules.md");
 
@@ -154,6 +162,29 @@ public sealed class MemoryService : IDisposable
         }
     }
 
+    /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
+    public async Task<ToolResult> WriteRecentAsync(WriteRecentRequest request, CancellationToken cancellationToken = default)
+    {
+        await _writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            var result = await _recent.WriteAsync(request, cancellationToken);
+            // Like write_page, the index follows the file right away, so the new activity is searchable at once.
+            _index.SyncActivities();
+            InvalidateInstructions();
+            if (!result.Written)
+                return result;
+            _backup.ScheduleIfDue();
+            return await _vectors.FillAsync(cancellationToken)
+                ? result
+                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this activity is found by full-text search only." };
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
     public void Dispose()
     {
         _disposed = true;
@@ -182,7 +213,9 @@ public sealed class MemoryService : IDisposable
                 ScheduleRender();
             if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
                 InvalidateInstructions();
-            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal))
+            if (relative == MainlineSection.RelativePath || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                InvalidateInstructions();
+            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
                 ScheduleIndexSync();
         }
     }

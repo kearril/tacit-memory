@@ -46,7 +46,7 @@ internal sealed partial record PageId(string Project, string Slug)
     }
 
     /// <summary>A compliant spelling of <paramref name="text"/>: lowercase ASCII words joined by hyphens.</summary>
-    private static string Suggest(string text)
+    internal static string Suggest(string text)
     {
         var words = new StringBuilder();
         foreach (var c in text.ToLowerInvariant())
@@ -57,6 +57,9 @@ internal sealed partial record PageId(string Project, string Slug)
 
     [GeneratedRegex("^[a-z0-9][a-z0-9._-]*$")]
     private static partial Regex ProjectPattern();
+
+    /// <summary>Whether <paramref name="project"/> follows the project naming rule: lowercase, not starting with '.' or '_'.</summary>
+    internal static bool IsProjectName(string project) => ProjectPattern().IsMatch(project);
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$")]
     private static partial Regex SlugPattern();

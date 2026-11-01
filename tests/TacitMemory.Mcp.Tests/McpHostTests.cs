@@ -7,12 +7,13 @@ namespace TacitMemory.Mcp.Tests;
 public sealed class McpHostTests : IAsyncLifetime
 {
     private readonly TestHome _home = new();
+    private readonly ModelDouble _models = new() { EmbeddingDown = true, RerankDown = true };
     private MemoryService _service = null!;
     private McpHost _host = null!;
 
     public async Task InitializeAsync()
     {
-        _home.InitReady();
+        _home.InitReady(models: _models);
         Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory"));
         _service = _home.Tacit().OpenService(_ => { });
         _host = await McpHost.TryStartAsync(_service, port: 0) ?? throw new InvalidOperationException("Port 0 is never in use.");
@@ -22,6 +23,7 @@ public sealed class McpHostTests : IAsyncLifetime
     {
         await _host.DisposeAsync();
         _service.Dispose();
+        _models.Dispose();
         _home.Dispose();
     }
 
@@ -48,13 +50,13 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Recall_and_write_page_are_listed_with_their_annotations_and_prompts_are_empty()
+    public async Task Recall_and_the_write_tools_are_listed_with_their_annotations()
     {
         await using var client = await ConnectAsync();
 
         var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
 
-        Assert.Equal(["recall", "write_page"], tools.Keys.Order());
+        Assert.Equal(["recall", "write_page", "write_recent"], tools.Keys.Order());
         var recall = tools["recall"].ProtocolTool;
         Assert.True(recall.Annotations?.ReadOnlyHint);
         Assert.True(recall.Annotations?.IdempotentHint);
@@ -65,7 +67,30 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.True(write.Annotations?.DestructiveHint);
         Assert.False(write.Annotations?.IdempotentHint);
         Assert.False(write.Annotations?.OpenWorldHint);
-        Assert.Empty(await client.ListPromptsAsync());
+        var recent = tools["write_recent"].ProtocolTool;
+        Assert.False(recent.Annotations?.ReadOnlyHint);
+        Assert.True(recent.Annotations?.DestructiveHint);
+        Assert.False(recent.Annotations?.IdempotentHint);
+        Assert.False(recent.Annotations?.OpenWorldHint);
+        Assert.Equal(
+            ["confirm_no_secret", "hash", "items", "op", "project", "replaces", "source", "text"],
+            recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
+    }
+
+    [Fact]
+    public async Task The_remember_prompt_is_listed_with_an_optional_focus_and_returns_the_session_state()
+    {
+        await _service.WriteRecentAsync(new TacitMemory.Core.WriteRecentRequest { Op = "add_activity", Text = "通过接口写入了活动" });
+        await using var client = await ConnectAsync();
+
+        var remember = Assert.Single(await client.ListPromptsAsync(), prompt => prompt.Name == "remember");
+        var focus = Assert.Single(remember.ProtocolPrompt.Arguments!, argument => argument.Name == "focus");
+        Assert.False(focus.Required);
+
+        var result = await client.GetPromptAsync("remember", new Dictionary<string, object?> { ["focus"] = "检索策略调整" });
+        var text = string.Concat(result.Messages.Select(message => message.Content).OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
+        Assert.Contains("检索策略调整", text);
+        Assert.Contains("通过接口写入了活动", text);
     }
 
     [Fact]
@@ -87,6 +112,105 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.NotEqual(true, read.IsError);
         Assert.Contains("## 根因 [", Text(read));
         Assert.Contains("扩展没有重装。", Text(read));
+    }
+
+    [Fact]
+    public async Task An_activity_written_through_the_tool_lands_in_the_month_file()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "想清楚了画像里缺的是人的倾向",
+            ["project"] = "tacit-memory",
+        });
+
+        Assert.NotEqual(true, written.IsError);
+        Assert.Matches(@"Added activity \[[0-9a-f]{6}\]\.", Text(written));
+        Assert.Equal(
+            "## 2026-11-02\n- [tacit-memory] 想清楚了画像里缺的是人的倾向\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
+    }
+
+    [Fact]
+    public async Task A_repeat_of_todays_activity_comes_back_as_a_normal_reply_that_names_it()
+    {
+        await using var client = await ConnectAsync();
+        var first = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "先查了索引",
+        });
+        _models.Choose = (_, options) => options.ToDictionary(
+            option => option.Key,
+            option => option.Value.Contains("先查了索引", StringComparison.Ordinal) ? 0.95 : 0.0);
+
+        var repeated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "索引查完了，问题在分词器",
+        });
+
+        var code = System.Text.RegularExpressions.Regex.Match(Text(first), @"\[([0-9a-f]{6})\]").Groups[1].Value;
+        Assert.NotEqual(true, repeated.IsError);
+        Assert.Contains($"Not added: today's activity [{code}]", Text(repeated));
+        Assert.Contains($"replaces set to {code}", Text(repeated));
+        Assert.Equal(
+            "## 2026-11-02\n- 先查了索引\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
+    }
+
+    [Fact]
+    public async Task A_mainline_update_through_the_tool_replaces_the_list_and_the_reply_shows_the_version()
+    {
+        await using var client = await ConnectAsync();
+
+        // e3b0c4 is the version code of the empty mainline (the short code of an empty string).
+        var updated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "update_mainline",
+            ["items"] = new[] { "主线一", "主线二" },
+            ["hash"] = "e3b0c4",
+        });
+
+        Assert.NotEqual(true, updated.IsError);
+        Assert.Contains("Mainline updated.", Text(updated));
+        Assert.Contains("- 主线一\n- 主线二", Text(updated));
+        Assert.Contains("## 近期主线\n- 主线一\n- 主线二\n", File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent.md")));
+    }
+
+    [Fact]
+    public async Task An_activity_written_through_the_tool_is_recalled_by_kind()
+    {
+        await using var client = await ConnectAsync();
+        await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "想清楚了画像里缺的是人的倾向",
+            ["project"] = "tacit-memory",
+        });
+
+        var read = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "画像", ["kind"] = "activities" });
+
+        Assert.NotEqual(true, read.IsError);
+        Assert.Contains("activity 2026-11-02", Text(read));
+        Assert.Contains("想清楚了画像里缺的是人的倾向", Text(read));
+    }
+
+    [Fact]
+    public async Task A_refused_activity_comes_back_as_an_error_with_its_next_step()
+    {
+        await using var client = await ConnectAsync();
+
+        var refused = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["items"] = new[] { "不该传" },
+        });
+
+        Assert.True(refused.IsError);
+        Assert.StartsWith("Refused: Parameter items does not apply to op add_activity.\nNext step: ", Text(refused));
     }
 
     [Fact]

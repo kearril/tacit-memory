@@ -32,6 +32,7 @@ internal static class ShortCode
     /// <summary>LF line breaks and no blank lines or spaces around the text.</summary>
     public static string Normalize(string text) => text.ReplaceLineEndings("\n").Trim();
 
-    private static string Of(string text) =>
+    /// <summary>The code of already-normalized text.</summary>
+    internal static string Of(string text) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..Length];
 }

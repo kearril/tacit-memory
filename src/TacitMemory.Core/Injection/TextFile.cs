@@ -40,4 +40,7 @@ internal static class TextFile
 
     /// <summary>The file's line break: CRLF if it has any, otherwise LF.</summary>
     public static string NewlineOf(string text) => text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+
+    /// <summary>The carriage return written before each line feed in <paramref name="text"/>'s style: <c>\r</c> for CRLF, otherwise nothing.</summary>
+    public static string CarriageReturnOf(string text) => NewlineOf(text) == "\r\n" ? "\r" : "";
 }

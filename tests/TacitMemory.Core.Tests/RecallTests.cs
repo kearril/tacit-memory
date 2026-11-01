@@ -1,3 +1,5 @@
+using Microsoft.Data.Sqlite;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed class RecallTests : IDisposable
@@ -47,7 +49,7 @@ public sealed class RecallTests : IDisposable
         var result = await Recall("上次数据库升级以后中文搜索没有结果");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("[1] tacit-memory/db-upgrade: 数据库升级后扩展丢失", result.Text);
+        Assert.Contains("[1] page tacit-memory/db-upgrade: 数据库升级后扩展丢失", result.Text);
         Assert.Matches(@"### 现象 \[[0-9a-f]{6}\]\n升级 PostgreSQL 后中文搜索没有结果。", result.Text);
         Assert.Contains("Dates: 2026-10-01 to 2026-10-05", result.Text);
     }
@@ -159,17 +161,6 @@ public sealed class RecallTests : IDisposable
         Assert.StartsWith("No relevant memory.", result.Text);
     }
 
-    [Fact]
-    public async Task Activities_have_no_memory_yet()
-    {
-        DbUpgrade();
-
-        var result = await Recall("数据库升级", kind: "activities");
-
-        Assert.False(result.IsError);
-        Assert.Equal("No relevant memory.", result.Text);
-    }
-
     [Theory]
     [InlineData("q", "p", null, null, "Give query or page, not both.")]
     [InlineData(null, null, null, null, "Missing parameter query or page.")]
@@ -245,6 +236,25 @@ public sealed class RecallTests : IDisposable
     }
 
     [Fact]
+    public async Task An_index_of_another_schema_version_is_deleted_and_rebuilt()
+    {
+        DbUpgrade();
+        var database = Path.Combine(_home.DefaultMemory, ".cache", "index.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        using (var old = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Pooling = false }.ToString()))
+        {
+            old.Open();
+            var command = old.CreateCommand();
+            command.CommandText = "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta (key, value) VALUES ('schema', '2');";
+            command.ExecuteNonQuery();
+        }
+
+        var result = await Recall("数据库升级");
+
+        Assert.Contains("tacit-memory/db-upgrade", result.Text);
+    }
+
+    [Fact]
     public async Task A_page_that_is_not_utf8_is_skipped_and_the_others_are_still_searched()
     {
         DbUpgrade();
@@ -276,5 +286,19 @@ public sealed class RecallTests : IDisposable
         }
 
         Assert.Fail("The condition did not hold within 10 seconds.");
+    }
+
+    [Fact]
+    public async Task Every_result_says_whether_it_is_a_page_or_an_activity()
+    {
+        DbUpgrade();
+        await Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "数据库升级后中文搜索又没有结果" });
+
+        var result = await Recall("数据库升级 中文搜索");
+
+        Assert.False(result.IsError, result.Text);
+        var headers = result.Text.Split('\n').Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, @"^\[\d+\] ")).ToList();
+        Assert.Equal(2, headers.Count);
+        Assert.All(headers, line => Assert.Matches(@"^\[\d+\] (page|activity) ", line));
     }
 }

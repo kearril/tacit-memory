@@ -216,7 +216,7 @@ internal sealed class PageTools(
         if (request.ConfirmNoSecret == true)
             return null;
         var written = texts.Select(text => new WrittenText(text.Where, text.Text)).ToList();
-        return written.Count == 0 ? null : CredentialCheck.Run(written, op);
+        return written.Count == 0 ? null : CredentialCheck.Run(written, "write_page", op);
     }
 
     private static IEnumerable<(string Where, string Text)> SectionTexts(IEnumerable<PageSectionInput> sections) =>

@@ -133,7 +133,7 @@ public sealed class ServiceTests : IDisposable
 
         using var service = Open();
 
-        Assert.Contains("- Pages not searchable because they are not UTF-8: pages/demo/gbk.md.", service.ServerInstructions);
+        Assert.Contains("- Files not searchable because they are not UTF-8: pages/demo/gbk.md.", service.ServerInstructions);
     }
 
     [Fact]
