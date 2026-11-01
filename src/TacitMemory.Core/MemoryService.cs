@@ -164,9 +164,14 @@ public sealed class MemoryService : IDisposable
         try
         {
             var result = await _recent.WriteAsync(request, cancellationToken);
-            if (!result.IsError)
-                _backup.ScheduleIfDue();
-            return result;
+            // Like write_page, the index follows the file right away, so the new activity is searchable at once.
+            _index.SyncActivities();
+            if (result.IsError)
+                return result;
+            _backup.ScheduleIfDue();
+            return await _vectors.FillAsync(cancellationToken)
+                ? result
+                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this activity is found by full-text search only." };
         }
         finally
         {
@@ -202,7 +207,7 @@ public sealed class MemoryService : IDisposable
                 ScheduleRender();
             if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
                 InvalidateInstructions();
-            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal))
+            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith("recent/", StringComparison.Ordinal))
                 ScheduleIndexSync();
         }
     }
