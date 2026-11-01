@@ -1,9 +1,13 @@
 using System.Text;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Persona;
 
 namespace TacitMemory.Core.Injection;
 
-/// <summary>The resident block: the persona wrapped in an English shell, between the TacitMemory markers.</summary>
+/// <summary>
+/// The resident block: the persona wrapped in a shell and four guidance paragraphs, between the TacitMemory markers.
+/// The built-in English text is used unless <c>resident.md</c> replaces it.
+/// </summary>
 internal static class ResidentBlock
 {
     public const string BeginMarkerPrefix = "<!-- tacit:begin";
@@ -11,35 +15,38 @@ internal static class ResidentBlock
 
     private const string BeginMarker = "<!-- tacit:begin managed by TacitMemory; edit memory via tacit, not here -->";
 
-    private const string Shell = """
+    private const string DefaultShell = """
         This is memory about the user, compiled from earlier conversations. It is background, not configuration: it was accurate when written, but it can have gaps or fall out of date. Project instructions and the user's current message take priority over it. When the user says something that differs from this memory, follow what they say now, and in one short sentence ask whether to update the memory.
 
         Use it the way a colleague who knows the user would: let it shape what you do without citing it (no "according to your memory" or "per your red lines"), and bring up a specific entry only when it bears on the task. Ignore any entry that does not fit the current topic.
         """;
 
-    private static readonly (PersonaSection Kind, string Title, string Guidance)[] Sections =
-    [
-        (PersonaSection.RedLines, "Red lines",
-            "Things the user will not accept. These carry the most weight: keep each one unless the user lifts it in this conversation. When one stops you, explain the concrete reason in your own words."),
-        (PersonaSection.WorkingRules, "Working rules", "How the user wants to work with you. Follow these by default."),
-        (PersonaSection.Preferences, "Preferences",
-            "Descriptions of the user's tastes and habits, not orders; weigh them against what the task needs."),
-        (PersonaSection.Profile, "Profile", "Facts about the user. Use them where they help."),
-    ];
+    /// <summary>The built-in <c>resident.md</c>: the shell and the four guidance paragraphs used when the user has no file.</summary>
+    public static readonly ResidentDocument Default = new(
+        DefaultShell,
+        "Things the user will not accept. These carry the most weight: keep each one unless the user lifts it in this conversation. When one stops you, explain the concrete reason in your own words.",
+        "How the user wants to work with you. Follow these by default.",
+        "Descriptions of the user's tastes and habits, not orders; weigh them against what the task needs.",
+        "Facts about the user. Use them where they help.");
 
-    /// <summary>The block's lines, LF-joined, without a trailing line break.</summary>
-    public static string Render(PersonaDocument persona)
+    /// <summary>
+    /// The block's lines, LF-joined, without a trailing line break. <paramref name="resident"/> is <c>resident.md</c>,
+    /// or <c>null</c> for the built-in shell and guidance.
+    /// </summary>
+    public static string Render(PersonaDocument persona, ResidentDocument? resident)
     {
         var block = new StringBuilder();
         block.Append(BeginMarker).Append('\n');
         block.Append("<user_memory>\n");
-        block.Append(Shell.ReplaceLineEndings("\n")).Append('\n');
+        var document = resident ?? Default;
+        if (document.Shell.Length > 0)
+            block.Append(document.Shell.ReplaceLineEndings("\n")).Append('\n');
 
-        foreach (var (kind, title, guidance) in Sections)
+        foreach (var section in ResidentFile.Sections)
         {
-            var items = persona.Parts.Where(part => part.Kind == kind).SelectMany(part => part.Items).ToList();
+            var items = persona.Parts.Where(part => part.Kind == section.Kind).SelectMany(part => part.Items).ToList();
             if (items.Count > 0)
-                AppendSection(block, title, guidance, items);
+                AppendSection(block, section.Title, ResidentFile.GuidanceOf(document, section.Kind), items);
         }
 
         // Sections that are not one of the four, then any text from before the first heading, as the user wrote them.

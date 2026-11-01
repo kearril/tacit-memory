@@ -15,8 +15,11 @@ public enum TacitError
     /// <summary><c>config.yaml</c> cannot be parsed or has wrong settings; the message names every key path.</summary>
     ConfigInvalid,
 
-    /// <summary><c>rules.md</c> breaks its limits.</summary>
-    RulesInvalid,
+    /// <summary>A prompt document in <c>prompts/</c> breaks its limits or its format.</summary>
+    PromptInvalid,
+
+    /// <summary>The built-in text was asked for a target that has none.</summary>
+    NoBuiltInText,
 
     /// <summary>A context file's resident block markers are incomplete or repeated.</summary>
     MarkersBroken,
@@ -29,6 +32,9 @@ public enum TacitError
 
     /// <summary><c>bindings.json</c> cannot be read.</summary>
     BindingsInvalid,
+
+    /// <summary>The client's skill link cannot be made, or its name is taken by something that is not the memory skill's link.</summary>
+    SkillLinkRefused,
 
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,

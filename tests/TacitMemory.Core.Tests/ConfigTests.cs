@@ -12,7 +12,7 @@ public sealed class ConfigTests : IDisposable
 
     private string ConfigPath => Path.Combine(_home.TacitHome, "config.yaml");
 
-    private string RulesPath => Path.Combine(_home.TacitHome, "rules.md");
+    private string RulesPath => Path.Combine(_home.TacitHome, "prompts", "rules.md");
 
     private void WriteConfig(string yaml) => File.WriteAllText(ConfigPath, yaml.ReplaceLineEndings("\n"));
 
@@ -185,7 +185,7 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models);
         File.WriteAllText(RulesPath, "## 值得记\n- 用户纠正 Agent\n  补充说明\n- 环境事实\n\n## Not recorded\n- 常规改动\n");
 
-        var rules = _home.Tacit().LoadConfig().Rules;
+        var rules = _home.Tacit().LoadConfig().Prompts.Rules;
 
         Assert.Equal(["用户纠正 Agent", "环境事实"], rules.WorthRecording);
         Assert.Equal(["常规改动"], rules.NotRecorded);
@@ -197,7 +197,7 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models + "language: en\n");
         File.Delete(RulesPath);
 
-        var rules = _home.Tacit().LoadConfig().Rules;
+        var rules = _home.Tacit().LoadConfig().Prompts.Rules;
 
         Assert.StartsWith("## Worth recording\n", File.ReadAllText(RulesPath));
         Assert.Equal(5, rules.WorthRecording.Count);
@@ -212,7 +212,7 @@ public sealed class ConfigTests : IDisposable
 
         var error = LoadFails();
 
-        Assert.Equal(TacitError.RulesInvalid, error.Error);
+        Assert.Equal(TacitError.PromptInvalid, error.Error);
         Assert.Contains("值得记", error.Message);
         Assert.Contains("2", error.Message);
     }

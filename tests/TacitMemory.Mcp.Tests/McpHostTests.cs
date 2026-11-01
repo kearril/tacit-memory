@@ -46,6 +46,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Contains("## When to recall", instructions);
         Assert.Contains("## Writing pages", instructions);
         Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
+        Assert.Contains("tacit-memory", instructions);
         Assert.EndsWith("## Projects\ntacit-memory", instructions);
     }
 
@@ -83,6 +84,18 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Equal(
             ["confirm_no_secret", "hash", "op", "persona_section", "source", "text"],
             persona.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
+    }
+
+    [Fact]
+    public async Task Write_persona_describes_each_op_on_its_own_line()
+    {
+        await using var client = await ConnectAsync();
+
+        var description = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name)["write_persona"].ProtocolTool.Description ?? "";
+        var lines = description.Split('\n', StringSplitOptions.TrimEntries);
+
+        foreach (var op in new[] { "add", "propose", "replace", "delete" })
+            Assert.Contains(lines, line => line.StartsWith($"op={op}:", StringComparison.Ordinal));
     }
 
     [Fact]

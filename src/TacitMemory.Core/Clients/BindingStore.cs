@@ -5,11 +5,13 @@ using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Clients;
 
+/// <param name="SkillLink">The link <c>connect</c> made in the client's skill folder, which <c>disconnect</c> removes.</param>
 /// <param name="CreatedContextFile">Whether <c>connect</c> created the context file, so <c>disconnect</c> may delete it again.</param>
 /// <param name="CreatedMcpConfig">Whether <c>connect</c> created the MCP config file, likewise.</param>
 internal sealed record BindingRecord(
     [property: JsonPropertyName("client")] string Client,
     [property: JsonPropertyName("contextFile")] string ContextFile,
+    [property: JsonPropertyName("skillLink")] string SkillLink,
     [property: JsonPropertyName("createdContextFile")] bool CreatedContextFile,
     [property: JsonPropertyName("createdMcpConfig")] bool CreatedMcpConfig);
 

@@ -10,6 +10,7 @@ using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Skills;
 
 namespace TacitMemory.Core;
 
@@ -17,8 +18,8 @@ namespace TacitMemory.Core;
 /// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
 /// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
 /// <c>persona.md</c> changes, syncs the index when page, activity or persona files change, and refreshes
-/// the instructions when projects appear or disappear under <c>pages/</c>, and a watcher that reloads
-/// <c>rules.md</c>. Create it with <see cref="Tacit.OpenService"/>.
+/// the instructions when projects appear or disappear under <c>pages/</c>, and a watcher that reloads the prompt
+/// documents in <c>prompts/</c>, which also regenerates the memory skill. Create it with <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -29,9 +30,9 @@ public sealed class MemoryService : IDisposable
     private readonly AutomaticBackup _backup;
     private readonly Action<string> _notice;
     private readonly FileSystemWatcher _watcher;
-    private readonly FileSystemWatcher _rulesWatcher;
+    private FileSystemWatcher? _promptsWatcher;
     private readonly Timer _renderTimer;
-    private readonly Timer _rulesTimer;
+    private readonly Timer _promptsTimer;
     private readonly Timer _indexTimer;
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
@@ -44,7 +45,7 @@ public sealed class MemoryService : IDisposable
     private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
     private readonly RecallTool _recall;
-    private RecordingCriteria _rules;
+    private PromptDocuments _prompts;
     private string? _instructions;
     private string? _instructionsStatus;
     private volatile bool _disposed;
@@ -54,9 +55,9 @@ public sealed class MemoryService : IDisposable
         _options = options;
         Config = config;
         _notice = notice;
-        _rules = config.Rules;
-        ServerInstructionText.Check(config.Language, _rules, RulesPath);
-        StartupRender = Binder.RenderAll(options, config);
+        _prompts = config.Prompts;
+        MemorySkill.Write(options.TacitHome, config.Prompts.Skill);
+        StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _models = new AuxiliaryModels(config, options.Time);
         _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
         _index.SyncAll();
@@ -73,7 +74,7 @@ public sealed class MemoryService : IDisposable
         _backup = new AutomaticBackup(options, config, notice);
 
         _renderTimer = new Timer(_ => RenderNow());
-        _rulesTimer = new Timer(_ => ReloadRules());
+        _promptsTimer = new Timer(_ => ReloadPrompts());
         _indexTimer = new Timer(_ => SyncIndexNow());
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         _watcher.Changed += OnChange;
@@ -83,12 +84,7 @@ public sealed class MemoryService : IDisposable
         _watcher.Error += OnOverflow;
         _watcher.EnableRaisingEvents = true;
 
-        _rulesWatcher = new FileSystemWatcher(options.TacitHome, "rules.md");
-        _rulesWatcher.Changed += OnRulesChange;
-        _rulesWatcher.Created += OnRulesChange;
-        _rulesWatcher.Deleted += OnRulesChange;
-        _rulesWatcher.Renamed += OnRulesChange;
-        _rulesWatcher.EnableRaisingEvents = true;
+        WatchPrompts();
     }
 
     public TacitConfig Config { get; }
@@ -97,7 +93,7 @@ public sealed class MemoryService : IDisposable
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
     /// <summary>
-    /// The server instructions, generated on first use and kept until <c>rules.md</c> or the project list may have
+    /// The server instructions, generated on first use and kept until a prompt document or the project list may have
     /// changed, or the status (unavailable models, skipped files) differs from when they were generated.
     /// </summary>
     public string ServerInstructions
@@ -112,9 +108,9 @@ public sealed class MemoryService : IDisposable
                 if (_instructions is null || _instructionsStatus != status)
                 {
                     var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
-                    _instructions = ServerInstructionText.Build(
-                        Config.Language, _rules, unavailable, skipped, recent,
-                        ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels));
+                    _instructions = ServerInstructionText.Assemble(
+                        Config.Language, _prompts, unavailable, skipped, recent,
+                        ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels)).Text;
                     _instructionsStatus = status;
                 }
 
@@ -125,8 +121,6 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>The text of the <c>remember</c> prompt for the given focus, built from the current activities and mainline.</summary>
     public string RememberPrompt(string? focus = null) => RememberText.Render(_options, Config, focus);
-
-    private string RulesPath => Path.Combine(_options.TacitHome, "rules.md");
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
     public string ListeningMessage(Uri endpoint) => Messages.ServiceListening.Format(Config.Language, endpoint);
@@ -222,11 +216,11 @@ public sealed class MemoryService : IDisposable
     {
         _disposed = true;
         _watcher.Dispose();
-        _rulesWatcher.Dispose();
         lock (_renderGate)
         {
+            _promptsWatcher?.Dispose();
             _renderTimer.Dispose();
-            _rulesTimer.Dispose();
+            _promptsTimer.Dispose();
         }
         lock (_indexTimerGate)
             _indexTimer.Dispose();
@@ -269,17 +263,43 @@ public sealed class MemoryService : IDisposable
             _instructions = null;
     }
 
-    private void OnRulesChange(object sender, FileSystemEventArgs e)
+    private void OnPromptsChange(object sender, FileSystemEventArgs e) => SchedulePromptsReload();
+
+    /// <summary>Events were lost, or the watcher failed: reload, which also arms the watcher again.</summary>
+    private void OnPromptsError(object sender, ErrorEventArgs e) => SchedulePromptsReload();
+
+    private void SchedulePromptsReload()
     {
         lock (_renderGate)
         {
             if (!_disposed)
-                _rulesTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+                _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
         }
     }
 
-    /// <summary>Runs on the timer thread. Rules that fail their checks are reported and the previous ones kept.</summary>
-    private void ReloadRules()
+    /// <summary>
+    /// Watches <c>prompts/</c>, creating the folder when it is gone. Each reload arms a new watcher before it reads the
+    /// files, so a change made while reading is seen by the next reload.
+    /// </summary>
+    private void WatchPrompts()
+    {
+        var folder = PromptFiles.Folder(_options.TacitHome);
+        Directory.CreateDirectory(folder);
+        _promptsWatcher?.Dispose();
+        _promptsWatcher = new FileSystemWatcher(folder);
+        _promptsWatcher.Changed += OnPromptsChange;
+        _promptsWatcher.Created += OnPromptsChange;
+        _promptsWatcher.Deleted += OnPromptsChange;
+        _promptsWatcher.Renamed += OnPromptsChange;
+        _promptsWatcher.Error += OnPromptsError;
+        _promptsWatcher.EnableRaisingEvents = true;
+    }
+
+    /// <summary>
+    /// Runs on the timer thread. Each prompt document that fails its checks is reported and keeps its previous text; the
+    /// others take their new text.
+    /// </summary>
+    private void ReloadPrompts()
     {
         lock (_renderGate)
         {
@@ -287,22 +307,30 @@ public sealed class MemoryService : IDisposable
                 return;
             try
             {
-                var rules = RulesFile.Load(_options.TacitHome, Config.Language);
-                ServerInstructionText.Check(Config.Language, rules, RulesPath);
+                WatchPrompts();
+                var problems = new List<string>();
+                var prompts = PromptFiles.Reload(_options.TacitHome, Config.Language, _prompts, problems);
+                foreach (var problem in problems)
+                    _notice(Messages.PromptsNotApplied.Format(Config.Language, problem));
+                MemorySkill.Write(_options.TacitHome, prompts.Skill);
+                var residentChanged = prompts.Resident != _prompts.Resident;
                 lock (_instructionsGate)
                 {
-                    _rules = rules;
+                    _prompts = prompts;
                     _instructions = null;
                 }
+                // The resident blocks show resident.md: render them with the new text, as a persona change does.
+                if (residentChanged)
+                    _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException or ArgumentException)
             {
-                // The editor still holds the file; try again once it settles.
-                _rulesTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+                // The editor still holds a file, or the folder is busy; try again once it settles.
+                _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
             catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
             {
-                _notice(Messages.RulesNotApplied.Format(Config.Language, e.Message));
+                _notice(Messages.PromptsNotApplied.Format(Config.Language, e.Message));
             }
         }
     }
@@ -325,7 +353,7 @@ public sealed class MemoryService : IDisposable
                 return;
             try
             {
-                foreach (var result in Binder.RenderAll(_options, Config))
+                foreach (var result in Binder.RenderAll(_options, Config, _prompts))
                     _notice(result.Message);
             }
             catch (IOException)

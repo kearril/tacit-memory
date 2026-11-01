@@ -1,10 +1,11 @@
 using System.Text;
+using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using YamlDotNet.RepresentationModel;
 
 namespace TacitMemory.Core.Configuration;
 
-/// <summary>Loads <c>config.yaml</c> (schema and defaults as documented) and <c>rules.md</c> from <c>TACIT_HOME</c>.</summary>
+/// <summary>Loads <c>config.yaml</c> (schema and defaults as documented) and the prompt documents from <c>TACIT_HOME</c>.</summary>
 internal static class ConfigLoader
 {
     public static TacitConfig Load(TacitOptions options)
@@ -54,6 +55,9 @@ internal static class ConfigLoader
         if (!Directory.Exists(Path.Combine(memoryPath, ".git")) && !File.Exists(Path.Combine(memoryPath, ".git")))
             throw new TacitException(TacitError.NotInitialized, Messages.NotInitializedMemory.Format(language, memoryPath));
 
+        var prompts = PromptFiles.Load(options.TacitHome, language);
+        ServerInstructionText.Check(language, prompts, options.TacitHome);
+
         return new TacitConfig
         {
             Port = port,
@@ -66,8 +70,21 @@ internal static class ConfigLoader
             Decision = decision,
             Retrieval = retrieval,
             Backup = backup,
-            Rules = RulesFile.Load(options.TacitHome, language),
+            Prompts = prompts,
         };
+    }
+
+    /// <summary>The memory language for messages: the config's language, or the system UI language when the config does not load.</summary>
+    public static MemoryLanguage LanguageOf(TacitOptions options)
+    {
+        try
+        {
+            return Load(options).Language;
+        }
+        catch (TacitException)
+        {
+            return LanguageCodes.FromUiCulture(options.UiCulture);
+        }
     }
 
     private static YamlMappingNode Parse(string path, MemoryLanguage language)

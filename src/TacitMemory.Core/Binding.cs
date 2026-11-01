@@ -3,7 +3,7 @@ namespace TacitMemory.Core;
 /// <summary>A client TacitMemory can bind to.</summary>
 public enum ClientKind
 {
-    /// <summary>omp, default profile: <c>~/.omp/agent/AGENTS.md</c> and <c>~/.omp/agent/mcp.json</c>.</summary>
+    /// <summary>omp, default profile: <c>~/.omp/agent/AGENTS.md</c>, <c>~/.omp/agent/mcp.json</c> and the skill link <c>~/.omp/agent/skills/tacit-memory</c>.</summary>
     Omp,
 }
 

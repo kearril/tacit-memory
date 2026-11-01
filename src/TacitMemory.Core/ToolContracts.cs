@@ -127,3 +127,12 @@ public sealed record WritePersonaRequest
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }
 }
+
+/// <summary>A memory tool as the MCP server describes it to clients.</summary>
+/// <param name="Name">The tool's name.</param>
+/// <param name="Description">What the tool is for, as clients receive it.</param>
+/// <param name="Parameters">The tool's parameters in order; the cancellation token is not one of them.</param>
+public sealed record ToolDescription(string Name, string Description, IReadOnlyList<ParameterDescription> Parameters);
+
+/// <summary>One parameter of a memory tool: its name, its type and what it is for.</summary>
+public sealed record ParameterDescription(string Name, string Type, string Description);

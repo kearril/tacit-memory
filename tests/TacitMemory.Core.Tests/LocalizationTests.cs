@@ -42,7 +42,7 @@ public sealed partial class LocalizationTests
 
         string[] files =
         [
-            Path.Combine(home.TacitHome, "rules.md"),
+            Path.Combine(home.TacitHome, "prompts", "rules.md"),
             .. new[] { "persona.md", "candidates.md", "recent.md" }.Select(name => Path.Combine(result.MemoryPath, name)),
         ];
         var headings = files.SelectMany(File.ReadLines).Where(line => line.StartsWith('#')).ToList();

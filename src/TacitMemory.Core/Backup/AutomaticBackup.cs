@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Localization;
 
@@ -10,13 +11,13 @@ namespace TacitMemory.Core.Backup;
 
 /// <summary>
 /// The daily automatic backup. After a successful write, if <c>TACIT_HOME/backups/</c> holds no automatic backup for
-/// today, it zips the memory repository (with <c>.git</c>, without <c>.cache</c>), the config files and a manifest,
+/// today, it zips the memory repository (with <c>.git</c>, without <c>.cache</c>), the config files, the prompt documents and a manifest,
 /// then keeps only the newest <c>backup.keep</c> automatic backups. It runs in the background, outside the write
 /// queue; a failure only tells the user, and never changes the write that triggered it.
 /// </summary>
 internal sealed partial class AutomaticBackup(TacitOptions options, TacitConfig config, Action<string> notice)
 {
-    private static readonly string[] ConfigFiles = ["config.yaml", "rules.md", "bindings.json"];
+    private static readonly string[] ConfigFiles = ["config.yaml", "bindings.json"];
 
     private static readonly JsonSerializerOptions ManifestJson = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -82,6 +83,15 @@ internal sealed partial class AutomaticBackup(TacitOptions options, TacitConfig 
                         continue;
                     AddFile(zip, path, name);
                     entries.Add(name);
+                }
+                var prompts = PromptFiles.Folder(options.TacitHome);
+                if (Directory.Exists(prompts))
+                {
+                    foreach (var relative in MemoryFiles(prompts, ""))
+                    {
+                        AddFile(zip, Path.Combine(prompts, relative), "prompts/" + relative);
+                        entries.Add("prompts/" + relative);
+                    }
                 }
 
                 var manifest = new Manifest(options.Time.GetUtcNow(), TacitVersion(), head, entries);

@@ -57,7 +57,7 @@ public sealed class BackupTests : IDisposable
         Assert.Contains("memory/.git/HEAD", names);
         Assert.Contains("memory/pages/tacit-memory/db-upgrade.md", names);
         Assert.Contains("config.yaml", names);
-        Assert.Contains("rules.md", names);
+        Assert.Contains("prompts/rules.md", names);
         Assert.Contains("manifest.json", names);
         Assert.DoesNotContain(names, name => name.StartsWith("memory/.cache/", StringComparison.Ordinal));
 

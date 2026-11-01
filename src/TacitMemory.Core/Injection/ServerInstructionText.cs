@@ -1,12 +1,34 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Skills;
 
 namespace TacitMemory.Core.Injection;
 
+/// <summary>The fixed parts of the server instructions, in the order they are sent.</summary>
+internal enum InstructionPart
+{
+    Opening,
+    CoreRules,
+    GeneralRules,
+    Language,
+    RecordingCriteria,
+}
+
+/// <summary>One fixed part of the server instructions and the text the agent receives for it.</summary>
+internal sealed record InstructionText(InstructionPart Part, string Text);
+
 /// <summary>
-/// The server instructions, assembled from parts. Fixed parts (opening, memory rules, language norms, recording
-/// criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part is short and always whole. The
+/// The server instructions as parts: the fixed parts, the recent summary with the project list, and the whole text the
+/// agent receives.
+/// </summary>
+internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Text);
+
+/// <summary>
+/// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
+/// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part is short and always whole. The
 /// recent summary and the project list are cut to fit <see cref="TotalLimit"/>: the oldest activities go first, then
 /// project names from the end, and the list vanishes when none fits.
 /// </summary>
@@ -24,6 +46,7 @@ internal static class ServerInstructionText
         ## Using memory
         - Keep what you know from memory apart from what you infer from the persona; never present a guess as something you remember.
         - Do not bring up past events the user has not mentioned.
+        - When the user describes their situation, mention recent context in half a sentence.
         """;
 
     private const string Recalling = """
@@ -36,63 +59,106 @@ internal static class ServerInstructionText
     private const string Writing = """
         ## Writing pages
         - When something worth recording happens, `recall` it first; if a page already covers the matter, update that page instead of creating one.
-        - One page per matter. Write the date and, where the wording matters, the user's own words.
-        - When `write_page` refuses, do what its "Next step" says.
+        - One page per matter.
         """;
 
     private const string WritingRecent = """
         ## Writing activities and mainline
         - Write an activity when a main matter concludes; one per session, and later progress uses `replaces`.
-        - Describe what the person is doing or concluded, not files changed; set `project` for a project.
         - Change the mainline only for a lasting new direction or a clearly ended one.
-        - When the user describes their situation, mention recent context in half a sentence.
         """;
 
     private const string WritingPersona = """
         ## Writing persona
         - Propose a habit, preference or working rule the user states, even in passing, with write_persona op=propose and its section; it becomes a candidate.
+        <!-- Permission boundary, do not remove: the next two rules -->
         - Use op=add only when the user explicitly asks you to remember; only the user sets a red line.
         - If the user's words contradict a persona entry, follow them, propose nothing, ask whether to update it, and op=replace only after the user agrees.
         """;
 
-    /// <summary>The fixed parts, which every session gets in full.</summary>
-    public static string Fixed(MemoryLanguage language, RecordingCriteria criteria) => Join(
+    /// <summary>
+    /// The built-in <c>instructions.md</c>: the policy paragraphs, used whenever the user has no such file. Its HTML
+    /// comments are notes for whoever edits it; they are removed before the text is sent.
+    /// </summary>
+    public static readonly string DefaultInstructions = Join([UsingMemory, Recalling, Writing, WritingRecent, WritingPersona]);
+
+    /// <summary>
+    /// The general rules, which the code provides so they stay in place when the user replaces the core rules. They
+    /// point at the memory skill, where each kind of memory is written.
+    /// </summary>
+    private static readonly string GeneralRules = $"""
+        ## General rules
+        - When a write tool refuses, do what its Next step says.
+        - How to write each kind of memory in detail is in the `{MemorySkill.Name}` skill.
+        """;
+
+    /// <summary>
+    /// Matches an HTML comment that fills its lines: one line, or a block from the line it opens on to the first
+    /// <c>--&gt;</c>, with the line break after it. A comment that shares its line with text is not matched.
+    /// </summary>
+    private static readonly Regex CommentLines = new(@"(?m)^[ \t]*<!--(?:(?!-->)[\s\S])*-->[ \t]*(?:\n|\z)");
+
+    /// <summary>
+    /// The fixed parts in the order the instructions give them, with the text each sends. An empty part is kept, so the
+    /// parts stay the same for every configuration.
+    /// </summary>
+    public static IReadOnlyList<InstructionText> FixedParts(MemoryLanguage language, PromptDocuments prompts) =>
     [
-        Opening,
-        UsingMemory,
-        Recalling,
-        Writing,
-        WritingRecent,
-        WritingPersona,
-        $"""
+        Part(InstructionPart.Opening, Opening),
+        Part(InstructionPart.CoreRules, CoreRules(prompts)),
+        Part(InstructionPart.GeneralRules, GeneralRules),
+        Part(InstructionPart.Language, $"""
         ## Language
         Memory is written in {LanguageName(language)}. Write `recall` queries in {LanguageName(language)} too. When you quote or record memory, keep the user's words, code, paths, commands and proper nouns as they are.
-        """,
-        Criteria(criteria),
-    ]);
+        """),
+        Part(InstructionPart.RecordingCriteria, Criteria(prompts.Rules)),
+    ];
 
-    /// <summary>Refuses criteria that would push the fixed parts past <see cref="FixedLimit"/>.</summary>
-    public static void Check(MemoryLanguage language, RecordingCriteria criteria, string rulesPath)
+    /// <summary>The fixed parts joined: the text every session gets in full.</summary>
+    private static string FixedText(MemoryLanguage language, PromptDocuments prompts) =>
+        Join(FixedParts(language, prompts).Select(part => part.Text));
+
+    private static InstructionText Part(InstructionPart part, string text) => new(part, text.ReplaceLineEndings("\n").Trim());
+
+    /// <summary>The core rules as they are sent: the user's <c>instructions.md</c> or the default, without the comments that fill their lines.</summary>
+    private static string CoreRules(PromptDocuments prompts)
     {
-        var length = Fixed(language, criteria).Length;
-        if (length > FixedLimit)
-            throw new TacitException(TacitError.RulesInvalid, Messages.InstructionsTooLong.Format(
-                language, rulesPath, length, FixedLimit, length - FixedLimit));
+        var text = (prompts.Instructions ?? DefaultInstructions).ReplaceLineEndings("\n");
+        return CommentLines.Replace(text, "");
     }
 
+    /// <summary>
+    /// Refuses prompt documents that push the fixed parts past <see cref="FixedLimit"/>. The message names the files
+    /// the user can shorten: <c>rules.md</c>, and <c>instructions.md</c> when it exists.
+    /// </summary>
+    public static void Check(MemoryLanguage language, PromptDocuments prompts, string tacitHome)
+    {
+        var length = FixedText(language, prompts).Length;
+        if (length > FixedLimit)
+        {
+            var files = new List<string> { PromptFiles.RulesPath(tacitHome) };
+            if (prompts.Instructions is not null)
+                files.Add(PromptFiles.InstructionsPath(tacitHome));
+            throw new TacitException(TacitError.PromptInvalid, Messages.InstructionsTooLong.Format(
+                language, string.Join(", ", files), length, FixedLimit, length - FixedLimit));
+        }
+    }
+
+    /// <summary>The server instructions as parts: the fixed parts, the recent summary with its projects, and the whole text.</summary>
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
     /// <param name="skippedFiles">Pages, activity record files and persona files left out of the index because they are not UTF-8.</param>
     /// <param name="recent">The mainline and the last seven days of activities.</param>
     /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
-    public static string Build(
+    public static InstructionSet Assemble(
         MemoryLanguage language,
-        RecordingCriteria criteria,
+        PromptDocuments prompts,
         IReadOnlyList<string> unavailableModels,
         IReadOnlyList<string> skippedFiles,
         RecentSummary recent,
         IReadOnlyList<string> projects)
     {
-        var fixedText = Fixed(language, criteria);
+        var fixedParts = FixedParts(language, prompts);
+        var fixedText = Join(fixedParts.Select(part => part.Text));
         var status = new List<string>();
         if (unavailableModels.Count > 0)
             status.Add($"- Unavailable auxiliary models: {string.Join(", ", unavailableModels)}. Memory tools still work, with weaker search and checks.");
@@ -105,20 +171,16 @@ internal static class ServerInstructionText
         var kept = projects.ToList();
         while (true)
         {
-            var text = Join([
-                fixedText,
-                Summary(recent.Mainline, activities),
-                statusText,
-                kept.Count == 0 ? "" : "## Projects\n" + string.Join(", ", kept),
-            ]);
-            if (text.Length <= TotalLimit)
-                return text;
+            var summary = Summary(recent.Mainline, activities);
+            var projectList = kept.Count == 0 ? "" : "## Projects\n" + string.Join(", ", kept);
+            var text = Join([fixedText, summary, statusText, projectList]);
+            var recentText = Join([summary, projectList]);
+            if (text.Length <= TotalLimit || (activities.Count == 0 && kept.Count == 0))
+                return new InstructionSet(fixedParts, fixedText, recentText, text);
             if (activities.Count > 0)
                 activities.RemoveAt(activities.Count - 1);
-            else if (kept.Count > 0)
-                kept.RemoveAt(kept.Count - 1);
             else
-                return text;
+                kept.RemoveAt(kept.Count - 1);
         }
     }
 

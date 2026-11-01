@@ -15,7 +15,7 @@ internal static class Initializer
     public static async Task<InitResult> RunAsync(TacitOptions options, InitRequest request, CancellationToken cancellationToken)
     {
         var configPath = Path.Combine(options.TacitHome, "config.yaml");
-        var rulesPath = Path.Combine(options.TacitHome, "rules.md");
+        var rulesPath = PromptFiles.RulesPath(options.TacitHome);
         var config = ExistingConfig.Read(configPath, options.UserHome);
         var requestedMemory = request.MemoryPath is null ? null : Path.GetFullPath(request.MemoryPath);
 

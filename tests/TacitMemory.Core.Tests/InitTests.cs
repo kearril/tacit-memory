@@ -14,7 +14,7 @@ public sealed class InitTests : IDisposable
         Assert.True(result.RepositoryCreated);
         Assert.Equal(_home.DefaultMemory, result.MemoryPath);
         Assert.True(File.Exists(Path.Combine(_home.TacitHome, "config.yaml")));
-        Assert.StartsWith("## 值得记\n", File.ReadAllText(Path.Combine(_home.TacitHome, "rules.md")));
+        Assert.StartsWith("## 值得记\n", File.ReadAllText(Path.Combine(_home.TacitHome, "prompts", "rules.md")));
 
         var memory = _home.DefaultMemory;
         Assert.Equal(".cache/\n", File.ReadAllText(Path.Combine(memory, ".gitignore")));
@@ -113,7 +113,7 @@ public sealed class InitTests : IDisposable
     {
         var result = await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
 
-        Assert.StartsWith("## Worth recording\n", File.ReadAllText(Path.Combine(_home.TacitHome, "rules.md")));
+        Assert.StartsWith("## Worth recording\n", File.ReadAllText(Path.Combine(_home.TacitHome, "prompts", "rules.md")));
         Assert.Equal("## Candidates\n\n## Rejection list\n", File.ReadAllText(Path.Combine(result.MemoryPath, "candidates.md")));
         Assert.StartsWith("# TacitMemory configuration.", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
         Assert.StartsWith("Created the memory repository: ", result.Report);

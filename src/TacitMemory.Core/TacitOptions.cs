@@ -5,7 +5,7 @@ namespace TacitMemory.Core;
 /// <summary>Where TacitMemory keeps its files and which machine settings it reads.</summary>
 public sealed record TacitOptions
 {
-    /// <summary>The TacitMemory home directory: <c>config.yaml</c>, <c>rules.md</c>, <c>bindings.json</c>.</summary>
+    /// <summary>The TacitMemory home directory: <c>config.yaml</c>, <c>prompts/</c>, <c>bindings.json</c>.</summary>
     public required string TacitHome { get; init; }
 
     /// <summary>The user's home directory; client files and <c>~</c> in configured paths resolve against it.</summary>

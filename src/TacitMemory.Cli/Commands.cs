@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using TacitMemory.Core;
 using TacitMemory.Mcp;
+using TacitMemory.Core.Show;
 
 namespace TacitMemory.Cli;
 
@@ -76,6 +77,19 @@ internal sealed class Commands
     [Command("disconnect")]
     public int Disconnect(ClientKind client) => Run(() => _tacit.Disconnect(client).Report);
 
+    /// <summary>Show what the agent receives: the server instructions, the resident block, the memory skill, the tool descriptions or the remember prompt, each with its source. Needs no running service.</summary>
+    /// <param name="target">instructions, resident, skill, tools or remember.</param>
+    /// <param name="default">Print the built-in text alone, ready to save as the file that replaces it (instructions, resident) or the skill's system part (skill).</param>
+    [Command("show")]
+    public int Show([Argument] ShowWhat target, bool @default = false) => Run(() => target switch
+    {
+        ShowWhat.Tools => _tacit.ShowTools(ToolCatalog.Describe(), @default).Report,
+        ShowWhat.Instructions => _tacit.Show(ShowTarget.Instructions, @default).Report,
+        ShowWhat.Resident => _tacit.Show(ShowTarget.Resident, @default).Report,
+        ShowWhat.Skill => _tacit.Show(ShowTarget.Skill, @default).Report,
+        _ => _tacit.Show(ShowTarget.Remember, @default).Report,
+    });
+
     private static int Run(Func<string> operation)
     {
         try
@@ -97,4 +111,14 @@ internal sealed class Commands
         Console.Error.WriteLine(e.Message);
         return 1;
     }
+}
+
+/// <summary>The targets of <c>tacit show</c>.</summary>
+internal enum ShowWhat
+{
+    Instructions,
+    Resident,
+    Skill,
+    Tools,
+    Remember,
 }

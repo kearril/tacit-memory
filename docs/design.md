@@ -240,7 +240,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ### 值得记标准
 
-`rules.md` 分"值得记"与"不记"两节，各最多 10 条，原样写入记忆规则。初始化时生成默认模板；文件被删除后，下次加载配置时（启动服务、绑定、解绑）按记忆语言重新生成。
+`prompts/rules.md` 分"值得记"与"不记"两节，各最多 10 条，原样写入服务端说明。初始化时生成默认模板；文件被删除后，下次加载配置时（启动服务、绑定、解绑）按记忆语言重新生成。旧位置 `TACIT_HOME/rules.md` 不再读取。
 
 默认值得记：用户纠正或打断 Agent；方案拍板（保留用户原话）；查明根因的排错（含试过但无效的做法）；新的环境事实；用户明确要求记下。默认不记：常规的写代码、改错字、看日志；能从代码、仓库文档、配置中查到的内容。
 
@@ -319,24 +319,25 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 | 通道 | 内容 | 何时更新 |
 | :--- | :--- | :--- |
-| 常驻区块 | 画像 | 服务启动时；绑定时；画像变化时 |
-| 服务端说明 | 记忆规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示 | 所依据的记忆、`rules.md` 或状态变化后重新生成，客户端连接时下发 |
+| 常驻区块 | 画像 | 服务启动时；绑定时；画像变化时；`prompts/resident.md` 变化时 |
+| 服务端说明 | 核心规则、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示 | 所依据的记忆、`prompts/` 下的提示词文档或状态变化后重新生成，客户端连接时下发 |
 
 两者都在下一次会话生效，正在进行的会话不会重新加载。
 
 ### 常驻区块
 
 - 由 `<!-- tacit:begin … -->` 与 `<!-- tacit:end -->` 界定，内部以 `<user_memory>` 包裹；起止标记不完整或不唯一时拒绝改写；结果未变不写文件；区块外的内容从不改动。
-- 外壳说明与四节引导语的内容与职责见 `docs/prompts.md` 第 3 节。
+- 外壳两段与四节引导语来自 `prompts/resident.md`，整份替换内置默认；文件缺失时用内置默认（即现有文字）。起止标记、`<user_memory>` 标签、节标题与画像条目仍由服务生成。格式与校验见 `docs/prompts.md` 第 3 节。
+- `resident.md` 或 `persona.md` 变化后，去抖重渲染所有已绑定文件中的常驻区块；渲染彼此串行，失败只提示。连接时使用当前的 `resident.md`。
 - 渲染时去掉来源注释；节标题使用英文，条目保持记忆语言。
 - 每次渲染都重新读取 `bindings.json`，因此运行中的服务能感知新的绑定；`connect` 在绑定时立即渲染一次。
 
 ### 服务端说明
 
-- 总长不超过 4000 字符。开场、记忆规则、语言规范与值得记标准是固定部分，合计超过 2500 字符时拒绝启动并报告超出的字符数；运行中保存的 `rules.md` 超限时提示并沿用之前的标准。生成时若总长超限，依次截断近期摘要中最早的活动，再从末尾起截断已有项目列表；固定部分与状态提示不截断。
+- 总长不超过 4000 字符。开场、核心规则（`prompts/instructions.md`，缺失时为内置默认；其中独占一行的 HTML 注释不下发，与文字同行的注释原样下发）、通用规则（代码提供，始终在核心规则之后）、语言规范与值得记标准是固定部分，合计超过 2500 字符时拒绝启动，报告超出的字符数并列出可精简的文件。运行中保存时逐个文件检查：某文件出错则只它沿用上一版，并提示；`prompts/rules.md` 与 `prompts/instructions.md` 合计超限时两者都沿用上一版。生成时若总长超限，依次截断近期摘要中最早的活动，再从末尾起截断已有项目列表；固定部分与状态提示不截断。
 - 记忆规则各条的内容与职责见 `docs/prompts.md` 第 4 节。
 - 语言规范：记忆内容与检索语句使用记忆语言；用户原话、代码、路径、命令与专有名词保持原样。
-- 值得记标准：`rules.md` 两节的条目原样写入；修改 `rules.md` 后，下一个会话生效。
+- 值得记标准：`prompts/rules.md` 两节的条目原样写入；修改 `prompts/rules.md` 后，下一个会话生效。
 - 状态提示：列出最近一次调用失败的辅助模型（缺少密钥的决策模型从启动起即列出）与因不是 UTF-8 而被跳过的页面文件、活动记录文件、画像与候选文件；无问题时省略。服务不为探测而调用模型。
 - 近期摘要：近期主线 + 活动记录中最近 7 天的条目（超过 7 条取最新 7 条，新的在前），每条前补日期与项目标签；摘要中不附短码，主线也不带版本码。
 - 已有项目：`pages/` 下不以 `_` 或 `.` 开头的目录，与所有活动记录中出现过的项目标签取并集，去重后按名称排序。
@@ -403,35 +404,46 @@ related: [my-app/backup-script, _topics/pgroonga]
 | 读者 | 内容 | 语言 |
 | :--- | :--- | :--- |
 | 只给 Agent 看 | 工具与参数说明、服务端说明、记忆指令、工具返回与报错、体检报告、常驻区块外壳、发给决策模型的问题 | 固定英文 |
-| 人要看或要改 | 记忆仓库的结构词、`config.yaml` 与 `rules.md` 模板、CLI 输出 | 随配置 `language` |
+| 人要看或要改 | 记忆仓库的结构词、`config.yaml` 与 `prompts/rules.md` 模板、CLI 输出 | 随配置 `language` |
 | 记忆内容 | 画像条目、细节页、活动记录、近期主线 | 按语言规范使用记忆语言 |
 
 `language` 取 `zh` 或 `en`，缺省时系统界面语言为中文则取 `zh`，否则取 `en`。Agent 与用户交谈所用语言由画像决定，不由 TacitMemory 规定。
+
+用户在 `prompts/` 下写的文档（`rules.md`、`instructions.md`、`resident.md`、`skill.md`）不检查语言，可用任一语言；语言规范只约束系统提供的文字。
 
 ## 12. 客户端、备份与运行
 
 ### 客户端与绑定
 
-| 绑定方式 | 常驻区块写入 | MCP 注册 |
-| :--- | :--- | :--- |
-| `--client omp` | `~/.omp/agent/AGENTS.md`（默认 profile） | 在 `~/.omp/agent/mcp.json` 中增删 `tacit` 一项，其余内容不动 |
-| `--client claude-code` | `~/.claude/CLAUDE.md` | 调用 `claude mcp add --scope user`；找不到 `claude` 命令时打印该命令 |
-| `--file <路径>` | 指定文件 | 不注册 |
+| 绑定方式 | 常驻区块写入 | MCP 注册 | skill 链接 |
+| :--- | :--- | :--- | :--- |
+| `--client omp` | `~/.omp/agent/AGENTS.md`（默认 profile） | 在 `~/.omp/agent/mcp.json` 中增删 `tacit` 一项，其余内容不动 | `~/.omp/agent/skills/tacit-memory` 指向 `TACIT_HOME/skills/tacit-memory` |
+| `--client claude-code` | `~/.claude/CLAUDE.md` | 调用 `claude mcp add --scope user`；找不到 `claude` 命令时打印该命令 | 计划中 |
+| `--file <路径>` | 指定文件 | 不注册 | 不建立 |
 
 各客户端渲染出的常驻区块完全相同。绑定记录存于 `TACIT_HOME/bindings.json`。绑定的文件被删除，或区块的起止标记不完整、重复时，跳过该文件并提示，不自行恢复；连同起止标记整段删掉区块时，下次渲染重新追加，要停止维护请解绑。
 
 改写 `mcp.json` 时保留其余服务、字段、顺序、缩进、换行风格与 BOM，`tacit` 一项中用户自加的字段也保留；文件含注释时不改写，改为给出需要手工加入的条目。上下文文件或 `mcp.json` 不存在时由绑定新建；解绑后，由绑定新建的文件若只剩空内容（`mcp.json` 只剩空的 `mcpServers`）则一并删除。不是 UTF-8 的上下文文件一律不改动。
 
+skill 链接：`connect --client omp` 先生成记忆 skill（服务未运行时也生成），再在 `~/.omp/agent/skills/` 下建立名为 `tacit-memory` 的链接，指向 `TACIT_HOME/skills/tacit-memory`。Windows 用目录联接（不需要管理员权限），其他平台用软链接。链接已指向记忆 skill 时保持不变，重复绑定安全。同名位置已有不指向记忆 skill 的目录、文件或链接，或链接无法建立（如 `TACIT_HOME` 位于网络盘）时，`connect` 拒绝并说明原因，不回退为复制。链接先于上下文文件与 `mcp.json` 建立；其后的写入（上下文文件、`mcp.json` 或 `bindings.json`）若失败，本次建立的链接一并删除。`disconnect` 只删除链接本身，不跟随链接删除目标，记忆 skill 成品保留；指向别处的同名条目不动。绑定记录（`bindings.json`）每条记有客户端、上下文文件路径、skill 链接路径，以及上下文文件与 `mcp.json` 是否由绑定新建。
+
+### 记忆 skill
+
+- 位置：`TACIT_HOME/skills/tacit-memory/SKILL.md`，由代码生成，用户不直接修改。成品由三部分组成：frontmatter（`name` 固定为 `tacit-memory`；`description` 的前 100 字符写明读取时机，即写入或修改任何记忆之前、`write_*` 被拒绝之后）、生成说明（HTML 注释，提示改 `prompts/skill.md`）与系统部分正文（英文，按检索、细节页、活动与主线、画像、拒绝处理分节）。`prompts/skill.md` 存在且非空白时，末尾接 `## User conventions` 一节。
+- `prompts/skill.md` 不能以 frontmatter 开头（名称与描述由代码提供），超过 3000 字符时拒绝启动；运行中保存出错时提示并沿用上一版。不检查语言。
+- 生成时机：服务启动时；`prompts/` 下的文件变化时；门面的 `GenerateSkill` 操作，不需要服务运行，`connect` 绑定时也调用它。内容不变时不写文件。
+- 不进入自动备份；不使用 MCP resources。系统部分正文的措辞由行为评测调整，不由自动测试固定。
+
 ### 备份与恢复
 
-- 备份为一个 zip：记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`rules.md`、`bindings.json` 与清单。默认存放于 `TACIT_HOME/backups/`。配置中含明文密钥时备份时提示。
+- 备份为一个 zip：记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/` 目录（含 `rules.md`、`instructions.md`、`resident.md` 与 `skill.md`）、`bindings.json` 与清单。默认存放于 `TACIT_HOME/backups/`。配置中含明文密钥时备份时提示。生成的记忆 skill（`skills/`）不进入备份。
 - 每天第一次写入后自动备份一次，保留最近 7 份（可配置，`0` 关闭）。
 - 配置了 `backup.remote` 时，每次自动备份后推送记忆仓库；也可手动推送。
 - 恢复由常驻服务执行：暂停写入 → 先自动备份当前状态 → 替换记忆仓库（加 `--config` 时一并覆盖配置）→ 全量重建索引并重新渲染 → 恢复写入。未加 `--yes` 时先列出备份内容等待确认。
 
 ### 配置
 
-配置目录为 `TACIT_HOME`（默认 `~/.tacit`），包含 `config.yaml`、`rules.md`、`bindings.json`、`backups/` 与 `logs/`。环境变量只用于指定 `TACIT_HOME` 与按 `apiKeyEnv` 读取密钥。
+配置目录为 `TACIT_HOME`（默认 `~/.tacit`），包含 `config.yaml`、`prompts/`（提示词文档）、`skills/`（生成的记忆 skill）、`bindings.json`、`backups/` 与 `logs/`。环境变量只用于指定 `TACIT_HOME` 与按 `apiKeyEnv` 读取密钥。
 
 ```yaml
 server:
@@ -475,12 +487,14 @@ backup: { keep: 7, remote: … }
 | `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
 | `tacit serve` | 启动常驻服务；未初始化时报错 | — |
 | `tacit connect` / `tacit disconnect` | `--client omp`、`--client claude-code` 或 `--file <路径>` | 否 |
+| `tacit show <instructions、resident、skill、tools 或 remember> [--default]` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 由 CLI 经 `TacitMemory.Mcp` 读取；`remember` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务、辅助模型、绑定、上次体检与备份、待处理问题 | 是 |
 | `tacit reindex` | 全量重建索引 | 是 |
 | `tacit backup [--to <目录>] [--push]` | 立即备份 | 是 |
 | `tacit restore <文件> [--config] [--yes]` | 从备份恢复 | 是 |
 
-- `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect`、`disconnect` 只改客户端文件与 `bindings.json`（以及按上文补写缺失的 `rules.md`）。
+- `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect`、`disconnect` 只改客户端文件、客户端 skill 目录中的链接与 `bindings.json`，并按上文补写缺失的 `rules.md` 与生成记忆 skill。
+- `show` 与 `init`、`connect` 一样直接调用门面，不读写常驻服务的状态；输出不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）。
 - 首批适配 omp 与 Claude Code：先实现并验证 omp，Claude Code 随后。
 
 ## 13. 不做的事（v1）

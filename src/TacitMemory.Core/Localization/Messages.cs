@@ -21,6 +21,9 @@ internal static class Messages
         "{0} 已将 {1} 设为 {2}，与传入的 {3} 不同。请先修改配置，或不传该选项。",
         "{0} already sets {1} to {2}, which differs from the given {3}. Edit the config first, or leave the option out.");
     public static readonly Localized GitFailed = new("git {0} 执行失败：{1}", "git {0} failed: {1}");
+    public static readonly Localized NoBuiltInText = new(
+        "{0} 没有内置默认文本，请去掉 --default。",
+        "{0} has no built-in text; leave out --default.");
 
     public static readonly Localized NotInitializedConfig = new(
         "找不到 {0}。请先执行 tacit init。",
@@ -51,11 +54,26 @@ internal static class Messages
         "{0} 中「{1}」一节有 {2} 条，上限为 {3} 条，多出 {4} 条。",
         "The \"{1}\" section of {0} has {2} items, {4} more than the limit of {3}.");
     public static readonly Localized InstructionsTooLong = new(
-        "服务端说明的固定部分（含 {0} 中的值得记标准）共 {1} 字符，上限为 {2} 字符，超出 {3} 字符。请精简 {0}。",
-        "The fixed part of the server instructions, including the recording criteria in {0}, is {1} characters, {3} more than the limit of {2}. Shorten {0}.");
-    public static readonly Localized RulesNotApplied = new(
-        "rules.md 的修改未生效，新会话仍用之前的标准：{0}",
-        "The change to rules.md was not applied; new sessions keep the previous criteria: {0}");
+        "服务端说明的固定部分共 {1} 字符，上限为 {2} 字符，超出 {3} 字符。请精简以下文件中的内容：{0}。",
+        "The fixed part of the server instructions is {1} characters, {3} over the limit of {2}. Shorten the content of: {0}.");
+    public static readonly Localized PromptsNotApplied = new(
+        "提示词文档的修改未生效，新会话仍用之前的内容：{0}",
+        "The change to the prompt documents was not applied; new sessions keep the previous ones: {0}");
+    public static readonly Localized SkillHasFrontmatter = new(
+        "{0} 不能以 frontmatter（开头的 --- 部分）起始：skill 的 name 与 description 由 TacitMemory 提供，无法修改。请删去该部分。",
+        "{0} must not start with frontmatter: TacitMemory provides the skill's name and description. Remove the leading --- block.");
+    public static readonly Localized SkillTooLong = new(
+        "{0} 共 {1} 字符，上限为 {2} 字符，超出 {3} 字符。请精简其中的内容。",
+        "{0} is {1} characters, {3} over the limit of {2}. Shorten its content.");
+    public static readonly Localized ResidentTooLong = new(
+        "{0} 共 {1} 字符，上限为 {2} 字符，超出 {3} 字符。请精简该文件。",
+        "{0} is {1} characters, {3} over the limit of {2}. Shorten it.");
+    public static readonly Localized ResidentUnknownSection = new(
+        "{0} 第 {1} 行的 \"## {2}\" 不是小节名；可用的小节为 {3}。",
+        "{0} line {1}: \"## {2}\" is not a section name; the sections are {3}.");
+    public static readonly Localized ResidentRepeatedSection = new(
+        "{0} 第 {1} 行重复了小节 \"## {2}\"。",
+        "{0} line {1}: the section \"## {2}\" appears more than once.");
 
     public static readonly Localized MarkersBroken = new(
         "{0} 中的常驻区块标记不完整或重复（第 {1} 行），未改动该文件。请手工修正标记后重试。",
@@ -79,6 +97,20 @@ internal static class Messages
         "已绑定 {0}，新会话开始生效。MCP 服务需要 tacit serve 在运行。",
         "Bound {0}; it takes effect in new sessions. The MCP server needs tacit serve running.");
     public static readonly Localized Disconnected = new("已解绑 {0}。", "Unbound {0}.");
+    public static readonly Localized SkillWritten = new("已写入记忆 skill：{0}", "Wrote the memory skill: {0}");
+    public static readonly Localized SkillUnchanged = new("记忆 skill 已是最新：{0}", "The memory skill is up to date: {0}");
+    public static readonly Localized SkillLinked = new("已建立 skill 链接：{0}", "Created the skill link: {0}");
+    public static readonly Localized SkillLinkUnchanged = new("skill 链接已指向记忆 skill：{0}", "The skill link already points to the memory skill: {0}");
+    public static readonly Localized SkillLinkRemoved = new("已删除 skill 链接：{0}", "Removed the skill link: {0}");
+    public static readonly Localized SkillLinkForeign = new(
+        "{0} 不是指向记忆 skill 的链接，未改动。",
+        "{0} is not a link to the memory skill and was left alone.");
+    public static readonly Localized SkillLinkOccupied = new(
+        "{0} 已存在且不指向记忆 skill，未改动。请先移走或改名后重试。",
+        "{0} already exists and does not point to the memory skill; nothing was changed. Move or rename it, then try again.");
+    public static readonly Localized SkillLinkFailed = new(
+        "无法建立 skill 链接 {0}（指向 {1}）：{2}。未改动其他文件。",
+        "Could not create the skill link {0} (pointing to {1}): {2}. Other files were left alone.");
     public static readonly Localized FileNotUtf8 = new(
         "{0} 不是 UTF-8 编码，未改动该文件。",
         "{0} is not UTF-8 encoded and was left alone.");

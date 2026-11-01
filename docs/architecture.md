@@ -17,7 +17,7 @@ flowchart LR
         Mcp[TacitMemory.Mcp<br>McpHost]
         Admin[管理 API]
     end
-    Cli -->|init / connect / disconnect / serve| Facade
+    Cli -->|init / connect / disconnect / show / serve| Facade
     Mcp --> Service
     Admin -.-> Facade
     subgraph Core["TacitMemory.Core"]
@@ -52,15 +52,15 @@ flowchart LR
 | :--- | :--- | :--- |
 | `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService` 与契约类型，其余为 `internal` | 无内部依赖 |
 | `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp`，把门面操作映射为 MCP 工具、prompt 与服务端说明，不含业务规则 | `Core` |
-| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）：`init`、`connect`、`disconnect` 直接调用门面；`serve` 打开 `MemoryService` 并启动 `McpHost`；运维命令经管理 API 调用服务（计划） | `Core`、`Mcp` |
+| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）：`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 经 `TacitMemory.Mcp` 读取工具定义，交给门面 `ShowTools` 标注输出；`serve` 打开 `MemoryService` 并启动 `McpHost`；运维命令经管理 API 调用服务（计划） | `Core`、`Mcp` |
 
 ## 3. Core 内部模块
 
 | 模块 | 职责 | 状态 |
 | :--- | :--- | :--- |
 | 门面 | 对外的唯一入口 `Tacit`；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听 | 部分（缺体检与运维操作） |
-| 初始化 | 生成 `config.yaml` 与 `rules.md` 模板，创建记忆仓库骨架 | 已实现 |
-| 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；读取 `rules.md`，缺失时按记忆语言重新生成 | 已实现 |
+| 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
+| 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；读取 `prompts/` 下的提示词文档：`rules.md` 缺失时按记忆语言重新生成，`instructions.md` 存在时替换内置核心规则，`resident.md` 校验四节小节与 1500 字符上限，`skill.md` 校验 frontmatter 与长度；校验服务端说明的固定部分长度 | 已实现 |
 | 串行写入 | 所有写入排入单一队列；每次写入：校验 → 凭据检测 → 判断 → 改文件 → 同步索引 → Git 提交 → 必要时重渲染常驻区块、自动备份 | 已实现 |
 | 近期活动 | 写入活动（`add_activity`、`replaces`）与近期主线（`update_mainline`）：按日定位标题并保留其余字节、计算活动短码与版本短码；写入后的回复附主线与近期活动 | 已实现 |
 | 画像写入 | `write_persona` 的四个操作：参数按 `op` 校验，经校验与判断（画像冲突、同一偏好）后按行修改画像或候选文件，经串行队列写入并提交；画像变化时重渲染常驻区块。行为见 `docs/design.md` 第 6 节 | 已实现 |
@@ -69,12 +69,12 @@ flowchart LR
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
 | 决策模型接口 | 与模型无关的三种题型（选择、打分、真伪）；TypeSafe Jev 适配器，密钥取自 `apiKey` 或 `apiKeyEnv` | 已实现 |
 | 辅助模型客户端 | 以 `HttpClient` 调用三个模型；记录每个模型是否可用，失败后 30 秒内不再调用，避免每次请求都等一次超时 | 已实现 |
-| 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、记忆规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示），执行长度上限与截断顺序 | 部分（缺体检提示） |
-| 客户端适配 | 定位上下文文件、注册与注销 MCP、`bindings.json` 读写 | 部分（缺 Claude Code 与 `--file`） |
+| 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示），执行长度上限与截断顺序；生成记忆 skill（`skills/tacit-memory/SKILL.md`，`skill.md` 接在末尾，内容不变不写） | 部分（缺体检提示） |
+| 客户端适配 | 定位上下文文件、注册与注销 MCP、建与删 skill 链接（`Clients/SkillLink`：Windows 用目录联接，其他平台用软链接；删除时只删链接本身）、`bindings.json` 读写 | 部分（缺 Claude Code 与 `--file`） |
 | 体检报告 | 现场计算体检报告各项 | 计划 |
 | 备份与恢复 | zip 打包与解包、保留份数、远端推送；恢复时暂停写入队列 | 部分（缺手动备份、恢复与远端推送） |
 | Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间、推送 | 部分（缺推送） |
-| 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME` 下的 `rules.md`，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理 | 已实现 |
+| 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，出错的沿用上一版；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理 | 已实现 |
 | 本地化 | 面向人的短文本与结构词：每一项以 `Localized(Zh, En)` 一并定义，缺一种写法即无法编译；面向 Agent 的英文文本只有一份 | 已实现 |
 
 ## 4. 数据流
@@ -99,8 +99,10 @@ flowchart LR
 
 ### 注入（部分：缺体检提示）
 
-- `MemoryService` 生成服务端说明后缓存。项目目录变化、`recent.md` 或 `recent/` 下的文件变化、`rules.md` 重新载入或本服务写入活动后，缓存失效；每次取用时比对状态（不可用的模型、被跳过的文件），不同则重新生成。无状态模式下 SDK 每个请求都要求给出服务端说明，状态相同时直接返回缓存。
-- `persona.md` 变化后（文件监听事件去抖 300 ms），注入渲染重写所有已绑定文件中的常驻区块。渲染彼此串行；失败只在控制台提示，不中断服务。
+- `MemoryService` 生成服务端说明后缓存。项目目录变化、`recent.md` 或 `recent/` 下的文件变化、`prompts/` 下的提示词文档重新载入或本服务写入活动后，缓存失效；每次取用时比对状态（不可用的模型、被跳过的文件），不同则重新生成。无状态模式下 SDK 每个请求都要求给出服务端说明，状态相同时直接返回缓存。
+- 记忆 skill：`Skills/MemorySkill` 在服务启动时与 `prompts/` 变化后生成 `TACIT_HOME/skills/tacit-memory/SKILL.md`；门面 `GenerateSkill` 不依赖运行中的服务。成品只取决于代码与 `prompts/skill.md`，不读取记忆仓库，因此记忆变化不会重写它。
+- `connect` 绑定时同样先生成记忆 skill，再建立指向它的链接；链接的建立与拒绝规则见 `docs/design.md` 第 12 节。
+- `persona.md` 或 `resident.md` 变化后（文件监听事件去抖 300 ms），注入渲染重写所有已绑定文件中的常驻区块。渲染彼此串行；失败只在控制台提示，不中断服务。
 
 ## 5. 进程与传输
 

@@ -14,9 +14,8 @@ internal static class RulesFile
 
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
-    public static RecordingCriteria Load(string tacitHome, MemoryLanguage language)
+    public static RecordingCriteria Load(string path, MemoryLanguage language)
     {
-        var path = Path.Combine(tacitHome, "rules.md");
         if (!File.Exists(path))
             File.WriteAllText(path, Templates.Rules(language), Utf8);
 
@@ -45,7 +44,7 @@ internal static class RulesFile
         void Check(List<string> items, Localized heading)
         {
             if (items.Count > MaxItemsPerSection)
-                throw new TacitException(TacitError.RulesInvalid, Messages.RulesTooMany.Format(
+                throw new TacitException(TacitError.PromptInvalid, Messages.RulesTooMany.Format(
                     language, path, heading.In(language), items.Count, MaxItemsPerSection, items.Count - MaxItemsPerSection));
         }
     }

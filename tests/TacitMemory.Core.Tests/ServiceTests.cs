@@ -15,7 +15,7 @@ public sealed class ServiceTests : IDisposable
 
     private string Pages => Path.Combine(_home.DefaultMemory, "pages");
 
-    private string RulesMd => Path.Combine(_home.TacitHome, "rules.md");
+    private string RulesMd => Path.Combine(_home.TacitHome, "prompts", "rules.md");
 
     private string ConfigYaml => Path.Combine(_home.TacitHome, "config.yaml");
 
@@ -84,7 +84,7 @@ public sealed class ServiceTests : IDisposable
 
         var error = Assert.Throws<TacitException>(() => Open());
 
-        Assert.Equal(TacitError.RulesInvalid, error.Error);
+        Assert.Equal(TacitError.PromptInvalid, error.Error);
         Assert.Contains("rules.md", error.Message);
         Assert.Matches(@"超出 \d+ 字符", error.Message);
     }
@@ -244,6 +244,45 @@ public sealed class ServiceTests : IDisposable
         await Eventually(() => _notices.Any(notice => notice.Contains("bindings.json")));
         File.Delete(Path.Combine(_home.TacitHome, "bindings.json"));
         Assert.Contains("Memory is written in Chinese.", service.ServerInstructions);
+    }
+
+    [Fact]
+    public async Task A_bad_skill_md_saved_while_running_does_not_hold_back_a_valid_rules_md()
+    {
+        using var service = Open();
+        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), new string('长', 3001));
+        File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
+
+        await Eventually(() => service.ServerInstructions.Contains("- 新加的一条", StringComparison.Ordinal));
+        await Eventually(() => _notices.Any(notice => notice.Contains("skill.md", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task Rules_md_and_instructions_md_that_exceed_the_limit_together_both_keep_their_previous_text()
+    {
+        Directory.CreateDirectory(Path.Combine(_home.TacitHome, "prompts"));
+        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n- 旧的核心规则\n");
+        using var service = Open();
+        var before = service.ServerInstructions;
+
+        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 1300) + "\n");
+        File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
+
+        await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
+        Assert.Equal(before, service.ServerInstructions);
+    }
+
+    [Fact]
+    public async Task Deleting_the_prompts_folder_while_running_recreates_it_and_keeps_watching_it()
+    {
+        using var service = Open();
+        Directory.Delete(Path.Combine(_home.TacitHome, "prompts"), recursive: true);
+
+        await Eventually(() => File.Exists(RulesMd));
+        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), "Use Chinese page titles.");
+
+        var skill = Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");
+        await Eventually(() => File.ReadAllText(skill).Contains("Use Chinese page titles.", StringComparison.Ordinal));
     }
 
     private static async Task Eventually(Func<bool> condition)

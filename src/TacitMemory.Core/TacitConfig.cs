@@ -1,6 +1,6 @@
 namespace TacitMemory.Core;
 
-/// <summary>The validated <c>config.yaml</c> together with <c>rules.md</c>.</summary>
+/// <summary>The validated <c>config.yaml</c> together with the prompt documents in <c>prompts/</c>.</summary>
 public sealed record TacitConfig
 {
     public required int Port { get; init; }
@@ -25,8 +25,8 @@ public sealed record TacitConfig
 
     public required BackupConfig Backup { get; init; }
 
-    /// <summary>The contents of <c>rules.md</c>.</summary>
-    public required RecordingCriteria Rules { get; init; }
+    /// <summary>The prompt documents in <c>prompts/</c>.</summary>
+    public required PromptDocuments Prompts { get; init; }
 }
 
 public sealed record ModelsConfig(ModelEndpoint Embedding, ModelEndpoint Reranker, DecisionModelEndpoint Decision);
@@ -58,3 +58,17 @@ public sealed record BackupConfig(int Keep, string? Remote);
 
 /// <summary>The recording criteria from <c>rules.md</c>: what is worth recording and what is not.</summary>
 public sealed record RecordingCriteria(IReadOnlyList<string> WorthRecording, IReadOnlyList<string> NotRecorded);
+
+/// <summary>
+/// The prompt documents in <c>prompts/</c>: the recording criteria from <c>rules.md</c>, the text of
+/// <c>instructions.md</c>, <c>resident.md</c> and <c>skill.md</c>. The last three are <c>null</c> when their file is absent
+/// and the built-in default applies; <c>skill.md</c> is also <c>null</c> when it is blank.
+/// </summary>
+public sealed record PromptDocuments(RecordingCriteria Rules, string? Instructions, ResidentDocument? Resident, string? Skill);
+
+/// <summary>
+/// <c>resident.md</c>: the shell paragraph of the resident block and the guidance under each of its four sections,
+/// in the file's own words. An empty <see cref="Shell"/> leaves the paragraph out; a <c>null</c> guidance leaves
+/// the guidance line out under that section.
+/// </summary>
+public sealed record ResidentDocument(string Shell, string? RedLines, string? WorkingRules, string? Preferences, string? Profile);
