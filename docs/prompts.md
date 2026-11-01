@@ -205,7 +205,7 @@
 
 - 给模型的文字一律英文（`docs/design.md` 第 11 节）。
 - 措辞不由自动测试固定：自动测试只检查结构与长度上限（`docs/testing.md`）。
-- 改动主会话看到的文字，以场景评测的前后对比为依据（`docs/testing.md` 第 4 节）。
+- 改动主会话看到的文字，以日常使用中出现的摩擦点为依据，改后在真实客户端中复现验收（`docs/testing.md` 第 4 节）。
 - 改动判断问题须重新测定该判断的阈值。
 - 新增文字先按第 2 节归类，再按放置原则选环节；放进服务端说明固定部分前先确认长度余量。
 
@@ -231,7 +231,7 @@
 | 通用规则（写入被拒绝时照"下一步"做；指向记忆 skill） | 代码（`src/TacitMemory.Core/Injection/ServerInstructionText.cs`），用户不可替换 | 下一个会话 |
 | 画像怎么被运用（外壳与四节引导语） | `prompts/resident.md`（整份替换内置默认） | 下一个会话 |
 | 怎么写：个人的写法约定 | `prompts/skill.md`（接在记忆 skill 末尾） | 下一次读取 skill |
-| 怎么写：系统部分的写法 | `src/TacitMemory.Core/Skills/MemorySkill.cs`（英文，改后以评测前后对比为依据） | 服务重启或 `prompts/` 变化后 |
+| 怎么写：系统部分的写法 | `src/TacitMemory.Core/Skills/MemorySkill.cs`（英文） | 服务重启或 `prompts/` 变化后 |
 | 调用格式、参数、短码、长度与条数上限 | `src/TacitMemory.Mcp/MemoryTools.cs` 中的工具说明 | 工具列表下发时 |
 | 拒绝回复的内容与"下一步" | 对应的 `ToolText.Refuse` 调用处 | 调用时 |
 

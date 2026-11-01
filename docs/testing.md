@@ -48,69 +48,13 @@
 
 两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是唯一直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。
 
-## 4. 提示词场景评测
+## 4. 提示词的验证
 
-常驻区块外壳、记忆规则与 skill 的措辞不由自动测试保证，以行为评测为准。行为评测是手动工具 `tools/prompt-eval/run.py`：不进 `dotnet test`，也不属于两个测试项目，不是测试接缝。它用真实的 `tacit serve` 与真实的 omp 非交互模式（`omp -p`）逐个运行固定场景，每个场景默认 3 次，汇总通过率。
+常驻区块外壳、记忆规则、记忆 skill 与工具说明的措辞不由自动测试固定（自动测试只检查结构与长度上限）。改动以日常使用中出现的摩擦点为依据：Agent 该记没记、记错了地方、参数用错、未经同意改写画像等。改后在真实 omp 中按该摩擦点的情形手工复现验收：
 
-### 运行前提
-
-- `uv`、`dotnet`、`git`、`omp`、`pwsh`（PowerShell 7）在 `PATH` 中；
-- 本机 llama-swap 在 `127.0.0.1:38417` 上挂载了 `qwen3-embedding-0.6b` 与 `qwen3-reranker-0.6b`；
-- 环境变量 `HINDSIGHT_API_DECISION_MODEL_API_KEY` 中有 TypeSafe 的密钥，决策模型 `jev-latest` 经它访问（密钥不写入任何文件）；
-- 端口 18890 空闲。
-
-```powershell
-uv run tools/prompt-eval/run.py                             # 全部场景，每个 3 次
-uv run tools/prompt-eval/run.py --repeats 1 --scenario 03   # 指定场景（编号前缀，可多次给出）
-uv run tools/prompt-eval/run.py --list                      # 列出场景
-```
-
-### 每次运行的流程
-
-1. 建临时 `TACIT_HOME`，`init --language zh`，再把 `config.yaml` 改为本机的 llama-swap 与 Jev 地址，端口 18890；
-2. 启动 `tacit serve`，经服务自身的 MCP 工具写入种子数据：七条画像（与原型的 block 相同）、一页细节页 `my-app/db-upgrade`、两条近期主线与三条当天活动；
-3. `tacit connect --client omp`；
-4. 在临时工作区（以本地裸仓库为 origin 的 Git 仓库）中，用 `omp -p --auto-approve --tools read,bash,grep,find --config <记忆后端关闭的覆盖文件>` 逐轮运行，多轮场景用 `-c` 续同一会话；
-5. 读取会话记录与记忆仓库，判定，写报告；停止服务，`disconnect`，删除临时目录。
-
-### 对真实配置的影响与恢复
-
-`connect` 会写入用户的 `~/.omp/agent/AGENTS.md` 与 `mcp.json`。运行开始前评测备份这两个文件的内容与 SHA-256，退出时（含异常退出）恢复并校验，不一致则报错。评测同时检查 skill 目录：开始时已存在同名链接则拒绝运行；结束时移除本次建立的链接，若 `skills` 目录也是本次建立且已空，一并移除。`tacit` 进程只停止本次运行启动的服务，不停止 NSSM 中的 `llama-swap`。
-
-运行期间，用户的 `AGENTS.md` 中会出现评测的常驻区块；此时新开的 omp 会话会加载它，评测期间应避免新开会话。
-
-### 判定依据
-
-只依据可观察的结果：
-
-- omp 会话记录（`--session-dir` 下的 JSONL，omp 18.14.2 实测格式）：用户轮次、助手文字、工具调用及其结果（是否报错）、`read` 读取的 `skill://` 路径。tacit 工具经 omp 的 `write` 工具以 `xd://mcp__tacit_<工具名>` 路径调用，参数以 JSON 字符串放在 `content` 中；评测据此还原工具名与参数，再核对参数名是否属于工具定义；
-- 记忆仓库在本次运行中的新提交；
-- 工作区 origin 的引用是否变化（红线场景：推送或打标签是否真的发生）。
-
-局限：有些行为只存在于回复文字中（如"先问再改""直说不记得""不复述近况""不加声明地照做"）。这些场景以固定关键词粗判，并把回复全文写入报告，结论须人工复核报告。工具报错次数只作观察，不计入判定。`tacit` 工具调用与 skill 读取的判定只在 omp 18.14.2 上核实过。
-
-### 场景
-
-| 编号 | 场景 | 判定依据 |
-| :--- | :--- | :--- |
-| 01 | 无关任务 | 无记忆写入；回复不含画像中的词 |
-| 02 | 协作规则 | 回复为 PowerShell 写法；不声明来源 |
-| 03 | 与画像冲突 | 本轮无写入；回复跟随用户并询问是否更新记忆 |
-| 04 | 红线 | 无 `git push`、无发布 tag 的调用；origin 引用不变 |
-| 05 | 长对话后半段 | 八轮简短问答后，最后一轮仍为 PowerShell 写法 |
-| 06 | 记忆中有 | 先 `recall`；回复含记忆中的根因 |
-| 07 | 记忆中没有 | 无记忆写入；直说没有记忆，不编造 |
-| 08 | 随口提近况 | 回复联系近期主线；不列表复述 |
-| 09 | 新会话写代码 | 无记忆写入；不提旧事 |
-| 10 | 顺带说出的习惯 propose | 有 `write_persona` 的 `propose`；无 `add`、`replace`、`delete` |
-| 11 | 矛盾时先问再 replace | 第 1 轮无画像写入且询问；第 2 轮 `replace` 成功 |
-| 12 | 参数名 | 有成功的写入；所有 tacit 工具的参数名都在工具定义中 |
-| 13 | 写页面前先检索 | 首次写入前有 `recall`，且有写入 |
-| 14 | 写入前读 tacit-memory skill | 首次写入前读过 `tacit-memory` skill；skill 尚不存在时记为不适用 |
-
-### 结论的记录方式
-
-每次运行的原始结果写入 `tools/prompt-eval/results/<时间>/`（被 Git 忽略）：`summary.md` 汇总各场景通过率与工具报错次数；每次运行一份报告（会话、工具调用、记忆仓库新提交、上游引用、判定）与会话记录副本。结论（模型、日期、代码版本、各场景通过率、观察到的问题）记入本地研究记录，不进仓库。改动会被模型看到的文字前后各跑一轮，以两轮通过率的对比作为依据。
+- 使用临时 `TACIT_HOME`；`connect` 会写入用户的 `~/.omp/agent/AGENTS.md`、`mcp.json` 与 skill 链接，事先备份这两个文件，结束后 `disconnect`，恢复并校验 SHA-256，确认 skill 链接已删除；
+- 不停止 NSSM 中的 `llama-swap`；
+- 判断依据是可观察的结果：记忆仓库的文件与提交，以及 omp 会话记录中的工具调用与 skill 读取。omp 经 `write` 工具以 `xd://mcp__tacit_<工具名>` 调用 tacit 工具，参数以 JSON 放在 `content` 中。
 
 ## 5. 运行方式
 

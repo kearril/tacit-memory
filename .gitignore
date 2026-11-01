@@ -4,8 +4,6 @@ obj/
 .vs/
 TestResults/
 artifacts/
-tools/prompt-eval/results/
-__pycache__/
 
 # Local-only documentation & workflow system
 AGENTS.local.md
