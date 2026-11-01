@@ -50,7 +50,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, PageIndex index, Em
 
         await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var nearest = index.SearchVector(vector[0], new IndexFilter(id.Project, null, null), int.MaxValue)
-            .Select(hit => hit.PageId)
+            .Select(hit => hit.Source)
             .Where(page => page != id.ToString())
             .Distinct()
             .Take(Candidates)

@@ -1,3 +1,5 @@
+using Microsoft.Data.Sqlite;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed class RecallTests : IDisposable
@@ -238,6 +240,25 @@ public sealed class RecallTests : IDisposable
         var database = Path.Combine(_home.DefaultMemory, ".cache", "index.db");
         Directory.CreateDirectory(Path.GetDirectoryName(database)!);
         File.WriteAllText(database, "not a database");
+
+        var result = await Recall("数据库升级");
+
+        Assert.Contains("tacit-memory/db-upgrade", result.Text);
+    }
+
+    [Fact]
+    public async Task An_index_of_another_schema_version_is_deleted_and_rebuilt()
+    {
+        DbUpgrade();
+        var database = Path.Combine(_home.DefaultMemory, ".cache", "index.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        using (var old = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Pooling = false }.ToString()))
+        {
+            old.Open();
+            var command = old.CreateCommand();
+            command.CommandText = "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta (key, value) VALUES ('schema', '2');";
+            command.ExecuteNonQuery();
+        }
 
         var result = await Recall("数据库升级");
 

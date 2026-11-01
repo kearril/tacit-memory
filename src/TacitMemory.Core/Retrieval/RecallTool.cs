@@ -116,7 +116,7 @@ internal sealed class RecallTool(TacitConfig config, PageIndex index, PageTools 
 
     private string Format(IReadOnlyList<IndexHit> hits)
     {
-        var results = hits.GroupBy(hit => hit.PageId).Take(config.Retrieval.TopK).ToList();
+        var results = hits.GroupBy(hit => hit.Source).Take(config.Retrieval.TopK).ToList();
         var text = new StringBuilder();
         var shown = 0;
         foreach (var result in results)
