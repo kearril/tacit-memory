@@ -7,12 +7,13 @@ namespace TacitMemory.Mcp.Tests;
 public sealed class McpHostTests : IAsyncLifetime
 {
     private readonly TestHome _home = new();
+    private readonly ModelDouble _models = new() { EmbeddingDown = true, RerankDown = true };
     private MemoryService _service = null!;
     private McpHost _host = null!;
 
     public async Task InitializeAsync()
     {
-        _home.InitReady();
+        _home.InitReady(models: _models);
         Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory"));
         _service = _home.Tacit().OpenService(_ => { });
         _host = await McpHost.TryStartAsync(_service, port: 0) ?? throw new InvalidOperationException("Port 0 is never in use.");
@@ -22,6 +23,7 @@ public sealed class McpHostTests : IAsyncLifetime
     {
         await _host.DisposeAsync();
         _service.Dispose();
+        _models.Dispose();
         _home.Dispose();
     }
 
@@ -128,6 +130,34 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Matches(@"Added activity \[[0-9a-f]{6}\]\.", Text(written));
         Assert.Equal(
             "## 2026-11-02\n- [tacit-memory] 想清楚了画像里缺的是人的倾向\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
+    }
+
+    [Fact]
+    public async Task A_repeat_of_todays_activity_comes_back_as_a_normal_reply_that_names_it()
+    {
+        await using var client = await ConnectAsync();
+        var first = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "先查了索引",
+        });
+        _models.Choose = (_, options) => options.ToDictionary(
+            option => option.Key,
+            option => option.Value.Contains("先查了索引", StringComparison.Ordinal) ? 0.95 : 0.0);
+
+        var repeated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
+        {
+            ["op"] = "add_activity",
+            ["text"] = "索引查完了，问题在分词器",
+        });
+
+        var code = System.Text.RegularExpressions.Regex.Match(Text(first), @"\[([0-9a-f]{6})\]").Groups[1].Value;
+        Assert.NotEqual(true, repeated.IsError);
+        Assert.Contains($"Not added: today's activity [{code}]", Text(repeated));
+        Assert.Contains($"replaces set to {code}", Text(repeated));
+        Assert.Equal(
+            "## 2026-11-02\n- 先查了索引\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
     }
 
