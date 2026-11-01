@@ -94,6 +94,39 @@ internal sealed class MemoryTools(MemoryService service)
             ConfirmNoSecret = confirm_no_secret,
         }, cancellationToken));
 
+    [McpServerTool(Name = "write_persona", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
+    [Description("""
+        Change the user's persona: one line in one of four sections, rendered into the resident context from the next session.
+        op=add: needs persona_section, text and source; the entry is appended to the end of that section. Use it only when the user explicitly asks you to remember something.
+        op=propose: needs persona_section, text and source; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a checkup. Use it for a preference or working rule you observed in the conversation. Never propose a red line: only the user sets one, so ask them first. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
+        op=replace: needs hash, text and source; rewrites the entry with that short code in place, in its section. Use it only when the user asks to change that entry.
+        op=delete: needs hash only; removes the entry with that short code. Use it only when the user asks to delete it.
+        A missing or stale hash is refused with the whole persona and every entry's short code; take the code from there.
+        persona_section is red_lines, working_rules, preferences or profile. Sentence form of text, by section:
+        red_lines "Don't <behaviour>; instead <alternative>" (the alternative is required); working_rules "<situation> → <action>";
+        preferences "<dimension>: <description>"; profile "<field>: <fact>".
+        text is one line within the entry length limit (100 characters by default), in the memory language; source is the user's own words behind it, one line.
+        A section holds a limited number of entries (checked on add only); a refusal lists them with their short codes. Candidates have no limit.
+        Writes are checked for secrets (passwords, keys, tokens); never store one.
+        """)]
+    public async Task<CallToolResult> WritePersona(
+        [Description("Operation: add, propose, replace or delete.")] string? op = null,
+        [Description("The section: red_lines, working_rules, preferences or profile. Used by add and propose only.")] string? persona_section = null,
+        [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
+        [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,
+        [Description("Short code of the entry to replace or delete, as listed in a refusal or an earlier reply; required by both. Not used by add or propose.")] string? hash = null,
+        [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
+        CancellationToken cancellationToken = default) =>
+        Reply(await service.WritePersonaAsync(new WritePersonaRequest
+        {
+            Op = op,
+            Section = persona_section,
+            Text = text,
+            Source = source,
+            Hash = hash,
+            ConfirmNoSecret = confirm_no_secret,
+        }, cancellationToken));
+
     private static CallToolResult Reply(ToolResult result) =>
         new() { Content = [new TextContentBlock { Text = result.Text }], IsError = result.IsError };
 }

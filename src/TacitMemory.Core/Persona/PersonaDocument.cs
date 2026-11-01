@@ -1,5 +1,6 @@
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Pages;
 
 namespace TacitMemory.Core.Persona;
 
@@ -16,10 +17,13 @@ internal enum PersonaSection
 /// One persona entry: a top-level <c>- </c> item with its indented continuation lines, or, when
 /// <see cref="IsListItem"/> is false, a line that does not follow the format and is kept as written.
 /// </summary>
-internal sealed record PersonaItem(string Text, IReadOnlyList<string> Continuation, bool IsListItem)
+internal sealed record PersonaItem(string Text, IReadOnlyList<string> Continuation, bool IsListItem, int Line)
 {
     /// <summary>The continuation lines that are not source comments (<c>&lt;!-- … --&gt;</c>).</summary>
     public IEnumerable<string> ContinuationWithoutComments => Continuation.Where(line => !IsComment(line));
+
+    /// <summary>The text the judgment index holds for this entry: its first line and its non-comment continuation lines.</summary>
+    public string JudgmentText => Text + string.Concat(ContinuationWithoutComments.Select(line => "\n" + line));
 
     public static bool IsComment(string line) =>
         line.TrimStart().StartsWith("<!--", StringComparison.Ordinal) && line.TrimEnd().EndsWith("-->", StringComparison.Ordinal);
@@ -71,7 +75,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts)
                 parts.Add(new PersonaPart(heading is null ? null : KindOf(heading), heading, items));
         }
 
-        foreach (var raw in text.ReplaceLineEndings("\n").Split('\n'))
+        foreach (var (raw, number) in text.Split('\n').Select((content, index) => (content, index)))
         {
             var line = raw.TrimEnd();
             if (line.StartsWith("## ", StringComparison.Ordinal))
@@ -83,7 +87,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts)
             else if (line.StartsWith("- ", StringComparison.Ordinal))
             {
                 EndItem();
-                item = new PersonaItem(line[2..].Trim(), [], IsListItem: true);
+                item = new PersonaItem(line[2..].Trim(), [], IsListItem: true, Line: number);
                 continuation = [];
             }
             else if (line.Length > 0 && char.IsWhiteSpace(line[0]) && item is not null)
@@ -93,7 +97,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts)
             else if (line.Length > 0 && !PersonaItem.IsComment(line))
             {
                 EndItem();
-                item = new PersonaItem(line, [], IsListItem: false);
+                item = new PersonaItem(line, [], IsListItem: false, Line: number);
                 continuation = [];
             }
             else
@@ -106,7 +110,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts)
         return new PersonaDocument(parts);
     }
 
-    private static PersonaSection? KindOf(string heading)
+    internal static PersonaSection? KindOf(string heading)
     {
         foreach (var (kind, word) in Headings)
         {
@@ -116,4 +120,26 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts)
 
         return null;
     }
+
+    /// <summary>The structure word that heads a section of <paramref name="kind"/>.</summary>
+    internal static Localized HeadingOf(PersonaSection kind) => Headings.Single(entry => entry.Kind == kind).Word;
+
+    /// <summary>The list items of every section of <paramref name="kind"/>, in file order.</summary>
+    public IReadOnlyList<PersonaItem> Entries(PersonaSection kind) =>
+        Parts.Where(part => part.Kind == kind).SelectMany(part => part.Items).Where(item => item.IsListItem).ToList();
+
+    /// <summary>
+    /// The short code of every list item, keyed by the item's line. A code is the hash of the item's first line and its
+    /// non-comment continuation lines; identical items get <c>-2</c>, <c>-3</c>… in file order.
+    /// </summary>
+    public Dictionary<int, string> CodesByLine()
+    {
+        var items = Parts.SelectMany(part => part.Items).Where(item => item.IsListItem).ToList();
+        var codes = ShortCode.For(items.Select(TextOf));
+        return items.Select((item, index) => (Line: item.Line, Code: codes[index])).ToDictionary(entry => entry.Line, entry => entry.Code);
+    }
+
+    /// <summary>An item's text as its short code sees it: the first line, then the continuation lines that are not comments.</summary>
+    private static string TextOf(PersonaItem item) =>
+        ShortCode.Normalize(string.Join("\n", new[] { item.Text }.Concat(item.ContinuationWithoutComments.Select(line => line.Trim()))));
 }

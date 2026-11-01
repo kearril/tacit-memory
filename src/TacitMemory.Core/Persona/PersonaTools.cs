@@ -1,0 +1,551 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using TacitMemory.Core.Decisions;
+using TacitMemory.Core.Git;
+using TacitMemory.Core.Index;
+using TacitMemory.Core.Injection;
+using TacitMemory.Core.Localization;
+using TacitMemory.Core.Pages;
+using TacitMemory.Core.Tools;
+
+namespace TacitMemory.Core.Persona;
+
+/// <summary>
+/// The persona side of the memory tools: the <c>write_persona</c> operations. Callers serialize writes; this class
+/// assumes it runs one write at a time.
+/// </summary>
+internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Action<string> notice, SamePreferenceCheck samePreference, RuleConflictCheck conflicts)
+{
+    /// <summary>Characters an editor shows as a line break, so none may appear in a text or source; the parser splits on LF only.</summary>
+    private static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
+
+    /// <summary>The parameters the add and propose ops take; any other parameter given with them is refused rather than ignored.</summary>
+    private static readonly string[] EntryParameters = ["persona_section", "text", "source", "confirm_no_secret"];
+
+    /// <summary>The parameters the replace op takes; the section is the replaced entry's own.</summary>
+    private static readonly string[] ReplaceParameters = ["hash", "text", "source", "confirm_no_secret"];
+
+    /// <summary>The parameters the delete op takes: the short code alone.</summary>
+    private static readonly string[] DeleteParameters = ["hash"];
+
+    private readonly GitCli _git = new(config.MemoryPath, config.Language);
+
+    /// <summary>The four sections as an agent names them, and the limit the config sets for each.</summary>
+    private readonly (PersonaSection Kind, string Name, int Limit)[] Sections =
+    [
+        (PersonaSection.RedLines, "red_lines", config.Limits.Persona.RedLines),
+        (PersonaSection.WorkingRules, "working_rules", config.Limits.Persona.WorkingRules),
+        (PersonaSection.Preferences, "preferences", config.Limits.Persona.Preferences),
+        (PersonaSection.Profile, "profile", config.Limits.Persona.Profile),
+    ];
+
+    private string SectionNames => string.Join(", ", Sections.Select(section => section.Name));
+
+    public async Task<ToolResult> WriteAsync(WritePersonaRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Op))
+            return ToolText.Refuse("Missing parameter op.", "Call write_persona again with op=add.");
+
+        return request.Op switch
+        {
+            "add" => await AddAsync(request, cancellationToken),
+            "propose" => await ProposeAsync(request, cancellationToken),
+            "replace" => await ReplaceAsync(request, cancellationToken),
+            "delete" => await DeleteAsync(request, cancellationToken),
+            _ => ToolText.Refuse(
+                $"Unknown op {ToolText.Quote(request.Op)}.",
+                "Call write_persona again with op=add, op=propose, op=replace or op=delete."),
+        };
+    }
+
+    private async Task<ToolResult> AddAsync(WritePersonaRequest request, CancellationToken cancellationToken)
+    {
+        if (NotApplicable(request, "add", EntryParameters) is { } misplaced)
+            return misplaced;
+
+        var section = (request.Section ?? "").Trim();
+        var text = (request.Text ?? "").Trim();
+        var source = (request.Source ?? "").Trim();
+        var kind = SectionOf(section);
+
+        var reasons = MissingEntry(section, text, source, kind);
+        if (reasons.Count > 0 || kind is not { } sectionKind)
+            return ToolText.Refuse(
+                reasons,
+                $"Call write_persona again with op=add, persona_section (one of: {SectionNames}), text and source.");
+
+        var problems = EntryProblems(text, source, sectionKind);
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_persona op=add again.");
+
+        if (SecretCheck(request, text, source, "add") is { } secret)
+            return secret;
+
+        var relative = PersonaFiles.Persona;
+        var path = Path.Combine(config.MemoryPath, relative);
+        var read = TextFile.Read(path);
+        if (read is null)
+            return NotUtf8(relative, "add");
+        var (existing, hasBom) = read.Value;
+
+        var persona = PersonaDocument.Parse(existing);
+        var entries = persona.Entries(sectionKind);
+        var max = LimitOf(sectionKind);
+        var name = PersonaDocument.HeadingOf(sectionKind).En;
+        if (entries.Count >= max)
+        {
+            var codes = persona.CodesByLine();
+            return ToolText.Refuse(
+                $"The {name} section already has {entries.Count} entries; the limit is {max}.",
+                "Ask the user which entry to replace or delete. With their agreement, call write_persona again with op=replace "
+                + "or op=delete and that entry's short code first; then add again.",
+                $"{name}, {entries.Count} of {max} entries:\n"
+                + string.Join("\n", entries.Select(item => Listed(item, codes[item.Line]))));
+        }
+
+        var judgment = await conflicts.RunAsync(text, sectionKind, persona, null, cancellationToken);
+        if (judgment.Conflict is { } conflict)
+            return ConflictRefusal(conflict);
+
+        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
+        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
+
+        var entry = EntryLines(text, source);
+        var (after, line) = PersonaFile.Append(existing, sectionKind, entry, config.Language);
+        var code = PersonaDocument.Parse(after).CodesByLine()[line];
+
+        TextFile.Write(path, after, hasBom);
+        var subject = dirty ? $"persona: add {code} (with user edits)" : $"persona: add {code}";
+        var reply = WithNote($"Added to the {name} section as [{code}]. The section now has {entries.Count + 1} of {max} entries.", judgment.Note);
+        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces the entry the short code names, in place and in its own section: its text and a fresh source comment
+    /// take the place of its lines. Refused with the whole persona when the code is missing or names no entry.
+    /// </summary>
+    private async Task<ToolResult> ReplaceAsync(WritePersonaRequest request, CancellationToken cancellationToken)
+    {
+        if (NotApplicable(request, "replace", ReplaceParameters) is { } misplaced)
+            return misplaced;
+
+        var hash = (request.Hash ?? "").Trim();
+        var text = (request.Text ?? "").Trim();
+        var source = (request.Source ?? "").Trim();
+
+        var reasons = new List<string>();
+        if (text.Length == 0)
+            reasons.Add("Missing parameter text.");
+        if (source.Length == 0)
+            reasons.Add("Missing parameter source.");
+
+        var relative = PersonaFiles.Persona;
+        var path = Path.Combine(config.MemoryPath, relative);
+        var read = TextFile.Read(path);
+        if (read is null)
+            return NotUtf8(relative, "replace");
+        var (existing, hasBom) = read.Value;
+
+        var persona = PersonaDocument.Parse(existing);
+        if (Find(persona, hash) is not { } entry)
+            return NoEntry(persona, hash, reasons, "replace");
+
+        // The sentence form is checked against the section the replaced entry is in.
+        if (text.Length > 0 && source.Length > 0)
+            reasons.AddRange(EntryProblems(text, source, entry.Kind));
+        if (reasons.Count > 0)
+            return ToolText.Refuse(reasons, "Fix these and call write_persona op=replace again with the same hash.");
+
+        if (SecretCheck(request, text, source, "replace") is { } secret)
+            return secret;
+
+        var name = PersonaDocument.HeadingOf(entry.Kind).En;
+        var lines = EntryLines(text, source);
+        var after = PersonaFile.ReplaceEntry(existing, entry.Item, lines);
+        if (after == existing)
+            return ToolText.Ok($"[{entry.Code}] already reads exactly so in the {name} section; nothing was written.");
+
+        var judgment = await conflicts.RunAsync(text, entry.Kind, persona, entry.Item, cancellationToken);
+        if (judgment.Conflict is { } conflict)
+            return ConflictRefusal(conflict);
+
+        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
+        var dirty = await _git.IsDirtyAsync(relative, cancellationToken);
+        TextFile.Write(path, after, hasBom);
+        var code = PersonaDocument.Parse(after).CodesByLine()[entry.Item.Line];
+        var subject = dirty ? $"persona: replace {code} (with user edits)" : $"persona: replace {code}";
+        var reply = WithNote(
+            $"Replaced [{entry.Code}] with [{code}] in the {name} section. "
+            + $"The section has {persona.Entries(entry.Kind).Count} of {LimitOf(entry.Kind)} entries.",
+            judgment.Note);
+        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes the entry the short code names, with its continuation lines and source comment, and returns its text.
+    /// The limit does not apply: a section over it can be taken down.
+    /// </summary>
+    private async Task<ToolResult> DeleteAsync(WritePersonaRequest request, CancellationToken cancellationToken)
+    {
+        if (NotApplicable(request, "delete", DeleteParameters) is { } misplaced)
+            return misplaced;
+
+        var hash = (request.Hash ?? "").Trim();
+        var relative = PersonaFiles.Persona;
+        var path = Path.Combine(config.MemoryPath, relative);
+        var read = TextFile.Read(path);
+        if (read is null)
+            return NotUtf8(relative, "delete");
+        var (existing, hasBom) = read.Value;
+
+        var persona = PersonaDocument.Parse(existing);
+        if (Find(persona, hash) is not { } entry)
+            return NoEntry(persona, hash, [], "delete");
+
+        var name = PersonaDocument.HeadingOf(entry.Kind).En;
+        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
+        var dirty = await _git.IsDirtyAsync(relative, cancellationToken);
+        var after = PersonaFile.ReplaceEntry(existing, entry.Item, []);
+        TextFile.Write(path, after, hasBom);
+        var subject = dirty ? $"persona: delete {entry.Code} (with user edits)" : $"persona: delete {entry.Code}";
+        var reply = $"Deleted [{entry.Code}] from the {name} section. It read:\n{Listed(entry.Item, entry.Code)}\n"
+            + $"The section now has {persona.Entries(entry.Kind).Count - 1} of {LimitOf(entry.Kind)} entries.";
+        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+    }
+
+    /// <summary>
+    /// Proposes a candidate for a preference or working rule the user has not asked to remember. The same-preference check
+    /// runs first: a match merges into its candidate, or is answered without writing when it is on the rejection list or
+    /// already in the persona. Otherwise a new candidate is appended at the end of the candidates section. Candidates have
+    /// no short code in the reply and no limit.
+    /// </summary>
+    private async Task<ToolResult> ProposeAsync(WritePersonaRequest request, CancellationToken cancellationToken)
+    {
+        if (NotApplicable(request, "propose", EntryParameters) is { } misplaced)
+            return misplaced;
+
+        var section = (request.Section ?? "").Trim();
+        var text = (request.Text ?? "").Trim();
+        var source = (request.Source ?? "").Trim();
+        var kind = SectionOf(section);
+
+        var reasons = MissingEntry(section, text, source, kind);
+        if (reasons.Count > 0 || kind is not { } sectionKind)
+            return ToolText.Refuse(
+                reasons,
+                $"Call write_persona again with op=propose, persona_section (one of: {SectionNames}), text and source.");
+
+        if (sectionKind == PersonaSection.RedLines)
+            return ToolText.Refuse(
+                "A red line cannot be proposed as a candidate; only the user sets red lines.",
+                "Ask the user whether this should be a red line. Only if they explicitly agree, call write_persona again with "
+                + "op=add and persona_section=red_lines.");
+
+        var problems = EntryProblems(text, source, sectionKind);
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_persona op=propose again.");
+
+        if (SecretCheck(request, text, source, "propose") is { } secret)
+            return secret;
+
+        var relative = PersonaFiles.Candidates;
+        var path = Path.Combine(config.MemoryPath, relative);
+        var read = TextFile.Read(path);
+        if (read is null)
+            return NotUtf8(relative, "propose");
+        var (existing, hasBom) = read.Value;
+
+        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
+        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
+
+        var judged = await samePreference.RunAsync(text, sectionKind, cancellationToken);
+        if (judged.Same is { } same
+            && await AnswerSameAsync(same, source, existing, hasBom, dirty, path, relative, cancellationToken) is { } answer)
+            return answer;
+
+        var after = CandidatesFile.AppendCandidate(existing, text, sectionKind, options.Today, source, config.Language);
+        TextFile.Write(path, after, hasBom);
+
+        var code = ShortCode.Of(ShortCode.Normalize(text));
+        var subject = dirty ? $"candidates: propose {code} (with user edits)" : $"candidates: propose {code}";
+        var minDays = config.CandidateMinDays;
+        var reply = $"Recorded as a candidate: it has appeared on 1/{minDays} days."
+            + CheckupNote(1, minDays)
+            + (judged.Note is { } note ? $"\n\n{note}" : "");
+        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+    }
+
+    /// <summary>
+    /// Answers a proposal whose same-preference check found a match. Null when the match is not in the files as they are
+    /// now, so the proposal is recorded as a new candidate instead.
+    /// </summary>
+    private async Task<ToolResult?> AnswerSameAsync(
+        PreferenceMatch same, string source, string existing, bool hasBom, bool dirty, string path, string relative, CancellationToken cancellationToken)
+    {
+        return same.Kind switch
+        {
+            UnitKinds.Candidate => await MergeCandidateAsync(same, source, existing, hasBom, dirty, path, relative, cancellationToken),
+            UnitKinds.RejectedCandidate => RejectedReply(same, existing),
+            UnitKinds.PersonaEntry => PersonaReply(same),
+            _ => null,
+        };
+    }
+
+    /// <summary>Appends the proposal's words as an occurrence of the matching candidate, once per day.</summary>
+    private async Task<ToolResult?> MergeCandidateAsync(
+        PreferenceMatch same, string source, string existing, bool hasBom, bool dirty, string path, string relative, CancellationToken cancellationToken)
+    {
+        var candidate = CandidatesDocument.Parse(existing).Candidates
+            .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section);
+        if (candidate is null)
+            return null;
+
+        var today = options.Today;
+        var days = candidate.Occurrences.Select(occurrence => occurrence.Day).Distinct().Count();
+        var minDays = config.CandidateMinDays;
+        if (candidate.Occurrences.Any(occurrence => occurrence.Day == today))
+            return ToolText.Ok($"Already recorded today: \"{candidate.Text}\" has appeared on {days}/{minDays} days." + CheckupNote(days, minDays));
+
+        var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, today, source, config.Language);
+        if (after is null)
+            return null;
+        TextFile.Write(path, after, hasBom);
+
+        var code = ShortCode.Of(ShortCode.Normalize(candidate.Text));
+        var subject = dirty ? $"candidates: merge {code} (with user edits)" : $"candidates: merge {code}";
+        var reply = $"Merged into the candidate \"{candidate.Text}\", which has appeared on {days + 1}/{minDays} days."
+            + CheckupNote(days + 1, minDays);
+        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+    }
+
+    /// <summary>The answer for a proposal on the rejection list: what was rejected, when and in what words.</summary>
+    private ToolResult? RejectedReply(PreferenceMatch same, string existing)
+    {
+        var rejected = CandidatesDocument.Parse(existing).RejectionList
+            .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section);
+        if (rejected is null)
+            return null;
+
+        var occurrence = rejected.Occurrences.LastOrDefault(item => item.Rejected) ?? rejected.Occurrences.LastOrDefault();
+        var when = occurrence is null ? "" : $" on {occurrence.Day:yyyy-MM-dd}, in the words 「{occurrence.Quote}」";
+        return ToolText.Ok(
+            $"Not recorded: \"{rejected.Text}\" is on the rejection list, rejected{when}.\n"
+            + $"Next step: do not propose it again in this session. If the user now clearly asks for it, call write_persona again "
+            + $"with op=add, persona_section={SectionName(same.Section)} and their words as source.");
+    }
+
+    /// <summary>The answer for a proposal the persona already holds: the entry and its short code.</summary>
+    private ToolResult? PersonaReply(PreferenceMatch same)
+    {
+        var read = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
+        if (read is null)
+            return null;
+        var persona = PersonaDocument.Parse(read.Value.Text);
+        var entry = persona.Entries(same.Section).FirstOrDefault(item => item.JudgmentText == same.Text);
+        if (entry is null)
+            return null;
+        var code = persona.CodesByLine()[entry.Line];
+        return ToolText.Ok($"Not recorded: the persona already has this as [{code}]: {entry.Text}\nNext step: nothing to record; do not propose it again.");
+    }
+
+    /// <summary>Commits the file a write changed and returns the reply; a failed commit is noted, and the file stays written.</summary>
+    private async Task<ToolResult> CommitAndReplyAsync(string reply, string subject, string relative, CancellationToken cancellationToken)
+    {
+        var commitProblem = await CommitAsync(subject, relative, cancellationToken);
+        return commitProblem is null
+            ? ToolText.Ok(reply) with { Written = true }
+            : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
+    }
+
+    /// <summary>Commits the persona file; on failure, tells the user and returns the note for the agent. The file stays written.</summary>
+    private async Task<string?> CommitAsync(string message, string relativePath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _git.CommitAsync(message, [relativePath], cancellationToken);
+            return null;
+        }
+        catch (TacitException e) when (e.Error == TacitError.GitFailed)
+        {
+            notice(e.Message);
+            return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
+        }
+    }
+
+    /// <summary>The limit the config sets for a section.</summary>
+    private int LimitOf(PersonaSection kind) => Sections.Single(section => section.Kind == kind).Limit;
+
+    /// <summary>The name an agent gives a section.</summary>
+    private string SectionName(PersonaSection kind) => Sections.Single(section => section.Kind == kind).Name;
+
+    /// <summary>The section an agent named, or null for a name that is not one of the four.</summary>
+    private PersonaSection? SectionOf(string name) =>
+        Sections.Where(section => section.Name == name).Select(section => (PersonaSection?)section.Kind).FirstOrDefault();
+
+    /// <summary>Whether the text contains the structure word in either language: Chinese as written, English as a whole word.</summary>
+    private static bool HasStructureWord(string text, Localized word) =>
+        text.Contains(word.Zh, StringComparison.Ordinal)
+        || Regex.IsMatch(text, $@"\b{Regex.Escape(word.En)}\b", RegexOptions.IgnoreCase);
+
+    /// <summary>An entry's lines as the file holds them: its text, then the source comment dated today.</summary>
+    private List<string> EntryLines(string text, string source) =>
+    [
+        $"- {text}",
+        $"  <!-- {options.Today:yyyy-MM-dd} {StructureWords.Quote.In(config.Language)}「{source}」 -->",
+    ];
+
+    /// <summary>One entry as a refusal lists it: its short code, its text and any continuation lines.</summary>
+    private static string Listed(PersonaItem item, string code) =>
+        string.Join("\n", new[] { $"- [{code}] {item.Text}" }.Concat(item.ContinuationWithoutComments));
+
+    /// <summary>The parameters a write given with an op does not take, refused by name; null when every one of them applies.</summary>
+    private static ToolResult? NotApplicable(WritePersonaRequest request, string op, string[] allowed)
+    {
+        var misplaced = MisplacedParameters(request, allowed);
+        return misplaced.Count == 0
+            ? null
+            : ToolText.Refuse(
+                misplaced.Select(name => $"Parameter {name} does not apply to op {op}.").ToList(),
+                $"Call write_persona again with only the parameters for op {op}: {string.Join(", ", allowed)}.");
+    }
+
+    /// <summary>The parameters that were given but the op does not take.</summary>
+    private static List<string> MisplacedParameters(WritePersonaRequest request, string[] allowed)
+    {
+        var given = new (string Name, bool IsGiven)[]
+        {
+            ("persona_section", request.Section is not null),
+            ("text", request.Text is not null),
+            ("source", request.Source is not null),
+            ("hash", request.Hash is not null),
+            ("confirm_no_secret", request.ConfirmNoSecret is not null),
+        };
+        return given.Where(parameter => parameter.IsGiven && !allowed.Contains(parameter.Name)).Select(parameter => parameter.Name).ToList();
+    }
+
+    /// <summary>What a sentence-form entry is missing, or names wrongly: its section, text and source.</summary>
+    private List<string> MissingEntry(string section, string text, string source, PersonaSection? kind)
+    {
+        var reasons = new List<string>();
+        if (section.Length == 0)
+            reasons.Add("Missing parameter persona_section.");
+        else if (kind is null)
+            reasons.Add($"Parameter persona_section {ToolText.Quote(section)} is not a section; it must be one of: {SectionNames}.");
+        if (text.Length == 0)
+            reasons.Add("Missing parameter text.");
+        if (source.Length == 0)
+            reasons.Add("Missing parameter source.");
+        return reasons;
+    }
+
+    /// <summary>
+    /// The problems with an entry written into <paramref name="section"/>: one line each for text and source, the item
+    /// length limit, the sentence form of red lines and working rules, and the source comment's end marker.
+    /// </summary>
+    private List<string> EntryProblems(string text, string source, PersonaSection section)
+    {
+        var problems = new List<string>();
+        var limit = config.Limits.ItemLength;
+        if (text.IndexOfAny(LineBreaks) >= 0)
+            problems.Add("Text must be one line.");
+        if (Length(text) > limit)
+            problems.Add($"Text has {Length(text)} characters; the limit is {limit}.");
+        if (section == PersonaSection.RedLines && !HasStructureWord(text, StructureWords.Instead))
+            problems.Add(
+                "A red line must say what to do instead: name the alternative after \"instead\" (or \"改为\"), "
+                + "for example: Don't publish a release without asking; instead ask the user first.");
+        if (section == PersonaSection.WorkingRules && !text.Contains('→'))
+            problems.Add(
+                "A working rule must have the form situation → action, with → between them, "
+                + "for example: When the request is unclear → ask first, then plan.");
+        if (source.IndexOfAny(LineBreaks) >= 0)
+            problems.Add("Source must be one line.");
+        if (source.Contains("-->", StringComparison.Ordinal))
+            problems.Add("Source must not contain \"-->\", which would end its comment.");
+        return problems;
+    }
+
+    /// <summary>The credential refusal for the text and source a write would store; null when there is none or the agent confirmed the write.</summary>
+    private static ToolResult? SecretCheck(WritePersonaRequest request, string text, string source, string op)
+    {
+        if (request.ConfirmNoSecret == true)
+            return null;
+        IReadOnlyList<WrittenText> written = [new("text", text), new("source", source)];
+        return CredentialCheck.Run(written, "write_persona", op);
+    }
+
+    /// <summary>The entry of one of the four sections whose short code is <paramref name="hash"/>; null when none has it.</summary>
+    private static FoundEntry? Find(PersonaDocument persona, string hash)
+    {
+        if (hash.Length == 0)
+            return null;
+
+        var codes = persona.CodesByLine();
+        foreach (var part in persona.Parts)
+        {
+            if (part.Kind is not { } kind)
+                continue;
+            foreach (var item in part.Items.Where(item => item.IsListItem))
+            {
+                if (string.Equals(codes[item.Line], hash, StringComparison.OrdinalIgnoreCase))
+                    return new FoundEntry(kind, item, codes[item.Line]);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Refuses a short code that is missing or names no entry, with the reasons already found. The related content is the
+    /// whole persona, so the agent can take the right code from one reply.
+    /// </summary>
+    private ToolResult NoEntry(PersonaDocument persona, string hash, List<string> reasons, string op)
+    {
+        reasons.Insert(0, hash.Length == 0
+            ? "Missing parameter hash."
+            : $"Parameter hash {ToolText.Quote(hash)} matches no entry in the four sections; the short code is stale or wrong.");
+        return ToolText.Refuse(
+            reasons,
+            $"Call write_persona again with op={op} and the short code of the entry, copied from the list below.",
+            PersonaListing(persona));
+    }
+
+    /// <summary>The four sections, each with its entry count and limit, then its entries with their short codes.</summary>
+    private string PersonaListing(PersonaDocument persona)
+    {
+        var codes = persona.CodesByLine();
+        return string.Join("\n\n", Enum.GetValues<PersonaSection>().Select(kind =>
+        {
+            var entries = persona.Entries(kind);
+            return string.Join(
+                "\n",
+                new[] { $"{PersonaDocument.HeadingOf(kind).En}, {entries.Count} of {LimitOf(kind)} entries:" }
+                    .Concat(entries.Select(item => Listed(item, codes[item.Line]))));
+        }));
+    }
+
+    /// <summary>
+    /// The refusal for an entry that conflicts with, duplicates or supersedes an existing one. The related content is that
+    /// entry, so the agent can take it up with the user.
+    /// </summary>
+    private static ToolResult ConflictRefusal(ConflictingEntry conflict) => ToolText.Refuse(
+        "The new entry conflicts with, duplicates or supersedes an existing persona entry.",
+        $"Ask the user whether to change that entry instead. Only if they agree, call write_persona again with op=replace, "
+        + $"hash={conflict.Code}, and the new text and source; otherwise leave the persona as it is.",
+        $"{PersonaDocument.HeadingOf(conflict.Section).En} section:\n{Listed(conflict.Item, conflict.Code)}");
+
+    /// <summary>A success reply, with the note that a skipped judgment adds at its end.</summary>
+    private static string WithNote(string reply, string? note) => note is null ? reply : $"{reply}\n\n{note}";
+
+    /// <summary>The note a candidate at or past the minimum number of days gets: it can be confirmed at the next checkup.</summary>
+    private static string CheckupNote(int days, int minDays) => days >= minDays ? " It can be confirmed at the next checkup." : "";
+
+    private static ToolResult NotUtf8(string relative, string op) => ToolText.Refuse(
+        $"{relative} is not valid UTF-8, so writing to it would change its text.",
+        $"Save {relative} as UTF-8, then call write_persona op={op} again.");
+
+    /// <summary>An entry of one of the four sections, found by its short code.</summary>
+    private sealed record FoundEntry(PersonaSection Kind, PersonaItem Item, string Code);
+
+    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
+}

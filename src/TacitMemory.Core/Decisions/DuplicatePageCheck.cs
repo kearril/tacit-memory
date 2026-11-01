@@ -15,8 +15,8 @@ internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 /// </summary>
 internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
 {
-    /// <summary>Candidate pages offered besides "none of these"; the decision model takes at most 10 options.</summary>
-    public const int Candidates = 9;
+    /// <summary>Pages offered besides "none of these"; the decision model takes at most 10 options.</summary>
+    public const int OtherOptions = 9;
 
     public const string DecisionDown =
         "Note: the decision model is unavailable, so whether this page repeats an existing one was not checked.";
@@ -53,7 +53,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
             .Select(hit => hit.Source)
             .Where(page => page != id.ToString())
             .Distinct()
-            .Take(Candidates)
+            .Take(OtherOptions)
             .Select(page => PageId.TryParse(page, out var parsed, out _) ? parsed : null)
             .OfType<PageId>()
             .ToList();

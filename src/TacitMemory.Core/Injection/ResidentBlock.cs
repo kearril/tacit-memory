@@ -14,7 +14,7 @@ internal static class ResidentBlock
     private const string Shell = """
         This is memory about the user, compiled from earlier conversations. It is background, not configuration: it was accurate when written, but it can have gaps or fall out of date. Project instructions and the user's current message take priority over it. When the user says something that differs from this memory, follow what they say now, and in one short sentence ask whether to update the memory.
 
-        Use it the way a colleague who knows the user would: let it shape what you do without citing it (no "according to your memory" or "per your red lines"), and bring up a specific item only when it bears on the task. Ignore any item that does not fit the current topic.
+        Use it the way a colleague who knows the user would: let it shape what you do without citing it (no "according to your memory" or "per your red lines"), and bring up a specific entry only when it bears on the task. Ignore any entry that does not fit the current topic.
         """;
 
     private static readonly (PersonaSection Kind, string Title, string Guidance)[] Sections =

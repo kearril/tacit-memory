@@ -13,8 +13,8 @@ internal sealed record SameTopicVerdict(RecentFile.Activity? Same, string? Note)
 /// </summary>
 internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision)
 {
-    /// <summary>Candidate activities offered besides "none of these"; the decision model takes at most 10 options.</summary>
-    public const int Candidates = 9;
+    /// <summary>Activities offered besides "none of these"; the decision model takes at most 10 options.</summary>
+    public const int OtherOptions = 9;
 
     public const string DecisionDown =
         "Note: the decision model is unavailable, so whether this activity is about the same thing as one from today was not checked.";
@@ -36,10 +36,10 @@ internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision
     /// <summary>Longest description of one candidate.</summary>
     private const int OptionLength = 250;
 
-    /// <summary>Asks the decision model about <paramref name="state"/> against the latest <see cref="Candidates"/> of <paramref name="today"/>.</summary>
+    /// <summary>Asks the decision model about <paramref name="state"/> against the latest <see cref="OtherOptions"/> of <paramref name="today"/>.</summary>
     public async Task<SameTopicVerdict> RunAsync(string state, IReadOnlyList<RecentFile.Activity> today, CancellationToken cancellationToken)
     {
-        var candidates = today.TakeLast(Candidates).ToList();
+        var candidates = today.TakeLast(OtherOptions).ToList();
         if (candidates.Count == 0)
             return new SameTopicVerdict(null, null);
 

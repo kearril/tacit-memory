@@ -101,3 +101,29 @@ public sealed record WriteRecentRequest
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }
 }
+
+/// <summary>
+/// A <c>write_persona</c> call as the agent made it. The parameters are flat; which ones are required depends on
+/// <see cref="Op"/>, and the service checks them.
+/// </summary>
+public sealed record WritePersonaRequest
+{
+    public string? Op { get; init; }
+
+    /// <summary>The section to write to: <c>red_lines</c>, <c>working_rules</c>, <c>preferences</c> or <c>profile</c>.</summary>
+    public string? Section { get; init; }
+
+    /// <summary>The entry's text: one line, without its source comment.</summary>
+    public string? Text { get; init; }
+
+    /// <summary>The user's own words behind the entry, one line; kept as a comment under it.</summary>
+    public string? Source { get; init; }
+
+    /// <summary>The short code of an existing entry; for the operations that change one.</summary>
+    public string? Hash { get; init; }
+
+    /// <summary>
+    /// The agent made sure with the user that the write holds no secret: the credential check is skipped.
+    /// </summary>
+    public bool? ConfirmNoSecret { get; init; }
+}

@@ -24,7 +24,6 @@ internal static class ServerInstructionText
         ## Using memory
         - Keep what you know from memory apart from what you infer from the persona; never present a guess as something you remember.
         - Do not bring up past events the user has not mentioned.
-        - When the user's words contradict a persona item, follow what they say now and ask whether to update the memory; do not change it on your own.
         """;
 
     private const string Recalling = """
@@ -51,6 +50,14 @@ internal static class ServerInstructionText
         - When the user describes their situation, mention recent context in half a sentence.
         """;
 
+    private const string WritingPersona = """
+        ## Writing persona
+        - Propose a habit, preference or working rule the user states, even in passing, with write_persona op=propose and its section; it becomes a candidate.
+        - Use op=add only when the user explicitly asks you to remember; only the user sets a red line.
+        - If the user's words contradict a persona entry, follow them, propose nothing, ask whether to update it, and op=replace only after the user agrees.
+        - replace and delete need the entry's short code from a refusal's listing; replace also takes text and source, neither takes persona_section.
+        """;
+
     /// <summary>The fixed parts, which every session gets in full.</summary>
     public static string Fixed(MemoryLanguage language, RecordingCriteria criteria) => Join(
     [
@@ -59,6 +66,7 @@ internal static class ServerInstructionText
         Recalling,
         Writing,
         WritingRecent,
+        WritingPersona,
         $"""
         ## Language
         Memory is written in {LanguageName(language)}. Write `recall` queries in {LanguageName(language)} too. When you quote or record memory, keep the user's words, code, paths, commands and proper nouns as they are.
@@ -76,7 +84,7 @@ internal static class ServerInstructionText
     }
 
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
-    /// <param name="skippedFiles">Page and activity record files left out of the index because they are not UTF-8.</param>
+    /// <param name="skippedFiles">Pages, activity record files and persona files left out of the index because they are not UTF-8.</param>
     /// <param name="recent">The mainline and the last seven days of activities.</param>
     /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
     public static string Build(

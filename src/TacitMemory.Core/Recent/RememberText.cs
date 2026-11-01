@@ -16,7 +16,7 @@ internal static class RememberText
         var items = MainlineSection.ReadItems(config.MemoryPath);
 
         var text = new StringBuilder();
-        text.Append("Remember this session in the TacitMemory memory now. Write without asking the user first.\n");
+        text.Append("Remember this session in the TacitMemory memory now. Write without asking the user first, except where a step says to ask.\n");
         if (!string.IsNullOrWhiteSpace(focus))
             text.Append("Focus: ").Append(focus.Trim()).Append('\n');
         text.Append('\n');
@@ -25,7 +25,8 @@ internal static class RememberText
         text.Append("2. Before writing a detail page, search with recall. Update the page that covers the topic with write_page (upsert_section, using the hash recall shows); create a page only when no existing page fits.\n");
         text.Append("3. Write one activity with write_recent (add_activity): what the user did and worked out, in one line, with the project when it belongs to one. If this session already wrote the same matter, rewrite that activity with replaces (its short code is listed below or was in an earlier reply) instead of adding another.\n");
         text.Append("4. Consider rewriting the mainline with write_recent (update_mainline), passing the version code below, only when a direction that will last weeks has appeared, or a mainline direction has clearly ended. Otherwise leave it.\n");
-        text.Append("5. When done, list what you wrote, one line each, with its page ID or short code. Do not ask for confirmation before writing.\n");
+        text.Append("5. Persona: for each preference or working rule you observed in this session, write_persona with op=propose and its persona_section. Use op=add only for what the user explicitly asked you to remember. Only the user sets a red line. If something contradicts a persona entry, propose nothing and ask the user first.\n");
+        text.Append("6. When done, list what you wrote, one line each: pages by page ID, activities and persona entries by short code, candidates by their text. Do not ask for confirmation before writing, except as step 5 says.\n");
         text.Append('\n');
 
         text.Append("Today's activities (").Append(today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).Append("):\n");

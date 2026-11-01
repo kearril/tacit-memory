@@ -5,19 +5,26 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
+using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Index;
 
 /// <summary>A unit of the index that matched a query.</summary>
-/// <param name="Source">The source the unit hangs off: a detail page's ID, or a month file's path.</param>
+/// <param name="Source">The source the unit hangs off: a detail page's ID, a month file's path, or the path of a persona file.</param>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
-/// <param name="Section">The section name; <c>null</c> for the title and aliases and for activities.</param>
+/// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>null</c> for the title and aliases and for activities.</param>
 /// <param name="Text">The indexed text of the unit: a section's name and body, the title and aliases, or an activity's body.</param>
 /// <param name="Project">The unit's project; empty when an activity has no project label.</param>
 /// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
 /// <param name="Code">An activity's short code; <c>null</c> for pages.</param>
 internal sealed record IndexHit(string Source, string Kind, string? Section, string Text, string Project, string? Date, string? Code);
+
+/// <summary>A judgment unit a judgment compares a new text with: its kind, the persona section it belongs to, and its text.</summary>
+/// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
+/// <param name="Section">The persona section the unit belongs to; <c>null</c> when the stored name is none of the four.</param>
+/// <param name="Text">The unit's text, as the judgment compares it.</param>
+internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string Text);
 
 /// <summary>
 /// Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.
@@ -36,6 +43,12 @@ internal static class SourceKinds
 
     /// <summary>A month file of the recent activity log, under <c>recent/</c>.</summary>
     public const string ActivityRecord = "activity";
+
+    /// <summary><c>persona.md</c>: its entries are indexed for judgments only.</summary>
+    public const string Persona = "persona";
+
+    /// <summary><c>candidates.md</c>: its candidates are indexed for judgments only.</summary>
+    public const string Candidates = "candidates";
 }
 
 /// <summary>The kinds of unit a source holds.</summary>
@@ -49,25 +62,37 @@ internal static class UnitKinds
 
     /// <summary>A dated line of a month file of the recent activity log.</summary>
     public const string Activity = "activity";
+
+    /// <summary>An entry of <c>persona.md</c>; indexed for judgments only, never returned by search.</summary>
+    public const string PersonaEntry = "persona";
+
+    /// <summary>A candidate of <c>candidates.md</c>, named by its text; indexed for judgments only.</summary>
+    public const string Candidate = "candidate";
+
+    /// <summary>A candidate in the rejection list of <c>candidates.md</c>; indexed for judgments only.</summary>
+    public const string RejectedCandidate = "rejected";
 }
 
 /// <summary>
-/// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file: a detail page, or a month
-/// file of the activity log. One row per source with its file hash; one unit per section and one for the title and
-/// aliases of a page, and one per dated line of a month file, each carrying its kind, project and dates. An FTS5 table
-/// over the units and a <c>vec0</c> table of their vectors.
+/// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file: a detail page, a month
+/// file of the activity log, or one of the two persona files. One row per source with its file hash; one unit per
+/// section and one for the title and aliases of a page, one per dated line of a month file, and one per entry of
+/// <c>persona.md</c> or candidate of <c>candidates.md</c>, each carrying its kind, project and dates. Persona units
+/// serve judgments only. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "4";
+    private const string SchemaVersion = "5";
 
+    // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
         (@project IS NULL OR u.project = @project)
         AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
         AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
         AND (@activities IS NULL OR (u.kind = '{UnitKinds.Activity}') = @activities)
+        AND u.kind NOT IN ('{UnitKinds.PersonaEntry}', '{UnitKinds.Candidate}', '{UnitKinds.RejectedCandidate}')
         """;
 
     /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
@@ -115,8 +140,8 @@ internal sealed class MemoryIndex : IDisposable
     }
 
     /// <summary>
-    /// Brings every page and activity month file in line with its file: new and changed files are indexed, deleted ones
-    /// removed.
+    /// Brings every page, activity month file and persona file in line with its file: new and changed files are indexed,
+    /// deleted ones removed.
     /// </summary>
     public void SyncAll()
     {
@@ -125,13 +150,27 @@ internal sealed class MemoryIndex : IDisposable
             var pages = PageFiles().ToDictionary(file => file.Id.RelativePath);
             var months = RecentFile.MonthFiles(_memoryPath).ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
-            foreach (var path in known.Keys.Where(path => !pages.ContainsKey(path) && !months.ContainsKey(path)))
+            foreach (var path in known.Keys.Where(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path)))
                 Remove(path);
             foreach (var (path, file) in pages)
                 Sync(file.Id, file.FullPath, known.GetValueOrDefault(path));
             foreach (var (path, fullPath) in months)
                 SyncActivity(path, fullPath, known.GetValueOrDefault(path));
-            _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path));
+            SyncJudgments();
+            _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
+        }
+    }
+
+    /// <summary>
+    /// Brings <c>persona.md</c> and <c>candidates.md</c> in line with their files: their units are rebuilt when a hash
+    /// changed. The write path calls it before and after each <c>write_persona</c>, so judgments see the latest text.
+    /// </summary>
+    public void SyncJudgments()
+    {
+        lock (_gate)
+        {
+            SyncJudgment(PersonaFiles.Persona, SourceKinds.Persona, KnownHash(PersonaFiles.Persona), PersonaUnits);
+            SyncJudgment(PersonaFiles.Candidates, SourceKinds.Candidates, KnownHash(PersonaFiles.Candidates), CandidateUnits);
         }
     }
 
@@ -225,6 +264,39 @@ internal sealed class MemoryIndex : IDisposable
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
                 """, Parameters(filter, limit, new { vector = Blob(vector) })).ToList();
         }
+    }
+
+    /// <summary>
+    /// The <paramref name="limit"/> judgment units (persona entries, candidates and rejected candidates) of the sources of
+    /// the given kinds nearest to <paramref name="vector"/>, best first; empty when no vectors of that length are stored.
+    /// Judgment units never reach a search; this is the only way to read them back, for judgments.
+    /// </summary>
+    public IReadOnlyList<JudgmentHit> SearchJudgments(float[] vector, IReadOnlyCollection<string> sourceKinds, int limit)
+    {
+        lock (_gate)
+        {
+            if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
+                return [];
+            return _connection.Query<IndexHit>($"""
+                SELECT {HitColumns}
+                FROM units_vec v JOIN units u ON u.id = v.rowid JOIN sources s ON s.id = u.source_id
+                WHERE s.kind IN @sourceKinds
+                ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
+                """, new { sourceKinds = sourceKinds.ToList(), vector = Blob(vector), limit })
+                    .Select(hit => new JudgmentHit(hit.Kind, PersonaSectionNamed(hit.Section), hit.Text)).ToList();
+        }
+    }
+
+    /// <summary>The persona section a stored section name stands for; <c>null</c> when it is none of the four.</summary>
+    private static PersonaSection? PersonaSectionNamed(string? name) => Enum.TryParse<PersonaSection>(name, out var section) ? section : null;
+
+    /// <summary>Whether any judgment unit of the sources of the given kinds is indexed, with or without a vector yet.</summary>
+    public bool HasJudgments(IReadOnlyCollection<string> sourceKinds)
+    {
+        lock (_gate)
+            return _connection.ExecuteScalar<long>(
+                "SELECT EXISTS (SELECT 1 FROM units u JOIN sources s ON s.id = u.source_id WHERE s.kind IN @sourceKinds)",
+                new { sourceKinds = sourceKinds.ToList() }) > 0;
     }
 
     /// <summary>Up to <paramref name="limit"/> units that still need a vector.</summary>
@@ -358,6 +430,80 @@ internal sealed class MemoryIndex : IDisposable
         transaction.Commit();
     }
 
+    /// <summary>
+    /// Brings a persona file in line with its file: its units are rebuilt when the hash changed. A missing file leaves
+    /// no units; a file that is not UTF-8 is skipped, as the other indexed files are.
+    /// </summary>
+    private void SyncJudgment(string relativePath, string sourceKind, string? knownHash, Func<string, IReadOnlyList<JudgmentUnit>> unitsOf)
+    {
+        var fullPath = Path.Combine(_memoryPath, relativePath);
+        if (!File.Exists(fullPath))
+        {
+            Remove(relativePath);
+            _skipped.Remove(relativePath);
+            return;
+        }
+
+        var hash = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(fullPath)));
+        if (hash == knownHash)
+            return;
+
+        if (TextFile.Read(fullPath) is not { } read)
+        {
+            Remove(relativePath);
+            _skipped.Add(relativePath);
+            return;
+        }
+
+        _skipped.Remove(relativePath);
+        var units = unitsOf(read.Text);
+        using var transaction = _connection.BeginTransaction();
+        RemoveRows(relativePath, transaction);
+        _connection.Execute(
+            "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
+            new { id = relativePath, kind = sourceKind, path = relativePath, hash },
+            transaction);
+        var scope = new UnitScope("", null, null);
+        for (var i = 0; i < units.Count; i++)
+            AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction);
+        transaction.Commit();
+    }
+
+    /// <summary>
+    /// The units of <c>persona.md</c>: one per list entry under a known section, its text with its continuation lines
+    /// but without its source comment.
+    /// </summary>
+    private static IReadOnlyList<JudgmentUnit> PersonaUnits(string text)
+    {
+        var units = new List<JudgmentUnit>();
+        foreach (var part in PersonaDocument.Parse(text).Parts)
+        {
+            if (part.Kind is not { } section)
+                continue;
+            foreach (var item in part.Items.Where(item => item.IsListItem && item.Text.Length > 0))
+                units.Add(new JudgmentUnit(UnitKinds.PersonaEntry, section, item.JudgmentText));
+        }
+
+        return units;
+    }
+
+    /// <summary>The units of <c>candidates.md</c>: one per candidate and one per rejected candidate, each named by its text.</summary>
+    private static IReadOnlyList<JudgmentUnit> CandidateUnits(string text)
+    {
+        var document = CandidatesDocument.Parse(text);
+        return
+        [
+            .. document.Candidates.Select(candidate => new JudgmentUnit(UnitKinds.Candidate, candidate.Section, candidate.Text)),
+            .. document.RejectionList.Select(candidate => new JudgmentUnit(UnitKinds.RejectedCandidate, candidate.Section, candidate.Text)),
+        ];
+    }
+
+    /// <summary>Whether a source path is one of the two persona files.</summary>
+    private static bool IsJudgmentFile(string path) => path is PersonaFiles.Persona or PersonaFiles.Candidates;
+
+    /// <summary>One unit of a persona file: its kind, the persona section it belongs to, and its text.</summary>
+    private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text);
+
     /// <summary>The project and dates every unit of a source carries.</summary>
     private sealed record UnitScope(string Project, string? First, string? Last);
 
@@ -389,6 +535,9 @@ internal sealed class MemoryIndex : IDisposable
         _connection.Execute("DELETE FROM units WHERE source_id = @source", new { source }, transaction);
         _connection.Execute("DELETE FROM sources WHERE id = @source", new { source }, transaction);
     }
+
+    private string? KnownHash(string relativePath) =>
+        _connection.QuerySingleOrDefault<string>("SELECT hash FROM sources WHERE path = @relativePath", new { relativePath });
 
     private bool HasVectorTable(SqliteTransaction? transaction = null) =>
         _connection.ExecuteScalar<long>("SELECT count(*) FROM sqlite_master WHERE name = 'units_vec'", transaction: transaction) > 0;

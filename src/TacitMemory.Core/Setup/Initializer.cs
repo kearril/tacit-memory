@@ -2,6 +2,7 @@ using System.Text;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Persona;
 using YamlDotNet.RepresentationModel;
 
 namespace TacitMemory.Core.Setup;
@@ -58,8 +59,8 @@ internal static class Initializer
         var skeletonAdded = new[]
         {
             Write(Path.Combine(memory, ".gitignore"), Templates.MemoryGitignore),
-            Write(Path.Combine(memory, "persona.md"), Templates.Persona(language)),
-            Write(Path.Combine(memory, "candidates.md"), Templates.Candidates(language)),
+            Write(Path.Combine(memory, PersonaFiles.Persona), Templates.Persona(language)),
+            Write(Path.Combine(memory, PersonaFiles.Candidates), Templates.Candidates(language)),
             Write(Path.Combine(memory, "recent.md"), Templates.Recent(language)),
             Write(Path.Combine(memory, "recent", ".gitkeep"), ""),
             Write(Path.Combine(memory, "pages", ".gitkeep"), ""),

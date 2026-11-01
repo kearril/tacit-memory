@@ -33,6 +33,7 @@ public sealed class ServiceTests : IDisposable
 
         Assert.Contains("<user_memory>", instructions);
         Assert.Contains("## Using memory", instructions);
+        Assert.Contains("## Writing persona", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
         Assert.EndsWith("## Projects\nmy-app, tacit-memory", instructions);
         Assert.DoesNotContain("_topics", instructions);

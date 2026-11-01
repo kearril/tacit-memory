@@ -1,0 +1,109 @@
+using System.Globalization;
+using TacitMemory.Core.Decisions;
+using TacitMemory.Core.Index;
+using TacitMemory.Core.Models;
+
+namespace TacitMemory.Core.Persona;
+
+/// <summary>An existing persona entry the new one conflicts with: its section, its item and its short code.</summary>
+internal sealed record ConflictingEntry(PersonaSection Section, PersonaItem Item, string Code);
+
+/// <summary>What the rule-conflict check found: the entry the new one conflicts with, or a note for the agent when the check was skipped.</summary>
+internal sealed record RuleConflictVerdict(ConflictingEntry? Conflict, string? Note);
+
+/// <summary>
+/// Before an entry is added to the persona or replaces one, asks whether it conflicts with, duplicates or supersedes an
+/// existing entry of any of the four sections: the nearest entries by embedding, plus "none of these", go to the decision
+/// model as a choice question.
+/// </summary>
+internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
+{
+    /// <summary>Entries offered besides "none of these"; the decision model takes at most 10 options.</summary>
+    public const int OtherOptions = 9;
+
+    public const string DecisionDown =
+        "Note: the decision model is unavailable, so whether the new entry conflicts with an existing persona entry was not checked.";
+
+    public const string EmbeddingDown =
+        "Note: the embedding model is unavailable, so whether the new entry conflicts with an existing persona entry was not checked.";
+
+    private const string None = "none";
+
+    private const string Instructions =
+        "The state is a new entry for the user's persona file, with its section in brackets. "
+        + "Each option is an existing persona entry from any of the four sections, with its section in brackets. "
+        + "Entries are kept as written, in whatever language they are in. "
+        + "Choose the option if the new entry conflicts with it, duplicates it, or supersedes it: both cannot hold as written, "
+        + "they say the same thing, or the new entry replaces the old one. Entries that are related but can both hold are not a match. "
+        + "If no option conflicts with, duplicates or supersedes the new entry, choose the none option. Answer with the option key only.";
+
+    private const string NoneText = "None of the existing entries conflicts with, duplicates or supersedes the new entry.";
+
+    /// <summary>Longest description of one option.</summary>
+    private const int OptionLength = 250;
+
+    /// <param name="text">The new entry's text, as written.</param>
+    /// <param name="section">The section the new entry goes into.</param>
+    /// <param name="persona">The persona as it is before the write.</param>
+    /// <param name="replaced">The entry the write replaces, which is never offered as an option; <c>null</c> for an add.</param>
+    public async Task<RuleConflictVerdict> RunAsync(
+        string text, PersonaSection section, PersonaDocument persona, PersonaItem? replaced, CancellationToken cancellationToken)
+    {
+        var others = Enum.GetValues<PersonaSection>()
+            .SelectMany(kind => persona.Entries(kind))
+            .Where(item => item.Line != replaced?.Line)
+            .ToList();
+        if (others.Count == 0)
+            return new RuleConflictVerdict(null, null);
+
+        var vector = await embedding.EmbedAsync([text], cancellationToken);
+        if (vector is null)
+            return new RuleConflictVerdict(null, EmbeddingDown);
+
+        await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
+        // One more than OtherOptions: the replaced entry may be among the nearest and is skipped below.
+        var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1);
+
+        var codes = persona.CodesByLine();
+        var taken = new HashSet<int>();
+        if (replaced is not null)
+            taken.Add(replaced.Line);
+        var nearest = new List<ConflictingEntry>();
+        foreach (var hit in hits)
+        {
+            if (hit.Section is not { } kind)
+                continue;
+            var item = persona.Entries(kind).FirstOrDefault(entry => entry.JudgmentText == hit.Text && !taken.Contains(entry.Line));
+            if (item is null)
+                continue;
+            taken.Add(item.Line);
+            nearest.Add(new ConflictingEntry(kind, item, codes[item.Line]));
+            if (nearest.Count == OtherOptions)
+                break;
+        }
+
+        if (nearest.Count == 0)
+            return new RuleConflictVerdict(null, null);
+
+        var options = new Dictionary<string, string>(StringComparer.Ordinal);
+        var entries = new Dictionary<string, ConflictingEntry>(StringComparer.Ordinal);
+        foreach (var entry in nearest)
+        {
+            var key = "p" + (entries.Count + 1).ToString(CultureInfo.InvariantCulture);
+            var description = $"[{Heading(entry.Section)}] {entry.Item.JudgmentText.ReplaceLineEndings(" ")}";
+            options[key] = description.Length > OptionLength ? description[..OptionLength] : description;
+            entries[key] = entry;
+        }
+
+        options[None] = NoneText;
+        var probabilities = await decision.ChooseAsync($"[{Heading(section)}] {text}", Instructions, options, cancellationToken);
+        if (probabilities is null)
+            return new RuleConflictVerdict(null, DecisionDown);
+
+        var verdict = Judgment.Choice(probabilities, None, config.Decision.RuleConflict ?? Judgment.RuleConflict);
+        return new RuleConflictVerdict(verdict.Tier == Tier.Certain ? entries[verdict.Option!] : null, null);
+    }
+
+    /// <summary>The section's heading in the memory language, as the persona file spells it.</summary>
+    private string Heading(PersonaSection section) => PersonaDocument.HeadingOf(section).In(config.Language);
+}

@@ -50,8 +50,11 @@ public sealed class RememberPromptTests : IDisposable
     }
 
     [Fact]
-    public void The_prompt_does_not_mention_persona_writes()
+    public void The_prompt_includes_the_persona_write_step()
     {
-        Assert.DoesNotContain("persona", _service.RememberPrompt(), StringComparison.OrdinalIgnoreCase);
+        var prompt = _service.RememberPrompt();
+
+        Assert.Contains("write_persona", prompt);
+        Assert.Contains("propose", prompt);
     }
 }

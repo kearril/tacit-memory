@@ -8,6 +8,7 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core;
@@ -15,9 +16,9 @@ namespace TacitMemory.Core;
 /// <summary>
 /// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
 /// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
-/// <c>persona.md</c> changes, syncs the index when page files change, and refreshes the instructions when projects
-/// appear or disappear under <c>pages/</c>, and a watcher that reloads <c>rules.md</c>. Create it with
-/// <see cref="Tacit.OpenService"/>.
+/// <c>persona.md</c> changes, syncs the index when page, activity or persona files change, and refreshes
+/// the instructions when projects appear or disappear under <c>pages/</c>, and a watcher that reloads
+/// <c>rules.md</c>. Create it with <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -38,6 +39,7 @@ public sealed class MemoryService : IDisposable
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly PageTools _pages;
     private readonly RecentTools _recent;
+    private readonly PersonaTools _persona;
     private readonly AuxiliaryModels _models;
     private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
@@ -63,6 +65,10 @@ public sealed class MemoryService : IDisposable
         _pages = new PageTools(
             options, config, notice, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
         _recent = new RecentTools(options, config, notice, _models.Decision);
+        _persona = new PersonaTools(
+            options, config, notice,
+            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
+            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
         _backup = new AutomaticBackup(options, config, notice);
 
@@ -185,6 +191,33 @@ public sealed class MemoryService : IDisposable
         }
     }
 
+    /// <summary>
+    /// The <c>write_persona</c> tool. Shares the write queue with the other writes. A written persona re-renders the bound
+    /// resident blocks the same way a manual edit of <c>persona.md</c> does: debounced, and a failure only tells the user.
+    /// </summary>
+    public async Task<ToolResult> WritePersonaAsync(WritePersonaRequest request, CancellationToken cancellationToken = default)
+    {
+        await _writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            // Judgments read the index, so it follows a manual edit first and this write right after; the watcher's later event finds the hash unchanged.
+            _index.SyncJudgments();
+            var result = await _persona.WriteAsync(request, cancellationToken);
+            _index.SyncJudgments();
+            if (!result.Written)
+                return result;
+            // Only a change to persona.md reaches the resident context; a candidate waits for confirmation first.
+            if (request.Op != "propose")
+                ScheduleRender();
+            _backup.ScheduleIfDue();
+            return result;
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
     public void Dispose()
     {
         _disposed = true;
@@ -209,8 +242,10 @@ public sealed class MemoryService : IDisposable
         var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
         foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
         {
-            if (relative == "persona.md")
+            if (relative == PersonaFiles.Persona)
                 ScheduleRender();
+            if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
+                ScheduleIndexSync();
             if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
                 InvalidateInstructions();
             if (relative == MainlineSection.RelativePath || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))

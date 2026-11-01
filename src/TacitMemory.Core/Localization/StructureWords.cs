@@ -15,6 +15,7 @@ internal static class StructureWords
     public static readonly Localized Mainline = new("近期主线", "Mainline");
     public static readonly Localized BelongsTo = new("归属：", "Belongs to: ");
     public static readonly Localized Quote = new("原话", "quote");
+    public static readonly Localized Instead = new("改为", "instead");
     public static readonly Localized Rejected = new("拒绝", "rejected");
     public static readonly Localized WorthRecording = new("值得记", "Worth recording");
     public static readonly Localized NotRecorded = new("不记", "Not recorded");

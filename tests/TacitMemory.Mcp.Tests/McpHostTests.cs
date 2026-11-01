@@ -56,7 +56,7 @@ public sealed class McpHostTests : IAsyncLifetime
 
         var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
 
-        Assert.Equal(["recall", "write_page", "write_recent"], tools.Keys.Order());
+        Assert.Equal(["recall", "write_page", "write_persona", "write_recent"], tools.Keys.Order());
         var recall = tools["recall"].ProtocolTool;
         Assert.True(recall.Annotations?.ReadOnlyHint);
         Assert.True(recall.Annotations?.IdempotentHint);
@@ -75,6 +75,14 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Equal(
             ["confirm_no_secret", "hash", "items", "op", "project", "replaces", "source", "text"],
             recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
+        var persona = tools["write_persona"].ProtocolTool;
+        Assert.False(persona.Annotations?.ReadOnlyHint);
+        Assert.True(persona.Annotations?.DestructiveHint);
+        Assert.False(persona.Annotations?.IdempotentHint);
+        Assert.False(persona.Annotations?.OpenWorldHint);
+        Assert.Equal(
+            ["confirm_no_secret", "hash", "op", "persona_section", "source", "text"],
+            persona.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
     }
 
     [Fact]
@@ -278,6 +286,176 @@ public sealed class McpHostTests : IAsyncLifetime
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Missing parameter op.\nNext step: ", Text(result));
+    }
+
+    [Fact]
+    public async Task A_persona_entry_written_through_the_tool_lands_in_persona_md_and_a_refusal_is_an_error()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "add",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先要结论",
+            ["source"] = "先要结论",
+        });
+        var refused = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "add",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先要结论",
+        });
+
+        Assert.NotEqual(true, written.IsError);
+        Assert.Matches(@"\[[0-9a-f]{6}\]", Text(written));
+        Assert.Contains(
+            "## 偏好\n- 沟通：先要结论\n  <!-- 2026-11-02 原话「先要结论」 -->\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
+        Assert.True(refused.IsError);
+        Assert.Contains("source", Text(refused));
+    }
+
+    [Fact]
+    public async Task Replace_and_delete_through_the_tool_check_their_parameters_and_take_a_short_code_from_a_refusal()
+    {
+        await using var client = await ConnectAsync();
+        var persona = Path.Combine(_home.DefaultMemory, "persona.md");
+        File.WriteAllText(persona, "## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n- 反感客套和铺垫\n");
+
+        var misplaced = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "replace",
+            ["hash"] = "abc123",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先说结论",
+            ["source"] = "先说结论",
+        });
+        var noHash = await client.CallToolAsync("write_persona", new Dictionary<string, object?> { ["op"] = "delete" });
+        var deleteWithText = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "delete",
+            ["hash"] = "abc123",
+            ["text"] = "沟通：先要结论",
+        });
+
+        Assert.True(misplaced.IsError);
+        Assert.Contains("persona_section", Text(misplaced));
+        Assert.True(noHash.IsError);
+        Assert.Contains("Related:", Text(noHash));
+        Assert.True(deleteWithText.IsError);
+        Assert.Contains("text", Text(deleteWithText));
+        Assert.Equal("## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n- 反感客套和铺垫\n", File.ReadAllText(persona));
+
+        var code = System.Text.RegularExpressions.Regex.Match(Text(noHash), @"\[([0-9a-f]{6})\] 沟通：先要结论").Groups[1].Value;
+        var replaced = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "replace",
+            ["hash"] = code,
+            ["text"] = "沟通：先说结论",
+            ["source"] = "先说结论",
+        });
+        var refreshed = System.Text.RegularExpressions.Regex.Match(Text(noHash), @"\[([0-9a-f]{6})\] 反感客套和铺垫").Groups[1].Value;
+        var deleted = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "delete",
+            ["hash"] = refreshed,
+        });
+
+        Assert.NotEqual(true, replaced.IsError);
+        Assert.NotEqual(true, deleted.IsError);
+        Assert.Equal("## 偏好\n- 沟通：先说结论\n  <!-- 2026-11-02 原话「先说结论」 -->\n", File.ReadAllText(persona));
+    }
+
+    [Fact]
+    public async Task A_candidate_proposed_through_the_tool_lands_in_candidates_md_and_bad_proposals_are_errors()
+    {
+        await using var client = await ConnectAsync();
+
+        var proposed = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "propose",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先要结论",
+            ["source"] = "先要结论",
+        });
+        var redLine = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "propose",
+            ["persona_section"] = "red_lines",
+            ["text"] = "不要删库；改为先备份",
+            ["source"] = "别删库",
+        });
+        var withHash = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "propose",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先要结论",
+            ["source"] = "先要结论",
+            ["hash"] = "a3f9c2",
+        });
+        var noSource = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "propose",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先要结论",
+        });
+
+        Assert.NotEqual(true, proposed.IsError);
+        Assert.Contains("1/2", Text(proposed));
+        Assert.DoesNotMatch(@"\[[0-9a-f]{6}", Text(proposed));
+        Assert.Contains(
+            "### 沟通：先要结论\n归属：偏好\n- 2026-11-02 原话「先要结论」\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "candidates.md")));
+        Assert.True(redLine.IsError);
+        Assert.Contains("Refused:", Text(redLine));
+        Assert.True(withHash.IsError);
+        Assert.Contains("hash", Text(withHash));
+        Assert.True(noSource.IsError);
+        Assert.Contains("source", Text(noSource));
+    }
+
+    [Fact]
+    public async Task A_proposal_merged_into_a_candidate_or_matching_a_rejected_one_is_an_ordinary_reply_not_an_error()
+    {
+        await using var client = await ConnectAsync();
+        _models.EmbeddingDown = false;
+        File.WriteAllText(
+            Path.Combine(_home.DefaultMemory, "candidates.md"),
+            "## 候选\n\n### 沟通：先要结论\n归属：偏好\n- 2026-10-27 原话「先要结论」\n\n"
+            + "## 拒绝列表\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-20 拒绝 原话「算了，别跑了」\n");
+
+        _models.Choose = (_, options) => options.ToDictionary(
+            option => option.Key,
+            option => option.Value.Contains("先要结论", StringComparison.Ordinal) ? 0.95
+                : option.Key == options.Keys.Last() ? 0.05 : 0.0);
+        var merged = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "propose",
+            ["persona_section"] = "preferences",
+            ["text"] = "沟通：先要结论",
+            ["source"] = "先要结论",
+        });
+
+        _models.Choose = (_, options) => options.ToDictionary(
+            option => option.Key,
+            option => option.Value.Contains("全量测试", StringComparison.Ordinal) ? 0.95
+                : option.Key == options.Keys.Last() ? 0.05 : 0.0);
+        var refused = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "propose",
+            ["persona_section"] = "working_rules",
+            ["text"] = "提交前 → 先跑测试",
+            ["source"] = "提交前跑全量测试",
+        });
+
+        Assert.NotEqual(true, merged.IsError);
+        Assert.Contains("2/2", Text(merged));
+        Assert.NotEqual(true, refused.IsError);
+        Assert.Contains("2026-10-20", Text(refused));
+        Assert.Contains(
+            "- 2026-11-02 原话「先要结论」\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "candidates.md")));
     }
 
     private static string Text(ModelContextProtocol.Protocol.CallToolResult result) =>
