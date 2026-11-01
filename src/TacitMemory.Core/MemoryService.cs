@@ -105,8 +105,10 @@ public sealed class MemoryService : IDisposable
             {
                 if (_instructions is null || _instructionsStatus != status)
                 {
+                    var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
                     _instructions = ServerInstructionText.Build(
-                        Config.Language, _rules, unavailable, skipped, ServerInstructionText.Projects(Config.MemoryPath));
+                        Config.Language, _rules, unavailable, skipped, recent,
+                        ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels));
                     _instructionsStatus = status;
                 }
 
@@ -166,6 +168,7 @@ public sealed class MemoryService : IDisposable
             var result = await _recent.WriteAsync(request, cancellationToken);
             // Like write_page, the index follows the file right away, so the new activity is searchable at once.
             _index.SyncActivities();
+            InvalidateInstructions();
             if (result.IsError)
                 return result;
             _backup.ScheduleIfDue();
@@ -206,6 +209,8 @@ public sealed class MemoryService : IDisposable
             if (relative == "persona.md")
                 ScheduleRender();
             if (relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0))
+                InvalidateInstructions();
+            if (relative == "recent.md" || relative == "recent" || relative.StartsWith("recent/", StringComparison.Ordinal))
                 InvalidateInstructions();
             if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith("recent/", StringComparison.Ordinal))
                 ScheduleIndexSync();

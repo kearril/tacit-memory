@@ -1,12 +1,14 @@
+using System.Globalization;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Injection;
 
 /// <summary>
 /// The server instructions, assembled from parts. Fixed parts (opening, memory rules, language norms, recording
-/// criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part is short and always whole; the
-/// project list drops names from the end until the whole text fits <see cref="TotalLimit"/>, and vanishes when none
-/// fits.
+/// criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part is short and always whole. The
+/// recent summary and the project list are cut to fit <see cref="TotalLimit"/>: the oldest activities go first, then
+/// project names from the end, and the list vanishes when none fits.
 /// </summary>
 internal static class ServerInstructionText
 {
@@ -15,7 +17,7 @@ internal static class ServerInstructionText
     public const int FixedLimit = 2500;
 
     private const string Opening = """
-        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; details live in pages you reach with `recall`.
+        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is summarized under ## Recent below; details live in pages you reach with `recall`.
         """;
 
     private const string UsingMemory = """
@@ -40,6 +42,15 @@ internal static class ServerInstructionText
         - When `write_page` refuses, do what its "Next step" says.
         """;
 
+    private const string WritingRecent = """
+        ## Writing activities and mainline
+        - Write an activity when a main matter reaches a conclusion (decision made, cause found, phase goal done). One per session; later progress replaces it with `replaces` and its short code.
+        - Write what the person is doing and concluded, not which files changed. Set `project` for a project.
+        - If a write comes back as same-topic, merge it into one sentence and resubmit with `replaces`.
+        - Rewrite the mainline with `update_mainline` only for a lasting new direction or a clearly ended one.
+        - When the user describes their own situation, link it to the recent summary in half a sentence; never list it.
+        """;
+
     /// <summary>The fixed parts, which every session gets in full.</summary>
     public static string Fixed(MemoryLanguage language, RecordingCriteria criteria) => Join(
     [
@@ -47,6 +58,7 @@ internal static class ServerInstructionText
         UsingMemory,
         Recalling,
         Writing,
+        WritingRecent,
         $"""
         ## Language
         Memory is written in {LanguageName(language)}. Write `recall` queries in {LanguageName(language)} too. When you quote or record memory, keep the user's words, code, paths, commands and proper nouns as they are.
@@ -65,45 +77,85 @@ internal static class ServerInstructionText
 
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
     /// <param name="skippedFiles">Page files left out of the index because they are not UTF-8.</param>
+    /// <param name="recent">The mainline and the last seven days of activities.</param>
+    /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
     public static string Build(
         MemoryLanguage language,
         RecordingCriteria criteria,
         IReadOnlyList<string> unavailableModels,
         IReadOnlyList<string> skippedFiles,
+        RecentSummary recent,
         IReadOnlyList<string> projects)
     {
-        var parts = new List<string> { Fixed(language, criteria) };
+        var fixedText = Fixed(language, criteria);
         var status = new List<string>();
         if (unavailableModels.Count > 0)
             status.Add($"- Unavailable auxiliary models: {string.Join(", ", unavailableModels)}. Memory tools still work, with weaker search and checks.");
         if (skippedFiles.Count > 0)
             status.Add($"- Pages not searchable because they are not UTF-8: {string.Join(", ", skippedFiles)}.");
-        if (status.Count > 0)
-            parts.Add("## Status\n" + string.Join("\n", status));
-        var head = Join(parts);
+        var statusText = status.Count == 0 ? "" : "## Status\n" + string.Join("\n", status);
 
+        // Newest first, so the oldest activity is the last one and goes first.
+        var activities = recent.Week.ToList();
         var kept = projects.ToList();
         while (true)
         {
-            var text = kept.Count == 0 ? head : Join([head, "## Projects\n" + string.Join(", ", kept)]);
-            if (text.Length <= TotalLimit || kept.Count == 0)
+            var text = Join([
+                fixedText,
+                Summary(recent.Mainline, activities),
+                statusText,
+                kept.Count == 0 ? "" : "## Projects\n" + string.Join(", ", kept),
+            ]);
+            if (text.Length <= TotalLimit)
                 return text;
-            kept.RemoveAt(kept.Count - 1);
+            if (activities.Count > 0)
+                activities.RemoveAt(activities.Count - 1);
+            else if (kept.Count > 0)
+                kept.RemoveAt(kept.Count - 1);
+            else
+                return text;
         }
     }
 
-    /// <summary>Project names: directories under <c>pages/</c> that do not start with an underscore or a dot.</summary>
-    public static IReadOnlyList<string> Projects(string memoryPath)
+    /// <summary>
+    /// The project names the instructions list: the directories under <c>pages/</c> that do not start with an
+    /// underscore or a dot, together with every project label in the activity log; sorted by name, each once.
+    /// </summary>
+    public static IReadOnlyList<string> Projects(string memoryPath, IEnumerable<string> activityProjects)
     {
         var pages = Path.Combine(memoryPath, "pages");
-        if (!Directory.Exists(pages))
-            return [];
-        return Directory.EnumerateDirectories(pages)
-            .Select(Path.GetFileName)
-            .OfType<string>()
+        IEnumerable<string> directories = Directory.Exists(pages)
+            ? Directory.EnumerateDirectories(pages).Select(Path.GetFileName).OfType<string>()
+            : Enumerable.Empty<string>();
+        return directories
             .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
+            .Concat(activityProjects)
+            .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>The recent summary: the mainline without codes, then the activities with their dates and projects.</summary>
+    private static string Summary(IReadOnlyList<string> mainline, IReadOnlyList<RecentFile.Activity> activities)
+    {
+        if (mainline.Count == 0 && activities.Count == 0)
+            return "";
+
+        var lines = new List<string> { "## Recent" };
+        if (mainline.Count > 0)
+        {
+            lines.Add("Mainline:");
+            lines.AddRange(mainline.Select(item => "- " + item));
+        }
+        if (activities.Count > 0)
+        {
+            lines.Add("Activities from the last 7 days, newest first:");
+            lines.AddRange(activities.Select(activity =>
+                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} "
+                + (activity.Project is null ? "" : $"[{activity.Project}] ")
+                + activity.Body));
+        }
+        return string.Join("\n", lines);
     }
 
     /// <summary>The two sections of <c>rules.md</c>, items word for word; an empty section is left out.</summary>
