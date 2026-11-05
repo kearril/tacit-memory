@@ -6,7 +6,7 @@
 
 ## 1. 总览
 
-实线为已实现的部分，虚线为计划中的部分。
+图中所有连线均为已实现的调用关系。
 
 ```mermaid
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
     end
     Cli -->|init / connect / disconnect / show / serve| Facade
     Mcp --> Service
-    Admin -.-> Facade
+    Admin --> Service
     subgraph Core["TacitMemory.Core"]
         Facade[门面 Tacit]
         Service[MemoryService]
@@ -58,11 +58,11 @@ flowchart LR
 
 | 模块 | 职责 | 状态 |
 | :--- | :--- | :--- |
-| 门面 | 对外的唯一入口 `Tacit`；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听；`CheckupPromptAsync` 生成 `checkup` 指令文本 | 已实现 |
+| 门面 | 对外的唯一入口 `Tacit`；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存、文件监听与 `checkup` 指令文本的生成（`CheckupPromptAsync`） | 已实现 |
 | 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
 | 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；密钥（`models.decision.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/design.md` 第 12 节）；校验服务端说明的固定部分长度 | 已实现 |
 | 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
-| 维护操作 | `MemoryService.RunMaintenanceAsync`：独占 `MaintenanceGate`，先等在途的向量补齐、判断与自动备份结束，再执行；期间记忆工具的读写、服务端说明与 prompt 的生成、后台同步与渲染、提示词重载全部排队，完成后照常执行。`reindex`（`ReindexAsync`）与 `restore`（`RestoreAsync`）都是维护操作；恢复的校验在 `Backup/RestoreArchive`，换入与回退在 `Maintenance/MoveJournal` | 已实现 |
+| 维护操作 | `MemoryService.RunMaintenanceAsync`：独占 `MaintenanceGate`，先等在途的向量补齐、判断与自动备份结束，再执行；期间其他读写与后台任务排队（范围见 `docs/design.md` 第 12 节「运行」）。`reindex`（`ReindexAsync`）与 `restore`（`RestoreAsync`）都是维护操作；恢复的校验在 `Backup/RestoreArchive`，换入与回退在 `Backup/RestoreInstall`（`Maintenance/MoveJournal` 记录每次移动并逆序撤销）。 | 已实现 |
 | 近期活动 | 写入活动（`add_activity`、`replaces`）与近期主线（`update_mainline`）：按日定位标题并保留其余字节、计算活动短码与版本短码；写入后的回复附主线与近期活动 | 已实现 |
 | 画像写入 | `write_persona` 的四个操作：参数按 `op` 校验，经校验与判断（画像冲突、同一偏好）后按行修改画像或候选文件，经串行队列写入并提交；画像变化时重渲染常驻区块。行为见 `docs/design.md` 第 6 节 | 已实现 |
 | 细节页写入 | `write_page` 的四个操作（`create`、`upsert_section`、`delete_section`、`update_header`）：参数按 `op` 校验，凭据检测，小节以短码定位，只改写本次文件并提交，写入后同步该页的索引 | 已实现 |
@@ -122,11 +122,11 @@ flowchart LR
 2. 等在途的向量补齐、判断与自动备份结束（各自的 `Completion` 任务）；之后才开始计时并记录开始的事件；
 3. `reindex`：删除并重建派生索引文件（全文、单元、向量与判断缓存一并清空），按文件重新同步，然后等待向量补齐；嵌入模型不可用时提前结束，结果注明向量待补，之后由后台补齐接手；
 4. 记录结束的事件（耗时），释放独占，排队的读写按到达顺序继续。
-5. `restore`（`RestoreAsync`）同样先经第 1、2 步。之后：校验备份（不通过则什么都不改）→ 停止两个监听、关闭派生索引 → 保险备份 → 把备份的 `memory/` 解压到 `memory.path` 内的隐藏暂存目录 `.tacit-restore-<id>`，当前内容移到同处的隐藏目录 `.tacit-previous-<id>`，暂存内容再移入（`.cache/` 不动，`memory.path` 目录本身保留；两个隐藏目录与记忆仓库同卷，移动均为重命名）→ 加 `--config` 时交换 `config.yaml` 与 `prompts/`，并读取恢复回来的配置（不通过时只提示，不回退）→ 全量重建索引（与 `reindex` 共用同一段代码）→ 删除两个隐藏目录 → 恢复监听、重载提示词、重新渲染常驻区块、使服务端说明失效。换入之后任一步失败则逆序撤销换入，重建索引并恢复监听；隐藏目录在撤销成功后才删除。
+5. `restore`（`RestoreAsync`）同样先经第 1、2 步，之后的执行顺序见 `docs/design.md` 第 12 节「备份与恢复」。代码上：`RestoreArchive` 校验备份（不通过则什么都不改）；`RestoreInstall` 生成保险备份、做文件换入与撤销（`Apply`、`RollBack`）、删除临时目录（`Finish`）；`MemoryService.RestoreCoreAsync` 编排索引重建、监听、提示词重载与常驻区块渲染。
 
 ## 5. 进程与传输
 
-- `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权；管理 API 另有 Origin、Host 与 POST 的 Content-Type 三道防护（见第 5 节）。
+- `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权；管理 API 另有 Origin、Host 与 POST 的 Content-Type 三道防护（规则见本节下文）。
 - MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。prompt 由 `MemoryPrompts` 声明（`remember` 与 `checkup`，均无必填参数），文本由 `MemoryService` 现场生成。列表与取回请求都由 `WithPrompts` 注册处理：omp 不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `McpHost` 不启动，由 CLI 报告。
 - 管理 API 挂载于 `/api`，将来的 Web UI 也走这里。已实现：`GET /api/status`（`tacit status`）、`POST /api/reindex`（`tacit reindex`）、`POST /api/backup`（`tacit backup`，本地目标与 `target` 为 `remote` 的云端目标）与 `POST /api/restore`（`tacit restore`）。恢复的请求为 `{path, remote, config, preview}`：`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`path` 与 `remote` 二选一，两者的校验在 Core 中完成。
 - 防护（`ManagementApi`）：带 `Origin` 头的请求返回 403；Host 不是 `127.0.0.1:<端口>` 或 `localhost:<端口>` 的请求返回 403（防 DNS 重绑定）；POST 的 Content-Type 不是 `application/json` 的返回 415。错误体为 `{"error": "<TacitError 名>", "message": "<本地化说明>"}`，JSON 为 camelCase。只作用于 `/api` 路径，`/mcp` 不受影响。
@@ -143,10 +143,10 @@ flowchart LR
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），连同上游 LICENSE 存于仓库 `lib/sqlite-vec/`，构建时复制到输出目录；每次加载前校验代码中记录的 SHA-256，不符则拒绝启动；不使用 NuGet 上的第三方包 | 已引入 |
 | 查询与映射 | `Dapper` | 已引入 |
 | 嵌入 | `HttpClient`，调用 OpenAI 兼容的 `/embeddings`；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
-| reranker | `HttpClient` 类型化客户端，调用 Cohere/Jina 兼容的 `/v1/rerank` | 已引入 |
+| reranker | `HttpClient` 类型化客户端，调用 Cohere/Jina 兼容的 `/rerank` | 已引入 |
 | 决策模型 | `HttpClient`，调用 TypeSafe 的 `/systemone` | 已引入 |
 | 重试与超时 | 辅助模型请求内重试（规则见上表辅助模型客户端行与 `docs/design.md` 第 4 节）；每次尝试设超时，并受一次请求 20 秒总时限截断 | 已实现 |
 | 日志 | `Serilog`（`Serilog.Sinks.File` 写文件，`Serilog.Extensions.Logging` 接入 `Microsoft.Extensions.Logging`）；Core 只引用 `Microsoft.Extensions.Logging.Abstractions` | 已引入 |
-| 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，不重试 | 已实现 |
+| 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、GET、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，请求本身不重试（父目录缺失时的 MKCOL 与重传规则见 `docs/design.md` 第 12 节） | 已实现 |
 
 依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各项目文件为准；尚未引入的依赖在引入时锁定版本。

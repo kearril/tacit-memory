@@ -176,12 +176,16 @@ _Avoid_: 存储、数据目录、store
 _Avoid_: 后端、守护进程、server
 
 **管理 API**（Management API）：
-常驻服务在 `/api` 下提供的本机 HTTP 接口，供 `tacit` 命令（及将来的 Web UI）调用，例如 `GET /api/status`；与 `/mcp` 同在 `127.0.0.1` 上，并以 Origin、Host 与 POST 的 Content-Type 三道防护拒绝外部网页与非 JSON 请求。
+常驻服务在 `/api` 下提供的本机 HTTP 接口，供 `tacit` 命令（及将来的 Web UI）调用，例如 `GET /api/status`；与 `/mcp` 同在 `127.0.0.1` 上，并以 Origin、Host 与 POST 的 Content-Type 三道防护拒绝外部网页、DNS 重绑定与非 JSON 的 POST 请求。
 _Avoid_: 运维接口、控制面板、admin
 
 **维护操作**（Maintenance operation）：
-独占记忆仓库与派生索引的操作。执行期间，记忆工具的读写、服务端说明与 prompt 的生成、后台的索引同步与常驻区块渲染、提示词重载都排队等待，完成后照常执行。`tacit reindex` 与 `tacit restore` 都是维护操作。
+独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md` 第 12 节「运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
 _Avoid_: 运维操作、独占操作、锁定操作
+
+**自动备份**（Automatic backup）：
+每天第一次写入后生成的备份 zip，文件名为 `auto-YYYY-MM-DD.zip`，内容与手动备份相同；只有自动备份会被清理，保留最近 `backup.keep` 份（`0` 关闭）。
+_Avoid_: 定时备份、每日备份
 
 **手动备份**（Manual backup）：
 用户随时执行 `tacit backup` 生成的备份 zip，文件名为 `manual-YYYY-MM-DD-HHmmss.zip`，内容与自动备份相同；不计入 `backup.keep`，永不被自动清理。
@@ -196,6 +200,10 @@ _Avoid_: 恢复备份、回滚点
 _Avoid_: 远程备份、同步、推送
 代码中以 `Cloud` 命名：`BackupTarget.Cloud`、`CloudBackupRecord`、`TacitError.CloudBackupFailed`、`TacitError.CloudBackupNotConfigured`。命令行 `--remote` 与管理 API 的 `target: "remote"`、`remote: true` 是规格定义的线上值，保持 `remote`，与代码名的对应只在此处说明。
 
+**恢复**（Restore）：
+用备份 zip 替换记忆仓库的操作：先预览，确认后执行，执行前先生成保险备份；加 `--config` 时一并替换 `config.yaml` 与 `prompts/`。`tacit restore --remote` 先下载云端备份，之后走同一流程。
+_Avoid_: 还原、导入
+
 **门面**（Facade）：
 `TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 经由它调用记忆规则，并由它打开常驻服务 `MemoryService`，MCP 工具经该服务调用记忆规则。
 _Avoid_: 服务层、API、管理器
@@ -204,9 +212,13 @@ _Avoid_: 服务层、API、管理器
 由常驻服务生成、在客户端连接时注入系统提示的文本，依次包含开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目与体检提示；所依据的记忆或提示词文档变化后重新生成。
 _Avoid_: 系统提示、服务描述
 
-**状态提示**（Status）：
-服务端说明中列出冷却中的辅助模型与因不是 UTF-8 而被跳过的文件（细节页、活动记录、画像与候选文件）的一段；无问题时省略。
+**状态提示**（Status hints）：
+服务端说明中列出冷却中的辅助模型与因不是 UTF-8 而被跳过的文件（细节页、活动记录、画像与候选文件）的一段，节标题为 `## Status`；无问题时省略。
 _Avoid_: 健康检查、告警
+
+**状态报告**（Status report / `StatusReport`）：
+`tacit status` 与管理 API `GET /api/status` 输出的报告，依次由配置、服务、辅助模型、绑定、上次体检、待处理问题、备份、日志与密钥来源各栏组成；服务未运行时省略服务的运行数据与辅助模型两栏。
+_Avoid_: 健康报告、状态输出
 
 **辅助模型**（Auxiliary models）：
 常驻服务调用的三个模型的统称：嵌入模型、reranker 与决策模型。与主模型相对。
