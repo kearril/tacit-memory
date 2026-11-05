@@ -31,7 +31,7 @@ public sealed class CheckupReminderTests : IDisposable
 
     private void Ready(string extraConfig = "") => _home.InitReady(extraConfig, _models);
 
-    private MemoryService Open() => _home.Tacit().OpenService(_ => { });
+    private MemoryService Open() => _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private void WriteCandidates(string text) => File.WriteAllText(CandidatesMd, text.ReplaceLineEndings("\n"));
 

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using TacitMemory.Core.Logging;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Decisions;
@@ -14,7 +16,7 @@ namespace TacitMemory.Core.Persona;
 /// The persona side of the memory tools: the <c>write_persona</c> operations. Callers serialize writes; this class
 /// assumes it runs one write at a time.
 /// </summary>
-internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Action<string> notice, SamePreferenceCheck samePreference, RuleConflictCheck conflicts)
+internal sealed class PersonaTools(TacitOptions options, TacitConfig config, ServiceLog log, SamePreferenceCheck samePreference, RuleConflictCheck conflicts)
 {
     /// <summary>Characters an editor shows as a line break, so none may appear in a text or source; the parser splits on LF only.</summary>
     private static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
@@ -367,7 +369,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Act
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
-            notice(e.Message);
+            log.Notify(LogLevel.Warning, e.Message);
             return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
         }
     }

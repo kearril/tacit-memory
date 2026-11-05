@@ -12,7 +12,7 @@ public sealed partial class PersonaAddTests : IDisposable
     public PersonaAddTests()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_ => { });
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     public void Dispose()
@@ -181,7 +181,7 @@ public sealed partial class PersonaAddTests : IDisposable
 
         using var home = new TestHome();
         home.InitReady("limits:\n  itemLength: 120\n");
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.False((await service.WritePersonaAsync(Add("preferences", tooLong))).IsError);
     }

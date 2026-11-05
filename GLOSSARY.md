@@ -175,6 +175,27 @@ _Avoid_: 存储、数据目录、store
 `tacit serve` 启动的单一 HTTP MCP 服务；对话中的写入都经由它完成。
 _Avoid_: 后端、守护进程、server
 
+**管理 API**（Management API）：
+常驻服务在 `/api` 下提供的本机 HTTP 接口，供 `tacit` 命令（及将来的 Web UI）调用，例如 `GET /api/status`；与 `/mcp` 同在 `127.0.0.1` 上，并以 Origin、Host 与 POST 的 Content-Type 三道防护拒绝外部网页与非 JSON 请求。
+_Avoid_: 运维接口、控制面板、admin
+
+**维护操作**（Maintenance operation）：
+独占记忆仓库与派生索引的操作。执行期间，记忆工具的读写、服务端说明与 prompt 的生成、后台的索引同步与常驻区块渲染、提示词重载都排队等待，完成后照常执行。`tacit reindex` 与 `tacit restore` 都是维护操作。
+_Avoid_: 运维操作、独占操作、锁定操作
+
+**手动备份**（Manual backup）：
+用户随时执行 `tacit backup` 生成的备份 zip，文件名为 `manual-YYYY-MM-DD-HHmmss.zip`，内容与自动备份相同；不计入 `backup.keep`，永不被自动清理。
+_Avoid_: 临时备份、快照
+
+**保险备份**（Safety backup）：
+恢复前自动生成的 `backups/pre-restore-YYYY-MM-DD-HHmmss.zip`，内容是恢复前的完整状态；不计入 `backup.keep`，不清理、不上传。恢复中途失败时记忆仓库由回退逻辑撤销，不依赖它；恢复成功后，它是找回恢复前状态的途径。
+_Avoid_: 恢复备份、回滚点
+
+**云端备份**（Cloud backup）：
+用户执行 `tacit backup --remote` 时现场生成的一份备份，经 WebDAV 上传为 `backup.webdav.url` 目录下唯一的 `tacit-backup.zip`，每次原子替换远端那一份；只在执行命令时上传，本地不留副本。
+_Avoid_: 远程备份、同步、推送
+代码中以 `Cloud` 命名：`BackupTarget.Cloud`、`CloudBackupRecord`、`TacitError.CloudBackupFailed`、`TacitError.CloudBackupNotConfigured`。命令行 `--remote` 与管理 API 的 `target: "remote"`、`remote: true` 是规格定义的线上值，保持 `remote`，与代码名的对应只在此处说明。
+
 **门面**（Facade）：
 `TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 经由它调用记忆规则，并由它打开常驻服务 `MemoryService`，MCP 工具经该服务调用记忆规则。
 _Avoid_: 服务层、API、管理器

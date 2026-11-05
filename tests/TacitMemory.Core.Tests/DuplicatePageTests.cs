@@ -15,9 +15,9 @@ public sealed class DuplicatePageTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-    private void Configure(string extra = "", string? decisionKey = "test-key")
+    private void Configure(string extra = "", string decisionKey = "test-key")
     {
         _home.InitReady(models: _models);
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
@@ -143,18 +143,5 @@ public sealed class DuplicatePageTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.Contains("decision model is unavailable", result.Text);
         Assert.True(Exists("tacit-memory/pg-search"));
-    }
-
-    [Fact]
-    public async Task A_missing_key_environment_variable_makes_the_decision_model_unavailable()
-    {
-        Configure(decisionKey: null);
-        await Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失");
-
-        var result = await Create("tacit-memory/pg-search", "升级后搜不到中文");
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("decision model is unavailable", result.Text);
-        Assert.Equal(0, _models.DecisionCalls);
     }
 }

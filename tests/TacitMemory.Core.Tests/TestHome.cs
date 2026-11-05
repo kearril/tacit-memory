@@ -29,6 +29,12 @@ internal sealed class TestHome : IDisposable
     /// <summary>The clock of every <see cref="Tacit"/> made here; tests may move it forward.</summary>
     public FixedTime Clock { get; } = new(new DateTimeOffset(Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero));
 
+    /// <summary>
+    /// The secret environment variables every <see cref="Tacit"/> made here sees. It starts empty, so the machine's own
+    /// variables are never read; a test sets the ones it needs, e.g. <c>TACIT_DECISION_API_KEY</c>.
+    /// </summary>
+    public Dictionary<string, string> EnvironmentVariables { get; } = [];
+
     public Tacit Tacit(string uiCulture = "zh-CN") =>
         new(new TacitOptions
         {
@@ -36,6 +42,7 @@ internal sealed class TestHome : IDisposable
             UserHome = UserHome,
             UiCulture = CultureInfo.GetCultureInfo(uiCulture),
             Time = Clock,
+            Secrets = EnvironmentVariables,
         });
 
     /// <summary>A <c>models</c> section that passes validation; nothing is listening at these addresses in tests.</summary>
@@ -43,7 +50,7 @@ internal sealed class TestHome : IDisposable
         models:
           embedding: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-embedding-0.6b }
           reranker: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-reranker-0.6b }
-          decision: { endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKeyEnv: JEV_KEY }
+          decision: { endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKey: test-key }
 
         """;
 

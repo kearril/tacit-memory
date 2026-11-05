@@ -44,9 +44,9 @@ internal static class Messages
     public static readonly Localized ConfigExpectedProbability = new("应为 0 到 1 之间的数，实际为 {0}", "must be a number from 0 to 1, but is {0}");
     public static readonly Localized ConfigExpectedUrl = new("应为 http 或 https 地址，实际为 {0}", "must be an http or https URL, but is {0}");
     public static readonly Localized ConfigExpectedLanguage = new("应为 zh 或 en，实际为 {0}", "must be zh or en, but is {0}");
-    public static readonly Localized ConfigExactlyOneKey = new(
-        "apiKey 与 apiKeyEnv 必须且只能填写一个",
-        "exactly one of apiKey and apiKeyEnv must be set");
+    public static readonly Localized ConfigSecretMissing = new(
+        "未设置，请写入此键或设置环境变量 {0}",
+        "not set; write it here or set the environment variable {0}");
     public static readonly Localized ConfigThresholdOrder = new(
         "unlikely（{0}）应小于 certain（{1}）",
         "unlikely ({0}) must be lower than certain ({1})");
@@ -133,10 +133,4 @@ internal static class Messages
         "端口 {0} 已被占用，常驻服务无法启动。请在 {1} 中修改 server.port。",
         "Port {0} is already in use, so the memory service cannot start. Change server.port in {1}.");
 
-    public static readonly Localized BackupFailed = new(
-        "自动备份失败：{0}。写入结果不受影响，下一次写入时会再次尝试。",
-        "The automatic backup failed: {0}. The write itself is unaffected; the next write tries again.");
-    public static readonly Localized BackupPlaintextKey = new(
-        "{0} 含有明文 apiKey，备份文件中也有这个密钥，请妥善保管备份。",
-        "{0} holds a plaintext apiKey, and the backup holds it too; keep the backup safe.");
 }

@@ -13,7 +13,7 @@ public sealed class FormatViolationTests : IDisposable
     private MemoryService Open()
     {
         _home.InitReady();
-        return _home.Tacit().OpenService(_ => { });
+        return _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     /// <summary>The text of one report category: from its heading to the next heading, or to the end.</summary>

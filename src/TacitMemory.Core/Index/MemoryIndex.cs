@@ -36,6 +36,9 @@ internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To
 /// <summary>A unit that has no vector yet, with the text to embed.</summary>
 internal sealed record PendingUnit(long Id, string Text);
 
+/// <summary>What the index holds: its files, its units and the units that have a vector.</summary>
+internal sealed record IndexCounts(int Files, int Units, int Vectors);
+
 /// <summary>The kinds of source the index holds.</summary>
 internal static class SourceKinds
 {
@@ -104,15 +107,17 @@ internal sealed class MemoryIndex : IDisposable
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
+    private readonly string _embeddingModel;
     private readonly Lock _gate = new();
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
-    private readonly SqliteConnection _connection;
+    private SqliteConnection _connection;
 
     /// <param name="embeddingModel">The configured embedding model; vectors made by another model are dropped.</param>
     public MemoryIndex(string memoryPath, string embeddingModel, MemoryLanguage language)
     {
         _memoryPath = memoryPath;
         _databasePath = Path.Combine(memoryPath, ".cache", "index.db");
+        _embeddingModel = embeddingModel;
         Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
         VectorExtension.Verify(language);
         _connection = OpenCurrent();
@@ -375,6 +380,34 @@ internal sealed class MemoryIndex : IDisposable
             DropVectors();
     }
 
+    /// <summary>
+    /// Deletes the index and creates an empty one: the full-text table, the units, the vectors and the judgment cache all
+    /// go. The next <see cref="SyncAll"/> indexes every file again.
+    /// </summary>
+    public void Rebuild()
+    {
+        lock (_gate)
+        {
+            _connection.Dispose();
+            _skipped.Clear();
+            _connection = Create();
+            SetMeta("embedding_model", _embeddingModel);
+        }
+    }
+
+    /// <summary>How many files, units and units with a vector the index holds now.</summary>
+    public IndexCounts Counts()
+    {
+        lock (_gate)
+        {
+            var vectors = HasVectorTable() ? _connection.ExecuteScalar<long>("SELECT count(*) FROM units_vec") : 0;
+            return new IndexCounts(
+                (int)_connection.ExecuteScalar<long>("SELECT count(*) FROM sources"),
+                (int)_connection.ExecuteScalar<long>("SELECT count(*) FROM units"),
+                (int)vectors);
+        }
+    }
+
     public void Dispose()
     {
         lock (_gate)
@@ -610,6 +643,12 @@ internal sealed class MemoryIndex : IDisposable
         }
 
         existing?.Dispose();
+        return Create();
+    }
+
+    /// <summary>Deletes the index files and creates an empty index with the current schema.</summary>
+    private SqliteConnection Create()
+    {
         foreach (var suffix in (string[])["", "-wal", "-shm", "-journal"])
             File.Delete(_databasePath + suffix);
         var fresh = Connect();

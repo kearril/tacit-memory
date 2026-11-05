@@ -76,7 +76,7 @@ internal static class ContextFile
     /// The block's span, from the start of the begin marker line to the end of the end marker (its line break
     /// excluded); <c>null</c> when there are no markers at all.
     /// </summary>
-    private static (int Start, int End)? FindBlock(string path, string text, MemoryLanguage language)
+    internal static (int Start, int End)? FindBlock(string path, string text, MemoryLanguage language)
     {
         var begins = new List<(int Line, int Offset)>();
         var ends = new List<(int Line, int Offset)>();

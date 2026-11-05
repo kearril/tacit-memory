@@ -1,0 +1,138 @@
+using Microsoft.Extensions.Logging;
+
+namespace TacitMemory.Core.Tests;
+
+/// <summary>
+/// <c>reindex</c> through the facade: the rebuilt index answers as before, the judgment cache is emptied, a missing
+/// embedding model leaves the vectors for later, the files the index cannot read are listed, and the log records it.
+/// </summary>
+public sealed class ReindexTests : IDisposable
+{
+    /// <summary>A bound on each await: a wait that never ends fails here instead of hanging.</summary>
+    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
+
+    private readonly TestHome _home = new();
+    private readonly ModelDouble _models = new();
+    private readonly CapturingLoggerFactory _logs = new();
+    private MemoryService? _service;
+
+    public ReindexTests() => _home.InitReady(models: _models);
+
+    public void Dispose()
+    {
+        _models.ReleaseDecisions();
+        _models.ReleaseEmbeddings();
+        _service?.Dispose();
+        _models.Dispose();
+        _home.Dispose();
+    }
+
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, _logs);
+
+    private async Task CreatePage(string page, string title, string body)
+    {
+        var result = await Service.WritePageAsync(new WritePageRequest
+        {
+            Op = "create",
+            Page = page,
+            Title = title,
+            Aliases = [title + "的坑", title + "问题"],
+            Sections = [new("要点", body)],
+        });
+        Assert.False(result.IsError, result.Text);
+    }
+
+    private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
+
+    [Fact]
+    public async Task After_a_rebuild_the_same_query_returns_the_same_result_and_every_unit_has_a_vector()
+    {
+        await CreatePage("tacit-memory/backup", "备份", "每日自动备份到 zip");
+        await CreatePage("tacit-memory/restore", "恢复", "从备份恢复记忆仓库");
+        var before = await Recall("备份");
+
+        var result = await Service.ReindexAsync().WaitAsync(Guard);
+
+        Assert.Equal(before.Text, (await Recall("备份")).Text);
+        Assert.True(result.Files >= 2, $"Expected at least the two pages, got {result.Files} files.");
+        Assert.True(result.Units > 0);
+        Assert.Equal(result.Units, result.Vectors);
+        Assert.False(result.VectorsPending);
+        Assert.Empty(result.SkippedFiles);
+    }
+
+    [Fact]
+    public async Task The_rebuild_empties_the_judgment_cache_so_the_next_checkup_asks_the_decision_model_again()
+    {
+        Write("回答尽量简短");
+        PickPersonaEntry();
+        await Service.CheckupPromptAsync().WaitAsync(Guard);
+        await Service.JudgmentCompletion.WaitAsync(Guard);
+        var asked = _models.DecisionCalls;
+        Assert.True(asked > 0, "The first checkup should have asked the decision model.");
+
+        await Service.CheckupPromptAsync().WaitAsync(Guard);
+        await Service.JudgmentCompletion.WaitAsync(Guard);
+        Assert.Equal(asked, _models.DecisionCalls);
+
+        await Service.ReindexAsync().WaitAsync(Guard);
+        await Service.CheckupPromptAsync().WaitAsync(Guard);
+        await Service.JudgmentCompletion.WaitAsync(Guard);
+
+        Assert.True(_models.DecisionCalls > asked);
+    }
+
+    [Fact]
+    public async Task With_the_embedding_model_down_the_full_text_index_is_rebuilt_and_the_result_says_vectors_wait()
+    {
+        await CreatePage("tacit-memory/backup", "备份", "每日自动备份到 zip");
+        _models.EmbeddingDown = true;
+
+        var result = await Service.ReindexAsync().WaitAsync(Guard);
+
+        Assert.True(result.VectorsPending);
+        Assert.Equal(0, result.Vectors);
+        Assert.Contains("向量将在模型恢复后补齐", result.Report);
+        var found = await Recall("备份");
+        Assert.False(found.IsError);
+        Assert.Contains("tacit-memory/backup", found.Text);
+    }
+
+    [Fact]
+    public async Task A_file_that_is_not_utf8_is_skipped_and_listed_in_the_result()
+    {
+        await CreatePage("tacit-memory/backup", "备份", "每日自动备份到 zip");
+        File.WriteAllBytes(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory", "gbk.md"), [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
+
+        var result = await Service.ReindexAsync().WaitAsync(Guard);
+
+        Assert.Equal(["pages/tacit-memory/gbk.md"], result.SkippedFiles);
+        Assert.Contains("pages/tacit-memory/gbk.md", result.Report);
+    }
+
+    [Fact]
+    public async Task The_log_records_the_start_the_end_and_the_result_of_the_rebuild()
+    {
+        await Service.ReindexAsync().WaitAsync(Guard);
+
+        Assert.Single(_logs.Entries, entry => entry.Message.Contains("维护操作开始：reindex", StringComparison.Ordinal));
+        Assert.Single(_logs.Entries, entry => entry.Message.Contains("维护操作结束：reindex", StringComparison.Ordinal));
+        Assert.Single(_logs.Entries, entry => entry.Message.Contains("索引已重建", StringComparison.Ordinal));
+    }
+
+    private void Write(params string[] candidateTitles)
+    {
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), PersonaWithPreference.ReplaceLineEndings("\n"));
+        var blocks = string.Concat(candidateTitles.Select(title => $"### {title}\n归属：偏好\n- 2026-10-30 原话「{title}」\n- 2026-10-31 原话「{title}」\n\n"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "candidates.md"), ("## 候选\n\n" + blocks + "## 拒绝列表\n").ReplaceLineEndings("\n"));
+    }
+
+    private void PickPersonaEntry() => _models.Choose = (_, options) => options.ToDictionary(
+        option => option.Key,
+        option => option.Value.Contains("先要结论", StringComparison.Ordinal) ? 0.95
+            : option.Key == options.Keys.Last() ? 0.05
+            : 0.0);
+
+    private const string PersonaWithPreference =
+        "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n\n## 档案\n";
+}

@@ -25,7 +25,7 @@ public sealed class RecallActivityTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private string Memory => _home.DefaultMemory;
 

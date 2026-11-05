@@ -21,7 +21,7 @@ public sealed class MemorySkillTests : IDisposable
 
     private string SkillFile => Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");
 
-    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
+    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
     public void Startup_writes_the_skill_with_frontmatter_and_a_generated_note_after_it()
@@ -90,7 +90,7 @@ public sealed class MemorySkillTests : IDisposable
 
         Assert.Equal(TacitError.PromptInvalid, error.Error);
         Assert.Contains("skill.md", error.Message, StringComparison.Ordinal);
-        Assert.Throws<TacitException>(() => _home.Tacit().OpenService(_notices.Enqueue));
+        Assert.Throws<TacitException>(() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance));
     }
 
     [Fact]

@@ -26,7 +26,7 @@ public sealed class ModelRetryTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private FixedTime Clock => _home.Clock;
 
@@ -244,19 +244,5 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(2, _models.DecisionCalls);
         Assert.Contains("one merged sentence", result.Text);
-    }
-
-    [Fact]
-    public async Task A_decision_model_without_a_key_is_never_called_and_stays_named()
-    {
-        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), _models.ModelsYaml().ReplaceLineEndings("\n"));
-
-        await Write("先查了索引");
-        await Write("索引查完了，问题在分词器");
-        Clock.Advance(TimeSpan.FromHours(1));
-        await Write("又一件事");
-
-        Assert.Equal(0, _models.DecisionCalls);
-        Assert.Contains("- Unavailable auxiliary models: decision.", await Service.ServerInstructionsAsync());
     }
 }

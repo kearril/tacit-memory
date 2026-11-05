@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -10,6 +11,11 @@ namespace TacitMemory.Core.Pages;
 internal static class ShortCode
 {
     public const int Length = 6;
+
+    /// <summary>Whether <paramref name="text"/> has the shape of a short code, with an optional <c>-N</c> suffix.</summary>
+    internal static bool LooksLike(string? text) => text is not null && Shape.IsMatch(text);
+
+    private static readonly Regex Shape = new("^[0-9a-f]{6}(-[0-9]+)?$", RegexOptions.CultureInvariant);
 
     /// <summary>Codes for <paramref name="texts"/> in order; identical texts get <c>-2</c>, <c>-3</c>… by position.</summary>
     public static IReadOnlyList<string> For(IEnumerable<string> texts)

@@ -25,7 +25,7 @@ public sealed class CheckupConflictTests : IDisposable
 
     private string PersonaMd => Path.Combine(Memory, "persona.md");
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private const string Conflicting = "Conflicting persona entries";
 

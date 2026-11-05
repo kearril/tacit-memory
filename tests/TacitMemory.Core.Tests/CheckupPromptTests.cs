@@ -11,7 +11,7 @@ public sealed class CheckupPromptTests : IDisposable
     private MemoryService Open()
     {
         _home.InitReady();
-        return _home.Tacit().OpenService(_ => { });
+        return _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     private void Commit(string message) =>
@@ -62,7 +62,7 @@ public sealed class CheckupPromptTests : IDisposable
     public async Task The_structure_words_and_examples_follow_the_memory_language()
     {
         _home.InitReady(language: MemoryLanguage.Zh);
-        using (var zh = _home.Tacit().OpenService(_ => { }))
+        using (var zh = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance))
         {
             var prompt = await zh.CheckupPromptAsync();
             Assert.Contains("拒绝列表", prompt);
@@ -74,7 +74,7 @@ public sealed class CheckupPromptTests : IDisposable
         using var home = new TestHome();
         // InitReady rewrites config.yaml without the language key, so the memory language is set again here.
         home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
-        using var en = home.Tacit().OpenService(_ => { });
+        using var en = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         var english = await en.CheckupPromptAsync();
         Assert.Contains("Rejection list", english);
         Assert.Contains("instead", english);
@@ -137,7 +137,7 @@ public sealed class CheckupPromptTests : IDisposable
         _home.InitReady();
         var root = HeadHash();
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup memory");
-        using var service = _home.Tacit().OpenService(_ => { });
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var prompt = await service.CheckupPromptAsync();
 

@@ -18,7 +18,7 @@ public sealed class RerankTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private async Task Create(string page, string title, params PageSectionInput[] sections)
     {

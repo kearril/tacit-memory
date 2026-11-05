@@ -27,7 +27,7 @@ public sealed class CheckupCandidateTests : IDisposable
 
     private string CandidatesMd => Path.Combine(Memory, "candidates.md");
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private const string Removal = "Persona candidates to remove";
 

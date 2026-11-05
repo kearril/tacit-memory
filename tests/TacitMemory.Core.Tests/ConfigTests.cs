@@ -39,7 +39,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new BackupConfig(7, null), config.Backup);
         Assert.Equal(new Uri("http://127.0.0.1:38417/v1"), config.Models.Embedding.Endpoint);
         Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker.Model);
-        Assert.Equal(new DecisionModelEndpoint(new Uri("https://api.typesafe.ai/v1"), "jev-latest", null, "JEV_KEY"), config.Models.Decision);
+        Assert.Equal(new DecisionModelEndpoint(new Uri("https://api.typesafe.ai/v1"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true)), config.Models.Decision);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class ConfigTests : IDisposable
             limits: { persona: { redLines: 3 }, itemLength: 80 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { minRerankScore: 0.3 }
-            backup: { keep: 0, remote: 'git@example.com:me/memory.git' }
+            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw } }
             """);
         Directory.CreateDirectory(Path.Combine(_home.UserHome, "notes", "memory", ".git"));
 
@@ -89,7 +89,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
-        Assert.Equal(new BackupConfig(0, "git@example.com:me/memory.git"), config.Backup);
+        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, WrittenInConfig: true))), config.Backup);
     }
 
     [Theory]
@@ -114,17 +114,143 @@ public sealed class ConfigTests : IDisposable
         Assert.Contains(keyPath, error.Message);
     }
 
-    [Theory]
-    [InlineData("endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKey: secret, apiKeyEnv: JEV_KEY")]
-    [InlineData("endpoint: 'https://api.typesafe.ai/v1', model: jev-latest")]
-    public void The_decision_model_needs_exactly_one_of_api_key_and_api_key_env(string decision)
+    [Fact]
+    public void A_decision_key_in_the_environment_overrides_the_config_and_both_are_recorded()
     {
-        WriteConfig(Models.Replace("endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKeyEnv: JEV_KEY", decision));
+        WriteConfig(Models);
+        _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
+
+        var decision = _home.Tacit().LoadConfig().Models.Decision;
+
+        Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: true), decision.ApiKey);
+    }
+
+    [Fact]
+    public void A_decision_key_only_in_the_environment_needs_no_entry_in_the_config()
+    {
+        WriteConfig(Models.Replace(", apiKey: test-key", ""));
+        _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
+
+        var decision = _home.Tacit().LoadConfig().Models.Decision;
+
+        Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: false), decision.ApiKey);
+    }
+
+    [Fact]
+    public void A_blank_environment_variable_does_not_override_the_config()
+    {
+        WriteConfig(Models);
+        _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "  ";
+
+        var decision = _home.Tacit().LoadConfig().Models.Decision;
+
+        Assert.Equal(new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), decision.ApiKey);
+    }
+
+    [Fact]
+    public void A_decision_model_with_no_key_anywhere_is_refused_naming_the_key_path_and_the_variable()
+    {
+        WriteConfig(Models.Replace(", apiKey: test-key", ""));
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("models.decision.apiKey", message);
+        Assert.Contains("TACIT_DECISION_API_KEY", message);
+    }
+
+    [Fact]
+    public void The_secret_value_never_shows_in_its_text_form()
+    {
+        var secret = new SecretValue("sk-visible-value", SecretSource.ConfigFile, WrittenInConfig: true);
+
+        Assert.DoesNotContain("sk-visible-value", secret.ToString());
+    }
+
+    [Fact]
+    public void The_removed_api_key_env_setting_is_an_unknown_setting()
+    {
+        WriteConfig(Models.Replace("apiKey: test-key", "apiKeyEnv: JEV_KEY"));
+
+        Assert.Contains("models.decision.apiKeyEnv", LoadFails().Message);
+    }
+
+    [Fact]
+    public void The_removed_backup_remote_setting_is_an_unknown_setting()
+    {
+        WriteConfig(Models + "backup: { remote: 'git@example.com:me/memory.git' }\n");
+
+        Assert.Contains("backup.remote", LoadFails().Message);
+    }
+
+    [Fact]
+    public void Without_a_username_webdav_needs_no_password_and_the_url_becomes_a_directory()
+    {
+        WriteConfig(Models + "backup: { webdav: { url: 'https://dav.example/tacit' } }\n");
+
+        var webdav = _home.Tacit().LoadConfig().Backup.WebDav;
+
+        Assert.Equal(new WebDavConfig(new Uri("https://dav.example/tacit/"), null, null), webdav);
+    }
+
+    [Fact]
+    public void A_webdav_username_without_any_password_is_refused_naming_the_key_path_and_the_variable()
+    {
+        WriteConfig(Models + "backup: { webdav: { url: 'https://dav.example/tacit/', username: me } }\n");
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("backup.webdav.password", message);
+        Assert.Contains("TACIT_WEBDAV_PASSWORD", message);
+    }
+
+    [Fact]
+    public void The_webdav_password_comes_from_the_environment_when_it_is_set()
+    {
+        WriteConfig(Models + "backup: { webdav: { url: 'https://dav.example/tacit/', username: me, password: pw } }\n");
+        _home.EnvironmentVariables["TACIT_WEBDAV_PASSWORD"] = "env-pw";
+
+        var password = _home.Tacit().LoadConfig().Backup.WebDav!.Password;
+
+        Assert.Equal(new SecretValue("env-pw", SecretSource.Environment, WrittenInConfig: true), password);
+    }
+
+    [Theory]
+    [InlineData("backup: { webdav: { username: me, password: pw } }", "backup.webdav.url")]
+    [InlineData("backup: { webdav: { url: 'ftp://dav.example/tacit/' } }", "backup.webdav.url")]
+    [InlineData("backup: { webdav: { url: 'https://dav.example/tacit/', token: x } }", "backup.webdav.token")]
+    public void A_webdav_section_is_checked_key_by_key(string yaml, string keyPath)
+    {
+        WriteConfig(Models + yaml + "\n");
 
         var error = LoadFails();
 
-        Assert.Contains("models.decision", error.Message);
-        Assert.Contains("apiKeyEnv", error.Message);
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains(keyPath, error.Message);
+    }
+
+    [Fact]
+    public void The_chinese_template_names_the_decision_key_variable_and_documents_webdav()
+    {
+        var lines = File.ReadAllLines(ConfigPath);
+
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("可省略", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_english_template_names_the_decision_key_variable_and_documents_webdav()
+    {
+        using var home = new TestHome();
+        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
+
+        var lines = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
+
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("left out", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
     }
 
     [Fact]

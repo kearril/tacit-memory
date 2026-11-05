@@ -15,9 +15,9 @@ public sealed class CredentialTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-    private void Configure(string extra = "", string? decisionKey = "test-key")
+    private void Configure(string extra = "", string decisionKey = "test-key")
     {
         _home.InitReady(models: _models);
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
@@ -145,17 +145,6 @@ public sealed class CredentialTests : IDisposable
     public async Task Without_the_decision_model_a_write_the_patterns_pass_goes_ahead()
     {
         _models.DecisionDown = true;
-
-        var result = await Create("先跑迁移，再重启服务。");
-
-        Assert.False(result.IsError, result.Text);
-        Assert.True(Exists());
-    }
-
-    [Fact]
-    public async Task Without_a_decision_key_a_write_the_patterns_pass_goes_ahead()
-    {
-        Configure(decisionKey: null);
 
         var result = await Create("先跑迁移，再重启服务。");
 

@@ -19,7 +19,7 @@ public sealed class PromptDocumentTests : IDisposable
 
     private string InstructionsMd => Path.Combine(Prompts, "instructions.md");
 
-    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
+    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
     public async Task Init_writes_rules_under_prompts_and_no_instructions_file()
@@ -116,7 +116,7 @@ public sealed class PromptDocumentTests : IDisposable
         using var home = new TestHome();
         home.InitReady(language: language);
 
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.DoesNotContain("<!--", await service.ServerInstructionsAsync());
         Assert.Contains("tacit-memory", await service.ServerInstructionsAsync());
@@ -130,7 +130,7 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Path.Combine(home.TacitHome, "prompts"));
         File.WriteAllText(Path.Combine(home.TacitHome, "prompts", "instructions.md"), "## 核心\n- 用中文写的规则\n");
 
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.Contains("- 用中文写的规则", await service.ServerInstructionsAsync());
     }

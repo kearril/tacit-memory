@@ -11,7 +11,7 @@ public sealed class RememberPromptTests : IDisposable
     public RememberPromptTests()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_ => { });
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     public void Dispose()
@@ -36,23 +36,23 @@ public sealed class RememberPromptTests : IDisposable
             Hash = VersionOf(),
         });
 
-        var prompt = _service.RememberPrompt();
+        var prompt = await _service.RememberPromptAsync();
 
         Assert.Contains($"[{ShortOf("想清楚了画像里缺的是人的倾向")}] 想清楚了画像里缺的是人的倾向", prompt);
         Assert.Contains($"Mainline, version [{VersionOf("主线一", "主线二")}]:\n- 主线一\n- 主线二", prompt);
     }
 
     [Fact]
-    public void The_focus_is_included_when_given_and_absent_otherwise()
+    public async Task The_focus_is_included_when_given_and_absent_otherwise()
     {
-        Assert.Contains("检索策略调整", _service.RememberPrompt("检索策略调整"));
-        Assert.DoesNotContain("检索策略调整", _service.RememberPrompt(null));
+        Assert.Contains("检索策略调整", await _service.RememberPromptAsync("检索策略调整"));
+        Assert.DoesNotContain("检索策略调整", await _service.RememberPromptAsync(null));
     }
 
     [Fact]
-    public void The_prompt_includes_the_persona_write_step()
+    public async Task The_prompt_includes_the_persona_write_step()
     {
-        var prompt = _service.RememberPrompt();
+        var prompt = await _service.RememberPromptAsync();
 
         Assert.Contains("write_persona", prompt);
         Assert.Contains("propose", prompt);

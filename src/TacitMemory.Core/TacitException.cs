@@ -39,8 +39,41 @@ public enum TacitError
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,
 
+    /// <summary>A backup would overwrite an existing file; a backup never overwrites one.</summary>
+    BackupExists,
+
+    /// <summary>A request names a value the operation does not accept, such as a relative backup directory.</summary>
+    RequestInvalid,
+
+    /// <summary>The cloud backup was asked for, but <c>backup.webdav</c> is not in <c>config.yaml</c>.</summary>
+    CloudBackupNotConfigured,
+
+    /// <summary>The cloud backup failed on the WebDAV service: connecting, authenticating, uploading or replacing the remote backup.</summary>
+    CloudBackupFailed,
+
+    /// <summary>A file or folder the operation needs could not be read or written, such as a backup directory that cannot be created.</summary>
+    FileSystemFailed,
+
+    /// <summary>The service failed in a way no operation expected; the log holds the details.</summary>
+    InternalFailure,
+
+    /// <summary>The backup zip cannot be restored: it has no readable manifest, its contents and manifest disagree, or an entry lies outside the allowed places.</summary>
+    RestoreInvalid,
+
+    /// <summary>A restore failed after it began. The memory repository is put back where it was, unless the message says the rollback failed too.</summary>
+    RestoreFailed,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
+
+    /// <summary>The management API refused a request that carries an Origin header (a browser page on another site).</summary>
+    ApiOriginRefused,
+
+    /// <summary>The management API refused a request whose Host is not this service's loopback address and port (DNS rebinding).</summary>
+    ApiHostRefused,
+
+    /// <summary>The management API refused a POST whose Content-Type is not application/json.</summary>
+    ApiContentTypeRefused,
 }
 
 /// <summary>A refused facade operation. <see cref="Exception.Message"/> is localized and meant for the user.</summary>

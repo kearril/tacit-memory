@@ -34,6 +34,8 @@ internal sealed class ModelDouble : IDisposable
     private readonly RequestCount _decisionRequests = new();
     private readonly Lock _decisionGate = new();
     private TaskCompletionSource? _decisionHold;
+    private readonly Lock _embeddingGate = new();
+    private TaskCompletionSource? _embeddingHold;
     private int _decisionsInFlight;
     private int _peakDecisionsInFlight;
 
@@ -121,6 +123,25 @@ internal sealed class ModelDouble : IDisposable
         hold?.TrySetResult();
     }
 
+    /// <summary>Holds every embedding answer, as a slow model would, until <see cref="ReleaseEmbeddings"/>.</summary>
+    public void HoldEmbeddings()
+    {
+        lock (_embeddingGate)
+            _embeddingHold ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    /// <summary>Lets the held embedding answers through, and every later one.</summary>
+    public void ReleaseEmbeddings()
+    {
+        TaskCompletionSource? hold;
+        lock (_embeddingGate)
+        {
+            hold = _embeddingHold;
+            _embeddingHold = null;
+        }
+        hold?.TrySetResult();
+    }
+
     /// <summary>The body and the Authorization header of the latest decision request.</summary>
     public (JsonObject Body, string? Authorization)? LastDecision { get; private set; }
 
@@ -136,12 +157,12 @@ internal sealed class ModelDouble : IDisposable
     /// <summary>Replies to the next decision requests, in order, before the model answers as set.</summary>
     public void ScriptDecision(params ModelReply[] replies) => Enqueue(_decisionScript, replies);
 
-    /// <summary>A <c>models</c> section pointing every model at this double; without a key the decision model has none.</summary>
-    public string ModelsYaml(string embeddingModel = "double-embedding", string? decisionKey = null) => $$"""
+    /// <summary>A <c>models</c> section pointing every model at this double, with the decision model's key given.</summary>
+    public string ModelsYaml(string embeddingModel = "double-embedding", string decisionKey = "test-key") => $$"""
         models:
           embedding: { endpoint: '{{Endpoint}}', model: {{embeddingModel}} }
           reranker: { endpoint: '{{Endpoint}}', model: double-reranker }
-          decision: { endpoint: '{{Endpoint}}', model: double-decision, {{(decisionKey is null ? "apiKeyEnv: JEV_KEY" : $"apiKey: {decisionKey}")}} }
+          decision: { endpoint: '{{Endpoint}}', model: double-decision, apiKey: {{decisionKey}} }
 
         """;
 
@@ -176,6 +197,11 @@ internal sealed class ModelDouble : IDisposable
     private async Task<IResult> EmbeddingsAsync(HttpRequest request)
     {
         _embeddingRequests.Increment();
+        Task? hold;
+        lock (_embeddingGate)
+            hold = _embeddingHold?.Task;
+        if (hold is not null)
+            await hold.WaitAsync(_closing.Token);
         if (await ScriptedAsync(_embeddingScript, request.HttpContext) is { } scripted)
             return scripted;
         if (EmbeddingDown)

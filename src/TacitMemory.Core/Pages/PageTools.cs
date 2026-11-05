@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using TacitMemory.Core.Logging;
 using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Decisions;
@@ -12,7 +14,7 @@ namespace TacitMemory.Core.Pages;
 /// writes; this class assumes it runs one write at a time.
 /// </summary>
 internal sealed class PageTools(
-    TacitOptions options, TacitConfig config, Action<string> notice, DuplicatePageCheck duplicates)
+    TacitOptions options, TacitConfig config, ServiceLog log, DuplicatePageCheck duplicates)
 {
     private const string Ops = "create, upsert_section, delete_section, update_header";
 
@@ -105,7 +107,7 @@ internal sealed class PageTools(
         var reply = $"Created page {id}.\nSections:\n{SectionList(written)}";
         if (check.Note is { } note)
             reply += $"\n\n{note}";
-        return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
     }
 
     private async Task<ToolResult> UpsertSectionAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
@@ -265,7 +267,7 @@ internal sealed class PageTools(
         var dirty = await _git.IsDirtyAsync(id.RelativePath, cancellationToken);
         TextFile.Write(PathOf(id), after.Text, after.HasBom);
         var commitProblem = await CommitAsync(dirty ? $"{message} (with user edits)" : message, id, cancellationToken);
-        return commitProblem is null ? ToolText.Ok(reply) : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true);
+        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
     }
 
     /// <summary>The parameters that were given but the op does not take.</summary>
@@ -378,7 +380,7 @@ internal sealed class PageTools(
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
-            notice(e.Message);
+            log.Notify(LogLevel.Warning, e.Message);
             return $"Not committed: the page is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this page.";
         }
     }

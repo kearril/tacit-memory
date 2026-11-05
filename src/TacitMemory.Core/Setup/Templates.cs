@@ -78,7 +78,7 @@ internal static class Templates
           decision:                   # TypeSafe 的 /v1/systemone
             endpoint: ''
             model: ''
-            apiKeyEnv: ''             # 存放密钥的环境变量名；也可改写 apiKey: <密钥>，二者只能选一个
+            apiKey: ''                # 密钥；可省略，改设环境变量 TACIT_DECISION_API_KEY（两处都有时以环境变量为准）
 
         limits:
           persona:                    # 画像各节的条数上限
@@ -116,7 +116,8 @@ internal static class Templates
 
         backup:
           keep: 7                     # 自动备份保留份数，0 表示关闭
-          # remote: <Git 远端>        # 配置后每次自动备份后推送记忆仓库
+          # 云端备份（WebDAV）的地址与账号；password 可省略，改设环境变量 TACIT_WEBDAV_PASSWORD
+          # webdav: { url: https://…/tacit/, username: …, password: … }
 
         """,
         """
@@ -140,7 +141,7 @@ internal static class Templates
           decision:                   # TypeSafe /v1/systemone
             endpoint: ''
             model: ''
-            apiKeyEnv: ''             # environment variable holding the key; or write apiKey: <key> instead, not both
+            apiKey: ''                # may be left out: set the environment variable TACIT_DECISION_API_KEY instead (the variable wins if both are set)
 
         limits:
           persona:                    # item limits of the persona sections
@@ -178,7 +179,8 @@ internal static class Templates
 
         backup:
           keep: 7                     # automatic backups kept; 0 turns them off
-          # remote: <Git remote>      # if set, the memory repository is pushed after each automatic backup
+          # cloud backup (WebDAV): address and account; password may be left out and set in TACIT_WEBDAV_PASSWORD instead
+          # webdav: { url: https://…/tacit/, username: …, password: … }
 
         """);
 }

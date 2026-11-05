@@ -43,7 +43,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
 
     private string Memory => _home.DefaultMemory;
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     /// <summary>The decision requests made since the last checkup commit; the live writes before it are not counted.</summary>
     private int AskedSinceCheckpoint => _models.DecisionCalls - _callsAtCheckpoint;

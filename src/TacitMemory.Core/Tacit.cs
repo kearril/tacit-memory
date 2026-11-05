@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Setup;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Show;
+using TacitMemory.Core.Status;
 
 namespace TacitMemory.Core;
 
@@ -80,7 +82,25 @@ public sealed class Tacit(TacitOptions options)
     /// <summary>
     /// Starts the memory service's state: loads the config, renders every bound context file once, and watches the
     /// memory repository. <paramref name="notice"/> receives, on a background thread, one line for the user per
-    /// context file rendered after <c>persona.md</c> changes, or the reason rendering failed.
+    /// context file rendered after <c>persona.md</c> changes, or the reason rendering failed. Every event is also
+    /// written to the log that <paramref name="loggerFactory"/> creates, in the memory language; a caller that keeps no
+    /// log passes <c>NullLoggerFactory.Instance</c>.
     /// </summary>
-    public MemoryService OpenService(Action<string> notice) => new(options, LoadConfig(), notice);
+    public MemoryService OpenService(Action<string> notice, ILoggerFactory loggerFactory) =>
+        new(options, LoadConfig(), notice, loggerFactory.CreateLogger(MemoryService.LogCategory));
+
+    /// <summary>
+    /// What <c>tacit status</c> reports when no service answers: the service's state, the shared columns and where the
+    /// logs are. Needs the loaded config and reads only local files: it calls no model and touches no network.
+    /// <paramref name="portAnsweredByOther"/> says another program answered on the configured port, so the report says so.
+    /// </summary>
+    public Task<StatusReport> OfflineStatus(TacitConfig config, bool portAnsweredByOther = false, CancellationToken cancellationToken = default) =>
+        StatusReporter.OfflineAsync(options, config, portAnsweredByOther, cancellationToken);
+
+    /// <summary>What <c>tacit status</c> reports when <c>config.yaml</c> does not load: every wrong key path, and where the logs are.</summary>
+    public StatusReport InvalidConfigStatus(TacitException error) => StatusReporter.InvalidConfig(options, error);
+
+    /// <summary>The line a command that needs the running service prints when none answers, in the memory language.</summary>
+    public string ServiceNotRunningMessage(TacitConfig config, bool portAnsweredByOther) =>
+        StatusReporter.NotRunningHint(config, portAnsweredByOther);
 }

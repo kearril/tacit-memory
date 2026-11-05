@@ -10,7 +10,22 @@ internal static class ConfigLoader
 {
     public static TacitConfig Load(TacitOptions options)
     {
-        var path = Path.Combine(options.TacitHome, "config.yaml");
+        var config = Read(options);
+        if (!Directory.Exists(Path.Combine(config.MemoryPath, ".git")) && !File.Exists(Path.Combine(config.MemoryPath, ".git")))
+            throw new TacitException(TacitError.NotInitialized, Messages.NotInitializedMemory.Format(config.Language, config.MemoryPath));
+        return config;
+    }
+
+    /// <summary>
+    /// Reads and validates <c>config.yaml</c> and the prompt documents, without checking that the memory repository exists:
+    /// a restored config may name a repository that is not here yet, and the restore reports that rather than failing.
+    /// </summary>
+    internal static TacitConfig Read(TacitOptions options) =>
+        Read(options, Path.Combine(options.TacitHome, "config.yaml"));
+
+    /// <summary>Reads the config file at <paramref name="path"/>; its prompt documents still come from <c>TACIT_HOME</c>.</summary>
+    internal static TacitConfig Read(TacitOptions options, string path)
+    {
         var fallbackLanguage = LanguageCodes.FromUiCulture(options.UiCulture);
         if (!File.Exists(path))
             throw new TacitException(TacitError.NotInitialized, Messages.NotInitializedConfig.Format(fallbackLanguage, path));
@@ -36,13 +51,13 @@ internal static class ConfigLoader
             ? HomePaths.Expand(configured, options.UserHome)
             : Path.Combine(options.TacitHome, "memory");
 
-        var models = ReadModels(reader, root);
+        var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
         var candidateMinDays = ReadCandidates(reader, root);
         var checkup = ReadCheckup(reader, root);
         var decision = ReadDecision(reader, root);
         var retrieval = ReadRetrieval(reader, root);
-        var backup = ReadBackup(reader, root);
+        var backup = ReadBackup(reader, root, options.Secrets);
 
         if (reader.Errors.Count > 0 || models is null)
         {
@@ -51,9 +66,6 @@ internal static class ConfigLoader
                 message.Append('\n').Append(error);
             throw new TacitException(TacitError.ConfigInvalid, message.ToString());
         }
-
-        if (!Directory.Exists(Path.Combine(memoryPath, ".git")) && !File.Exists(Path.Combine(memoryPath, ".git")))
-            throw new TacitException(TacitError.NotInitialized, Messages.NotInitializedMemory.Format(language, memoryPath));
 
         var prompts = PromptFiles.Load(options.TacitHome, language);
         ServerInstructionText.Check(language, prompts, options.TacitHome);
@@ -114,7 +126,7 @@ internal static class ConfigLoader
     }
 
     /// <summary>The <c>models</c> section, or <c>null</c> when any part of it is missing or wrong (all reported).</summary>
-    private static ModelsConfig? ReadModels(ConfigReader reader, YamlMappingNode root)
+    private static ModelsConfig? ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
         var models = reader.Mapping(root, "", "models", required: true);
         reader.OnlyKnown(models, "models", "embedding", "reranker", "decision");
@@ -134,17 +146,14 @@ internal static class ConfigLoader
 
         const string decisionPath = "models.decision";
         var decision = reader.Mapping(models, "models", "decision", required: models is not null);
-        reader.OnlyKnown(decision, decisionPath, "endpoint", "model", "apiKey", "apiKeyEnv");
+        reader.OnlyKnown(decision, decisionPath, "endpoint", "model", "apiKey");
         var decisionUrl = reader.Url(decision, decisionPath, "endpoint");
         var decisionModel = reader.Text(decision, decisionPath, "model", required: decision is not null);
-        var apiKey = reader.Text(decision, decisionPath, "apiKey");
-        var apiKeyEnv = reader.Text(decision, decisionPath, "apiKeyEnv");
-        if (decision is not null && (apiKey is null) == (apiKeyEnv is null))
-            reader.Error(decisionPath, Messages.ConfigExactlyOneKey);
+        var apiKey = ReadSecret(reader, decision, decisionPath, "apiKey", SecretVariables.DecisionApiKey, secrets, required: decision is not null);
 
-        return embedding is null || reranker is null || decisionUrl is null || decisionModel is null
+        return embedding is null || reranker is null || decisionUrl is null || decisionModel is null || apiKey is null
             ? null
-            : new ModelsConfig(embedding, reranker, new DecisionModelEndpoint(decisionUrl, decisionModel, apiKey, apiKeyEnv));
+            : new ModelsConfig(embedding, reranker, new DecisionModelEndpoint(decisionUrl, decisionModel, apiKey));
     }
 
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)
@@ -223,11 +232,45 @@ internal static class ConfigLoader
             reader.Probability(retrieval, "retrieval", "minRerankScore"));
     }
 
-    private static BackupConfig ReadBackup(ConfigReader reader, YamlMappingNode root)
+    private static BackupConfig ReadBackup(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
         var backup = reader.Mapping(root, "", "backup");
-        reader.OnlyKnown(backup, "backup", "keep", "remote");
-        return new BackupConfig(reader.Integer(backup, "backup", "keep", 7, 0, 1000), reader.Text(backup, "backup", "remote"));
+        reader.OnlyKnown(backup, "backup", "keep", "webdav");
+        return new BackupConfig(reader.Integer(backup, "backup", "keep", 7, 0, 1000), ReadWebDav(reader, backup, secrets));
+    }
+
+    /// <summary>The <c>backup.webdav</c> section, or <c>null</c> when absent or wrong (all reported).</summary>
+    private static WebDavConfig? ReadWebDav(ConfigReader reader, YamlMappingNode? backup, IReadOnlyDictionary<string, string> secrets)
+    {
+        const string path = "backup.webdav";
+        var webdav = reader.Mapping(backup, "backup", "webdav");
+        reader.OnlyKnown(webdav, path, "url", "username", "password");
+        var url = reader.Url(webdav, path, "url");
+        var username = reader.Text(webdav, path, "username");
+        var password = ReadSecret(reader, webdav, path, "password", SecretVariables.WebDavPassword, secrets, required: username is not null);
+        return url is null ? null : new WebDavConfig(AsDirectory(url), username, password);
+    }
+
+    /// <summary>The URL as a directory: a <c>/</c> is appended when its path does not end in one.</summary>
+    private static Uri AsDirectory(Uri url) =>
+        url.AbsolutePath.EndsWith('/') ? url : new UriBuilder(url) { Path = url.AbsolutePath + "/" }.Uri;
+
+    /// <summary>
+    /// A secret: the environment variable's value when it is set and not blank, otherwise the plain-text value under
+    /// <paramref name="key"/>. A <paramref name="required"/> secret that has neither is reported with its key path and
+    /// the variable's name.
+    /// </summary>
+    private static SecretValue? ReadSecret(
+        ConfigReader reader, YamlMappingNode? map, string path, string key, string variable, IReadOnlyDictionary<string, string> secrets, bool required)
+    {
+        var configured = reader.Text(map, path, key);
+        if (secrets.TryGetValue(variable, out var fromEnvironment) && !string.IsNullOrWhiteSpace(fromEnvironment))
+            return new SecretValue(fromEnvironment.Trim(), SecretSource.Environment, WrittenInConfig: configured is not null);
+        if (configured is not null)
+            return new SecretValue(configured, SecretSource.ConfigFile, WrittenInConfig: true);
+        if (required)
+            reader.Error(ConfigReader.Join(path, key), Messages.ConfigSecretMissing, variable);
+        return null;
     }
 
     /// <summary>A positive count with a default.</summary>

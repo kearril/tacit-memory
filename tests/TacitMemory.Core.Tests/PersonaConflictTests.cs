@@ -17,7 +17,7 @@ public sealed class PersonaConflictTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private string PersonaMd => Path.Combine(_home.DefaultMemory, "persona.md");
 
@@ -42,7 +42,7 @@ public sealed class PersonaConflictTests : IDisposable
 
         """;
 
-    private void Configure(string extra = "", string? decisionKey = "test-key")
+    private void Configure(string extra = "", string decisionKey = "test-key")
     {
         _home.InitReady(models: _models);
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
@@ -220,19 +220,6 @@ public sealed class PersonaConflictTests : IDisposable
     }
 
     [Fact]
-    public async Task When_the_decision_model_has_no_key_the_entry_is_written_and_the_reply_says_so()
-    {
-        Configure(decisionKey: null);
-        WritePersona(Fixture);
-
-        var result = await Add("preferences", "沟通：先展开讲解");
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("沟通：先展开讲解", File.ReadAllText(PersonaMd));
-        Assert.Contains("the decision model is unavailable", result.Text);
-    }
-
-    [Fact]
     public async Task When_the_embedding_model_is_unavailable_the_entry_is_written_and_the_reply_says_so()
     {
         WritePersona(Fixture);
@@ -265,7 +252,7 @@ public sealed class PersonaConflictTests : IDisposable
         using var models = new ModelDouble();
         home.InitReady("language: en\n", models);
         File.WriteAllText(Path.Combine(home.DefaultMemory, "persona.md"), Fixture.ReplaceLineEndings("\n"));
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         await service.WritePersonaAsync(new WritePersonaRequest
         {

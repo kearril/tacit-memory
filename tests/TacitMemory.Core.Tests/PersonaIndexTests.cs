@@ -32,7 +32,7 @@ public sealed class PersonaIndexTests : IDisposable
 
     private string Memory => _home.DefaultMemory;
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     /// <summary>Runs <c>init</c> with the embedding model answering, so every unit gets a vector, and the given extra config.</summary>
     private void Ready(string extraConfig = "") => _home.InitReady(extraConfig, _models);
@@ -144,7 +144,7 @@ public sealed class PersonaIndexTests : IDisposable
         Ready();
         File.WriteAllBytes(Path.Combine(Memory, name), [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
 
-        using var service = _home.Tacit().OpenService(_ => { });
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.Contains(name, await service.ServerInstructionsAsync());
     }

@@ -1,11 +1,9 @@
-using TacitMemory.Core.Git;
-
 namespace TacitMemory.Core.Checkup;
 
 /// <summary>
 /// The checkup reminder the server instructions end with. When a checkup is due it says how long ago the last one was,
 /// how many candidates can be confirmed, how many format problems there are and whether the mainline is stale. Every
-/// count comes from the report's categories that need no model, so building the reminder never calls one.
+/// count comes from <see cref="CheckupSummary"/>, which asks no model, so building the reminder never calls one.
 /// </summary>
 internal static class CheckupReminder
 {
@@ -21,20 +19,12 @@ internal static class CheckupReminder
     {
         try
         {
-            var git = new GitCli(config.MemoryPath, config.Language);
-            var context = new CheckupContext(config, today, git, await CheckupBaseline.ReadAsync(git, cancellationToken));
-            // Candidates are counted by the days they appeared on only, so the reminder asks no model.
-            var confirmable = ConfirmableCandidates.Produce(config, CandidateReview.Unjudged(config)).Findings.Count;
-            var problems = FormatViolations.Produce(context).Findings.Count;
-            var mainlineStale = (await StaleMainline.ProduceAsync(context, cancellationToken)).Findings.Count > 0;
-
-            var baseline = context.Baseline;
-            var days = baseline.Commit is { } commit ? today.DayNumber - commit.Day.DayNumber : (int?)null;
-            var due = days is null || days >= config.Checkup.RemindAfterDays;
-            if (!due && confirmable == 0)
+            var summary = await CheckupSummary.ReadAsync(config, today, cancellationToken);
+            var due = summary.DaysSince is null || summary.DaysSince >= config.Checkup.RemindAfterDays;
+            if (!due && summary.Confirmable == 0)
                 return null;
 
-            return Render(baseline, days, confirmable, problems, mainlineStale);
+            return Render(summary);
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
@@ -47,14 +37,14 @@ internal static class CheckupReminder
         }
     }
 
-    private static string Render(CheckupBaseline baseline, int? days, int confirmable, int problems, bool mainlineStale) =>
+    private static string Render(CheckupSummary summary) =>
         string.Join("\n",
         [
             "## Checkup reminder",
-            BaselineLine(baseline, days),
-            $"- Candidates that can be confirmed: {confirmable}.",
-            $"- Format and rule problems: {problems}.",
-            mainlineStale ? "- Mainline: stale." : "- Mainline: not stale.",
+            BaselineLine(summary.Baseline, summary.DaysSince),
+            $"- Candidates that can be confirmed: {summary.Confirmable}.",
+            $"- Format and rule problems: {summary.Problems}.",
+            summary.MainlineStale ? "- Mainline: stale." : "- Mainline: not stale.",
             "The user can run `checkup` to start a checkup; suggest it when the moment fits, and do not start one unasked.",
         ]);
 

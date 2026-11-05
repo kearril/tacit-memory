@@ -27,14 +27,17 @@ public sealed record TacitConfig
 
     /// <summary>The prompt documents in <c>prompts/</c>.</summary>
     public required PromptDocuments Prompts { get; init; }
+
+    /// <summary>Whether <c>config.yaml</c> holds a plaintext secret: <c>models.decision.apiKey</c> or <c>backup.webdav.password</c>.</summary>
+    internal bool HoldsPlaintextSecret => Models.Decision.ApiKey.WrittenInConfig || Backup.WebDav?.Password?.WrittenInConfig == true;
 }
 
 public sealed record ModelsConfig(ModelEndpoint Embedding, ModelEndpoint Reranker, DecisionModelEndpoint Decision);
 
 public sealed record ModelEndpoint(Uri Endpoint, string Model);
 
-/// <summary>The decision model; exactly one of <see cref="ApiKey"/> and <see cref="ApiKeyEnv"/> is set.</summary>
-public sealed record DecisionModelEndpoint(Uri Endpoint, string Model, string? ApiKey, string? ApiKeyEnv);
+/// <summary>The decision model; its key is always set, from the environment or from the config.</summary>
+public sealed record DecisionModelEndpoint(Uri Endpoint, string Model, SecretValue ApiKey);
 
 public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page);
 
@@ -54,7 +57,31 @@ public sealed record Threshold(double Certain, double Unlikely);
 public sealed record RetrievalConfig(int Candidates, int TopK, double? MinRerankScore);
 
 /// <param name="Keep">Automatic backups kept; 0 turns them off.</param>
-public sealed record BackupConfig(int Keep, string? Remote);
+/// <param name="WebDav">The cloud backup target, or <c>null</c> when <c>backup.webdav</c> is not configured.</param>
+public sealed record BackupConfig(int Keep, WebDavConfig? WebDav);
+
+/// <summary>The WebDAV target of the cloud backup.</summary>
+/// <param name="Url">The remote directory; always ends in <c>/</c>.</param>
+/// <param name="Username"><c>null</c> when not configured: no authentication is sent.</param>
+/// <param name="Password"><c>null</c> when neither the environment nor the config holds one.</param>
+public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Password);
+
+/// <summary>Where a secret's value came from: its environment variable, or <c>config.yaml</c>.</summary>
+public enum SecretSource
+{
+    Environment,
+    ConfigFile,
+}
+
+/// <summary>
+/// A secret as loaded. <see cref="Source"/> says where <see cref="Value"/> came from; <see cref="WrittenInConfig"/> is
+/// true when <c>config.yaml</c> also holds it in plain text, even when the environment variable overrides it.
+/// </summary>
+public sealed record SecretValue(string Value, SecretSource Source, bool WrittenInConfig)
+{
+    /// <summary>Never includes the value: configuration records are printed and logged.</summary>
+    public override string ToString() => $"secret from {Source}";
+}
 
 /// <summary>The recording criteria from <c>rules.md</c>: what is worth recording and what is not.</summary>
 public sealed record RecordingCriteria(IReadOnlyList<string> WorthRecording, IReadOnlyList<string> NotRecorded);

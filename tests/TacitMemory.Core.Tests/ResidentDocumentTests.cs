@@ -20,7 +20,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
     private string PersonaMd => Path.Combine(_home.DefaultMemory, "persona.md");
 
-    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
+    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     /// <summary>A persona with one entry under each of the four sections, so every guidance line has something under it.</summary>
     private void WriteFullPersona() => File.WriteAllText(PersonaMd, """

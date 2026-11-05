@@ -12,7 +12,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     public PersonaReplaceDeleteTests()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_ => { });
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     public void Dispose()

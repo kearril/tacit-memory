@@ -15,7 +15,7 @@ public sealed class RecallTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private string PagePath(string project, string slug) => Path.Combine(_home.DefaultMemory, "pages", project, slug + ".md");
 

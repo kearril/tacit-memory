@@ -12,7 +12,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 - **三个辅助模型**（必填，需自行准备，均为 HTTP 端点）：
   - 嵌入模型：OpenAI 兼容接口（`/embeddings`）；
   - reranker：Cohere/Jina 兼容接口（`/rerank`）；
-  - 决策模型：TypeSafe 原生决策接口（`/systemone`），密钥可写在配置中，或放在环境变量里由 `apiKeyEnv` 指定。
+  - 决策模型：TypeSafe 原生决策接口（`/systemone`），密钥可写在配置的 `apiKey` 中，或放在环境变量 `TACIT_DECISION_API_KEY` 里（环境变量优先）。
 
 `endpoint` 填写基础地址，程序会在其后追加上述路径。
 
@@ -34,7 +34,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
    生成配置 `~/.tacit/config.yaml` 与记忆仓库。语言默认取系统界面语言，可用 `--language zh|en` 指定；`--memory <路径>` 可指定记忆仓库位置。
 
-2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `endpoint` 与 `model`。决策模型的密钥二选一：`apiKeyEnv: <环境变量名>`，或 `apiKey: <密钥>`。
+2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `endpoint` 与 `model`。决策模型的密钥写在 `apiKey` 中，或设置环境变量 `TACIT_DECISION_API_KEY`（两处都有时以环境变量为准）；两处都没有时加载配置会报错。
 
 3. **绑定 omp**
 
@@ -70,6 +70,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 - 记忆工具需要 `tacit serve` 运行。服务停止时工具不可用，但已写入的常驻区块仍然有效。
 - 记忆仓库中的 Markdown 可直接编辑，服务会监听变化并同步索引。服务写入某个文件时，会连同该文件中未提交的手动修改一并提交；其余手动修改请在仓库中自行 `git commit`。
 - 查看 Agent 收到的内容：`tacit show instructions`、`resident`、`skill`、`tools`、`remember`。每段都标明来源与长度。
+- 索引损坏或换了嵌入模型时执行 `tacit reindex`（需服务运行）：全量重建全文、向量与判断缓存，等待完成后输出文件数、单元数、耗时与跳过的非 UTF-8 文件；嵌入模型不可用时只重建全文，并注明向量将在模型恢复后补齐。执行期间记忆工具的调用排队等待。
 
 ### 修改提示词
 
@@ -90,6 +91,45 @@ tacit show instructions --default > ~/.tacit/prompts/instructions.md
 
 长度与格式的限制见 [`docs/design.md`](docs/design.md) 第 12 节；各段文字的职责见 [`docs/prompts.md`](docs/prompts.md)。
 
+## 运维
+
+服务运行时，下列命令经管理 API（`127.0.0.1` 上的 `/api`）完成工作，无需停止服务；服务未运行时，`reindex`、`backup`、`restore` 会提示先执行 `tacit serve` 并以退出码 1 结束。
+
+- **`tacit status`**：列出服务（运行与否、地址、版本、已运行时长）、辅助模型（可用或冷却中）、绑定、上次体检、待处理问题、备份、日志目录与各密钥的来源（环境变量或配置文件，不显示值）。服务未运行时仍输出不依赖服务的部分。
+- **`tacit reindex`**：全量重建派生索引，见上文。
+- **`tacit backup`**：立即在 `TACIT_HOME/backups/` 生成手动备份 `manual-YYYY-MM-DD-HHmmss.zip`，不被自动清理。`--to <目录>` 写到指定目录（不存在时创建）。`--remote` 现场生成一份备份，上传到云端，替换远端唯一的 `tacit-backup.zip`。备份内容为记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/`、`bindings.json` 与清单。
+- **`tacit restore <zip>`** 与 **`tacit restore --remote`**：先显示备份的生成时间、tacit 版本、记忆仓库 HEAD 的提交号与说明、文件数，以及将被替换的内容；输入 `y` 才开始，`--yes` 跳过确认。恢复前会先生成保险备份 `pre-restore-*.zip`，路径会显示在结果中。默认只恢复记忆仓库；加 `--config` 时一并恢复 `config.yaml` 与 `prompts/`，`bindings.json` 永不恢复（绑定请重新执行 `tacit connect`）。恢复期间记忆工具的调用排队等待，结束后索引全量重建。恢复回来的 `config.yaml` 需要重启 `tacit serve` 才生效。
+
+### 云端备份
+
+云端备份经通用 WebDAV 协议上传，任何支持 `PUT`、`MOVE`、`MKCOL` 的服务都可以用，远端只保留一份。在 `config.yaml` 中填写：
+
+```yaml
+backup:
+  keep: 7
+  webdav:
+    url: https://example.com/dav/tacit/   # 目录；末尾的 / 可省略
+    username: 你的用户名                   # 可省略，省略时不发送认证
+    password: 你的密码                     # 可省略，改设环境变量 TACIT_WEBDAV_PASSWORD
+```
+
+写了 `username` 时必须有密码（配置中或环境变量中）。远端不支持 `MOVE` 时报错，不会退回为直接覆盖。上传与恢复都只在执行命令时发生，本地不留副本。
+
+### 密钥
+
+每个密钥有固定的环境变量名，环境变量非空时优先，否则使用配置中的明文值：
+
+| 配置键 | 环境变量 | 何时必需 |
+| :--- | :--- | :--- |
+| `models.decision.apiKey` | `TACIT_DECISION_API_KEY` | 总是 |
+| `backup.webdav.password` | `TACIT_WEBDAV_PASSWORD` | 配置了 `backup.webdav.username` 时 |
+
+两处都没有时加载配置会报错，并同时指出键路径与环境变量名。配置中写了明文密钥时，备份会提示妥善保管备份文件。
+
+### 日志
+
+`serve` 在终端输出的内容同时写入 `TACIT_HOME/logs/tacit-YYYYMMDD.log`，每天一份，保留最近 14 份。日志记录启动、辅助模型的失败与冷却、备份与恢复的结果、管理 API 的调用与记忆工具的调用（工具、操作、页面标识或短码、结果与耗时）；不记录记忆正文、原话、查询文本、提示词内容与任何密钥。
+
 ## 解绑
 
 ```powershell
@@ -109,7 +149,8 @@ tacit disconnect --client omp
 ├── prompts/                       # 可编辑的提示词文档
 ├── skills/tacit-memory/SKILL.md   # 生成的记忆 skill，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
-├── backups/                       # 每日自动备份（zip）
+├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
+├── logs/                          # serve 的日志，每天一份，保留 14 份
 └── memory/                        # 记忆仓库（Git），memory.path 可改
     ├── persona.md、candidates.md、recent.md、recent/、pages/
     └── .cache/                    # 派生索引，可删除，由文件重建
@@ -121,12 +162,13 @@ omp 绑定后还会改动以下位置（只改 TacitMemory 自己的部分）：
 - `~/.omp/agent/mcp.json`：`tacit` 一项；
 - `~/.omp/agent/skills/tacit-memory`：指向记忆 skill 的链接。
 
-**备份**：每天第一次写入后自动生成一份 zip，包含记忆仓库、配置、提示词、`bindings.json` 与清单，保留最近 7 份（`backup.keep` 可改，`0` 关闭）。配置中若含明文密钥，备份时会提示。目前没有恢复命令，需手动解压备份。
+**备份与恢复**见下一节「运维」。
 
 ## 排障
 
-错误信息输出到控制台（stderr），命令以退出码 1 结束。`serve` 的运行信息输出在其所在终端；目前没有独立的日志文件。
+错误信息输出到控制台（stderr），命令以退出码 1 结束。`serve` 的运行信息同时写入 `TACIT_HOME/logs/tacit-YYYYMMDD.log`（每天一份，保留最近 14 份）。
 
+- **任何问题先看 `tacit status`**：它一次列出服务是否在运行、辅助模型的状态、绑定、上次体检、待处理问题、备份、日志位置与密钥来源。退出码 0 表示服务在运行，1 表示服务未运行，2 表示配置无效（列出全部出错的键路径）。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888），然后重新执行 `tacit connect --client omp`，以更新 omp 中的 MCP 地址。

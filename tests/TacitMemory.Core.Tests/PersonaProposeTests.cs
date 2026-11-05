@@ -12,7 +12,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     public PersonaProposeTests()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_ => { });
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     public void Dispose()
@@ -294,7 +294,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         using var home = new TestHome();
         home.InitReady("candidates:\n  minDays: 1\n");
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var result = await service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 

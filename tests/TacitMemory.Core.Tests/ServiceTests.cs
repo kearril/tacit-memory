@@ -19,7 +19,7 @@ public sealed class ServiceTests : IDisposable
 
     private string ConfigYaml => Path.Combine(_home.TacitHome, "config.yaml");
 
-    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue);
+    private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
     public async Task Server_instructions_hold_the_memory_rules_language_norms_and_projects()
@@ -71,7 +71,7 @@ public sealed class ServiceTests : IDisposable
         using var home = new TestHome();
         home.InitReady($"language: {key}\n", language: language);
 
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.Contains("## Worth recording", await service.ServerInstructionsAsync());
     }
@@ -126,17 +126,6 @@ public sealed class ServiceTests : IDisposable
         _home.Clock.Advance(TimeSpan.FromMinutes(1));
         await service.RecallAsync(new RecallRequest { Query = "部署" });
         Assert.DoesNotContain("## Status", await service.ServerInstructionsAsync());
-    }
-
-    [Fact]
-    public async Task A_decision_model_without_a_key_is_named_from_the_start()
-    {
-        using var models = new ModelDouble();
-        File.WriteAllText(ConfigYaml, models.ModelsYaml().ReplaceLineEndings("\n"));
-
-        using var service = Open();
-
-        Assert.Contains("- Unavailable auxiliary models: decision.", await service.ServerInstructionsAsync());
     }
 
     [Fact]

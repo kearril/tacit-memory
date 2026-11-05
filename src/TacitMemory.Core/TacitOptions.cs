@@ -1,4 +1,5 @@
 using System.Globalization;
+using TacitMemory.Core.Configuration;
 
 namespace TacitMemory.Core;
 
@@ -17,12 +18,18 @@ public sealed record TacitOptions
     /// <summary>The clock; dates written into memory are its local date.</summary>
     public TimeProvider Time { get; init; } = TimeProvider.System;
 
+    /// <summary>
+    /// The values of the secret environment variables, by name (see <c>SecretVariables</c>). <see cref="FromEnvironment"/>
+    /// fills it from the machine; it is empty otherwise, so nothing is read from the environment unless asked.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Secrets { get; init; } = new Dictionary<string, string>();
+
     /// <summary>Today's date on this machine.</summary>
     internal DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
     /// <summary>
     /// Options for this machine: <c>TACIT_HOME</c> from the environment variable of that name, otherwise
-    /// <c>~/.tacit</c>.
+    /// <c>~/.tacit</c>, and the secret environment variables that are set.
     /// </summary>
     public static TacitOptions FromEnvironment()
     {
@@ -32,6 +39,10 @@ public sealed record TacitOptions
         {
             TacitHome = string.IsNullOrWhiteSpace(tacitHome) ? Path.Combine(userHome, ".tacit") : Path.GetFullPath(tacitHome),
             UserHome = userHome,
+            Secrets = SecretVariables.All
+                .Select(name => (Name: name, Value: Environment.GetEnvironmentVariable(name)))
+                .Where(variable => !string.IsNullOrWhiteSpace(variable.Value))
+                .ToDictionary(variable => variable.Name, variable => variable.Value!),
         };
     }
 }

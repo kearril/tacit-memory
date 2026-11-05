@@ -81,6 +81,9 @@ internal static class SkillLink
         }
     }
 
+    /// <summary>Whether <paramref name="linkPath"/> is a link to <paramref name="targetPath"/>. Reads only; a missing entry is not.</summary>
+    public static bool Points(string linkPath, string targetPath) => Inspect(linkPath, targetPath) == State.Pointing;
+
     private static State Inspect(string linkPath, string targetPath)
     {
         var entry = new DirectoryInfo(linkPath);

@@ -13,7 +13,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     private MemoryService Open(string extraConfig = "")
     {
         _home.InitReady(extraConfig);
-        return _home.Tacit().OpenService(_ => { });
+        return _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     private void Write(string relative, string text)

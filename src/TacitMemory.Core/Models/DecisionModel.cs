@@ -60,23 +60,13 @@ internal sealed class JevDecisionModel(ModelClient client, DecisionModelEndpoint
         return value?.GetValue<double>();
     }
 
-    /// <summary>The API key from the config or the environment variable it names; <c>null</c> when there is none.</summary>
-    public static string? Key(DecisionModelEndpoint endpoint) =>
-        (endpoint.ApiKey ?? (endpoint.ApiKeyEnv is { } name ? Environment.GetEnvironmentVariable(name) : null)) is { } key
-        && !string.IsNullOrWhiteSpace(key) ? key : null;
-
     /// <summary>
     /// The one question asked, answered and read by <paramref name="read"/>, or <c>null</c> when the request fails.
-    /// Without a key the model is disabled at startup and nothing is sent.
     /// </summary>
     private async Task<T?> AskAsync<T>(
         string state, string type, string instructions, JsonNode criteria, Func<JsonObject, T?> read, CancellationToken cancellationToken)
         where T : class
     {
-        var key = Key(endpoint);
-        if (key is null)
-            return null;
-
         var body = new JsonObject
         {
             ["model"] = endpoint.Model,
@@ -94,7 +84,7 @@ internal sealed class JevDecisionModel(ModelClient client, DecisionModelEndpoint
                 {
                     Content = JsonContent.Create(body),
                 };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", endpoint.ApiKey.Value);
                 return request;
             },
             (response, token) => ReadAnswerAsync(response, read, token),

@@ -15,8 +15,8 @@ public sealed class McpHostTests : IAsyncLifetime
     {
         _home.InitReady(models: _models);
         Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory"));
-        _service = _home.Tacit().OpenService(_ => { });
-        _host = await McpHost.TryStartAsync(_service, port: 0) ?? throw new InvalidOperationException("Port 0 is never in use.");
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
     }
 
     public async Task DisposeAsync()
@@ -505,6 +505,6 @@ public sealed class McpHostTests : IAsyncLifetime
     public async Task A_second_service_on_a_taken_port_is_refused()
     {
         Assert.Equal("127.0.0.1", _host.Endpoint.Host);
-        Assert.Null(await McpHost.TryStartAsync(_service, _host.Endpoint.Port));
+        Assert.Null(await McpHost.TryStartAsync(_service, _host.Endpoint.Port, NullLoggerProvider.Instance));
     }
 }

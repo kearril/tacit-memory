@@ -22,7 +22,7 @@ public sealed class SamePreferenceTests : IDisposable
 
     private string CandidatesMd => Path.Combine(Memory, "candidates.md");
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private string Git(params string[] args) => TestHome.Git(Memory, args);
 

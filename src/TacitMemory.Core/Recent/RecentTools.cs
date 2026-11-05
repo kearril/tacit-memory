@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using TacitMemory.Core.Logging;
 using System.Globalization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
@@ -13,7 +15,7 @@ namespace TacitMemory.Core.Recent;
 /// The recent activity side of the memory tools: the <c>write_recent</c> operations. Callers serialize writes; this
 /// class assumes it runs one write at a time.
 /// </summary>
-internal sealed class RecentTools(TacitOptions options, TacitConfig config, Action<string> notice, IDecisionModel decision)
+internal sealed class RecentTools(TacitOptions options, TacitConfig config, ServiceLog log, IDecisionModel decision)
 {
     private const string Ops = "add_activity, update_mainline";
 
@@ -302,7 +304,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Acti
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
-            notice(e.Message);
+            log.Notify(LogLevel.Warning, e.Message);
             return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
         }
     }

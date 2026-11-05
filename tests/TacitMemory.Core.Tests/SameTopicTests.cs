@@ -21,7 +21,7 @@ public sealed class SameTopicTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private string MonthFile => Path.Combine(_home.DefaultMemory, "recent", "2026-11.md");
 
@@ -191,7 +191,7 @@ public sealed class SameTopicTests : IDisposable
     {
         using var home = new TestHome();
         home.InitReady("decision:\n  sameTopic: { certain: 0.5, unlikely: 0.1 }\n", models: _models);
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         await service.WriteRecentAsync(Add("先查了索引"));
         Match("先查了索引", 0.6);
 

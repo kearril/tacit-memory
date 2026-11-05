@@ -12,12 +12,15 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- The same throwaway home and TACIT_HOME as the facade tests. -->
     <Compile Include="..\TacitMemory.Core.Tests\TestHome.cs" Link="TestHome.cs" />
     <Compile Include="..\TacitMemory.Core.Tests\ModelDouble.cs" Link="ModelDouble.cs" />
+    <Compile Include="..\TacitMemory.Core.Tests\WebDavDouble.cs" Link="WebDavDouble.cs" />
+    <Compile Include="..\TacitMemory.Core.Tests\CapturingLoggerFactory.cs" Link="CapturingLoggerFactory.cs" />
   </ItemGroup>
 
   <ItemGroup>

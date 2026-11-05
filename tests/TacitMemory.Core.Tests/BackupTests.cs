@@ -14,7 +14,7 @@ public sealed class BackupTests : IDisposable
     public BackupTests()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_notices.Add);
+        _service = _home.Tacit().OpenService(_notices.Add, NullLoggerFactory.Instance);
     }
 
     public void Dispose()
@@ -92,7 +92,7 @@ public sealed class BackupTests : IDisposable
     {
         using var home = new TestHome();
         home.InitReady("backup:\n  keep: 2\n");
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         for (var day = 0; day < 3; day++)
         {
@@ -112,7 +112,7 @@ public sealed class BackupTests : IDisposable
         try
         {
             home.InitReady("backup:\n  keep: 0\n");
-            using var service = home.Tacit().OpenService(_ => { });
+            using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
             await service.WritePageAsync(Create("tacit-memory/no-backup"));
             await service.BackupCompletion;
@@ -126,26 +126,71 @@ public sealed class BackupTests : IDisposable
     }
 
     [Fact]
-    public async Task A_plaintext_api_key_in_config_is_reported_after_the_backup()
+    public async Task A_plaintext_key_in_config_is_reported_after_the_backup()
     {
-        var home = new TestHome();
-        try
-        {
-            home.InitReady();
-            var config = Path.Combine(home.TacitHome, "config.yaml");
-            File.WriteAllText(config, File.ReadAllText(config).Replace("apiKeyEnv: JEV_KEY", "apiKey: sk-plain-test"));
-            var notices = new List<string>();
-            using var service = home.Tacit().OpenService(notices.Add);
+        using var home = new TestHome();
+        home.InitReady();
 
-            await service.WritePageAsync(Create("tacit-memory/plain-key"));
-            await service.BackupCompletion;
+        var notices = await NoticesAfterWrite(home);
 
-            Assert.Contains(notices, notice => notice.Contains("明文 apiKey", StringComparison.Ordinal));
-        }
-        finally
-        {
-            home.Dispose();
-        }
+        Assert.Contains(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_plaintext_key_in_config_is_reported_even_when_the_environment_overrides_it()
+    {
+        using var home = new TestHome();
+        home.InitReady();
+        home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
+
+        var notices = await NoticesAfterWrite(home);
+
+        Assert.Contains(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_key_only_in_the_environment_is_not_reported()
+    {
+        using var home = new TestHome();
+        home.InitReady();
+        RemovePlaintextDecisionKey(home);
+        home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
+
+        var notices = await NoticesAfterWrite(home);
+
+        Assert.DoesNotContain(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_plaintext_webdav_password_in_config_is_reported()
+    {
+        using var home = new TestHome();
+        home.InitReady();
+        RemovePlaintextDecisionKey(home);
+        home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
+        File.AppendAllText(
+            Path.Combine(home.TacitHome, "config.yaml"),
+            "backup: { webdav: { url: 'https://dav.example/tacit/', username: me, password: pw } }\n");
+
+        var notices = await NoticesAfterWrite(home);
+
+        Assert.Contains(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));
+    }
+
+    /// <summary>Opens the service of <paramref name="home"/>, makes one write, and returns what the service told the user.</summary>
+    private static async Task<List<string>> NoticesAfterWrite(TestHome home)
+    {
+        var notices = new List<string>();
+        using var service = home.Tacit().OpenService(notices.Add, NullLoggerFactory.Instance);
+        await service.WritePageAsync(Create("tacit-memory/plain-key"));
+        await service.BackupCompletion;
+        return notices;
+    }
+
+    private static void RemovePlaintextDecisionKey(TestHome home)
+    {
+        var path = Path.Combine(home.TacitHome, "config.yaml");
+        File.WriteAllText(path, File.ReadAllText(path).Replace(", apiKey: test-key", ""));
     }
 
     [Fact]

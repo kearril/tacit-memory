@@ -24,7 +24,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
     private MemoryService Open()
     {
-        var service = _home.Tacit().OpenService(_ => { });
+        var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         _services.Add(service);
         return service;
     }

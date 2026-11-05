@@ -12,7 +12,7 @@ public sealed partial class RecentActivityTests : IDisposable
     public RecentActivityTests()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_ => { });
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
     }
 
     public void Dispose()
@@ -179,7 +179,7 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         using var home = new TestHome();
         home.InitReady("limits:\n  itemLength: 10\n");
-        using var service = home.Tacit().OpenService(_ => { });
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var result = await service.WriteRecentAsync(Add(new string('字', 11)));
 

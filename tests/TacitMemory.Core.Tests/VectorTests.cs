@@ -24,7 +24,7 @@ public sealed class VectorTests : IDisposable
         _home.Dispose();
     }
 
-    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { });
+    private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
     private Task<ToolResult> Create(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
     {
