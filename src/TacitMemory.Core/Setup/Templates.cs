@@ -69,13 +69,13 @@ internal static class Templates
 
         # 辅助模型，必填。
         models:
-          embedding:                  # OpenAI 兼容的 /v1/embeddings
+          embedding:                  # OpenAI 兼容接口，程序在 endpoint 后追加 /embeddings
             endpoint: ''
             model: ''
-          reranker:                   # Cohere/Jina 兼容的 /v1/rerank
+          reranker:                   # Cohere/Jina 兼容接口，程序在 endpoint 后追加 /rerank
             endpoint: ''
             model: ''
-          decision:                   # TypeSafe 的 /v1/systemone
+          decision:                   # TypeSafe 原生决策接口，程序在 endpoint 后追加 /systemone
             endpoint: ''
             model: ''
             apiKey: ''                # 密钥；可省略，改设环境变量 TACIT_DECISION_API_KEY（两处都有时以环境变量为准）
@@ -132,13 +132,13 @@ internal static class Templates
 
         # Auxiliary models; required.
         models:
-          embedding:                  # OpenAI-compatible /v1/embeddings
+          embedding:                  # OpenAI-compatible; /embeddings is appended to endpoint
             endpoint: ''
             model: ''
-          reranker:                   # Cohere/Jina-compatible /v1/rerank
+          reranker:                   # Cohere/Jina-compatible; /rerank is appended to endpoint
             endpoint: ''
             model: ''
-          decision:                   # TypeSafe /v1/systemone
+          decision:                   # TypeSafe's native decision API; /systemone is appended to endpoint
             endpoint: ''
             model: ''
             apiKey: ''                # may be left out: set the environment variable TACIT_DECISION_API_KEY instead (the variable wins if both are set)
