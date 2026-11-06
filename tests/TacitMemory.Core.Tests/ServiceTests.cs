@@ -187,6 +187,19 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
+    public void Starting_the_service_renders_a_context_file_two_clients_share_once()
+    {
+        _home.Bind();
+        _home.Bind("beta");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 偏好\n- 沟通：先要结论\n");
+
+        using var service = Open();
+
+        Assert.Equal(BlockState.Written, Assert.Single(service.StartupRender).State);
+        Assert.Equal(1, File.ReadAllText(AgentsMd).Split("<!-- tacit:begin").Length - 1);
+    }
+
+    [Fact]
     public async Task Saving_persona_md_while_running_updates_the_resident_block()
     {
         _home.Bind();

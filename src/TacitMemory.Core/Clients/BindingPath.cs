@@ -6,8 +6,19 @@ namespace TacitMemory.Core.Clients;
 /// </summary>
 internal static class BindingPath
 {
-    public static bool Same(string a, string b) =>
-        string.Equals(Normalize(a), Normalize(b), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    /// <summary>Equality and hashing of paths as bindings compare them, for grouping and de-duplicating.</summary>
+    public static readonly IEqualityComparer<string> Comparer = new PathComparer();
 
-    private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    public static bool Same(string a, string b) => Comparer.Equals(a, b);
+
+    private sealed class PathComparer : IEqualityComparer<string>
+    {
+        private static readonly StringComparer Text = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+        public bool Equals(string? x, string? y) => Text.Equals(Normalize(x!), Normalize(y!));
+
+        public int GetHashCode(string obj) => Text.GetHashCode(Normalize(obj));
+
+        private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    }
 }
