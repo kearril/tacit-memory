@@ -34,6 +34,12 @@ public sealed class UsageErrorTests : IDisposable
         { ["show", "remember", "--default"], "--default" },
         { ["show", "checkup", "--default"], "--default" },
         { ["show", "--default"], "--default" },
+        { ["CONNECT"], "--client" },
+        { ["Show", "BOGUS"], "BOGUS" },
+        { ["restore", "--from", ""], "--from" },
+        { ["backup", "--to", "  "], "--to" },
+        { ["init", "--memory", ""], "--memory" },
+        { ["connect", "--client", "omp", "--context", "", "--skills", "x"], "--context" },
     };
 
     [Theory]
@@ -66,5 +72,19 @@ public sealed class UsageErrorTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Empty(result.Stderr);
+    }
+
+    [Theory]
+    [InlineData("restore", "--from", "")]
+    [InlineData("backup", "--to", "   ")]
+    [InlineData("init", "--memory", "")]
+    public async Task A_blank_path_option_is_a_usage_error_with_one_line_on_stderr(string command, string option, string value)
+    {
+        var result = await _cli.RunAsync([command, option, value]);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Empty(result.Stdout);
+        Assert.Single(result.Stderr.Trim().Split('\n'));
+        Assert.DoesNotContain("   at ", result.Stderr, StringComparison.Ordinal);
     }
 }

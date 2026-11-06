@@ -1,4 +1,4 @@
-namespace TacitMemory.Core.Configuration;
+namespace TacitMemory.Core;
 
 /// <summary>
 /// What the status report reads from a <c>config.yaml</c> that may not load: the port the service is probed on and the

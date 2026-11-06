@@ -40,6 +40,7 @@ public static class CommandLine
     {
         if (args.Length == 0)
             args = ["-h"];
+        args = WithCanonicalWords(args);
 
         // The framework reports through the exit code property; keep the caller's value and restore it afterwards.
         var previous = Environment.ExitCode;
@@ -66,6 +67,31 @@ public static class CommandLine
             Environment.ExitCode = previous;
         }
     }
+
+    /// <summary>The command names. Their match ignores case, so <c>tacit CONNECT</c> is <c>tacit connect</c>.</summary>
+    private static readonly string[] CommandNames = ["init", "serve", "connect", "disconnect", "show", "status", "reindex", "backup", "restore"];
+
+    /// <summary>The <c>show</c> subcommands. Their match ignores case, like the command names.</summary>
+    private static readonly string[] ShowNames = ["instructions", "resident", "skill", "tools", "remember", "checkup"];
+
+    /// <summary>
+    /// Rewrites the command word, and the subcommand word after <c>show</c>, to the spelling the framework routes by. Every
+    /// other word, option values included, is passed on as it was given.
+    /// </summary>
+    private static string[] WithCanonicalWords(string[] args)
+    {
+        var words = (string[])args.Clone();
+        if (words.Length == 0)
+            return words;
+
+        words[0] = Canonical(words[0], CommandNames);
+        if (words[0] == "show" && words.Length > 1)
+            words[1] = Canonical(words[1], ShowNames);
+        return words;
+    }
+
+    private static string Canonical(string word, string[] names) =>
+        names.FirstOrDefault(name => string.Equals(name, word, StringComparison.OrdinalIgnoreCase)) ?? word;
 }
 
 /// <summary>A command received arguments it cannot use: exit code 2, and the message goes to stderr.</summary>
