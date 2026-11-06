@@ -128,7 +128,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     });
 
     /// <summary>Show the service's state, models, bindings, checkup, pending items, backups, logs and secrets.</summary>
-    /// <remarks>Only whether the service runs decides the exit code: a cooling model or an open problem does not.</remarks>
+    /// <remarks>The exit code is 3 whenever config.yaml does not load. Otherwise it is 0 while the service runs and 4 when it does not; a cooling model or an open problem changes neither.</remarks>
     [Command("status")]
     public Task<int> Status(ConsoleAppContext context, CancellationToken cancellationToken = default) => Execute(async () =>
     {
@@ -141,11 +141,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         }
         catch (TacitException e) when (IsConfigRefusal(e))
         {
-            PrintStatus(_tacit.InvalidConfigStatus(e));
-            return 3;
+            return await StatusWithInvalidConfigAsync(e, cancellationToken);
         }
 
-        using var api = new ManagementApiClient(config, _tacit);
+        using var api = new ManagementApiClient(config.Port, config.Language, _tacit);
         try
         {
             var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(2), cancellationToken);
@@ -167,6 +166,41 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             return await PrintOfflineAsync(config, portAnsweredByOther: true, cancellationToken);
         }
     });
+
+    /// <summary>
+    /// The status when <c>config.yaml</c> does not load: the config errors, then the service's own report when a service
+    /// answers on the port the file still names, or on the default port. Exits 3 whether or not the service runs.
+    /// </summary>
+    private async Task<int> StatusWithInvalidConfigAsync(TacitException error, CancellationToken cancellationToken)
+    {
+        var settings = _tacit.ReadLooseSettings();
+        var offline = _tacit.InvalidConfigStatus(error, settings);
+        using var api = new ManagementApiClient(settings.Port, settings.Language, _tacit);
+        try
+        {
+            var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(2), cancellationToken);
+            // A status report that names no service is not this service's answer.
+            PrintStatus(report.Service is not null
+                ? report with { Config = offline.Config }
+                : _tacit.InvalidConfigStatus(error, settings, portAnsweredByOther: true));
+        }
+        catch (ServiceNotRunningException)
+        {
+            PrintStatus(offline);
+        }
+        catch (ForeignServiceException)
+        {
+            PrintStatus(_tacit.InvalidConfigStatus(error, settings, portAnsweredByOther: true));
+        }
+        catch (ServiceRefusedException refused)
+        {
+            // The config still decides the exit code: the config errors are shown, and the refusal is named on stderr.
+            PrintStatus(offline with { Service = null });
+            console.Error.WriteLine(refused.Message);
+        }
+
+        return 3;
+    }
 
     /// <summary>Rebuild the derived index from the memory files. Needs the running service.</summary>
     [Command("reindex")]
@@ -281,7 +315,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     private async Task<int> WithServiceAsync(Func<ManagementApiClient, Task<int>> call)
     {
         var config = _tacit.LoadConfig();
-        using var api = new ManagementApiClient(config, _tacit);
+        using var api = new ManagementApiClient(config.Port, config.Language, _tacit);
         return await call(api);
     }
 

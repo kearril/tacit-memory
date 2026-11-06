@@ -38,6 +38,7 @@ public sealed class ServiceExitCodeTests : IDisposable
 
         Assert.Equal(4, result.ExitCode);
         Assert.Contains("服务未运行", result.Stdout);
+        Assert.Contains($"http://127.0.0.1:{_cli.Port}/mcp", result.Stdout);
         Assert.Empty(result.Stderr);
     }
 
