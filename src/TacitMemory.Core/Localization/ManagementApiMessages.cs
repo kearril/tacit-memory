@@ -68,6 +68,7 @@ internal static class ManagementApiMessages
     public static readonly Localized BindingSkillLinkNotTacit = new(
         "{0}：skill 链接 {3} 缺失或没有指向 tacit（上下文文件 {1}；skill 目录 {2}）",
         "{0}: the skill link {3} is missing or does not point at tacit (context file {1}; skills folder {2})");
+    public static readonly Localized BindingSharedWith = new("（与 {0} 共用路径）", " (shares paths with {0})");
 
     public static readonly Localized CheckupTitle = new("上次体检", "Last checkup");
     public static readonly Localized CheckupOn = new("上次体检：{0}，{1}", "Last checkup: {0}, {1}");

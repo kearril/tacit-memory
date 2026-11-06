@@ -66,6 +66,15 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
    在 omp 中配置上面的 MCP 端点，然后开一个新的 omp 会话。绑定与提示词的修改在新会话中生效。
 
+   **共用 skill 目录**：两个客户端若读取同一个 skill 目录，可以都绑定到它，例如共用 `~/.agents/skills`：
+
+   ```powershell
+   tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.agents/skills
+   tacit connect --client claude --context ~/.claude/CLAUDE.md --skills ~/.agents/skills
+   ```
+
+   第二条命令会报告「skill 目录 … 已由 omp 使用」，复用已有的三个链接，不重复建立。两个客户端也可以共用同一个上下文文件（例如都读 `~/.agents/AGENTS.md`），文件中只有一个常驻区块。解绑其中一个时，仍被另一个使用的上下文文件与 skill 链接原样保留并报告，最后一个解绑时才拆除。路径按完整路径比较，Windows 上忽略大小写；tacit 不解析目录联接与软链接，经两个不同入口指向同一目录会被当作两处。
+
 ## 日常使用
 
 - 会话开始时，omp 会读到常驻区块（画像）与服务端说明（含近期摘要）。Agent 在对话中按记忆规则自行检索与写入，无需手动操作。
@@ -143,6 +152,7 @@ tacit disconnect --client omp
 ```
 
 移除常驻区块与三个 skill 链接（只删指向 tacit 的链接）。路径取自绑定时的记录，因此只需名称。只删除链接本身，skill 文件与记忆仓库都保留；同名的其他条目不动。上下文文件若是 `connect` 创建的且变空，则一并删除。tacit 不改动 MCP 配置，客户端中的 `tacit` 条目需自行删除。
+若另一个绑定仍在使用同一上下文文件或同一 skill 目录（见上文的共用示例），这两者都原样保留，并报告「仍被 … 使用，保留」；最后一个绑定解除时才拆除。
 只删除常驻区块不能停止维护：下次渲染时会重新追加。要停止维护，请执行解绑。
 
 ## 文件在哪

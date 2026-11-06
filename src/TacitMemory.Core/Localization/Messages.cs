@@ -137,6 +137,18 @@ internal static class Messages
     public static readonly Localized SkillLinkForeign = new(
         "{0} 不是指向 tacit 的 skill 链接，未改动。",
         "{0} is not tacit's skill link and was left alone.");
+    public static readonly Localized ContextFileShared = new(
+        "上下文文件 {0} 已由 {1} 使用，复用其常驻区块；文件中只保留一个常驻区块。",
+        "The context file {0} is already used by {1}; it reuses their resident block, so the file keeps only one.");
+    public static readonly Localized SkillsFolderShared = new(
+        "skill 目录 {0} 已由 {1} 使用，复用其已有的 skill 链接。",
+        "The skills folder {0} is already used by {1}; it reuses their skill links.");
+    public static readonly Localized ContextFileStillUsed = new(
+        "上下文文件 {0} 仍被 {1} 使用，保留，未改动。",
+        "The context file {0} is still used by {1}; kept, left alone.");
+    public static readonly Localized SkillLinkStillUsed = new(
+        "skill 链接 {0} 仍被 {1} 使用，保留。",
+        "The skill link {0} is still used by {1}; kept.");
     public static readonly Localized SkillLinkOccupied = new(
         "{0} 已存在且不是指向 tacit 的 skill 链接，未建立任何链接、未改动其他文件。请先移走或改名后重试。",
         "{0} already exists and is not tacit's skill link; no link was made and no other file was changed. Move or rename it, then try again.");
