@@ -69,6 +69,10 @@ internal static class ContextFile
         return updated;
     }
 
+    /// <summary>Refuses, without writing, a context file that is not UTF-8 or whose markers are broken.</summary>
+    /// <exception cref="TacitException">The file is not UTF-8, or its markers are broken.</exception>
+    public static void Check(string path, MemoryLanguage language) => FindBlock(path, ReadOrRefuse(path, language).Text, language);
+
     private static (string Text, bool HasBom) ReadOrRefuse(string path, MemoryLanguage language) =>
         TextFile.Read(path) ?? throw new TacitException(TacitError.FileNotUtf8, Messages.FileNotUtf8.Format(language, path));
 

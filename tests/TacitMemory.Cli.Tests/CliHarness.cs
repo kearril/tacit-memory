@@ -45,6 +45,16 @@ internal sealed class CliHarness : IDisposable
     /// <summary>Runs <c>init</c> and writes a config that loads, listening on <see cref="Port"/>.</summary>
     public void InitReady() => Home.InitReady(extraConfig: ServerSection);
 
+    /// <summary>
+    /// The <c>connect</c> arguments for the omp paths under the throwaway user home. The folders a user would already have
+    /// are created first, since <c>connect</c> refuses a skills folder that is missing.
+    /// </summary>
+    public string[] OmpConnectArgs()
+    {
+        Directory.CreateDirectory(Path.Combine(Home.UserHome, ".omp", "agent", "skills"));
+        return ["connect", "--client", "omp", "--context", Path.Combine(Home.UserHome, ".omp", "agent", "AGENTS.md"), "--skills", Path.Combine(Home.UserHome, ".omp", "agent", "skills")];
+    }
+
     /// <summary>Replaces the config with one that does not load: the embedding endpoint is not a URL.</summary>
     public void BreakConfig() => File.WriteAllText(ConfigPath, BrokenConfig + ServerSection);
 

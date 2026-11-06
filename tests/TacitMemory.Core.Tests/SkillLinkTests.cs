@@ -47,8 +47,6 @@ public sealed class SkillLinkTests : IDisposable
 
     private string AgentsMd => Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
 
-    private string McpJson => Path.Combine(_home.UserHome, ".omp", "agent", "mcp.json");
-
     private string BindingsJson => Path.Combine(_home.TacitHome, "bindings.json");
 
     private static bool IsLinkEntry(string path) => new DirectoryInfo(path).LinkTarget is not null;
@@ -84,7 +82,7 @@ public sealed class SkillLinkTests : IDisposable
     [MemberData(nameof(SkillNames))]
     public void Connect_generates_each_skill_and_links_it_into_the_omp_skills_folder(string name)
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         var link = LinkOf(name);
         Assert.True(File.Exists(Path.Combine(FolderOf(name), "SKILL.md")));
@@ -99,7 +97,7 @@ public sealed class SkillLinkTests : IDisposable
         if (!OperatingSystem.IsWindows())
             return;
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         // cmd lists a junction as <JUNCTION>; a symbolic link would be listed as <SYMLINKD>.
         var listing = RunCmd($"dir /AL \"{Path.GetDirectoryName(Link)}\"");
@@ -110,11 +108,11 @@ public sealed class SkillLinkTests : IDisposable
     [Fact]
     public void Connecting_again_keeps_the_existing_link()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var created = new DirectoryInfo(Link).CreationTimeUtc;
         Thread.Sleep(50);
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         Assert.Equal(created, new DirectoryInfo(Link).CreationTimeUtc);
         Assert.Equal(Same(SkillFolder), Same(LeadsTo(Link)!));
@@ -122,12 +120,12 @@ public sealed class SkillLinkTests : IDisposable
     }
 
     [Fact]
-    public void The_binding_record_holds_the_skill_link_path()
+    public void The_binding_record_holds_the_skills_folder()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         var binding = JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]![0]!;
-        Assert.Equal(Link, (string?)binding["skillLink"]);
+        Assert.Equal(Path.GetDirectoryName(Link), (string?)binding["skillsFolder"]);
     }
 
     [Theory]
@@ -138,14 +136,13 @@ public sealed class SkillLinkTests : IDisposable
         Directory.CreateDirectory(taken);
         File.WriteAllText(Path.Combine(taken, "mine.md"), "my own skill");
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+        var error = Assert.Throws<TacitException>(() => _home.Bind());
 
         Assert.Equal(TacitError.SkillLinkRefused, error.Error);
         Assert.Contains(taken, error.Message);
         Assert.Equal("my own skill", File.ReadAllText(Path.Combine(taken, "mine.md")));
         Assert.All(Names, other => Assert.False(IsLinkEntry(LinkOf(other))));
         Assert.False(File.Exists(AgentsMd));
-        Assert.False(File.Exists(McpJson));
         Assert.False(File.Exists(BindingsJson));
         Assert.False(Directory.Exists(Path.Combine(_home.TacitHome, "skills")));
     }
@@ -158,7 +155,7 @@ public sealed class SkillLinkTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(taken)!);
         File.WriteAllText(taken, "not a skill");
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+        var error = Assert.Throws<TacitException>(() => _home.Bind());
 
         Assert.Equal(TacitError.SkillLinkRefused, error.Error);
         Assert.Equal("not a skill", File.ReadAllText(taken));
@@ -177,7 +174,7 @@ public sealed class SkillLinkTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(taken)!);
         MakeForeignLink(taken, other);
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+        var error = Assert.Throws<TacitException>(() => _home.Bind());
 
         Assert.Equal(TacitError.SkillLinkRefused, error.Error);
         Assert.Equal(Same(other), Same(LeadsTo(taken)!));
@@ -189,13 +186,13 @@ public sealed class SkillLinkTests : IDisposable
     [Fact]
     public void Connecting_again_adds_a_missing_link_and_keeps_the_others()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var created = new DirectoryInfo(Link).CreationTimeUtc;
         // As after an upgrade that brought a new skill: its link is not there yet.
         Unlink(LinkOf("tacit-remember"));
         Thread.Sleep(50);
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         Assert.Equal(created, new DirectoryInfo(Link).CreationTimeUtc);
         Assert.All(Names, name => Assert.Equal(Same(FolderOf(name)), Same(LeadsTo(LinkOf(name))!)));
@@ -203,37 +200,32 @@ public sealed class SkillLinkTests : IDisposable
 
 
     [Fact]
-    public void A_link_that_cannot_be_made_is_refused_and_changes_nothing_else()
+    public void A_skills_folder_that_is_a_file_is_refused_and_changes_nothing_else()
     {
-        // A file where the skills folder should be: the link can then be neither created nor placed.
+        // A file where the skills folder should be: the folder is not there, so connect refuses before it writes anything.
         Directory.CreateDirectory(Path.Combine(_home.UserHome, ".omp", "agent"));
         var blocker = Path.Combine(_home.UserHome, ".omp", "agent", "skills");
         File.WriteAllText(blocker, "in the way");
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(new ConnectRequest("omp", AgentsMd, blocker)));
 
-        Assert.Equal(TacitError.SkillLinkRefused, error.Error);
+        Assert.Equal(TacitError.SkillsFolderMissing, error.Error);
         Assert.Equal("in the way", File.ReadAllText(blocker));
         Assert.False(File.Exists(AgentsMd));
-        Assert.False(File.Exists(McpJson));
     }
 
     [Fact]
-    public void A_refusal_after_the_links_are_made_removes_them_again()
+    public void A_refusal_on_broken_markers_makes_no_link_and_writes_no_skill()
     {
-        // Broken markers in AGENTS.md are refused after the link step, so connect must not leave the links behind.
+        // Broken markers in AGENTS.md are refused before any write, so no link and no skill is made.
         Directory.CreateDirectory(Path.GetDirectoryName(AgentsMd)!);
         File.WriteAllText(AgentsMd, "<!-- tacit:end -->\n<!-- tacit:begin -->\n");
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+        var error = Assert.Throws<TacitException>(() => _home.Bind());
 
         Assert.Equal(TacitError.MarkersBroken, error.Error);
-        Assert.All(Names, name =>
-        {
-            Assert.False(IsLinkEntry(LinkOf(name)));
-            Assert.False(Directory.Exists(LinkOf(name)));
-        });
-        Assert.True(File.Exists(SkillFile));
+        Assert.All(Names, name => Assert.False(Directory.Exists(LinkOf(name))));
+        Assert.False(File.Exists(SkillFile));
     }
 
     [Fact]
@@ -243,7 +235,7 @@ public sealed class SkillLinkTests : IDisposable
         File.SetAttributes(BindingsJson, FileAttributes.ReadOnly);
         try
         {
-            Assert.Throws<UnauthorizedAccessException>(() => _home.Tacit().Connect(ClientKind.Omp));
+            Assert.Throws<UnauthorizedAccessException>(() => _home.Bind());
 
             Assert.All(Names, name => Assert.False(IsLinkEntry(LinkOf(name))));
         }
@@ -256,11 +248,11 @@ public sealed class SkillLinkTests : IDisposable
     [Fact]
     public void Disconnect_removes_only_the_links_and_keeps_the_skills()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var skill = File.ReadAllBytes(SkillFile);
         File.WriteAllText(Path.Combine(SkillFolder, "other.txt"), "stays");
 
-        _home.Tacit().Disconnect(ClientKind.Omp);
+        _home.Unbind();
 
         Assert.All(Names, name =>
         {
@@ -274,13 +266,27 @@ public sealed class SkillLinkTests : IDisposable
     }
 
     [Fact]
+    public void Disconnect_reports_a_link_that_is_already_gone_and_removes_the_others()
+    {
+        _home.Bind();
+        var missing = LinkOf("tacit-remember");
+        Unlink(missing);
+
+        var result = _home.Unbind();
+
+        Assert.Contains(missing, result.Report);
+        Assert.All(Names.Where(name => name != "tacit-remember"), name => Assert.False(IsLinkEntry(LinkOf(name))));
+        Assert.Empty(JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]!.AsArray());
+    }
+
+    [Fact]
     public void Disconnect_of_a_binding_made_before_the_memory_commands_removes_the_memory_skill_link()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         // An older connect made only the memory skill's link.
         Unlink(LinkOf("tacit-remember"));
 
-        _home.Tacit().Disconnect(ClientKind.Omp);
+        _home.Unbind();
 
         Assert.All(Names, name => Assert.False(Directory.Exists(LinkOf(name))));
     }
@@ -289,13 +295,13 @@ public sealed class SkillLinkTests : IDisposable
     [MemberData(nameof(SkillNames))]
     public void Disconnect_leaves_a_directory_with_the_name_of_a_skill_alone(string name)
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var taken = LinkOf(name);
         Unlink(taken);
         Directory.CreateDirectory(taken);
         File.WriteAllText(Path.Combine(taken, "mine.md"), "my own skill");
 
-        _home.Tacit().Disconnect(ClientKind.Omp);
+        _home.Unbind();
 
         Assert.Equal("my own skill", File.ReadAllText(Path.Combine(taken, "mine.md")));
         Assert.All(Names.Where(other => other != name), other => Assert.False(Directory.Exists(LinkOf(other))));
@@ -308,11 +314,12 @@ public sealed class SkillLinkTests : IDisposable
         var other = _home.PathFor("other-skill");
         Directory.CreateDirectory(other);
         File.WriteAllText(Path.Combine(other, "SKILL.md"), "someone else's");
+        _home.Bind();
         var taken = LinkOf(name);
-        Directory.CreateDirectory(Path.GetDirectoryName(taken)!);
+        Unlink(taken);
         MakeForeignLink(taken, other);
 
-        _home.Tacit().Disconnect(ClientKind.Omp);
+        _home.Unbind();
 
         Assert.Equal(Same(other), Same(LeadsTo(taken)!));
         Assert.Equal("someone else's", File.ReadAllText(Path.Combine(other, "SKILL.md")));

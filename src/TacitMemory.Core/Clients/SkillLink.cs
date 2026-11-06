@@ -103,7 +103,7 @@ internal static class SkillLink
             return entry.Exists || File.Exists(linkPath) ? State.Occupied : State.Absent;
 
         var resolved = Path.GetFullPath(linkTarget, Path.GetDirectoryName(linkPath)!);
-        return SamePath(resolved, targetPath) ? State.Pointing : State.Occupied;
+        return BindingPath.Same(resolved, targetPath) ? State.Pointing : State.Occupied;
     }
 
     /// <summary>
@@ -146,11 +146,6 @@ internal static class SkillLink
         if (process.ExitCode != 0)
             throw new IOException(output.Trim());
     }
-
-    private static bool SamePath(string a, string b) =>
-        string.Equals(Normalize(a), Normalize(b), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
-    private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
     private static TacitException Occupied(string linkPath, MemoryLanguage language) =>
         new(TacitError.SkillLinkRefused, Messages.SkillLinkOccupied.Format(language, linkPath));

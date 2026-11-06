@@ -448,17 +448,19 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ### 客户端与绑定
 
-| 绑定方式 | 常驻区块写入 | MCP 注册 | skill 链接 |
-| :--- | :--- | :--- | :--- |
-| `--client omp` | `~/.omp/agent/AGENTS.md`（默认 profile） | 在 `~/.omp/agent/mcp.json` 中增删 `tacit` 一项，其余内容不动 | `~/.omp/agent/skills/` 下的 `tacit-memory`、`tacit-remember`、`tacit-checkup` 三个链接，分别指向 `TACIT_HOME/skills/` 下的同名目录 |
-| `--client claude-code` | `~/.claude/CLAUDE.md` | 调用 `claude mcp add --scope user`；找不到 `claude` 命令时打印该命令 | 计划中 |
-| `--file <路径>` | 指定文件 | 不注册 | 不建立 |
+| 绑定写入 | 位置 |
+| :--- | :--- |
+| 常驻区块 | 上下文文件中起止标记之间的内容；上下文文件不存在时由 `connect` 创建，并记为 `createdContextFile` |
+| skill 链接 | skill 目录下的 `tacit-memory`、`tacit-remember`、`tacit-checkup` 三个链接，分别指向 `TACIT_HOME/skills/` 下的同名目录 |
+| 绑定记录 | `TACIT_HOME/bindings.json`，每条含 `client`、`contextFile`、`skillsFolder` 与 `createdContextFile`；三个链接的位置由 `skillsFolder` 与固定的三个 skill 名推出 |
 
-各客户端渲染出的常驻区块完全相同。绑定记录存于 `TACIT_HOME/bindings.json`。绑定的文件被删除，或区块的起止标记不完整、重复时，跳过该文件并提示，不自行恢复；连同起止标记整段删掉区块时，下次渲染重新追加，要停止维护请解绑。
+绑定 = 客户端名称 + 上下文文件 + skill 目录。名称只是标签：只允许小写字母、数字与连字符，长度 1 到 32，大小写不同视为同一名称并以小写记录。两个路径都必填、没有默认值；开头的 `~` 展开为用户目录，记录的是绝对路径。tacit 不读写任何客户端的 MCP 配置：`connect` 打印 MCP 端点（`http://127.0.0.1:<port>/mcp`，传输方式 Streamable HTTP，建议的服务名 `tacit`），由用户在客户端中自行配置；改了 `server.port` 也须自行更新客户端中的配置。
 
-改写 `mcp.json` 时保留其余服务、字段、顺序、缩进、换行风格与 BOM，`tacit` 一项中用户自加的字段也保留；文件含注释时不改写，改为给出需要手工加入的条目。上下文文件或 `mcp.json` 不存在时由绑定新建；解绑后，由绑定新建的文件若只剩空内容（`mcp.json` 只剩空的 `mcpServers`）则一并删除。不是 UTF-8 的上下文文件一律不改动。
+`connect` 的检查顺序，任一步拒绝都不写任何文件：名称合规；同名记录的路径不同则拒绝，提示先 `disconnect`；上下文文件的上一级目录存在；skill 目录存在（不存在时拒绝，不创建）；三个链接位置无冲突（不存在，或已是指向 tacit 对应 skill 的链接）；严格加载配置与画像；上下文文件是 UTF-8 且标记完整。通过后依次生成三个 skill、写常驻区块、建立缺失的链接、写绑定记录；其后某一步失败时撤回本次新建的链接。同名同路径重复执行是安全的：补齐缺失的链接，常驻区块按当前画像重写。
 
-skill 链接：`connect --client omp` 先检查 `~/.omp/agent/skills/` 下的三个位置 `tacit-memory`、`tacit-remember`、`tacit-checkup`，它们分别指向 `TACIT_HOME/skills/` 下的同名目录。Windows 用目录联接（不需要管理员权限），其他平台用软链接。三个位置中任一被占用（同名的目录或文件，或指向别处的链接）时，`connect` 整体拒绝并指出冲突的位置：三个链接一个都不建，skill 成品与其他文件也不写，不回退为复制。通过检查后生成三个 skill（服务未运行时也生成），缺失的链接逐个建立，已指向 tacit 的保持不变，因此重复绑定安全，升级后再次执行 `connect` 即补上新增的链接；链接无法建立（如 `TACIT_HOME` 位于网络盘）时同样拒绝。链接先于上下文文件与 `mcp.json` 建立；其后的步骤（另一个链接、上下文文件、`mcp.json` 或 `bindings.json`）若失败，本次建立的链接一并删除。`disconnect` 只删除三个链接本身（只删指向 tacit 的），不跟随链接删除目标，skill 成品保留；指向别处的同名条目不动，并在结果中报告。绑定记录（`bindings.json`）每条记有客户端、上下文文件路径、skill 链接路径（`tacit-memory` 的链接，其余由它所在的文件夹推出），以及上下文文件与 `mcp.json` 是否由绑定新建。
+`disconnect --client <名称>` 只需名称，路径取自记录：移除常驻区块（文件变空且 `createdContextFile` 为真时删除文件）与指向 tacit 的三个链接，别人的同名项保留并报告；文件或链接已不在时逐项报告缺失，照常删除记录，以 0 结束；名称不存在时以 1 结束。只宽松读取语言，配置无效时照常工作。
+
+链接的形式：Windows 用目录联接（不需要管理员权限），其他平台用软链接。三个位置中任一被占用（同名的目录或文件，或指向别处的链接）时，`connect` 整体拒绝并指出冲突的位置：三个链接一个都不建，skill 成品与其他文件也不写，不回退为复制。链接无法建立（如 `TACIT_HOME` 位于网络盘）时同样拒绝。`disconnect` 只删除指向 tacit 的链接本身，不跟随链接删除目标，skill 成品保留。
 
 ### 记忆 skill
 
@@ -546,7 +548,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | :--- | :--- | :--- |
 | `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
 | `tacit serve` | 启动常驻服务；未初始化时报错 | — |
-| `tacit connect` / `tacit disconnect` | `--client omp`、`--client claude-code` 或 `--file <路径>` | 否 |
+| `tacit connect` / `tacit disconnect` | `connect --client <名称> --context <文件> --skills <目录>`（三个选项都必填）；`disconnect --client <名称>`，路径取自绑定记录 | 否 |
 | `tacit show <instructions、resident、skill、tools、remember 或 checkup> [--default]` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 由 CLI 经 `TacitMemory.Mcp` 读取；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用与冷却（含剩余秒数）、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径（退出码 3）。服务未运行时写明"服务未运行"，省略服务运行时数据与辅助模型，其余各栏照常（退出码 4）。退出码 0 或 4 只看服务是否运行，不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
 | `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
@@ -568,7 +570,6 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect` 写客户端文件、客户端 skill 目录中的链接、`bindings.json` 与三个 skill 成品，`disconnect` 写客户端文件、链接与 `bindings.json`；两者加载配置时都会按上文补写缺失的 `rules.md`，只有 `connect` 生成 skill。
 - `show` 与 `init`、`connect` 一样直接调用门面，不读写常驻服务的状态；输出不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）。
 - 上表为 v1 的目标命令；各命令的实现状况见 `docs/architecture.md`。
-- 首批适配 omp 与 Claude Code：先实现并验证 omp，Claude Code 随后。
 
 ## 13. 不做的事（v1）
 

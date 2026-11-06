@@ -57,7 +57,8 @@ public sealed class HelpAndOutputTests : IDisposable
     {
         _cli.InitReady();
 
-        var result = await _cli.RunAsync(["connect", "--client", "OMP"]);
+        Directory.CreateDirectory(Path.Combine(_cli.Home.UserHome, ".omp", "agent", "skills"));
+        var result = await _cli.RunAsync(["connect", "--client", "OMP", "--context", "~/.omp/agent/AGENTS.md", "--skills", "~/.omp/agent/skills"]);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Empty(result.Stderr);

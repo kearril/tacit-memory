@@ -69,13 +69,16 @@ public sealed class Tacit(TacitOptions options)
         new(TacitError.NoBuiltInText, Messages.NoBuiltInText.Format(ConfigLoader.LanguageOf(options), target));
 
     /// <summary>
-    /// Binds a client: renders the resident block into its context file now, registers the MCP server and records
-    /// the binding. Running it again changes nothing.
+    /// Binds a client: writes the skills, renders the resident block into its context file now and links the skills into its
+    /// skills folder, then records the binding. The MCP server is not registered here; the result carries the endpoint the user
+    /// configures in the client. Running it again with the same paths only fills in what is missing. Refusals change no file.
     /// </summary>
-    public BindingResult Connect(ClientKind client) => Binder.Connect(options, client);
+    /// <exception cref="TacitException">A refusal: a bad client name, a name bound to other paths, a missing folder, a taken link name, and so on.</exception>
+    public BindingResult Connect(ConnectRequest request) => Binder.Connect(options, request);
 
-    /// <summary>Removes the resident block, the MCP registration and the binding record of a client.</summary>
-    public BindingResult Disconnect(ClientKind client) => Binder.Disconnect(options, client);
+    /// <summary>Removes the resident block, the skill links and the binding record of a client; the paths come from the record.</summary>
+    /// <exception cref="TacitException">No binding has that name.</exception>
+    public BindingResult Disconnect(string client) => Binder.Disconnect(options, client);
 
     /// <summary>Renders the current persona and <c>resident.md</c> into every bound context file, reading <c>bindings.json</c> afresh.</summary>
     public IReadOnlyList<BlockRender> RenderBlocks()

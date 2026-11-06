@@ -2,7 +2,6 @@
 
 TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、近况和过往问题保存为人类可读的 Markdown 文件（位于 Git 仓库中），并通过本机的 MCP 服务交给 Agent 使用。
 画像随会话常驻注入上下文；近期活动与细节页由 Agent 按需检索。
-目前已实现 omp 客户端的绑定。
 
 ## 前提
 
@@ -36,13 +35,19 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
 2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `endpoint` 与 `model`；决策模型的密钥见「密钥」一节。
 
-3. **绑定 omp**
+3. **绑定客户端**
 
    ```powershell
-   tacit connect --client omp
+   tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.omp/agent/skills
    ```
 
-   写入常驻区块、注册 MCP 服务并建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-checkup`）。绑定前会校验配置，`models` 缺失时会报错。
+   `--client` 是客户端的名称：小写字母、数字与连字符，最多 32 个字符。`--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录；两个选项都必填，开头的 `~` 指用户目录。上下文文件的上一级目录与 skill 目录必须已存在，上下文文件本身可以不存在（不存在时会被创建）。绑定会写入常驻区块，并在 skill 目录中建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-checkup`）。绑定前会校验配置，`models` 缺失时会报错。
+
+   `connect` 最后打印 MCP 端点（`http://127.0.0.1:18888/mcp`，传输方式 Streamable HTTP，建议的服务名 `tacit`）。tacit 不改写任何客户端的 MCP 配置，需要在 omp 中自行配置，例如在 `~/.omp/agent/mcp.json` 的 `mcpServers` 中加入：
+
+   ```json
+   "tacit": { "type": "http", "url": "http://127.0.0.1:18888/mcp" }
+   ```
 
 4. **启动服务**（前台运行，建议单独开一个终端）
 
@@ -59,12 +64,12 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit show skill
    ```
 
-   随后开一个新的 omp 会话。绑定与提示词的修改在新会话中生效。
+   在 omp 中配置上面的 MCP 端点，然后开一个新的 omp 会话。绑定与提示词的修改在新会话中生效。
 
 ## 日常使用
 
 - 会话开始时，omp 会读到常驻区块（画像）与服务端说明（含近期摘要）。Agent 在对话中按记忆规则自行检索与写入，无需手动操作。
-- 记忆指令 `tacit-remember` 与 `tacit-checkup` 是 omp 的 skill，用 `/skill:` 触发需要 omp 开启 `skills.enableSkillCommands`（默认已开启）。升级后请重新执行 `tacit connect --client omp`，补上新增的 skill 链接；已有的链接保持不变。
+- 记忆指令 `tacit-remember` 与 `tacit-checkup` 是 omp 的 skill，用 `/skill:` 触发需要 omp 开启 `skills.enableSkillCommands`（默认已开启）。升级后请用同样的参数重新执行 `tacit connect`，补上新增的 skill 链接；已有的链接保持不变。
 - 想让 Agent 立即把本次会话写进记忆（例如压缩上下文或退出前），在 omp 中输入 `/skill:tacit-remember 附加要求`；附加要求可省略，写了就作为本次的重点或额外要求。`/skill:tacit-remember` 也可以写在句中触发。
 - 整理记忆时在 omp 中输入 `/skill:tacit-checkup`（附加要求可省略）开始体检。体检会列出疑似重复的页、互相冲突的画像条目、可确认与待清理的画像候选、格式问题与过期的近期主线；Agent 直接修正机械问题，需要你拍板的逐项询问，最后在记忆仓库中以 `checkup:` 提交。距上次体检达到 `checkup.remindAfterDays` 天（默认 7 天），或有可确认的候选时，新会话的服务端说明会提示可以体检。
 - 体检的时间与并发可在 `config.yaml` 的 `checkup` 一节调整：`budgetSeconds`（默认 20）是一次体检最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-checkup` 接着算"；`maxConcurrency`（默认 5）是同时进行的模型判断数。
@@ -137,7 +142,7 @@ backup:
 tacit disconnect --client omp
 ```
 
-移除常驻区块、`mcp.json` 中的 `tacit` 项与三个 skill 链接（只删指向 tacit 的链接）。只删除链接本身，skill 文件与记忆仓库都保留；同名的其他条目不动。
+移除常驻区块与三个 skill 链接（只删指向 tacit 的链接）。路径取自绑定时的记录，因此只需名称。只删除链接本身，skill 文件与记忆仓库都保留；同名的其他条目不动。上下文文件若是 `connect` 创建的且变空，则一并删除。tacit 不改动 MCP 配置，客户端中的 `tacit` 条目需自行删除。
 只删除常驻区块不能停止维护：下次渲染时会重新追加。要停止维护，请执行解绑。
 
 ## 文件在哪
@@ -157,11 +162,10 @@ tacit disconnect --client omp
     └── .cache/                    # 派生索引，可删除，由文件重建
 ```
 
-omp 绑定后还会改动以下位置（只改 TacitMemory 自己的部分）：
+绑定所给的两个路径会被改动（只改 TacitMemory 自己的部分）：
 
-- `~/.omp/agent/AGENTS.md`：起止标记之间的常驻区块；
-- `~/.omp/agent/mcp.json`：`tacit` 一项；
-- `~/.omp/agent/skills/` 下的 `tacit-memory`、`tacit-remember`、`tacit-checkup`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
+- 上下文文件（`connect --context`；omp 为 `~/.omp/agent/AGENTS.md`）：起止标记之间的常驻区块；
+- skill 目录（`connect --skills`；omp 为 `~/.omp/agent/skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-checkup`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
 
 **备份与恢复**见上文「运维」一节。
 
@@ -182,7 +186,7 @@ omp 绑定后还会改动以下位置（只改 TacitMemory 自己的部分）：
 - **任何问题先看 `tacit status`**（各栏见「运维」）：服务在运行时退出码 0，服务未运行或端口被其他程序占用时 4，`config.yaml` 无法加载时 3（有错误时列出全部出错的键路径；文件不存在或记忆仓库未初始化时说明缺少什么）。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
-- **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888），然后重新执行 `tacit connect --client omp`，以更新 omp 中的 MCP 地址。
+- **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。固定部分、`resident.md` 与 `skill.md` 各有上限，精简该文件后重启即可（详见 `docs/design.md` 第 12 节）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
 - **辅助模型连不上**：服务不会因此退出。写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。检查 `endpoint`、`model` 与密钥环境变量；环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`。
