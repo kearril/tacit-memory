@@ -176,9 +176,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
 
     /// <summary>Show the service's state, models, bindings, checkup, pending items, backups, logs and secrets.</summary>
     /// <remarks>
-    /// The exit code is 3 whenever config.yaml does not load. Otherwise it is 0 while a service answers and 4 when none does
-    /// or another program holds the port; a service that answers but refuses the report still counts as running, and the
-    /// refusal is named on stderr. A cooling model or an open problem changes no code.
+    /// The exit code is 3 whenever config.yaml does not load. Otherwise it is 0 while a service answers with its report,
+    /// 1 when the service refuses the report or the offline report cannot be read (an IO or permission error; the reason
+    /// goes to stderr), and 4 when nothing answers or another program holds the port. A cooling model or an open problem
+    /// changes no code.
     /// </remarks>
     [Command("status")]
     public Task<int> Status(ConsoleAppContext context, CancellationToken cancellationToken = default) => Execute(async () =>
@@ -203,7 +204,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
                 return 0;
             case Probe.Refused refused:
                 console.Error.WriteLine(refused.Message);
-                return 0;
+                return 1;
             case Probe.NotAnswered notAnswered:
                 return await PrintOfflineAsync(config, notAnswered.OtherProgram, cancellationToken);
             default:
@@ -400,21 +401,21 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         show && console.StylesError ? StyledOutput.WithIndicatorAsync(console.Error, call) : call();
 
     /// <summary>
-    /// Prints the report for a service that does not answer. The code is 4 either way; a report that cannot be read (an IO
-    /// or permission error) is named on stderr instead of printed.
+    /// Prints the report for a service that does not answer, and returns 4. A report that cannot be read (an IO or
+    /// permission error) is a run failure: the reason is named on stderr and the code is 1.
     /// </summary>
     private async Task<int> PrintOfflineAsync(TacitConfig config, bool portAnsweredByOther, CancellationToken cancellationToken)
     {
         try
         {
             PrintStatus(await _tacit.OfflineStatus(config, portAnsweredByOther, cancellationToken));
+            return 4;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             console.Error.WriteLine(e.Message);
+            return 1;
         }
-
-        return 4;
     }
 
     /// <summary>Prints each column's title, then its lines indented, in the order the report lists them.</summary>

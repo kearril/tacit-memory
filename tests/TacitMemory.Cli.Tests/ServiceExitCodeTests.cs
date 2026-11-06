@@ -2,7 +2,7 @@ namespace TacitMemory.Cli.Tests;
 
 /// <summary>
 /// Exit codes of the commands that talk to the service: 4 when nothing answers or another program answers the port, 0
-/// for <c>status</c> when a service answers (even one that refuses the report), and 1 when the service refuses any other request.
+/// for <c>status</c> when a service answers with its report, and 1 when the service refuses a request.
 /// </summary>
 [Collection(CliCollection.Name)]
 public sealed class ServiceExitCodeTests : IDisposable
@@ -67,13 +67,13 @@ public sealed class ServiceExitCodeTests : IDisposable
     }
 
     [Fact]
-    public async Task Status_exits_0_when_the_service_refuses_the_report_and_names_the_refusal_on_stderr()
+    public async Task Status_exits_1_when_the_service_refuses_the_report_and_names_the_refusal_on_stderr()
     {
         await _cli.StartRefusingServiceAsync("maintenance", "the service is under maintenance");
 
         var result = await _cli.RunAsync(["status"]);
 
-        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Stdout);
         Assert.Contains("under maintenance", result.Stderr);
     }
