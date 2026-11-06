@@ -11,7 +11,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 - **三个辅助模型**（必填，需自行准备，均为 HTTP 端点）：
   - 嵌入模型：OpenAI 兼容接口（`/embeddings`）；
   - reranker：Cohere/Jina 兼容接口（`/rerank`）；
-  - 决策模型：TypeSafe 原生决策接口（`/systemone`），密钥见「密钥」一节。
+  - 决策模型：TypeSafe Jev 原生决策接口（`/systemone`），密钥见「密钥」一节。
 
 `endpoint` 填写基础地址，程序会在其后追加上述路径。
 
@@ -139,7 +139,7 @@ backup:
 | `models.decision.apiKey` | `TACIT_DECISION_API_KEY` | 总是 |
 | `backup.webdav.password` | `TACIT_WEBDAV_PASSWORD` | 配置了 `backup.webdav.username` 时 |
 
-两处都没有时加载配置会报错，并同时指出键路径与环境变量名。配置中写了明文密钥时，备份会提示妥善保管备份文件。
+必需的密钥两处都没有时加载配置会报错，并同时指出键路径与环境变量名。配置中写了明文密钥时，备份会提示妥善保管备份文件。
 
 ### 日志
 
@@ -181,15 +181,7 @@ tacit disconnect --client omp
 
 ## 排障
 
-结果输出到 stdout，错误与确认提示输出到 stderr。命令的退出码如下，`tacit status` 同样遵循这一表：
-
-| 码 | 含义 |
-| :--- | :--- |
-| 0 | 成功；`status` 中表示服务在运行 |
-| 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认 |
-| 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突，或非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制 |
-| 4 | 服务未运行，含端口被其他程序占用 |
+结果输出到 stdout，错误与确认提示输出到 stderr。各命令的退出码见 [`docs/design.md`](docs/design.md) 第 12 节「运行」中的表，`tacit status` 同样遵循。
 
 `serve` 的日志见「日志」一节。
 
@@ -199,7 +191,7 @@ tacit disconnect --client omp
 - **找不到 `config.yaml`**：先执行 `tacit init`。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
-- **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。固定部分、`resident.md` 与 `skill.md` 各有上限，精简该文件后重启即可（详见 `docs/design.md` 第 12 节）。
+- **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。固定部分、`resident.md` 与 `skill.md` 各有上限，精简超限的文件后重启即可（详见 `docs/design.md` 第 12 节）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
 - **辅助模型连不上**：服务不会因此退出。写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。检查 `endpoint`、`model` 与密钥环境变量；环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`。
 - **向量扩展无法加载**：启动时会校验 `vec0.dll` 的存在与哈希，不符即拒绝启动。确认它与 `tacit.exe` 位于同一目录，且未被替换。

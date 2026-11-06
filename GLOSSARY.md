@@ -138,7 +138,7 @@ _Avoid_: 界面语言、locale
 _Avoid_: 关键字、标签
 
 **判断**（Judgment）：
-常驻服务在写入前交给决策模型回答的固定问题，例如两页是否重复、两条是否同一偏好；结果按阈值分为确定、拿不准与否定三档处理。
+常驻服务在写入前与体检时交给决策模型回答的固定问题，例如两页是否重复、两条是否同一偏好；结果按阈值分为确定、拿不准与否定三档处理。
 _Avoid_: 分类、裁决
 
 **凭据检测**（Credential check）：
@@ -245,7 +245,7 @@ _Avoid_: 诊断、lint 结果
 _Avoid_: 重复候选、过期候选
 
 **客户端**（Client）：
-读取上下文文件与 skill 目录、并经 MCP 连接常驻服务的 Agent 程序，例如 omp、Claude Code。TacitMemory 不区分客户端种类，只以绑定时用户给出的名称（客户端名称）指代它。
+读取上下文文件与 skill 目录、并经 MCP 连接常驻服务的程序，例如 omp、Claude Code。TacitMemory 不区分客户端种类，只以绑定时用户给出的名称（客户端名称）指代它。
 _Avoid_: harness、宿主、IDE、Agent（指程序时）
 
 **上下文文件**（Context file）：
