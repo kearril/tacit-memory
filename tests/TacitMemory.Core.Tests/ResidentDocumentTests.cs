@@ -44,7 +44,7 @@ public sealed class ResidentDocumentTests : IDisposable
     public void Without_resident_md_the_block_keeps_the_built_in_shell_and_guidance()
     {
         WriteFullPersona();
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         var text = Agents();
 
@@ -73,7 +73,7 @@ public sealed class ResidentDocumentTests : IDisposable
             """.ReplaceLineEndings("\n"));
         WriteFullPersona();
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var text = Agents();
 
         Assert.Contains("<!-- tacit:begin", text);
@@ -90,7 +90,7 @@ public sealed class ResidentDocumentTests : IDisposable
         File.WriteAllText(ResidentMd, "SHELL-CUSTOM\n\n## red_lines\nRED-CUSTOM\n");
         WriteFullPersona();
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var text = Agents();
 
         Assert.Contains("## Red lines\nRED-CUSTOM\n- r1\n", text);
@@ -104,7 +104,7 @@ public sealed class ResidentDocumentTests : IDisposable
         File.WriteAllText(ResidentMd, "外壳用中文写。\n\n## red_lines\n红线的分量最重。\n");
         WriteFullPersona();
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         Assert.Contains("外壳用中文写。", Agents());
         Assert.Contains("红线的分量最重。", Agents());
@@ -116,7 +116,7 @@ public sealed class ResidentDocumentTests : IDisposable
         WriteFullPersona();
         File.WriteAllText(ResidentMd, "SHELL-FIRST\n");
 
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         Assert.Contains("SHELL-FIRST", Agents());
     }
@@ -130,7 +130,7 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.Equal(TacitError.PromptInvalid, error.Error);
         Assert.Contains("resident.md", error.Message);
         Assert.Matches(@"(第 3 行|line 3)", error.Message);
-        Assert.Throws<TacitException>(() => _home.Tacit().Connect(ClientKind.Omp));
+        Assert.Throws<TacitException>(() => _home.Bind());
         Assert.False(File.Exists(AgentsMd));
     }
 
@@ -167,7 +167,7 @@ public sealed class ResidentDocumentTests : IDisposable
         WriteFullPersona();
 
         using var service = Open();
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         Assert.Contains(new string('x', 1500), Agents());
         Assert.NotNull(service);
@@ -177,7 +177,7 @@ public sealed class ResidentDocumentTests : IDisposable
     public async Task Editing_resident_md_while_running_rerenders_the_bound_block()
     {
         WriteFullPersona();
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         using var service = Open();
 
         File.WriteAllText(ResidentMd, "SHELL-NEW\n\n## profile\nPROF-NEW\n");
@@ -193,7 +193,7 @@ public sealed class ResidentDocumentTests : IDisposable
     {
         File.WriteAllText(ResidentMd, "SHELL-GONE\n");
         WriteFullPersona();
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         using var service = Open();
 
         File.Delete(ResidentMd);
@@ -208,7 +208,7 @@ public sealed class ResidentDocumentTests : IDisposable
     {
         File.WriteAllText(ResidentMd, "SHELL-OK\n");
         WriteFullPersona();
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         using var service = Open();
 
         File.WriteAllText(ResidentMd, "SHELL-BROKEN\n\n## red_line\nX\n");

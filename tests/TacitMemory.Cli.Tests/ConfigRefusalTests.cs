@@ -13,7 +13,6 @@ public sealed class ConfigRefusalTests : IDisposable
 
     public static TheoryData<string[]> CommandsThatLoadTheConfig() => new()
     {
-        { ["connect", "--client", "omp"] },
         { ["status"] },
         { ["backup"] },
         { ["show", "instructions"] },
@@ -33,12 +32,23 @@ public sealed class ConfigRefusalTests : IDisposable
     }
 
     [Fact]
+    public async Task Connect_exits_3_when_the_config_does_not_load()
+    {
+        _cli.InitReady();
+        _cli.BreakConfig();
+
+        var result = await _cli.RunAsync(_cli.OmpConnectArgs());
+
+        Assert.Equal(3, result.ExitCode);
+    }
+
+    [Fact]
     public async Task A_missing_decision_key_exits_3_and_names_the_variable()
     {
         _cli.InitReady();
         _cli.RemoveDecisionKey();
 
-        var result = await _cli.RunAsync(["connect", "--client", "omp"]);
+        var result = await _cli.RunAsync(_cli.OmpConnectArgs());
 
         Assert.Equal(3, result.ExitCode);
         Assert.Contains("TACIT_DECISION_API_KEY", result.Stderr);
@@ -48,7 +58,7 @@ public sealed class ConfigRefusalTests : IDisposable
     public async Task Disconnect_works_while_the_config_does_not_load()
     {
         _cli.InitReady();
-        Assert.Equal(0, (await _cli.RunAsync(["connect", "--client", "omp"])).ExitCode);
+        Assert.Equal(0, (await _cli.RunAsync(_cli.OmpConnectArgs())).ExitCode);
         _cli.BreakConfig();
 
         var result = await _cli.RunAsync(["disconnect", "--client", "omp"]);

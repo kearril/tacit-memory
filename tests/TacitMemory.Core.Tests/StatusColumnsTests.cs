@@ -46,7 +46,7 @@ public sealed class StatusColumnsTests : IDisposable
     private DateOnly InitDay => DateOnly.ParseExact(
         TestHome.Git(Memory, "log", "-1", "--format=%as").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    private void Connect() => _home.Tacit().Connect(ClientKind.Omp);
+    private void Connect() => _home.Bind();
 
     /// <summary>Moves the test clock to 10:00 UTC on <paramref name="day"/>.</summary>
     private void ClockOn(DateOnly day)
@@ -113,6 +113,8 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Equal(0, process.ExitCode);
     }
 
+    private string SkillsFolder => Path.Combine(_home.UserHome, ".omp", "agent", "skills");
+
     [Fact]
     public async Task A_healthy_binding_is_reported_as_fine()
     {
@@ -122,6 +124,8 @@ public sealed class StatusColumnsTests : IDisposable
 
         Assert.Null(OnlyBinding(report).Problem);
         Assert.Contains("omp：正常", Assert.Single(report.Bindings!.Lines));
+        Assert.Contains(SkillsFolder, Assert.Single(report.Bindings!.Lines));
+        Assert.Equal(SkillsFolder, OnlyBinding(report).SkillsFolder);
     }
 
     [Fact]

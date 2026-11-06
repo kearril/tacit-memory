@@ -330,7 +330,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_write_re_renders_the_bound_resident_block_in_the_background()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
 
         var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 

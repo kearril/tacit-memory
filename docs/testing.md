@@ -22,8 +22,8 @@
      - `CheckupBudgetTests`：体检限时（到点照常返回并注明未检查数量、在途调用不取消且跑完写入缓存、未发出的判断不再发出；到点后仍有缓存答案的类别照常列出，前面类别耗尽预算不影响后面类别；可确认候选的判断被截断时附"自行对照画像"的提醒）、工作池的并发上限、模型冷却后排队的提问不再发出，以及冷却结束后再次提问。
      - `FormatViolationTests`：体检报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead）；各项修正后消失，每类 20 项上限。
      - `CheckupReminderTests`：体检提示：天数门槛（含 `checkup.remindAfterDays`）、可确认候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、体检提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否。
-     - `BindingTests`：`connect` / `disconnect` 对 `AGENTS.md`、`mcp.json` 与常驻区块的写入、保留、拒绝与逐字节恢复。
-     - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接并保留别人的同名项；只有旧的记忆 skill 链接的旧绑定（Windows 上为真实目录联接）。
+     - `BindingTests`：`connect` 与 `disconnect` 的门面规则：名称规范化与拒绝（逐例断言拒绝时不写任何文件）、同名异路径的拒绝、上下文文件的上一级目录与 skill 目录不存在时的拒绝、`~` 展开与绝对路径的记录、记录的四个字段、上下文文件的创建与删除（`createdContextFile`）、常驻区块的写入与逐字节恢复、`mcp.json` 的字节不变、缺失的名称与配置无效时的 `disconnect`。
+     - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）。
      - `ServiceTests`：服务端说明的组成、语言与项目部分、状态提示，以及启动与运行中的绑定渲染。
      - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用，服务栏含 MCP 端点），三个辅助模型的可用与冷却中（含剩余秒数，冷却结束后回到可用），日志位置，配置有误时的错误键路径与服务栏，宽松读取的端口与语言（`server.port` 可读而其他键有错、文件不存在、YAML 无法解析三种情况）；离线报告不含依赖服务的列。
      - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；上次体检的三种基准（初始提交、体检提交、从未体检）；待处理计数与体检提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源的三种情况且不显示值；服务运行与未运行时共用的栏内容一致。
@@ -74,10 +74,11 @@
    - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `McpHost`，与 `McpHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
    - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
    - 测试类索引：
-     - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺子命令或子命令未知、`connect` 缺 `--client`、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 的 `--from` 与 `--remote` 不恰好一个、`show tools` 等不接受的 `--default`）；用法错误先于配置检查；枚举取值不区分大小写。
+     - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺子命令或子命令未知、`connect` 缺 `--client`、`--context` 或 `--skills`、名称不合规、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 的 `--from` 与 `--remote` 不恰好一个、`show tools` 等不接受的 `--default`）；用法错误先于配置检查；枚举取值不区分大小写。
      - `ConfigRefusalTests`：配置无法加载（endpoint 非法，或缺决策模型密钥）时 `connect`、`status`、`backup`、`reindex`、`show` 为 3，说明含缺失的环境变量名；`disconnect` 与 `show … --default` 照常为 0。
      - `ServiceExitCodeTests`：服务未运行时 `reindex`、`backup`、`restore`、`status` 为 4，说明提示先执行 `tacit serve`；端口被非 tacit 的 HTTP 监听占用时 `status` 为 4；服务运行时 `status` 为 0，纯文本输出无控制字符；服务拒绝请求时为 1，说明只在 stderr；`backup` 不给选项时写到 `TACIT_HOME/backups/`。
      - `HelpAndOutputTests`：`-h`、`--help`、`connect --help`、裸命令与 `--version` 为 0；`connect` 只绑定临时用户主目录；`show … --default` 的 stdout 只有内置文本；总览的退出码表只出现一次；命令帮助不露出 `[Default` 与内部类型名。
+     - `BindingCommandTests`：`connect` 缺任一选项为 2 且不写任何文件；成功时 stdout 含 MCP 端点 URL；名称不合规为 2；`disconnect` 只需 `--client`、路径取自记录；名称不存在为 1。
      - `RestoreConfirmationTests`：`restore` 的确认（stdin 非终端且无 `--yes` 为 2 且什么都不恢复；终端输入非 `y` 为 1；`--yes` 与 `-y` 为 0）；旧的 `--config` 为用法错误，`--include-config` 可用。
      - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0。
    - 未自动化：美化后的外观（面板、颜色、转圈）在实机验收中目测。
@@ -100,7 +101,7 @@
 
 常驻区块外壳、记忆规则、记忆 skill、两个记忆指令与工具说明的措辞不由自动测试固定（自动测试只检查结构与长度上限）。改动以日常使用中出现的摩擦点为依据：Agent 该记没记、记错了地方、参数用错、未经同意改写画像等。改后在真实 omp 中按该摩擦点的情形手工复现验收：
 
-- 使用临时 `TACIT_HOME`；`connect` 会写入用户的 `~/.omp/agent/AGENTS.md`、`mcp.json` 与三个 skill 链接，事先备份这两个文件，结束后 `disconnect`，恢复并校验 SHA-256，确认三个 skill 链接已删除；
+- 使用临时 `TACIT_HOME`；`connect` 会写入用户的 `~/.omp/agent/AGENTS.md` 与三个 skill 链接，事先备份 `AGENTS.md`，结束后 `disconnect`，恢复并校验 SHA-256，确认三个 skill 链接已删除；
 - 不停止 NSSM 中的 `llama-swap`；
 - 判断依据是可观察的结果：记忆仓库的文件与提交，以及 omp 会话记录中的工具调用与 skill 读取。omp 经 `write` 工具以 `xd://mcp__tacit_<工具名>` 调用 tacit 工具，参数以 JSON 放在 `content` 中。
 - 两个记忆指令（实机）：`/skill:tacit-remember 附加文字` 与句中触发时，命令前后的文字都到达 Agent；`/skill:tacit-checkup` 后 Agent 以 `read tacit://checkup-report` 读到资源；会话开始的 skill 列表中只有 `tacit-memory`，普通对话中 Agent 不自行调用两个记忆指令。用 `omp --model haiku` 验收（交互会话或 `-p` 均可），附加文字写明"只读、不写入、不提交"以免改动真实记忆。

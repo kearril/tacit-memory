@@ -86,23 +86,25 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         }
     });
 
-    /// <summary>Bind a client: write the resident block into its context file and register the MCP server.</summary>
-    /// <param name="client">The client to bind: omp.</param>
+    /// <summary>Bind a client: write the resident block into its context file and link the skills into its skills folder.</summary>
+    /// <param name="client">Client name: letters, digits and hyphens, up to 32 characters.</param>
+    /// <param name="context">Context file the resident block goes into; created when missing.</param>
+    /// <param name="skills">Skills folder the client scans; it must already exist.</param>
     [Command("connect")]
-    public Task<int> Connect(string? client = null) => Execute(() =>
+    public Task<int> Connect(string? client = null, string? context = null, string? skills = null) => Execute(() =>
     {
-        var kind = ParseChoice<ClientKind>("--client", client);
-        console.Out.WriteLine(_tacit.Connect(kind).Report);
+        RequireOptions(("--client", client), ("--context", context), ("--skills", skills));
+        console.Out.WriteLine(_tacit.Connect(new ConnectRequest(client!, context!, skills!)).Report);
         return Task.FromResult(0);
     });
 
-    /// <summary>Unbind a client: remove the resident block and the MCP registration.</summary>
-    /// <param name="client">The client to unbind: omp.</param>
+    /// <summary>Unbind a client: remove its resident block and skill links. The paths come from the binding.</summary>
+    /// <param name="client">Name of the client to unbind.</param>
     [Command("disconnect")]
     public Task<int> Disconnect(string? client = null) => Execute(() =>
     {
-        var kind = ParseChoice<ClientKind>("--client", client);
-        console.Out.WriteLine(_tacit.Disconnect(kind).Report);
+        RequireOptions(("--client", client));
+        console.Out.WriteLine(_tacit.Disconnect(client!).Report);
         return Task.FromResult(0);
     });
 
@@ -328,6 +330,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         {
             return Fail(2, e.Message);
         }
+        catch (TacitException e) when (e.Error == TacitError.ClientNameInvalid)
+        {
+            return Fail(2, e.Message);
+        }
         catch (TacitException e) when (IsConfigRefusal(e))
         {
             return Fail(3, e.Message);
@@ -371,6 +377,14 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             foreach (var line in column.Lines)
                 console.Out.WriteLine($"  {line}");
         }
+    }
+
+    /// <summary>Checks that each required option has a value, before anything is read; a blank value counts as missing.</summary>
+    private static void RequireOptions(params (string Option, string? Value)[] options)
+    {
+        var missing = options.Where(option => string.IsNullOrWhiteSpace(option.Value)).Select(option => option.Option).ToList();
+        if (missing.Count > 0)
+            throw new UsageException($"Missing required option{(missing.Count > 1 ? "s" : "")} {string.Join(", ", missing)}.");
     }
 
     /// <summary>A command with no options or positional arguments: anything after its name is an error.</summary>

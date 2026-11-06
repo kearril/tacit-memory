@@ -82,9 +82,17 @@ public sealed record BindingsStatus(string Title, IReadOnlyList<string> Lines, I
 
 /// <param name="Client">The client's name, as <c>bindings.json</c> records it.</param>
 /// <param name="ContextFile">The context file the resident block goes into.</param>
+/// <param name="SkillsFolder">The folder the skill links go into.</param>
 /// <param name="Problem">What is wrong with the binding; <c>null</c> when it is healthy.</param>
 /// <param name="SkillLink">The skill link that is missing or points elsewhere, when <paramref name="Problem"/> says so.</param>
-public sealed record BindingCheck(string Client, string ContextFile, BindingProblem? Problem, string? SkillLink = null);
+/// <param name="SharedWith">The other bindings that use one of this binding's paths; empty when none does.</param>
+public sealed record BindingCheck(
+    string Client,
+    string ContextFile,
+    string SkillsFolder,
+    BindingProblem? Problem,
+    string? SkillLink,
+    IReadOnlyList<string> SharedWith);
 
 /// <summary>The ways a binding can be broken, checked in this order; the first one found is reported.</summary>
 public enum BindingProblem

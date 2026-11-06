@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json.Nodes;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
@@ -11,35 +10,52 @@ namespace TacitMemory.Core.Clients;
 /// <summary><c>connect</c>, <c>disconnect</c> and rendering the resident block into every bound context file.</summary>
 internal static class Binder
 {
-    private const string ServerName = "tacit";
-
-    public static BindingResult Connect(TacitOptions options, ClientKind client)
+    /// <summary>
+    /// Binds a client. Every check runs before the first write, so a refusal changes no file: the name, the record of the
+    /// same name, the two folders, the link names, the config and persona, and the markers of the context file.
+    /// </summary>
+    public static BindingResult Connect(TacitOptions options, ConnectRequest request)
     {
-        var config = ConfigLoader.Load(options);
-        var language = config.Language;
-        var target = Target(options, client);
+        var client = ClientName.Normalize(request.Client);
+        var contextFile = Absolute(request.ContextFile, Messages.ContextFileNoun, options);
+        var skillsFolder = Absolute(request.SkillsFolder, Messages.SkillsFolderNoun, options);
+        var language = ConfigLoader.LanguageOf(options);
         var store = new BindingStore(options.TacitHome, language);
-        var previous = store.Find(target.Client);
+
+        var previous = store.Find(client);
+        if (previous is not null && !(BindingPath.Same(previous.ContextFile, contextFile) && BindingPath.Same(previous.SkillsFolder, skillsFolder)))
+            throw new TacitException(
+                TacitError.BindingConflict, Messages.BindingConflict.Format(language, client, previous.ContextFile, previous.SkillsFolder));
+
+        var contextFolder = Path.GetDirectoryName(contextFile) ?? contextFile;
+        if (!Directory.Exists(contextFolder))
+            throw new TacitException(TacitError.ContextFolderMissing, Messages.ContextFolderMissing.Format(language, contextFolder));
+        if (!Directory.Exists(skillsFolder))
+            throw new TacitException(TacitError.SkillsFolderMissing, Messages.SkillsFolderMissing.Format(language, skillsFolder));
+
+        var links = SkillSet.Links(skillsFolder, options.TacitHome);
+        foreach (var (link, skillFolder) in links)
+            SkillLink.EnsureFree(link, skillFolder, language);
+
+        var config = ConfigLoader.Load(options);
         var personaPath = PersonaPath(config);
         var persona = PersonaDocument.Read(personaPath)
             ?? throw new TacitException(TacitError.FileNotUtf8, Messages.PersonaUnreadable.Format(language, personaPath));
+        ContextFile.Check(contextFile, language);
+        var block = ResidentBlock.Render(persona, config.Prompts.Resident);
 
-        var createdContextFile = previous?.CreatedContextFile ?? !File.Exists(target.ContextFile);
-        var createdMcpConfig = previous?.CreatedMcpConfig ?? !File.Exists(target.McpConfig);
+        var createdContextFile = previous?.CreatedContextFile ?? !File.Exists(contextFile);
         var report = new StringBuilder();
-
-        // Every link is checked before anything is written, so a taken name refuses the binding and changes no file.
-        var links = SkillSet.Links(target.ClientSkills, options.TacitHome);
-        foreach (var (link, skillFolder) in links)
-            SkillLink.EnsureFree(link, skillFolder, language);
 
         foreach (var skill in SkillSet.Write(options.TacitHome, language, config.Prompts.Skill).Skills)
             report.AppendLine((skill.Written ? Messages.SkillWritten : Messages.SkillUnchanged).Format(language, skill.Path));
 
+        var written = ContextFile.Put(contextFile, block, language);
+        report.AppendLine((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, contextFile));
+
         var created = new List<(string Link, string SkillFolder)>();
         try
         {
-            // The links are made before the other files, so a link that cannot be made changes nothing else.
             foreach (var (link, skillFolder) in links)
             {
                 var made = SkillLink.Put(link, skillFolder, language);
@@ -48,52 +64,51 @@ internal static class Binder
                 report.AppendLine((made ? Messages.SkillLinked : Messages.SkillLinkUnchanged).Format(language, link));
             }
 
-            var written = ContextFile.Put(target.ContextFile, ResidentBlock.Render(persona, config.Prompts.Resident), language);
-            report.AppendLine((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, target.ContextFile));
-
-            var server = new JsonObject { ["type"] = "http", ["url"] = $"http://127.0.0.1:{config.Port}/mcp" };
-            var registered = McpJsonFile.Put(target.McpConfig, ServerName, server, language);
-            report.AppendLine((registered ? Messages.McpRegistered : Messages.McpUnchanged).Format(language, target.McpConfig));
-            store.Put(new BindingRecord(
-                target.Client, target.ContextFile, Path.Combine(target.ClientSkills, MemorySkill.Name), createdContextFile, createdMcpConfig));
+            store.Put(new BindingRecord(client, contextFile, skillsFolder, createdContextFile));
         }
         catch
         {
-            // Removes the links this call made, so a refused file or an unwritable bindings.json leaves no link behind.
+            // Removes the links this call made, so a failed link or an unwritable bindings.json leaves none behind.
             foreach (var (link, skillFolder) in created)
                 SkillLink.Remove(link, skillFolder);
             throw;
         }
 
-        report.Append(Messages.Connected.Format(language, target.Client));
-        return new BindingResult(target.ContextFile, report.ToString());
+        var endpoint = new Uri($"http://127.0.0.1:{config.Port}/mcp");
+        report.AppendLine(Messages.Connected.Format(language, client));
+        report.AppendLine(Messages.McpEndpoint.Format(language, endpoint));
+        report.AppendLine(Messages.McpTransport.In(language));
+        report.AppendLine(Messages.McpServerName.In(language));
+        report.Append(Messages.McpPortReminder.In(language));
+        return new BindingResult(contextFile, endpoint, report.ToString());
     }
 
-    public static BindingResult Disconnect(TacitOptions options, ClientKind client)
+    /// <summary>
+    /// Unbinds a client: removes its resident block and the links that point at tacit, then its record. The paths come from
+    /// the record. A file or link that is already gone is reported and skipped; the record is removed either way.
+    /// </summary>
+    public static BindingResult Disconnect(TacitOptions options, string client)
     {
+        var name = ClientName.Normalize(client);
         var language = ConfigLoader.LanguageOf(options);
-        var target = Target(options, client);
         var store = new BindingStore(options.TacitHome, language);
-        var binding = store.Find(target.Client);
+        var binding = store.Find(name)
+            ?? throw new TacitException(TacitError.BindingNotFound, Messages.BindingNotFound.Format(language, name));
         var report = new StringBuilder();
 
-        if (ContextFile.Remove(target.ContextFile, language) is { } remaining)
+        if (!File.Exists(binding.ContextFile))
+            report.AppendLine(Messages.ContextFileAbsent.Format(language, binding.ContextFile));
+        else if (ContextFile.Remove(binding.ContextFile, language) is { } remaining)
         {
-            report.AppendLine(Messages.BlockRemoved.Format(language, target.ContextFile));
-            if (remaining.Length == 0 && binding?.CreatedContextFile == true)
-                File.Delete(target.ContextFile);
+            report.AppendLine(Messages.BlockRemoved.Format(language, binding.ContextFile));
+            if (remaining.Length == 0 && binding.CreatedContextFile)
+                File.Delete(binding.ContextFile);
         }
+        else
+            report.AppendLine(Messages.ResidentBlockAbsent.Format(language, binding.ContextFile));
 
-        if (McpJsonFile.Remove(target.McpConfig, ServerName, language) is { } root)
-        {
-            report.AppendLine(Messages.McpRemoved.Format(language, target.McpConfig));
-            if (binding?.CreatedMcpConfig == true && root.Count == 1 && root["mcpServers"] is JsonObject { Count: 0 })
-                File.Delete(target.McpConfig);
-        }
-
-        // The links are removed where connect made them; the skill folders they point to are kept.
-        var clientSkills = binding is null ? target.ClientSkills : Path.GetDirectoryName(binding.SkillLink)!;
-        foreach (var (link, skillFolder) in SkillSet.Links(clientSkills, options.TacitHome))
+        // The links are removed from the skills folder the record names; the skill folders they point to are kept.
+        foreach (var (link, skillFolder) in SkillSet.Links(binding.SkillsFolder, options.TacitHome))
         {
             switch (SkillLink.Remove(link, skillFolder))
             {
@@ -103,12 +118,15 @@ internal static class Binder
                 case SkillLink.RemoveOutcome.NotOurs:
                     report.AppendLine(Messages.SkillLinkForeign.Format(language, link));
                     break;
+                default:
+                    report.AppendLine(Messages.SkillLinkAbsent.Format(language, link));
+                    break;
             }
         }
 
-        store.Remove(target.Client);
-        report.Append(Messages.Disconnected.Format(language, target.Client));
-        return new BindingResult(target.ContextFile, report.ToString());
+        store.Remove(name);
+        report.Append(Messages.Disconnected.Format(language, name));
+        return new BindingResult(binding.ContextFile, null, report.ToString());
     }
 
     /// <summary>Renders the current persona and <c>resident.md</c> into every context file listed in <c>bindings.json</c> right now.</summary>
@@ -153,16 +171,13 @@ internal static class Binder
 
     private static string PersonaPath(TacitConfig config) => Path.Combine(config.MemoryPath, "persona.md");
 
-    private static ClientTarget Target(TacitOptions options, ClientKind client) => client switch
+    /// <summary>A path the user gave: <c>~</c> expanded and made absolute, the same rule the config's paths follow.</summary>
+    /// <exception cref="TacitException">The path is empty.</exception>
+    private static string Absolute(string path, Localized what, TacitOptions options)
     {
-        ClientKind.Omp => new ClientTarget(
-            "omp",
-            Path.Combine(options.UserHome, ".omp", "agent", "AGENTS.md"),
-            Path.Combine(options.UserHome, ".omp", "agent", "mcp.json"),
-            Path.Combine(options.UserHome, ".omp", "agent", "skills")),
-        _ => throw new ArgumentOutOfRangeException(nameof(client), client, null),
-    };
-
-    /// <param name="ClientSkills">The folder the client scans for skills, where the skill links go.</param>
-    private sealed record ClientTarget(string Client, string ContextFile, string McpConfig, string ClientSkills);
+        var language = ConfigLoader.LanguageOf(options);
+        if (string.IsNullOrWhiteSpace(path))
+            throw new TacitException(TacitError.RequestInvalid, Messages.PathEmpty.Format(language, what.In(language)));
+        return HomePaths.Expand(path, options.UserHome);
+    }
 }

@@ -276,9 +276,9 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task Bindings_json_is_never_restored()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var backup = await _service.BackupAsync(BackupTarget.Local);
-        _home.Tacit().Disconnect(ClientKind.Omp);
+        _home.Unbind();
         var current = File.ReadAllBytes(BindingsJson);
 
         await _service.RestoreAsync(backup.Location, config: true);
@@ -328,7 +328,7 @@ public sealed class RestoreTests : IDisposable
     public async Task The_resident_blocks_show_the_persona_of_the_backup_after_the_restore()
     {
         File.WriteAllText(PersonaMd, PersonaWith("偏好甲"));
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         var backup = await _service.BackupAsync(BackupTarget.Local);
         File.WriteAllText(PersonaMd, PersonaWith("偏好乙"));
         _home.Tacit().RenderBlocks();

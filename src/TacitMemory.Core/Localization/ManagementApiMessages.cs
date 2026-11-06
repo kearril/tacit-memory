@@ -52,16 +52,22 @@ internal static class ManagementApiMessages
     public static readonly Localized BindingsTitle = new("绑定", "Bindings");
     public static readonly Localized BindingsNone = new("没有绑定的客户端。", "No client is bound.");
     public static readonly Localized BindingsUnreadable = new("bindings.json 无法读取：{0}", "bindings.json cannot be read: {0}");
-    public static readonly Localized BindingOk = new("{0}：正常（{1}）", "{0}: fine ({1})");
-    public static readonly Localized BindingContextFileMissing = new("{0}：上下文文件不存在（{1}）", "{0}: the context file is missing ({1})");
-    public static readonly Localized BindingContextFileNotUtf8 = new("{0}：上下文文件不是 UTF-8（{1}）", "{0}: the context file is not UTF-8 ({1})");
-    public static readonly Localized BindingContextFileUnreadable = new("{0}：上下文文件无法读取（{1}）", "{0}: the context file cannot be read ({1})");
+    public static readonly Localized BindingOk = new("{0}：正常（上下文文件 {1}；skill 目录 {2}）", "{0}: fine (context file {1}; skills folder {2})");
+    public static readonly Localized BindingContextFileMissing = new(
+        "{0}：上下文文件不存在（{1}；skill 目录 {2}）",
+        "{0}: the context file is missing ({1}; skills folder {2})");
+    public static readonly Localized BindingContextFileNotUtf8 = new(
+        "{0}：上下文文件不是 UTF-8（{1}；skill 目录 {2}）",
+        "{0}: the context file is not UTF-8 ({1}; skills folder {2})");
+    public static readonly Localized BindingContextFileUnreadable = new(
+        "{0}：上下文文件无法读取（{1}；skill 目录 {2}）",
+        "{0}: the context file cannot be read ({1}; skills folder {2})");
     public static readonly Localized BindingMarkersIncomplete = new(
-        "{0}：常驻区块的起止标记不完整或重复（{1}）",
-        "{0}: the resident block's markers are incomplete or repeated ({1})");
+        "{0}：常驻区块的起止标记不完整或重复（{1}；skill 目录 {2}）",
+        "{0}: the resident block's markers are incomplete or repeated ({1}; skills folder {2})");
     public static readonly Localized BindingSkillLinkNotTacit = new(
-        "{0}：skill 链接 {2} 缺失或没有指向 tacit（{1}）",
-        "{0}: the skill link {2} is missing or does not point at tacit ({1})");
+        "{0}：skill 链接 {3} 缺失或没有指向 tacit（上下文文件 {1}；skill 目录 {2}）",
+        "{0}: the skill link {3} is missing or does not point at tacit (context file {1}; skills folder {2})");
 
     public static readonly Localized CheckupTitle = new("上次体检", "Last checkup");
     public static readonly Localized CheckupOn = new("上次体检：{0}，{1}", "Last checkup: {0}, {1}");
