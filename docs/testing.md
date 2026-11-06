@@ -91,7 +91,7 @@
 - 使用临时 `TACIT_HOME`；`connect` 会写入用户的 `~/.omp/agent/AGENTS.md`、`mcp.json` 与三个 skill 链接，事先备份这两个文件，结束后 `disconnect`，恢复并校验 SHA-256，确认三个 skill 链接已删除；
 - 不停止 NSSM 中的 `llama-swap`；
 - 判断依据是可观察的结果：记忆仓库的文件与提交，以及 omp 会话记录中的工具调用与 skill 读取。omp 经 `write` 工具以 `xd://mcp__tacit_<工具名>` 调用 tacit 工具，参数以 JSON 放在 `content` 中。
-- 两个记忆指令（实机）：`/skill:tacit-remember 附加文字` 与句中触发时，命令前后的文字都到达 Agent；`/skill:tacit-checkup` 后 Agent 以 `read tacit://checkup-report` 读到资源；会话开始的 skill 列表中只有 `tacit-memory`，普通对话中 Agent 不自行调用两个记忆指令。可在 `omp --model haiku` 的交互会话中验收，附加文字写明"只读、不写入、不提交"以免改动真实记忆。
+- 两个记忆指令（实机）：`/skill:tacit-remember 附加文字` 与句中触发时，命令前后的文字都到达 Agent；`/skill:tacit-checkup` 后 Agent 以 `read tacit://checkup-report` 读到资源；会话开始的 skill 列表中只有 `tacit-memory`，普通对话中 Agent 不自行调用两个记忆指令。用 `omp --model haiku` 验收（交互会话或 `-p` 均可），附加文字写明"只读、不写入、不提交"以免改动真实记忆。
 
 ## 5. 运行方式
 
