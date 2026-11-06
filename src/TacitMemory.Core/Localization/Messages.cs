@@ -11,8 +11,8 @@ internal static class Messages
         "补上的骨架文件未提交，请在记忆仓库中自行提交。",
         "The added skeleton files are not committed; commit them in the memory repository yourself.");
     public static readonly Localized InitNextSteps = new(
-        "下一步：在 {0} 中填写 models 一节，然后执行 tacit connect --client omp 与 tacit serve。",
-        "Next: fill in the models section of {0}, then run tacit connect --client omp and tacit serve.");
+        "下一步：在 {0} 中填写 models 一节，然后用 tacit connect --client <名称> --context <文件> --skills <目录> 绑定客户端，最后执行 tacit serve。",
+        "Next: fill in the models section of {0}, then bind a client with tacit connect --client <name> --context <file> --skills <folder>, and run tacit serve.");
 
     public static readonly Localized MemoryDirectoryNotEmpty = new(
         "目录 {0} 不为空且不是 Git 仓库，不能用作记忆仓库。请指定空目录或已有的记忆仓库（--memory）。",
@@ -84,19 +84,51 @@ internal static class Messages
     public static readonly Localized ContextFileMissing = new(
         "绑定的文件 {0} 已不存在，已跳过。要重新绑定请执行 tacit connect。",
         "The bound file {0} no longer exists and was skipped. Run tacit connect to bind it again.");
-    public static readonly Localized ClientConfigInvalid = new(
-        "{0} 不是有效的 JSON，未改动：{1}",
-        "{0} is not valid JSON and was left alone: {1}");
     public static readonly Localized BlockWritten = new("已写入常驻区块：{0}", "Wrote the resident block: {0}");
     public static readonly Localized BlockUnchanged = new("常驻区块已是最新：{0}", "The resident block is up to date: {0}");
     public static readonly Localized BlockRemoved = new("已移除常驻区块：{0}", "Removed the resident block: {0}");
-    public static readonly Localized McpRegistered = new("已注册 MCP 服务 tacit：{0}", "Registered the MCP server tacit: {0}");
-    public static readonly Localized McpUnchanged = new("MCP 服务 tacit 已注册：{0}", "The MCP server tacit is already registered: {0}");
-    public static readonly Localized McpRemoved = new("已注销 MCP 服务 tacit：{0}", "Unregistered the MCP server tacit: {0}");
     public static readonly Localized Connected = new(
         "已绑定 {0}，新会话开始生效。MCP 服务需要 tacit serve 在运行。",
         "Bound {0}; it takes effect in new sessions. The MCP server needs tacit serve running.");
     public static readonly Localized Disconnected = new("已解绑 {0}。", "Unbound {0}.");
+    public static readonly Localized BindingConflict = new(
+        "客户端 {0} 已绑定到其他路径（上下文文件 {1}，skill 目录 {2}），未改动。请先执行 tacit disconnect --client {0}，再重新绑定。",
+        "The client {0} is already bound to other paths (context file {1}, skills folder {2}); nothing was changed. Run tacit disconnect --client {0} first, then connect again.");
+    public static readonly Localized BindingNotFound = new(
+        "没有名为 {0} 的绑定。",
+        "No binding is named {0}.");
+    public static readonly Localized ContextFolderMissing = new(
+        "上下文文件所在的目录 {0} 不存在，未做任何改动。请先创建该目录，或改用正确的路径。",
+        "The folder {0} that the context file goes into does not exist; nothing was changed. Create it, or give the right path.");
+    public static readonly Localized SkillsFolderMissing = new(
+        "skill 目录 {0} 不存在，未做任何改动。tacit 不替客户端创建它，请确认路径，或先让客户端生成该目录。",
+        "The skills folder {0} does not exist; nothing was changed. tacit does not create it for the client: check the path, or let the client create the folder first.");
+    public static readonly Localized ContextFileNoun = new("上下文文件", "context file");
+    public static readonly Localized SkillsFolderNoun = new("skill 目录", "skills folder");
+    public static readonly Localized PathEmpty = new(
+        "{0} 不能为空。",
+        "The {0} must not be empty.");
+    public static readonly Localized ContextFileAbsent = new(
+        "上下文文件 {0} 已不存在，未改动。",
+        "The context file {0} no longer exists; left alone.");
+    public static readonly Localized ResidentBlockAbsent = new(
+        "{0} 中没有常驻区块，未改动。",
+        "{0} has no resident block; left alone.");
+    public static readonly Localized SkillLinkAbsent = new(
+        "skill 链接已不存在：{0}",
+        "The skill link is already gone: {0}");
+    public static readonly Localized McpEndpoint = new(
+        "MCP 端点：{0}",
+        "MCP endpoint: {0}");
+    public static readonly Localized McpTransport = new(
+        "传输方式：Streamable HTTP",
+        "Transport: Streamable HTTP");
+    public static readonly Localized McpServerName = new(
+        "建议的服务名：tacit",
+        "Suggested server name: tacit");
+    public static readonly Localized McpPortReminder = new(
+        "改了 server.port 后，请自行更新客户端中的 MCP 配置；tacit 不再替你修改它。",
+        "After changing server.port, update the MCP configuration in your client yourself; tacit no longer edits it.");
     public static readonly Localized SkillWritten = new("已写入 skill：{0}", "Wrote the skill: {0}");
     public static readonly Localized SkillUnchanged = new("skill 已是最新：{0}", "The skill is up to date: {0}");
     public static readonly Localized SkillLinked = new("已建立 skill 链接：{0}", "Created the skill link: {0}");
@@ -105,6 +137,18 @@ internal static class Messages
     public static readonly Localized SkillLinkForeign = new(
         "{0} 不是指向 tacit 的 skill 链接，未改动。",
         "{0} is not tacit's skill link and was left alone.");
+    public static readonly Localized ContextFileShared = new(
+        "上下文文件 {0} 已由 {1} 使用，复用其常驻区块；文件中只保留一个常驻区块。",
+        "The context file {0} is already used by {1}; it reuses their resident block, so the file keeps only one.");
+    public static readonly Localized SkillsFolderShared = new(
+        "skill 目录 {0} 已由 {1} 使用，复用其已有的 skill 链接。",
+        "The skills folder {0} is already used by {1}; it reuses their skill links.");
+    public static readonly Localized ContextFileStillUsed = new(
+        "上下文文件 {0} 仍被 {1} 使用，保留，未改动。",
+        "The context file {0} is still used by {1}; kept, left alone.");
+    public static readonly Localized SkillLinkStillUsed = new(
+        "skill 链接 {0} 仍被 {1} 使用，保留。",
+        "The skill link {0} is still used by {1}; kept.");
     public static readonly Localized SkillLinkOccupied = new(
         "{0} 已存在且不是指向 tacit 的 skill 链接，未建立任何链接、未改动其他文件。请先移走或改名后重试。",
         "{0} already exists and is not tacit's skill link; no link was made and no other file was changed. Move or rename it, then try again.");
@@ -117,9 +161,6 @@ internal static class Messages
     public static readonly Localized BindingsInvalid = new(
         "无法读取 {0}：{1}。可修正该文件，或删除后重新执行 tacit connect。",
         "{0} cannot be read: {1}. Fix the file, or delete it and run tacit connect again.");
-    public static readonly Localized ClientConfigHasComments = new(
-        "{0} 含有注释，自动改写会丢失它们，因此未改动。请手工在 mcpServers 中加入：\"tacit\": {1}",
-        "{0} has comments that rewriting would lose, so it was left alone. Add this under mcpServers by hand: \"tacit\": {1}");
     public static readonly Localized RenderFailed = new("渲染常驻区块失败：{0}", "Rendering the resident blocks failed: {0}");
     public static readonly Localized IndexSyncFailed = new("同步检索索引失败：{0}", "Syncing the search index failed: {0}");
     public static readonly Localized VectorExtensionInvalid = new(

@@ -35,15 +35,30 @@ internal sealed class TestHome : IDisposable
     /// </summary>
     public Dictionary<string, string> EnvironmentVariables { get; } = [];
 
-    public Tacit Tacit(string uiCulture = "zh-CN") =>
-        new(new TacitOptions
-        {
-            TacitHome = TacitHome,
-            UserHome = UserHome,
-            UiCulture = CultureInfo.GetCultureInfo(uiCulture),
-            Time = Clock,
-            Secrets = EnvironmentVariables,
-        });
+    /// <summary>The options of every <see cref="Tacit"/> made here: this home, this clock and the secrets above.</summary>
+    public TacitOptions Options(string uiCulture = "zh-CN") => new()
+    {
+        TacitHome = TacitHome,
+        UserHome = UserHome,
+        UiCulture = CultureInfo.GetCultureInfo(uiCulture),
+        Time = Clock,
+        Secrets = EnvironmentVariables,
+    };
+
+    public Tacit Tacit(string uiCulture = "zh-CN") => new(Options(uiCulture));
+
+    /// <summary>
+    /// Binds the client <paramref name="client"/> to the omp paths under the user home, creating its folders first as a user
+    /// would have. The paths are test data; the product takes any paths the user gives.
+    /// </summary>
+    public BindingResult Bind(string client = "omp")
+    {
+        Directory.CreateDirectory(Path.Combine(UserHome, ".omp", "agent", "skills"));
+        return Tacit().Connect(new ConnectRequest(client, Path.Combine(UserHome, ".omp", "agent", "AGENTS.md"), Path.Combine(UserHome, ".omp", "agent", "skills")));
+    }
+
+    /// <summary>Unbinds <paramref name="client"/>, as <c>tacit disconnect --client</c> does.</summary>
+    public BindingResult Unbind(string client = "omp") => Tacit().Disconnect(client);
 
     /// <summary>A <c>models</c> section that passes validation; nothing is listening at these addresses in tests.</summary>
     public const string Models = """

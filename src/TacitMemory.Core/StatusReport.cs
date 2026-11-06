@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TacitMemory.Core;
 
 /// <summary>
@@ -33,6 +35,19 @@ public sealed record StatusReport
 
     /// <summary>Where each secret's value came from. Never the value.</summary>
     public SecretsStatus? Secrets { get; init; }
+
+    /// <summary>The columns the report carries, in the order the CLI lists them. Not part of the reply: it is derived from the columns above.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<IStatusColumn> Columns =>
+        new IStatusColumn?[] { Config, Service, Models, Bindings, Checkup, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
+}
+
+/// <summary>How a line of a status column stands. The CLI colours it: ok green, attention yellow, problem red.</summary>
+public enum StatusLevel
+{
+    Ok,
+    Attention,
+    Problem,
 }
 
 /// <summary>One column of the status report: its title and its lines, both already in the memory language.</summary>
@@ -41,10 +56,17 @@ public interface IStatusColumn
     string Title { get; }
 
     IReadOnlyList<string> Lines { get; }
+
+    /// <summary>How each line stands, in the order of <see cref="Lines"/>; <c>null</c> leaves a line uncoloured.</summary>
+    IReadOnlyList<StatusLevel?> LineLevels() => new StatusLevel?[Lines.Count];
 }
 
 /// <summary>The configuration errors: one line per wrong key, with its key path.</summary>
-public sealed record ConfigStatus(string Title, IReadOnlyList<string> Lines) : IStatusColumn;
+public sealed record ConfigStatus(string Title, IReadOnlyList<string> Lines) : IStatusColumn
+{
+    /// <summary>Every line of the configuration errors is a problem.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select(_ => (StatusLevel?)StatusLevel.Problem).ToList();
+}
 
 /// <param name="Running">Whether a service answered the status request.</param>
 /// <param name="Endpoint">The MCP endpoint of the running service; <c>null</c> when it does not run.</param>
@@ -58,10 +80,20 @@ public sealed record ServiceStatus(
     Uri? Endpoint,
     string? Version,
     long? UptimeSeconds,
-    bool OtherProgramAnswered) : IStatusColumn;
+    bool OtherProgramAnswered) : IStatusColumn
+{
+    /// <summary>Every line of the service column is ok while the service runs, and attention while it does not.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select(_ => (StatusLevel?)(Running ? StatusLevel.Ok : StatusLevel.Attention)).ToList();
+}
 
 /// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data.</summary>
-public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn;
+public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn
+{
+    /// <summary>A model line is ok while the model is available, attention while it cools down; a line without an item is plain.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index < Items.Count
+        ? (StatusLevel?)(Items[index].State == ModelState.Available ? StatusLevel.Ok : StatusLevel.Attention)
+        : null).ToList();
+}
 
 /// <param name="Role">The model's role name in <c>config.yaml</c>: <c>embedding</c>, <c>reranker</c> or <c>decision</c>.</param>
 /// <param name="State">Available, or cooling down after a failed request.</param>
@@ -78,13 +110,27 @@ public enum ModelState
 }
 
 /// <summary>The bindings, one line each; <paramref name="Items"/> carries the same checks as data.</summary>
-public sealed record BindingsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<BindingCheck> Items) : IStatusColumn;
+public sealed record BindingsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<BindingCheck> Items) : IStatusColumn
+{
+    /// <summary>A binding line is ok when its binding has no problem, and a problem when it has one; a line without an item is plain.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index < Items.Count
+        ? (StatusLevel?)(Items[index].Problem is null ? StatusLevel.Ok : StatusLevel.Problem)
+        : null).ToList();
+}
 
 /// <param name="Client">The client's name, as <c>bindings.json</c> records it.</param>
 /// <param name="ContextFile">The context file the resident block goes into.</param>
+/// <param name="SkillsFolder">The folder the skill links go into.</param>
 /// <param name="Problem">What is wrong with the binding; <c>null</c> when it is healthy.</param>
 /// <param name="SkillLink">The skill link that is missing or points elsewhere, when <paramref name="Problem"/> says so.</param>
-public sealed record BindingCheck(string Client, string ContextFile, BindingProblem? Problem, string? SkillLink = null);
+/// <param name="SharedWith">The other bindings that use one of this binding's paths; empty when none does.</param>
+public sealed record BindingCheck(
+    string Client,
+    string ContextFile,
+    string SkillsFolder,
+    BindingProblem? Problem,
+    string? SkillLink,
+    IReadOnlyList<string> SharedWith);
 
 /// <summary>The ways a binding can be broken, checked in this order; the first one found is reported.</summary>
 public enum BindingProblem
@@ -112,12 +158,30 @@ public sealed record CheckupStatus(string Title, IReadOnlyList<string> Lines, Da
 /// <param name="Confirmable">Candidates that can be confirmed; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
 /// <param name="FormatProblems">Format and rule problems; <c>null</c> when the history cannot be read.</param>
 /// <param name="MainlineStale">Whether the mainline is stale; <c>null</c> when the history cannot be read.</param>
-public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Confirmable, int? FormatProblems, bool? MainlineStale) : IStatusColumn;
+public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Confirmable, int? FormatProblems, bool? MainlineStale) : IStatusColumn
+{
+    /// <summary>
+    /// The lines are the confirmable count, the format problems and the mainline, in that order. No count means the history
+    /// or the file could not be read, which is a problem; a count above zero, or a stale mainline, needs attention.
+    /// </summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() =>
+        new StatusLevel?[] { CountLevel(Confirmable), CountLevel(FormatProblems), MainlineLevel(MainlineStale) }.Take(Lines.Count).ToList();
+
+    private static StatusLevel CountLevel(int? count) => count is null ? StatusLevel.Problem : count > 0 ? StatusLevel.Attention : StatusLevel.Ok;
+
+    private static StatusLevel MainlineLevel(bool? stale) => stale is null ? StatusLevel.Problem : stale.Value ? StatusLevel.Attention : StatusLevel.Ok;
+}
 
 /// <param name="Latest">The file name of the newest local backup of any kind; <c>null</c> when there is none.</param>
 /// <param name="LatestAt">When that file was last written.</param>
 /// <param name="LastRemote">The last attempt at the cloud backup; <c>null</c> when there was none, or it could not be read.</param>
-public sealed record BackupsStatus(string Title, IReadOnlyList<string> Lines, string? Latest, DateTimeOffset? LatestAt, CloudBackupRecord? LastRemote) : IStatusColumn;
+public sealed record BackupsStatus(string Title, IReadOnlyList<string> Lines, string? Latest, DateTimeOffset? LatestAt, CloudBackupRecord? LastRemote) : IStatusColumn
+{
+    /// <summary>The cloud line is ok after a success and a problem after a failure; the local line and a missing record stay plain.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index == 1 && LastRemote is { } last
+        ? (StatusLevel?)(last.Succeeded ? StatusLevel.Ok : StatusLevel.Problem)
+        : null).ToList();
+}
 
 /// <summary>Where each secret's value came from, one line each; <paramref name="Items"/> carries the same as data.</summary>
 public sealed record SecretsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<SecretStatus> Items) : IStatusColumn;

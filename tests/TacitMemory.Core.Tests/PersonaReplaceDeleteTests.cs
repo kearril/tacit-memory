@@ -347,7 +347,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     [Fact]
     public async Task A_replace_re_renders_the_bound_resident_block_in_the_background()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         CommitPersona(Fixture);
 
         var result = await _service.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "反感客套、铺垫和寒暄", "别绕弯子"));

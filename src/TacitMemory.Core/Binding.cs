@@ -1,14 +1,22 @@
 namespace TacitMemory.Core;
 
-/// <summary>A client TacitMemory can bind to.</summary>
-public enum ClientKind
-{
-    /// <summary>omp, default profile: <c>~/.omp/agent/AGENTS.md</c>, <c>~/.omp/agent/mcp.json</c> and the skill link <c>~/.omp/agent/skills/tacit-memory</c>.</summary>
-    Omp,
-}
+/// <summary>What <c>connect</c> asks for: the client's name, its context file and its skills folder, as the user gave them.</summary>
+/// <param name="Client">The client's name. It is lower-cased, and only letters, digits and hyphens up to 32 characters are accepted.</param>
+/// <param name="ContextFile">The context file the resident block goes into. A leading <c>~</c> is the user's home directory.</param>
+/// <param name="SkillsFolder">The folder the client scans for skills, where the skill links go. A leading <c>~</c> is the user's home directory.</param>
+public sealed record ConnectRequest(string Client, string ContextFile, string SkillsFolder);
 
 /// <summary>What <c>connect</c> or <c>disconnect</c> did, as a summary for the user.</summary>
-public sealed record BindingResult(string ContextFile, string Report);
+/// <param name="ContextFile">The bound context file, as an absolute path.</param>
+/// <param name="Endpoint">The MCP endpoint the user configures in the client; <c>null</c> for <c>disconnect</c>.</param>
+/// <param name="Before">The summary lines before the endpoint block, in the memory language.</param>
+/// <param name="EndpointBlock">The endpoint, the transport and the suggested server name, one line each; empty for <c>disconnect</c>.</param>
+/// <param name="After">The summary lines after the endpoint block, in the memory language.</param>
+public sealed record BindingResult(string ContextFile, Uri? Endpoint, IReadOnlyList<string> Before, IReadOnlyList<string> EndpointBlock, IReadOnlyList<string> After)
+{
+    /// <summary>The summary for the user: every line in order, one per line, as the plain output prints it.</summary>
+    public string Report => string.Join(Environment.NewLine, Before.Concat(EndpointBlock).Concat(After));
+}
 
 /// <summary>What happened to one bound context file when the resident blocks were rendered.</summary>
 public enum BlockState

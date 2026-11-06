@@ -46,7 +46,7 @@ public sealed class StatusColumnsTests : IDisposable
     private DateOnly InitDay => DateOnly.ParseExact(
         TestHome.Git(Memory, "log", "-1", "--format=%as").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    private void Connect() => _home.Tacit().Connect(ClientKind.Omp);
+    private void Connect() => _home.Bind();
 
     /// <summary>Moves the test clock to 10:00 UTC on <paramref name="day"/>.</summary>
     private void ClockOn(DateOnly day)
@@ -113,6 +113,8 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Equal(0, process.ExitCode);
     }
 
+    private string SkillsFolder => Path.Combine(_home.UserHome, ".omp", "agent", "skills");
+
     [Fact]
     public async Task A_healthy_binding_is_reported_as_fine()
     {
@@ -122,6 +124,8 @@ public sealed class StatusColumnsTests : IDisposable
 
         Assert.Null(OnlyBinding(report).Problem);
         Assert.Contains("omp：正常", Assert.Single(report.Bindings!.Lines));
+        Assert.Contains(SkillsFolder, Assert.Single(report.Bindings!.Lines));
+        Assert.Equal(SkillsFolder, OnlyBinding(report).SkillsFolder);
     }
 
     [Fact]
@@ -228,6 +232,49 @@ public sealed class StatusColumnsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_shared_context_file_is_checked_once_and_its_problem_is_named_on_the_first_binding()
+    {
+        Connect();
+        _home.Bind("beta");
+        File.Delete(AgentsMd);
+        var tacit = _home.Tacit();
+        var config = tacit.LoadConfig();
+        var before = Snapshot();
+
+        var report = await tacit.OfflineStatus(config);
+
+        var items = Assert.IsType<BindingsStatus>(report.Bindings).Items;
+        Assert.Equal(2, items.Count);
+        Assert.Equal(BindingProblem.ContextFileMissing, items[0].Problem);
+        Assert.Equal(["beta"], items[0].SharedWith);
+        Assert.Null(items[1].Problem);
+        Assert.Equal(["omp"], items[1].SharedWith);
+        Assert.Single(report.Bindings!.Lines, line => line.Contains("上下文文件不存在", StringComparison.Ordinal));
+        Assert.Equal(before, Snapshot());
+    }
+
+    [Fact]
+    public async Task A_shared_skills_folder_with_a_wrong_link_is_reported_once_on_the_first_binding()
+    {
+        Connect();
+        _home.Bind("beta");
+        PointSkillLinkAt(Path.Combine(_home.Root, "elsewhere"));
+        var tacit = _home.Tacit();
+        var config = tacit.LoadConfig();
+        var before = Snapshot();
+
+        var report = await tacit.OfflineStatus(config);
+
+        var items = Assert.IsType<BindingsStatus>(report.Bindings).Items;
+        Assert.Equal(BindingProblem.SkillLinkNotTacit, items[0].Problem);
+        Assert.Equal(SkillLink, items[0].SkillLink);
+        Assert.Null(items[1].Problem);
+        Assert.Equal(["beta"], items[0].SharedWith);
+        Assert.Single(report.Bindings!.Lines, line => line.Contains("没有指向 tacit", StringComparison.Ordinal));
+        Assert.Equal(before, Snapshot());
+    }
+
+    [Fact]
     public async Task With_no_binding_the_column_says_so()
     {
         var report = await OfflineReport();
@@ -287,6 +334,7 @@ public sealed class StatusColumnsTests : IDisposable
         var reminder = await service.ServerInstructionsAsync();
 
         Assert.Equal(1, pending.Confirmable);
+        Assert.Equal(StatusLevel.Attention, pending.LineLevels()[0]);
         Assert.True(pending.FormatProblems > 0);
         Assert.False(pending.MainlineStale);
         Assert.Contains($"- Candidates that can be confirmed: {pending.Confirmable}.", reminder);

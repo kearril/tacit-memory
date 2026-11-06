@@ -201,7 +201,7 @@ _Avoid_: 远程备份、同步、推送
 代码中以 `Cloud` 命名：`BackupTarget.Cloud`、`CloudBackupRecord`、`TacitError.CloudBackupFailed`、`TacitError.CloudBackupNotConfigured`。命令行 `--remote` 与管理 API 的 `target: "remote"`、`remote: true` 是规格定义的线上值，保持 `remote`，与代码名的对应只在此处说明。
 
 **恢复**（Restore）：
-用备份 zip 替换记忆仓库的操作：先预览，确认后执行，执行前先生成保险备份；加 `--config` 时一并替换 `config.yaml` 与 `prompts/`。`tacit restore --remote` 先下载云端备份，之后走同一流程。
+用备份 zip 替换记忆仓库的操作：先预览，确认后执行，执行前先生成保险备份；加 `--include-config` 时一并替换 `config.yaml` 与 `prompts/`。`tacit restore --remote` 先下载云端备份，之后走同一流程。
 _Avoid_: 还原、导入
 
 **门面**（Facade）：
@@ -245,20 +245,24 @@ _Avoid_: 诊断、lint 结果
 _Avoid_: 重复候选、过期候选
 
 **客户端**（Client）：
-连接常驻服务的 Agent 程序，例如 omp、Claude Code。
-_Avoid_: harness、宿主、IDE
+读取上下文文件与 skill 目录、并经 MCP 连接常驻服务的 Agent 程序，例如 omp、Claude Code。TacitMemory 不区分客户端种类，只以绑定时用户给出的名称（客户端名称）指代它。
+_Avoid_: harness、宿主、IDE、Agent（指程序时）
 
 **上下文文件**（Context file）：
 客户端在每个会话开始时读入的全局说明文件，例如 omp 的 `~/.omp/agent/AGENTS.md`；常驻区块写在其中。
 _Avoid_: 配置文件、提示词文件
+
+**skill 目录**（Skills folder）：
+客户端扫描 skill 的目录，例如 `~/.agents/skills`；绑定在其中放置指向记忆 skill 与两个记忆指令的链接。可被多个客户端共用。
+_Avoid_: 插件目录、技能库
 
 **常驻区块**（Resident block）：
 常驻服务在客户端全局上下文文件中维护的一段内容，由起止标记界定，只包含画像，并声明自身是可能过时、可被稀释的记忆，而非强制规则；外壳与四节引导语可由 `prompts/resident.md` 整份替换。
 _Avoid_: 受管区块、注入区、常驻区
 
 **绑定**（Binding）：
-用 `tacit connect` 让常驻服务开始维护某个客户端或文件中的常驻区块；适配的客户端同时注册 MCP，并在其 skill 目录下建立指向记忆 skill 与两个记忆指令的链接。绑定记录存于 `bindings.json`。
-_Avoid_: 安装、注册、接入
+一个客户端名称、一个上下文文件与一个 skill 目录的组合：常驻服务在该上下文文件中维护常驻区块，并在该 skill 目录中保持三个链接。MCP 的注册由用户在客户端中自行完成。多个绑定可以共用同一个上下文文件或 skill 目录。绑定记录存于 `bindings.json`。
+_Avoid_: 安装、注册、接入、适配
 
 **常驻**（Resident）：
 会话开始时就在上下文中的进入方式。与之相对的是**按需**（On-demand）：由 Agent 主动检索取得。

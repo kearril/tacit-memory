@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
@@ -8,6 +9,9 @@ namespace TacitMemory.Core.Configuration;
 /// <summary>Loads <c>config.yaml</c> (schema and defaults as documented) and the prompt documents from <c>TACIT_HOME</c>.</summary>
 internal static class ConfigLoader
 {
+    /// <summary>The port the service listens on when <c>server.port</c> is not given.</summary>
+    internal const int DefaultPort = 18888;
+
     public static TacitConfig Load(TacitOptions options)
     {
         var config = Read(options);
@@ -43,7 +47,7 @@ internal static class ConfigLoader
 
         var server = reader.Mapping(root, "", "server");
         reader.OnlyKnown(server, "server", "port");
-        var port = reader.Integer(server, "server", "port", 18888, 1, 65535);
+        var port = reader.Integer(server, "server", "port", DefaultPort, 1, 65535);
 
         var memory = reader.Mapping(root, "", "memory");
         reader.OnlyKnown(memory, "memory", "path");
@@ -98,6 +102,39 @@ internal static class ConfigLoader
             return LanguageCodes.FromUiCulture(options.UiCulture);
         }
     }
+
+    /// <summary>
+    /// Reads the port and the language from <c>config.yaml</c> without validating anything else, for the status report of a
+    /// config that does not load. Reads no secret. Each value falls back on its own: the default port, and the system UI
+    /// language, when the file is missing or cannot be parsed, or when the key is absent or not a valid value.
+    /// </summary>
+    internal static LooseSettings ReadLoose(TacitOptions options)
+    {
+        var fallbackLanguage = LanguageCodes.FromUiCulture(options.UiCulture);
+        YamlMappingNode root;
+        try
+        {
+            var path = Path.Combine(options.TacitHome, "config.yaml");
+            if (!File.Exists(path))
+                return new LooseSettings(DefaultPort, fallbackLanguage);
+            root = Parse(path, fallbackLanguage);
+        }
+        catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
+        {
+            return new LooseSettings(DefaultPort, fallbackLanguage);
+        }
+
+        var language = LanguageCodes.Parse(Scalar(root, "language")) ?? fallbackLanguage;
+        var server = root.Children.TryGetValue(new YamlScalarNode("server"), out var serverNode) ? serverNode as YamlMappingNode : null;
+        var port = int.TryParse(Scalar(server, "port"), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value)
+            && value is >= 1 and <= 65535
+            ? value
+            : DefaultPort;
+        return new LooseSettings(port, language);
+    }
+
+    private static string? Scalar(YamlMappingNode? map, string key) =>
+        map is not null && map.Children.TryGetValue(new YamlScalarNode(key), out var node) ? (node as YamlScalarNode)?.Value : null;
 
     private static YamlMappingNode Parse(string path, MemoryLanguage language)
     {

@@ -177,7 +177,7 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public void Starting_the_service_renders_every_binding()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 偏好\n- 沟通：先要结论\n");
 
         using var service = Open();
@@ -187,9 +187,22 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
+    public void Starting_the_service_renders_a_context_file_two_clients_share_once()
+    {
+        _home.Bind();
+        _home.Bind("beta");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 偏好\n- 沟通：先要结论\n");
+
+        using var service = Open();
+
+        Assert.Equal(BlockState.Written, Assert.Single(service.StartupRender).State);
+        Assert.Equal(1, File.ReadAllText(AgentsMd).Split("<!-- tacit:begin").Length - 1);
+    }
+
+    [Fact]
     public async Task Saving_persona_md_while_running_updates_the_resident_block()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         using var service = Open();
 
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
@@ -224,7 +237,7 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public async Task A_broken_bindings_json_is_reported_and_the_service_keeps_running()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         using var service = Open();
         File.WriteAllText(Path.Combine(_home.TacitHome, "bindings.json"), "{ not json");
 

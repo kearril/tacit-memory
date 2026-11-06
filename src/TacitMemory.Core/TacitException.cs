@@ -24,9 +24,6 @@ public enum TacitError
     /// <summary>A context file's resident block markers are incomplete or repeated.</summary>
     MarkersBroken,
 
-    /// <summary>A client's MCP config cannot be read as JSON.</summary>
-    ClientConfigInvalid,
-
     /// <summary>A file TacitMemory must read or edit is not valid UTF-8; it is left alone.</summary>
     FileNotUtf8,
 
@@ -35,6 +32,21 @@ public enum TacitError
 
     /// <summary>The client's skill link cannot be made, or its name is taken by something that is not the memory skill's link.</summary>
     SkillLinkRefused,
+
+    /// <summary>A client name is not 1 to 32 letters, digits or hyphens.</summary>
+    ClientNameInvalid,
+
+    /// <summary>The client name is already bound to other paths; the binding must be disconnected first.</summary>
+    BindingConflict,
+
+    /// <summary>No binding has the client name.</summary>
+    BindingNotFound,
+
+    /// <summary>The folder the context file goes into does not exist; <c>connect</c> does not create it.</summary>
+    ContextFolderMissing,
+
+    /// <summary>The skills folder does not exist; <c>connect</c> does not create it.</summary>
+    SkillsFolderMissing,
 
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,

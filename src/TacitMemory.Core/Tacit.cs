@@ -69,13 +69,16 @@ public sealed class Tacit(TacitOptions options)
         new(TacitError.NoBuiltInText, Messages.NoBuiltInText.Format(ConfigLoader.LanguageOf(options), target));
 
     /// <summary>
-    /// Binds a client: renders the resident block into its context file now, registers the MCP server and records
-    /// the binding. Running it again changes nothing.
+    /// Binds a client: writes the skills, renders the resident block into its context file now and links the skills into its
+    /// skills folder, then records the binding. The MCP server is not registered here; the result carries the endpoint the user
+    /// configures in the client. Running it again with the same paths only fills in what is missing. Refusals change no file.
     /// </summary>
-    public BindingResult Connect(ClientKind client) => Binder.Connect(options, client);
+    /// <exception cref="TacitException">A refusal: a bad client name, a name bound to other paths, a missing folder, a taken link name, and so on.</exception>
+    public BindingResult Connect(ConnectRequest request) => Binder.Connect(options, request);
 
-    /// <summary>Removes the resident block, the MCP registration and the binding record of a client.</summary>
-    public BindingResult Disconnect(ClientKind client) => Binder.Disconnect(options, client);
+    /// <summary>Removes the resident block, the skill links and the binding record of a client; the paths come from the record.</summary>
+    /// <exception cref="TacitException">No binding has that name.</exception>
+    public BindingResult Disconnect(string client) => Binder.Disconnect(options, client);
 
     /// <summary>Renders the current persona and <c>resident.md</c> into every bound context file, reading <c>bindings.json</c> afresh.</summary>
     public IReadOnlyList<BlockRender> RenderBlocks()
@@ -102,10 +105,22 @@ public sealed class Tacit(TacitOptions options)
     public Task<StatusReport> OfflineStatus(TacitConfig config, bool portAnsweredByOther = false, CancellationToken cancellationToken = default) =>
         StatusReporter.OfflineAsync(options, config, portAnsweredByOther, cancellationToken);
 
-    /// <summary>What <c>tacit status</c> reports when <c>config.yaml</c> does not load: every wrong key path, and where the logs are.</summary>
-    public StatusReport InvalidConfigStatus(TacitException error) => StatusReporter.InvalidConfig(options, error);
+    /// <summary>
+    /// Reads the port and the memory language from <c>config.yaml</c> without validating it, for the status report of a
+    /// config that does not load: the port the service is probed on, and the language of the messages. Reads no secret.
+    /// </summary>
+    public LooseSettings ReadLooseSettings() => ConfigLoader.ReadLoose(options);
+
+    /// <summary>
+    /// What <c>tacit status</c> reports when <c>config.yaml</c> does not load: every wrong key path, the logs location, and
+    /// the service column with its endpoint. The service is shown as not running, or as held by another program when
+    /// <paramref name="portAnsweredByOther"/> says so. When a service answers, the caller keeps that service's report and
+    /// takes only the config column from this one.
+    /// </summary>
+    public StatusReport InvalidConfigStatus(TacitException error, LooseSettings settings, bool portAnsweredByOther = false) =>
+        StatusReporter.InvalidConfig(options, error, settings, portAnsweredByOther);
 
     /// <summary>The line a command that needs the running service prints when none answers, in the memory language.</summary>
-    public string ServiceNotRunningMessage(TacitConfig config, bool portAnsweredByOther) =>
-        StatusReporter.NotRunningHint(config, portAnsweredByOther);
+    public string ServiceNotRunningMessage(MemoryLanguage language, int port, bool portAnsweredByOther) =>
+        StatusReporter.NotRunningHint(language, port, portAnsweredByOther);
 }

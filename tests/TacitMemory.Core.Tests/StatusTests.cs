@@ -97,8 +97,8 @@ public sealed class StatusTests : IDisposable
 
         var service = Assert.IsType<ServiceStatus>(report.Service);
         Assert.False(service.Running);
-        Assert.Equal(["服务未运行"], service.Lines);
-        Assert.Null(service.Endpoint);
+        Assert.Equal(["服务未运行", "地址：http://127.0.0.1:18888/mcp"], service.Lines);
+        Assert.Equal(Endpoint, service.Endpoint);
         Assert.Null(service.Version);
         Assert.Null(service.UptimeSeconds);
         Assert.False(service.OtherProgramAnswered);
@@ -117,7 +117,7 @@ public sealed class StatusTests : IDisposable
 
         Assert.False(service.Running);
         Assert.True(service.OtherProgramAnswered);
-        Assert.Equal([$"服务未运行：端口 {config.Port} 有其他程序在回答"], service.Lines);
+        Assert.Equal([$"服务未运行：端口 {config.Port} 有其他程序在回答", $"地址：http://127.0.0.1:{config.Port}/mcp"], service.Lines);
     }
 
     [Fact]
@@ -126,10 +126,10 @@ public sealed class StatusTests : IDisposable
         var tacit = _home.Tacit();
         var config = tacit.LoadConfig();
 
-        Assert.Equal("服务未运行，先执行 tacit serve。", tacit.ServiceNotRunningMessage(config, portAnsweredByOther: false));
+        Assert.Equal("服务未运行，先执行 tacit serve。", tacit.ServiceNotRunningMessage(config.Language, config.Port, portAnsweredByOther: false));
         Assert.Equal(
             $"端口 {config.Port} 有其他程序在回答，常驻服务未运行。请先执行 tacit serve，或在 config.yaml 中修改 server.port。",
-            tacit.ServiceNotRunningMessage(config, portAnsweredByOther: true));
+            tacit.ServiceNotRunningMessage(config.Language, config.Port, portAnsweredByOther: true));
     }
 
     [Fact]
@@ -139,13 +139,102 @@ public sealed class StatusTests : IDisposable
         var tacit = _home.Tacit();
         var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
 
-        var report = tacit.InvalidConfigStatus(error);
+        var report = tacit.InvalidConfigStatus(error, tacit.ReadLooseSettings());
 
-        Assert.Null(report.Service);
+        Assert.False(Assert.IsType<ServiceStatus>(report.Service).Running);
         Assert.Null(report.Models);
         var config = Assert.IsType<ConfigStatus>(report.Config);
         Assert.Contains(config.Lines, line => line.Contains("models.embedding.endpoint", StringComparison.Ordinal));
         Assert.Contains(config.Lines, line => line.Contains("models.reranker", StringComparison.Ordinal));
         Assert.Equal(Path.Combine(_home.TacitHome, "logs"), report.Logs!.Directory);
+    }
+
+    [Fact]
+    public void The_loose_port_is_server_port_even_when_other_keys_are_wrong()
+    {
+        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
+
+        Assert.Equal(19001, _home.Tacit().ReadLooseSettings().Port);
+    }
+
+    [Fact]
+    public void The_loose_port_is_the_default_when_the_config_file_is_missing()
+    {
+        File.Delete(ConfigPath);
+
+        Assert.Equal(18888, _home.Tacit().ReadLooseSettings().Port);
+    }
+
+    [Fact]
+    public void The_loose_port_is_the_default_when_the_yaml_cannot_be_parsed()
+    {
+        File.WriteAllText(ConfigPath, "server: { port: 19001\n");
+
+        Assert.Equal(18888, _home.Tacit().ReadLooseSettings().Port);
+    }
+
+    [Theory]
+    [InlineData("server:\n  port: 70000\n")]
+    [InlineData("server:\n  port: many\n")]
+    [InlineData("models:\n  embedding: { endpoint: 'nope' }\n")]
+    public void The_loose_port_is_the_default_when_server_port_is_missing_or_not_a_port(string yaml)
+    {
+        File.WriteAllText(ConfigPath, yaml);
+
+        Assert.Equal(18888, _home.Tacit().ReadLooseSettings().Port);
+    }
+
+    [Fact]
+    public void The_loose_language_is_read_from_the_config_even_when_it_does_not_load()
+    {
+        File.WriteAllText(ConfigPath, "language: en\nmodels:\n  embedding: { endpoint: 'nope' }\n");
+
+        Assert.Equal(MemoryLanguage.En, _home.Tacit().ReadLooseSettings().Language);
+    }
+
+    [Fact]
+    public void An_invalid_config_report_gives_the_service_column_the_loose_endpoint_and_says_it_is_not_running()
+    {
+        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
+        var tacit = _home.Tacit();
+        var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
+
+        var report = tacit.InvalidConfigStatus(error, tacit.ReadLooseSettings());
+
+        var service = Assert.IsType<ServiceStatus>(report.Service);
+        Assert.False(service.Running);
+        Assert.False(service.OtherProgramAnswered);
+        Assert.Equal(new Uri("http://127.0.0.1:19001/mcp"), service.Endpoint);
+        Assert.Equal(["服务未运行", "地址：http://127.0.0.1:19001/mcp"], service.Lines);
+        Assert.Null(report.Models);
+        Assert.NotNull(report.Config);
+    }
+
+    [Fact]
+    public void An_invalid_config_report_names_another_program_answering_the_loose_port()
+    {
+        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
+        var tacit = _home.Tacit();
+        var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
+
+        var service = Assert.IsType<ServiceStatus>(
+            tacit.InvalidConfigStatus(error, tacit.ReadLooseSettings(), portAnsweredByOther: true).Service);
+
+        Assert.False(service.Running);
+        Assert.True(service.OtherProgramAnswered);
+        Assert.Equal(["服务未运行：端口 19001 有其他程序在回答", "地址：http://127.0.0.1:19001/mcp"], service.Lines);
+    }
+
+    [Fact]
+    public void An_invalid_config_report_speaks_the_language_read_from_the_config()
+    {
+        File.WriteAllText(ConfigPath, "language: en\nmodels:\n  embedding: { endpoint: 'nope' }\n");
+        var tacit = _home.Tacit();
+        var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
+
+        var report = tacit.InvalidConfigStatus(error, tacit.ReadLooseSettings());
+
+        Assert.Equal(["The service is not running", "Address: http://127.0.0.1:18888/mcp"], Assert.IsType<ServiceStatus>(report.Service).Lines);
+        Assert.Equal("Config", report.Config!.Title);
     }
 }

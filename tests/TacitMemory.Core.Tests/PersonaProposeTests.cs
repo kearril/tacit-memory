@@ -268,7 +268,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task A_proposal_does_not_re_render_the_resident_block_while_an_add_does()
     {
-        _home.Tacit().Connect(ClientKind.Omp);
+        _home.Bind();
         File.WriteAllText(AgentsMd, File.ReadAllText(AgentsMd).Replace("</user_memory>", "STALE\n</user_memory>", StringComparison.Ordinal));
 
         var proposed = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
