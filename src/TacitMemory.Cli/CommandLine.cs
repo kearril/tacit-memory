@@ -5,8 +5,9 @@ using TacitMemory.Core;
 namespace TacitMemory.Cli;
 
 /// <summary>
-/// The console the CLI reads and writes. The process fills it from <see cref="Console"/>; tests fill it with buffers.
+/// The console the CLI reads and writes. The process fills it from <see cref="Console"/> and the environment; tests fill it with buffers.
 /// The three flags say whether each stream is a terminal, so a question is asked only where someone can answer it.
+/// NoColor says that the environment set NO_COLOR. A stream is styled only when it is a terminal and NoColor is not set.
 /// </summary>
 public sealed record CliConsole(
     TextWriter Out,
@@ -14,7 +15,15 @@ public sealed record CliConsole(
     TextReader In,
     bool OutIsTerminal,
     bool ErrorIsTerminal,
-    bool InIsTerminal);
+    bool InIsTerminal,
+    bool NoColor)
+{
+    /// <summary>Whether standard output is styled: it is a terminal and <c>NO_COLOR</c> is not set.</summary>
+    public bool StylesOut => OutIsTerminal && !NoColor;
+
+    /// <summary>Whether standard error is styled: it is a terminal and <c>NO_COLOR</c> is not set.</summary>
+    public bool StylesError => ErrorIsTerminal && !NoColor;
+}
 
 /// <summary>
 /// The one entry into the CLI. Every command runs in process through here with the options and console it is given,

@@ -13,7 +13,7 @@ namespace TacitMemory.Cli.Tests;
 
 /// <summary>
 /// The CLI seam: runs <see cref="CommandLine.RunAsync"/> in process with a throwaway home, captured stdout and stderr,
-/// a scripted stdin and the three terminal flags. Every test class in this project joins <see cref="CliCollection"/>,
+/// a scripted stdin, the three terminal flags and the NO_COLOR setting. Every test class in this project joins <see cref="CliCollection"/>,
 /// because the framework keeps its help and error writers in static state.
 /// </summary>
 internal sealed class CliHarness : IDisposable
@@ -66,7 +66,8 @@ internal sealed class CliHarness : IDisposable
 
     /// <summary>
     /// Runs one command line in process. Stdout and stderr are cleared first and returned as they were at the end. The
-    /// stdin text is read by commands that ask a question; the terminal flags say what each stream is connected to.
+    /// stdin text is read by commands that ask a question; the terminal flags say what each stream is connected to, and
+    /// noColor says the environment set NO_COLOR.
     /// </summary>
     public async Task<CliResult> RunAsync(
         string[] args,
@@ -74,11 +75,12 @@ internal sealed class CliHarness : IDisposable
         bool stdinIsTerminal = false,
         bool stdoutIsTerminal = false,
         bool stderrIsTerminal = false,
+        bool noColor = false,
         CancellationToken cancellationToken = default)
     {
         _stdout.Clear();
         _stderr.Clear();
-        var console = new CliConsole(_stdout, _stderr, new StringReader(stdin), stdoutIsTerminal, stderrIsTerminal, stdinIsTerminal);
+        var console = new CliConsole(_stdout, _stderr, new StringReader(stdin), stdoutIsTerminal, stderrIsTerminal, stdinIsTerminal, noColor);
         var exitCode = await CommandLine.RunAsync(args, Home.Options(), console, cancellationToken);
         return new CliResult(exitCode, _stdout.Text, _stderr.Text);
     }

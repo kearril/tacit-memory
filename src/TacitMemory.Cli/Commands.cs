@@ -94,7 +94,11 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     public Task<int> Connect(string? client = null, string? context = null, string? skills = null) => Execute(() =>
     {
         RequireOptions(("--client", client), ("--context", context), ("--skills", skills));
-        console.Out.WriteLine(_tacit.Connect(new ConnectRequest(client!, context!, skills!)).Report);
+        var result = _tacit.Connect(new ConnectRequest(client!, context!, skills!));
+        if (console.StylesOut)
+            StyledOutput.Endpoint(console.Out, result);
+        else
+            console.Out.WriteLine(result.Report);
         return Task.FromResult(0);
     });
 
@@ -242,7 +246,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         RejectArguments(context);
         return WithServiceAsync(async api =>
         {
-            var result = await api.PostAsync<ReindexResult>("reindex", new { }, cancellationToken);
+            var result = await WaitingAsync(() => api.PostAsync<ReindexResult>("reindex", new { }, cancellationToken));
             console.Out.WriteLine(result.Report);
             return 0;
         });
@@ -261,7 +265,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         var body = new BackupBody { Target = remote ? BackupTarget.Cloud : BackupTarget.Local, To = target };
         return WithServiceAsync(async api =>
         {
-            var result = await api.PostAsync<BackupResult>("backup", body, cancellationToken);
+            var result = await WaitingAsync(() => api.PostAsync<BackupResult>("backup", body, cancellationToken), show: remote);
             console.Out.WriteLine(result.Report);
             if (result.Notice is not null)
                 console.Out.WriteLine(result.Notice);
@@ -292,7 +296,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         return WithServiceAsync(async api =>
         {
             var preview = await api.PostAsync<RestorePreview>("restore", new RestoreBody { Path = path, Remote = remote, Config = includeConfig, Preview = true }, cancellationToken);
-            console.Out.WriteLine(preview.Report);
+            if (console.StylesOut)
+                StyledOutput.Preview(console.Out, preview);
+            else
+                console.Out.WriteLine(preview.Report);
             if (!yes)
             {
                 if (!console.InIsTerminal)
@@ -308,7 +315,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             }
 
             // The confirmed file is the one the preview named, so a cloud restore takes the file that was shown.
-            var result = await api.PostAsync<RestoreResult>("restore", new RestoreBody { Path = preview.Path, Config = includeConfig, Preview = false }, cancellationToken);
+            var result = await WaitingAsync(() => api.PostAsync<RestoreResult>("restore", new RestoreBody { Path = preview.Path, Config = includeConfig, Preview = false }, cancellationToken));
             console.Out.WriteLine(result.Report);
             return 0;
         });
@@ -356,6 +363,13 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         return await call(api);
     }
 
+    /// <summary>
+    /// Runs a call to the service. When <paramref name="show"/> is set and stderr is a terminal, a spinner and the elapsed
+    /// time show on stderr while it runs; they are cleared when it ends.
+    /// </summary>
+    private Task<T> WaitingAsync<T>(Func<Task<T>> call, bool show = true) =>
+        show && console.StylesError ? StyledOutput.WithIndicatorAsync(console.Error, call) : call();
+
     private async Task<int> PrintOfflineAsync(TacitConfig config, bool portAnsweredByOther, CancellationToken cancellationToken)
     {
         PrintStatus(await _tacit.OfflineStatus(config, portAnsweredByOther, cancellationToken));
@@ -365,6 +379,12 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// <summary>Prints each column's title, then its lines indented, in the order the report lists them.</summary>
     private void PrintStatus(StatusReport report)
     {
+        if (console.StylesOut)
+        {
+            StyledOutput.Status(console.Out, report);
+            return;
+        }
+
         foreach (var column in new IStatusColumn?[]
                  {
                      report.Config, report.Service, report.Models, report.Bindings, report.Checkup,
