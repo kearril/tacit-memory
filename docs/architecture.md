@@ -52,7 +52,7 @@ flowchart LR
 | :--- | :--- | :--- |
 | `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService` 与契约类型，其余为 `internal` | 无内部依赖 |
 | `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://checkup-report`）与服务端说明，并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），不含业务规则 | `Core` |
-| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）：`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 经 `TacitMemory.Mcp` 读取工具定义，交给门面 `ShowTools` 标注输出；`serve` 打开 `MemoryService`、启动 `McpHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 1） | `Core`、`Mcp` |
+| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器与三个终端标志）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 经 `TacitMemory.Mcp` 读取工具定义，交给门面 `ShowTools` 标注输出；`serve` 打开 `MemoryService`、启动 `McpHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
 
 ## 3. Core 内部模块
 

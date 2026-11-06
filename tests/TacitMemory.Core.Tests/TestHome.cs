@@ -35,15 +35,17 @@ internal sealed class TestHome : IDisposable
     /// </summary>
     public Dictionary<string, string> EnvironmentVariables { get; } = [];
 
-    public Tacit Tacit(string uiCulture = "zh-CN") =>
-        new(new TacitOptions
-        {
-            TacitHome = TacitHome,
-            UserHome = UserHome,
-            UiCulture = CultureInfo.GetCultureInfo(uiCulture),
-            Time = Clock,
-            Secrets = EnvironmentVariables,
-        });
+    /// <summary>The options of every <see cref="Tacit"/> made here: this home, this clock and the secrets above.</summary>
+    public TacitOptions Options(string uiCulture = "zh-CN") => new()
+    {
+        TacitHome = TacitHome,
+        UserHome = UserHome,
+        UiCulture = CultureInfo.GetCultureInfo(uiCulture),
+        Time = Clock,
+        Secrets = EnvironmentVariables,
+    };
+
+    public Tacit Tacit(string uiCulture = "zh-CN") => new(Options(uiCulture));
 
     /// <summary>A <c>models</c> section that passes validation; nothing is listening at these addresses in tests.</summary>
     public const string Models = """

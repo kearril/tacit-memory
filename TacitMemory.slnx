@@ -5,6 +5,7 @@
     <Project Path="src/TacitMemory.Mcp/TacitMemory.Mcp.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/TacitMemory.Cli.Tests/TacitMemory.Cli.Tests.csproj" />
     <Project Path="tests/TacitMemory.Core.Tests/TacitMemory.Core.Tests.csproj" />
     <Project Path="tests/TacitMemory.Mcp.Tests/TacitMemory.Mcp.Tests.csproj" />
   </Folder>

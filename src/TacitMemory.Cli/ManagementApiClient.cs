@@ -6,9 +6,9 @@ using TacitMemory.Mcp;
 namespace TacitMemory.Cli;
 
 /// <summary>
-/// The one place the CLI calls the management API at <c>127.0.0.1:{port}/api</c>: the base address, the JSON, the
-/// failure of a call turned into a message and exit code 1, and the hint that starts the service. Commands that need
-/// the service call through this class and nothing else.
+/// The one place the CLI calls the management API at <c>127.0.0.1:{port}/api</c>: the base address, the JSON, and the
+/// failures of a call as exceptions. Each failure carries the message the command shows; the command pipeline maps the
+/// exception type to an exit code. Commands that need the service call through this class and nothing else.
 /// </summary>
 internal sealed class ManagementApiClient(TacitConfig config, Tacit tacit) : IDisposable
 {
@@ -46,6 +46,12 @@ internal sealed class ManagementApiClient(TacitConfig config, Tacit tacit) : IDi
         return await SendAsync<T>(request, timeout: null, cancellationToken);
     }
 
+    /// <summary>The failure for a port nothing answers on, naming the command that starts the service.</summary>
+    private ServiceNotRunningException NotRunning() => new(tacit.ServiceNotRunningMessage(config, portAnsweredByOther: false));
+
+    /// <summary>The failure for a port another program answers on.</summary>
+    private ForeignServiceException Foreign() => new(tacit.ServiceNotRunningMessage(config, portAnsweredByOther: true));
+
     private async Task<T> SendAsync<T>(HttpRequestMessage request, TimeSpan? timeout, CancellationToken cancellationToken)
         where T : class
     {
@@ -61,36 +67,20 @@ internal sealed class ManagementApiClient(TacitConfig config, Tacit tacit) : IDi
             {
                 if (TryRead<ApiError>(text) is { Error: not null } error)
                     throw new ServiceRefusedException(error.Error, error.Message);
-                throw new ForeignServiceException();
+                throw Foreign();
             }
 
-            return TryRead<T>(text) ?? throw new ForeignServiceException();
+            return TryRead<T>(text) ?? throw Foreign();
         }
         catch (HttpRequestException)
         {
-            throw new ServiceNotRunningException();
+            throw NotRunning();
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // The deadline passed: the port is not answering in time, which counts as not running.
-            throw new ServiceNotRunningException();
+            throw NotRunning();
         }
-    }
-
-    /// <summary>
-    /// Writes why a call failed and returns exit code 1: the service's own message when it refused, otherwise the hint to
-    /// start it, naming the other program when one answers on the port.
-    /// </summary>
-    public int Fail(Exception failure)
-    {
-        Console.Error.WriteLine(failure switch
-        {
-            ServiceRefusedException refused => refused.Message,
-            ForeignServiceException => tacit.ServiceNotRunningMessage(config, portAnsweredByOther: true),
-            ServiceNotRunningException => tacit.ServiceNotRunningMessage(config, portAnsweredByOther: false),
-            _ => throw new ArgumentOutOfRangeException(nameof(failure), failure, "Not a management API failure."),
-        });
-        return 1;
     }
 
     public void Dispose() => _http.Dispose();
@@ -109,14 +99,10 @@ internal sealed class ManagementApiClient(TacitConfig config, Tacit tacit) : IDi
 }
 
 /// <summary>Nothing answered the call: the port refused the connection, or the call did not finish in time.</summary>
-internal sealed class ServiceNotRunningException : Exception
-{
-}
+internal sealed class ServiceNotRunningException(string message) : Exception(message);
 
 /// <summary>Something answered on the port, but it is not the management API.</summary>
-internal sealed class ForeignServiceException : Exception
-{
-}
+internal sealed class ForeignServiceException(string message) : Exception(message);
 
 /// <summary>The service refused the call with an error body; <see cref="Exception.Message"/> is that body's message.</summary>
 internal sealed class ServiceRefusedException(string error, string message) : Exception(message)
