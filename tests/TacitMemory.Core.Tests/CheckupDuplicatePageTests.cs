@@ -100,7 +100,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         });
     }
 
-    private async Task<string> Checkup() => await Service.CheckupPromptAsync().WaitAsync(Guard);
+    private async Task<string> Checkup() => await Service.CheckupReportAsync().WaitAsync(Guard);
 
     /// <summary>The text of the duplicate pages category: from its heading to the next heading, or to the end.</summary>
     private static string SectionOf(string text)
@@ -310,7 +310,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         Edit("tacit-memory/db-upgrade", "升级后中文搜索没有结果。", "升级后中文搜索没有结果，扩展丢失。");
         _models.HoldDecisions();
 
-        var report = Service.CheckupPromptAsync().WaitAsync(Guard);
+        var report = Service.CheckupReportAsync().WaitAsync(Guard);
         await _home.Clock.NextTimerAsync(Budget).WaitAsync(Guard);
         await _models.DecisionRequestsReached(_callsAtCheckpoint + 1).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);

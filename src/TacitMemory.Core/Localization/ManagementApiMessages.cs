@@ -59,9 +59,9 @@ internal static class ManagementApiMessages
     public static readonly Localized BindingMarkersIncomplete = new(
         "{0}：常驻区块的起止标记不完整或重复（{1}）",
         "{0}: the resident block's markers are incomplete or repeated ({1})");
-    public static readonly Localized BindingSkillLinkNotMemorySkill = new(
-        "{0}：skill 链接缺失或没有指向记忆 skill（{1}）",
-        "{0}: the skill link is missing or does not point at the memory skill ({1})");
+    public static readonly Localized BindingSkillLinkNotTacit = new(
+        "{0}：skill 链接 {2} 缺失或没有指向 tacit（{1}）",
+        "{0}: the skill link {2} is missing or does not point at tacit ({1})");
 
     public static readonly Localized CheckupTitle = new("上次体检", "Last checkup");
     public static readonly Localized CheckupOn = new("上次体检：{0}，{1}", "Last checkup: {0}, {1}");

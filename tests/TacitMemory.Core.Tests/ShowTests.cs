@@ -204,19 +204,6 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public async Task The_remember_prompt_is_generated_now_from_the_repository_and_has_no_default()
-    {
-        var result = await _home.Tacit().ShowAsync(ShowTarget.Remember);
-
-        var part = Assert.Single(result.Parts);
-        Assert.Equal(ShowSource.Code, part.Source);
-        Assert.Contains(TestHome.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), part.Text);
-        Assert.Null(result.Fixed);
-        var refused = await Assert.ThrowsAsync<TacitException>(() => _home.Tacit().ShowAsync(ShowTarget.Remember, useDefault: true));
-        Assert.Equal(TacitError.NoBuiltInText, refused.Error);
-    }
-
-    [Fact]
     public async Task Show_is_refused_with_the_usual_error_before_init()
     {
         using var fresh = new TestHome();

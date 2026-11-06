@@ -99,33 +99,24 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_remember_prompt_is_listed_with_an_optional_focus_and_returns_the_session_state()
+    public async Task The_prompt_list_answers_with_no_prompts()
     {
-        await _service.WriteRecentAsync(new TacitMemory.Core.WriteRecentRequest { Op = "add_activity", Text = "通过接口写入了活动" });
         await using var client = await ConnectAsync();
 
-        var remember = Assert.Single(await client.ListPromptsAsync(), prompt => prompt.Name == "remember");
-        var focus = Assert.Single(remember.ProtocolPrompt.Arguments!, argument => argument.Name == "focus");
-        Assert.False(focus.Required);
-
-        var result = await client.GetPromptAsync("remember", new Dictionary<string, object?> { ["focus"] = "检索策略调整" });
-        var text = string.Concat(result.Messages.Select(message => message.Content).OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
-        Assert.Contains("检索策略调整", text);
-        Assert.Contains("通过接口写入了活动", text);
+        Assert.Empty(await client.ListPromptsAsync());
     }
 
     [Fact]
-    public async Task The_checkup_prompt_is_listed_without_arguments_and_returns_the_memory_path_and_the_report()
+    public async Task The_checkup_report_is_listed_as_a_resource_and_reads_back_the_memory_path_and_the_report()
     {
         await using var client = await ConnectAsync();
 
-        var prompts = await client.ListPromptsAsync();
-        Assert.Contains(prompts, prompt => prompt.Name == "remember");
-        var checkup = Assert.Single(prompts, prompt => prompt.Name == "checkup");
-        Assert.True(checkup.ProtocolPrompt.Arguments is null || checkup.ProtocolPrompt.Arguments.Count == 0);
+        var resource = Assert.Single(await client.ListResourcesAsync());
+        Assert.Equal("tacit://checkup-report", resource.Uri);
+        Assert.Contains("tacit-checkup", resource.Description, StringComparison.Ordinal);
 
-        var result = await client.GetPromptAsync("checkup");
-        var text = string.Concat(result.Messages.Select(message => message.Content).OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
+        var result = await client.ReadResourceAsync("tacit://checkup-report");
+        var text = string.Concat(result.Contents.OfType<ModelContextProtocol.Protocol.TextResourceContents>().Select(contents => contents.Text));
         Assert.Contains(_home.DefaultMemory, text);
         foreach (var title in new[]
         {

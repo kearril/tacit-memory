@@ -1,6 +1,6 @@
 namespace TacitMemory.Core.Tests;
 
-public sealed class CheckupPromptTests : IDisposable
+public sealed class CheckupReportTests : IDisposable
 {
     private readonly TestHome _home = new();
 
@@ -43,43 +43,14 @@ public sealed class CheckupPromptTests : IDisposable
     }
 
     [Fact]
-    public async Task The_prompt_gives_the_absolute_memory_path_and_the_steps()
+    public async Task The_report_gives_the_absolute_memory_path_and_how_to_run_git_there()
     {
         using var service = Open();
 
-        var prompt = await service.CheckupPromptAsync();
+        var report = await service.CheckupReportAsync();
 
-        Assert.Contains(Memory, prompt);
-        Assert.Contains($"git -C \"{Memory}\"", prompt);
-        Assert.Contains("checkup:", prompt);
-        Assert.Contains("--allow-empty", prompt);
-        Assert.Contains("confirm", prompt);
-        Assert.Contains("reject", prompt);
-        Assert.Contains("defer", prompt);
-    }
-
-    [Fact]
-    public async Task The_structure_words_and_examples_follow_the_memory_language()
-    {
-        _home.InitReady(language: MemoryLanguage.Zh);
-        using (var zh = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance))
-        {
-            var prompt = await zh.CheckupPromptAsync();
-            Assert.Contains("拒绝列表", prompt);
-            Assert.Contains("改为", prompt);
-            Assert.Contains("归属：偏好", prompt);
-            Assert.Contains("拒绝 原话「", prompt);
-        }
-
-        using var home = new TestHome();
-        // InitReady rewrites config.yaml without the language key, so the memory language is set again here.
-        home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
-        using var en = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        var english = await en.CheckupPromptAsync();
-        Assert.Contains("Rejection list", english);
-        Assert.Contains("instead", english);
-        Assert.Contains("Belongs to: Preferences", english);
-        Assert.Contains("rejected quote「", english);
+        Assert.Contains(Memory, report);
+        Assert.Contains($"git -C \"{Memory}\"", report);
     }
 
     [Fact]
@@ -87,7 +58,7 @@ public sealed class CheckupPromptTests : IDisposable
     {
         using var service = Open();
 
-        var prompt = await service.CheckupPromptAsync();
+        var prompt = await service.CheckupReportAsync();
 
         foreach (var title in new[]
         {
@@ -113,7 +84,7 @@ public sealed class CheckupPromptTests : IDisposable
         Commit("checkup: second pass");
         var second = HeadHash();
 
-        var prompt = await service.CheckupPromptAsync();
+        var prompt = await service.CheckupReportAsync();
 
         Assert.Contains(second, prompt);
         Assert.DoesNotContain(first, prompt);
@@ -126,7 +97,7 @@ public sealed class CheckupPromptTests : IDisposable
         var init = HeadHash();
         await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "做了一件事" });
 
-        var prompt = await service.CheckupPromptAsync();
+        var prompt = await service.CheckupReportAsync();
 
         Assert.Contains(init, prompt);
     }
@@ -139,7 +110,7 @@ public sealed class CheckupPromptTests : IDisposable
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup memory");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var prompt = await service.CheckupPromptAsync();
+        var prompt = await service.CheckupReportAsync();
 
         Assert.Contains("Last checkup: never", prompt);
         Assert.DoesNotContain(root, prompt);
@@ -154,7 +125,7 @@ public sealed class CheckupPromptTests : IDisposable
             + Candidate("两天的候选", "偏好", "2026-10-30", "2026-10-31")
             + "\n## 拒绝列表\n");
 
-        var section = Section(await service.CheckupPromptAsync(), "Confirmable persona candidates");
+        var section = Section(await service.CheckupReportAsync(), "Confirmable persona candidates");
 
         Assert.Contains("两天的候选", section);
         Assert.Contains("「2026-10-31的话」", section);
@@ -168,11 +139,11 @@ public sealed class CheckupPromptTests : IDisposable
         var committed = DateOnly.Parse(TestHome.Git(Memory, "log", "-1", "--format=%as", "--", "recent.md").Trim(), System.Globalization.CultureInfo.InvariantCulture);
 
         ClockOn(committed.AddDays(14));
-        var fresh = Section(await service.CheckupPromptAsync(), "Stale mainline");
+        var fresh = Section(await service.CheckupReportAsync(), "Stale mainline");
         Assert.DoesNotContain(committed.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), fresh);
 
         ClockOn(committed.AddDays(15));
-        var stale = Section(await service.CheckupPromptAsync(), "Stale mainline");
+        var stale = Section(await service.CheckupReportAsync(), "Stale mainline");
         Assert.Contains(committed.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), stale);
     }
 
@@ -184,7 +155,7 @@ public sealed class CheckupPromptTests : IDisposable
             + string.Concat(Enumerable.Range(1, 21).Select(number =>
                 Candidate($"habit-{number:00}", "偏好", "2026-10-30", "2026-10-31"))));
 
-        var section = Section(await service.CheckupPromptAsync(), "Confirmable persona candidates");
+        var section = Section(await service.CheckupReportAsync(), "Confirmable persona candidates");
 
         Assert.Contains("habit-20", section);
         Assert.DoesNotContain("habit-21", section);
@@ -199,7 +170,7 @@ public sealed class CheckupPromptTests : IDisposable
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CheckupPromptAsync(cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CheckupReportAsync(cancelled.Token));
 
         Assert.Equal(before, TestHome.Git(Memory, "status", "--porcelain"));
     }

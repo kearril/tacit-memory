@@ -50,7 +50,7 @@ internal static class DuplicatePages
 
             var status = Unanswered.Of(reasons).Status(
                 _ => NotCheckedStatus,
-                count => $"{count} changed page(s) not checked yet, because the checkup ran out of time. Run `checkup` again to continue.");
+                count => $"{count} changed page(s) not checked yet, because the checkup ran out of time. Run the tacit-checkup skill again to continue.");
             return new CheckupSection(CheckupTitles.DuplicatePages, findings, status);
         };
     }

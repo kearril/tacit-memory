@@ -55,7 +55,7 @@ internal sealed record CheckupReport(CheckupBaseline Baseline, IReadOnlyList<Che
         return new CheckupReport(context.Baseline, sections);
     }
 
-    /// <summary>The report as the checkup prompt shows it, in English.</summary>
+    /// <summary>The report as the checkup report resource shows it, in English.</summary>
     public string Render()
     {
         var text = new StringBuilder();
@@ -74,7 +74,7 @@ internal sealed record CheckupReport(CheckupBaseline Baseline, IReadOnlyList<Che
                 text.Append(finding).Append('\n');
             if (section.Findings.Count > MaxFindingsPerCategory)
                 text.Append(section.Findings.Count - MaxFindingsPerCategory)
-                    .Append(" more not listed. Run `checkup` again after handling these.\n");
+                    .Append(" more not listed. Run the tacit-checkup skill again after handling these.\n");
             text.Append('\n');
         }
 

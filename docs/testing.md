@@ -13,9 +13,9 @@
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
      - `ConfigTests`：配置的默认值、校验错误与定位、未初始化提示、`rules.md` 的生成与超限，以及密钥来源优先级与 `backup.webdav` 的校验；已删除的 `apiKeyEnv` 与 `backup.remote` 按未知键报错。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
-     - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、记忆 skill 与 `remember` 数据、标签随记忆语言。
-     - `RememberPromptTests`：`remember` prompt 的内容：当日活动与主线、`focus` 的有无、画像写法步骤。
-     - `CheckupPromptTests`：`checkup` 指令文本：绝对路径与步骤、结构词对照表与示例（随记忆语言）、上次体检的三种基准（`checkup:`、`init:`、都没有）、候选门槛、主线过期与不过期、每类 20 项上限、取消。
+     - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言。
+     - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-checkup` 指向资源 `tacit://checkup-report`、`tacit serve` 与 `checkup:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show checkup` 的输出，以及 `--default` 被拒绝。
+     - `CheckupReportTests`：体检报告（资源正文）：绝对路径与 `git -C` 用法、六类、上次体检的三种基准（`checkup:`、`init:`、都没有）、候选门槛、主线过期与不过期、每类 20 项上限、取消。
      - `CheckupCandidateTests`：候选清理的三档（确定列为待清理并写明画像短码或拒绝列表条目，拿不准附提示且仍可确认，否定两者都不列）、选项只取画像与拒绝列表、无可比对时不提问、决策与嵌入模型不可用时的降级、阈值改变、判断缓存（内容不变不再调用、改阈值分档改变而不调用、重建索引后重新调用）。
      - `CheckupConflictTests`：互相冲突的画像条目：只判断上次体检后新增或改写的条目（含未提交的修改）、跨节、同一对只报一次、确定与拿不准两档标明档位、无其他条目时不提问、决策模型不可用时的降级。
      - `CheckupDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同项目没有其他页时不提问；删除的页不参与；没有 `checkup:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
@@ -23,10 +23,10 @@
      - `FormatViolationTests`：体检报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead）；各项修正后消失，每类 20 项上限。
      - `CheckupReminderTests`：体检提示：天数门槛（含 `checkup.remindAfterDays`）、可确认候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、体检提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否。
      - `BindingTests`：`connect` / `disconnect` 对 `AGENTS.md`、`mcp.json` 与常驻区块的写入、保留、拒绝与逐字节恢复。
-     - `SkillLinkTests`：记忆 skill 的目录链接：建立、拒绝与回滚、`disconnect` 只删除链接（Windows 上为真实目录联接）。
+     - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接并保留别人的同名项；只有旧的记忆 skill 链接的旧绑定（Windows 上为真实目录联接）。
      - `ServiceTests`：服务端说明的组成、语言与项目部分、状态提示，以及启动与运行中的绑定渲染。
      - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用），三个辅助模型的可用与冷却中（含剩余秒数，冷却结束后回到可用），日志位置，配置有误时的错误键路径；离线报告不含依赖服务的列。
-     - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、skill 链接指向别处），每种检查前后文件字节不变（不含 `.cache/`）；上次体检的三种基准（初始提交、体检提交、从未体检）；待处理计数与体检提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源的三种情况且不显示值；服务运行与未运行时共用的栏内容一致。
+     - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；上次体检的三种基准（初始提交、体检提交、从未体检）；待处理计数与体检提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源的三种情况且不显示值；服务运行与未运行时共用的栏内容一致。
      - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除。
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
      - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含决策模型密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
@@ -61,14 +61,14 @@
 2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发、工具列表与标注、参数错误标记与三段返回、各写入工具的往返读回、端口被占用时不启动；`remember` 与 `checkup` 两个 prompt 的列表（`checkup` 无参数）与取回文本（含记忆仓库的绝对路径与报告的六类标题）。
+     - `McpHostTests`：服务端说明下发、工具列表与标注、参数错误标记与三段返回、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表含 `tacit://checkup-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本。
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌。
-   - 工具的校验与拒绝规则由门面接缝覆盖；`remember` prompt 的内容由 `RememberPromptTests` 覆盖，`checkup` prompt 的内容由 `CheckupPromptTests` 覆盖。
+   - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，体检报告的内容由 `CheckupReportTests` 覆盖。
 
 ## 2. 模型依赖
 
@@ -86,11 +86,12 @@
 
 ## 4. 提示词的验证
 
-常驻区块外壳、记忆规则、记忆 skill 与工具说明的措辞不由自动测试固定（自动测试只检查结构与长度上限）。改动以日常使用中出现的摩擦点为依据：Agent 该记没记、记错了地方、参数用错、未经同意改写画像等。改后在真实 omp 中按该摩擦点的情形手工复现验收：
+常驻区块外壳、记忆规则、记忆 skill、两个记忆指令与工具说明的措辞不由自动测试固定（自动测试只检查结构与长度上限）。改动以日常使用中出现的摩擦点为依据：Agent 该记没记、记错了地方、参数用错、未经同意改写画像等。改后在真实 omp 中按该摩擦点的情形手工复现验收：
 
-- 使用临时 `TACIT_HOME`；`connect` 会写入用户的 `~/.omp/agent/AGENTS.md`、`mcp.json` 与 skill 链接，事先备份这两个文件，结束后 `disconnect`，恢复并校验 SHA-256，确认 skill 链接已删除；
+- 使用临时 `TACIT_HOME`；`connect` 会写入用户的 `~/.omp/agent/AGENTS.md`、`mcp.json` 与三个 skill 链接，事先备份这两个文件，结束后 `disconnect`，恢复并校验 SHA-256，确认三个 skill 链接已删除；
 - 不停止 NSSM 中的 `llama-swap`；
 - 判断依据是可观察的结果：记忆仓库的文件与提交，以及 omp 会话记录中的工具调用与 skill 读取。omp 经 `write` 工具以 `xd://mcp__tacit_<工具名>` 调用 tacit 工具，参数以 JSON 放在 `content` 中。
+- 两个记忆指令（实机）：`/skill:tacit-remember 附加文字` 与句中触发时，命令前后的文字都到达 Agent；`/skill:tacit-checkup` 后 Agent 以 `read tacit://checkup-report` 读到资源；会话开始的 skill 列表中只有 `tacit-memory`，普通对话中 Agent 不自行调用两个记忆指令。可在 `omp --model haiku` 的交互会话中验收，附加文字写明"只读、不写入、不提交"以免改动真实记忆。
 
 ## 5. 运行方式
 

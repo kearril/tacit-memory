@@ -5,7 +5,7 @@ using TacitMemory.Core.Localization;
 namespace TacitMemory.Core.Clients;
 
 /// <summary>
-/// The client's link to the memory skill folder, placed where the client scans for skills. On Windows it is a
+/// A client's link to one of TacitMemory's skill folders, placed where the client scans for skills. On Windows it is a
 /// directory junction, which needs no administrator rights; elsewhere a symbolic link. Only the link entry is ever
 /// created or removed: the target is never followed, so removing the link leaves the skill in place.
 /// </summary>
@@ -16,7 +16,7 @@ internal static class SkillLink
         /// <summary>Nothing is at the link path.</summary>
         Absent,
 
-        /// <summary>A link that resolves to the skill folder.</summary>
+        /// <summary>A link that resolves to the target skill folder.</summary>
         Pointing,
 
         /// <summary>Something else is at the link path: a file, a directory, or a link elsewhere.</summary>
@@ -29,6 +29,17 @@ internal static class SkillLink
         Removed,
         NotOurs,
         Absent,
+    }
+
+    /// <summary>
+    /// Refuses when <paramref name="linkPath"/> is taken by something other than a link to <paramref name="targetPath"/>,
+    /// so a caller can check every link before making any. Reads only.
+    /// </summary>
+    /// <exception cref="TacitException">The name is taken.</exception>
+    public static void EnsureFree(string linkPath, string targetPath, MemoryLanguage language)
+    {
+        if (Inspect(linkPath, targetPath) == State.Occupied)
+            throw Occupied(linkPath, language);
     }
 
     /// <summary>
@@ -46,7 +57,7 @@ internal static class SkillLink
             case State.Pointing:
                 return false;
             case State.Occupied:
-                throw new TacitException(TacitError.SkillLinkRefused, Messages.SkillLinkOccupied.Format(language, linkPath));
+                throw Occupied(linkPath, language);
         }
 
         try
@@ -141,9 +152,12 @@ internal static class SkillLink
 
     private static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
+    private static TacitException Occupied(string linkPath, MemoryLanguage language) =>
+        new(TacitError.SkillLinkRefused, Messages.SkillLinkOccupied.Format(language, linkPath));
+
     private static TacitException Refused(string linkPath, string targetPath, MemoryLanguage language, Exception? cause) =>
         new(
             TacitError.SkillLinkRefused,
-            Messages.SkillLinkFailed.Format(language, linkPath, targetPath, cause?.Message ?? "the link does not point to the memory skill"),
+            Messages.SkillLinkFailed.Format(language, linkPath, targetPath, cause?.Message ?? "the link does not point to the skill"),
             cause);
 }

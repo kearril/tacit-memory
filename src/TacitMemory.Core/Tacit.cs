@@ -26,26 +26,31 @@ public sealed class Tacit(TacitOptions options)
     public TacitConfig LoadConfig() => ConfigLoader.Load(options);
 
     /// <summary>
-    /// Writes <c>skills/tacit-memory/SKILL.md</c> from the built-in text and <c>prompts/skill.md</c>. Needs no running
-    /// service, and leaves the file alone when its content is unchanged. Refuses a <c>skill.md</c> that breaks its limits.
+    /// Writes every skill under <c>skills/</c>: the memory skill, from the built-in text and <c>prompts/skill.md</c>, and
+    /// the two memory commands, from the built-in text alone. Needs no running service, and leaves each file alone when its
+    /// content is unchanged. Refuses a <c>skill.md</c> that breaks its limits.
     /// </summary>
-    public SkillResult GenerateSkill() =>
-        MemorySkill.Write(options.TacitHome, PromptFiles.ReadSkill(options.TacitHome, ConfigLoader.LanguageOf(options)));
+    public SkillResult GenerateSkills()
+    {
+        var language = ConfigLoader.LanguageOf(options);
+        return SkillSet.Write(options.TacitHome, language, PromptFiles.ReadSkill(options.TacitHome, language));
+    }
 
     /// <summary>
-    /// What <c>tacit show</c> prints for the server instructions, the resident block, the memory skill or the
-    /// <c>remember</c> prompt: each part with its source and length. Reads the same sources the service reads and needs no
-    /// running service. Loading the config may create <c>prompts/</c> and rewrite a missing <c>rules.md</c>, as the service
-    /// does at startup; nothing else is written. With <paramref name="useDefault"/> it returns only the built-in text, which
-    /// can be saved as the file that replaces it, and then needs no config. The instructions end with the checkup reminder
-    /// when one is due, read from the memory repository's history; no model is called.
+    /// What <c>tacit show</c> prints for the server instructions, the resident block, the memory skill or a memory
+    /// command: each part with its source and length. Reads the same sources the service reads and needs no running
+    /// service. Loading the config may create <c>prompts/</c> and rewrite a missing <c>rules.md</c>, as the service does at
+    /// startup; nothing else is written. With <paramref name="useDefault"/> it returns only the built-in text, which can be
+    /// saved as the file that replaces it, and then needs no config; a memory command has no file that replaces it, so it
+    /// refuses. The instructions end with the checkup reminder when one is due, read from the memory repository's history;
+    /// no model is called.
     /// </summary>
     public async Task<ShowResult> ShowAsync(ShowTarget target, bool useDefault = false, CancellationToken cancellationToken = default)
     {
         if (!useDefault)
             return await Viewer.Show(options, LoadConfig(), target, cancellationToken);
-        if (target == ShowTarget.Remember)
-            throw NoBuiltInText("remember");
+        if (target is ShowTarget.Remember or ShowTarget.Checkup)
+            throw NoBuiltInText(target == ShowTarget.Remember ? "remember" : "checkup");
         return Viewer.Default(target);
     }
 

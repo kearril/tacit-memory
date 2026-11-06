@@ -55,7 +55,7 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
 
-        var section = Section(await service.CheckupPromptAsync(), Category);
+        var section = Section(await service.CheckupReportAsync(), Category);
 
         Assert.Contains("None.", section);
     }
@@ -65,7 +65,7 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
 
-        var prompt = await service.CheckupPromptAsync();
+        var prompt = await service.CheckupReportAsync();
 
         Assert.Contains("No problems found in any category.", prompt);
     }
@@ -76,10 +76,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/long.md", Page(title: new string('长', 51)));
 
-        AssertListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/long.md", "line 2");
+        AssertListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/long.md", "line 2");
 
         WriteFile("pages/tacit-memory/long.md", Page(title: new string('长', 50)));
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/long.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/long.md");
     }
 
     [Fact]
@@ -89,13 +89,13 @@ public sealed class FormatViolationTests : IDisposable
         WriteFile("pages/tacit-memory/one-alias.md", Page(aliases: "[只有一个]"));
         WriteFile("pages/tacit-memory/long-alias.md", Page(aliases: $"[数据库升级, {new string('a', 31)}]"));
 
-        var section = Section(await service.CheckupPromptAsync(), Category);
+        var section = Section(await service.CheckupReportAsync(), Category);
         AssertListed(section, "pages/tacit-memory/one-alias.md", "line 3");
         AssertListed(section, "pages/tacit-memory/long-alias.md", "line 3");
 
         WriteFile("pages/tacit-memory/one-alias.md", Page(aliases: "[只有一个, db upgrade]"));
         WriteFile("pages/tacit-memory/long-alias.md", Page(aliases: "[数据库升级, db upgrade]"));
-        section = Section(await service.CheckupPromptAsync(), Category);
+        section = Section(await service.CheckupReportAsync(), Category);
         AssertNotListed(section, "pages/tacit-memory/one-alias.md");
         AssertNotListed(section, "pages/tacit-memory/long-alias.md");
     }
@@ -106,10 +106,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/linked.md", Page(related: "related: [tacit-memory/missing]"));
 
-        AssertListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/linked.md", "line 4");
+        AssertListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/linked.md", "line 4");
 
         WriteFile("pages/tacit-memory/missing.md", Page(title: "缺失的页"));
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/linked.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/linked.md");
     }
 
     [Fact]
@@ -118,10 +118,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/Bad_Name.md", Page());
 
-        AssertListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/Bad_Name.md", "file name");
+        AssertListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/Bad_Name.md", "file name");
 
         File.Move(Path.Combine(Memory, "pages/tacit-memory/Bad_Name.md"), Path.Combine(Memory, "pages/tacit-memory/bad-name.md"));
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/bad-name.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/bad-name.md");
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/Bad_Name.md", Page(title: new string('长', 51)));
 
-        var section = Section(await service.CheckupPromptAsync(), Category);
+        var section = Section(await service.CheckupReportAsync(), Category);
         AssertListed(section, "pages/tacit-memory/Bad_Name.md", "file name");
         AssertListed(section, "pages/tacit-memory/Bad_Name.md", "line 2");
     }
@@ -141,10 +141,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/dup.md", Page(body: "## 要点\n- 内容\n\n## 要点\n- 另一条\n"));
 
-        AssertListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/dup.md", "line 10");
+        AssertListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/dup.md", "line 10");
 
         WriteFile("pages/tacit-memory/dup.md", Page(body: "## 要点\n- 内容\n\n## 其他\n- 另一条\n"));
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/dup.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/dup.md");
     }
 
     [Fact]
@@ -153,10 +153,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/broken.md", "---\ntitle: [未闭合\naliases: [a, b]\n---\n\n## 要点\n- 内容\n");
 
-        AssertListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/broken.md", "YAML header");
+        AssertListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/broken.md", "YAML header");
 
         WriteFile("pages/tacit-memory/broken.md", Page());
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/broken.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/broken.md");
     }
 
     [Fact]
@@ -166,10 +166,10 @@ public sealed class FormatViolationTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Memory, "pages", "tacit-memory"));
         File.WriteAllBytes(Path.Combine(Memory, "pages", "tacit-memory", "gbk.md"), [0xFF, 0xFE, 0x41]);
 
-        AssertListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/gbk.md", "file");
+        AssertListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/gbk.md", "file");
 
         WriteFile("pages/tacit-memory/gbk.md", Page());
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/gbk.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/gbk.md");
     }
 
     [Fact]
@@ -178,12 +178,12 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/mixed.md", Page(body: "## 偏好\n- 内容\n\n## Preferences\n- content\n"));
 
-        var section = Section(await service.CheckupPromptAsync(), Category);
+        var section = Section(await service.CheckupReportAsync(), Category);
         AssertListed(section, "pages/tacit-memory/mixed.md", "line 10");
         Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/mixed.md"));
 
         WriteFile("pages/tacit-memory/mixed.md", Page(body: "## 偏好\n- 内容\n\n## 其他\n- content\n"));
-        AssertNotListed(Section(await service.CheckupPromptAsync(), Category), "pages/tacit-memory/mixed.md");
+        AssertNotListed(Section(await service.CheckupReportAsync(), Category), "pages/tacit-memory/mixed.md");
     }
 
     [Fact]
@@ -195,7 +195,7 @@ public sealed class FormatViolationTests : IDisposable
         WriteFile("pages/tacit-memory/mixed-instead.md", Page(body: "- 不要删库，改为先备份\n- Never delete; instead back up first\n"));
         WriteFile("pages/tacit-memory/prose.md", Page(body: "## 偏好\n- 内容\n正文里提到 instead 但不是列表项\n"));
 
-        var section = Section(await service.CheckupPromptAsync(), Category);
+        var section = Section(await service.CheckupReportAsync(), Category);
 
         AssertListed(section, "pages/tacit-memory/mixed-quote.md", "line 10");
         Assert.Contains("\"quote\" on line 10", section);
@@ -213,7 +213,7 @@ public sealed class FormatViolationTests : IDisposable
         foreach (var number in Enumerable.Range(1, 21))
             WriteFile($"pages/tacit-memory/long-{number:00}.md", Page(title: new string('长', 51)));
 
-        var section = Section(await service.CheckupPromptAsync(), Category);
+        var section = Section(await service.CheckupReportAsync(), Category);
 
         AssertListed(section, "pages/tacit-memory/long-20.md", "line 2");
         AssertNotListed(section, "pages/tacit-memory/long-21.md");

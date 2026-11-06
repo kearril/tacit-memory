@@ -97,20 +97,20 @@ internal static class Messages
         "已绑定 {0}，新会话开始生效。MCP 服务需要 tacit serve 在运行。",
         "Bound {0}; it takes effect in new sessions. The MCP server needs tacit serve running.");
     public static readonly Localized Disconnected = new("已解绑 {0}。", "Unbound {0}.");
-    public static readonly Localized SkillWritten = new("已写入记忆 skill：{0}", "Wrote the memory skill: {0}");
-    public static readonly Localized SkillUnchanged = new("记忆 skill 已是最新：{0}", "The memory skill is up to date: {0}");
+    public static readonly Localized SkillWritten = new("已写入 skill：{0}", "Wrote the skill: {0}");
+    public static readonly Localized SkillUnchanged = new("skill 已是最新：{0}", "The skill is up to date: {0}");
     public static readonly Localized SkillLinked = new("已建立 skill 链接：{0}", "Created the skill link: {0}");
-    public static readonly Localized SkillLinkUnchanged = new("skill 链接已指向记忆 skill：{0}", "The skill link already points to the memory skill: {0}");
+    public static readonly Localized SkillLinkUnchanged = new("skill 链接已指向 tacit：{0}", "The skill link already points to tacit: {0}");
     public static readonly Localized SkillLinkRemoved = new("已删除 skill 链接：{0}", "Removed the skill link: {0}");
     public static readonly Localized SkillLinkForeign = new(
-        "{0} 不是指向记忆 skill 的链接，未改动。",
-        "{0} is not a link to the memory skill and was left alone.");
+        "{0} 不是指向 tacit 的 skill 链接，未改动。",
+        "{0} is not tacit's skill link and was left alone.");
     public static readonly Localized SkillLinkOccupied = new(
-        "{0} 已存在且不指向记忆 skill，未改动。请先移走或改名后重试。",
-        "{0} already exists and does not point to the memory skill; nothing was changed. Move or rename it, then try again.");
+        "{0} 已存在且不是指向 tacit 的 skill 链接，未建立任何链接、未改动其他文件。请先移走或改名后重试。",
+        "{0} already exists and is not tacit's skill link; no link was made and no other file was changed. Move or rename it, then try again.");
     public static readonly Localized SkillLinkFailed = new(
-        "无法建立 skill 链接 {0}（指向 {1}）：{2}。未改动其他文件。",
-        "Could not create the skill link {0} (pointing to {1}): {2}. Other files were left alone.");
+        "无法建立 skill 链接 {0}（指向 {1}）：{2}。本次建立的链接已撤回，未改动其他文件。",
+        "Could not create the skill link {0} (pointing to {1}): {2}. The links made by this call were removed, and other files were left alone.");
     public static readonly Localized FileNotUtf8 = new(
         "{0} 不是 UTF-8 编码，未改动该文件。",
         "{0} is not UTF-8 encoded and was left alone.");

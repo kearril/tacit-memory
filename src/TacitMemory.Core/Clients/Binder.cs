@@ -26,31 +26,42 @@ internal static class Binder
 
         var createdContextFile = previous?.CreatedContextFile ?? !File.Exists(target.ContextFile);
         var createdMcpConfig = previous?.CreatedMcpConfig ?? !File.Exists(target.McpConfig);
-        var skillFolder = MemorySkill.Folder(options.TacitHome);
         var report = new StringBuilder();
 
-        var skill = MemorySkill.Write(options.TacitHome, config.Prompts.Skill);
-        report.AppendLine((skill.Written ? Messages.SkillWritten : Messages.SkillUnchanged).Format(language, skill.Path));
+        // Every link is checked before anything is written, so a taken name refuses the binding and changes no file.
+        var links = SkillSet.Links(target.ClientSkills, options.TacitHome);
+        foreach (var (link, skillFolder) in links)
+            SkillLink.EnsureFree(link, skillFolder, language);
 
-        // The link is made before the other files, so a refused link changes nothing else.
-        var linkCreated = SkillLink.Put(target.SkillLink, skillFolder, language);
-        report.AppendLine((linkCreated ? Messages.SkillLinked : Messages.SkillLinkUnchanged).Format(language, target.SkillLink));
+        foreach (var skill in SkillSet.Write(options.TacitHome, language, config.Prompts.Skill).Skills)
+            report.AppendLine((skill.Written ? Messages.SkillWritten : Messages.SkillUnchanged).Format(language, skill.Path));
 
+        var created = new List<(string Link, string SkillFolder)>();
         try
         {
+            // The links are made before the other files, so a link that cannot be made changes nothing else.
+            foreach (var (link, skillFolder) in links)
+            {
+                var made = SkillLink.Put(link, skillFolder, language);
+                if (made)
+                    created.Add((link, skillFolder));
+                report.AppendLine((made ? Messages.SkillLinked : Messages.SkillLinkUnchanged).Format(language, link));
+            }
+
             var written = ContextFile.Put(target.ContextFile, ResidentBlock.Render(persona, config.Prompts.Resident), language);
             report.AppendLine((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, target.ContextFile));
 
             var server = new JsonObject { ["type"] = "http", ["url"] = $"http://127.0.0.1:{config.Port}/mcp" };
             var registered = McpJsonFile.Put(target.McpConfig, ServerName, server, language);
             report.AppendLine((registered ? Messages.McpRegistered : Messages.McpUnchanged).Format(language, target.McpConfig));
-            store.Put(new BindingRecord(target.Client, target.ContextFile, target.SkillLink, createdContextFile, createdMcpConfig));
+            store.Put(new BindingRecord(
+                target.Client, target.ContextFile, Path.Combine(target.ClientSkills, MemorySkill.Name), createdContextFile, createdMcpConfig));
         }
         catch
         {
-            // Removes the link this call made, so a refused file or an unwritable bindings.json leaves no link behind.
-            if (linkCreated)
-                SkillLink.Remove(target.SkillLink, skillFolder);
+            // Removes the links this call made, so a refused file or an unwritable bindings.json leaves no link behind.
+            foreach (var (link, skillFolder) in created)
+                SkillLink.Remove(link, skillFolder);
             throw;
         }
 
@@ -80,16 +91,19 @@ internal static class Binder
                 File.Delete(target.McpConfig);
         }
 
-        // The link is removed where connect made it; the skill folder it points to is kept.
-        var linkPath = binding?.SkillLink ?? target.SkillLink;
-        switch (SkillLink.Remove(linkPath, MemorySkill.Folder(options.TacitHome)))
+        // The links are removed where connect made them; the skill folders they point to are kept.
+        var clientSkills = binding is null ? target.ClientSkills : Path.GetDirectoryName(binding.SkillLink)!;
+        foreach (var (link, skillFolder) in SkillSet.Links(clientSkills, options.TacitHome))
         {
-            case SkillLink.RemoveOutcome.Removed:
-                report.AppendLine(Messages.SkillLinkRemoved.Format(language, linkPath));
-                break;
-            case SkillLink.RemoveOutcome.NotOurs:
-                report.AppendLine(Messages.SkillLinkForeign.Format(language, linkPath));
-                break;
+            switch (SkillLink.Remove(link, skillFolder))
+            {
+                case SkillLink.RemoveOutcome.Removed:
+                    report.AppendLine(Messages.SkillLinkRemoved.Format(language, link));
+                    break;
+                case SkillLink.RemoveOutcome.NotOurs:
+                    report.AppendLine(Messages.SkillLinkForeign.Format(language, link));
+                    break;
+            }
         }
 
         store.Remove(target.Client);
@@ -145,9 +159,10 @@ internal static class Binder
             "omp",
             Path.Combine(options.UserHome, ".omp", "agent", "AGENTS.md"),
             Path.Combine(options.UserHome, ".omp", "agent", "mcp.json"),
-            Path.Combine(options.UserHome, ".omp", "agent", "skills", MemorySkill.Name)),
+            Path.Combine(options.UserHome, ".omp", "agent", "skills")),
         _ => throw new ArgumentOutOfRangeException(nameof(client), client, null),
     };
 
-    private sealed record ClientTarget(string Client, string ContextFile, string McpConfig, string SkillLink);
+    /// <param name="ClientSkills">The folder the client scans for skills, where the skill links go.</param>
+    private sealed record ClientTarget(string Client, string ContextFile, string McpConfig, string ClientSkills);
 }

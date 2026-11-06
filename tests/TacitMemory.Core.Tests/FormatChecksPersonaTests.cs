@@ -34,7 +34,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     private async Task<string> Violations(MemoryService service) =>
-        Section(await service.CheckupPromptAsync(), FormatTitle);
+        Section(await service.CheckupReportAsync(), FormatTitle);
 
     [Fact]
     public async Task A_red_line_without_instead_is_reported_at_its_line_and_fixed_directly()

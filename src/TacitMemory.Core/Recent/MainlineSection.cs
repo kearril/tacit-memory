@@ -38,7 +38,7 @@ internal static class MainlineSection
     public static IReadOnlyList<string> ReadItems(string memoryPath) =>
         Items(TextFile.Read(Path.Combine(memoryPath, RelativePath))?.Text ?? "");
 
-    /// <summary>The mainline as the write replies and the remember prompt show it: its version code, then its items, or <c>(empty)</c>.</summary>
+    /// <summary>The mainline as the write replies and refusals show it: its version code, then its items, or <c>(empty)</c>.</summary>
     public static string Block(IReadOnlyList<string> items) =>
         $"Mainline, version [{VersionOf(items)}]:\n"
         + (items.Count == 0 ? "(empty)" : string.Join("\n", items.Select(item => "- " + item)));

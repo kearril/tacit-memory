@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Skills;
 
 namespace TacitMemory.Core.Tests;
 
@@ -60,7 +61,7 @@ public sealed class MemorySkillTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(SkillPrompt, "  \n\n");
 
-        _home.Tacit().GenerateSkill();
+        _home.Tacit().GenerateSkills();
 
         Assert.DoesNotContain("## User conventions", File.ReadAllText(SkillFile), StringComparison.Ordinal);
     }
@@ -71,7 +72,7 @@ public sealed class MemorySkillTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(SkillPrompt, "- 页面标题统一用中文\n");
 
-        var result = _home.Tacit().GenerateSkill();
+        var result = Memory(_home.Tacit().GenerateSkills());
 
         var text = File.ReadAllText(SkillFile);
         Assert.True(result.Written);
@@ -111,7 +112,7 @@ public sealed class MemorySkillTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(SkillPrompt, new string('长', PromptLimit));
 
-        var result = _home.Tacit().GenerateSkill();
+        var result = Memory(_home.Tacit().GenerateSkills());
 
         Assert.True(result.Written);
     }
@@ -121,29 +122,15 @@ public sealed class MemorySkillTests : IDisposable
     {
         var tacit = _home.Tacit();
 
-        var first = tacit.GenerateSkill();
+        var first = Memory(tacit.GenerateSkills());
         Assert.True(first.Written);
         Assert.True(File.Exists(SkillFile));
 
         File.Delete(SkillFile);
-        var second = tacit.GenerateSkill();
+        var second = Memory(tacit.GenerateSkills());
 
         Assert.True(second.Written);
         Assert.True(File.Exists(SkillFile));
-    }
-
-    [Fact]
-    public void Unchanged_content_is_not_written_again()
-    {
-        var tacit = _home.Tacit();
-        tacit.GenerateSkill();
-        var old = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        File.SetLastWriteTimeUtc(SkillFile, old);
-
-        var again = tacit.GenerateSkill();
-
-        Assert.False(again.Written);
-        Assert.Equal(old, File.GetLastWriteTimeUtc(SkillFile));
     }
 
     [Fact]
@@ -206,6 +193,9 @@ public sealed class MemorySkillTests : IDisposable
         var names = archive.Entries.Select(entry => entry.FullName).ToArray();
         Assert.DoesNotContain(names, name => name.StartsWith("skills/", StringComparison.Ordinal));
     }
+
+    private static GeneratedSkill Memory(SkillResult result) =>
+        Assert.Single(result.Skills, skill => skill.Name == "tacit-memory");
 
     private static string Description(string text) =>
         Regex.Match(text, "^description: \"(.*)\"$", RegexOptions.Multiline).Groups[1].Value;

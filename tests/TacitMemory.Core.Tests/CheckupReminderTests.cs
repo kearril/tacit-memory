@@ -140,7 +140,7 @@ public sealed class CheckupReminderTests : IDisposable
         using var service = Open();
 
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
-        var prompt = await service.CheckupPromptAsync();
+        var prompt = await service.CheckupReportAsync();
         Assert.DoesNotContain("None.", Section(prompt, "Format and rule violations"));
     }
 

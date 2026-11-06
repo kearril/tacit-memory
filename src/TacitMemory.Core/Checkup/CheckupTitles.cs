@@ -1,8 +1,8 @@
 namespace TacitMemory.Core.Checkup;
 
 /// <summary>
-/// The titles of the six report categories, in English. The checkup prompt's steps refer to them by these names, so
-/// they are defined once.
+/// The titles of the six report categories, in English. The steps of the tacit-checkup skill refer to them by these
+/// names, and the checkup report resource uses them as headings, so they are defined once.
 /// </summary>
 internal static class CheckupTitles
 {

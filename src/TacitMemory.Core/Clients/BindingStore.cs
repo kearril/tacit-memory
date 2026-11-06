@@ -5,7 +5,10 @@ using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Clients;
 
-/// <param name="SkillLink">The link <c>connect</c> made in the client's skill folder, which <c>disconnect</c> removes.</param>
+/// <param name="SkillLink">
+/// The memory skill's link that <c>connect</c> made in the client's skill folder. The links of the other skills sit beside
+/// it, so this one path locates all of them, and a record written before there were other skills reads the same way.
+/// </param>
 /// <param name="CreatedContextFile">Whether <c>connect</c> created the context file, so <c>disconnect</c> may delete it again.</param>
 /// <param name="CreatedMcpConfig">Whether <c>connect</c> created the MCP config file, likewise.</param>
 internal sealed record BindingRecord(

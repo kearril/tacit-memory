@@ -42,7 +42,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit connect --client omp
    ```
 
-   写入常驻区块、注册 MCP 服务并建立 skill 链接。绑定前会校验配置，`models` 缺失时会报错。
+   写入常驻区块、注册 MCP 服务并建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-checkup`）。绑定前会校验配置，`models` 缺失时会报错。
 
 4. **启动服务**（前台运行，建议单独开一个终端）
 
@@ -64,12 +64,13 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 ## 日常使用
 
 - 会话开始时，omp 会读到常驻区块（画像）与服务端说明（含近期摘要）。Agent 在对话中按记忆规则自行检索与写入，无需手动操作。
-- 想让 Agent 立即把本次会话写进记忆（例如压缩上下文或退出前），在 omp 中输入 `/tacit:remember`；要指定重点时写成 `/tacit:remember focus=<重点>`（omp 只认 `名=值` 写法，直接跟文字会被丢弃）。
-- 整理记忆时在 omp 中输入 `/tacit:checkup`（或让 Agent 执行记忆指令 `checkup`）开始体检。体检会列出疑似重复的页、互相冲突的画像条目、可确认与待清理的画像候选、格式问题与过期的近期主线；Agent 直接修正机械问题，需要你拍板的逐项询问，最后在记忆仓库中以 `checkup:` 提交。距上次体检达到 `checkup.remindAfterDays` 天（默认 7 天），或有可确认的候选时，新会话的服务端说明会提示可以体检。
-- 体检的时间与并发可在 `config.yaml` 的 `checkup` 一节调整：`budgetSeconds`（默认 20）是一次体检最多等模型的秒数，到点照常出报告，没算完的项注明"再执行一次 `checkup` 接着算"；`maxConcurrency`（默认 5）是同时进行的模型判断数。
+- 记忆指令 `tacit-remember` 与 `tacit-checkup` 是 omp 的 skill，用 `/skill:` 触发需要 omp 开启 `skills.enableSkillCommands`（默认已开启）。升级后请重新执行 `tacit connect --client omp`，补上新增的 skill 链接；已有的链接保持不变。
+- 想让 Agent 立即把本次会话写进记忆（例如压缩上下文或退出前），在 omp 中输入 `/skill:tacit-remember 附加要求`；附加要求可省略，写了就作为本次的重点或额外要求。`/skill:tacit-remember` 也可以写在句中触发。
+- 整理记忆时在 omp 中输入 `/skill:tacit-checkup`（附加要求可省略）开始体检。体检会列出疑似重复的页、互相冲突的画像条目、可确认与待清理的画像候选、格式问题与过期的近期主线；Agent 直接修正机械问题，需要你拍板的逐项询问，最后在记忆仓库中以 `checkup:` 提交。距上次体检达到 `checkup.remindAfterDays` 天（默认 7 天），或有可确认的候选时，新会话的服务端说明会提示可以体检。
+- 体检的时间与并发可在 `config.yaml` 的 `checkup` 一节调整：`budgetSeconds`（默认 20）是一次体检最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-checkup` 接着算"；`maxConcurrency`（默认 5）是同时进行的模型判断数。
 - 记忆工具需要 `tacit serve` 运行。服务停止时工具不可用，但已写入的常驻区块仍然有效。
 - 记忆仓库中的 Markdown 可直接编辑，服务会监听变化并同步索引。服务写入某个文件时，会连同该文件中未提交的手动修改一并提交；其余手动修改请在仓库中自行 `git commit`。
-- 查看 Agent 收到的内容：`tacit show instructions`、`resident`、`skill`、`tools`、`remember`。每段都标明来源与长度。
+- 查看 Agent 收到的内容：`tacit show instructions`、`resident`、`skill`、`tools`、`remember`、`checkup`。每段都标明来源与长度。
 - 索引损坏或换了嵌入模型时执行 `tacit reindex`（需服务运行）：全量重建全文、向量与判断缓存，等待完成后输出文件数、单元数、已有向量的单元数、耗时与跳过的非 UTF-8 文件；嵌入模型不可用时只重建全文，并注明向量将在模型恢复后补齐。执行期间记忆工具的调用排队等待。
 
 ### 修改提示词
@@ -136,7 +137,7 @@ backup:
 tacit disconnect --client omp
 ```
 
-移除常驻区块、`mcp.json` 中的 `tacit` 项与 skill 链接。只删除链接本身，记忆 skill 文件与记忆仓库都保留。
+移除常驻区块、`mcp.json` 中的 `tacit` 项与三个 skill 链接（只删指向 tacit 的链接）。只删除链接本身，skill 文件与记忆仓库都保留；同名的其他条目不动。
 只删除常驻区块不能停止维护：下次渲染时会重新追加。要停止维护，请执行解绑。
 
 ## 文件在哪
@@ -147,7 +148,7 @@ tacit disconnect --client omp
 ~/.tacit/
 ├── config.yaml                    # 配置
 ├── prompts/                       # 可编辑的提示词文档
-├── skills/tacit-memory/SKILL.md   # 生成的记忆 skill，请勿手改
+├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-checkup，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见「日志」）
@@ -160,7 +161,7 @@ omp 绑定后还会改动以下位置（只改 TacitMemory 自己的部分）：
 
 - `~/.omp/agent/AGENTS.md`：起止标记之间的常驻区块；
 - `~/.omp/agent/mcp.json`：`tacit` 一项；
-- `~/.omp/agent/skills/tacit-memory`：指向记忆 skill 的链接。
+- `~/.omp/agent/skills/` 下的 `tacit-memory`、`tacit-remember`、`tacit-checkup`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
 
 **备份与恢复**见上文「运维」一节。
 

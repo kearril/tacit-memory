@@ -1,15 +1,8 @@
-using System.Text;
-using TacitMemory.Core.Injection;
-
 namespace TacitMemory.Core.Skills;
-
-/// <summary>What <see cref="Tacit.GenerateSkill"/> did: where the memory skill is, and whether this call wrote it.</summary>
-public sealed record SkillResult(string Path, bool Written);
 
 /// <summary>
 /// The memory skill, <c>TACIT_HOME/skills/tacit-memory/SKILL.md</c>: the frontmatter and the system part, both written
 /// here in English, then the user's writing conventions from <c>prompts/skill.md</c> under a heading of their own.
-/// The file is rewritten only when the text changes.
 /// </summary>
 internal static class MemorySkill
 {
@@ -76,13 +69,6 @@ internal static class MemorySkill
         - If a write is still refused after its next step was followed, tell the user what was refused and why.
         """;
 
-    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
-
-    /// <summary><c>TACIT_HOME/skills/tacit-memory</c>, the directory the client link points to.</summary>
-    public static string Folder(string tacitHome) => Path.Combine(tacitHome, "skills", Name);
-
-    public static string FilePath(string tacitHome) => Path.Combine(Folder(tacitHome), "SKILL.md");
-
     /// <summary>The whole file: frontmatter, the generated note, the system part, and the user's section when there is one.</summary>
     public static string Compose(string? userConventions)
     {
@@ -95,16 +81,5 @@ internal static class MemorySkill
         if (userConventions is not null)
             parts.Add(UserHeading + "\n\n" + userConventions.ReplaceLineEndings("\n"));
         return string.Join("\n\n", parts) + "\n";
-    }
-
-    /// <summary>Writes the skill, leaving the file alone when it already holds exactly the text it would get.</summary>
-    public static SkillResult Write(string tacitHome, string? userConventions)
-    {
-        var path = FilePath(tacitHome);
-        var text = Compose(userConventions);
-        if (File.Exists(path) && File.ReadAllText(path, Utf8) == text)
-            return new SkillResult(path, false);
-        TextFile.Write(path, text, hasBom: false);
-        return new SkillResult(path, true);
     }
 }

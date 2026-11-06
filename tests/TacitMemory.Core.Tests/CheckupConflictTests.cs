@@ -88,7 +88,7 @@ public sealed class CheckupConflictTests : IDisposable
         return count;
     }
 
-    private async Task<string> Checkup() => await Service.CheckupPromptAsync().WaitAsync(TimeSpan.FromSeconds(30));
+    private async Task<string> Checkup() => await Service.CheckupReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
     [Fact]
     public async Task Only_an_entry_changed_since_the_last_checkup_is_judged_against_the_others()

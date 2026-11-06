@@ -45,7 +45,7 @@ internal static class CheckupReminder
             $"- Candidates that can be confirmed: {summary.Confirmable}.",
             $"- Format and rule problems: {summary.Problems}.",
             summary.MainlineStale ? "- Mainline: stale." : "- Mainline: not stale.",
-            "The user can run `checkup` to start a checkup; suggest it when the moment fits, and do not start one unasked.",
+            "The user can run the tacit-checkup skill to start a checkup; suggest it when the moment fits, and do not start one unasked.",
         ]);
 
     private static string BaselineLine(CheckupBaseline baseline, int? days) => baseline.Kind switch

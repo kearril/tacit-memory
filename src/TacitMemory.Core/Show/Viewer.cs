@@ -53,25 +53,25 @@ internal static class Viewer
         "没有写法约定，因为 prompts/skill.md 不存在",
         "no writing conventions, because prompts/skill.md does not exist");
 
-    private static readonly Localized RememberTitle = new(
-        "remember 指令此刻生成的内容：{0} 字符",
-        "The remember prompt as it would be generated now: {0} characters");
-    private static readonly Localized RememberSource = new(
-        "来源：代码，读取记忆仓库中今天的活动与主线",
-        "source: code, reading today's activities and the mainline from the memory repository");
+    private static readonly Localized CommandTitle = new(
+        "{0} skill 的完整内容（SKILL.md）：{1} 字符",
+        "The {0} skill as the agent reads it (SKILL.md): {1} characters");
+    private static readonly Localized CommandSource = new(
+        "来源：代码；用户触发时附带的文字随它一并送达",
+        "source: code; any text the user sends with the command reaches the agent alongside it");
 
     private static readonly Localized ToolsTitle = new(
         "工具说明（来源：代码，TacitMemory.Mcp 的工具定义）：{0} 个",
         "Tool descriptions (source: code, the tool definitions in TacitMemory.Mcp): {0}");
     private static readonly Localized ToolParameters = new("参数：", "Parameters:");
 
-    /// <summary>The built-in text alone, for the targets that have one. The remember prompt depends on the memory, so it has none.</summary>
+    /// <summary>The built-in text alone, for the targets that have one. A memory command has no file that replaces it, so it has none.</summary>
     public static ShowResult Default(ShowTarget target) => target switch
     {
         ShowTarget.Instructions => Bare(ShowSource.BuiltInDefault, ServerInstructionText.DefaultInstructions),
         ShowTarget.Resident => Bare(ShowSource.BuiltInDefault, ResidentFile.Compose(ResidentBlock.Default)),
         ShowTarget.Skill => Bare(ShowSource.Code, MemorySkill.SystemPart),
-        _ => throw new ArgumentException("The remember prompt has no built-in text.", nameof(target)),
+        _ => throw new ArgumentException("A memory command has no built-in text that a file replaces.", nameof(target)),
     };
 
     public static async Task<ShowResult> Show(
@@ -82,7 +82,9 @@ internal static class Viewer
             ShowTarget.Instructions => await Instructions(options, config, cancellationToken),
             ShowTarget.Resident => Resident(options, config),
             ShowTarget.Skill => Skill(options, config),
-            _ => Remember(options, config),
+            ShowTarget.Remember => Command(RememberSkill.Name, RememberSkill.Compose(), config.Language),
+            ShowTarget.Checkup => Command(CheckupSkill.Name, CheckupSkill.Compose(config.Language), config.Language),
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
         };
     }
 
@@ -211,12 +213,11 @@ internal static class Viewer
         return new ShowResult(heading + "\n\n" + full, parts);
     }
 
-    private static ShowResult Remember(TacitOptions options, TacitConfig config)
+    private static ShowResult Command(string name, string file, MemoryLanguage language)
     {
-        var language = config.Language;
-        var text = RememberText.Render(options, config, focus: null).TrimEnd('\n');
-        var heading = RememberTitle.Format(language, text.Length) + "\n" + RememberSource.In(language);
-        return new ShowResult(heading + "\n\n" + text, [new ShowPart("remember", ShowSource.Code, null, text)]);
+        var text = file.TrimEnd('\n');
+        var heading = CommandTitle.Format(language, name, text.Length) + "\n" + CommandSource.In(language);
+        return new ShowResult(heading + "\n\n" + text, [new ShowPart(name, ShowSource.Code, null, text)]);
     }
 
     /// <summary>A part under its label, its source and its length; an empty part says so.</summary>

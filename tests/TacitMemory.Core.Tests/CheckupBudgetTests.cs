@@ -78,7 +78,7 @@ public sealed class CheckupBudgetTests : IDisposable
     /// <summary>Starts a checkup and waits until its budget timer exists, so the test can run the budget out.</summary>
     private async Task<Task<string>> StartCheckupAsync()
     {
-        var report = Service.CheckupPromptAsync().WaitAsync(Guard);
+        var report = Service.CheckupReportAsync().WaitAsync(Guard);
         await _home.Clock.NextTimerAsync(Budget).WaitAsync(Guard);
         return report;
     }
@@ -114,7 +114,7 @@ public sealed class CheckupBudgetTests : IDisposable
 
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
-        var complete = await Service.CheckupPromptAsync().WaitAsync(Guard);
+        var complete = await Service.CheckupReportAsync().WaitAsync(Guard);
 
         Assert.Equal(2, _models.DecisionCalls);
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
@@ -148,7 +148,7 @@ public sealed class CheckupBudgetTests : IDisposable
         Write("回答尽量简短", "回复别太长", "别绕弯子", "少用表情", "别客套");
         PickPersonaEntry();
         _models.HoldDecisions();
-        var report = Service.CheckupPromptAsync().WaitAsync(Guard);
+        var report = Service.CheckupReportAsync().WaitAsync(Guard);
 
         await _models.DecisionRequestsReached(2).WaitAsync(Guard);
         _models.ReleaseDecisions();
@@ -166,7 +166,7 @@ public sealed class CheckupBudgetTests : IDisposable
         PickPersonaEntry();
         _models.ScriptDecision(ModelReply.Status(ModelDouble.DownStatus));
 
-        var text = await Service.CheckupPromptAsync().WaitAsync(Guard);
+        var text = await Service.CheckupReportAsync().WaitAsync(Guard);
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(text, Removal));
@@ -180,11 +180,11 @@ public sealed class CheckupBudgetTests : IDisposable
         Write("回答尽量简短", "回复别太长", "别绕弯子");
         PickPersonaEntry();
         _models.ScriptDecision(ModelReply.Status(ModelDouble.DownStatus));
-        await Service.CheckupPromptAsync().WaitAsync(Guard);
+        await Service.CheckupReportAsync().WaitAsync(Guard);
         var callsWhileCooling = _models.DecisionCalls;
 
         _home.Clock.Elapse(TimeSpan.FromSeconds(30));
-        var text = await Service.CheckupPromptAsync().WaitAsync(Guard);
+        var text = await Service.CheckupReportAsync().WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > callsWhileCooling);
         Assert.DoesNotContain("Not checked", Section(text, Removal));
@@ -216,7 +216,7 @@ public sealed class CheckupBudgetTests : IDisposable
 
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
-        var complete = await Service.CheckupPromptAsync().WaitAsync(Guard);
+        var complete = await Service.CheckupReportAsync().WaitAsync(Guard);
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));

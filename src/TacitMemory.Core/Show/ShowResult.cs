@@ -12,8 +12,11 @@ public enum ShowTarget
     /// <summary>The memory skill, <c>SKILL.md</c>, as the agent reads it.</summary>
     Skill,
 
-    /// <summary>The <c>remember</c> prompt as it would be generated now.</summary>
+    /// <summary>The <c>tacit-remember</c> memory command, <c>SKILL.md</c>, as the agent reads it.</summary>
     Remember,
+
+    /// <summary>The <c>tacit-checkup</c> memory command, <c>SKILL.md</c>, as the agent reads it; not the report it reads.</summary>
+    Checkup,
 }
 
 /// <summary>Where a part of what the agent receives comes from.</summary>

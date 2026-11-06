@@ -27,7 +27,7 @@ namespace TacitMemory.Core;
 /// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
 /// <c>persona.md</c> changes, syncs the index when page, activity or persona files change, and refreshes
 /// the instructions when projects appear or disappear under <c>pages/</c>, and a watcher that reloads the prompt
-/// documents in <c>prompts/</c>, which also regenerates the memory skill. Create it with <see cref="Tacit.OpenService"/>.
+/// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -75,7 +75,7 @@ public sealed class MemoryService : IDisposable
         Config = config;
         _log = new ServiceLog(logger, config.Language, notice);
         _prompts = config.Prompts;
-        MemorySkill.Write(options.TacitHome, config.Prompts.Skill);
+        SkillSet.Write(options.TacitHome, config.Language, config.Prompts.Skill);
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _log.Record(LogLevel.Information, LogMessages.Started, ProductVersion.Current, config.Port, config.MemoryPath);
         foreach (var render in StartupRender)
@@ -164,21 +164,14 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    /// <summary>The text of the <c>remember</c> prompt for the given focus, built from the current activities and mainline.</summary>
-    public async Task<string> RememberPromptAsync(string? focus = null, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return RememberText.Render(_options, Config, focus);
-    }
-
     /// <summary>
-    /// The text of the <c>checkup</c> prompt, built from the repository as it is now: the steps, the structure words and the
-    /// checkup report. Reads only. Cancelling it abandons the report; nothing is written either way.
+    /// The text of the checkup report resource, built from the repository as it is now: the repository's path, today's
+    /// date and the checkup report. Reads only. Cancelling it abandons the report; nothing is written either way.
     /// </summary>
-    public async Task<string> CheckupPromptAsync(CancellationToken cancellationToken = default)
+    public async Task<string> CheckupReportAsync(CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return await CheckupPrompt.RenderAsync(_options, Config, _checkup, cancellationToken);
+        return await CheckupResource.RenderAsync(_options, Config, _checkup, cancellationToken);
     }
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
@@ -415,7 +408,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>
     /// Runs a maintenance operation with the memory to itself. First it waits for the background work already started (vector
     /// fills, checkup judgments and automatic backups) to finish, so the operation never races them. While it runs, memory
-    /// tool calls, server instructions, prompts and background syncs wait, then run. The operation must not call the read
+    /// tool calls, server instructions, the checkup report and background syncs wait, then run. The operation must not call the read
     /// or write paths, which would wait for it. Its start, its end and its failure are logged.
     /// </summary>
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
@@ -798,7 +791,7 @@ public sealed class MemoryService : IDisposable
                 var prompts = PromptFiles.Reload(_options.TacitHome, Config.Language, _prompts, problems);
                 foreach (var problem in problems)
                     _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
-                MemorySkill.Write(_options.TacitHome, prompts.Skill);
+                SkillSet.Write(_options.TacitHome, Config.Language, prompts.Skill);
                 _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
                 var residentChanged = prompts.Resident != _prompts.Resident;
                 lock (_instructionsGate)

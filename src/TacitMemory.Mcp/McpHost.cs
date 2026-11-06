@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
 using TacitMemory.Core;
@@ -48,9 +49,12 @@ public sealed class McpHost : IAsyncDisposable
                 };
             })
             .WithTools<MemoryTools>()
-            // Registers both the list and the get handlers. omp asks for the list regardless of the advertised
-            // capabilities and drops the server when that request fails, so it must always answer.
-            .WithPrompts<MemoryPrompts>();
+            .WithResources<MemoryResources>()
+            // TacitMemory offers no prompts, but omp asks for the list regardless of the advertised capabilities and
+            // drops the server when that request fails, so the list must always answer, with nothing in it.
+            .WithListPromptsHandler((_, _) => ValueTask.FromResult(new ListPromptsResult()))
+            .WithGetPromptHandler((request, _) =>
+                throw new McpProtocolException($"Unknown prompt '{request.Params?.Name}'.", McpErrorCode.InvalidParams));
 
         var app = builder.Build();
         ManagementApi.Map(app, service);

@@ -26,7 +26,7 @@ internal static class RedundantCandidates
 
         var status = Unanswered.Of(review.Judgments.Select(judgment => judgment.Outcome.Reason)).Status(
             count => $"Not checked: the decision or embedding model is unavailable, so whether {count} candidate(s) repeat the persona or the rejection list was not checked.",
-            count => $"{count} candidate(s) not checked yet, because the checkup ran out of time. Run `checkup` again to continue.");
+            count => $"{count} candidate(s) not checked yet, because the checkup ran out of time. Run the tacit-checkup skill again to continue.");
         return new CheckupSection(CheckupTitles.RedundantCandidates, findings, status);
     }
 }

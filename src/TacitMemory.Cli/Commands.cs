@@ -88,9 +88,9 @@ internal sealed class Commands
     [Command("disconnect")]
     public int Disconnect(ClientKind client) => Run(() => _tacit.Disconnect(client).Report);
 
-    /// <summary>Show what the agent receives: the server instructions, the resident block, the memory skill, the tool descriptions or the remember prompt, each with its source. Needs no running service.</summary>
-    /// <param name="target">instructions, resident, skill, tools or remember.</param>
-    /// <param name="default">Print the built-in text alone, ready to save as the file that replaces it (instructions, resident) or the skill's system part (skill).</param>
+    /// <summary>Show what the agent receives: the server instructions, the resident block, the memory skill, the tool descriptions, or the tacit-remember or tacit-checkup skill, each with its source. Needs no running service.</summary>
+    /// <param name="target">instructions, resident, skill, tools, remember or checkup.</param>
+    /// <param name="default">Print the built-in text alone, ready to save as the file that replaces it (instructions, resident) or the skill's system part (skill). Refused for tools, remember and checkup, which no file replaces.</param>
     [Command("show")]
     public Task<int> Show([Argument] ShowWhat target, bool @default = false) => RunAsync(async () => target switch
     {
@@ -98,7 +98,9 @@ internal sealed class Commands
         ShowWhat.Instructions => (await _tacit.ShowAsync(ShowTarget.Instructions, @default)).Report,
         ShowWhat.Resident => (await _tacit.ShowAsync(ShowTarget.Resident, @default)).Report,
         ShowWhat.Skill => (await _tacit.ShowAsync(ShowTarget.Skill, @default)).Report,
-        _ => (await _tacit.ShowAsync(ShowTarget.Remember, @default)).Report,
+        ShowWhat.Remember => (await _tacit.ShowAsync(ShowTarget.Remember, @default)).Report,
+        ShowWhat.Checkup => (await _tacit.ShowAsync(ShowTarget.Checkup, @default)).Report,
+        _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
     });
 
     /// <summary>
@@ -298,4 +300,5 @@ internal enum ShowWhat
     Skill,
     Tools,
     Remember,
+    Checkup,
 }

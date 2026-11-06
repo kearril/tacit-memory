@@ -190,7 +190,7 @@ public sealed class StatusColumnsTests : IDisposable
     }
 
     [Fact]
-    public async Task A_skill_link_that_points_elsewhere_is_reported_and_nothing_is_written()
+    public async Task A_skill_link_that_points_elsewhere_is_reported_by_name_and_nothing_is_written()
     {
         Connect();
         PointSkillLinkAt(Path.Combine(_home.Root, "elsewhere"));
@@ -200,8 +200,30 @@ public sealed class StatusColumnsTests : IDisposable
 
         var report = await tacit.OfflineStatus(config);
 
-        Assert.Equal(BindingProblem.SkillLinkNotMemorySkill, OnlyBinding(report).Problem);
-        Assert.Contains("skill 链接缺失或没有指向记忆 skill", Assert.Single(report.Bindings!.Lines));
+        var binding = OnlyBinding(report);
+        Assert.Equal(BindingProblem.SkillLinkNotTacit, binding.Problem);
+        Assert.Equal(SkillLink, binding.SkillLink);
+        Assert.Contains(SkillLink, Assert.Single(report.Bindings!.Lines));
+        Assert.Equal(before, Snapshot());
+    }
+
+    [Fact]
+    public async Task A_missing_memory_command_link_is_reported_by_name_and_nothing_is_written()
+    {
+        Connect();
+        var remember = Path.Combine(Path.GetDirectoryName(SkillLink)!, "tacit-remember");
+        Directory.Delete(remember, recursive: false);
+        var tacit = _home.Tacit();
+        var config = tacit.LoadConfig();
+        var before = Snapshot();
+
+        var report = await tacit.OfflineStatus(config);
+
+        var binding = OnlyBinding(report);
+        Assert.Equal(BindingProblem.SkillLinkNotTacit, binding.Problem);
+        Assert.Equal(remember, binding.SkillLink);
+        Assert.Contains(remember, Assert.Single(report.Bindings!.Lines));
+        Assert.False(Directory.Exists(remember));
         Assert.Equal(before, Snapshot());
     }
 

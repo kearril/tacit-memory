@@ -83,7 +83,8 @@ public sealed record BindingsStatus(string Title, IReadOnlyList<string> Lines, I
 /// <param name="Client">The client's name, as <c>bindings.json</c> records it.</param>
 /// <param name="ContextFile">The context file the resident block goes into.</param>
 /// <param name="Problem">What is wrong with the binding; <c>null</c> when it is healthy.</param>
-public sealed record BindingCheck(string Client, string ContextFile, BindingProblem? Problem);
+/// <param name="SkillLink">The skill link that is missing or points elsewhere, when <paramref name="Problem"/> says so.</param>
+public sealed record BindingCheck(string Client, string ContextFile, BindingProblem? Problem, string? SkillLink = null);
 
 /// <summary>The ways a binding can be broken, checked in this order; the first one found is reported.</summary>
 public enum BindingProblem
@@ -100,8 +101,8 @@ public enum BindingProblem
     /// <summary>The block's begin and end markers are missing, unpaired, or repeated.</summary>
     MarkersIncomplete,
 
-    /// <summary>The client's skill link is missing or does not point at the memory skill.</summary>
-    SkillLinkNotMemorySkill,
+    /// <summary>One of the client's skill links is missing or does not point at its tacit skill.</summary>
+    SkillLinkNotTacit,
 }
 
 /// <param name="LastCheckupDay">The day of the last checkup, or of the init commit standing in for it; <c>null</c> when there is none, or the history cannot be read.</param>

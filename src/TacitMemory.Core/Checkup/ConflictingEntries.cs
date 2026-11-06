@@ -55,7 +55,7 @@ internal static class ConflictingEntries
                 .ToList();
             var status = Unanswered.Of(reasons).Status(
                 count => $"Not checked: the decision or embedding model is unavailable, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
-                count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the checkup ran out of time. Run `checkup` again to continue.");
+                count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the checkup ran out of time. Run the tacit-checkup skill again to continue.");
             return new CheckupSection(CheckupTitles.ConflictingEntries, lines, status);
         };
     }
