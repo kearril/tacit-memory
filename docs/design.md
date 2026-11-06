@@ -570,7 +570,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | 0 | 成功；`status` 中表示服务在运行 |
 | 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认 |
 | 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突、非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制 |
+| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`，以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`；`init`、`disconnect`、`show tools` 与带 `--default` 的 `show` 不会返回 |
 | 4 | 服务未运行，含端口被其他程序占用 |
 
 结果写 stdout；错误与确认提示写 stderr。`restore` 在标准输入不是终端且未带 `--yes` 时以 2 结束，不挂起等待。
