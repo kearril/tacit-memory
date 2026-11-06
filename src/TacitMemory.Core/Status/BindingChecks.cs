@@ -7,8 +7,10 @@ namespace TacitMemory.Core.Status;
 
 /// <summary>
 /// The bindings column: for each binding in <c>bindings.json</c>, whether its context file exists and is UTF-8, its
-/// resident block's markers are complete and unique, and each skill link in its skills folder points at its tacit skill. It reads the files
-/// and writes none of them: nothing is rendered, so a check never changes what the client sees.
+/// resident block's markers are complete and unique, and each skill link in its skills folder points at its tacit skill.
+/// A context file or skills folder that several bindings share is checked once, for the first binding that names it; the
+/// others only say which bindings they share a path with. It reads the files and writes none of them: nothing is
+/// rendered, so a check never changes what the client sees.
 /// </summary>
 internal static class BindingChecks
 {
@@ -28,50 +30,78 @@ internal static class BindingChecks
         if (bindings.Count == 0)
             return new BindingsStatus(title, [ManagementApiMessages.BindingsNone.In(language)], []);
 
-        var items = bindings.Select(binding => Check(binding, options.TacitHome, language)).ToList();
+        var items = Checks(bindings, options.TacitHome, language);
         return new BindingsStatus(title, items.Select(item => LineOf(item, language)).ToList(), items);
     }
 
-    /// <summary>The first problem of a binding, in the order a user would fix them; no problem when it is healthy.</summary>
-    private static BindingCheck Check(BindingRecord binding, string tacitHome, MemoryLanguage language)
+    /// <summary>One check per binding, in record order. Each path is checked once, by the first binding that names it.</summary>
+    private static List<BindingCheck> Checks(IReadOnlyList<BindingRecord> bindings, string tacitHome, MemoryLanguage language)
     {
-        BindingCheck Broken(BindingProblem problem) => new(binding.Client, binding.ContextFile, binding.SkillsFolder, problem, null, []);
+        var checkedContextFiles = new HashSet<string>(BindingPath.Comparer);
+        var checkedSkillsFolders = new HashSet<string>(BindingPath.Comparer);
+        var items = new List<BindingCheck>();
+        foreach (var binding in bindings)
+        {
+            var contextProblem = checkedContextFiles.Add(binding.ContextFile) ? ContextFileProblem(binding.ContextFile, language) : null;
+            var (skillProblem, skillLink) = checkedSkillsFolders.Add(binding.SkillsFolder)
+                ? SkillsFolderProblem(binding.SkillsFolder, tacitHome)
+                : (null, null);
+            var sharedWith = SharedPaths.SharedWith(bindings, binding);
+
+            // The first problem in the order a user would fix them; a skill link is named only when it is the one reported.
+            items.Add(contextProblem is not null
+                ? new BindingCheck(binding.Client, binding.ContextFile, binding.SkillsFolder, contextProblem, null, sharedWith)
+                : new BindingCheck(binding.Client, binding.ContextFile, binding.SkillsFolder, skillProblem, skillLink, sharedWith));
+        }
+        return items;
+    }
+
+    /// <summary>The context file's problem: missing, not UTF-8, unreadable, or its markers are incomplete; <c>null</c> when it is fine.</summary>
+    private static BindingProblem? ContextFileProblem(string contextFile, MemoryLanguage language)
+    {
         try
         {
-            if (!File.Exists(binding.ContextFile))
-                return Broken(BindingProblem.ContextFileMissing);
+            if (!File.Exists(contextFile))
+                return BindingProblem.ContextFileMissing;
 
-            var text = TextFile.Read(binding.ContextFile);
+            var text = TextFile.Read(contextFile);
             if (text is null)
-                return Broken(BindingProblem.ContextFileNotUtf8);
+                return BindingProblem.ContextFileNotUtf8;
 
-            if (ContextFile.FindBlock(binding.ContextFile, text.Value.Text, language) is null)
-                return Broken(BindingProblem.MarkersIncomplete);
+            return ContextFile.FindBlock(contextFile, text.Value.Text, language) is null ? BindingProblem.MarkersIncomplete : null;
         }
         catch (TacitException e) when (e.Error == TacitError.MarkersBroken)
         {
-            return Broken(BindingProblem.MarkersIncomplete);
+            return BindingProblem.MarkersIncomplete;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return Broken(BindingProblem.ContextFileUnreadable);
+            return BindingProblem.ContextFileUnreadable;
         }
-
-        foreach (var (link, skillFolder) in SkillSet.Links(binding.SkillsFolder, tacitHome))
-        {
-            if (!SkillLink.Points(link, skillFolder))
-                return new BindingCheck(binding.Client, binding.ContextFile, binding.SkillsFolder, BindingProblem.SkillLinkNotTacit, link, []);
-        }
-        return new BindingCheck(binding.Client, binding.ContextFile, binding.SkillsFolder, null, null, []);
     }
 
-    private static string LineOf(BindingCheck item, MemoryLanguage language) => item.Problem switch
+    /// <summary>The first skill link in <paramref name="skillsFolder"/> that does not point at its tacit skill, with the link; nothing when all do.</summary>
+    private static (BindingProblem? Problem, string? Link) SkillsFolderProblem(string skillsFolder, string tacitHome)
     {
-        null => ManagementApiMessages.BindingOk.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-        BindingProblem.ContextFileMissing => ManagementApiMessages.BindingContextFileMissing.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-        BindingProblem.ContextFileNotUtf8 => ManagementApiMessages.BindingContextFileNotUtf8.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-        BindingProblem.ContextFileUnreadable => ManagementApiMessages.BindingContextFileUnreadable.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-        BindingProblem.MarkersIncomplete => ManagementApiMessages.BindingMarkersIncomplete.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-        _ => ManagementApiMessages.BindingSkillLinkNotTacit.Format(language, item.Client, item.ContextFile, item.SkillsFolder, item.SkillLink),
-    };
+        foreach (var (link, skillFolder) in SkillSet.Links(skillsFolder, tacitHome))
+        {
+            if (!SkillLink.Points(link, skillFolder))
+                return (BindingProblem.SkillLinkNotTacit, link);
+        }
+        return (null, null);
+    }
+
+    private static string LineOf(BindingCheck item, MemoryLanguage language)
+    {
+        var line = item.Problem switch
+        {
+            null => ManagementApiMessages.BindingOk.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.ContextFileMissing => ManagementApiMessages.BindingContextFileMissing.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.ContextFileNotUtf8 => ManagementApiMessages.BindingContextFileNotUtf8.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.ContextFileUnreadable => ManagementApiMessages.BindingContextFileUnreadable.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.MarkersIncomplete => ManagementApiMessages.BindingMarkersIncomplete.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            _ => ManagementApiMessages.BindingSkillLinkNotTacit.Format(language, item.Client, item.ContextFile, item.SkillsFolder, item.SkillLink),
+        };
+        return item.SharedWith.Count == 0 ? line : line + ManagementApiMessages.BindingSharedWith.Format(language, string.Join(", ", item.SharedWith));
+    }
 }

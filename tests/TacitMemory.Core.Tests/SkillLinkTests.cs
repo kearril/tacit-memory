@@ -325,6 +325,47 @@ public sealed class SkillLinkTests : IDisposable
         Assert.Equal("someone else's", File.ReadAllText(Path.Combine(other, "SKILL.md")));
     }
 
+    private string SkillsFolder => Path.Combine(_home.UserHome, ".omp", "agent", "skills");
+
+    private string BetaAgentsMd => Path.Combine(_home.UserHome, "beta", "AGENTS.md");
+
+    /// <summary>Binds omp, then beta with its own context file on the same skills folder; returns beta's result.</summary>
+    private BindingResult BindBetaOnTheSameSkills()
+    {
+        _home.Bind();
+        Directory.CreateDirectory(Path.GetDirectoryName(BetaAgentsMd)!);
+        return _home.Tacit().Connect(new ConnectRequest("beta", BetaAgentsMd, SkillsFolder));
+    }
+
+    [Fact]
+    public void A_second_client_on_a_skills_folder_reuses_the_links_and_says_whose_they_are()
+    {
+        var result = BindBetaOnTheSameSkills();
+
+        Assert.Contains("已由 omp 使用", result.Report);
+        Assert.All(Names, name => Assert.True(IsLinkEntry(LinkOf(name))));
+        Assert.Equal(2, JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]!.AsArray().Count);
+    }
+
+    [Theory]
+    [InlineData("omp")]
+    [InlineData("beta")]
+    public void Unbinding_one_of_two_clients_on_a_skills_folder_keeps_the_links_until_the_last_one_leaves(string first)
+    {
+        BindBetaOnTheSameSkills();
+        var last = first == "omp" ? "beta" : "omp";
+
+        var result = _home.Unbind(first);
+
+        Assert.Contains($"仍被 {last} 使用，保留", result.Report);
+        Assert.All(Names, name => Assert.Equal(Same(FolderOf(name)), Same(LeadsTo(LinkOf(name))!)));
+
+        _home.Unbind(last);
+
+        Assert.All(Names, name => Assert.False(Directory.Exists(LinkOf(name))));
+        Assert.All(Names, name => Assert.True(File.Exists(Path.Combine(FolderOf(name), "SKILL.md"))));
+    }
+
     private static string RunCmd(string command)
     {
         using var process = Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe"), $"/d /c {command}")

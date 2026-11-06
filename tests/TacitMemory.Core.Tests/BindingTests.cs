@@ -486,4 +486,120 @@ public sealed class BindingTests : IDisposable
         Assert.Equal(TacitError.BindingsInvalid, error.Error);
         Assert.Contains("bindings.json", error.Message);
     }
+
+    private static readonly string[] SkillNames = ["tacit-memory", "tacit-remember", "tacit-checkup"];
+
+    private string OtherAgentsMd => Path.Combine(_home.UserHome, "beta", "AGENTS.md");
+
+    private string OtherSkillsFolder => Path.Combine(_home.UserHome, "beta", "skills");
+
+    private string LinkOf(string name) => Path.Combine(SkillsFolder, name);
+
+    /// <summary>Whether <paramref name="path"/> is a junction or symbolic link entry, whatever it points to.</summary>
+    private static bool IsLinkEntry(string path) => new DirectoryInfo(path).LinkTarget is not null;
+
+    private static int CountBlocks(string text) => text.Split("<!-- tacit:begin").Length - 1;
+
+    private JsonObject RecordOf(string client) =>
+        JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]!.AsArray().Select(node => node!.AsObject()).Single(record => (string?)record["client"] == client);
+
+    private int RecordCount() => JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]!.AsArray().Count;
+
+    [Theory]
+    [InlineData("omp", "beta")]
+    [InlineData("beta", "omp")]
+    public void Clients_sharing_both_paths_keep_one_block_and_three_links_until_the_last_one_leaves(string first, string second)
+    {
+        File.WriteAllText(PersonaMd, Persona.ReplaceLineEndings("\n"));
+        _home.Bind("omp");
+        _home.Bind("beta");
+
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+        Assert.All(SkillNames, name => Assert.True(IsLinkEntry(LinkOf(name))));
+
+        _home.Unbind(first);
+
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+        Assert.All(SkillNames, name => Assert.True(IsLinkEntry(LinkOf(name))));
+        Assert.Single(JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]!.AsArray());
+
+        _home.Unbind(second);
+
+        Assert.False(File.Exists(AgentsMd));
+        Assert.All(SkillNames, name => Assert.False(Directory.Exists(LinkOf(name))));
+        Assert.Equal(0, RecordCount());
+    }
+
+    [Fact]
+    public void A_client_sharing_only_the_context_file_reuses_the_block_and_the_file_goes_with_the_last()
+    {
+        _home.Bind();
+        Directory.CreateDirectory(OtherSkillsFolder);
+
+        var result = _home.Tacit().Connect(new ConnectRequest("beta", AgentsMd, OtherSkillsFolder));
+
+        Assert.Contains("已由 omp 使用", result.Report);
+        Assert.True((bool?)RecordOf("beta")["createdContextFile"]);
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+
+        var first = _home.Unbind("omp");
+
+        Assert.Contains("仍被 beta 使用，保留", first.Report);
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+        Assert.All(SkillNames, name => Assert.True(IsLinkEntry(Path.Combine(OtherSkillsFolder, name))));
+
+        _home.Unbind("beta");
+
+        Assert.False(File.Exists(AgentsMd));
+    }
+
+    [Fact]
+    public void A_context_file_shared_by_two_clients_renders_once_with_one_result()
+    {
+        File.WriteAllText(PersonaMd, Persona.ReplaceLineEndings("\n"));
+        _home.Bind();
+        _home.Bind("beta");
+        File.WriteAllText(PersonaMd, "## 偏好\n- 沟通：先要结论\n");
+
+        var result = Assert.Single(_home.Tacit().RenderBlocks());
+
+        Assert.Equal(BlockState.Written, result.State);
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+        Assert.Contains("- 沟通：先要结论\n", File.ReadAllText(AgentsMd));
+    }
+
+    [Fact]
+    public void On_windows_a_path_spelled_in_other_case_is_the_same_place()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        File.WriteAllText(PersonaMd, Persona.ReplaceLineEndings("\n"));
+        _home.Bind();
+
+        var result = _home.Tacit().Connect(new ConnectRequest("beta", AgentsMd.ToUpperInvariant(), SkillsFolder.ToUpperInvariant()));
+
+        Assert.Contains("已由 omp 使用", result.Report);
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+        Assert.Single(_home.Tacit().RenderBlocks());
+
+        var first = _home.Unbind("omp");
+
+        Assert.Contains("仍被 beta 使用，保留", first.Report);
+        Assert.True(File.Exists(AgentsMd));
+        Assert.All(SkillNames, name => Assert.True(IsLinkEntry(LinkOf(name))));
+    }
+
+    [Fact]
+    public void A_name_bound_to_other_shared_paths_is_refused_and_writes_nothing()
+    {
+        _home.Bind();
+        Directory.CreateDirectory(Path.GetDirectoryName(OtherAgentsMd)!);
+        Directory.CreateDirectory(OtherSkillsFolder);
+        var before = Snapshot();
+
+        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(new ConnectRequest("omp", OtherAgentsMd, OtherSkillsFolder)));
+
+        Assert.Equal(TacitError.BindingConflict, error.Error);
+        Assert.Equal(before, Snapshot());
+    }
 }
