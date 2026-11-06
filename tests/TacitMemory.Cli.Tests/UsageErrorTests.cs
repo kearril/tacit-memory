@@ -23,9 +23,13 @@ public sealed class UsageErrorTests : IDisposable
         { ["connect", "--client", "omp", "--bogus"], "--bogus" },
         { ["init", "extra"], "extra" },
         { ["backup", "--to", "x", "--remote"], "--remote" },
-        { ["restore"], "zip" },
-        { ["restore", "x.zip", "--remote"], "--remote" },
+        { ["restore"], "--from" },
+        { ["restore", "x.zip"], "x.zip" },
+        { ["restore", "--from", "x.zip", "--remote"], "--remote" },
         { ["show", "tools", "--default"], "--default" },
+        { ["show", "remember", "--default"], "--default" },
+        { ["show", "checkup", "--default"], "--default" },
+        { ["show", "--default"], "--default" },
     };
 
     [Theory]

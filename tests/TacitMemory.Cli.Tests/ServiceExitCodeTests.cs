@@ -17,7 +17,7 @@ public sealed class ServiceExitCodeTests : IDisposable
     {
         { ["reindex"] },
         { ["backup"] },
-        { ["restore", "missing.zip"] },
+        { ["restore", "--from", "missing.zip"] },
     };
 
     [Theory]
@@ -78,11 +78,23 @@ public sealed class ServiceExitCodeTests : IDisposable
     }
 
     [Fact]
+    public async Task A_backup_without_options_is_written_to_the_backups_folder_of_tacit_home()
+    {
+        await _cli.StartServiceAsync();
+
+        var result = await _cli.RunAsync(["backup"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Single(Directory.GetFiles(Path.Combine(_cli.Home.TacitHome, "backups"), "manual-*.zip"));
+
+    }
+
+    [Fact]
     public async Task A_refusal_by_the_running_service_exits_1_with_its_message_on_stderr()
     {
         await _cli.StartServiceAsync();
 
-        var result = await _cli.RunAsync(["restore", _cli.Home.PathFor("missing.zip"), "--yes"]);
+        var result = await _cli.RunAsync(["restore", "--from", _cli.Home.PathFor("missing.zip"), "--yes"]);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Stdout);

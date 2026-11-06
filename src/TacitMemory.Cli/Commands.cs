@@ -16,17 +16,20 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     private readonly Tacit _tacit = new(options);
 
     /// <summary>TacitMemory's command line. Exit codes: 0 success, 1 failed, 2 usage error, 3 config invalid, 4 service not running.</summary>
-    /// <param name="command">The command name that is not known.</param>
     [Command("")]
-    public Task<int> Unknown([Argument] string? command = null) => Execute(() => throw new UsageException(command is null
-        ? "No command given. Run tacit --help to list the commands."
-        : $"Unknown command '{command}'. Run tacit --help to list the commands."));
+    public Task<int> Unknown(ConsoleAppContext context) => Execute(() =>
+    {
+        var command = FirstArgument(context);
+        throw new UsageException(command is null
+            ? "No command given. Run tacit --help to list the commands."
+            : $"Unknown command '{command}'. Run tacit --help to list the commands.");
+    });
 
     /// <summary>Create the config and the memory repository.</summary>
-    /// <param name="language">Memory language: zh or en. Defaults to the system UI language.</param>
-    /// <param name="memory">Memory repository location. Defaults to memory under TACIT_HOME.</param>
+    /// <param name="language">Memory language, zh or en.</param>
+    /// <param name="memory">Memory repository location.</param>
     [Command("init")]
-    public Task<int> Init(string? language = null, string? memory = null, CancellationToken cancellationToken = default) => Execute(async () =>
+    public Task<int> Init([HideDefaultValue] string? language = null, [HideDefaultValue] string? memory = null, CancellationToken cancellationToken = default) => Execute(async () =>
     {
         var parsed = language is null ? (MemoryLanguage?)null : ParseChoice<MemoryLanguage>("--language", language);
         var result = await _tacit.InitAsync(new InitRequest { Language = parsed, MemoryPath = memory }, cancellationToken);
@@ -104,26 +107,54 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     });
 
     /// <summary>Show what the agent receives, with each part's source. Needs no running service.</summary>
-    /// <param name="target">instructions, resident, skill, tools, remember or checkup.</param>
-    /// <param name="default">Print the built-in text alone, ready to save as the file that replaces it (instructions, resident) or the skill's system part (skill).</param>
     [Command("show")]
-    public Task<int> Show([Argument] string? target = null, bool @default = false) => Execute(async () =>
+    public Task<int> Show(ConsoleAppContext context) => Execute(() =>
     {
-        var what = ParseChoice<ShowWhat>("show target", target);
-        if (@default && what is ShowWhat.Tools or ShowWhat.Remember or ShowWhat.Checkup)
-            throw new UsageException($"--default cannot be used with show {Lower(what)}: no file replaces it.");
+        var subcommand = FirstArgument(context);
+        throw new UsageException(subcommand is null
+            ? "Missing show subcommand. Valid subcommands: instructions, resident, skill, tools, remember, checkup."
+            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, resident, skill, tools, remember, checkup.");
+    });
 
-        var report = what switch
-        {
-            ShowWhat.Tools => _tacit.ShowTools(ToolCatalog.Describe(), @default).Report,
-            ShowWhat.Instructions => (await _tacit.ShowAsync(ShowTarget.Instructions, @default)).Report,
-            ShowWhat.Resident => (await _tacit.ShowAsync(ShowTarget.Resident, @default)).Report,
-            ShowWhat.Skill => (await _tacit.ShowAsync(ShowTarget.Skill, @default)).Report,
-            ShowWhat.Remember => (await _tacit.ShowAsync(ShowTarget.Remember, @default)).Report,
-            ShowWhat.Checkup => (await _tacit.ShowAsync(ShowTarget.Checkup, @default)).Report,
-            _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
-        };
-        console.Out.WriteLine(report);
+    /// <summary>Show the server instructions a session receives.</summary>
+    /// <param name="default">Print only the built-in text, ready to save as the file that replaces it.</param>
+    [Command("show instructions")]
+    public Task<int> ShowInstructions(bool @default = false) => ShowPart(ShowTarget.Instructions, @default);
+
+    /// <summary>Show the resident block that is written into the context file.</summary>
+    /// <param name="default">Print only the built-in text, ready to save as the file that replaces it.</param>
+    [Command("show resident")]
+    public Task<int> ShowResident(bool @default = false) => ShowPart(ShowTarget.Resident, @default);
+
+    /// <summary>Show the memory skill.</summary>
+    /// <param name="default">Print only the built-in text of the skill's system part.</param>
+    [Command("show skill")]
+    public Task<int> ShowSkill(bool @default = false) => ShowPart(ShowTarget.Skill, @default);
+
+    /// <summary>Show the memory tools the agent can call.</summary>
+    [Command("show tools")]
+    public Task<int> ShowTools(ConsoleAppContext context) => Execute(() =>
+    {
+        RejectArguments(context);
+        console.Out.WriteLine(_tacit.ShowTools(ToolCatalog.Describe()).Report);
+        return Task.FromResult(0);
+    });
+
+    /// <summary>Show the remember skill.</summary>
+    [Command("show remember")]
+    public Task<int> ShowRemember(ConsoleAppContext context) => ShowPart(ShowTarget.Remember, useDefault: false, context);
+
+    /// <summary>Show the checkup skill.</summary>
+    [Command("show checkup")]
+    public Task<int> ShowCheckup(ConsoleAppContext context) => ShowPart(ShowTarget.Checkup, useDefault: false, context);
+
+    /// <summary>Prints one part of what the agent receives. A context is given only by the parts that take no options, so leftover words are refused.</summary>
+    private Task<int> ShowPart(ShowTarget target, bool useDefault, ConsoleAppContext? context = null) => Execute(async () =>
+    {
+        if (context is not null)
+            RejectArguments(context);
+        var result = await _tacit.ShowAsync(target, useDefault);
+        console.Out.WriteLine(result.Report);
         return 0;
     });
 
@@ -182,10 +213,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     });
 
     /// <summary>Back up the memory repository, config, prompts and bindings. Needs the running service.</summary>
-    /// <param name="to">Write the backup into this directory instead of TACIT_HOME/backups/; the directory is created when missing.</param>
-    /// <param name="remote">Upload the backup to the cloud (backup.webdav) instead; cannot be combined with --to.</param>
+    /// <param name="to">Directory to write the backup into.</param>
+    /// <param name="remote">Upload the backup to the cloud (backup.webdav) instead.</param>
     [Command("backup")]
-    public Task<int> Backup(string? to = null, bool remote = false, CancellationToken cancellationToken = default) => Execute(() =>
+    public Task<int> Backup([HideDefaultValue] string? to = null, bool remote = false, CancellationToken cancellationToken = default) => Execute(() =>
     {
         if (remote && to is not null)
             throw new UsageException("--to and --remote cannot be combined: a backup goes to one place.");
@@ -202,29 +233,29 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         });
     });
 
-    /// <summary>
-    /// Restore the memory repository from a backup zip, or from the cloud backup with <c>--remote</c>. Needs the running service.
+    /// <summary>Restore the memory repository from a backup zip or from the cloud backup. Needs the running service.</summary>
+    /// <remarks>
     /// Shows what the backup holds and what the restore replaces, then waits for a line that is exactly <c>y</c> before it changes
     /// anything; <c>--yes</c> skips the wait. Without <c>--yes</c>, standard input must be a terminal to answer.
     /// A cloud restore downloads the cloud backup to TACIT_HOME/backups/.download/ first,
     /// and the confirmed restore takes that same file.
-    /// </summary>
-    /// <param name="zip">The backup zip to restore from; cannot be combined with <c>--remote</c>.</param>
-    /// <param name="remote">Restore from the cloud backup in <c>backup.webdav</c> instead of a zip.</param>
-    /// <param name="config">Also restore <c>config.yaml</c> and <c>prompts/</c> from the backup; <c>bindings.json</c> is never restored.</param>
-    /// <param name="yes">Restore without asking, after the preview is shown.</param>
+    /// </remarks>
+    /// <param name="from">The backup zip to restore from; cannot be combined with <c>--remote</c>.</param>
+    /// <param name="remote">Restore from the cloud backup (backup.webdav) instead.</param>
+    /// <param name="includeConfig">Also restore config.yaml and prompts/ from the backup.</param>
+    /// <param name="yes">-y, Restore without asking, after the preview is shown.</param>
     [Command("restore")]
-    public Task<int> Restore([Argument] string? zip = null, bool remote = false, bool config = false, bool yes = false, CancellationToken cancellationToken = default) => Execute(() =>
+    public Task<int> Restore([HideDefaultValue] string? from = null, bool remote = false, bool includeConfig = false, bool yes = false, CancellationToken cancellationToken = default) => Execute(() =>
     {
-        if (zip is null && !remote)
-            throw new UsageException("Give a backup zip to restore from, or --remote for the cloud backup.");
-        if (zip is not null && remote)
-            throw new UsageException("A backup zip and --remote cannot be combined: restore from one place.");
+        if (from is null && !remote)
+            throw new UsageException("Give a backup zip with --from, or --remote for the cloud backup.");
+        if (from is not null && remote)
+            throw new UsageException("--from and --remote cannot be combined: restore from one place.");
 
-        var path = zip is null ? null : Path.GetFullPath(zip);
+        var path = from is null ? null : Path.GetFullPath(from);
         return WithServiceAsync(async api =>
         {
-            var preview = await api.PostAsync<RestorePreview>("restore", new RestoreBody { Path = path, Remote = remote, Config = config, Preview = true }, cancellationToken);
+            var preview = await api.PostAsync<RestorePreview>("restore", new RestoreBody { Path = path, Remote = remote, Config = includeConfig, Preview = true }, cancellationToken);
             console.Out.WriteLine(preview.Report);
             if (!yes)
             {
@@ -241,7 +272,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             }
 
             // The confirmed file is the one the preview named, so a cloud restore takes the file that was shown.
-            var result = await api.PostAsync<RestoreResult>("restore", new RestoreBody { Path = preview.Path, Config = config, Preview = false }, cancellationToken);
+            var result = await api.PostAsync<RestoreResult>("restore", new RestoreBody { Path = preview.Path, Config = includeConfig, Preview = false }, cancellationToken);
             console.Out.WriteLine(result.Report);
             return 0;
         });
@@ -315,6 +346,9 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             throw new UsageException($"Argument '{rest[0]}' is not recognized.");
     }
 
+    /// <summary>The first word after the command name, which a catch-all command reports as unknown; null when there is none.</summary>
+    private static string? FirstArgument(ConsoleAppContext context) => context.CommandArguments is { Length: > 0 } rest ? rest[0] : null;
+
     private int Fail(int exitCode, string message)
     {
         console.Error.WriteLine(message);
@@ -340,17 +374,4 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             ?? throw new UsageException($"Invalid {what} '{value}'. Valid values: {valid}.");
         return Enum.Parse<T>(match);
     }
-
-    private static string Lower<T>(T value) where T : Enum => value.ToString().ToLowerInvariant();
-}
-
-/// <summary>The targets of <c>tacit show</c>.</summary>
-internal enum ShowWhat
-{
-    Instructions,
-    Resident,
-    Skill,
-    Tools,
-    Remember,
-    Checkup,
 }
