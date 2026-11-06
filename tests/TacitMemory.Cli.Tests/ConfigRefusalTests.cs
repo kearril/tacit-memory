@@ -67,4 +67,46 @@ public sealed class ConfigRefusalTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.NotEmpty(result.Stdout);
     }
+
+    [Fact]
+    public async Task Status_with_an_invalid_config_exits_3_and_shows_the_config_errors_with_the_running_service()
+    {
+        _cli.InitReady();
+        await _cli.StartServiceAsync();
+        _cli.BreakConfig();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("models.embedding.endpoint", result.Stdout);
+        Assert.Contains("运行中", result.Stdout);
+        Assert.Empty(result.Stderr);
+    }
+
+    [Fact]
+    public async Task Status_with_an_invalid_config_exits_3_and_gives_the_endpoint_when_the_service_is_not_running()
+    {
+        _cli.InitReady();
+        _cli.BreakConfig();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("models.embedding.endpoint", result.Stdout);
+        Assert.Contains("服务未运行", result.Stdout);
+        Assert.Contains($"http://127.0.0.1:{_cli.Port}/mcp", result.Stdout);
+    }
+
+    [Fact]
+    public async Task Status_with_an_invalid_config_exits_3_and_names_another_program_on_the_port()
+    {
+        _cli.InitReady();
+        _cli.BreakConfig();
+        await _cli.StartForeignListenerAsync();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains($"端口 {_cli.Port} 有其他程序在回答", result.Stdout);
+    }
 }
