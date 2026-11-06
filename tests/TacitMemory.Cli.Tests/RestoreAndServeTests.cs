@@ -35,7 +35,7 @@ public sealed class RestoreConfirmationTests : IAsyncLifetime
     [Fact]
     public async Task Without_yes_a_non_terminal_stdin_is_a_usage_error_and_restores_nothing()
     {
-        var result = await _cli.RunAsync(["restore", _zip], stdinIsTerminal: false);
+        var result = await _cli.RunAsync(["restore", "--from", _zip], stdinIsTerminal: false);
 
         Assert.Equal(2, result.ExitCode);
         Assert.Contains("--yes", result.Stderr);
@@ -45,7 +45,7 @@ public sealed class RestoreConfirmationTests : IAsyncLifetime
     [Fact]
     public async Task At_a_terminal_an_answer_other_than_y_cancels_with_exit_1()
     {
-        var result = await _cli.RunAsync(["restore", _zip], stdin: "n\n", stdinIsTerminal: true);
+        var result = await _cli.RunAsync(["restore", "--from", _zip], stdin: "n\n", stdinIsTerminal: true);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Equal("after", File.ReadAllText(Persona));
@@ -54,10 +54,26 @@ public sealed class RestoreConfirmationTests : IAsyncLifetime
     [Fact]
     public async Task With_yes_the_backup_is_restored_and_exits_0()
     {
-        var result = await _cli.RunAsync(["restore", _zip, "--yes"], stdinIsTerminal: false);
+        var result = await _cli.RunAsync(["restore", "--from", _zip, "--yes"], stdinIsTerminal: false);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Equal("before", File.ReadAllText(Persona));
+    }
+
+    [Fact]
+    public async Task The_short_y_restores_without_asking_and_exits_0()
+    {
+        var result = await _cli.RunAsync(["restore", "--from", _zip, "-y"], stdinIsTerminal: false);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("before", File.ReadAllText(Persona));
+    }
+
+    [Fact]
+    public async Task The_old_config_flag_is_refused_and_include_config_is_accepted()
+    {
+        Assert.Equal(2, (await _cli.RunAsync(["restore", "--from", _zip, "--config", "--yes"])).ExitCode);
+        Assert.Equal(0, (await _cli.RunAsync(["restore", "--from", _zip, "--include-config", "--yes"])).ExitCode);
     }
 }
 

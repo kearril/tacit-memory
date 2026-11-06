@@ -201,7 +201,7 @@ _Avoid_: 远程备份、同步、推送
 代码中以 `Cloud` 命名：`BackupTarget.Cloud`、`CloudBackupRecord`、`TacitError.CloudBackupFailed`、`TacitError.CloudBackupNotConfigured`。命令行 `--remote` 与管理 API 的 `target: "remote"`、`remote: true` 是规格定义的线上值，保持 `remote`，与代码名的对应只在此处说明。
 
 **恢复**（Restore）：
-用备份 zip 替换记忆仓库的操作：先预览，确认后执行，执行前先生成保险备份；加 `--config` 时一并替换 `config.yaml` 与 `prompts/`。`tacit restore --remote` 先下载云端备份，之后走同一流程。
+用备份 zip 替换记忆仓库的操作：先预览，确认后执行，执行前先生成保险备份；加 `--include-config` 时一并替换 `config.yaml` 与 `prompts/`。`tacit restore --remote` 先下载云端备份，之后走同一流程。
 _Avoid_: 还原、导入
 
 **门面**（Facade）：

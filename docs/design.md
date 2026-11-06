@@ -479,12 +479,12 @@ skill 链接：`connect --client omp` 先检查 `~/.omp/agent/skills/` 下的三
 - 替换是原子的：先把 zip `PUT` 为 `tacit-backup.zip.part`，再 `MOVE` 到 `tacit-backup.zip`（`Overwrite: T`），上传中途失败时远端旧的那份保持不变。远端目录不存在时对目录 `MKCOL`（只建最后一级）后重试一次上传。服务不支持 `MOVE`（405 或 501）时报错"该 WebDAV 服务不支持原子替换"，不回退为直接覆盖。替换失败（上传或 `MOVE` 失败，含不支持 `MOVE`）时尽力删除 `.part`，删除失败不影响报错。
 - 只使用通用 WebDAV 方法与 HTTP 基本认证；`username` 省略时不发送认证。每个请求（含响应体的读取）单独计时，超过 10 分钟即失败（硬编码），请求本身不重试（父目录缺失时的 MKCOL 与重传见上文）。错误信息说明阶段（连接、认证、上传、替换、下载）与 HTTP 状态码，不含密码与 URL 中的凭据。
 - 每次尝试的时间与结果（成功，或失败原因）记入 `backups/remote.json`，`tacit status` 的备份栏据此显示最近一次云端备份；该文件不进入任何备份，状态显示不访问网络。
-- 恢复（`tacit restore <zip> [--config] [--yes]` 本地备份，或 `tacit restore --remote [--config] [--yes]` 云端备份）由常驻服务执行，先预览：备份的生成时间、tacit 版本、`kind`、记忆仓库 HEAD 的提交号与说明、文件数，以及将被替换的内容。未加 `--yes` 时等待输入 `y`，其余输入一律取消（退出码 1）。
+- 恢复（`tacit restore --from <zip> [--include-config] [--yes]` 本地备份，或 `tacit restore --remote [--include-config] [--yes]` 云端备份）由常驻服务执行，先预览：备份的生成时间、tacit 版本、`kind`、记忆仓库 HEAD 的提交号与说明、文件数，以及将被替换的内容。未加 `--yes` 时等待输入 `y`，其余输入一律取消（退出码 1）；标准输入不是终端时不等待，预览后以用法错误（退出码 2）结束，不发出执行请求。
 - 拒绝且什么都不改的情况：清单缺失、无法解析或与内容不符；缺少 `memory/.git/`；条目不在允许的位置（只能是 `memory/`、`prompts/` 或根下的 `config.yaml`、`bindings.json`、`manifest.json`），或含 `..`、绝对路径。
-- 确认后，执行顺序：等在途的后台任务结束 → 停止两个监听、关闭派生索引 → 生成保险备份（失败即中止）→ 把备份的 `memory/` 解压到 `memory.path` 内的隐藏暂存目录 `.tacit-restore-<id>`，当前内容移到同处的隐藏目录 `.tacit-previous-<id>`，暂存内容再移入（`memory.path` 目录本身保留，`.cache/` 不动；两个隐藏目录与记忆仓库同卷，移动均为重命名，不依赖 `memory.path` 的父目录所在卷；索引重建与备份都不把它们当作内容）→ 加 `--config` 时先把 `config.yaml` 写到 `TACIT_HOME/restore-<id>` 下的临时位置再替换，`prompts/` 整体替换（备份中没有的文件删除），并读取恢复回来的配置以确认能否加载，不能加载时照常完成并在结果中附错误（列出键路径），提示重启 `tacit serve` 前需修正 → 全量重建索引 → 删除两个隐藏目录与 `TACIT_HOME/restore-<id>`（上述删除在重建成功之后才执行，重建失败时仍可撤销换入）→ 恢复监听 → 加 `--config` 时重载提示词 → 使服务端说明失效 → 重新渲染常驻区块。
+- 确认后，执行顺序：等在途的后台任务结束 → 停止两个监听、关闭派生索引 → 生成保险备份（失败即中止）→ 把备份的 `memory/` 解压到 `memory.path` 内的隐藏暂存目录 `.tacit-restore-<id>`，当前内容移到同处的隐藏目录 `.tacit-previous-<id>`，暂存内容再移入（`memory.path` 目录本身保留，`.cache/` 不动；两个隐藏目录与记忆仓库同卷，移动均为重命名，不依赖 `memory.path` 的父目录所在卷；索引重建与备份都不把它们当作内容）→ 加 `--include-config` 时先把 `config.yaml` 写到 `TACIT_HOME/restore-<id>` 下的临时位置再替换，`prompts/` 整体替换（备份中没有的文件删除），并读取恢复回来的配置以确认能否加载，不能加载时照常完成并在结果中附错误（列出键路径），提示重启 `tacit serve` 前需修正 → 全量重建索引 → 删除两个隐藏目录与 `TACIT_HOME/restore-<id>`（上述删除在重建成功之后才执行，重建失败时仍可撤销换入）→ 恢复监听 → 加 `--include-config` 时重载提示词 → 使服务端说明失效 → 重新渲染常驻区块。
 - `bindings.json` 永远不恢复。记忆仓库恢复到当前配置的 `memory.path`；恢复回来的 `config.yaml` 指向另一个路径时只提示，不搬目录。运行中的服务继续使用当前加载的配置。
 - 换入之后任一步失败：记忆仓库逆序撤销换入，回到恢复前的内容，监听与索引照常恢复，错误附保险备份路径。
-- 结果：保险备份路径、恢复后的 HEAD、索引重建的文件数、单元数与向量数；加 `--config` 时附"`config.yaml` 重启 `tacit serve` 后生效"；恢复回来的 `memory.path` 不同时附"重启后会指向 X，记忆仓库已恢复到 Y"。
+- 结果：保险备份路径、恢复后的 HEAD、索引重建的文件数、单元数与向量数；加 `--include-config` 时附"`config.yaml` 重启 `tacit serve` 后生效"；恢复回来的 `memory.path` 不同时附"重启后会指向 X，记忆仓库已恢复到 Y"。
 - 云端恢复（`--remote`）：服务先把远端的 `tacit-backup.zip` 下载到 `backups/.download/tacit-backup.zip`（覆盖已有文件），校验后预览，预览中给出下载文件的本地路径。确认后以这个路径走上面的同一条恢复流程，所以确认的与恢复的是同一个文件；恢复成功后删除该文件，失败则保留以便排查。远端没有备份时提示"远端没有云端备份"；认证、连接与下载失败沿用云端备份的阶段提示。`.download/` 不是备份：不计入 `status` 的最近本地备份，也不被清理逻辑触及。
 
 ### 配置
@@ -547,11 +547,11 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
 | `tacit serve` | 启动常驻服务；未初始化时报错 | — |
 | `tacit connect` / `tacit disconnect` | `--client omp`、`--client claude-code` 或 `--file <路径>` | 否 |
-| `tacit show <instructions、resident、skill、tools、remember 或 checkup> [--default]` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 由 CLI 经 `TacitMemory.Mcp` 读取；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
+| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 由 CLI 经 `TacitMemory.Mcp` 读取；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用与冷却（含剩余秒数）、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值）。服务未运行时写明"服务未运行"，服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`），省略服务运行时数据与辅助模型，其余各栏照常（退出码 4）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径；此时仍宽松读取 `server.port`（读不出、文件不存在或 YAML 无法解析时为 18888）与 `language`（读不出时取系统界面语言）探测服务：服务在运行则并入它的各栏，未运行或端口被他人占用则在服务栏注明，退出码均为 3。配置有效时退出码 0 或 4 只看服务是否运行，不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
 | `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
-| `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份（`--to` 写到指定目录）；`--remote` 上传云端备份，远端只保留一份；两者不能同时使用 | 是 |
-| `tacit restore <文件>\|--remote [--config] [--yes]` | 从本地备份或云端备份恢复：先显示预览，输入 `y` 后执行（`--yes` 跳过确认）；`--config` 一并恢复 `config.yaml` 与 `prompts/`；`--remote` 先下载云端备份，确认的即恢复的文件 | 是 |
+| `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份（不给选项时写到 `TACIT_HOME/backups/`，`--to` 写到指定目录）；`--remote` 上传云端备份，远端只保留一份；两者不能同时使用 | 是 |
+| `tacit restore --from <文件>\|--remote [--include-config] [--yes]` | 从本地备份或云端备份恢复：先显示预览，输入 `y` 后执行（`--yes`，短写 `-y`，跳过确认）；`--from` 与 `--remote` 恰好给一个；`--include-config` 一并恢复 `config.yaml` 与 `prompts/`；`--remote` 先下载云端备份，确认的即恢复的文件 | 是 |
 
 退出码（所有命令一致）：
 
@@ -563,7 +563,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制 |
 | 4 | 服务未运行，含端口被其他程序占用 |
 
-结果写 stdout；错误与确认提示写 stderr。
+结果写 stdout；错误与确认提示写 stderr。`restore` 在标准输入不是终端且未带 `--yes` 时以 2 结束，不挂起等待。
 
 - `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect` 写客户端文件、客户端 skill 目录中的链接、`bindings.json` 与三个 skill 成品，`disconnect` 写客户端文件、链接与 `bindings.json`；两者加载配置时都会按上文补写缺失的 `rules.md`，只有 `connect` 生成 skill。
 - `show` 与 `init`、`connect` 一样直接调用门面，不读写常驻服务的状态；输出不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）。
