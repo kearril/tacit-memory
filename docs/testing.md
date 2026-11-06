@@ -2,7 +2,7 @@
 
 本文档定义测试接缝、测试环境与运行方式。
 
-## 1. 两个测试接缝
+## 1. 三个测试接缝
 
 测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的唯一例外见第 3 节）。等待后台备份、向量补齐或体检判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
 
@@ -69,6 +69,18 @@
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌。
    - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，体检报告的内容由 `CheckupReportTests` 覆盖。
+3. **`tests/TacitMemory.Cli.Tests`：CLI 接缝**
+   - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道（参数解析、用法检查、执行与退出码）。`CliHarness` 注入 `TestHome` 的 `TacitOptions`（临时用户主目录与临时 `TACIT_HOME`）、捕获 stdout 与 stderr 的写入器、可编排的 stdin，以及 stdout、stderr、stdin 三个终端标志；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
+   - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `McpHost`，与 `McpHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
+   - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
+   - 测试类索引：
+     - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺目标或目标未知、`connect` 缺 `--client`、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 缺参数、`show tools --default`）；用法错误先于配置检查；枚举取值不区分大小写。
+     - `ConfigRefusalTests`：配置无法加载（endpoint 非法，或缺决策模型密钥）时 `connect`、`status`、`backup`、`reindex`、`show` 为 3，说明含缺失的环境变量名；`disconnect` 与 `show … --default` 照常为 0。
+     - `ServiceExitCodeTests`：服务未运行时 `reindex`、`backup`、`restore`、`status` 为 4，说明提示先执行 `tacit serve`；端口被非 tacit 的 HTTP 监听占用时 `status` 为 4；服务运行时 `status` 为 0，纯文本输出无控制字符；服务拒绝请求时为 1，说明只在 stderr。
+     - `HelpAndOutputTests`：`-h`、`--help`、`connect --help`、裸命令与 `--version` 为 0；`connect` 只绑定临时用户主目录；`show … --default` 的 stdout 只有内置文本。
+     - `RestoreConfirmationTests`：`restore` 的确认（stdin 非终端且无 `--yes` 为 2 且什么都不恢复；终端输入非 `y` 为 1；`--yes` 为 0）。
+     - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0。
+   - 未自动化：美化后的外观（面板、颜色、转圈）在实机验收中目测。
 
 ## 2. 模型依赖
 
@@ -100,6 +112,7 @@
 ```powershell
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝
 dotnet test tests/TacitMemory.Mcp.Tests                                # MCP 接缝
+dotnet test tests/TacitMemory.Cli.Tests                                # CLI 接缝
 dotnet test tests/TacitMemory.Core.Tests --filter "FullyQualifiedName~InitTests"   # 单个测试类
 dotnet test TacitMemory.slnx                                           # 全量
 ```
