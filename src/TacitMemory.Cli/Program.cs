@@ -10,5 +10,6 @@ var console = new CliConsole(
     Console.In,
     OutIsTerminal: !Console.IsOutputRedirected,
     ErrorIsTerminal: !Console.IsErrorRedirected,
-    InIsTerminal: !Console.IsInputRedirected);
+    InIsTerminal: !Console.IsInputRedirected,
+    NoColor: !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
 return await CommandLine.RunAsync(args, TacitOptions.FromEnvironment(), console);

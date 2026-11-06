@@ -70,7 +70,7 @@
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌。
    - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，体检报告的内容由 `CheckupReportTests` 覆盖。
 3. **`tests/TacitMemory.Cli.Tests`：CLI 接缝**
-   - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道（参数解析、用法检查、执行与退出码）。`CliHarness` 注入 `TestHome` 的 `TacitOptions`（临时用户主目录与临时 `TACIT_HOME`）、捕获 stdout 与 stderr 的写入器、可编排的 stdin，以及 stdout、stderr、stdin 三个终端标志；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
+   - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道（参数解析、用法检查、执行与退出码）。`CliHarness` 注入 `TestHome` 的 `TacitOptions`（临时用户主目录与临时 `TACIT_HOME`）、捕获 stdout 与 stderr 的写入器、可编排的 stdin，以及 stdout、stderr、stdin 三个终端标志与 `NO_COLOR` 设置；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
    - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `McpHost`，与 `McpHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
    - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
    - 测试类索引：
@@ -81,6 +81,8 @@
      - `BindingCommandTests`：`connect` 缺任一选项为 2 且不写任何文件；成功时 stdout 含 MCP 端点 URL；名称不合规为 2；`disconnect` 只需 `--client`、路径取自记录；名称不存在为 1。
      - `RestoreConfirmationTests`：`restore` 的确认（stdin 非终端且无 `--yes` 为 2 且什么都不恢复；终端输入非 `y` 为 1；`--yes` 与 `-y` 为 0）；旧的 `--config` 为用法错误，`--include-config` 可用。
      - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0。
+     - `OutputStylingTests`：不需要服务的 `status` 与 `connect`：stdout 不是终端，或设置了 `NO_COLOR` 时为纯文本、不含控制字符；终端中的美化与纯文本显示相同的文字；终端 stderr 下失败的等待仍为 4。
+     - `StyledRestoreAndWaitTests`：需要服务的 `restore` 预览（纯文本、`NO_COLOR` 与终端中的美化文字相同），`reindex` 与 `restore --yes` 的转圈只出现在终端 stderr 且 stdout 仍为纯文本，stdout 与 stderr 各自判断。
    - 未自动化：美化后的外观（面板、颜色、转圈）在实机验收中目测。
 
 ## 2. 模型依赖
