@@ -26,28 +26,30 @@ internal static class RestorePreviewBuilder
         }
 
         var generated = manifest.GeneratedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture) ?? unknown;
-        var lines = new List<string>
+        var lines = new List<PreviewLine>
         {
-            RestoreMessages.PreviewBackup.Format(language, path),
-            RestoreMessages.PreviewGenerated.Format(language, generated),
-            RestoreMessages.PreviewVersion.Format(language, manifest.TacitVersion ?? unknown),
-            RestoreMessages.PreviewKind.Format(language, manifest.Kind ?? unknown),
-            RestoreMessages.PreviewHead.Format(language, manifest.MemoryHead),
+            Plain(RestoreMessages.PreviewBackup.Format(language, path)),
+            Plain(RestoreMessages.PreviewGenerated.Format(language, generated)),
+            Plain(RestoreMessages.PreviewVersion.Format(language, manifest.TacitVersion ?? unknown)),
+            Plain(RestoreMessages.PreviewKind.Format(language, manifest.Kind ?? unknown)),
+            Plain(RestoreMessages.PreviewHead.Format(language, manifest.MemoryHead)),
         };
         if (manifest.MemoryHeadSubject is not null)
-            lines.Add(RestoreMessages.PreviewHeadSubject.Format(language, manifest.MemoryHeadSubject));
-        lines.Add(RestoreMessages.PreviewFiles.Format(language, manifest.Files!.Count));
-        lines.Add(RestoreMessages.PreviewReplacesTitle.In(language));
-        lines.AddRange(replaces);
-        lines.Add(RestoreMessages.BindingsKept.In(language));
+            lines.Add(Plain(RestoreMessages.PreviewHeadSubject.Format(language, manifest.MemoryHeadSubject)));
+        lines.Add(Plain(RestoreMessages.PreviewFiles.Format(language, manifest.Files!.Count)));
+        lines.Add(Plain(RestoreMessages.PreviewReplacesTitle.In(language)));
+        lines.AddRange(replaces.Select(text => new PreviewLine(text, Replaces: true)));
+        lines.Add(Plain(RestoreMessages.BindingsKept.In(language)));
 
         if (withConfig && ConfigProblem(options, archive) is { } problem)
-            lines.Add(RestoreMessages.PreviewConfigProblem.Format(language, problem));
+            lines.Add(Plain(RestoreMessages.PreviewConfigProblem.Format(language, problem)));
 
         return new RestorePreview(
             path, manifest.GeneratedAt, manifest.TacitVersion, manifest.Kind, manifest.MemoryHead!, manifest.MemoryHeadSubject,
-            manifest.Files!.Count, withConfig, replaces, string.Join('\n', lines), RestoreMessages.Prompt.In(language), RestoreMessages.Cancelled.In(language));
+            manifest.Files!.Count, withConfig, replaces, lines, RestoreMessages.Prompt.In(language), RestoreMessages.Cancelled.In(language));
     }
+
+    private static PreviewLine Plain(string text) => new(text, Replaces: false);
 
     /// <summary>
     /// The errors of the backup's <c>config.yaml</c> when it does not load, or <c>null</c>. Only the config's own errors

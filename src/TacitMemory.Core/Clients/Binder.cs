@@ -50,17 +50,17 @@ internal static class Binder
         // An inherited answer keeps the creator's: the last binding that uses an empty context file removes it.
         var createdContextFile = previous?.CreatedContextFile
             ?? (contextUsers.Count > 0 ? contextUsers[0].CreatedContextFile : !File.Exists(contextFile));
-        var report = new StringBuilder();
+        var report = new List<string>();
 
         if (skillUsers.Count > 0)
-            report.AppendLine(Messages.SkillsFolderShared.Format(language, skillsFolder, SharedPaths.Names(skillUsers)));
+            report.Add(Messages.SkillsFolderShared.Format(language, skillsFolder, SharedPaths.Names(skillUsers)));
         foreach (var skill in SkillSet.Write(options.TacitHome, language, config.Prompts.Skill).Skills)
-            report.AppendLine((skill.Written ? Messages.SkillWritten : Messages.SkillUnchanged).Format(language, skill.Path));
+            report.Add((skill.Written ? Messages.SkillWritten : Messages.SkillUnchanged).Format(language, skill.Path));
 
         if (contextUsers.Count > 0)
-            report.AppendLine(Messages.ContextFileShared.Format(language, contextFile, SharedPaths.Names(contextUsers)));
+            report.Add(Messages.ContextFileShared.Format(language, contextFile, SharedPaths.Names(contextUsers)));
         var written = ContextFile.Put(contextFile, block, language);
-        report.AppendLine((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, contextFile));
+        report.Add((written ? Messages.BlockWritten : Messages.BlockUnchanged).Format(language, contextFile));
 
         var created = new List<(string Link, string SkillFolder)>();
         try
@@ -70,7 +70,7 @@ internal static class Binder
                 var made = SkillLink.Put(link, skillFolder, language);
                 if (made)
                     created.Add((link, skillFolder));
-                report.AppendLine((made ? Messages.SkillLinked : Messages.SkillLinkUnchanged).Format(language, link));
+                report.Add((made ? Messages.SkillLinked : Messages.SkillLinkUnchanged).Format(language, link));
             }
 
             store.Put(new BindingRecord(client, contextFile, skillsFolder, createdContextFile));
@@ -84,12 +84,13 @@ internal static class Binder
         }
 
         var endpoint = new Uri($"http://127.0.0.1:{config.Port}/mcp");
-        report.AppendLine(Messages.Connected.Format(language, client));
-        report.AppendLine(Messages.McpEndpoint.Format(language, endpoint));
-        report.AppendLine(Messages.McpTransport.In(language));
-        report.AppendLine(Messages.McpServerName.In(language));
-        report.Append(Messages.McpPortReminder.In(language));
-        return new BindingResult(contextFile, endpoint, report.ToString());
+        report.Add(Messages.Connected.Format(language, client));
+        return new BindingResult(
+            contextFile,
+            endpoint,
+            report,
+            [Messages.McpEndpoint.Format(language, endpoint), Messages.McpTransport.In(language), Messages.McpServerName.In(language)],
+            [Messages.McpPortReminder.In(language)]);
     }
 
     /// <summary>
@@ -105,22 +106,22 @@ internal static class Binder
         var bindings = store.Read();
         var binding = bindings.FirstOrDefault(existing => existing.Client == name)
             ?? throw new TacitException(TacitError.BindingNotFound, Messages.BindingNotFound.Format(language, name));
-        var report = new StringBuilder();
+        var report = new List<string>();
 
         // A context file another binding still uses stays exactly as it is; the last binding that uses it removes the block.
         var contextUsers = SharedPaths.ContextFileUsers(bindings, name, binding.ContextFile);
         if (contextUsers.Count > 0)
-            report.AppendLine(Messages.ContextFileStillUsed.Format(language, binding.ContextFile, SharedPaths.Names(contextUsers)));
+            report.Add(Messages.ContextFileStillUsed.Format(language, binding.ContextFile, SharedPaths.Names(contextUsers)));
         else if (!File.Exists(binding.ContextFile))
-            report.AppendLine(Messages.ContextFileAbsent.Format(language, binding.ContextFile));
+            report.Add(Messages.ContextFileAbsent.Format(language, binding.ContextFile));
         else if (ContextFile.Remove(binding.ContextFile, language) is { } remaining)
         {
-            report.AppendLine(Messages.BlockRemoved.Format(language, binding.ContextFile));
+            report.Add(Messages.BlockRemoved.Format(language, binding.ContextFile));
             if (remaining.Length == 0 && binding.CreatedContextFile)
                 File.Delete(binding.ContextFile);
         }
         else
-            report.AppendLine(Messages.ResidentBlockAbsent.Format(language, binding.ContextFile));
+            report.Add(Messages.ResidentBlockAbsent.Format(language, binding.ContextFile));
 
         // The links are removed from the skills folder the record names; the skill folders they point to are kept.
         // A skills folder another binding still uses keeps its links.
@@ -129,27 +130,27 @@ internal static class Binder
         {
             if (skillUsers.Count > 0)
             {
-                report.AppendLine(Messages.SkillLinkStillUsed.Format(language, link, SharedPaths.Names(skillUsers)));
+                report.Add(Messages.SkillLinkStillUsed.Format(language, link, SharedPaths.Names(skillUsers)));
                 continue;
             }
 
             switch (SkillLink.Remove(link, skillFolder))
             {
                 case SkillLink.RemoveOutcome.Removed:
-                    report.AppendLine(Messages.SkillLinkRemoved.Format(language, link));
+                    report.Add(Messages.SkillLinkRemoved.Format(language, link));
                     break;
                 case SkillLink.RemoveOutcome.NotOurs:
-                    report.AppendLine(Messages.SkillLinkForeign.Format(language, link));
+                    report.Add(Messages.SkillLinkForeign.Format(language, link));
                     break;
                 default:
-                    report.AppendLine(Messages.SkillLinkAbsent.Format(language, link));
+                    report.Add(Messages.SkillLinkAbsent.Format(language, link));
                     break;
             }
         }
 
         store.Remove(name);
-        report.Append(Messages.Disconnected.Format(language, name));
-        return new BindingResult(binding.ContextFile, null, report.ToString());
+        report.Add(Messages.Disconnected.Format(language, name));
+        return new BindingResult(binding.ContextFile, null, report, [], []);
     }
 
     /// <summary>Renders the current persona and <c>resident.md</c> into every context file listed in <c>bindings.json</c> right now.</summary>

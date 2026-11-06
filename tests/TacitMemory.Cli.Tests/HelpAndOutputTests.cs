@@ -69,6 +69,7 @@ public sealed class HelpAndOutputTests : IDisposable
     [InlineData("instructions", ShowTarget.Instructions)]
     [InlineData("resident", ShowTarget.Resident)]
     [InlineData("skill", ShowTarget.Skill)]
+    [InlineData("RESIDENT", ShowTarget.Resident)]
     public async Task Show_with_default_writes_only_the_built_in_text_to_stdout(string target, ShowTarget showTarget)
     {
         _cli.InitReady();
@@ -79,6 +80,15 @@ public sealed class HelpAndOutputTests : IDisposable
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(expected + Environment.NewLine, result.Stdout);
         Assert.Empty(result.Stderr);
+    }
+
+    [Fact]
+    public async Task Command_words_match_without_regard_to_case()
+    {
+        var result = await _cli.RunAsync(["CONNECT", "--help"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("Usage: connect", result.Stdout);
     }
 
     [Fact]
@@ -94,12 +104,15 @@ public sealed class HelpAndOutputTests : IDisposable
     [InlineData("backup")]
     [InlineData("init")]
     [InlineData("show")]
+    [InlineData("connect")]
+    [InlineData("disconnect")]
     public async Task Command_help_shows_no_default_placeholder_or_internal_type(string command)
     {
         var result = await _cli.RunAsync([command, "--help"]);
 
         Assert.DoesNotContain("[Default", result.Stdout);
         Assert.DoesNotContain("ShowWhat", result.Stdout);
+        Assert.DoesNotContain("?>", result.Stdout);
     }
 
     [Fact]

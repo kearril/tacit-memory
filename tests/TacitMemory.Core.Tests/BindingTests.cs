@@ -99,6 +99,8 @@ public sealed class BindingTests : IDisposable
         var result = _home.Bind();
 
         Assert.Equal(new Uri("http://127.0.0.1:18888/mcp"), result.Endpoint);
+        Assert.Equal(3, result.EndpointBlock.Count);
+        Assert.Contains("http://127.0.0.1:18888/mcp", result.EndpointBlock[0]);
         Assert.Contains("http://127.0.0.1:18888/mcp", result.Report);
         Assert.Contains("Streamable HTTP", result.Report);
         Assert.Contains("tacit", result.Report);

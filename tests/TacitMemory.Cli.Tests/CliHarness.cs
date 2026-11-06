@@ -97,13 +97,19 @@ internal sealed class CliHarness : IDisposable
     }
 
     /// <summary>Answers on <see cref="Port"/> with a plain HTTP reply that is not the management API.</summary>
-    public async Task StartForeignListenerAsync()
+    public Task StartForeignListenerAsync() => ListenAsync(() => Results.Text("hello from another program"));
+
+    /// <summary>Answers on <see cref="Port"/> the way a running service refuses a request it cannot serve: status 503 with an error body.</summary>
+    public Task StartRefusingServiceAsync(string error, string message) =>
+        ListenAsync(() => Results.Json(new ApiError(error, message), statusCode: StatusCodes.Status503ServiceUnavailable));
+
+    private async Task ListenAsync(Func<IResult> reply)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, Port));
         _foreign = builder.Build();
-        _foreign.MapFallback(() => Results.Text("hello from another program"));
+        _foreign.MapFallback(reply);
         await _foreign.StartAsync();
     }
 

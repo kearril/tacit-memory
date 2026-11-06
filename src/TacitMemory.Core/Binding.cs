@@ -9,8 +9,14 @@ public sealed record ConnectRequest(string Client, string ContextFile, string Sk
 /// <summary>What <c>connect</c> or <c>disconnect</c> did, as a summary for the user.</summary>
 /// <param name="ContextFile">The bound context file, as an absolute path.</param>
 /// <param name="Endpoint">The MCP endpoint the user configures in the client; <c>null</c> for <c>disconnect</c>.</param>
-/// <param name="Report">The summary, in the memory language.</param>
-public sealed record BindingResult(string ContextFile, Uri? Endpoint, string Report);
+/// <param name="Before">The summary lines before the endpoint block, in the memory language.</param>
+/// <param name="EndpointBlock">The endpoint, the transport and the suggested server name, one line each; empty for <c>disconnect</c>.</param>
+/// <param name="After">The summary lines after the endpoint block, in the memory language.</param>
+public sealed record BindingResult(string ContextFile, Uri? Endpoint, IReadOnlyList<string> Before, IReadOnlyList<string> EndpointBlock, IReadOnlyList<string> After)
+{
+    /// <summary>The summary for the user: every line in order, one per line, as the plain output prints it.</summary>
+    public string Report => string.Join(Environment.NewLine, Before.Concat(EndpointBlock).Concat(After));
+}
 
 /// <summary>What happened to one bound context file when the resident blocks were rendered.</summary>
 public enum BlockState

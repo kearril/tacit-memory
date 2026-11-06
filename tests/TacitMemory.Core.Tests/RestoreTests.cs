@@ -144,6 +144,7 @@ public sealed class RestoreTests : IDisposable
         Assert.False(preview.Config);
         Assert.Single(preview.Replaces);
         Assert.Contains(Head()[..7], preview.Report, StringComparison.Ordinal);
+        Assert.Equal(preview.Replaces, preview.ReportLines.Where(line => line.Replaces).Select(line => line.Text));
     }
 
     [Fact]

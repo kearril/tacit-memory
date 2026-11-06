@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core;
@@ -11,6 +12,11 @@ namespace TacitMemory.Cli;
 /// its own required and mutually exclusive options first, then does its work, both inside <see cref="Execute"/>, which
 /// maps the outcome to the exit code.
 /// </summary>
+/// <remarks>
+/// A string option is declared as a non-nullable string with the default <c>null!</c>. The framework prints a nullable
+/// type with a trailing <c>?</c> in help, and a null default is what keeps the option optional; null means the option was
+/// not given. Its value is never null when it is given.
+/// </remarks>
 internal sealed class Commands(TacitOptions options, CliConsole console)
 {
     private readonly Tacit _tacit = new(options);
@@ -29,8 +35,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// <param name="language">Memory language, zh or en.</param>
     /// <param name="memory">Memory repository location.</param>
     [Command("init")]
-    public Task<int> Init([HideDefaultValue] string? language = null, [HideDefaultValue] string? memory = null, CancellationToken cancellationToken = default) => Execute(async () =>
+    public Task<int> Init([HideDefaultValue] string language = null!, [HideDefaultValue] string memory = null!, CancellationToken cancellationToken = default) => Execute(async () =>
     {
+        if (memory is not null)
+            RequirePath("--memory", memory);
         var parsed = language is null ? (MemoryLanguage?)null : ParseChoice<MemoryLanguage>("--language", language);
         var result = await _tacit.InitAsync(new InitRequest { Language = parsed, MemoryPath = memory }, cancellationToken);
         console.Out.WriteLine(result.Report);
@@ -91,10 +99,12 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// <param name="context">Context file the resident block goes into; created when missing.</param>
     /// <param name="skills">Skills folder the client scans; it must already exist.</param>
     [Command("connect")]
-    public Task<int> Connect(string? client = null, string? context = null, string? skills = null) => Execute(() =>
+    public Task<int> Connect([HideDefaultValue] string client = null!, [HideDefaultValue] string context = null!, [HideDefaultValue] string skills = null!) => Execute(() =>
     {
         RequireOptions(("--client", client), ("--context", context), ("--skills", skills));
-        var result = _tacit.Connect(new ConnectRequest(client!, context!, skills!));
+        RequirePath("--context", context);
+        RequirePath("--skills", skills);
+        var result = _tacit.Connect(new ConnectRequest(client, context, skills));
         if (console.StylesOut)
             StyledOutput.Endpoint(console.Out, result);
         else
@@ -105,10 +115,10 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// <summary>Unbind a client: remove its resident block and skill links. The paths come from the binding.</summary>
     /// <param name="client">Name of the client to unbind.</param>
     [Command("disconnect")]
-    public Task<int> Disconnect(string? client = null) => Execute(() =>
+    public Task<int> Disconnect([HideDefaultValue] string client = null!) => Execute(() =>
     {
         RequireOptions(("--client", client));
-        console.Out.WriteLine(_tacit.Disconnect(client!).Report);
+        console.Out.WriteLine(_tacit.Disconnect(client).Report);
         return Task.FromResult(0);
     });
 
@@ -165,7 +175,12 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     });
 
     /// <summary>Show the service's state, models, bindings, checkup, pending items, backups, logs and secrets.</summary>
-    /// <remarks>The exit code is 3 whenever config.yaml does not load. Otherwise it is 0 while the service runs and 4 when it does not; a cooling model or an open problem changes neither.</remarks>
+    /// <remarks>
+    /// The exit code is 3 whenever config.yaml does not load. Otherwise it is 0 while a service answers with its report,
+    /// 1 when the service refuses the report or the offline report cannot be read (an IO or permission error; the reason
+    /// goes to stderr), and 4 when nothing answers or another program holds the port. A cooling model or an open problem
+    /// changes no code.
+    /// </remarks>
     [Command("status")]
     public Task<int> Status(ConsoleAppContext context, CancellationToken cancellationToken = default) => Execute(async () =>
     {
@@ -182,25 +197,18 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         }
 
         using var api = new ManagementApiClient(config.Port, config.Language, _tacit);
-        try
+        switch (await ProbeAsync(api, cancellationToken))
         {
-            var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(2), cancellationToken);
-            if (report.Service is not null)
-            {
-                PrintStatus(report);
-                return report.Service.Running ? 0 : 4;
-            }
-
-            // A status report that names no service is not this service's answer.
-            return await PrintOfflineAsync(config, portAnsweredByOther: true, cancellationToken);
-        }
-        catch (ServiceNotRunningException)
-        {
-            return await PrintOfflineAsync(config, portAnsweredByOther: false, cancellationToken);
-        }
-        catch (ForeignServiceException)
-        {
-            return await PrintOfflineAsync(config, portAnsweredByOther: true, cancellationToken);
+            case Probe.Answered answered:
+                PrintStatus(answered.Report);
+                return 0;
+            case Probe.Refused refused:
+                console.Error.WriteLine(refused.Message);
+                return 1;
+            case Probe.NotAnswered notAnswered:
+                return await PrintOfflineAsync(config, notAnswered.OtherProgram, cancellationToken);
+            default:
+                throw new UnreachableException();
         }
     });
 
@@ -211,32 +219,51 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     private async Task<int> StatusWithInvalidConfigAsync(TacitException error, CancellationToken cancellationToken)
     {
         var settings = _tacit.ReadLooseSettings();
-        var offline = _tacit.InvalidConfigStatus(error, settings);
         using var api = new ManagementApiClient(settings.Port, settings.Language, _tacit);
-        try
+        switch (await ProbeAsync(api, cancellationToken))
         {
-            var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(2), cancellationToken);
-            // A status report that names no service is not this service's answer.
-            PrintStatus(report.Service is not null
-                ? report with { Config = offline.Config }
-                : _tacit.InvalidConfigStatus(error, settings, portAnsweredByOther: true));
-        }
-        catch (ServiceNotRunningException)
-        {
-            PrintStatus(offline);
-        }
-        catch (ForeignServiceException)
-        {
-            PrintStatus(_tacit.InvalidConfigStatus(error, settings, portAnsweredByOther: true));
-        }
-        catch (ServiceRefusedException refused)
-        {
-            // The config still decides the exit code: the config errors are shown, and the refusal is named on stderr.
-            PrintStatus(offline with { Service = null });
-            console.Error.WriteLine(refused.Message);
+            case Probe.Answered answered:
+                // The service runs on the config it loaded at start; this report keeps only the config column from the file now.
+                PrintStatus(answered.Report with { Config = _tacit.InvalidConfigStatus(error, settings).Config });
+                break;
+            case Probe.Refused refused:
+                // The config still decides the exit code: the config errors are shown, and the refusal is named on stderr.
+                PrintStatus(_tacit.InvalidConfigStatus(error, settings) with { Service = null });
+                console.Error.WriteLine(refused.Message);
+                break;
+            case Probe.NotAnswered notAnswered:
+                PrintStatus(_tacit.InvalidConfigStatus(error, settings, portAnsweredByOther: notAnswered.OtherProgram));
+                break;
+            default:
+                throw new UnreachableException();
         }
 
         return 3;
+    }
+
+    /// <summary>
+    /// Asks the service for its status report. A report that names no service is not this service's answer, so it counts
+    /// as another program holding the port.
+    /// </summary>
+    private static async Task<Probe> ProbeAsync(ManagementApiClient api, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(2), cancellationToken);
+            return report.Service is null ? new Probe.NotAnswered(OtherProgram: true) : new Probe.Answered(report);
+        }
+        catch (ServiceNotRunningException)
+        {
+            return new Probe.NotAnswered(OtherProgram: false);
+        }
+        catch (ForeignServiceException)
+        {
+            return new Probe.NotAnswered(OtherProgram: true);
+        }
+        catch (ServiceRefusedException refused)
+        {
+            return new Probe.Refused(refused.Message);
+        }
     }
 
     /// <summary>Rebuild the derived index from the memory files. Needs the running service.</summary>
@@ -256,13 +283,14 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// <param name="to">Directory to write the backup into.</param>
     /// <param name="remote">Upload the backup to the cloud (backup.webdav) instead.</param>
     [Command("backup")]
-    public Task<int> Backup([HideDefaultValue] string? to = null, bool remote = false, CancellationToken cancellationToken = default) => Execute(() =>
+    public Task<int> Backup([HideDefaultValue] string to = null!, bool remote = false, CancellationToken cancellationToken = default) => Execute(() =>
     {
         if (remote && to is not null)
             throw new UsageException("--to and --remote cannot be combined: a backup goes to one place.");
+        if (to is not null)
+            RequirePath("--to", to);
 
-        var target = string.IsNullOrWhiteSpace(to) ? null : Path.GetFullPath(to);
-        var body = new BackupBody { Target = remote ? BackupTarget.Cloud : BackupTarget.Local, To = target };
+        var body = new BackupBody { Target = remote ? BackupTarget.Cloud : BackupTarget.Local, To = to is null ? null : Path.GetFullPath(to) };
         return WithServiceAsync(async api =>
         {
             var result = await WaitingAsync(() => api.PostAsync<BackupResult>("backup", body, cancellationToken), show: remote);
@@ -285,12 +313,14 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// <param name="includeConfig">Also restore config.yaml and prompts/ from the backup.</param>
     /// <param name="yes">-y, Restore without asking, after the preview is shown.</param>
     [Command("restore")]
-    public Task<int> Restore([HideDefaultValue] string? from = null, bool remote = false, bool includeConfig = false, bool yes = false, CancellationToken cancellationToken = default) => Execute(() =>
+    public Task<int> Restore([HideDefaultValue] string from = null!, bool remote = false, bool includeConfig = false, bool yes = false, CancellationToken cancellationToken = default) => Execute(() =>
     {
         if (from is null && !remote)
             throw new UsageException("Give a backup zip with --from, or --remote for the cloud backup.");
         if (from is not null && remote)
             throw new UsageException("--from and --remote cannot be combined: restore from one place.");
+        if (from is not null)
+            RequirePath("--from", from);
 
         var path = from is null ? null : Path.GetFullPath(from);
         return WithServiceAsync(async api =>
@@ -370,10 +400,22 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     private Task<T> WaitingAsync<T>(Func<Task<T>> call, bool show = true) =>
         show && console.StylesError ? StyledOutput.WithIndicatorAsync(console.Error, call) : call();
 
+    /// <summary>
+    /// Prints the report for a service that does not answer, and returns 4. A report that cannot be read (an IO or
+    /// permission error) is a run failure: the reason is named on stderr and the code is 1.
+    /// </summary>
     private async Task<int> PrintOfflineAsync(TacitConfig config, bool portAnsweredByOther, CancellationToken cancellationToken)
     {
-        PrintStatus(await _tacit.OfflineStatus(config, portAnsweredByOther, cancellationToken));
-        return 4;
+        try
+        {
+            PrintStatus(await _tacit.OfflineStatus(config, portAnsweredByOther, cancellationToken));
+            return 4;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            console.Error.WriteLine(e.Message);
+            return 1;
+        }
     }
 
     /// <summary>Prints each column's title, then its lines indented, in the order the report lists them.</summary>
@@ -385,14 +427,8 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             return;
         }
 
-        foreach (var column in new IStatusColumn?[]
-                 {
-                     report.Config, report.Service, report.Models, report.Bindings, report.Checkup,
-                     report.Pending, report.Backups, report.Logs, report.Secrets,
-                 })
+        foreach (var column in report.Columns)
         {
-            if (column is null)
-                continue;
             console.Out.WriteLine(column.Title);
             foreach (var line in column.Lines)
                 console.Out.WriteLine($"  {line}");
@@ -405,6 +441,24 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         var missing = options.Where(option => string.IsNullOrWhiteSpace(option.Value)).Select(option => option.Option).ToList();
         if (missing.Count > 0)
             throw new UsageException($"Missing required option{(missing.Count > 1 ? "s" : "")} {string.Join(", ", missing)}.");
+    }
+
+    /// <summary>
+    /// Checks that a path option names something the path syntax accepts, before anything is read. A blank value, or one
+    /// the syntax refuses, is a usage error. The value itself is left as given; the command decides how to resolve it.
+    /// </summary>
+    private static void RequirePath(string option, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new UsageException($"{option} needs a path, but the value is empty.");
+        try
+        {
+            Path.GetFullPath(value);
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new UsageException($"{option} is not a valid path: '{value}'.");
+        }
     }
 
     /// <summary>A command with no options or positional arguments: anything after its name is an error.</summary>
@@ -431,15 +485,25 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     /// Reads an option whose values are the names of an enum. The match ignores case; the valid values are listed in
     /// lower case, since that is how they are written.
     /// </summary>
-    private static T ParseChoice<T>(string what, string? value) where T : struct, Enum
+    private static T ParseChoice<T>(string what, string value) where T : struct, Enum
     {
         var names = Enum.GetNames<T>();
         var valid = string.Join(", ", names.Select(name => name.ToLowerInvariant()));
-        if (value is null)
-            throw new UsageException($"Missing {what}. Valid values: {valid}.");
-
         var match = names.FirstOrDefault(name => string.Equals(name, value, StringComparison.OrdinalIgnoreCase))
             ?? throw new UsageException($"Invalid {what} '{value}'. Valid values: {valid}.");
         return Enum.Parse<T>(match);
+    }
+
+    /// <summary>What one request for the status report found on the port.</summary>
+    private abstract record Probe
+    {
+        /// <summary>The service answered with its report.</summary>
+        public sealed record Answered(StatusReport Report) : Probe;
+
+        /// <summary>The service answered and refused the request; the message says why.</summary>
+        public sealed record Refused(string Message) : Probe;
+
+        /// <summary>Nothing the service answers: the connection was refused or timed out, or another program holds the port.</summary>
+        public sealed record NotAnswered(bool OtherProgram) : Probe;
     }
 }

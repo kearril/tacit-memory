@@ -334,6 +334,7 @@ public sealed class StatusColumnsTests : IDisposable
         var reminder = await service.ServerInstructionsAsync();
 
         Assert.Equal(1, pending.Confirmable);
+        Assert.Equal(StatusLevel.Attention, pending.LineLevels()[0]);
         Assert.True(pending.FormatProblems > 0);
         Assert.False(pending.MainlineStale);
         Assert.Contains($"- Candidates that can be confirmed: {pending.Confirmable}.", reminder);
