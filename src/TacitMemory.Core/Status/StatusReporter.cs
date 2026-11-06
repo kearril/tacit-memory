@@ -46,45 +46,53 @@ internal static class StatusReporter
     }
 
     /// <summary>
-    /// The report when no service answers. It reads no model; the service column says so, and says whether another
-    /// program answers on the port.
+    /// The report when no service answers. It reads no model; the service column says so, says whether another program
+    /// answers on the port, and gives the endpoint the service would listen on.
     /// </summary>
     public static async Task<StatusReport> OfflineAsync(TacitOptions options, TacitConfig config, bool otherProgramAnswered, CancellationToken cancellationToken)
     {
-        var language = config.Language;
-        var line = otherProgramAnswered
-            ? ManagementApiMessages.ServiceNotRunningOtherProgram.Format(language, config.Port)
-            : ManagementApiMessages.ServiceNotRunning.In(language);
         var shared = await SharedAsync(options, config, cancellationToken);
-        return shared with
-        {
-            Service = new ServiceStatus(
-                ManagementApiMessages.ServiceTitle.In(language),
-                [line],
-                Running: false,
-                Endpoint: null,
-                Version: null,
-                UptimeSeconds: null,
-                OtherProgramAnswered: otherProgramAnswered),
-        };
+        return shared with { Service = OfflineService(config.Language, config.Port, otherProgramAnswered) };
     }
 
-    /// <summary>The report when <c>config.yaml</c> does not load: every error line from the load, and the logs location.</summary>
-    public static StatusReport InvalidConfig(TacitOptions options, TacitException error)
+    /// <summary>The service column when nothing answers: not running, the endpoint it would listen on, and whether another program holds the port.</summary>
+    private static ServiceStatus OfflineService(MemoryLanguage language, int port, bool otherProgramAnswered)
     {
-        var language = ConfigLoader.LanguageOf(options);
+        var endpoint = new Uri($"http://127.0.0.1:{port}/mcp");
+        var line = otherProgramAnswered
+            ? ManagementApiMessages.ServiceNotRunningOtherProgram.Format(language, port)
+            : ManagementApiMessages.ServiceNotRunning.In(language);
+        return new ServiceStatus(
+            ManagementApiMessages.ServiceTitle.In(language),
+            [line, ManagementApiMessages.ServiceAddress.Format(language, endpoint)],
+            Running: false,
+            Endpoint: endpoint,
+            Version: null,
+            UptimeSeconds: null,
+            OtherProgramAnswered: otherProgramAnswered);
+    }
+
+    /// <summary>
+    /// The report when <c>config.yaml</c> does not load: every error line from the load, the logs location, and the service
+    /// column with the endpoint of the port the file gives, or the default. The caller adds the service's own report when a
+    /// service answers.
+    /// </summary>
+    public static StatusReport InvalidConfig(TacitOptions options, TacitException error, LooseSettings settings, bool otherProgramAnswered)
+    {
+        var language = settings.Language;
         var lines = error.Message.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         return new StatusReport
         {
             Config = new ConfigStatus(ManagementApiMessages.ConfigTitle.In(language), lines),
+            Service = OfflineService(language, settings.Port, otherProgramAnswered),
             Logs = Logs(options, language),
         };
     }
 
     /// <summary>The line that tells the user a command needs the service to run.</summary>
-    public static string NotRunningHint(TacitConfig config, bool otherProgramAnswered) => otherProgramAnswered
-        ? ManagementApiMessages.NotRunningHintOtherProgram.Format(config.Language, config.Port)
-        : ManagementApiMessages.NotRunningHint.Format(config.Language);
+    public static string NotRunningHint(MemoryLanguage language, int port, bool otherProgramAnswered) => otherProgramAnswered
+        ? ManagementApiMessages.NotRunningHintOtherProgram.Format(language, port)
+        : ManagementApiMessages.NotRunningHint.Format(language);
 
     /// <summary>
     /// The columns that need no service: bindings, the checkup, the pending counts, the local backups, the secrets and

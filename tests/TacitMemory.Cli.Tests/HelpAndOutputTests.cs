@@ -80,4 +80,35 @@ public sealed class HelpAndOutputTests : IDisposable
         Assert.Equal(expected + Environment.NewLine, result.Stdout);
         Assert.Empty(result.Stderr);
     }
+
+    [Fact]
+    public async Task The_overview_lists_the_exit_codes_once()
+    {
+        var result = await _cli.RunAsync(["--help"]);
+
+        Assert.Equal(1, result.Stdout.Split("Exit codes").Length - 1);
+    }
+
+    [Theory]
+    [InlineData("restore")]
+    [InlineData("backup")]
+    [InlineData("init")]
+    [InlineData("show")]
+    public async Task Command_help_shows_no_default_placeholder_or_internal_type(string command)
+    {
+        var result = await _cli.RunAsync([command, "--help"]);
+
+        Assert.DoesNotContain("[Default", result.Stdout);
+        Assert.DoesNotContain("ShowWhat", result.Stdout);
+    }
+
+    [Fact]
+    public async Task Restore_help_gives_the_short_form_of_yes_and_the_long_form_of_the_rest()
+    {
+        var result = await _cli.RunAsync(["restore", "--help"]);
+
+        Assert.Contains("-y, --yes", result.Stdout);
+        Assert.Contains("--include-config", result.Stdout);
+        Assert.Contains("--from", result.Stdout);
+    }
 }

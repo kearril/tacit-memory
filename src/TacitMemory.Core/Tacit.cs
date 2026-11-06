@@ -105,10 +105,22 @@ public sealed class Tacit(TacitOptions options)
     public Task<StatusReport> OfflineStatus(TacitConfig config, bool portAnsweredByOther = false, CancellationToken cancellationToken = default) =>
         StatusReporter.OfflineAsync(options, config, portAnsweredByOther, cancellationToken);
 
-    /// <summary>What <c>tacit status</c> reports when <c>config.yaml</c> does not load: every wrong key path, and where the logs are.</summary>
-    public StatusReport InvalidConfigStatus(TacitException error) => StatusReporter.InvalidConfig(options, error);
+    /// <summary>
+    /// Reads the port and the memory language from <c>config.yaml</c> without validating it, for the status report of a
+    /// config that does not load: the port the service is probed on, and the language of the messages. Reads no secret.
+    /// </summary>
+    public LooseSettings ReadLooseSettings() => ConfigLoader.ReadLoose(options);
+
+    /// <summary>
+    /// What <c>tacit status</c> reports when <c>config.yaml</c> does not load: every wrong key path, the logs location, and
+    /// the service column with its endpoint. The service is shown as not running, or as held by another program when
+    /// <paramref name="portAnsweredByOther"/> says so. When a service answers, the caller keeps that service's report and
+    /// takes only the config column from this one.
+    /// </summary>
+    public StatusReport InvalidConfigStatus(TacitException error, LooseSettings settings, bool portAnsweredByOther = false) =>
+        StatusReporter.InvalidConfig(options, error, settings, portAnsweredByOther);
 
     /// <summary>The line a command that needs the running service prints when none answers, in the memory language.</summary>
-    public string ServiceNotRunningMessage(TacitConfig config, bool portAnsweredByOther) =>
-        StatusReporter.NotRunningHint(config, portAnsweredByOther);
+    public string ServiceNotRunningMessage(MemoryLanguage language, int port, bool portAnsweredByOther) =>
+        StatusReporter.NotRunningHint(language, port, portAnsweredByOther);
 }

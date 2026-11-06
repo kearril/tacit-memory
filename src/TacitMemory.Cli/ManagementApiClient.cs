@@ -10,11 +10,11 @@ namespace TacitMemory.Cli;
 /// failures of a call as exceptions. Each failure carries the message the command shows; the command pipeline maps the
 /// exception type to an exit code. Commands that need the service call through this class and nothing else.
 /// </summary>
-internal sealed class ManagementApiClient(TacitConfig config, Tacit tacit) : IDisposable
+internal sealed class ManagementApiClient(int port, MemoryLanguage language, Tacit tacit) : IDisposable
 {
     private readonly HttpClient _http = new()
     {
-        BaseAddress = new Uri($"http://127.0.0.1:{config.Port}/"),
+        BaseAddress = new Uri($"http://127.0.0.1:{port}/"),
         Timeout = Timeout.InfiniteTimeSpan,
     };
 
@@ -47,10 +47,10 @@ internal sealed class ManagementApiClient(TacitConfig config, Tacit tacit) : IDi
     }
 
     /// <summary>The failure for a port nothing answers on, naming the command that starts the service.</summary>
-    private ServiceNotRunningException NotRunning() => new(tacit.ServiceNotRunningMessage(config, portAnsweredByOther: false));
+    private ServiceNotRunningException NotRunning() => new(tacit.ServiceNotRunningMessage(language, port, portAnsweredByOther: false));
 
     /// <summary>The failure for a port another program answers on.</summary>
-    private ForeignServiceException Foreign() => new(tacit.ServiceNotRunningMessage(config, portAnsweredByOther: true));
+    private ForeignServiceException Foreign() => new(tacit.ServiceNotRunningMessage(language, port, portAnsweredByOther: true));
 
     private async Task<T> SendAsync<T>(HttpRequestMessage request, TimeSpan? timeout, CancellationToken cancellationToken)
         where T : class
