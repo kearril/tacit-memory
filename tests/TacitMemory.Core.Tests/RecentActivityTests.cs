@@ -156,7 +156,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_length_limit_counts_the_text_only_not_the_project_label_or_the_source()
     {
-        var text = new string('字', 100);
+        var text = new string('字', 200);
 
         var result = await _service.WriteRecentAsync(Add(text, project: "tacit-memory", source: new string('源', 150)));
 
@@ -167,10 +167,10 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Text_over_the_limit_is_refused_and_the_limit_is_named()
     {
-        var result = await _service.WriteRecentAsync(Add(new string('字', 101)));
+        var result = await _service.WriteRecentAsync(Add(new string('字', 201)));
 
         Assert.True(result.IsError);
-        Assert.Contains("101 characters; the limit is 100", result.Text);
+        Assert.Contains("201 characters; the limit is 200", result.Text);
         Assert.False(File.Exists(MonthFile));
     }
 
@@ -483,10 +483,10 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         File.WriteAllText(RecentPath, "## 近期主线\n");
 
-        var result = await _service.WriteRecentAsync(Mainline([new string('字', 101)], VersionOf()));
+        var result = await _service.WriteRecentAsync(Mainline([new string('字', 201)], VersionOf()));
 
         Assert.True(result.IsError);
-        Assert.Contains("Item 1 has 101 characters; the limit is 100", result.Text);
+        Assert.Contains("Item 1 has 201 characters; the limit is 200", result.Text);
         Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
     }
 

@@ -166,7 +166,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         var before = File.ReadAllText(CandidatesMd);
 
         var rule = await _service.WritePersonaAsync(Propose("working_rules", "需求不清时先追问"));
-        var tooLong = await _service.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 100)));
+        var tooLong = await _service.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 200)));
         var multiLine = await _service.WritePersonaAsync(Propose("preferences", "沟通：\n先要结论"));
         var multiLineSource = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "第一行\n第二行"));
         var commentEnd = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "原话 --> 不对"));
@@ -174,7 +174,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         Assert.True(rule.IsError);
         Assert.Contains("→", rule.Text);
         Assert.True(tooLong.IsError);
-        Assert.Contains("100", tooLong.Text);
+        Assert.Contains("200", tooLong.Text);
         Assert.True(multiLine.IsError);
         Assert.True(multiLineSource.IsError);
         Assert.True(commentEnd.IsError);
