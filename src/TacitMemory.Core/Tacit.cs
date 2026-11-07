@@ -55,15 +55,12 @@ public sealed class Tacit(TacitOptions options)
     }
 
     /// <summary>
-    /// What <c>tacit show tools</c> prints, from the tool descriptions the caller reads from <c>TacitMemory.Mcp</c>. Only the
-    /// language of the memory is read from the config, and falls back to the system UI language when it does not load.
+    /// What <c>tacit show tools</c> prints, from the tool descriptions the caller reads from <c>TacitMemory.Mcp</c>. The
+    /// memory language comes from <paramref name="config"/>, which the caller loads first: a config that does not load
+    /// stops the command before any description is shown.
     /// </summary>
-    public ShowResult ShowTools(IReadOnlyList<ToolDescription> tools, bool useDefault = false)
-    {
-        if (useDefault)
-            throw NoBuiltInText("tools");
-        return Viewer.Tools(ConfigLoader.LanguageOf(options), tools);
-    }
+    public ShowResult ShowTools(TacitConfig config, IReadOnlyList<ToolDescription> tools) =>
+        Viewer.Tools(config.Language, tools);
 
     private TacitException NoBuiltInText(string target) =>
         new(TacitError.NoBuiltInText, Messages.NoBuiltInText.Format(ConfigLoader.LanguageOf(options), target));

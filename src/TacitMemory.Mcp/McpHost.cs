@@ -48,7 +48,8 @@ public sealed class McpHost : IAsyncDisposable
                     session.ServerInstructions = await service.ServerInstructionsAsync(cancellationToken);
                 };
             })
-            .WithTools<MemoryTools>()
+            // The tools are built with the limits this service loaded at start, so the descriptions name the values it enforces.
+            .WithTools(ToolCatalog.Tools(new MemoryTools(service), service.Config.Limits))
             .WithResources<MemoryResources>()
             // TacitMemory offers no prompts, but omp asks for the list regardless of the advertised capabilities and
             // drops the server when that request fails, so the list must always answer, with nothing in it.

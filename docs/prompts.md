@@ -145,6 +145,8 @@
 
 `write_persona` 的使用条件（何时 `add`、`propose`、`replace`、`delete`）不在工具说明中，只由服务端说明"写画像"与 `tacit-remember` 第 5 步负责，见第 9 节。
 
+上限数字由 `config.yaml` 的 `limits` 填入，工具说明中以占位写出的只有三处：`write_page` 的 `aliases` 最少个数（`limits.page.minAliases`）、`write_recent` 的活动长度上限与 `write_persona` 的条目长度上限（`limits.itemLength`）；改配置后需重启服务。
+
 ## 6. 工具回复（契约）
 
 - 成功时返回 Markdown 风格的纯文本，例如检索结果、写入后的短码与条数。
@@ -244,7 +246,7 @@
 | 怎么写：个人的写法约定 | `prompts/skill.md`（接在记忆 skill 末尾） | 下一次读取 skill |
 | 怎么写：系统部分的写法 | `src/TacitMemory.Core/Skills/MemorySkill.cs`（英文） | 服务重启或 `prompts/` 变化后 |
 | 记忆指令的写法（`tacit-remember`、`tacit-checkup` 正文） | `src/TacitMemory.Core/Skills/RememberSkill.cs`、`CheckupSkill.cs`（英文）；用户不可替换 | 服务重启或 `prompts/` 变化后，随 skill 一并生成 |
-| 调用格式、参数、短码、长度与条数上限 | `src/TacitMemory.Mcp/MemoryTools.cs` 中的工具说明 | 工具列表下发时 |
+| 调用格式、参数、短码、长度与条数上限 | `src/TacitMemory.Mcp/MemoryTools.cs` 中的工具说明；其中的上限占位由 `ToolCatalog` 按配置填入 | 工具列表下发时 |
 | 必填参数与各参数的取值（schema 的 `required`、`enum`） | `src/TacitMemory.Mcp/MemoryTools.cs` 的参数标注；取值来自 `src/TacitMemory.Core/ToolValues.cs` | 工具列表下发时 |
 | 拒绝回复的内容与"下一步" | 对应的 `ToolText.Refuse` 调用处 | 调用时 |
 
@@ -257,7 +259,7 @@
 | `instructions` | 服务端说明，按段标注来源，并给出固定部分与总长的长度和上限（示例：固定部分 2150/2500，总长 3120/4000） | 每段分别为代码、内置默认或 `prompts/` 中的文件 |
 | `resident` | 常驻区块的外壳与四节引导语，文件格式 | 内置默认或 `prompts/resident.md` |
 | `skill` | `tacit-memory` skill 的完整成品；`--default` 只输出系统部分 | 代码，以及 `prompts/skill.md` |
-| `tools` | 各工具与参数的说明，由 CLI 经 `TacitMemory.Mcp` 读取 | 代码 |
+| `tools` | 各工具与参数的说明，由 CLI 经 `TacitMemory.Mcp` 读取，上限取自已严格加载的配置 | 代码与 `config.yaml` 的 `limits` |
 | `remember` | `tacit-remember` skill 的完整成品 | 代码 |
 | `checkup` | `tacit-checkup` skill 的完整成品（不含体检报告，报告由资源提供） | 代码与记忆语言 |
 
