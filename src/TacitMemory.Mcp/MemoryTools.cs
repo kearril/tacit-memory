@@ -17,6 +17,7 @@ internal sealed class MemoryTools(MemoryService service)
         Results come per page with the matching sections in full and a short code for each section.
         """)]
     public async Task<CallToolResult> Recall(
+        RequestContext<CallToolRequestParams> request,
         [Description("What to look for, in natural language and in the memory language; names, terms and file names as written.")] string? query = null,
         [Description("Page ID to read in full: <project>/<slug>, for example my-app/db-upgrade.")] string? page = null,
         [Description("Search only this project.")] string? project = null,
@@ -26,7 +27,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("pages or activities; both when omitted.")] string? kind = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.RecallAsync(
-            new RecallRequest { Query = query, Page = page, Project = project, From = from, To = to, Kind = kind },
+            new RecallRequest { Query = query, Page = page, Project = project, From = from, To = to, Kind = kind, UnknownParameters = UnknownArguments.Of(request) },
             cancellationToken));
 
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
@@ -39,6 +40,7 @@ internal sealed class MemoryTools(MemoryService service)
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WritePage(
+        RequestContext<CallToolRequestParams> request,
         [Required, AllowedValues(ToolValues.WritePageOps.Create, ToolValues.WritePageOps.UpsertSection, ToolValues.WritePageOps.DeleteSection, ToolValues.WritePageOps.UpdateHeader)]
         [Description("Operation: create, upsert_section, delete_section or update_header.")] string? op = null,
         [Required]
@@ -66,6 +68,7 @@ internal sealed class MemoryTools(MemoryService service)
             Hash = hash,
             AddAliases = add_aliases,
             ConfirmNoSecret = confirm_no_secret,
+            UnknownParameters = UnknownArguments.Of(request),
         }, cancellationToken));
 
     [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
@@ -77,6 +80,7 @@ internal sealed class MemoryTools(MemoryService service)
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WriteRecent(
+        RequestContext<CallToolRequestParams> request,
         [Required, AllowedValues(ToolValues.WriteRecentOps.AddActivity, ToolValues.WriteRecentOps.UpdateMainline)]
         [Description("Operation: add_activity, or update_mainline to replace the whole mainline list.")] string? op = null,
         [Description("The activity in one line, in the memory language; without a [project] prefix, which the project parameter adds.")] string? text = null,
@@ -97,6 +101,7 @@ internal sealed class MemoryTools(MemoryService service)
             Items = items,
             Hash = hash,
             ConfirmNoSecret = confirm_no_secret,
+            UnknownParameters = UnknownArguments.Of(request),
         }, cancellationToken));
 
     [McpServerTool(Name = "write_persona", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
@@ -115,6 +120,7 @@ internal sealed class MemoryTools(MemoryService service)
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WritePersona(
+        RequestContext<CallToolRequestParams> request,
         [Required, AllowedValues(ToolValues.WritePersonaOps.Add, ToolValues.WritePersonaOps.Propose, ToolValues.WritePersonaOps.Replace, ToolValues.WritePersonaOps.Delete)]
         [Description("Operation: add, propose, replace or delete.")] string? op = null,
         [AllowedValues(ToolValues.PersonaSections.RedLines, ToolValues.PersonaSections.WorkingRules, ToolValues.PersonaSections.Preferences, ToolValues.PersonaSections.Profile)]
@@ -132,6 +138,7 @@ internal sealed class MemoryTools(MemoryService service)
             Source = source,
             Hash = hash,
             ConfirmNoSecret = confirm_no_secret,
+            UnknownParameters = UnknownArguments.Of(request),
         }, cancellationToken));
 
     private static CallToolResult Reply(ToolResult result) =>

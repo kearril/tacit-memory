@@ -209,6 +209,43 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unknown_parameter_is_refused_by_name_and_nothing_is_written()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var commits = Git("rev-list", "--count", "HEAD").Trim();
+
+        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["content"] });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(commits, Git("rev-list", "--count", "HEAD").Trim());
+        Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task Unknown_names_come_first_with_the_op_and_misplaced_problems_in_one_refusal()
+    {
+        var invalid = await _service.WritePageAsync(new WritePageRequest { Op = "rewrite", Page = "tacit-memory/db-upgrade", UnknownParameters = ["content", "limit"] });
+        var misplaced = await _service.WritePageAsync(Create("tacit-memory/db-upgrade") with { Section = "根因", UnknownParameters = ["content"] });
+
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Unknown op \"rewrite\".\nNext step: ", invalid.Text);
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Parameter section does not apply to op create.\nNext step: ", misplaced.Text);
+    }
+
+    [Fact]
+    public async Task The_next_step_lists_the_parameters_of_a_valid_op_or_every_parameter_when_the_op_is_missing()
+    {
+        var withOp = await _service.WritePageAsync(Upsert("tacit-memory/db-upgrade", "根因", "新的根因。") with { UnknownParameters = ["content"] });
+        var withoutOp = await _service.WritePageAsync(new WritePageRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["content"] });
+
+        Assert.Contains("Call write_page again with only the parameters for op upsert_section: page, section, body, hash, confirm_no_secret.", withOp.Text);
+        Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, aliases, sections, related, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
+    }
+
+    [Fact]
     public async Task Writes_arriving_together_run_one_after_another()
     {
         var writes = Enumerable.Range(1, 5).Select(n => _service.WritePageAsync(Create($"tacit-memory/page-{n}")));

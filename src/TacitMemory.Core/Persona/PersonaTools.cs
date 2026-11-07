@@ -30,6 +30,20 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// <summary>The parameters the delete op takes: the short code alone.</summary>
     private static readonly string[] DeleteParameters = ["hash"];
 
+    /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
+    private static readonly Dictionary<string, string[]> OpParameters = new()
+    {
+        [ToolValues.WritePersonaOps.Add] = EntryParameters,
+        [ToolValues.WritePersonaOps.Propose] = EntryParameters,
+        [ToolValues.WritePersonaOps.Replace] = ReplaceParameters,
+        [ToolValues.WritePersonaOps.Delete] = DeleteParameters,
+    };
+
+    private static readonly string Ops = string.Join(", ", OpParameters.Keys);
+
+    /// <summary>Every parameter <c>write_persona</c> takes, listed when the op is missing or unknown.</summary>
+    private static readonly string AllParameters = string.Join(", ", new[] { "op" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
+
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
     /// <summary>The four sections as an agent names them, and the limit the config sets for each.</summary>
@@ -45,8 +59,20 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
     public async Task<ToolResult> WriteAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Op))
-            return ToolText.Refuse("Missing parameter op.", "Call write_persona again with op=add.");
+        var problems = ToolText.UnknownParameters(request.UnknownParameters);
+        string nextStep;
+        if (!OpParameters.TryGetValue(request.Op ?? "", out var taken))
+        {
+            problems.Add(string.IsNullOrWhiteSpace(request.Op) ? "Missing parameter op." : $"Unknown op {ToolText.Quote(request.Op)}.");
+            nextStep = $"Call write_persona again with op set to one of: {Ops}; its parameters are: {AllParameters}.";
+        }
+        else
+        {
+            problems.AddRange(MisplacedParameters(request, taken).Select(name => $"Parameter {name} does not apply to op {request.Op}."));
+            nextStep = $"Call write_persona again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.";
+        }
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, nextStep);
 
         return request.Op switch
         {
@@ -54,17 +80,12 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
             ToolValues.WritePersonaOps.Propose => await ProposeAsync(request, cancellationToken),
             ToolValues.WritePersonaOps.Replace => await ReplaceAsync(request, cancellationToken),
             ToolValues.WritePersonaOps.Delete => await DeleteAsync(request, cancellationToken),
-            _ => ToolText.Refuse(
-                $"Unknown op {ToolText.Quote(request.Op)}.",
-                "Call write_persona again with op=add, op=propose, op=replace or op=delete."),
+            _ => throw new InvalidOperationException($"Op {request.Op} passed the op check without a handler."),
         };
     }
 
     private async Task<ToolResult> AddAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        if (NotApplicable(request, "add", EntryParameters) is { } misplaced)
-            return misplaced;
-
         var section = (request.Section ?? "").Trim();
         var text = (request.Text ?? "").Trim();
         var source = (request.Source ?? "").Trim();
@@ -80,7 +101,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_persona op=add again.");
 
-        if (SecretCheck(request, text, source, "add") is { } secret)
+        if (SecretCheck(request, text, source, ToolValues.WritePersonaOps.Add) is { } secret)
             return secret;
 
         var relative = PersonaFiles.Persona;
@@ -128,9 +149,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// </summary>
     private async Task<ToolResult> ReplaceAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        if (NotApplicable(request, "replace", ReplaceParameters) is { } misplaced)
-            return misplaced;
-
         var hash = (request.Hash ?? "").Trim();
         var text = (request.Text ?? "").Trim();
         var source = (request.Source ?? "").Trim();
@@ -158,7 +176,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (reasons.Count > 0)
             return ToolText.Refuse(reasons, "Fix these and call write_persona op=replace again with the same hash.");
 
-        if (SecretCheck(request, text, source, "replace") is { } secret)
+        if (SecretCheck(request, text, source, ToolValues.WritePersonaOps.Replace) is { } secret)
             return secret;
 
         var name = PersonaDocument.HeadingOf(entry.Kind).En;
@@ -189,9 +207,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// </summary>
     private async Task<ToolResult> DeleteAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        if (NotApplicable(request, "delete", DeleteParameters) is { } misplaced)
-            return misplaced;
-
         var hash = (request.Hash ?? "").Trim();
         var relative = PersonaFiles.Persona;
         var path = Path.Combine(config.MemoryPath, relative);
@@ -223,9 +238,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// </summary>
     private async Task<ToolResult> ProposeAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        if (NotApplicable(request, "propose", EntryParameters) is { } misplaced)
-            return misplaced;
-
         var section = (request.Section ?? "").Trim();
         var text = (request.Text ?? "").Trim();
         var source = (request.Source ?? "").Trim();
@@ -247,7 +259,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_persona op=propose again.");
 
-        if (SecretCheck(request, text, source, "propose") is { } secret)
+        if (SecretCheck(request, text, source, ToolValues.WritePersonaOps.Propose) is { } secret)
             return secret;
 
         var relative = PersonaFiles.Candidates;
@@ -399,17 +411,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// <summary>One entry as a refusal lists it: its short code, its text and any continuation lines.</summary>
     private static string Listed(PersonaItem item, string code) =>
         string.Join("\n", new[] { $"- [{code}] {item.Text}" }.Concat(item.ContinuationWithoutComments));
-
-    /// <summary>The parameters a write given with an op does not take, refused by name; null when every one of them applies.</summary>
-    private static ToolResult? NotApplicable(WritePersonaRequest request, string op, string[] allowed)
-    {
-        var misplaced = MisplacedParameters(request, allowed);
-        return misplaced.Count == 0
-            ? null
-            : ToolText.Refuse(
-                misplaced.Select(name => $"Parameter {name} does not apply to op {op}.").ToList(),
-                $"Call write_persona again with only the parameters for op {op}: {string.Join(", ", allowed)}.");
-    }
 
     /// <summary>The parameters that were given but the op does not take.</summary>
     private static List<string> MisplacedParameters(WritePersonaRequest request, string[] allowed)
