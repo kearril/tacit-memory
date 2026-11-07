@@ -149,6 +149,7 @@
 
 - 成功时返回 Markdown 风格的纯文本，例如检索结果、写入后的短码与条数。
 - 拒绝时标记为错误，分三段：`Refused`（原因，多条时逐行列出）、`Next step`（主会话可直接执行的动作）、`Related`（执行下一步所需的内容，例如当天的活动或整份画像及短码）。
+- 细节页 `upsert_section`、`delete_section` 的 `section` 填了本页某小节的短码（且本页没有同名小节）时，拒绝并返回英文：`Parameter section "<短码>" is the short code of section <小节标题>, not a section name.`；下一步：`Call write_page op=upsert_section again with section set to the name <小节标题> and hash set to the short code <短码>.`（删除时为 `op=delete_section`），`Related` 附该小节的标题、短码与正文。
 - 同主题退回、候选并入、提议命中拒绝列表或画像都是正常结果，不标记错误，同样给出下一步该怎么做。
 - 辅助模型不可用而跳过某项判断时，在回复末尾以 `Note:` 注明。
 

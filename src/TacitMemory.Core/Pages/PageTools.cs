@@ -129,6 +129,8 @@ internal sealed class PageTools(
             return refusal;
         if (document!.HeaderBroken)
             return BrokenHeader(id);
+        if (RefuseCodeAsName(document!, name, "op=upsert_section") is { } codeAsName)
+            return codeAsName;
 
         var existing = document.Sections.FirstOrDefault(section => section.Name == name);
         if (existing is not null && RefuseStaleSection(existing, request.Hash, "replace", "op=upsert_section") is { } stale)
@@ -151,6 +153,8 @@ internal sealed class PageTools(
             return refusal;
         if (document!.HeaderBroken)
             return BrokenHeader(id);
+        if (RefuseCodeAsName(document!, name, "op=delete_section") is { } codeAsName)
+            return codeAsName;
 
         var existing = document.Sections.FirstOrDefault(section => section.Name == name);
         if (existing is null)
@@ -238,6 +242,23 @@ internal sealed class PageTools(
                 "Recall the page, then call write_page again with the section's current short code.",
                 SectionBlock(section));
         return null;
+    }
+
+    /// <summary>
+    /// The refusal when <paramref name="name"/> is the short code of a section of the page and no section has that name:
+    /// the agent gave a code where a section name belongs. Null otherwise, so a name that matches a section is handled by name.
+    /// </summary>
+    private static ToolResult? RefuseCodeAsName(PageDocument document, string name, string op)
+    {
+        if (document.Sections.Any(section => section.Name == name))
+            return null;
+        var coded = document.Sections.FirstOrDefault(candidate => string.Equals(candidate.Code, name, StringComparison.OrdinalIgnoreCase));
+        if (coded is null)
+            return null;
+        return ToolText.Refuse(
+            $"Parameter section {ToolText.Quote(name)} is the short code of section {coded.Name}, not a section name.",
+            $"Call write_page {op} again with section set to the name {coded.Name} and hash set to the short code {coded.Code}.",
+            SectionBlock(coded));
     }
 
     private static string SectionBlock(PageSection section) => $"## {section.Name} [{section.Code}]\n{section.Body}";
