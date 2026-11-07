@@ -46,7 +46,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Required]
         [Description("Page ID: <project>/<slug>. project is the code repository's name in lowercase, or _topics for a subject that belongs to no project; slug is lowercase words joined by hyphens.")] string? page = null,
         [Description("Page title, one line.")] string? title = null,
-        [Description("Other names the user might call this by: spoken phrasings, Chinese and English names, nicknames. At least 2.")] string[]? aliases = null,
+        [Description("Other names the user might call this by: spoken phrasings, Chinese and English names, nicknames. At least {minAliases}.")] string[]? aliases = null,
         [Description("The page's sections in order; each has a name (the ## heading, without '##') and a Markdown body.")] PageSectionInput[]? sections = null,
         [Description("Page IDs of related pages; each must exist.")] string[]? related = null,
         [Description("The section's name: its ## heading text, without '##'; one line.")] string? section = null,
@@ -74,7 +74,7 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
         Record an activity in the recent activity log: one line under the day's heading in the month's file.
-        op=add_activity: needs text, one line of at most 100 characters that does not start with '['; project and source are optional.
+        op=add_activity: needs text, one line of at most {itemLength} characters that does not start with '['; project and source are optional.
         op=update_mainline: needs items (the whole mainline, in order; an empty list clears it) and hash (the version code from the last reply that showed the mainline).
         With replaces (a short code of today's activity), rewrites that activity in place instead of adding one; source then replaces its comment only if given.
         Writes are checked for secrets (passwords, keys, tokens); never store one.
@@ -115,7 +115,7 @@ internal sealed class MemoryTools(MemoryService service)
         persona_section is red_lines, working_rules, preferences or profile. Sentence form of text, by section:
         red_lines "Don't <behaviour>; instead <alternative>" (the alternative is required); working_rules "<situation> → <action>";
         preferences "<dimension>: <description>"; profile "<field>: <fact>".
-        text is one line within the entry length limit (100 characters by default), in the memory language; source is the user's own words behind it, one line.
+        text is one line within the entry length limit ({itemLength} characters), in the memory language; source is the user's own words behind it, one line.
         A section holds a limited number of entries (checked on add only); a refusal lists them with their short codes. Candidates have no limit.
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]

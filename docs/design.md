@@ -559,7 +559,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
 | `tacit serve` | 启动常驻服务；未初始化时报错 | — |
 | `tacit connect` / `tacit disconnect` | `connect --client <名称> --context <文件> --skills <目录>`（三个选项都必填）；`disconnect --client <名称>`，路径取自绑定记录 | 否 |
-| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 由 CLI 经 `TacitMemory.Mcp` 读取；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
+| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用与冷却（含剩余秒数）、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值）。服务未运行时写明"服务未运行"，服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`），省略服务运行时数据与辅助模型，其余各栏照常（退出码 4）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径；此时仍宽松读取 `server.port`（读不出、文件不存在或 YAML 无法解析时为 18888）与 `language`（读不出时取系统界面语言）探测服务：服务在运行则并入它的各栏，未运行或端口被他人占用则在服务栏注明，退出码均为 3。配置有效时退出码只看服务：应答并给出报告为 0；服务拒绝给出报告，或离线报告读取遇到 IO 或权限错误，为 1（原因写入 stderr）；无应答或端口被他人占用为 4；不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
 | `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
 | `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份（不给选项时写到 `TACIT_HOME/backups/`，`--to` 写到指定目录）；`--remote` 上传云端备份，远端只保留一份；两者不能同时使用 | 是 |
@@ -572,7 +572,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | 0 | 成功；`status` 中表示服务在运行 |
 | 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认 |
 | 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突、非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`，以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`；`init`、`disconnect`、`show tools` 与带 `--default` 的 `show` 不会返回 |
+| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`，以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
 | 4 | 服务未运行，含端口被其他程序占用 |
 
 结果写 stdout；错误与确认提示写 stderr。`restore` 在标准输入不是终端且未带 `--yes` 时以 2 结束，不挂起等待。

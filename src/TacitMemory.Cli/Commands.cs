@@ -152,7 +152,8 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     public Task<int> ShowTools(ConsoleAppContext context) => Execute(() =>
     {
         RejectArguments(context);
-        console.Out.WriteLine(_tacit.ShowTools(ToolCatalog.Describe()).Report);
+        var config = _tacit.LoadConfig();
+        console.Out.WriteLine(_tacit.ShowTools(config, ToolCatalog.Describe(config.Limits)).Report);
         return Task.FromResult(0);
     });
 
