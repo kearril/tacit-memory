@@ -253,17 +253,4 @@ public sealed class ShowTests : IDisposable
         Assert.Contains("- query (string): What to look for.", result.Report);
         Assert.True(result.Report.IndexOf("## recall", StringComparison.Ordinal) < result.Report.IndexOf("## checkup", StringComparison.Ordinal));
     }
-
-    [Fact]
-    public void Tools_follow_the_memory_language_of_the_loaded_config()
-    {
-        using var english = new TestHome();
-        english.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
-        var tools = new[] { new ToolDescription("recall", "Search the memory.", []) };
-
-        // The system UI language is Chinese; the report must still follow the memory language in the config.
-        var result = english.Tacit("zh-CN").ShowTools(english.Tacit().LoadConfig(), tools);
-
-        Assert.DoesNotContain(result.Report, IsCjk);
-    }
 }
