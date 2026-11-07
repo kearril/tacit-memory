@@ -86,7 +86,7 @@ internal static class Templates
             workingRules: 20
             preferences: 15
             profile: 10
-          itemLength: 100             # 每条最多字数，不含来源注释
+          itemLength: 200             # 每条最多字数，不含来源注释
           mainline: 5                 # 近期主线最多条数
           page:
             titleLength: 50           # 细节页标题最多字数
@@ -149,7 +149,7 @@ internal static class Templates
             workingRules: 20
             preferences: 15
             profile: 10
-          itemLength: 100             # max characters per item, source comment excluded
+          itemLength: 200             # max characters per item, source comment excluded
           mainline: 5                 # max mainline items
           page:
             titleLength: 50           # max characters in a page title

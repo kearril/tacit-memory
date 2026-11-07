@@ -29,7 +29,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(MemoryLanguage.Zh, config.Language);
         Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
-        Assert.Equal(100, config.Limits.ItemLength);
+        Assert.Equal(200, config.Limits.ItemLength);
         Assert.Equal(5, config.Limits.Mainline);
         Assert.Equal(new PageLimits(50, 30, 2), config.Limits.Page);
         Assert.Equal(2, config.CandidateMinDays);

@@ -209,7 +209,7 @@ internal static class ConfigLoader
                 Count(reader, persona, "limits.persona", "workingRules", 20),
                 Count(reader, persona, "limits.persona", "preferences", 15),
                 Count(reader, persona, "limits.persona", "profile", 10)),
-            Count(reader, limits, "limits", "itemLength", 100),
+            Count(reader, limits, "limits", "itemLength", 200),
             Count(reader, limits, "limits", "mainline", 5),
             new PageLimits(
                 Count(reader, page, "limits.page", "titleLength", 50),

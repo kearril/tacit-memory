@@ -171,16 +171,16 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Text_longer_than_the_item_limit_is_refused_and_the_limit_is_read_from_config()
     {
-        var tooLong = "偏好：" + new string('x', 100);
+        var tooLong = "偏好：" + new string('x', 200);
 
         var refused = await _service.WritePersonaAsync(Add("preferences", tooLong));
 
         Assert.True(refused.IsError);
-        Assert.Contains("100", refused.Text);
+        Assert.Contains("200", refused.Text);
         Assert.False(File.Exists(PersonaMd) && File.ReadAllText(PersonaMd).Contains("xxxx"));
 
         using var home = new TestHome();
-        home.InitReady("limits:\n  itemLength: 120\n");
+        home.InitReady("limits:\n  itemLength: 210\n");
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.False((await service.WritePersonaAsync(Add("preferences", tooLong))).IsError);
