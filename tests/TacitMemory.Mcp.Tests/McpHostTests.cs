@@ -106,6 +106,42 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_descriptions_carry_the_configured_limits_and_match_the_catalog()
+    {
+        // The limits are read once at start, so the service is restarted on the config the test writes.
+        await _host.DisposeAsync();
+        _service.Dispose();
+        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { itemLength: 150, page: { minAliases: 3 } }\n");
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+
+        await using var client = await ConnectAsync();
+        var served = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
+        var catalog = ToolCatalog.Describe(_service.Config.Limits).ToDictionary(tool => tool.Name);
+
+        Assert.Contains("At least 3.", Parameter(served["write_page"].ProtocolTool, "aliases"));
+        Assert.Contains("at most 150 characters", served["write_recent"].ProtocolTool.Description);
+        Assert.Contains("(150 characters)", served["write_persona"].ProtocolTool.Description);
+        foreach (var tool in served.Values)
+        {
+            var description = tool.ProtocolTool.Description ?? "";
+            Assert.DoesNotContain("100 characters", description);
+            Assert.DoesNotContain("by default", description);
+            Assert.DoesNotContain('{', description);
+        }
+        foreach (var tool in served.Values)
+        {
+            Assert.Equal(catalog[tool.Name].Description, tool.ProtocolTool.Description);
+            foreach (var parameter in catalog[tool.Name].Parameters.Where(parameter => parameter.Description.Length > 0))
+                Assert.Equal(parameter.Description, Parameter(tool.ProtocolTool, parameter.Name));
+        }
+    }
+
+    private static string Parameter(ModelContextProtocol.Protocol.Tool tool, string parameter) =>
+        tool.InputSchema.GetProperty("properties").GetProperty(parameter).GetProperty("description").GetString()!;
+
+
+    [Fact]
     public async Task Write_persona_describes_each_op_on_its_own_line()
     {
         await using var client = await ConnectAsync();

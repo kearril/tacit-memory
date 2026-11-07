@@ -246,7 +246,7 @@ public sealed class ShowTests : IDisposable
             new ToolDescription("checkup", "Report on the memory.", []),
         };
 
-        var result = _home.Tacit().ShowTools(tools);
+        var result = _home.Tacit().ShowTools(_home.Tacit().LoadConfig(), tools);
 
         Assert.Contains("2", result.Report.Split('\n')[0]);
         Assert.Contains("## recall\nSearch the memory.", result.Report);
@@ -255,16 +255,15 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public void Tools_follow_the_memory_language_and_refuse_the_default()
+    public void Tools_follow_the_memory_language_of_the_loaded_config()
     {
         using var english = new TestHome();
-        english.InitReady(language: MemoryLanguage.En);
+        english.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
         var tools = new[] { new ToolDescription("recall", "Search the memory.", []) };
 
-        var result = english.Tacit("en-US").ShowTools(tools);
+        // The system UI language is Chinese; the report must still follow the memory language in the config.
+        var result = english.Tacit("zh-CN").ShowTools(english.Tacit().LoadConfig(), tools);
 
         Assert.DoesNotContain(result.Report, IsCjk);
-        var refused = Assert.Throws<TacitException>(() => _home.Tacit().ShowTools(tools, useDefault: true));
-        Assert.Equal(TacitError.NoBuiltInText, refused.Error);
     }
 }

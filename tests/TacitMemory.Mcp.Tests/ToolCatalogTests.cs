@@ -1,13 +1,19 @@
+using TacitMemory.Core;
 using TacitMemory.Mcp;
 
 namespace TacitMemory.Mcp.Tests;
 
 public sealed class ToolCatalogTests
 {
+    private static readonly LimitsConfig DefaultLimits = Limits(itemLength: 200, minAliases: 2);
+
+    private static LimitsConfig Limits(int itemLength, int minAliases) =>
+        new(new PersonaLimits(5, 20, 15, 10), itemLength, 5, new PageLimits(50, 30, minAliases));
+
     [Fact]
     public void The_catalog_lists_every_memory_tool_with_its_parameters_described()
     {
-        var tools = ToolCatalog.Describe().ToDictionary(tool => tool.Name);
+        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
 
         Assert.Equal(["recall", "write_page", "write_persona", "write_recent"], tools.Keys.Order());
         foreach (var tool in tools.Values)
@@ -21,11 +27,30 @@ public sealed class ToolCatalogTests
     [Fact]
     public void The_catalog_gives_parameter_names_and_types_as_clients_see_them()
     {
-        var tools = ToolCatalog.Describe().ToDictionary(tool => tool.Name);
+        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
 
         Assert.Contains(tools["write_page"].Parameters, parameter => parameter.Name == "op" && parameter.Type == "string");
         Assert.Contains(tools["write_recent"].Parameters, parameter => parameter.Name == "items" && parameter.Type == "string[]");
         Assert.Contains(tools["write_persona"].Parameters, parameter => parameter.Name == "confirm_no_secret" && parameter.Type == "bool");
         Assert.DoesNotContain(tools.Values.SelectMany(tool => tool.Parameters), parameter => parameter.Type.Contains("CancellationToken"));
     }
+
+    [Fact]
+    public void The_configured_limits_fill_the_descriptions_that_name_them()
+    {
+        var tools = ToolCatalog.Describe(Limits(itemLength: 150, minAliases: 3)).ToDictionary(tool => tool.Name);
+
+        Assert.Contains("At least 3.", Parameter(tools["write_page"], "aliases"));
+        Assert.Contains("at most 150 characters", tools["write_recent"].Description);
+        Assert.Contains("(150 characters)", tools["write_persona"].Description);
+        foreach (var tool in tools.Values)
+        {
+            Assert.DoesNotContain("100 characters", tool.Description);
+            Assert.DoesNotContain("by default", tool.Description);
+            Assert.DoesNotContain('{', tool.Description);
+        }
+    }
+
+    private static string Parameter(ToolDescription tool, string name) =>
+        tool.Parameters.Single(parameter => parameter.Name == name).Description;
 }
