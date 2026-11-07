@@ -16,16 +16,16 @@ namespace TacitMemory.Core.Pages;
 internal sealed class PageTools(
     TacitOptions options, TacitConfig config, ServiceLog log, DuplicatePageCheck duplicates)
 {
-    private const string Ops = "create, upsert_section, delete_section, update_header";
-
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
     {
-        ["create"] = ["title", "aliases", "sections", "related", "confirm_no_secret"],
-        ["upsert_section"] = ["section", "body", "hash", "confirm_no_secret"],
-        ["delete_section"] = ["section", "hash"],
-        ["update_header"] = ["title", "aliases", "add_aliases", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.Create] = ["title", "aliases", "sections", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.UpsertSection] = ["section", "body", "hash", "confirm_no_secret"],
+        [ToolValues.WritePageOps.DeleteSection] = ["section", "hash"],
+        [ToolValues.WritePageOps.UpdateHeader] = ["title", "aliases", "add_aliases", "related", "confirm_no_secret"],
     };
+
+    private static readonly string Ops = string.Join(", ", OpParameters.Keys);
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
@@ -56,10 +56,10 @@ internal sealed class PageTools(
 
         return request.Op switch
         {
-            "create" => await CreateAsync(id, request, cancellationToken),
-            "upsert_section" => await UpsertSectionAsync(id, request, cancellationToken),
-            "delete_section" => await DeleteSectionAsync(id, request, cancellationToken),
-            "update_header" => await UpdateHeaderAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.Create => await CreateAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.UpsertSection => await UpsertSectionAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.DeleteSection => await DeleteSectionAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.UpdateHeader => await UpdateHeaderAsync(id, request, cancellationToken),
             _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_page again with op set to one of: {Ops}."),
         };
     }

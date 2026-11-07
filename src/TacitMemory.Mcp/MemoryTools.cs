@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
@@ -21,6 +22,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("Search only this project.")] string? project = null,
         [Description("Earliest date, YYYY-MM-DD; convert phrases like \"last week\" into dates.")] string? from = null,
         [Description("Latest date, YYYY-MM-DD.")] string? to = null,
+        [AllowedValues(ToolValues.RecallKinds.Pages, ToolValues.RecallKinds.Activities)]
         [Description("pages or activities; both when omitted.")] string? kind = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.RecallAsync(
@@ -37,7 +39,9 @@ internal sealed class MemoryTools(MemoryService service)
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WritePage(
+        [Required, AllowedValues(ToolValues.WritePageOps.Create, ToolValues.WritePageOps.UpsertSection, ToolValues.WritePageOps.DeleteSection, ToolValues.WritePageOps.UpdateHeader)]
         [Description("Operation: create, upsert_section, delete_section or update_header.")] string? op = null,
+        [Required]
         [Description("Page ID: <project>/<slug>. project is the code repository's name in lowercase, or _topics for a subject that belongs to no project; slug is lowercase words joined by hyphens.")] string? page = null,
         [Description("Page title, one line.")] string? title = null,
         [Description("Other names the user might call this by: spoken phrasings, Chinese and English names, nicknames. At least 2.")] string[]? aliases = null,
@@ -73,6 +77,7 @@ internal sealed class MemoryTools(MemoryService service)
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WriteRecent(
+        [Required, AllowedValues(ToolValues.WriteRecentOps.AddActivity, ToolValues.WriteRecentOps.UpdateMainline)]
         [Description("Operation: add_activity, or update_mainline to replace the whole mainline list.")] string? op = null,
         [Description("The activity in one line, in the memory language; without a [project] prefix, which the project parameter adds.")] string? text = null,
         [Description("The project the activity belongs to: the code repository's name in lowercase, for example my-app.")] string? project = null,
@@ -110,7 +115,9 @@ internal sealed class MemoryTools(MemoryService service)
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WritePersona(
+        [Required, AllowedValues(ToolValues.WritePersonaOps.Add, ToolValues.WritePersonaOps.Propose, ToolValues.WritePersonaOps.Replace, ToolValues.WritePersonaOps.Delete)]
         [Description("Operation: add, propose, replace or delete.")] string? op = null,
+        [AllowedValues(ToolValues.PersonaSections.RedLines, ToolValues.PersonaSections.WorkingRules, ToolValues.PersonaSections.Preferences, ToolValues.PersonaSections.Profile)]
         [Description("The section: red_lines, working_rules, preferences or profile. Used by add and propose only.")] string? persona_section = null,
         [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
         [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,

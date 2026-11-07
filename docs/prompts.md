@@ -244,6 +244,7 @@
 | 怎么写：系统部分的写法 | `src/TacitMemory.Core/Skills/MemorySkill.cs`（英文） | 服务重启或 `prompts/` 变化后 |
 | 记忆指令的写法（`tacit-remember`、`tacit-checkup` 正文） | `src/TacitMemory.Core/Skills/RememberSkill.cs`、`CheckupSkill.cs`（英文）；用户不可替换 | 服务重启或 `prompts/` 变化后，随 skill 一并生成 |
 | 调用格式、参数、短码、长度与条数上限 | `src/TacitMemory.Mcp/MemoryTools.cs` 中的工具说明 | 工具列表下发时 |
+| 必填参数与各参数的取值（schema 的 `required`、`enum`） | `src/TacitMemory.Mcp/MemoryTools.cs` 的参数标注；取值来自 `src/TacitMemory.Core/ToolValues.cs` | 工具列表下发时 |
 | 拒绝回复的内容与"下一步" | 对应的 `ToolText.Refuse` 调用处 | 调用时 |
 
 ## 13. 查看方式

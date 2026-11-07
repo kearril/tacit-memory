@@ -17,14 +17,14 @@ namespace TacitMemory.Core.Recent;
 /// </summary>
 internal sealed class RecentTools(TacitOptions options, TacitConfig config, ServiceLog log, IDecisionModel decision)
 {
-    private const string Ops = "add_activity, update_mainline";
-
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
     {
-        ["add_activity"] = ["text", "project", "source", "replaces", "confirm_no_secret"],
-        ["update_mainline"] = ["items", "hash", "confirm_no_secret"],
+        [ToolValues.WriteRecentOps.AddActivity] = ["text", "project", "source", "replaces", "confirm_no_secret"],
+        [ToolValues.WriteRecentOps.UpdateMainline] = ["items", "hash", "confirm_no_secret"],
     };
+
+    private static readonly string Ops = string.Join(", ", OpParameters.Keys);
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
     private readonly SameTopicCheck _sameTopic = new(config, decision);
@@ -40,8 +40,8 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
 
         return request.Op switch
         {
-            "add_activity" => await AddActivityAsync(request, cancellationToken),
-            "update_mainline" => await UpdateMainlineAsync(request, cancellationToken),
+            ToolValues.WriteRecentOps.AddActivity => await AddActivityAsync(request, cancellationToken),
+            ToolValues.WriteRecentOps.UpdateMainline => await UpdateMainlineAsync(request, cancellationToken),
             _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_recent again with op set to one of: {Ops}."),
         };
     }
