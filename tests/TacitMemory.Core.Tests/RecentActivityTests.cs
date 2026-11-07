@@ -656,6 +656,26 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unknown_parameter_is_refused_by_name_and_nothing_is_written()
+    {
+        var result = await _service.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["content"] });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_recent again with only the parameters for op add_activity: text, project, source, replaces, confirm_no_secret.", result.Text);
+        Assert.False(File.Exists(MonthFile));
+        Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task Unknown_names_come_first_with_a_missing_op_and_the_next_step_lists_every_parameter()
+    {
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "一件事", UnknownParameters = ["content"] });
+
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Missing parameter op.\nNext step: Call write_recent again with op set to one of: add_activity, update_mainline; its parameters are: op, text, project, source, replaces, confirm_no_secret, items, hash.", result.Text);
+        Assert.False(File.Exists(MonthFile));
+    }
+
+    [Fact]
     public async Task A_user_edit_in_the_month_file_is_committed_with_the_write_and_noted()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);

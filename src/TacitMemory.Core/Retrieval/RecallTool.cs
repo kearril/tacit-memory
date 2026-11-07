@@ -33,18 +33,22 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     /// <summary>The usual constant of reciprocal rank fusion; it damps the weight of the very top ranks.</summary>
     private const int RrfK = 60;
 
+    /// <summary>The next step when the call gave a parameter the schema does not declare: every parameter recall takes.</summary>
+    private const string ParametersStep =
+        "Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.";
+
     public async Task<ToolResult> RunAsync(RecallRequest request, CancellationToken cancellationToken)
     {
         var hasQuery = !string.IsNullOrWhiteSpace(request.Query);
         var hasPage = !string.IsNullOrWhiteSpace(request.Page);
-        if (hasQuery == hasPage)
-            return ToolText.Refuse(
-                hasQuery ? "Give query or page, not both." : "Missing parameter query or page.",
-                "Call recall again with query (what to look for, in the memory language) or page (a page ID to read in full).");
-        if (hasPage)
-            return pages.Read(request);
+        var unknown = ToolText.UnknownParameters(request.UnknownParameters);
+        if (hasPage && !hasQuery)
+            return unknown.Count == 0 ? pages.Read(request) : ToolText.Refuse(unknown, ParametersStep);
 
-        var problems = new List<string>();
+        var problems = new List<string>(unknown);
+        var queryOrPage = hasQuery == hasPage;
+        if (queryOrPage)
+            problems.Add(hasQuery ? "Give query or page, not both." : "Missing parameter query or page.");
         var from = Date(request.From, "from", problems);
         var to = Date(request.To, "to", problems);
         if (from > to)
@@ -53,7 +57,12 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         if (kind is { Length: > 0 } and not (ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
             problems.Add($"Unknown kind {ToolText.Quote(kind)}; use pages or activities.");
         if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call recall again.");
+        {
+            var nextStep = unknown.Count > 0 ? ParametersStep
+                : queryOrPage ? "Call recall again with query (what to look for, in the memory language) or page (a page ID to read in full)."
+                : "Fix these and call recall again.";
+            return ToolText.Refuse(problems, nextStep);
+        }
 
         var project = string.IsNullOrWhiteSpace(request.Project) ? null : request.Project.Trim().ToLowerInvariant();
         var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };

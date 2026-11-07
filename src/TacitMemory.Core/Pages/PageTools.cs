@@ -27,6 +27,9 @@ internal sealed class PageTools(
 
     private static readonly string Ops = string.Join(", ", OpParameters.Keys);
 
+    /// <summary>Every parameter <c>write_page</c> takes, listed when the op is missing or unknown.</summary>
+    private static readonly string AllParameters = string.Join(", ", new[] { "op", "page" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
+
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
     public ToolResult Read(RecallRequest request)
@@ -42,17 +45,25 @@ internal sealed class PageTools(
 
     public async Task<ToolResult> WriteAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Op))
-            return ToolText.Refuse("Missing parameter op.", $"Call write_page again with op set to one of: {Ops}.");
+        var problems = ToolText.UnknownParameters(request.UnknownParameters);
+        string nextStep;
+        if (!OpParameters.TryGetValue(request.Op ?? "", out var taken))
+        {
+            problems.Add(string.IsNullOrWhiteSpace(request.Op) ? "Missing parameter op." : $"Unknown op {ToolText.Quote(request.Op)}.");
+            nextStep = $"Call write_page again with op set to one of: {Ops}; its parameters are: {AllParameters}.";
+        }
+        else
+        {
+            problems.AddRange(MisplacedParameters(request, taken).Select(name => $"Parameter {name} does not apply to op {request.Op}."));
+            nextStep = $"Call write_page again with only the parameters for op {request.Op}: page, {string.Join(", ", taken)}.";
+        }
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, nextStep);
+
         if (string.IsNullOrWhiteSpace(request.Page))
             return ToolText.Refuse("Missing parameter page.", "Call write_page again with page set to a page ID such as my-app/db-upgrade.");
         if (!PageId.TryParse(request.Page, out var id, out var problem))
             return ToolText.Refuse(problem, "Call write_page again with a valid page ID.");
-
-        if (OpParameters.TryGetValue(request.Op, out var taken) && MisplacedParameters(request, taken) is { Count: > 0 } misplaced)
-            return ToolText.Refuse(
-                misplaced.Select(name => $"Parameter {name} does not apply to op {request.Op}.").ToList(),
-                $"Call write_page again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.");
 
         return request.Op switch
         {
@@ -60,7 +71,7 @@ internal sealed class PageTools(
             ToolValues.WritePageOps.UpsertSection => await UpsertSectionAsync(id, request, cancellationToken),
             ToolValues.WritePageOps.DeleteSection => await DeleteSectionAsync(id, request, cancellationToken),
             ToolValues.WritePageOps.UpdateHeader => await UpdateHeaderAsync(id, request, cancellationToken),
-            _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_page again with op set to one of: {Ops}."),
+            _ => throw new InvalidOperationException($"Op {request.Op} passed the op check without a handler."),
         };
     }
 
@@ -84,7 +95,7 @@ internal sealed class PageTools(
                 SectionList(existing!));
         }
 
-        if (CheckSecrets(request, "create", [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)]) is { } secret)
+        if (CheckSecrets(request, ToolValues.WritePageOps.Create, [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)]) is { } secret)
             return secret;
 
         var today = options.Today;
@@ -121,7 +132,7 @@ internal sealed class PageTools(
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
 
-        if (CheckSecrets(request, "upsert_section", SectionTexts([new PageSectionInput(name, body)])) is { } secret)
+        if (CheckSecrets(request, ToolValues.WritePageOps.UpsertSection, SectionTexts([new PageSectionInput(name, body)])) is { } secret)
             return secret;
 
         var (document, refusal) = Load(id);
@@ -193,7 +204,7 @@ internal sealed class PageTools(
         if (title is not null)
             written.Add(("title", title));
         written.AddRange(added.Select(alias => ("alias", alias)));
-        if (CheckSecrets(request, "update_header", written) is { } secret)
+        if (CheckSecrets(request, ToolValues.WritePageOps.UpdateHeader, written) is { } secret)
             return secret;
 
         var (document, refusal) = Load(id);

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
 
@@ -21,7 +22,7 @@ public static class ToolCatalog
                 tool.Attribute!.Name ?? tool.Method.Name,
                 TextOf(tool.Method),
                 tool.Method.GetParameters()
-                    .Where(parameter => parameter.ParameterType != typeof(CancellationToken))
+                    .Where(parameter => parameter.ParameterType != typeof(CancellationToken) && parameter.ParameterType != typeof(RequestContext<CallToolRequestParams>))
                     .Select(parameter => new ParameterDescription(parameter.Name ?? "", TypeName(parameter.ParameterType), TextOf(parameter)))
                     .ToList()))
             .ToList();

@@ -339,6 +339,26 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_argument_the_schema_does_not_declare_reaches_the_service_and_is_named()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_page", new Dictionary<string, object?>
+        {
+            ["op"] = "upsert_section",
+            ["page"] = "tacit-memory/x",
+            ["section"] = "根因",
+            ["content"] = "扩展没有重装。",
+        });
+        var recalled = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "数据库", ["limit"] = 5 });
+
+        Assert.True(written.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", Text(written));
+        Assert.True(recalled.IsError);
+        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: ", Text(recalled));
+    }
+
+    [Fact]
     public async Task An_op_outside_the_listed_values_still_reaches_the_service_which_refuses_it()
     {
         await using var client = await ConnectAsync();

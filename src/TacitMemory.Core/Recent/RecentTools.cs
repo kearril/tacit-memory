@@ -26,23 +26,34 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
 
     private static readonly string Ops = string.Join(", ", OpParameters.Keys);
 
+    /// <summary>Every parameter <c>write_recent</c> takes, listed when the op is missing or unknown.</summary>
+    private static readonly string AllParameters = string.Join(", ", new[] { "op" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
+
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
     private readonly SameTopicCheck _sameTopic = new(config, decision);
 
     public async Task<ToolResult> WriteAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Op))
-            return ToolText.Refuse("Missing parameter op.", $"Call write_recent again with op set to one of: {Ops}.");
-        if (OpParameters.TryGetValue(request.Op, out var taken) && MisplacedParameters(request, taken) is { Count: > 0 } misplaced)
-            return ToolText.Refuse(
-                misplaced.Select(name => $"Parameter {name} does not apply to op {request.Op}.").ToList(),
-                $"Call write_recent again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.");
+        var problems = ToolText.UnknownParameters(request.UnknownParameters);
+        string nextStep;
+        if (!OpParameters.TryGetValue(request.Op ?? "", out var taken))
+        {
+            problems.Add(string.IsNullOrWhiteSpace(request.Op) ? "Missing parameter op." : $"Unknown op {ToolText.Quote(request.Op)}.");
+            nextStep = $"Call write_recent again with op set to one of: {Ops}; its parameters are: {AllParameters}.";
+        }
+        else
+        {
+            problems.AddRange(MisplacedParameters(request, taken).Select(name => $"Parameter {name} does not apply to op {request.Op}."));
+            nextStep = $"Call write_recent again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.";
+        }
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, nextStep);
 
         return request.Op switch
         {
             ToolValues.WriteRecentOps.AddActivity => await AddActivityAsync(request, cancellationToken),
             ToolValues.WriteRecentOps.UpdateMainline => await UpdateMainlineAsync(request, cancellationToken),
-            _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_recent again with op set to one of: {Ops}."),
+            _ => throw new InvalidOperationException($"Op {request.Op} passed the op check without a handler."),
         };
     }
 
@@ -88,7 +99,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
             var written = new List<WrittenText> { new("text", text) };
             if (source is not null)
                 written.Add(new WrittenText("source", source));
-            if (CredentialCheck.Run(written, "write_recent", "add_activity") is { } secret)
+            if (CredentialCheck.Run(written, "write_recent", ToolValues.WriteRecentOps.AddActivity) is { } secret)
                 return secret;
         }
 
@@ -213,7 +224,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         if (request.ConfirmNoSecret != true)
         {
             var written = items.Select((item, i) => new WrittenText($"item {i + 1}", item)).ToList();
-            if (CredentialCheck.Run(written, "write_recent", "update_mainline") is { } secret)
+            if (CredentialCheck.Run(written, "write_recent", ToolValues.WriteRecentOps.UpdateMainline) is { } secret)
                 return secret;
         }
 
