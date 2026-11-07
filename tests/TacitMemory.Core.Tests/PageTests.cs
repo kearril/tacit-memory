@@ -380,6 +380,25 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("## 另一节\n内容。")]
+    public async Task Upsert_refuses_a_short_code_as_the_section_name_before_checking_the_body(string body)
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var head = Git("rev-parse", "HEAD");
+        var code = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Upsert(page, code, body));
+
+        Assert.True(result.IsError);
+        Assert.StartsWith($"Refused: Parameter section \"{code}\" is the short code of section 根因, not a section name.", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Delete_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
