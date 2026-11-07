@@ -386,12 +386,14 @@ public sealed class McpHostTests : IAsyncLifetime
             ["section"] = "根因",
             ["content"] = "扩展没有重装。",
         });
-        var recalled = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "数据库", ["limit"] = 5 });
+        var recalled = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "数据库", ["limit"] = 5, ["content"] = null });
 
         Assert.True(written.IsError);
         Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", Text(written));
         Assert.True(recalled.IsError);
-        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: ", Text(recalled));
+        Assert.StartsWith("Refused:\n", Text(recalled));
+        Assert.Contains("- Unknown parameter limit.", Text(recalled));
+        Assert.Contains("- Unknown parameter content.", Text(recalled));
     }
 
     [Fact]

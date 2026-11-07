@@ -33,9 +33,12 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     /// <summary>The usual constant of reciprocal rank fusion; it damps the weight of the very top ranks.</summary>
     private const int RrfK = 60;
 
-    /// <summary>The next step when the call gave a parameter the schema does not declare: every parameter recall takes.</summary>
-    private const string ParametersStep =
-        "Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.";
+    /// <summary>Every parameter <c>recall</c> takes, in the order the next step lists them.</summary>
+    private static readonly string[] Parameters = ["query", "page", "project", "from", "to", "kind"];
+
+    /// <summary>The next step when the call gave a parameter the schema does not declare.</summary>
+    private static readonly string ParametersStep =
+        $"Call recall again with only these parameters: {string.Join(", ", Parameters)}; give exactly one of query or page.";
 
     public async Task<ToolResult> RunAsync(RecallRequest request, CancellationToken cancellationToken)
     {

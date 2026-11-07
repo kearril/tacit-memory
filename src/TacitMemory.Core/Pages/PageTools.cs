@@ -126,14 +126,6 @@ internal sealed class PageTools(
         if (string.IsNullOrWhiteSpace(request.Section))
             return ToolText.Refuse("Missing parameter section.", "Call write_page op=upsert_section again with section set to the section's name.");
         var name = request.Section.Trim();
-        var body = request.Body ?? "";
-        var problems = new List<string>();
-        CheckSections([new PageSectionInput(name, body)], problems);
-        if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
-
-        if (CheckSecrets(request, ToolValues.WritePageOps.UpsertSection, SectionTexts([new PageSectionInput(name, body)])) is { } secret)
-            return secret;
 
         var (document, refusal) = Load(id);
         if (refusal is not null)
@@ -142,6 +134,15 @@ internal sealed class PageTools(
             return BrokenHeader(id);
         if (RefuseCodeAsName(document!, name, "op=upsert_section") is { } codeAsName)
             return codeAsName;
+
+        var body = request.Body ?? "";
+        var problems = new List<string>();
+        CheckSections([new PageSectionInput(name, body)], problems);
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
+
+        if (CheckSecrets(request, ToolValues.WritePageOps.UpsertSection, SectionTexts([new PageSectionInput(name, body)])) is { } secret)
+            return secret;
 
         var existing = document.Sections.FirstOrDefault(section => section.Name == name);
         if (existing is not null && RefuseStaleSection(existing, request.Hash, "replace", "op=upsert_section") is { } stale)

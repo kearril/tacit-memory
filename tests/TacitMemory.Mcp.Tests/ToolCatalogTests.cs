@@ -51,6 +51,16 @@ public sealed class ToolCatalogTests
         }
     }
 
+    [Fact]
+    public void The_default_limits_fill_the_same_descriptions()
+    {
+        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
+
+        Assert.Contains("At least 2.", Parameter(tools["write_page"], "aliases"));
+        Assert.Contains("at most 200 characters", tools["write_recent"].Description);
+        Assert.Contains("(200 characters)", tools["write_persona"].Description);
+    }
+
     private static string Parameter(ToolDescription tool, string name) =>
         tool.Parameters.Single(parameter => parameter.Name == name).Description;
 }
