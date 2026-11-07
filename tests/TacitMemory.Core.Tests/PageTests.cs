@@ -322,6 +322,94 @@ public sealed partial class PageTests : IDisposable
         Assert.Contains($"Added section 后续 [{code}].", result.Text);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Upsert_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var head = Git("rev-parse", "HEAD");
+        var code = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Upsert(page, code, "覆盖。", withHash ? code : null));
+
+        Assert.True(result.IsError);
+        Assert.Contains("Parameter section \"" + code + "\" is the short code of section 根因, not a section name.", result.Text);
+        Assert.Contains($"Call write_page op=upsert_section again with section set to the name 根因 and hash set to the short code {code}.", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Delete_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var head = Git("rev-parse", "HEAD");
+        var code = await CodeOf(page, "现象");
+
+        var result = await _service.WritePageAsync(Delete(page, code, withHash ? code : null));
+
+        Assert.True(result.IsError);
+        Assert.Contains("is the short code of section 现象, not a section name.", result.Text);
+        Assert.Contains($"Call write_page op=delete_section again with section set to the name 现象 and hash set to the short code {code}.", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Fact]
+    public async Task A_short_code_in_capitals_or_padded_with_spaces_is_still_recognised()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var code = await CodeOf(page, "根因");
+
+        var upper = await _service.WritePageAsync(Upsert(page, "  " + code.ToUpperInvariant() + " ", "覆盖。"));
+        var deleted = await _service.WritePageAsync(Delete(page, code.ToUpperInvariant()));
+
+        Assert.Contains("is the short code of section 根因, not a section name.", upper.Text);
+        Assert.Contains("is the short code of section 根因, not a section name.", deleted.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task A_section_actually_named_like_a_code_is_rewritten_by_its_name()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var code = await CodeOf(page, "根因");
+        const string other = "tacit-memory/code-named";
+        await _service.WritePageAsync(Create(other, sections: [new("根因", "PGroonga 扩展没有随升级重装。"), new(code, "旧内容。")]));
+        var hash = await CodeOf(other, code);
+
+        var result = await _service.WritePageAsync(Upsert(other, code, "新内容。", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("新内容。", PageText(other));
+        Assert.DoesNotContain("旧内容。", PageText(other));
+    }
+
+    [Fact]
+    public async Task A_value_shaped_like_a_code_that_no_section_has_is_a_section_name_as_before()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+
+        var added = await _service.WritePageAsync(Upsert(page, "a1b2c3", "待办。"));
+        var deleted = await _service.WritePageAsync(Delete(page, "fedcba"));
+
+        Assert.False(added.IsError, added.Text);
+        Assert.Contains("Added section a1b2c3", added.Text);
+        Assert.True(deleted.IsError);
+        Assert.Contains("Section \"fedcba\" does not exist on page", deleted.Text);
+    }
+
     [Fact]
     public async Task Writing_a_section_with_its_current_text_changes_nothing_and_commits_nothing()
     {

@@ -31,7 +31,7 @@
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
      - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含决策模型密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
      - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新。
-     - `PageTests`：细节页的新建与读取、按短码修改小节与页头、`dates`、串行写入、页面标识校验。
+     - `PageTests`：细节页的新建与读取、按短码修改小节与页头、`section` 误填短码的拒绝（含 `hash` 同填、大写或带空白的短码、同名小节按名字改写、不属于本页的短码样值照常新建）、`dates`、串行写入、页面标识校验。
      - `DuplicatePageTests`：新建细节页时的重复页判断与放行。
      - `CredentialTests`：凭据检测与 `confirm_no_secret`，含小节与页头写入，删除小节不需确认。
      - `RecallTests`：全文检索与索引同步：中文切分、筛选、结果呈现，索引重建与跳过非 UTF-8 页面。
