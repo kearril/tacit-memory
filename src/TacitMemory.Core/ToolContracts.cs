@@ -26,6 +26,12 @@ public sealed record RecallRequest
 
     /// <summary><c>pages</c> or <c>activities</c>; both when absent.</summary>
     public string? Kind { get; init; }
+
+    /// <summary>
+    /// Parameter names the call gave that the tool's input schema does not declare, as the agent wrote them. The service
+    /// refuses the call and names each one; the values are never looked at. Empty when every name is known.
+    /// </summary>
+    public IReadOnlyList<string>? UnknownParameters { get; init; }
 }
 
 /// <summary>One section of a page: its <c>##</c> name and its Markdown body.</summary>
@@ -68,6 +74,12 @@ public sealed record WritePageRequest
     /// <c>create</c>, <c>upsert_section</c> and <c>update_header</c>.
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }
+
+    /// <summary>
+    /// Parameter names the call gave that the tool's input schema does not declare, as the agent wrote them. The service
+    /// refuses the call and names each one; the values are never looked at. Empty when every name is known.
+    /// </summary>
+    public IReadOnlyList<string>? UnknownParameters { get; init; }
 }
 
 /// <summary>
@@ -100,6 +112,12 @@ public sealed record WriteRecentRequest
     /// The agent made sure with the user that the write holds no secret: the credential check is skipped.
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }
+
+    /// <summary>
+    /// Parameter names the call gave that the tool's input schema does not declare, as the agent wrote them. The service
+    /// refuses the call and names each one; the values are never looked at. Empty when every name is known.
+    /// </summary>
+    public IReadOnlyList<string>? UnknownParameters { get; init; }
 }
 
 /// <summary>
@@ -126,6 +144,12 @@ public sealed record WritePersonaRequest
     /// The agent made sure with the user that the write holds no secret: the credential check is skipped.
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }
+
+    /// <summary>
+    /// Parameter names the call gave that the tool's input schema does not declare, as the agent wrote them. The service
+    /// refuses the call and names each one; the values are never looked at. Empty when every name is known.
+    /// </summary>
+    public IReadOnlyList<string>? UnknownParameters { get; init; }
 }
 
 /// <summary>A memory tool as the MCP server describes it to clients.</summary>

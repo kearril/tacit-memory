@@ -156,7 +156,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_length_limit_counts_the_text_only_not_the_project_label_or_the_source()
     {
-        var text = new string('字', 100);
+        var text = new string('字', 200);
 
         var result = await _service.WriteRecentAsync(Add(text, project: "tacit-memory", source: new string('源', 150)));
 
@@ -167,10 +167,10 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Text_over_the_limit_is_refused_and_the_limit_is_named()
     {
-        var result = await _service.WriteRecentAsync(Add(new string('字', 101)));
+        var result = await _service.WriteRecentAsync(Add(new string('字', 201)));
 
         Assert.True(result.IsError);
-        Assert.Contains("101 characters; the limit is 100", result.Text);
+        Assert.Contains("201 characters; the limit is 200", result.Text);
         Assert.False(File.Exists(MonthFile));
     }
 
@@ -483,10 +483,10 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         File.WriteAllText(RecentPath, "## 近期主线\n");
 
-        var result = await _service.WriteRecentAsync(Mainline([new string('字', 101)], VersionOf()));
+        var result = await _service.WriteRecentAsync(Mainline([new string('字', 201)], VersionOf()));
 
         Assert.True(result.IsError);
-        Assert.Contains("Item 1 has 101 characters; the limit is 100", result.Text);
+        Assert.Contains("Item 1 has 201 characters; the limit is 200", result.Text);
         Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
     }
 
@@ -652,6 +652,26 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.StartsWith("Refused: Missing parameter op.\nNext step: ", missing.Text);
         Assert.True(unknown.IsError);
         Assert.Contains("delete", unknown.Text);
+        Assert.False(File.Exists(MonthFile));
+    }
+
+    [Fact]
+    public async Task An_unknown_parameter_is_refused_by_name_and_nothing_is_written()
+    {
+        var result = await _service.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["content"] });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_recent again with only the parameters for op add_activity: text, project, source, replaces, confirm_no_secret.", result.Text);
+        Assert.False(File.Exists(MonthFile));
+        Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task Unknown_names_come_first_with_a_missing_op_and_the_next_step_lists_every_parameter()
+    {
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "一件事", UnknownParameters = ["content"] });
+
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Missing parameter op.\nNext step: Call write_recent again with op set to one of: add_activity, update_mainline; its parameters are: op, text, project, source, replaces, confirm_no_secret, items, hash.", result.Text);
         Assert.False(File.Exists(MonthFile));
     }
 

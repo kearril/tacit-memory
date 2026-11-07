@@ -246,25 +246,11 @@ public sealed class ShowTests : IDisposable
             new ToolDescription("checkup", "Report on the memory.", []),
         };
 
-        var result = _home.Tacit().ShowTools(tools);
+        var result = _home.Tacit().ShowTools(_home.Tacit().LoadConfig(), tools);
 
         Assert.Contains("2", result.Report.Split('\n')[0]);
         Assert.Contains("## recall\nSearch the memory.", result.Report);
         Assert.Contains("- query (string): What to look for.", result.Report);
         Assert.True(result.Report.IndexOf("## recall", StringComparison.Ordinal) < result.Report.IndexOf("## checkup", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void Tools_follow_the_memory_language_and_refuse_the_default()
-    {
-        using var english = new TestHome();
-        english.InitReady(language: MemoryLanguage.En);
-        var tools = new[] { new ToolDescription("recall", "Search the memory.", []) };
-
-        var result = english.Tacit("en-US").ShowTools(tools);
-
-        Assert.DoesNotContain(result.Report, IsCjk);
-        var refused = Assert.Throws<TacitException>(() => _home.Tacit().ShowTools(tools, useDefault: true));
-        Assert.Equal(TacitError.NoBuiltInText, refused.Error);
     }
 }

@@ -16,6 +16,7 @@ public sealed class ConfigRefusalTests : IDisposable
         { ["status"] },
         { ["backup"] },
         { ["show", "instructions"] },
+        { ["show", "tools"] },
         { ["reindex"] },
     };
 

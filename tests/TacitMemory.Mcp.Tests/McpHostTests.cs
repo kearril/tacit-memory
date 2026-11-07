@@ -87,6 +87,61 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_write_tools_list_their_required_parameters_and_the_values_of_their_enumerated_ones()
+    {
+        await using var client = await ConnectAsync();
+
+        var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
+
+        Assert.Equal(["op", "page"], Required(tools["write_page"].ProtocolTool));
+        Assert.Equal(["op"], Required(tools["write_recent"].ProtocolTool));
+        Assert.Equal(["op"], Required(tools["write_persona"].ProtocolTool));
+        Assert.Empty(Required(tools["recall"].ProtocolTool));
+        Assert.Equal(["create", "upsert_section", "delete_section", "update_header"], Values(tools["write_page"].ProtocolTool, "op"));
+        Assert.Equal(["add_activity", "update_mainline"], Values(tools["write_recent"].ProtocolTool, "op"));
+        Assert.Equal(["add", "propose", "replace", "delete"], Values(tools["write_persona"].ProtocolTool, "op"));
+        Assert.Equal(["red_lines", "working_rules", "preferences", "profile"], Values(tools["write_persona"].ProtocolTool, "persona_section"));
+        Assert.Equal(["pages", "activities"], Values(tools["recall"].ProtocolTool, "kind"));
+        Assert.False(tools["write_page"].ProtocolTool.InputSchema.GetProperty("properties").GetProperty("page").TryGetProperty("enum", out _));
+    }
+
+    [Fact]
+    public async Task The_descriptions_carry_the_configured_limits_and_match_the_catalog()
+    {
+        // The limits are read once at start, so the service is restarted on the config the test writes.
+        await _host.DisposeAsync();
+        _service.Dispose();
+        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { itemLength: 150, page: { minAliases: 3 } }\n");
+        _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+
+        await using var client = await ConnectAsync();
+        var served = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
+        var catalog = ToolCatalog.Describe(_service.Config.Limits).ToDictionary(tool => tool.Name);
+
+        Assert.Contains("At least 3.", Parameter(served["write_page"].ProtocolTool, "aliases"));
+        Assert.Contains("at most 150 characters", served["write_recent"].ProtocolTool.Description);
+        Assert.Contains("(150 characters)", served["write_persona"].ProtocolTool.Description);
+        foreach (var tool in served.Values)
+        {
+            var description = tool.ProtocolTool.Description ?? "";
+            Assert.DoesNotContain("100 characters", description);
+            Assert.DoesNotContain("by default", description);
+            Assert.DoesNotContain('{', description);
+        }
+        foreach (var tool in served.Values)
+        {
+            Assert.Equal(catalog[tool.Name].Description, tool.ProtocolTool.Description);
+            foreach (var parameter in catalog[tool.Name].Parameters.Where(parameter => parameter.Description.Length > 0))
+                Assert.Equal(parameter.Description, Parameter(tool.ProtocolTool, parameter.Name));
+        }
+    }
+
+    private static string Parameter(ModelContextProtocol.Protocol.Tool tool, string parameter) =>
+        tool.InputSchema.GetProperty("properties").GetProperty(parameter).GetProperty("description").GetString()!;
+
+
+    [Fact]
     public async Task Write_persona_describes_each_op_on_its_own_line()
     {
         await using var client = await ConnectAsync();
@@ -320,6 +375,39 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_argument_the_schema_does_not_declare_reaches_the_service_and_is_named()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_page", new Dictionary<string, object?>
+        {
+            ["op"] = "upsert_section",
+            ["page"] = "tacit-memory/x",
+            ["section"] = "根因",
+            ["content"] = "扩展没有重装。",
+        });
+        var recalled = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "数据库", ["limit"] = 5, ["content"] = null });
+
+        Assert.True(written.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", Text(written));
+        Assert.True(recalled.IsError);
+        Assert.StartsWith("Refused:\n", Text(recalled));
+        Assert.Contains("- Unknown parameter limit.", Text(recalled));
+        Assert.Contains("- Unknown parameter content.", Text(recalled));
+    }
+
+    [Fact]
+    public async Task An_op_outside_the_listed_values_still_reaches_the_service_which_refuses_it()
+    {
+        await using var client = await ConnectAsync();
+
+        var result = await client.CallToolAsync("write_page", new Dictionary<string, object?> { ["op"] = "rewrite", ["page"] = "tacit-memory/x" });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown op \"rewrite\".\nNext step: ", Text(result));
+    }
+
+    [Fact]
     public async Task A_persona_entry_written_through_the_tool_lands_in_persona_md_and_a_refusal_is_an_error()
     {
         await using var client = await ConnectAsync();
@@ -491,6 +579,14 @@ public sealed class McpHostTests : IAsyncLifetime
 
     private static string Text(ModelContextProtocol.Protocol.CallToolResult result) =>
         string.Concat(result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
+
+    private static string[] Required(ModelContextProtocol.Protocol.Tool tool) =>
+        tool.InputSchema.TryGetProperty("required", out var required)
+            ? required.EnumerateArray().Select(name => name.GetString()!).Order().ToArray()
+            : [];
+
+    private static string[] Values(ModelContextProtocol.Protocol.Tool tool, string parameter) =>
+        tool.InputSchema.GetProperty("properties").GetProperty(parameter).GetProperty("enum").EnumerateArray().Select(value => value.GetString()!).ToArray();
 
     [Fact]
     public async Task A_second_service_on_a_taken_port_is_refused()

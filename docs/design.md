@@ -140,7 +140,7 @@
 | 偏好 | `<维度>：<描述>`，描述句，可写"不喜欢……" | 15 条 |
 | 档案 | `<字段>：<事实>`，不写行为要求 | 10 条 |
 
-- 每条不含注释最多 100 字，一条只写一个情境和一个做法；不使用大写强调词。
+- 每条不含注释最多 200 字，一条只写一个情境和一个做法；不使用大写强调词。
 - 修改逐条进行，不整篇重写；被取代的条目直接替换，历史由 Git 保留。
 
 ### 画像候选 `candidates.md`
@@ -264,6 +264,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 - 新建时提交整页；服务先用决策模型判断是否与已有页重复。
 - 更新以小节为单位：新增或替换一个小节、删除一个小节、修改页头（追加别名、改标题或 `related`）。替换与删除须带原小节的短码。
+- `section` 填的是本页某小节的短码（忽略大小写与首尾空白，且本页没有同名小节）时，`upsert_section` 与 `delete_section` 拒绝并给出该小节的标题；下一步：`section` 填小节名，`hash` 填该短码。不论 `hash` 是否已填都拒绝，不写入也不提交。像短码但不属于本页的值照常按小节名处理。
 - 不提供整页重写；大幅调整在体检中直接改文件。
 
 ### 近期活动
@@ -271,7 +272,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 写入时机：一件主事有了结论（定了决定、查明根因、阶段目标完成）时写一条；每个会话至多一条，之后有进展用 `replaces` 改写。
 - 一条活动写"人在做什么、想通了什么"，不写"改了哪些文件"。
 - 写入 `recent/YYYY-MM.md`，按本地日期定位当日标题；缺标题时追加到文件末尾。写入只改动新增的条目与来源注释，文件其余字节不变。
-- 文本限一行，不超过 `limits.itemLength`（默认 100 字符，不计项目标签与来源注释），不以 `[` 开头；原话同样限一行，且不含 `-->`；项目名小写并校验，允许新项目。
+- 文本限一行，不超过 `limits.itemLength`（默认 200 字符，不计项目标签与来源注释），不以 `[` 开头；原话同样限一行，且不含 `-->`；项目名小写并校验，允许新项目。
 - 写入后，服务返回当前近期主线（附版本短码）与自上次提交 `recent.md` 之日起的活动（新的在前，最多列 10 条，其余注明条数）；上次提交为 `init:` 或尚无提交时列出全部活动。主会话据此决定是否改写主线。
 - 与当天已有活动同主题时（按第 4 节的选择题与三档，阈值为 `sameTopic`），服务不写入，以普通回复（非错误）退回该活动及其短码，不附主线与活动列表；主会话写出合并后的一句，带 `replaces` 重新提交。决策模型不可用时照常写入，回复中注明未检查；带 `replaces` 时不做同主题判断。
 - `replaces` 只指向当天的活动：短码须是当天某条的短码。其他日期、已过期（条目改写后旧短码即失效）或不存在的短码都被拒绝，拒绝时列出当天的活动及其短码。改写在原位替换条目正文与项目标签；带 `source` 时替换来源注释，否则保留原注释。改写与新增经同样的参数校验与凭据检测，不做同主题判断，返回新短码，提交信息为 `recent: replace <短码>`。
@@ -420,6 +421,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 - 返回 Markdown 风格的纯文本，不返回结构化数据。
 - 参数缺失、短码过期、超出上限或违反规则时标记错误，按"拒绝 / 下一步 / 相关内容"三段返回，"下一步"是主会话可直接执行的动作。同主题活动被退回、候选并入已有候选、提议命中拒绝列表或画像属于正常分支，不标记错误。
+- 参数名不在工具 schema 中的（未知参数）一律拒绝，每个未知参数一条 `Unknown parameter <名>.`，排在最前；同一次调用中缺 `op`、`op` 无效、放错 `op` 的已知参数一并列出，只拒绝一次。判断不看值：键在、名字不在 schema 中即为未知，值为 `null` 或空串也算；已知参数值为 `null` 仍按放错 `op` 的规则视为未给出。下一步：`op` 有效时列出该 op 的参数（`write_page` 另列 `page`）；`op` 缺失或无效时列出 `op` 的取值与工具的全部参数；`recall` 列出全部参数。拒绝不写文件、不提交，经调用记录路径记入日志，日志不含参数值。
 
 ### 记忆指令
 
@@ -515,7 +517,7 @@ models:                       # 必填，无默认值
 
 limits:
   persona: { redLines: 5, workingRules: 20, preferences: 15, profile: 10 }
-  itemLength: 100
+  itemLength: 200
   mainline: 5
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
 candidates: { minDays: 2 }
@@ -557,7 +559,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
 | `tacit serve` | 启动常驻服务；未初始化时报错 | — |
 | `tacit connect` / `tacit disconnect` | `connect --client <名称> --context <文件> --skills <目录>`（三个选项都必填）；`disconnect --client <名称>`，路径取自绑定记录 | 否 |
-| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 由 CLI 经 `TacitMemory.Mcp` 读取；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
+| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用与冷却（含剩余秒数）、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值）。服务未运行时写明"服务未运行"，服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`），省略服务运行时数据与辅助模型，其余各栏照常（退出码 4）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径；此时仍宽松读取 `server.port`（读不出、文件不存在或 YAML 无法解析时为 18888）与 `language`（读不出时取系统界面语言）探测服务：服务在运行则并入它的各栏，未运行或端口被他人占用则在服务栏注明，退出码均为 3。配置有效时退出码只看服务：应答并给出报告为 0；服务拒绝给出报告，或离线报告读取遇到 IO 或权限错误，为 1（原因写入 stderr）；无应答或端口被他人占用为 4；不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
 | `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
 | `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份（不给选项时写到 `TACIT_HOME/backups/`，`--to` 写到指定目录）；`--remote` 上传云端备份，远端只保留一份；两者不能同时使用 | 是 |
@@ -570,7 +572,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | 0 | 成功；`status` 中表示服务在运行 |
 | 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认 |
 | 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突、非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`，以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`；`init`、`disconnect`、`show tools` 与带 `--default` 的 `show` 不会返回 |
+| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`，以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
 | 4 | 服务未运行，含端口被其他程序占用 |
 
 结果写 stdout；错误与确认提示写 stderr。`restore` 在标准输入不是终端且未带 `--yes` 时以 2 结束，不挂起等待。

@@ -209,6 +209,43 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unknown_parameter_is_refused_by_name_and_nothing_is_written()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var commits = Git("rev-list", "--count", "HEAD").Trim();
+
+        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["content"] });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(commits, Git("rev-list", "--count", "HEAD").Trim());
+        Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task Unknown_names_come_first_with_the_op_and_misplaced_problems_in_one_refusal()
+    {
+        var invalid = await _service.WritePageAsync(new WritePageRequest { Op = "rewrite", Page = "tacit-memory/db-upgrade", UnknownParameters = ["content", "limit"] });
+        var misplaced = await _service.WritePageAsync(Create("tacit-memory/db-upgrade") with { Section = "根因", UnknownParameters = ["content"] });
+
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Unknown op \"rewrite\".\nNext step: ", invalid.Text);
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Parameter section does not apply to op create.\nNext step: ", misplaced.Text);
+    }
+
+    [Fact]
+    public async Task The_next_step_lists_the_parameters_of_a_valid_op_or_every_parameter_when_the_op_is_missing()
+    {
+        var withOp = await _service.WritePageAsync(Upsert("tacit-memory/db-upgrade", "根因", "新的根因。") with { UnknownParameters = ["content"] });
+        var withoutOp = await _service.WritePageAsync(new WritePageRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["content"] });
+
+        Assert.Contains("Call write_page again with only the parameters for op upsert_section: page, section, body, hash, confirm_no_secret.", withOp.Text);
+        Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, aliases, sections, related, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
+    }
+
+    [Fact]
     public async Task Writes_arriving_together_run_one_after_another()
     {
         var writes = Enumerable.Range(1, 5).Select(n => _service.WritePageAsync(Create($"tacit-memory/page-{n}")));
@@ -320,6 +357,113 @@ public sealed partial class PageTests : IDisposable
         Assert.Equal(before + "\n## 后续\n待办。\n", PageText(page));
         var code = await CodeOf(page, "后续");
         Assert.Contains($"Added section 后续 [{code}].", result.Text);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Upsert_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var head = Git("rev-parse", "HEAD");
+        var code = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Upsert(page, code, "覆盖。", withHash ? code : null));
+
+        Assert.True(result.IsError);
+        Assert.Contains("Parameter section \"" + code + "\" is the short code of section 根因, not a section name.", result.Text);
+        Assert.Contains($"Call write_page op=upsert_section again with section set to the name 根因 and hash set to the short code {code}.", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("## 另一节\n内容。")]
+    public async Task Upsert_refuses_a_short_code_as_the_section_name_before_checking_the_body(string body)
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var head = Git("rev-parse", "HEAD");
+        var code = await CodeOf(page, "根因");
+
+        var result = await _service.WritePageAsync(Upsert(page, code, body));
+
+        Assert.True(result.IsError);
+        Assert.StartsWith($"Refused: Parameter section \"{code}\" is the short code of section 根因, not a section name.", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Delete_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var head = Git("rev-parse", "HEAD");
+        var code = await CodeOf(page, "现象");
+
+        var result = await _service.WritePageAsync(Delete(page, code, withHash ? code : null));
+
+        Assert.True(result.IsError);
+        Assert.Contains("is the short code of section 现象, not a section name.", result.Text);
+        Assert.Contains($"Call write_page op=delete_section again with section set to the name 现象 and hash set to the short code {code}.", result.Text);
+        Assert.Equal(before, PageText(page));
+        Assert.Equal(head, Git("rev-parse", "HEAD"));
+    }
+
+    [Fact]
+    public async Task A_short_code_in_capitals_or_padded_with_spaces_is_still_recognised()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+        var code = await CodeOf(page, "根因");
+
+        var upper = await _service.WritePageAsync(Upsert(page, "  " + code.ToUpperInvariant() + " ", "覆盖。"));
+        var deleted = await _service.WritePageAsync(Delete(page, code.ToUpperInvariant()));
+
+        Assert.Contains("is the short code of section 根因, not a section name.", upper.Text);
+        Assert.Contains("is the short code of section 根因, not a section name.", deleted.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task A_section_actually_named_like_a_code_is_rewritten_by_its_name()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var code = await CodeOf(page, "根因");
+        const string other = "tacit-memory/code-named";
+        await _service.WritePageAsync(Create(other, sections: [new("根因", "PGroonga 扩展没有随升级重装。"), new(code, "旧内容。")]));
+        var hash = await CodeOf(other, code);
+
+        var result = await _service.WritePageAsync(Upsert(other, code, "新内容。", hash));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("新内容。", PageText(other));
+        Assert.DoesNotContain("旧内容。", PageText(other));
+    }
+
+    [Fact]
+    public async Task A_value_shaped_like_a_code_that_no_section_has_is_a_section_name_as_before()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+
+        var added = await _service.WritePageAsync(Upsert(page, "a1b2c3", "待办。"));
+        var deleted = await _service.WritePageAsync(Delete(page, "fedcba"));
+
+        Assert.False(added.IsError, added.Text);
+        Assert.Contains("Added section a1b2c3", added.Text);
+        Assert.True(deleted.IsError);
+        Assert.Contains("Section \"fedcba\" does not exist on page", deleted.Text);
     }
 
     [Fact]

@@ -21,6 +21,7 @@ public sealed class InitTests : IDisposable
         Assert.Equal("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n", File.ReadAllText(Path.Combine(memory, "persona.md")));
         Assert.Equal("## 候选\n\n## 拒绝列表\n", File.ReadAllText(Path.Combine(memory, "candidates.md")));
         Assert.Equal("## 近期主线\n", File.ReadAllText(Path.Combine(memory, "recent.md")));
+        Assert.Contains("itemLength: 200", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
 
         Assert.Equal("tacit <tacit@localhost>|init: create memory repo\n", TestHome.Git(memory, "log", "--format=%an <%ae>|%s"));
         var committed = TestHome.Git(memory, "ls-files").Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -116,6 +117,7 @@ public sealed class InitTests : IDisposable
         Assert.StartsWith("## Worth recording\n", File.ReadAllText(Path.Combine(_home.TacitHome, "prompts", "rules.md")));
         Assert.Equal("## Candidates\n\n## Rejection list\n", File.ReadAllText(Path.Combine(result.MemoryPath, "candidates.md")));
         Assert.StartsWith("# TacitMemory configuration.", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+        Assert.Contains("itemLength: 200", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
         Assert.StartsWith("Created the memory repository: ", result.Report);
     }
 }

@@ -171,16 +171,16 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Text_longer_than_the_item_limit_is_refused_and_the_limit_is_read_from_config()
     {
-        var tooLong = "偏好：" + new string('x', 100);
+        var tooLong = "偏好：" + new string('x', 200);
 
         var refused = await _service.WritePersonaAsync(Add("preferences", tooLong));
 
         Assert.True(refused.IsError);
-        Assert.Contains("100", refused.Text);
+        Assert.Contains("200", refused.Text);
         Assert.False(File.Exists(PersonaMd) && File.ReadAllText(PersonaMd).Contains("xxxx"));
 
         using var home = new TestHome();
-        home.InitReady("limits:\n  itemLength: 120\n");
+        home.InitReady("limits:\n  itemLength: 210\n");
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         Assert.False((await service.WritePersonaAsync(Add("preferences", tooLong))).IsError);
@@ -382,9 +382,33 @@ public sealed partial class PersonaAddTests : IDisposable
         var missing = await _service.WritePersonaAsync(new WritePersonaRequest());
 
         Assert.True(unknown.IsError);
-        Assert.Contains("op=add", unknown.Text);
+        Assert.Contains("add, propose, replace, delete", unknown.Text);
         Assert.True(missing.IsError);
         Assert.Contains("op", missing.Text);
         Assert.DoesNotContain("删除", File.ReadAllText(PersonaMd));
+    }
+
+    [Fact]
+    public async Task An_unknown_parameter_is_refused_by_name_and_leaves_persona_and_history_alone()
+    {
+        var before = File.ReadAllText(PersonaMd);
+        var commits = Git("rev-list", "--count", "HEAD").Trim();
+
+        var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论") with { UnknownParameters = ["content"] });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_persona again with only the parameters for op add: persona_section, text, source, confirm_no_secret.", result.Text);
+        Assert.Equal(before, File.ReadAllText(PersonaMd));
+        Assert.Equal(commits, Git("rev-list", "--count", "HEAD").Trim());
+    }
+
+    [Fact]
+    public async Task Unknown_names_come_first_with_the_op_problems_and_a_missing_op_lists_every_parameter()
+    {
+        var missing = await _service.WritePersonaAsync(new WritePersonaRequest { Section = "preferences", Text = "沟通：先要结论", UnknownParameters = ["content", "limit"] });
+        var misplaced = await _service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Text = "沟通：先要结论", UnknownParameters = ["content"] });
+
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Missing parameter op.\nNext step: Call write_persona again with op set to one of: add, propose, replace, delete; its parameters are: op, persona_section, text, source, confirm_no_secret, hash.", missing.Text);
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Parameter text does not apply to op delete.\nNext step: Call write_persona again with only the parameters for op delete: hash.", misplaced.Text);
     }
 }

@@ -20,5 +20,9 @@ internal static class ToolText
 
     public static ToolResult Refuse(string reason, string nextStep, string? related = null) => Refuse([reason], nextStep, related);
 
+    /// <summary>One problem per parameter name the call gave that its schema does not declare; a refusal lists them first.</summary>
+    public static List<string> UnknownParameters(IReadOnlyList<string>? names) =>
+        (names ?? []).Select(name => $"Unknown parameter {name}.").ToList();
+
     public static string Quote(string value) => $"\"{value}\"";
 }

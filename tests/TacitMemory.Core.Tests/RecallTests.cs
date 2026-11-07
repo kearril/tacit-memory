@@ -175,6 +175,24 @@ public sealed class RecallTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unknown_parameter_is_refused_by_name_on_a_query_and_on_a_page_read()
+    {
+        var query = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["limit"] });
+        var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["top_k"] });
+
+        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.", query.Text);
+        Assert.StartsWith("Refused: Unknown parameter top_k.\nNext step: ", read.Text);
+    }
+
+    [Fact]
+    public async Task An_unknown_parameter_is_listed_before_the_query_or_page_problem()
+    {
+        var result = await Service.RecallAsync(new RecallRequest { UnknownParameters = ["top_k"] });
+
+        Assert.StartsWith("Refused:\n- Unknown parameter top_k.\n- Missing parameter query or page.\nNext step: ", result.Text);
+    }
+
+    [Fact]
     public async Task A_page_written_through_the_service_is_found_at_once()
     {
         await Service.WritePageAsync(new WritePageRequest

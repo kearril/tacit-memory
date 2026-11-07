@@ -16,16 +16,19 @@ namespace TacitMemory.Core.Pages;
 internal sealed class PageTools(
     TacitOptions options, TacitConfig config, ServiceLog log, DuplicatePageCheck duplicates)
 {
-    private const string Ops = "create, upsert_section, delete_section, update_header";
-
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
     {
-        ["create"] = ["title", "aliases", "sections", "related", "confirm_no_secret"],
-        ["upsert_section"] = ["section", "body", "hash", "confirm_no_secret"],
-        ["delete_section"] = ["section", "hash"],
-        ["update_header"] = ["title", "aliases", "add_aliases", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.Create] = ["title", "aliases", "sections", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.UpsertSection] = ["section", "body", "hash", "confirm_no_secret"],
+        [ToolValues.WritePageOps.DeleteSection] = ["section", "hash"],
+        [ToolValues.WritePageOps.UpdateHeader] = ["title", "aliases", "add_aliases", "related", "confirm_no_secret"],
     };
+
+    private static readonly string Ops = string.Join(", ", OpParameters.Keys);
+
+    /// <summary>Every parameter <c>write_page</c> takes, listed when the op is missing or unknown.</summary>
+    private static readonly string AllParameters = string.Join(", ", new[] { "op", "page" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
@@ -42,25 +45,33 @@ internal sealed class PageTools(
 
     public async Task<ToolResult> WriteAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Op))
-            return ToolText.Refuse("Missing parameter op.", $"Call write_page again with op set to one of: {Ops}.");
+        var problems = ToolText.UnknownParameters(request.UnknownParameters);
+        string nextStep;
+        if (!OpParameters.TryGetValue(request.Op ?? "", out var taken))
+        {
+            problems.Add(string.IsNullOrWhiteSpace(request.Op) ? "Missing parameter op." : $"Unknown op {ToolText.Quote(request.Op)}.");
+            nextStep = $"Call write_page again with op set to one of: {Ops}; its parameters are: {AllParameters}.";
+        }
+        else
+        {
+            problems.AddRange(MisplacedParameters(request, taken).Select(name => $"Parameter {name} does not apply to op {request.Op}."));
+            nextStep = $"Call write_page again with only the parameters for op {request.Op}: page, {string.Join(", ", taken)}.";
+        }
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, nextStep);
+
         if (string.IsNullOrWhiteSpace(request.Page))
             return ToolText.Refuse("Missing parameter page.", "Call write_page again with page set to a page ID such as my-app/db-upgrade.");
         if (!PageId.TryParse(request.Page, out var id, out var problem))
             return ToolText.Refuse(problem, "Call write_page again with a valid page ID.");
 
-        if (OpParameters.TryGetValue(request.Op, out var taken) && MisplacedParameters(request, taken) is { Count: > 0 } misplaced)
-            return ToolText.Refuse(
-                misplaced.Select(name => $"Parameter {name} does not apply to op {request.Op}.").ToList(),
-                $"Call write_page again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.");
-
         return request.Op switch
         {
-            "create" => await CreateAsync(id, request, cancellationToken),
-            "upsert_section" => await UpsertSectionAsync(id, request, cancellationToken),
-            "delete_section" => await DeleteSectionAsync(id, request, cancellationToken),
-            "update_header" => await UpdateHeaderAsync(id, request, cancellationToken),
-            _ => ToolText.Refuse($"Unknown op {ToolText.Quote(request.Op)}.", $"Call write_page again with op set to one of: {Ops}."),
+            ToolValues.WritePageOps.Create => await CreateAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.UpsertSection => await UpsertSectionAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.DeleteSection => await DeleteSectionAsync(id, request, cancellationToken),
+            ToolValues.WritePageOps.UpdateHeader => await UpdateHeaderAsync(id, request, cancellationToken),
+            _ => throw new InvalidOperationException($"Op {request.Op} passed the op check without a handler."),
         };
     }
 
@@ -84,7 +95,7 @@ internal sealed class PageTools(
                 SectionList(existing!));
         }
 
-        if (CheckSecrets(request, "create", [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)]) is { } secret)
+        if (CheckSecrets(request, ToolValues.WritePageOps.Create, [("title", title), .. aliases.Select(alias => ("alias", alias)), .. SectionTexts(sections)]) is { } secret)
             return secret;
 
         var today = options.Today;
@@ -115,20 +126,23 @@ internal sealed class PageTools(
         if (string.IsNullOrWhiteSpace(request.Section))
             return ToolText.Refuse("Missing parameter section.", "Call write_page op=upsert_section again with section set to the section's name.");
         var name = request.Section.Trim();
-        var body = request.Body ?? "";
-        var problems = new List<string>();
-        CheckSections([new PageSectionInput(name, body)], problems);
-        if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
-
-        if (CheckSecrets(request, "upsert_section", SectionTexts([new PageSectionInput(name, body)])) is { } secret)
-            return secret;
 
         var (document, refusal) = Load(id);
         if (refusal is not null)
             return refusal;
         if (document!.HeaderBroken)
             return BrokenHeader(id);
+        if (RefuseCodeAsName(document!, name, "op=upsert_section") is { } codeAsName)
+            return codeAsName;
+
+        var body = request.Body ?? "";
+        var problems = new List<string>();
+        CheckSections([new PageSectionInput(name, body)], problems);
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, "Fix these and call write_page op=upsert_section again.");
+
+        if (CheckSecrets(request, ToolValues.WritePageOps.UpsertSection, SectionTexts([new PageSectionInput(name, body)])) is { } secret)
+            return secret;
 
         var existing = document.Sections.FirstOrDefault(section => section.Name == name);
         if (existing is not null && RefuseStaleSection(existing, request.Hash, "replace", "op=upsert_section") is { } stale)
@@ -151,6 +165,8 @@ internal sealed class PageTools(
             return refusal;
         if (document!.HeaderBroken)
             return BrokenHeader(id);
+        if (RefuseCodeAsName(document!, name, "op=delete_section") is { } codeAsName)
+            return codeAsName;
 
         var existing = document.Sections.FirstOrDefault(section => section.Name == name);
         if (existing is null)
@@ -189,7 +205,7 @@ internal sealed class PageTools(
         if (title is not null)
             written.Add(("title", title));
         written.AddRange(added.Select(alias => ("alias", alias)));
-        if (CheckSecrets(request, "update_header", written) is { } secret)
+        if (CheckSecrets(request, ToolValues.WritePageOps.UpdateHeader, written) is { } secret)
             return secret;
 
         var (document, refusal) = Load(id);
@@ -238,6 +254,23 @@ internal sealed class PageTools(
                 "Recall the page, then call write_page again with the section's current short code.",
                 SectionBlock(section));
         return null;
+    }
+
+    /// <summary>
+    /// The refusal when <paramref name="name"/> is the short code of a section of the page and no section has that name:
+    /// the agent gave a code where a section name belongs. Null otherwise, so a name that matches a section is handled by name.
+    /// </summary>
+    private static ToolResult? RefuseCodeAsName(PageDocument document, string name, string op)
+    {
+        if (document.Sections.Any(section => section.Name == name))
+            return null;
+        var coded = document.Sections.FirstOrDefault(candidate => string.Equals(candidate.Code, name, StringComparison.OrdinalIgnoreCase));
+        if (coded is null)
+            return null;
+        return ToolText.Refuse(
+            $"Parameter section {ToolText.Quote(name)} is the short code of section {coded.Name}, not a section name.",
+            $"Call write_page {op} again with section set to the name {coded.Name} and hash set to the short code {coded.Code}.",
+            SectionBlock(coded));
     }
 
     private static string SectionBlock(PageSection section) => $"## {section.Name} [{section.Code}]\n{section.Body}";
