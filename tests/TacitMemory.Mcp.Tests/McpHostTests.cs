@@ -87,6 +87,25 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_write_tools_list_their_required_parameters_and_the_values_of_their_enumerated_ones()
+    {
+        await using var client = await ConnectAsync();
+
+        var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
+
+        Assert.Equal(["op", "page"], Required(tools["write_page"].ProtocolTool));
+        Assert.Equal(["op"], Required(tools["write_recent"].ProtocolTool));
+        Assert.Equal(["op"], Required(tools["write_persona"].ProtocolTool));
+        Assert.Empty(Required(tools["recall"].ProtocolTool));
+        Assert.Equal(["create", "upsert_section", "delete_section", "update_header"], Values(tools["write_page"].ProtocolTool, "op"));
+        Assert.Equal(["add_activity", "update_mainline"], Values(tools["write_recent"].ProtocolTool, "op"));
+        Assert.Equal(["add", "propose", "replace", "delete"], Values(tools["write_persona"].ProtocolTool, "op"));
+        Assert.Equal(["red_lines", "working_rules", "preferences", "profile"], Values(tools["write_persona"].ProtocolTool, "persona_section"));
+        Assert.Equal(["pages", "activities"], Values(tools["recall"].ProtocolTool, "kind"));
+        Assert.False(tools["write_page"].ProtocolTool.InputSchema.GetProperty("properties").GetProperty("page").TryGetProperty("enum", out _));
+    }
+
+    [Fact]
     public async Task Write_persona_describes_each_op_on_its_own_line()
     {
         await using var client = await ConnectAsync();
@@ -320,6 +339,17 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_op_outside_the_listed_values_still_reaches_the_service_which_refuses_it()
+    {
+        await using var client = await ConnectAsync();
+
+        var result = await client.CallToolAsync("write_page", new Dictionary<string, object?> { ["op"] = "rewrite", ["page"] = "tacit-memory/x" });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Refused: Unknown op \"rewrite\".\nNext step: ", Text(result));
+    }
+
+    [Fact]
     public async Task A_persona_entry_written_through_the_tool_lands_in_persona_md_and_a_refusal_is_an_error()
     {
         await using var client = await ConnectAsync();
@@ -491,6 +521,14 @@ public sealed class McpHostTests : IAsyncLifetime
 
     private static string Text(ModelContextProtocol.Protocol.CallToolResult result) =>
         string.Concat(result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(block => block.Text));
+
+    private static string[] Required(ModelContextProtocol.Protocol.Tool tool) =>
+        tool.InputSchema.TryGetProperty("required", out var required)
+            ? required.EnumerateArray().Select(name => name.GetString()!).Order().ToArray()
+            : [];
+
+    private static string[] Values(ModelContextProtocol.Protocol.Tool tool, string parameter) =>
+        tool.InputSchema.GetProperty("properties").GetProperty(parameter).GetProperty("enum").EnumerateArray().Select(value => value.GetString()!).ToArray();
 
     [Fact]
     public async Task A_second_service_on_a_taken_port_is_refused()

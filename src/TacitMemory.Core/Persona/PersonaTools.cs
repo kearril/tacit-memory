@@ -35,10 +35,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// <summary>The four sections as an agent names them, and the limit the config sets for each.</summary>
     private readonly (PersonaSection Kind, string Name, int Limit)[] Sections =
     [
-        (PersonaSection.RedLines, "red_lines", config.Limits.Persona.RedLines),
-        (PersonaSection.WorkingRules, "working_rules", config.Limits.Persona.WorkingRules),
-        (PersonaSection.Preferences, "preferences", config.Limits.Persona.Preferences),
-        (PersonaSection.Profile, "profile", config.Limits.Persona.Profile),
+        (PersonaSection.RedLines, ToolValues.PersonaSections.RedLines, config.Limits.Persona.RedLines),
+        (PersonaSection.WorkingRules, ToolValues.PersonaSections.WorkingRules, config.Limits.Persona.WorkingRules),
+        (PersonaSection.Preferences, ToolValues.PersonaSections.Preferences, config.Limits.Persona.Preferences),
+        (PersonaSection.Profile, ToolValues.PersonaSections.Profile, config.Limits.Persona.Profile),
     ];
 
     private string SectionNames => string.Join(", ", Sections.Select(section => section.Name));
@@ -50,10 +50,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
         return request.Op switch
         {
-            "add" => await AddAsync(request, cancellationToken),
-            "propose" => await ProposeAsync(request, cancellationToken),
-            "replace" => await ReplaceAsync(request, cancellationToken),
-            "delete" => await DeleteAsync(request, cancellationToken),
+            ToolValues.WritePersonaOps.Add => await AddAsync(request, cancellationToken),
+            ToolValues.WritePersonaOps.Propose => await ProposeAsync(request, cancellationToken),
+            ToolValues.WritePersonaOps.Replace => await ReplaceAsync(request, cancellationToken),
+            ToolValues.WritePersonaOps.Delete => await DeleteAsync(request, cancellationToken),
             _ => ToolText.Refuse(
                 $"Unknown op {ToolText.Quote(request.Op)}.",
                 "Call write_persona again with op=add, op=propose, op=replace or op=delete."),

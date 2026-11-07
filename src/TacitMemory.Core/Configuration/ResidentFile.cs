@@ -20,10 +20,10 @@ internal static class ResidentFile
     /// <summary>The four sections in block order. Everything that names a section takes its name and title from here.</summary>
     public static readonly ResidentSection[] Sections =
     [
-        new("red_lines", PersonaSection.RedLines, "Red lines"),
-        new("working_rules", PersonaSection.WorkingRules, "Working rules"),
-        new("preferences", PersonaSection.Preferences, "Preferences"),
-        new("profile", PersonaSection.Profile, "Profile"),
+        new(ToolValues.PersonaSections.RedLines, PersonaSection.RedLines, "Red lines"),
+        new(ToolValues.PersonaSections.WorkingRules, PersonaSection.WorkingRules, "Working rules"),
+        new(ToolValues.PersonaSections.Preferences, PersonaSection.Preferences, "Preferences"),
+        new(ToolValues.PersonaSections.Profile, PersonaSection.Profile, "Profile"),
     ];
 
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);

@@ -350,7 +350,7 @@ public sealed class MemoryService : IDisposable
             if (!result.Written)
                 return result;
             // Only a change to persona.md reaches the resident context; a candidate waits for confirmation first.
-            if (request.Op != "propose")
+            if (request.Op != ToolValues.WritePersonaOps.Propose)
                 ScheduleRender();
             _backup.ScheduleIfDue();
             return result;

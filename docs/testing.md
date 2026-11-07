@@ -61,7 +61,7 @@
 2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发、工具列表与标注、参数错误标记与三段返回、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表含 `tacit://checkup-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本。
+     - `McpHostTests`：服务端说明下发、工具列表与标注、必填参数与取值（`required`、`enum`）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表含 `tacit://checkup-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本。
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。

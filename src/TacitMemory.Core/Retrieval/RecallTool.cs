@@ -50,13 +50,13 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         if (from > to)
             problems.Add("from is later than to.");
         var kind = request.Kind?.Trim();
-        if (kind is { Length: > 0 } and not ("pages" or "activities"))
+        if (kind is { Length: > 0 } and not (ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
             problems.Add($"Unknown kind {ToolText.Quote(kind)}; use pages or activities.");
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call recall again.");
 
         var project = string.IsNullOrWhiteSpace(request.Project) ? null : request.Project.Trim().ToLowerInvariant();
-        var activities = kind switch { "activities" => true, "pages" => false, _ => (bool?)null };
+        var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
         var filter = new IndexFilter(project, from, to, activities);
         var candidates = config.Retrieval.Candidates;
         var fullText = index.Search(request.Query!, filter, candidates);
