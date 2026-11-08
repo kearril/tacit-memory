@@ -86,7 +86,7 @@ public sealed record ServiceStatus(
     public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select(_ => (StatusLevel?)(Running ? StatusLevel.Ok : StatusLevel.Attention)).ToList();
 }
 
-/// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data.</summary>
+/// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data. Offline, only the unconfigured models are listed.</summary>
 public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn
 {
     /// <summary>A model line is ok while the model is available and attention while it cools down; an unconfigured model and a line without an item are plain.</summary>
@@ -101,7 +101,7 @@ public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IRe
 }
 
 /// <param name="Role">The model's role name in <c>config.yaml</c>: <c>embedding</c>, <c>reranker</c> or <c>decision</c>.</param>
-/// <param name="State">Available, or cooling down after a failed request.</param>
+/// <param name="State">Available, cooling down after a failed request, or unconfigured.</param>
 /// <param name="CoolingSeconds">Seconds left in the cooldown, rounded up; <c>null</c> unless cooling down.</param>
 public sealed record ModelStatus(string Role, ModelState State, int? CoolingSeconds);
 

@@ -61,6 +61,30 @@ public sealed class ManagementApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Status_json_reads_back_an_unconfigured_model_as_unconfigured()
+    {
+        // A service of its own: the shared one has all three models configured.
+        using var home = new TestHome();
+        using var models = new ModelDouble();
+        home.InitReady(models: models);
+        File.WriteAllText(
+            Path.Combine(home.TacitHome, "config.yaml"),
+            $"language: zh\nmodels:\n  embedding: {{ url: '{models.EmbeddingUrl}', model: double-embedding }}\n");
+        using var service = home.Tacit().OpenService(_ => { }, _logs);
+        await using var host = await McpHost.TryStartAsync(service, port: 0, NullLoggerProvider.Instance)
+            ?? throw new InvalidOperationException("Port 0 is never in use.");
+
+        using var response = await _http.GetAsync(new Uri($"http://127.0.0.1:{host.Endpoint.Port}/api/status"));
+        var text = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("\"unconfigured\"", text, StringComparison.Ordinal);
+        var status = JsonSerializer.Deserialize<StatusReport>(text, ManagementApiJson.Options)!.Models!;
+        Assert.Equal(ModelState.Available, Assert.Single(status.Items, item => item.Role == "embedding").State);
+        Assert.Equal(ModelState.Unconfigured, Assert.Single(status.Items, item => item.Role == "reranker").State);
+        Assert.Equal(ModelState.Unconfigured, Assert.Single(status.Items, item => item.Role == "decision").State);
+    }
+
+    [Fact]
     public async Task Status_json_reads_back_a_secret_entry_for_each_model_and_an_unset_key_is_not_an_error()
     {
         using var response = await _http.GetAsync(Url("/api/status"));

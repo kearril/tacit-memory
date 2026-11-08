@@ -112,7 +112,7 @@ tacit show instructions --default > ~/.tacit/prompts/instructions.md
 
 服务运行时，下列命令经管理 API（`127.0.0.1` 上的 `/api`）完成工作，无需停止服务；服务未运行时，`reindex`、`backup`、`restore` 会提示先执行 `tacit serve` 并以退出码 4 结束。
 
-- **`tacit status`**：列出服务（运行与否、地址、版本、已运行时长）、辅助模型（可用或冷却中）、绑定、上次体检、待处理问题、备份、日志目录与各密钥的来源（环境变量或配置文件，不显示值）。服务未运行时仍输出不依赖服务的部分；服务栏始终给出 MCP 端点。`config.yaml` 无法加载时仍列出全部错误，并按 `server.port` 能读出的端口（读不出时为 18888）探测服务：服务在运行则同时显示它的报告，退出码仍为 3。
+- **`tacit status`**：列出服务（运行与否、地址、版本、已运行时长）、辅助模型（可用、冷却中或未配置）、绑定、上次体检、待处理问题、备份、日志目录与各密钥的来源（环境变量或配置文件，不显示值）。服务未运行时仍输出不依赖服务的部分：辅助模型栏只列未配置的模型，三个都已配置时省略该栏；服务栏始终给出 MCP 端点。`config.yaml` 无法加载时仍列出全部错误，并按 `server.port` 能读出的端口（读不出时为 18888）探测服务：服务在运行则同时显示它的报告，退出码仍为 3。
 - **`tacit reindex`**：全量重建派生索引，见上文。
 - **`tacit backup`**：立即在 `TACIT_HOME/backups/` 生成手动备份 `manual-YYYY-MM-DD-HHmmss.zip`，不被自动清理。`--to <目录>` 写到指定目录（不存在时创建）。`--remote` 现场生成一份备份，上传到云端，替换远端唯一的 `tacit-backup.zip`；`--to` 与 `--remote` 不能同时使用。备份内容为记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/`、`bindings.json` 与清单。
 - **`tacit restore --from <zip>`** 与 **`tacit restore --remote`**（两者恰好给一个）：先显示备份的生成时间、tacit 版本、种类（自动、手动、保险或云端）、记忆仓库 HEAD 的提交号与说明、文件数，以及将被替换的内容；输入 `y` 才开始，`--yes`（`-y`）跳过确认。标准输入不是终端且未带 `--yes` 时，显示预览后以退出码 2 结束，不恢复。恢复前会先生成保险备份 `pre-restore-*.zip`，路径会显示在结果中。默认只恢复记忆仓库；加 `--include-config` 时一并恢复 `config.yaml` 与 `prompts/`，`bindings.json` 永不恢复（绑定请重新执行 `tacit connect`）。恢复期间记忆工具的调用排队等待，结束后索引全量重建。恢复回来的 `config.yaml` 需要重启 `tacit serve` 才生效。
@@ -189,7 +189,7 @@ tacit disconnect --client omp
 
 `serve` 的日志见「日志」一节。
 
-终端中的输出会排版上色：`tacit status` 的各栏用面板呈现，正常为绿色，冷却中、待处理或未运行为黄色，出错为红色；`restore` 预览把将被替换的内容高亮；`connect` 打印的 MCP 端点放在面板中；`reindex`、`backup --remote` 与 `restore` 执行时，stderr 显示转圈与已用时间，结束即清除。输出被重定向或管道接收，或设置了环境变量 `NO_COLOR`（非空）时，输出退回与之前相同的纯文本；stdout 与 stderr 各自判断。
+终端中的输出会排版上色：`tacit status` 的各栏用面板呈现，正常为绿色，冷却中、待处理或未运行为黄色，出错为红色（未配置的模型不上色）；`restore` 预览把将被替换的内容高亮；`connect` 打印的 MCP 端点放在面板中；`reindex`、`backup --remote` 与 `restore` 执行时，stderr 显示转圈与已用时间，结束即清除。输出被重定向或管道接收，或设置了环境变量 `NO_COLOR`（非空）时，输出退回与之前相同的纯文本；stdout 与 stderr 各自判断。
 
 - **任何问题先看 `tacit status`**（各栏见「运维」）：服务应答并给出报告时退出码 0；服务拒绝给出报告（或离线报告读取失败）时为 1，原因写在 stderr；服务未运行或端口被其他程序占用时 4，`config.yaml` 无法加载时 3（有错误时列出全部出错的键路径；文件不存在或记忆仓库未初始化时说明缺少什么；此时仍探测服务，服务在运行时一并显示其报告）。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
