@@ -18,6 +18,16 @@ internal sealed class EmbeddingModel(ModelClient client, ModelConfig? config, Mo
     public ModelHealth Health => health;
 
     /// <summary>
+    /// The probe's one request: the fixed English sentence, answered and read as <see cref="EmbedAsync"/> reads it.
+    /// </summary>
+    public static Task<ProbeResult> ProbeAsync(ModelProbe probe, ModelConfig settings, CancellationToken cancellationToken) =>
+        probe.SendAsync(
+            ModelRole.Embedding,
+            () => ModelRequest.Post(settings, new Request(settings.Model, [ProbeInputs.Sentence])),
+            (response, token) => ReadVectorsAsync(response, 1, token),
+            cancellationToken);
+
+    /// <summary>
     /// One vector per text, or <c>null</c> when the model is not configured, cannot be reached or answers wrongly. An
     /// unconfigured model answers at once, without a request.
     /// </summary>

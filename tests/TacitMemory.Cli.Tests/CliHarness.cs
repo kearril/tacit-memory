@@ -42,8 +42,11 @@ internal sealed class CliHarness : IDisposable
 
     public string ConfigPath => Path.Combine(Home.TacitHome, "config.yaml");
 
-    /// <summary>Runs <c>init</c> and writes a config that loads, listening on <see cref="Port"/>.</summary>
-    public void InitReady() => Home.InitReady(extraConfig: ServerSection);
+    /// <summary>
+    /// Runs <c>init</c> and writes a config that loads, listening on <see cref="Port"/>. The models are <paramref name="models"/>, or
+    /// <see cref="ModelDouble.Quiet"/> when none is given.
+    /// </summary>
+    public void InitReady(ModelDouble? models = null) => Home.InitReady(extraConfig: ServerSection, models: models);
 
     /// <summary>
     /// The <c>connect</c> arguments for the omp paths under the throwaway user home. The folders a user would already have

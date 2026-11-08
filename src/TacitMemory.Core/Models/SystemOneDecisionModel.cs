@@ -35,23 +35,31 @@ internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? co
     public Task<IReadOnlyDictionary<string, double>?> ChooseAsync(
         string state, string instructions, IReadOnlyDictionary<string, string> options, CancellationToken cancellationToken)
     {
+        if (config is not { } settings)
+            return Task.FromResult<IReadOnlyDictionary<string, double>?>(null);
+
+        return client.SendAsync(
+            health,
+            () => ModelRequest.Post(settings, Body(settings, state, instructions, options)),
+            (response, token) => ReadAnswerAsync(settings.Provider, response, answer => ReadChoice(answer, options.Keys), token),
+            cancellationToken);
+    }
+
+    /// <summary>The probe's one request: a fixed English question with two options, answered and read as <see cref="ChooseAsync"/> reads it.</summary>
+    public static Task<ProbeResult> ProbeAsync(ModelProbe probe, ModelConfig settings, CancellationToken cancellationToken) =>
+        probe.SendAsync(
+            ModelRole.Decision,
+            () => ModelRequest.Post(settings, Body(settings, ProbeInputs.DecisionState, ProbeInputs.DecisionInstructions, ProbeInputs.DecisionOptions)),
+            (response, token) => ReadAnswerAsync(settings.Provider, response, answer => ReadChoice(answer, ProbeInputs.DecisionOptions.Keys), token),
+            cancellationToken);
+
+    /// <summary>The request body of one choice question, the same for every provider.</summary>
+    private static JsonObject Body(ModelConfig settings, string state, string instructions, IReadOnlyDictionary<string, string> options)
+    {
         var criteria = new JsonObject();
         foreach (var (key, text) in options)
             criteria[key] = text;
-        return AskAsync(state, instructions, criteria, answer => ReadChoice(answer, options.Keys), cancellationToken);
-    }
-
-    /// <summary>
-    /// The one question asked, answered and read by <paramref name="read"/>, or <c>null</c> when the model is not configured
-    /// or the request fails.
-    /// </summary>
-    private async Task<IReadOnlyDictionary<string, double>?> AskAsync(
-        string state, string instructions, JsonNode criteria, Func<JsonObject, IReadOnlyDictionary<string, double>?> read, CancellationToken cancellationToken)
-    {
-        if (config is not { } settings)
-            return null;
-
-        var body = new JsonObject
+        return new JsonObject
         {
             ["model"] = settings.Model,
             ["state"] = state,
@@ -60,11 +68,6 @@ internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? co
                 [QuestionId] = new JsonObject { ["type"] = "choice", ["instructions"] = instructions, ["criteria"] = criteria },
             },
         };
-        return await client.SendAsync(
-            health,
-            () => ModelRequest.Post(settings, body),
-            (response, token) => ReadAnswerAsync(settings.Provider, response, read, token),
-            cancellationToken);
     }
 
     /// <summary>

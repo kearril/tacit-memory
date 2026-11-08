@@ -18,6 +18,8 @@ public sealed class HelpAndOutputTests : IDisposable
         { ["-h"] },
         { ["--help"] },
         { ["connect", "--help"] },
+        { ["probe", "--help"] },
+        { ["probe", "reranker", "--help"] },
     };
 
     [Theory]
@@ -111,6 +113,15 @@ public sealed class HelpAndOutputTests : IDisposable
         var result = await _cli.RunAsync(["--help"]);
 
         Assert.Equal(1, result.Stdout.Split("Exit codes").Length - 1);
+    }
+
+    [Fact]
+    public async Task The_overview_lists_probe()
+    {
+        var result = await _cli.RunAsync(["--help"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("probe", result.Stdout);
     }
 
     [Theory]

@@ -17,6 +17,16 @@ internal sealed class RerankerModel(ModelClient client, ModelConfig? config, Mod
     public ModelHealth Health => health;
 
     /// <summary>
+    /// The probe's one request: a fixed English query and two documents, scored and read as <see cref="ScoreAsync"/> reads them.
+    /// </summary>
+    public static Task<ProbeResult> ProbeAsync(ModelProbe probe, ModelConfig settings, CancellationToken cancellationToken) =>
+        probe.SendAsync(
+            ModelRole.Reranker,
+            () => ModelRequest.Post(settings, RequestBody(settings, ProbeInputs.RerankQuery, ProbeInputs.RerankDocuments)),
+            (response, token) => ReadScoresAsync(settings.Provider, response, ProbeInputs.RerankDocuments.Count, token),
+            cancellationToken);
+
+    /// <summary>
     /// One relevance score per document in input order, or <c>null</c> when the model is not configured, cannot be reached or
     /// answers wrongly. An unconfigured model answers at once, without a request.
     /// </summary>

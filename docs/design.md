@@ -83,6 +83,14 @@
 
 画像冲突判断在决策模型或嵌入模型不可用时照常写入，并在回复末尾注明判断被跳过。
 
+### 探测
+
+`tacit probe [embedding|reranker|decision]` 由 CLI 直接读取 `config.yaml`，对配置中的模型各发一次真实请求。它不经常驻服务，因此服务未运行时也能用，也不要求记忆仓库已初始化；它不经模型客户端的重试与冷却，不改变任何模型的健康状态，不写服务日志。请求的构建与响应的读取与正式使用相同，格式不对（含 Cloudflare 的 `success` 为假）同样算失败。
+
+请求体只含内置的固定英文文本：嵌入模型一句英文，reranker 一条英文查询与两段英文文档，决策模型一道两个选项的英文选择题。探测不读取、也不发送任何记忆内容。
+
+探测只发一次请求、不重试，单次时限 20 秒。成功只说成功；失败给出 HTTP 状态码、响应体前 500 个字符与耗时，网络错误与超时给出错误类别与耗时。输出与报错不含任何密钥值：响应体中出现的密钥以 `***` 代替。输出写明测试的是 `config.yaml` 中的配置。不带参数时依次探测三个模型，未配置的模型显示"未配置，跳过"且不算失败；明确指定却未配置的，退出码为 1。
+
 ## 5. 存储
 
 ```text
@@ -564,6 +572,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
 | `tacit serve` | 启动常驻服务；未初始化时报错 | — |
 | `tacit connect` / `tacit disconnect` | `connect --client <名称> --context <文件> --skills <目录>`（三个选项都必填）；`disconnect --client <名称>`，路径取自绑定记录 | 否 |
+| `tacit probe [embedding\|reranker\|decision]` | 对 `config.yaml` 中的模型各发一次真实请求（内置英文文本），报告成功，或失败的 HTTP 状态码、响应体前 500 个字符与耗时（网络错误与超时给出类别与耗时）；不带参数时依次探测三个模型，未配置的跳过。只读配置文件，不要求记忆仓库已初始化。规则见第 4 节「探测」 | 否 |
 | `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用与冷却（含剩余秒数）、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值）。服务未运行时写明"服务未运行"，服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`），省略服务运行时数据与辅助模型，其余各栏照常（退出码 4）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径；此时仍宽松读取 `server.port`（读不出、文件不存在或 YAML 无法解析时为 18888）与 `language`（读不出时取系统界面语言）探测服务：服务在运行则并入它的各栏，未运行或端口被他人占用则在服务栏注明，退出码均为 3。配置有效时退出码只看服务：应答并给出报告为 0；服务拒绝给出报告，或离线报告读取遇到 IO 或权限错误，为 1（原因写入 stderr）；无应答或端口被他人占用为 4；不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
 | `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型未配置时只重建全文并注明嵌入模型未配置，嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
@@ -575,9 +584,9 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | 码 | 含义 |
 | :--- | :--- |
 | 0 | 成功；`status` 中表示服务在运行 |
-| 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认 |
+| 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认，`probe` 有模型失败或明确指定的模型未配置 |
 | 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突、非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`，以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
+| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`、`probe`（`probe` 不要求记忆仓库，只因 `config.yaml` 而返回），以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
 | 4 | 服务未运行，含端口被其他程序占用 |
 
 结果写 stdout；错误与确认提示写 stderr。`restore` 在标准输入不是终端且未带 `--yes` 时以 2 结束，不挂起等待。
@@ -588,6 +597,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - `restore` 预览：`Report` 放进面板，将被替换的条目高亮。
 - 等待转圈：`reindex`、`backup --remote` 与 `restore` 的执行阶段，stderr 为终端时显示转圈与已用时间，不显示百分比，结束即清除。
 - `connect`：端点三行（端点、传输方式、建议的服务名）放进面板，其余照常。
+- `probe`：每行按结果上色：成功为绿色，失败与明确指定却未配置的为红色；未配置而跳过的行不上色。
 
 - `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect` 写客户端文件、客户端 skill 目录中的链接、`bindings.json` 与三个 skill 成品，`disconnect` 写客户端文件、链接与 `bindings.json`；两者加载配置时都会按上文补写缺失的 `rules.md`，只有 `connect` 生成 skill。
 - `show` 与 `init`、`connect` 一样直接调用门面，不读写常驻服务的状态；输出不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）。
