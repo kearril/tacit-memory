@@ -60,7 +60,7 @@ internal static class StyledOutput
     /// Prints the probe report with each line coloured by its level: ok green, problem red, and a line with no level plain.
     /// Only the layout and colour change; the words are those of the plain report.
     /// </summary>
-    public static void Probe(TextWriter writer, IReadOnlyList<ProbeLine> lines)
+    public static void Probe(TextWriter writer, IReadOnlyList<ProbeReportLine> lines)
     {
         var rows = lines.Select(line => (IRenderable)new Text(line.Text, StyleOf(ColourOf(line.Level)))).ToList();
         Create(writer).Write(new Rows(rows));

@@ -49,3 +49,12 @@ public sealed record ProbeResult(
     int? StatusCode,
     string? ResponseBody,
     TimeSpan Elapsed);
+
+/// <summary>
+/// The probe report: the result of each model probed, and the lines that print them, already in the config's language.
+/// The CLI prints the lines and colours them by their level; it reads the results only for the exit code.
+/// </summary>
+public sealed record ProbeReport(IReadOnlyList<ProbeResult> Results, IReadOnlyList<ProbeReportLine> Lines);
+
+/// <summary>One line of the probe report; <paramref name="Level"/> is how the CLI colours it, <c>null</c> leaves it plain.</summary>
+public sealed record ProbeReportLine(string Text, StatusLevel? Level);

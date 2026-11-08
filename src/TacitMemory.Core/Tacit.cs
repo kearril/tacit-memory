@@ -36,9 +36,15 @@ public sealed class Tacit(TacitOptions options)
     /// Sends the built-in English probe, once, to each model in <paramref name="roles"/>, reading the models as <paramref name="config"/>
     /// configures them. A model that is not configured is reported as such and never called. Each probe is one attempt with a 20-second
     /// limit: no retry, no cooldown, and no change to any model's health. Nothing is logged or written, and no memory is read.
+    /// The report's lines are in the config's language; <paramref name="explicitTargets"/> says whether the user named the models,
+    /// which makes an unconfigured one a failure in the lines.
     /// </summary>
-    public Task<IReadOnlyList<ProbeResult>> ProbeAsync(TacitConfig config, IReadOnlyList<ModelRole> roles, CancellationToken cancellationToken = default) =>
-        ModelProbe.RunAsync(config, roles, options.Time, cancellationToken);
+    public async Task<ProbeReport> ProbeAsync(
+        TacitConfig config, IReadOnlyList<ModelRole> roles, bool explicitTargets, CancellationToken cancellationToken = default)
+    {
+        var results = await ModelProbe.RunAsync(config, roles, options.Time, cancellationToken);
+        return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets));
+    }
 
     /// <summary>
     /// Writes every skill under <c>skills/</c>: the memory skill, from the built-in text and <c>prompts/skill.md</c>, and

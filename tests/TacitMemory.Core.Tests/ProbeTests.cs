@@ -32,8 +32,8 @@ public sealed class ProbeTests : IDisposable
     private void UseModels(string models) =>
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), models.ReplaceLineEndings("\n"));
 
-    private Task<IReadOnlyList<ProbeResult>> Probe(params ModelRole[] roles) =>
-        _home.Tacit().ProbeAsync(Config, roles).WaitAsync(Guard);
+    private async Task<IReadOnlyList<ProbeResult>> Probe(params ModelRole[] roles) =>
+        (await _home.Tacit().ProbeAsync(Config, roles, explicitTargets: false).WaitAsync(Guard)).Results;
 
     [Fact]
     public async Task A_model_that_answers_in_the_generic_protocol_succeeds()
@@ -218,5 +218,21 @@ public sealed class ProbeTests : IDisposable
         var result = (await Probe(ModelRole.Embedding)).Single();
 
         Assert.Equal("bad key ***", result.ResponseBody);
+    }
+
+    [Fact]
+    public async Task The_report_lines_are_built_in_the_config_language_with_the_glossary_names_and_the_body_limit()
+    {
+        _models.ScriptEmbedding(ModelReply.StatusWithBody(401, new string('a', 600)));
+
+        var report = await _home.Tacit().ProbeAsync(Config, [ModelRole.Embedding, ModelRole.Reranker], explicitTargets: true).WaitAsync(Guard);
+        var texts = report.Lines.Select(line => line.Text).ToList();
+
+        Assert.Contains("探测结果", texts[0]);
+        Assert.Contains(texts, text => text.StartsWith("嵌入模型：失败，HTTP 401，耗时 ", StringComparison.Ordinal));
+        Assert.Contains("  响应体前 500 个字符：" + new string('a', 500), texts);
+        Assert.Contains("reranker：成功", texts);
+        Assert.Equal(StatusLevel.Problem, report.Lines.Single(line => line.Text.StartsWith("嵌入模型", StringComparison.Ordinal)).Level);
+        Assert.Equal(StatusLevel.Ok, report.Lines.Single(line => line.Text.StartsWith("reranker", StringComparison.Ordinal)).Level);
     }
 }

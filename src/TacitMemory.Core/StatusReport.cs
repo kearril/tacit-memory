@@ -15,7 +15,7 @@ public sealed record StatusReport
     /// <summary>Whether the service runs, and if so where, which version, and for how long.</summary>
     public ServiceStatus? Service { get; init; }
 
-    /// <summary>The auxiliary models' states. Present only when the service runs.</summary>
+    /// <summary>The auxiliary models' states. When the service runs, every model; when it does not, only the unconfigured ones.</summary>
     public ModelsStatus? Models { get; init; }
 
     /// <summary>Each client binding and whether its files are still in place.</summary>

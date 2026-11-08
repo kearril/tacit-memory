@@ -161,7 +161,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     {
         var target = FirstArgument(context);
         if (target is not null)
-            throw new UsageException($"Unknown probe target '{target}'. Valid targets: embedding, reranker, decision.");
+            throw new UsageException($"Unknown probe target '{target}'. Valid targets: {string.Join(", ", ModelRoles.All.Select(ModelRoles.Name))}.");
         return RunProbeAsync(AllModels, explicitTargets: false);
     });
 
@@ -178,7 +178,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     public Task<int> ProbeDecision(ConsoleAppContext context) => ProbeOne(context, ModelRole.Decision);
 
     /// <summary>The models the bare <c>probe</c> command probes, in report order.</summary>
-    private static readonly ModelRole[] AllModels = [ModelRole.Embedding, ModelRole.Reranker, ModelRole.Decision];
+    private static readonly ModelRole[] AllModels = [.. ModelRoles.All];
 
     private Task<int> ProbeOne(ConsoleAppContext context, ModelRole role) => Execute(() =>
     {
@@ -186,19 +186,24 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         return RunProbeAsync([role], explicitTargets: true);
     });
 
-    /// <summary>Probes the given models and prints the report; the exit code is the one <see cref="ProbeText.ExitCode"/> gives.</summary>
+    /// <summary>
+    /// Probes the given models and prints the report. The exit code is 1 when a model failed, or when a model the user named is
+    /// not configured; 0 otherwise. An unconfigured model that was not named is skipped and is not a failure.
+    /// </summary>
     private async Task<int> RunProbeAsync(IReadOnlyList<ModelRole> roles, bool explicitTargets)
     {
         var config = _tacit.LoadConfigFile();
-        var results = await _tacit.ProbeAsync(config, roles);
-        var lines = ProbeText.Lines(config.Language, results, explicitTargets);
+        var report = await _tacit.ProbeAsync(config, roles, explicitTargets);
         if (console.StylesOut)
-            StyledOutput.Probe(console.Out, lines);
+            StyledOutput.Probe(console.Out, report.Lines);
         else
-            foreach (var line in lines)
+            foreach (var line in report.Lines)
                 console.Out.WriteLine(line.Text);
-        return ProbeText.ExitCode(results, explicitTargets);
+        return ProbeExitCode(report.Results, explicitTargets);
     }
+
+    private static int ProbeExitCode(IReadOnlyList<ProbeResult> results, bool explicitTargets) =>
+        results.Any(result => result.Outcome == ProbeOutcome.Failed || (explicitTargets && result.Outcome == ProbeOutcome.Unconfigured)) ? 1 : 0;
 
     /// <summary>Show the memory tools the agent can call.</summary>
     [Command("show tools")]

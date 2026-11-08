@@ -75,7 +75,7 @@ public static class CommandLine
     private static readonly string[] ShowNames = ["instructions", "resident", "skill", "tools", "remember", "checkup"];
 
     /// <summary>The <c>probe</c> targets. Their match ignores case, like the <c>show</c> subcommands.</summary>
-    private static readonly string[] ProbeNames = ["embedding", "reranker", "decision"];
+    private static readonly string[] ProbeNames = [.. ModelRoles.All.Select(ModelRoles.Name)];
 
     /// <summary>
     /// Rewrites the command word, and the subcommand word after <c>show</c> or <c>probe</c>, to the spelling the framework routes by. Every

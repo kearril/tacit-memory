@@ -66,9 +66,8 @@ internal static class StatusReporter
     /// </summary>
     private static ModelsStatus? OfflineModels(MemoryLanguage language, ModelsConfig models)
     {
-        var unconfigured = new[] { ("embedding", models.Embedding is null), ("reranker", models.Reranker is null), ("decision", models.Decision is null) }
-            .Where(model => model.Item2)
-            .Select(model => new ModelStatus(model.Item1, ModelState.Unconfigured, null))
+        var unconfigured = ModelRoles.Unconfigured(models)
+            .Select(role => new ModelStatus(ModelRoles.Name(role), ModelState.Unconfigured, null))
             .ToList();
         return unconfigured.Count == 0 ? null : Models(language, unconfigured);
     }
