@@ -40,7 +40,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
         Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker!.Model);
         Assert.Equal(
-            new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true)),
+            new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), ModelProvider.Generic),
             config.Models.Decision);
     }
 
@@ -242,6 +242,60 @@ public sealed class ConfigTests : IDisposable
         Assert.Null(config.Models.Decision!.ApiKey);
         Assert.Null(config.Models.Embedding!.ApiKey);
         Assert.Null(config.Models.Reranker!.ApiKey);
+    }
+
+    [Fact]
+    public void A_model_without_a_provider_speaks_the_generic_protocol()
+    {
+        WriteConfig(Models);
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(ModelProvider.Generic, config.Models.Embedding!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Reranker!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Decision!.Provider);
+    }
+
+    [Theory]
+    [InlineData("cloudflare")]
+    [InlineData("Cloudflare")]
+    [InlineData("CLOUDFLARE")]
+    public void A_provider_of_cloudflare_in_any_letter_case_selects_cloudflare(string provider)
+    {
+        WriteConfig(Models
+            .Replace("model: qwen3-reranker-0.6b", $"model: qwen3-reranker-0.6b, provider: {provider}")
+            .Replace("model: jev-latest", $"model: jev-latest, provider: {provider}"));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Reranker!.Provider);
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Decision!.Provider);
+    }
+
+    [Fact]
+    public void The_embedding_model_accepts_the_cloudflare_provider()
+    {
+        WriteConfig(Models.Replace("model: qwen3-embedding-0.6b", "model: qwen3-embedding-0.6b, provider: cloudflare"));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Embedding!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Reranker!.Provider);
+    }
+
+    [Theory]
+    [InlineData("clouflare")]
+    [InlineData("generic")]
+    [InlineData("openai")]
+    public void An_unknown_provider_is_refused_with_its_key_path_and_the_values_it_may_take(string provider)
+    {
+        WriteConfig(Models.Replace("model: qwen3-reranker-0.6b", $"model: qwen3-reranker-0.6b, provider: {provider}"));
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("models.reranker.provider", message);
+        Assert.Contains("cloudflare", message);
+        Assert.Contains(provider, message);
     }
 
     [Fact]

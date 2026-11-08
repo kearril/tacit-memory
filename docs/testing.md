@@ -11,7 +11,7 @@
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv` 与 `backup.remote` 按未知键报错；中英模板的 `url` 与密钥变量名。
+     - `ConfigTests`：配置的默认值、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv` 与 `backup.remote` 按未知键报错；中英模板的 `url` 与密钥变量名。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-checkup` 指向资源 `tacit://checkup-report`、`tacit serve` 与 `checkup:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show checkup` 的输出，以及 `--default` 被拒绝。
@@ -39,7 +39,7 @@
      - `ReindexTests`：`reindex` 的结果：重建前后同一查询的结果一致、每个单元都有向量；重建后判断缓存清空，体检重新调用决策模型；嵌入模型不可用时只重建全文并注明向量待补；嵌入模型未配置时只重建全文并注明未配置；非 UTF-8 文件列入结果；开始、结束与结果写入日志。
      - `MaintenanceTests`：维护操作独占：维护期间到达的写入、`recall` 与服务端说明排队，完成后照常执行；两个维护操作依次执行。用挂起的嵌入替身让重建停在补齐阶段，等待的调用在短暂停顿后仍未完成，才断言它们被挡住。
      - `RerankTests`：reranker 精排的排序、过滤、不可用时的处理与恢复。
-     - `ModelProtocolTests`：三个模型的请求经 `ModelDouble` 收到：每个模型请求其配置的完整 URL、不追加路径（路径与配置一致）；嵌入、reranker、决策模型各自的请求字段；有密钥时带 `Authorization: Bearer`，没有密钥时不带认证头。
+     - `ModelProtocolTests`：三个模型的请求经 `ModelDouble` 收到：每个模型请求其配置的完整 URL、不追加路径（路径与配置一致）；嵌入、reranker、决策模型各自的请求字段；有密钥时带 `Authorization: Bearer`，没有密钥时不带认证头；Cloudflare 的 reranker 请求体含 `query` 与 `contexts`、不含 `model`，`recall` 按 `id` 对回的分数排序与过滤；Cloudflare 决策请求与 System One 同体，响应取 `result` 后判断（新建重复页被识别）；`success` 为假、缺 `result` 或缺 `answers` 只调用一次并按不可用降级；`provider: cloudflare` 的嵌入请求与通用协议相同。
      - `ModelRetryTests`：辅助模型的请求内重试：429、5xx、网络错误与单次超时在第 2～5 次成功时模型仍可用；5 次都失败后冷却；401/403、400/404/422 与格式不对的响应只调用一次；可重试与不可重试的失败、退避与 `Retry-After`、20 秒总时限、冷却与冷却后的再次尝试，以及 `recall`、实时写入判断与体检判断经过重试。
      - `UnconfiguredModelTests`（经门面）：三个模型都不配置或只配置部分时服务照常启动，写入、画像候选与检索照常，返回中不附模型说明；未配置的模型不发请求、不进入冷却，服务端说明只列冷却中的模型；体检对依赖未配置模型的类别标为"未检查（未配置）"且不提问；`tacit status` 的模型项为未配置；去掉嵌入模型后向量保留，加回同一模型名不重新嵌入，换模型名则丢弃并补齐；启动日志一行列出未配置的角色且不含地址与密钥。
      - `BackupTests`：每日自动备份的生成、保留、关闭、明文密钥提示（配置中写了任一模型的明文 `apiKey` 或 WebDAV 明文密码即提示，环境变量覆盖时仍提示）与失败处理。
@@ -92,6 +92,8 @@
 测试不调用真实模型，也不访问网络。`ModelDouble` 是进程内的 HTTP 替身，按用例返回确定的结果。配置中每个模型的 `url` 是替身上的完整地址（`EmbeddingUrl`、`RerankUrl`、`DecisionUrl`，分别为 `/v1/embeddings`、`/v1/rerank` 与 `/v1/systemone`，路由不变）：`/v1/embeddings` 默认返回文本相邻字对的散列向量（措辞相近即相近），也可按用例指定任意文本的向量；`/v1/systemone` 按用例给出选择题各选项的概率（默认选"都不是"）；`/v1/rerank` 默认给每个文本 1.0 分，可按用例指定分数。每个请求都被记录：`EmbeddingRequests`、`RerankRequests`、`DecisionRequests` 各按顺序列出收到的 `ReceivedRequest`，含请求路径（`Path`）、`Authorization` 头（没有则为 `null`）与 JSON 正文（`Body`），用于断言认证头与字段；`LastDecision` 取决策模型的最近一次。`ModelsYaml(embeddingModel, decisionKey, embeddingKey, rerankerKey)` 写出指向替身的 `models` 一节，只在给出密钥时写出对应的 `apiKey`。每个模型都可设为不可用（立即返回 404，这是不重试的客户端错误，因此不涉及重试的测试不会等待退避）。`ModelDouble.ScriptEmbedding`、`ScriptRerank`、`ScriptDecision` 按次编排某个模型的下几次请求：`ModelReply.Status(code, retryAfterSeconds)` 返回状态码（可带 `Retry-After`），`ModelReply.Body` 返回指定正文，`ModelReply.Drop()` 断开连接（客户端看到网络错误），`ModelReply.Hang()` 挂起直到客户端放弃；脚本用完后模型按用例设定的方式回答。`EmbeddingRequestsReached(n)` 等待嵌入模型收到第 n 个请求，用于确定地拨动挂起的请求。`TestHome.InitReady` 默认让所有模型指向一个共享替身：嵌入模型与 reranker 不可用，决策模型对一切选择题答"都不是"，因此不涉及模型的测试不会等待网络，写入也不会被判为重复页；用到模型的测试传入自己的替身。测试中形似凭据的样本在运行时拼接，源码里不出现完整的凭据格式。
 
 `HoldEmbeddings()` 挂起所有嵌入请求，直到 `ReleaseEmbeddings()`，用于让重建停在向量补齐阶段，再拨动它。
+
+Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reranker-base`）与 `CloudflareDecisionUrl`（`/ai/run/clef-flash`）按 Cloudflare 的形状应答，计数与记录同样计入 `RerankRequests` 与 `DecisionRequests`，分数与概率仍由 `Score` 与 `Choose` 指定。请求体含 `contexts` 时答 `{result: {response: [{id, score}]}, success, errors, messages}`，请求体含 `questions` 时答 `{result: {model, answers}, success, errors, messages}`。`CloudflareReportsFailure = true` 时两条路由都答 `success: false` 且无 `result`。`ModelsYaml` 另有 `embeddingCloudflare`、`rerankerCloudflare`、`decisionCloudflare` 三个参数，为真时写出 `provider: cloudflare` 并把对应模型的 `url` 指向上述 Cloudflare 路由。
 
 `WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Mcp.Tests` 两个项目都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
 

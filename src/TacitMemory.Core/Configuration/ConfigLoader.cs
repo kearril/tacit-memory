@@ -165,7 +165,8 @@ internal static class ConfigLoader
     /// <summary>
     /// The <c>models</c> section. A model whose mapping is absent is unconfigured, and so is every model when the section is
     /// absent or empty. A mapping that is present needs a non-empty <c>url</c> and <c>model</c>, and takes an optional
-    /// <c>apiKey</c>; no other key is known. Every problem is reported, and a model with one is left out of the result.
+    /// <c>apiKey</c> and an optional <c>provider</c>; no other key is known. Every problem is reported, and a model with one
+    /// is left out of the result.
     /// </summary>
     private static ModelsConfig ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
@@ -178,17 +179,33 @@ internal static class ConfigLoader
             var map = reader.Mapping(models, "models", key);
             if (map is null)
                 return null;
-            reader.OnlyKnown(map, path, "url", "model", "apiKey");
+            reader.OnlyKnown(map, path, "provider", "url", "model", "apiKey");
+            var provider = ReadProvider(reader, map, path);
             var url = reader.Url(map, path, "url");
             var model = reader.Text(map, path, "model", required: true);
             var apiKey = ReadSecret(reader, map, path, "apiKey", variable, secrets, required: false);
-            return url is null || model is null ? null : new ModelConfig(url, model, apiKey);
+            return url is null || model is null ? null : new ModelConfig(url, model, apiKey, provider);
         }
 
         return new ModelsConfig(
             Model("embedding", SecretVariables.EmbeddingApiKey),
             Model("reranker", SecretVariables.RerankerApiKey),
             Model("decision", SecretVariables.DecisionApiKey));
+    }
+
+    /// <summary>
+    /// The <c>provider</c> of a model: absent means the generic protocol, <c>cloudflare</c> in any letter case means
+    /// Cloudflare's. Any other value is reported with the values it may take, and the generic protocol is used meanwhile.
+    /// </summary>
+    private static ModelProvider ReadProvider(ConfigReader reader, YamlMappingNode? map, string path)
+    {
+        var text = reader.Text(map, path, "provider");
+        if (text is null)
+            return ModelProvider.Generic;
+        if (string.Equals(text, "cloudflare", StringComparison.OrdinalIgnoreCase))
+            return ModelProvider.Cloudflare;
+        reader.Error(ConfigReader.Join(path, "provider"), Messages.ConfigExpectedProvider, text);
+        return ModelProvider.Generic;
     }
 
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)

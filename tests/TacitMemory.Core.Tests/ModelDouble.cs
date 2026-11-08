@@ -11,7 +11,8 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// The three auxiliary models on 127.0.0.1, answering from what each test sets: <c>/v1/embeddings</c>,
-/// <c>/v1/rerank</c> and <c>/v1/systemone</c>. Configuration gives each model its full URL, so these are the URLs a test
+/// <c>/v1/rerank</c> and <c>/v1/systemone</c>, and Cloudflare's format of those two at <c>/ai/run/&lt;model&gt;</c>.
+/// Configuration gives each model its full URL, so these are the URLs a test
 /// writes. A model that is down answers <see cref="DownStatus"/> at once; that is a client error, which the service does
 /// not retry, so tests that are not about retries never wait on the clock. The scripts make the next requests of one
 /// model answer otherwise, in order, before it answers as set. Every request is recorded with its path, its
@@ -21,6 +22,12 @@ internal sealed class ModelDouble : IDisposable
 {
     /// <summary>What a model that is down answers: a client error, which is not retried.</summary>
     public const int DownStatus = 404;
+
+    /// <summary>The model Cloudflare's reranker answers for, in the route <c>/ai/run/&lt;model&gt;</c>.</summary>
+    public const string CloudflareRerankModel = "@cf/baai/bge-reranker-base";
+
+    /// <summary>The model Cloudflare's decision model answers for, in the route <c>/ai/run/&lt;model&gt;</c>.</summary>
+    public const string CloudflareDecisionModel = "clef-flash";
 
     private static readonly Lazy<ModelDouble> SharedQuiet = new(() => new ModelDouble(shared: true) { EmbeddingDown = true, RerankDown = true });
 
@@ -57,13 +64,17 @@ internal sealed class ModelDouble : IDisposable
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
         _app = builder.Build();
         _app.MapPost("/v1/embeddings", EmbeddingsAsync);
-        _app.MapPost("/v1/rerank", RerankAsync);
-        _app.MapPost("/v1/systemone", DecideAsync);
+        _app.MapPost("/v1/rerank", (HttpRequest request) => RerankAsync(request, cloudflare: false));
+        _app.MapPost("/v1/systemone", (HttpRequest request) => DecideAsync(request, cloudflare: false));
+        _app.MapPost("/ai/run/" + CloudflareRerankModel, (HttpRequest request) => RerankAsync(request, cloudflare: true));
+        _app.MapPost("/ai/run/" + CloudflareDecisionModel, (HttpRequest request) => DecideAsync(request, cloudflare: true));
         _app.StartAsync().GetAwaiter().GetResult();
         var root = new Uri(_app.Urls.Single());
         EmbeddingUrl = new Uri(root, "/v1/embeddings");
         RerankUrl = new Uri(root, "/v1/rerank");
         DecisionUrl = new Uri(root, "/v1/systemone");
+        CloudflareRerankUrl = new Uri(root, "/ai/run/" + CloudflareRerankModel);
+        CloudflareDecisionUrl = new Uri(root, "/ai/run/" + CloudflareDecisionModel);
     }
 
     /// <summary>
@@ -80,6 +91,18 @@ internal sealed class ModelDouble : IDisposable
 
     /// <summary>The full URL the decision model answers at.</summary>
     public Uri DecisionUrl { get; }
+
+    /// <summary>The full URL of the reranker in Cloudflare's format; configuration writes it as <c>url</c> with <c>provider: cloudflare</c>.</summary>
+    public Uri CloudflareRerankUrl { get; }
+
+    /// <summary>The full URL of the decision model in Cloudflare's format.</summary>
+    public Uri CloudflareDecisionUrl { get; }
+
+    /// <summary>
+    /// When set, the Cloudflare routes answer 200 with <c>success</c> false and no <c>result</c>, which is what Cloudflare
+    /// sends when it refuses a request.
+    /// </summary>
+    public bool CloudflareReportsFailure { get; set; }
 
     public bool EmbeddingDown { get; set; }
 
@@ -183,17 +206,19 @@ internal sealed class ModelDouble : IDisposable
     public void ScriptDecision(params ModelReply[] replies) => Enqueue(_decisionScript, replies);
 
     /// <summary>
-    /// A <c>models</c> section pointing every model at this double's full URL. The decision model's key is given as
-    /// <paramref name="decisionKey"/>; an empty one writes no key. The embedding and reranker keys are written only when
-    /// given, so by default those models send no authentication.
+    /// A <c>models</c> section pointing every model at this double's full URL, or at Cloudflare's URL for a reranker or
+    /// decision model set to <c>cloudflare</c>. The decision model's key is given as <paramref name="decisionKey"/>; an
+    /// empty one writes no key. The embedding and reranker keys are written only when given, so by default those models
+    /// send no authentication.
     /// </summary>
     public string ModelsYaml(
-        string embeddingModel = "double-embedding", string decisionKey = "test-key", string? embeddingKey = null, string? rerankerKey = null) =>
+        string embeddingModel = "double-embedding", string decisionKey = "test-key", string? embeddingKey = null, string? rerankerKey = null,
+        bool embeddingCloudflare = false, bool rerankerCloudflare = false, bool decisionCloudflare = false) =>
         $$"""
         models:
-          embedding: { url: '{{EmbeddingUrl}}', model: {{embeddingModel}}{{KeyPart(embeddingKey)}} }
-          reranker: { url: '{{RerankUrl}}', model: double-reranker{{KeyPart(rerankerKey)}} }
-          decision: { url: '{{DecisionUrl}}', model: double-decision{{KeyPart(decisionKey)}} }
+          embedding: { url: '{{EmbeddingUrl}}', model: {{embeddingModel}}{{ProviderPart(embeddingCloudflare)}}{{KeyPart(embeddingKey)}} }
+          reranker: { url: '{{(rerankerCloudflare ? CloudflareRerankUrl : RerankUrl)}}', model: double-reranker{{ProviderPart(rerankerCloudflare)}}{{KeyPart(rerankerKey)}} }
+          decision: { url: '{{(decisionCloudflare ? CloudflareDecisionUrl : DecisionUrl)}}', model: double-decision{{ProviderPart(decisionCloudflare)}}{{KeyPart(decisionKey)}} }
 
         """;
 
@@ -217,6 +242,8 @@ internal sealed class ModelDouble : IDisposable
     }
 
     private static string KeyPart(string? key) => string.IsNullOrEmpty(key) ? "" : $", apiKey: {key}";
+
+    private static string ProviderPart(bool cloudflare) => cloudflare ? ", provider: cloudflare" : "";
 
     private static void Enqueue(ConcurrentQueue<ModelReply> script, IEnumerable<ModelReply> replies)
     {
@@ -256,7 +283,8 @@ internal sealed class ModelDouble : IDisposable
         return Results.Json(new JsonObject { ["data"] = data });
     }
 
-    private async Task<IResult> RerankAsync(HttpRequest request)
+    /// <summary>The reranker: the generic protocol, or Cloudflare's format, which names its documents as contexts and its scores by id.</summary>
+    private async Task<IResult> RerankAsync(HttpRequest request, bool cloudflare)
     {
         _rerankRequests.Increment();
         var body = await RecordAsync(request, _rerankReceived);
@@ -265,18 +293,26 @@ internal sealed class ModelDouble : IDisposable
         if (RerankDown)
             return Results.StatusCode(DownStatus);
         var query = body["query"]!.GetValue<string>();
-        var documents = body["documents"]!.AsArray().Select(node => node!.GetValue<string>()).ToList();
+        var documents = (cloudflare
+            ? body["contexts"]!.AsArray().Select(node => node!["text"]!.GetValue<string>())
+            : body["documents"]!.AsArray().Select(node => node!.GetValue<string>())).ToList();
         foreach (var document in documents)
             _rerankedDocuments.Enqueue(document);
         // Like the real reranker: one result per document, best first, each naming its document by index.
-        var results = documents
+        var ranked = documents
             .Select((document, index) => (index, score: Score(query, document)))
             .OrderByDescending(item => item.score)
-            .Select(item => (JsonNode)new JsonObject { ["index"] = item.index, ["relevance_score"] = item.score });
+            .ToList();
+        if (cloudflare)
+        {
+            var response = new JsonArray(ranked.Select(item => (JsonNode)new JsonObject { ["id"] = item.index, ["score"] = item.score }).ToArray());
+            return CloudflareAnswer(new JsonObject { ["response"] = response });
+        }
+        var results = ranked.Select(item => (JsonNode)new JsonObject { ["index"] = item.index, ["relevance_score"] = item.score });
         return Results.Json(new JsonObject { ["results"] = new JsonArray(results.ToArray()) });
     }
 
-    private async Task<IResult> DecideAsync(HttpRequest request)
+    private async Task<IResult> DecideAsync(HttpRequest request, bool cloudflare)
     {
         _decisionRequests.Increment();
         lock (_decisionGate)
@@ -286,7 +322,7 @@ internal sealed class ModelDouble : IDisposable
         }
         try
         {
-            return await AnswerDecisionAsync(request);
+            return await AnswerDecisionAsync(request, cloudflare);
         }
         finally
         {
@@ -295,7 +331,7 @@ internal sealed class ModelDouble : IDisposable
         }
     }
 
-    private async Task<IResult> AnswerDecisionAsync(HttpRequest request)
+    private async Task<IResult> AnswerDecisionAsync(HttpRequest request, bool cloudflare)
     {
         var body = await RecordAsync(request, _decisionReceived);
         Task? hold;
@@ -319,8 +355,19 @@ internal sealed class ModelDouble : IDisposable
             };
         }
 
-        return Results.Json(new JsonObject { ["model"] = "double-decision", ["answers"] = answers });
+        var reply = new JsonObject { ["model"] = "double-decision", ["answers"] = answers };
+        return cloudflare ? CloudflareAnswer(reply) : Results.Json(reply);
     }
+
+    /// <summary>Cloudflare's envelope around <paramref name="result"/>; when the double is set to fail, a refusal with no result.</summary>
+    private IResult CloudflareAnswer(JsonObject result) => CloudflareReportsFailure
+        ? Results.Json(new JsonObject
+        {
+            ["success"] = false,
+            ["errors"] = new JsonArray(new JsonObject { ["code"] = 7000, ["message"] = "The double refuses the request." }),
+            ["messages"] = new JsonArray(),
+        })
+        : Results.Json(new JsonObject { ["result"] = result, ["success"] = true, ["errors"] = new JsonArray(), ["messages"] = new JsonArray() });
 
     private JsonObject Choice(string state, JsonObject criteria)
     {

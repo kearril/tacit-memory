@@ -22,7 +22,7 @@ internal interface IDecisionModel
 /// <summary>
 /// The System One protocol, one choice question per request: <c>model</c>, <c>state</c> and <c>questions</c> go to the
 /// configured URL, and the probability of each option is read from <c>answers</c>. TypeSafe's native decision API
-/// speaks it.
+/// speaks it. Cloudflare Workers AI takes the same request and returns the same answer inside its <c>result</c>.
 /// </summary>
 internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? config, ModelHealth health) : IDecisionModel
 {
@@ -63,14 +63,20 @@ internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? co
         return await client.SendAsync(
             health,
             () => ModelRequest.Post(settings, body),
-            (response, token) => ReadAnswerAsync(response, read, token),
+            (response, token) => ReadAnswerAsync(settings.Provider, response, read, token),
             cancellationToken);
     }
 
+    /// <summary>
+    /// The answer to the question, or <c>null</c> when the reply has none. Cloudflare's reply is read from its
+    /// <c>result</c>; a reply that is not successful, or has no result, has none.
+    /// </summary>
     private static async Task<IReadOnlyDictionary<string, double>?> ReadAnswerAsync(
-        HttpResponseMessage response, Func<JsonObject, IReadOnlyDictionary<string, double>?> read, CancellationToken cancellationToken)
+        ModelProvider provider, HttpResponseMessage response, Func<JsonObject, IReadOnlyDictionary<string, double>?> read, CancellationToken cancellationToken)
     {
-        var reply = await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken);
+        var reply = provider == ModelProvider.Cloudflare
+            ? (await response.Content.ReadFromJsonAsync<CloudflareEnvelope<JsonObject>>(cancellationToken))?.Answer
+            : await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken);
         return reply?["answers"]?[QuestionId] is JsonObject answer ? read(answer) : null;
     }
 
