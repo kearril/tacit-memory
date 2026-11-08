@@ -7,13 +7,15 @@ namespace TacitMemory.Core.Models;
 internal sealed class AuxiliaryModels : IDisposable
 {
     private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private readonly ModelsConfig _models;
 
     public AuxiliaryModels(TacitConfig config, TimeProvider time, ServiceLog log)
     {
+        _models = config.Models;
         var client = new ModelClient(_http, time);
-        Embedding = new EmbeddingModel(client, config.Models.Embedding, new ModelHealth(time, "embedding", log));
-        Reranker = new RerankerModel(client, config.Models.Reranker, new ModelHealth(time, "reranker", log));
-        Decision = new SystemOneDecisionModel(client, config.Models.Decision, new ModelHealth(time, "decision", log));
+        Embedding = new EmbeddingModel(client, config.Models.Embedding, new ModelHealth(time, ModelRoles.Name(ModelRole.Embedding), log));
+        Reranker = new RerankerModel(client, config.Models.Reranker, new ModelHealth(time, ModelRoles.Name(ModelRole.Reranker), log));
+        Decision = new SystemOneDecisionModel(client, config.Models.Decision, new ModelHealth(time, ModelRoles.Name(ModelRole.Decision), log));
     }
 
     public EmbeddingModel Embedding { get; }
@@ -24,34 +26,31 @@ internal sealed class AuxiliaryModels : IDisposable
 
     /// <summary>The configured models cooling down after a failed request, by role name. Unconfigured models are never listed.</summary>
     public IReadOnlyList<string> Unavailable =>
-        new[] { ("embedding", Embedding.Health), ("reranker", Reranker.Health), ("decision", Decision.Health) }
-            .Where(model => model.Item2.CoolingDown)
-            .Select(model => model.Item1)
-            .ToList();
+        ModelRoles.All.Where(role => HealthOf(role).CoolingDown).Select(ModelRoles.Name).ToList();
 
     /// <summary>The models that are not configured, by role name.</summary>
-    public IReadOnlyList<string> Unconfigured =>
-        new[] { ("embedding", Embedding.Configured), ("reranker", Reranker.Configured), ("decision", Decision.Configured) }
-            .Where(model => !model.Item2)
-            .Select(model => model.Item1)
-            .ToList();
+    public IReadOnlyList<string> Unconfigured => ModelRoles.Unconfigured(_models).Select(ModelRoles.Name).ToList();
 
     /// <summary>Each model's state, by role name, as the status report shows it.</summary>
-    public IReadOnlyList<ModelStatus> Statuses =>
-        [
-            Describe("embedding", Embedding.Configured, Embedding.Health),
-            Describe("reranker", Reranker.Configured, Reranker.Health),
-            Describe("decision", Decision.Configured, Decision.Health),
-        ];
+    public IReadOnlyList<ModelStatus> Statuses => ModelRoles.All.Select(Describe).ToList();
 
-    private static ModelStatus Describe(string role, bool configured, ModelHealth health)
+    private ModelHealth HealthOf(ModelRole role) => role switch
     {
-        if (!configured)
-            return new ModelStatus(role, ModelState.Unconfigured, null);
+        ModelRole.Embedding => Embedding.Health,
+        ModelRole.Reranker => Reranker.Health,
+        _ => Decision.Health,
+    };
+
+    private ModelStatus Describe(ModelRole role)
+    {
+        var name = ModelRoles.Name(role);
+        if (!ModelRoles.Configured(_models, role))
+            return new ModelStatus(name, ModelState.Unconfigured, null);
+        var health = HealthOf(role);
         if (!health.CoolingDown)
-            return new ModelStatus(role, ModelState.Available, null);
+            return new ModelStatus(name, ModelState.Available, null);
         var seconds = health.CooldownRemaining?.TotalSeconds ?? 0;
-        return new ModelStatus(role, ModelState.CoolingDown, (int)Math.Ceiling(seconds));
+        return new ModelStatus(name, ModelState.CoolingDown, (int)Math.Ceiling(seconds));
     }
 
     public void Dispose() => _http.Dispose();
