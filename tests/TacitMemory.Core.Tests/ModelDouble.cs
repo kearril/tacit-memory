@@ -444,6 +444,10 @@ internal sealed class ModelReply
     /// <summary>A 200 answer with this body, for answers that are not what was asked for.</summary>
     public static ModelReply Body(string json) => new((_, _) => Task.FromResult<IResult>(Results.Content(json, "application/json")));
 
+    /// <summary>An answer with this status and this body, for a request that fails and whose body the probe reports.</summary>
+    public static ModelReply StatusWithBody(int code, string body) =>
+        new((_, _) => Task.FromResult<IResult>(Results.Content(body, "application/json", statusCode: code)));
+
     public static ModelReply Drop() => new((http, _) =>
     {
         http.Abort();

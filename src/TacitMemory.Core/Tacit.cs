@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Models;
 using TacitMemory.Core.Setup;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Localization;
@@ -24,6 +25,20 @@ public sealed class Tacit(TacitOptions options)
     /// again from the template if it was deleted.
     /// </summary>
     public TacitConfig LoadConfig() => ConfigLoader.Load(options);
+
+    /// <summary>
+    /// Loads and validates <c>config.yaml</c> and the prompt documents like <see cref="LoadConfig"/>, but does not require the
+    /// memory repository to exist. For the commands that use only the config file, such as <c>probe</c>.
+    /// </summary>
+    public TacitConfig LoadConfigFile() => ConfigLoader.Read(options);
+
+    /// <summary>
+    /// Sends the built-in English probe, once, to each model in <paramref name="roles"/>, reading the models as <paramref name="config"/>
+    /// configures them. A model that is not configured is reported as such and never called. Each probe is one attempt with a 20-second
+    /// limit: no retry, no cooldown, and no change to any model's health. Nothing is logged or written, and no memory is read.
+    /// </summary>
+    public Task<IReadOnlyList<ProbeResult>> ProbeAsync(TacitConfig config, IReadOnlyList<ModelRole> roles, CancellationToken cancellationToken = default) =>
+        ModelProbe.RunAsync(config, roles, options.Time, cancellationToken);
 
     /// <summary>
     /// Writes every skill under <c>skills/</c>: the memory skill, from the built-in text and <c>prompts/skill.md</c>, and
