@@ -76,6 +76,11 @@ public sealed class StatusColumnsTests : IDisposable
         return await tacit.OfflineStatus(tacit.LoadConfig());
     }
 
+    /// <summary>Replaces <c>config.yaml</c> with the embedding model alone: the reranker and the decision model are unconfigured.</summary>
+    private void ConfigureEmbeddingOnly() => File.WriteAllText(
+        Path.Combine(_home.TacitHome, "config.yaml"),
+        $"language: zh\nmodels:\n  embedding: {{ url: '{_models.EmbeddingUrl}', model: double-embedding }}\n");
+
     private static BindingCheck OnlyBinding(StatusReport report) =>
         Assert.Single(Assert.IsType<BindingsStatus>(report.Bindings).Items);
 
@@ -281,6 +286,37 @@ public sealed class StatusColumnsTests : IDisposable
 
         Assert.Empty(report.Bindings!.Items);
         Assert.Equal(["没有绑定的客户端。"], report.Bindings.Lines);
+    }
+
+    [Fact]
+    public async Task The_offline_models_column_lists_only_the_unconfigured_models()
+    {
+        ConfigureEmbeddingOnly();
+
+        var models = Assert.IsType<ModelsStatus>((await OfflineReport()).Models);
+
+        Assert.Equal(new[] { "reranker", "decision" }, models.Items.Select(item => item.Role));
+        Assert.All(models.Items, item => Assert.Equal(ModelState.Unconfigured, item.State));
+        Assert.Equal("辅助模型", models.Title);
+        Assert.Equal(new[] { "reranker：未配置", "decision：未配置" }, models.Lines);
+    }
+
+    [Fact]
+    public async Task The_offline_models_column_is_left_out_when_every_model_is_configured()
+    {
+        Assert.Null((await OfflineReport()).Models);
+    }
+
+    [Fact]
+    public async Task An_unconfigured_model_is_worded_the_same_online_and_offline()
+    {
+        ConfigureEmbeddingOnly();
+
+        var offline = Assert.IsType<ModelsStatus>((await OfflineReport()).Models);
+        var online = Assert.IsType<ModelsStatus>((await Service.StatusAsync(Endpoint)).Models);
+
+        Assert.Equal(new[] { "reranker：未配置", "decision：未配置" }, offline.Lines);
+        Assert.Equal(new[] { "embedding：可用", "reranker：未配置", "decision：未配置" }, online.Lines);
     }
 
     [Fact]
