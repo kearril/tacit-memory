@@ -226,9 +226,9 @@ internal static class StatusReporter
         var language = config.Language;
         var items = new List<SecretStatus>
         {
-            SecretItem("models.embedding.apiKey", SecretVariables.EmbeddingApiKey, config.Models.Embedding.ApiKey),
-            SecretItem("models.reranker.apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker.ApiKey),
-            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, config.Models.Decision.ApiKey),
+            SecretItem("models.embedding.apiKey", SecretVariables.EmbeddingApiKey, config.Models.Embedding?.ApiKey),
+            SecretItem("models.reranker.apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker?.ApiKey),
+            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, config.Models.Decision?.ApiKey),
         };
         var lines = new List<string>();
         if (config.Backup.WebDav is { } webDav)
@@ -262,6 +262,7 @@ internal static class StatusReporter
     private static string ModelLine(MemoryLanguage language, ModelStatus model) => model.State switch
     {
         ModelState.CoolingDown => ManagementApiMessages.ModelCoolingDown.Format(language, model.Role, model.CoolingSeconds),
+        ModelState.Unconfigured => ManagementApiMessages.ModelUnconfigured.Format(language, model.Role),
         _ => ManagementApiMessages.ModelAvailable.Format(language, model.Role),
     };
 

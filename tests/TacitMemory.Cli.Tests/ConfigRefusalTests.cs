@@ -55,6 +55,18 @@ public sealed class ConfigRefusalTests : IDisposable
     }
 
     [Fact]
+    public async Task A_config_without_any_model_is_not_refused_and_connect_exits_0()
+    {
+        _cli.InitReady();
+        _cli.RemoveModels();
+
+        var result = await _cli.RunAsync(_cli.OmpConnectArgs());
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.DoesNotContain("models", result.Stderr);
+    }
+
+    [Fact]
     public async Task An_endpoint_setting_exits_3_and_names_its_key_path()
     {
         _cli.InitReady();

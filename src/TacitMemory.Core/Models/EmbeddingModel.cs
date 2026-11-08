@@ -7,27 +7,33 @@ namespace TacitMemory.Core.Models;
 /// The embedding model, speaking the OpenAI Embeddings protocol: <c>model</c> and <c>input</c> go to the configured URL,
 /// and <c>data[].index</c> and <c>data[].embedding</c> come back.
 /// </summary>
-internal sealed class EmbeddingModel(ModelClient client, ModelConfig config, ModelHealth health)
+internal sealed class EmbeddingModel(ModelClient client, ModelConfig? config, ModelHealth health)
 {
     /// <summary>Texts sent in one request.</summary>
     public const int BatchSize = 32;
 
-    public string Name => config.Model;
+    /// <summary>Whether the model is configured. An unconfigured model is never called and never cools down.</summary>
+    public bool Configured => config is not null;
 
     public ModelHealth Health => health;
 
-    /// <summary>One vector per text, or <c>null</c> when the model cannot be reached or answers wrongly.</summary>
+    /// <summary>
+    /// One vector per text, or <c>null</c> when the model is not configured, cannot be reached or answers wrongly. An
+    /// unconfigured model answers at once, without a request.
+    /// </summary>
     public async Task<float[][]?> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken)
     {
         if (texts.Count == 0)
             return [];
+        if (config is not { } settings)
+            return null;
 
         var vectors = new List<float[]>(texts.Count);
         foreach (var batch in texts.Chunk(BatchSize))
         {
             var answer = await client.SendAsync(
                 health,
-                () => ModelRequest.Post(config, new Request(config.Model, batch)),
+                () => ModelRequest.Post(settings, new Request(settings.Model, batch)),
                 (response, token) => ReadVectorsAsync(response, batch.Length, token),
                 cancellationToken);
             if (answer is null)

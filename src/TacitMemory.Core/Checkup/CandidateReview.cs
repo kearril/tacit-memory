@@ -79,7 +79,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     {
         var vector = await services.Embedding.EmbedAsync([candidate.Text], cancellationToken);
         if (vector is null)
-            return new PreparedChoice<PreferenceMatch>(null, true);
+            return new PreparedChoice<PreferenceMatch>(null, JudgmentPool.NoAnswerReason(services.Embedding.Configured));
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var options = new List<ChoiceOption<PreferenceMatch>>();
@@ -93,13 +93,13 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
         }
 
         if (options.Count == 0)
-            return new PreparedChoice<PreferenceMatch>(null, false);
+            return new PreparedChoice<PreferenceMatch>(null, null);
         var question = new ChoiceQuestion<PreferenceMatch>(
             SamePreferenceCheck.StateOf(candidate.Text, candidate.Section, language),
             SamePreferenceCheck.Instructions,
             SamePreferenceCheck.NoneText,
             options);
-        return new PreparedChoice<PreferenceMatch>(question, false);
+        return new PreparedChoice<PreferenceMatch>(question, null);
     }
 
     /// <summary>The short code of every persona entry, keyed by the text the judgment index holds for it; of identical texts the first wins.</summary>

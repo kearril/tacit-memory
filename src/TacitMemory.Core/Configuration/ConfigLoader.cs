@@ -63,7 +63,7 @@ internal static class ConfigLoader
         var retrieval = ReadRetrieval(reader, root);
         var backup = ReadBackup(reader, root, options.Secrets);
 
-        if (reader.Errors.Count > 0 || models is null)
+        if (reader.Errors.Count > 0)
         {
             var message = new StringBuilder(Messages.ConfigErrors.Format(language, path));
             foreach (var error in reader.Errors)
@@ -163,32 +163,32 @@ internal static class ConfigLoader
     }
 
     /// <summary>
-    /// The <c>models</c> section, or <c>null</c> when any part of it is missing or wrong (all reported). Each model takes
-    /// <c>url</c>, <c>model</c> and an optional <c>apiKey</c>; no other key is known.
+    /// The <c>models</c> section. A model whose mapping is absent is unconfigured, and so is every model when the section is
+    /// absent or empty. A mapping that is present needs a non-empty <c>url</c> and <c>model</c>, and takes an optional
+    /// <c>apiKey</c>; no other key is known. Every problem is reported, and a model with one is left out of the result.
     /// </summary>
-    private static ModelsConfig? ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
+    private static ModelsConfig ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
-        var models = reader.Mapping(root, "", "models", required: true);
+        var models = reader.Mapping(root, "", "models");
         reader.OnlyKnown(models, "models", "embedding", "reranker", "decision");
 
         ModelConfig? Model(string key, string variable)
         {
             var path = ConfigReader.Join("models", key);
-            var map = reader.Mapping(models, "models", key, required: models is not null);
+            var map = reader.Mapping(models, "models", key);
+            if (map is null)
+                return null;
             reader.OnlyKnown(map, path, "url", "model", "apiKey");
             var url = reader.Url(map, path, "url");
-            var model = reader.Text(map, path, "model", required: map is not null);
+            var model = reader.Text(map, path, "model", required: true);
             var apiKey = ReadSecret(reader, map, path, "apiKey", variable, secrets, required: false);
             return url is null || model is null ? null : new ModelConfig(url, model, apiKey);
         }
 
-        var embedding = Model("embedding", SecretVariables.EmbeddingApiKey);
-        var reranker = Model("reranker", SecretVariables.RerankerApiKey);
-        var decision = Model("decision", SecretVariables.DecisionApiKey);
-
-        return embedding is null || reranker is null || decision is null
-            ? null
-            : new ModelsConfig(embedding, reranker, decision);
+        return new ModelsConfig(
+            Model("embedding", SecretVariables.EmbeddingApiKey),
+            Model("reranker", SecretVariables.RerankerApiKey),
+            Model("decision", SecretVariables.DecisionApiKey));
     }
 
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)

@@ -62,6 +62,9 @@ internal sealed class CliHarness : IDisposable
     public void RemoveDecisionKey() =>
         File.WriteAllText(ConfigPath, (ModelDouble.Quiet.ModelsYaml(decisionKey: string.Empty) + ServerSection).ReplaceLineEndings("\n"));
 
+    /// <summary>Replaces the config with one that has no <c>models</c> section at all: every model is unconfigured.</summary>
+    public void RemoveModels() => File.WriteAllText(ConfigPath, ServerSection);
+
     private string ServerSection => $"server:\n  port: {Port}\n";
 
     /// <summary>

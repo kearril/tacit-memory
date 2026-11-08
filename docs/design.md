@@ -40,7 +40,7 @@
 | reranker | 对检索候选精排，并按分数阈值过滤 |
 | 决策模型 | 回答选择题，返回各选项概率 |
 
-三者均为必需配置，每个模型配置 `url`（完整请求地址，程序原样请求，不追加路径）、`model`，以及可选的 `apiKey`（有密钥时以 `Authorization: Bearer` 发送，没有则不发送任何认证头）。三个模型各按一种通用协议请求：嵌入模型为 OpenAI Embeddings，reranker 为 Cohere/Jina Rerank，决策模型为 System One（TypeSafe 的原生决策接口即其一个服务）。决策模型接口与具体模型无关，只包含选择题。发给决策模型的问题一律使用英文，被判断的内容保持原文。
+三者均可不配置：某个模型的映射缺失即为未配置，服务照常启动并按降级工作（见下文「降级」）。已配置的模型每个配置 `url`（完整请求地址，程序原样请求，不追加路径）、`model`，以及可选的 `apiKey`（有密钥时以 `Authorization: Bearer` 发送，没有则不发送任何认证头）。三个模型各按一种通用协议请求：嵌入模型为 OpenAI Embeddings，reranker 为 Cohere/Jina Rerank，决策模型为 System One（TypeSafe 的原生决策接口即其一个服务）。决策模型接口与具体模型无关，只包含选择题。发给决策模型的问题一律使用英文，被判断的内容保持原文。
 
 ### 判断
 
@@ -66,7 +66,9 @@
 | reranker | 不受影响 | 按合并顺序返回，不精排 |
 | 决策模型 | 所有判断按"拿不准"处理 | 不受影响 |
 
-降级时返回结果末尾注明；启动时连不上任一模型不阻止启动，但在服务端说明与 `tacit status` 中提示。嵌入模型不可用时，沿用索引中记录的向量维度，恢复后再校验。
+未配置与不可用是两回事。未配置的模型从不被调用，不发请求、不进入冷却；它不在写入与检索的返回末尾注明，不进入服务端说明的状态提示；体检报告中依赖它的类别标为"未检查（未配置）"，`tacit status` 中显示"未配置"且不上色。不可用的模型是已配置、请求最终失败、正在冷却的模型，照常在返回末尾注明并进入服务端说明。去掉嵌入模型的配置时，派生索引中已存的向量保留，之后加回同一模型名不需要重新嵌入；换成另一个模型名时才丢弃向量并补齐。
+
+降级时返回结果末尾注明（未配置的模型不注明）；启动时连不上任一已配置的模型不阻止启动，但在服务端说明与 `tacit status` 中提示。嵌入模型不可用时，沿用索引中记录的向量维度，恢复后再校验。没有嵌入模型时，`tacit reindex` 只重建全文并注明未配置嵌入模型。
 
 辅助模型的每次请求先在请求内重试，偶发错误不直接降级：
 
@@ -387,7 +389,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 疑似重复的页：变过的页与上次体检提交（没有则为 `init:`，都没有则为全部页）的工作区内容比较，内容不同的页文件计入，含新增、修改与未提交的修改，删除的页不计入。每个变过的页当作新页判断：选项为同项目的嵌入近邻，问题原文、选项数与 `decision.samePage` 阈值都与实时判断一致；同项目没有其他页时不提问。"确定"与"拿不准"两档收录并标明档位，"否定"不收；同一无序页对只报一次，若两页各判断一次而档位不同，取"确定"。
 - 候选清理复用实时的同一偏好判断：问题原文、选项规模（近邻至多 9 条加"都不是"）与 `decision.samePreference` 阈值都不变，选项只取画像条目与拒绝列表，不含其他候选；两处都为空时不提问。
 - 三档：确定 → 列为待清理，且不再列为可确认；拿不准 → 不列为待清理，达到门槛时在可确认条目上附"可能与某条相同"的提示；否定 → 两者都不列。
-- 决策模型或嵌入模型不可用时，待清理一类标为"未检查"并说明原因；可确认的候选照常列出，并提醒主会话自行对照画像。限时到点使某候选的判断未完成时，同样附此提醒。
+- 决策模型或嵌入模型未配置时，待清理一类标为"未检查（未配置）"并说明原因；决策模型或嵌入模型不可用时标为"未检查"并说明原因。可确认的候选照常列出，并提醒主会话自行对照画像。限时到点使某候选的判断未完成时，同样附此提醒。未配置的模型不提问，工作池不为它发出判断。
 
 判断缓存、工作池与限时：
 
@@ -510,7 +512,7 @@ memory:
   path: ~/.tacit/memory       # 默认为 $TACIT_HOME/memory
 language: zh
 
-models:                       # 必填，无默认值
+models:                       # 可选；省略的模型即未配置，省略整个 models 段则三个都未配置
   embedding: { url: …, model: …, apiKey: … }   # url 为完整请求地址，原样请求，不追加路径；apiKey 可省略，改设环境变量 TACIT_EMBEDDING_API_KEY
   reranker:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_RERANKER_API_KEY
   decision:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
@@ -531,8 +533,8 @@ retrieval: { candidates: 30, topK: 5, minRerankScore: … }
 backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云端备份（WebDAV）；password 可省略，改设 TACIT_WEBDAV_PASSWORD
 ```
 
-- 除 `models` 外各项均有默认值；判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
-- 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models.<模型>` 的 `url` 与 `model` 必填，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
+- 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见第 4 节「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
+- 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models` 段或某个模型的映射缺失即为未配置，不报错；映射存在时 `url` 与 `model` 必填且不得为空，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
 
 ### 提示词文档
 
@@ -561,7 +563,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 | `tacit connect` / `tacit disconnect` | `connect --client <名称> --context <文件> --skills <目录>`（三个选项都必填）；`disconnect --client <名称>`，路径取自绑定记录 | 否 |
 | `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
 | `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用与冷却（含剩余秒数）、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值）。服务未运行时写明"服务未运行"，服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`），省略服务运行时数据与辅助模型，其余各栏照常（退出码 4）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径；此时仍宽松读取 `server.port`（读不出、文件不存在或 YAML 无法解析时为 18888）与 `language`（读不出时取系统界面语言）探测服务：服务在运行则并入它的各栏，未运行或端口被他人占用则在服务栏注明，退出码均为 3。配置有效时退出码只看服务：应答并给出报告为 0；服务拒绝给出报告，或离线报告读取遇到 IO 或权限错误，为 1（原因写入 stderr）；无应答或端口被他人占用为 4；不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
-| `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
+| `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型未配置时只重建全文并注明嵌入模型未配置，嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
 | `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份（不给选项时写到 `TACIT_HOME/backups/`，`--to` 写到指定目录）；`--remote` 上传云端备份，远端只保留一份；两者不能同时使用 | 是 |
 | `tacit restore --from <文件>\|--remote [--include-config] [--yes]` | 从本地备份或云端备份恢复：先显示预览，输入 `y` 后执行（`--yes`，短写 `-y`，跳过确认）；`--from` 与 `--remote` 恰好给一个；`--include-config` 一并恢复 `config.yaml` 与 `prompts/`；`--remote` 先下载云端备份，确认的即恢复的文件 | 是 |
 

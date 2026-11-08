@@ -22,19 +22,32 @@ internal sealed class AuxiliaryModels : IDisposable
 
     public IDecisionModel Decision { get; }
 
-    /// <summary>The models cooling down after a failed request, by role name.</summary>
+    /// <summary>The configured models cooling down after a failed request, by role name. Unconfigured models are never listed.</summary>
     public IReadOnlyList<string> Unavailable =>
         new[] { ("embedding", Embedding.Health), ("reranker", Reranker.Health), ("decision", Decision.Health) }
             .Where(model => model.Item2.CoolingDown)
             .Select(model => model.Item1)
             .ToList();
 
+    /// <summary>The models that are not configured, by role name.</summary>
+    public IReadOnlyList<string> Unconfigured =>
+        new[] { ("embedding", Embedding.Configured), ("reranker", Reranker.Configured), ("decision", Decision.Configured) }
+            .Where(model => !model.Item2)
+            .Select(model => model.Item1)
+            .ToList();
+
     /// <summary>Each model's state, by role name, as the status report shows it.</summary>
     public IReadOnlyList<ModelStatus> Statuses =>
-        [Describe("embedding", Embedding.Health), Describe("reranker", Reranker.Health), Describe("decision", Decision.Health)];
+        [
+            Describe("embedding", Embedding.Configured, Embedding.Health),
+            Describe("reranker", Reranker.Configured, Reranker.Health),
+            Describe("decision", Decision.Configured, Decision.Health),
+        ];
 
-    private static ModelStatus Describe(string role, ModelHealth health)
+    private static ModelStatus Describe(string role, bool configured, ModelHealth health)
     {
+        if (!configured)
+            return new ModelStatus(role, ModelState.Unconfigured, null);
         if (!health.CoolingDown)
             return new ModelStatus(role, ModelState.Available, null);
         var seconds = health.CooldownRemaining?.TotalSeconds ?? 0;

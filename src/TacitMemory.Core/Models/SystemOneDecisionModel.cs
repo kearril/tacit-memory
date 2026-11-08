@@ -9,9 +9,12 @@ namespace TacitMemory.Core.Models;
 /// </summary>
 internal interface IDecisionModel
 {
+    /// <summary>Whether the model is configured. An unconfigured model is never called and never cools down.</summary>
+    bool Configured { get; }
+
     ModelHealth Health { get; }
 
-    /// <summary>Probability of each option, by option key.</summary>
+    /// <summary>Probability of each option, by option key; <c>null</c> when the model is not configured or cannot answer.</summary>
     Task<IReadOnlyDictionary<string, double>?> ChooseAsync(
         string state, string instructions, IReadOnlyDictionary<string, string> options, CancellationToken cancellationToken);
 }
@@ -21,9 +24,11 @@ internal interface IDecisionModel
 /// configured URL, and the probability of each option is read from <c>answers</c>. TypeSafe's native decision API
 /// speaks it.
 /// </summary>
-internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig config, ModelHealth health) : IDecisionModel
+internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? config, ModelHealth health) : IDecisionModel
 {
     private const string QuestionId = "q";
+
+    public bool Configured => config is not null;
 
     public ModelHealth Health => health;
 
@@ -37,14 +42,18 @@ internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig con
     }
 
     /// <summary>
-    /// The one question asked, answered and read by <paramref name="read"/>, or <c>null</c> when the request fails.
+    /// The one question asked, answered and read by <paramref name="read"/>, or <c>null</c> when the model is not configured
+    /// or the request fails.
     /// </summary>
     private async Task<IReadOnlyDictionary<string, double>?> AskAsync(
         string state, string instructions, JsonNode criteria, Func<JsonObject, IReadOnlyDictionary<string, double>?> read, CancellationToken cancellationToken)
     {
+        if (config is not { } settings)
+            return null;
+
         var body = new JsonObject
         {
-            ["model"] = config.Model,
+            ["model"] = settings.Model,
             ["state"] = state,
             ["questions"] = new JsonObject
             {
@@ -53,7 +62,7 @@ internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig con
         };
         return await client.SendAsync(
             health,
-            () => ModelRequest.Post(config, body),
+            () => ModelRequest.Post(settings, body),
             (response, token) => ReadAnswerAsync(response, read, token),
             cancellationToken);
     }

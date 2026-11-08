@@ -49,7 +49,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
 
         var vector = await embedding.EmbedAsync([string.Join('\n', [header.Title, .. header.Aliases])], cancellationToken);
         if (vector is null)
-            return new DuplicateCheck(null, EmbeddingDown);
+            return new DuplicateCheck(null, embedding.Configured ? EmbeddingDown : null);
 
         await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var nearest = Nearest(index, id, vector[0]);
@@ -68,7 +68,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
         options[None] = NoneText;
         var probabilities = await decision.ChooseAsync(State(header, sections), Instructions, options, cancellationToken);
         if (probabilities is null)
-            return new DuplicateCheck(null, DecisionDown);
+            return new DuplicateCheck(null, decision.Configured ? DecisionDown : null);
 
         var verdict = Judgment.Choice(probabilities, None, config.Decision.SamePage ?? Judgment.SamePage);
         return verdict.Tier == Tier.Certain ? new DuplicateCheck(pages[verdict.Option!], null) : new DuplicateCheck(null, null);

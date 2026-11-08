@@ -7,19 +7,27 @@ namespace TacitMemory.Core.Models;
 /// The reranker, speaking the Cohere/Jina Rerank protocol: <c>model</c>, <c>query</c> and <c>documents</c> go to the
 /// configured URL, and <c>results[].index</c> and <c>results[].relevance_score</c> come back.
 /// </summary>
-internal sealed class RerankerModel(ModelClient client, ModelConfig config, ModelHealth health)
+internal sealed class RerankerModel(ModelClient client, ModelConfig? config, ModelHealth health)
 {
+    /// <summary>Whether the model is configured. An unconfigured model is never called and never cools down.</summary>
+    public bool Configured => config is not null;
+
     public ModelHealth Health => health;
 
-    /// <summary>One relevance score per document in input order, or <c>null</c> when the model cannot be reached or answers wrongly.</summary>
+    /// <summary>
+    /// One relevance score per document in input order, or <c>null</c> when the model is not configured, cannot be reached or
+    /// answers wrongly. An unconfigured model answers at once, without a request.
+    /// </summary>
     public async Task<double[]?> ScoreAsync(string query, IReadOnlyList<string> documents, CancellationToken cancellationToken)
     {
         if (documents.Count == 0)
             return [];
+        if (config is not { } settings)
+            return null;
 
         return await client.SendAsync(
             health,
-            () => ModelRequest.Post(config, new Request(config.Model, query, documents)),
+            () => ModelRequest.Post(settings, new Request(settings.Model, query, documents)),
             (response, token) => ReadScoresAsync(response, documents.Count, token),
             cancellationToken);
     }
