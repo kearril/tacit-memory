@@ -43,7 +43,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.omp/agent/skills
    ```
 
-   `--client` 是客户端的名称：小写字母、数字与连字符，最多 32 个字符。`--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录；两个选项都必填，开头的 `~` 指用户目录。上下文文件的上一级目录与 skill 目录必须已存在，上下文文件本身可以不存在（不存在时会被创建）。绑定会写入常驻区块，并在 skill 目录中建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-checkup`）。绑定前会校验配置，`models` 缺失时会报错。
+   `--client` 是客户端的名称：小写字母、数字与连字符，最多 32 个字符。`--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录；两个选项都必填，开头的 `~` 指用户目录。上下文文件的上一级目录与 skill 目录必须已存在，上下文文件本身可以不存在（不存在时会被创建）。绑定会写入常驻区块，并在 skill 目录中建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-checkup`）。绑定前会校验配置：有错误时拒绝执行并列出出错的键路径；省略 `models` 不算错误。
 
    `connect` 最后打印 MCP 端点（`http://127.0.0.1:18888/mcp`，传输方式 Streamable HTTP，建议的服务名 `tacit`）。tacit 不改写任何客户端的 MCP 配置，需要在 omp 中自行配置，例如在 `~/.omp/agent/mcp.json` 的 `mcpServers` 中加入：
 
@@ -126,7 +126,7 @@ tacit show instructions --default > ~/.tacit/prompts/instructions.md
 backup:
   keep: 7
   webdav:
-    url: https://example.com/dav/tacit/   # 目录；末尾的 / 可省略
+    url: https://<WebDAV 服务地址>/tacit/   # 目录；末尾的 / 可省略
     username: 你的用户名                   # 可省略，省略时不发送认证
     password: 你的密码                     # 可省略，改设环境变量 TACIT_WEBDAV_PASSWORD
 ```
