@@ -544,7 +544,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 ```
 
 - 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见第 4 节「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
-- `models.<模型>.provider` 可省略（即通用协议），写 `cloudflare`（不区分大小写）选用 Cloudflare 适配；其他值按配置错误报告，并列出可用取值。已配置的模型的 `model` 都必填，包括 Cloudflare 的 reranker（它的模型名在 URL 中，`model` 只用于显示）。
+- `models.<模型>.provider` 可省略（即通用协议），写 `cloudflare`（不区分大小写）选用该提供方的适配；其他值按配置错误报告，并列出可用取值。已配置的模型的 `model` 都必填，包括 Cloudflare 的 reranker（它的模型名在 URL 中，`model` 只用于显示）。
 - 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models` 段或某个模型的映射缺失即为未配置，不报错；映射存在时 `url` 与 `model` 必填且不得为空，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
 
 ### 提示词文档
@@ -629,4 +629,4 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - **文件始终可直接编辑**：界面是便利，不是必需。
 - **配置向后兼容**：新增配置项必须有默认值。
 
-已知方向：Web UI（浏览、审核候选、检索调试）、TUI、以支持 logprobs 的对话模型实现决策模型接口、更多客户端适配、按项目的常驻内容、更换索引引擎。
+已知方向：Web UI（浏览、审核候选、检索调试）、TUI、以支持 logprobs 的对话模型实现决策模型接口、更多客户端支持、按项目的常驻内容、更换索引引擎。
