@@ -444,7 +444,7 @@ public sealed class StatusColumnsTests : IDisposable
     }
 
     [Fact]
-    public async Task A_password_with_no_source_at_all_is_reported_as_missing()
+    public async Task A_password_with_no_source_at_all_is_reported_as_not_set()
     {
         _home.InitReady("backup:\n  webdav: { url: https://dav.example/tacit/ }\n", _models);
 
@@ -452,7 +452,42 @@ public sealed class StatusColumnsTests : IDisposable
 
         var password = Assert.Single(secrets.Items, item => item.Key == "backup.webdav.password");
         Assert.Null(password.Source);
-        Assert.Contains("缺失", Assert.Single(secrets.Lines, line => line.StartsWith("backup.webdav.password", StringComparison.Ordinal)));
+        Assert.Contains("未设置", Assert.Single(secrets.Lines, line => line.StartsWith("backup.webdav.password", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task Each_model_key_is_reported_from_the_environment_the_config_or_as_not_set()
+    {
+        File.WriteAllText(
+            Path.Combine(_home.TacitHome, "config.yaml"),
+            _models.ModelsYaml(embeddingKey: "emb-config-secret", decisionKey: "test-key").ReplaceLineEndings("\n"));
+        _home.EnvironmentVariables["TACIT_RERANKER_API_KEY"] = "rer-env-secret";
+
+        var secrets = (await OfflineReport()).Secrets!;
+
+        Assert.Equal(["models.embedding.apiKey", "models.reranker.apiKey", "models.decision.apiKey"], secrets.Items.Select(item => item.Key));
+        Assert.Equal(SecretSource.ConfigFile, Assert.Single(secrets.Items, item => item.Key == "models.embedding.apiKey").Source);
+        Assert.Equal(SecretSource.Environment, Assert.Single(secrets.Items, item => item.Key == "models.reranker.apiKey").Source);
+        Assert.Equal(SecretSource.ConfigFile, Assert.Single(secrets.Items, item => item.Key == "models.decision.apiKey").Source);
+        Assert.Contains("来自配置文件", Assert.Single(secrets.Lines, line => line.StartsWith("models.embedding.apiKey", StringComparison.Ordinal)));
+        Assert.Contains("来自环境变量", Assert.Single(secrets.Lines, line => line.StartsWith("models.reranker.apiKey", StringComparison.Ordinal)));
+        var text = string.Join("\n", secrets.Lines);
+        Assert.DoesNotContain("emb-config-secret", text);
+        Assert.DoesNotContain("rer-env-secret", text);
+    }
+
+    [Fact]
+    public async Task A_model_key_that_is_nowhere_is_reported_as_not_set_and_is_not_an_error()
+    {
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), _models.ModelsYaml(decisionKey: string.Empty).ReplaceLineEndings("\n"));
+
+        var report = await OfflineReport();
+
+        var embedding = Assert.Single(report.Secrets!.Items, item => item.Key == "models.embedding.apiKey");
+        Assert.Null(embedding.Source);
+        Assert.Contains("未设置", Assert.Single(report.Secrets!.Lines, line => line.StartsWith("models.embedding.apiKey", StringComparison.Ordinal)));
+        Assert.Null(report.Config);
+        Assert.All(((IStatusColumn)report.Secrets!).LineLevels(), level => Assert.Null(level));
     }
 
     [Fact]

@@ -44,15 +44,26 @@ public sealed class ConfigRefusalTests : IDisposable
     }
 
     [Fact]
-    public async Task A_missing_decision_key_exits_3_and_names_the_variable()
+    public async Task A_missing_decision_key_no_longer_refuses_the_config()
     {
         _cli.InitReady();
         _cli.RemoveDecisionKey();
 
         var result = await _cli.RunAsync(_cli.OmpConnectArgs());
 
+        Assert.Equal(0, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task An_endpoint_setting_exits_3_and_names_its_key_path()
+    {
+        _cli.InitReady();
+        _cli.BreakConfig();
+
+        var result = await _cli.RunAsync(_cli.OmpConnectArgs());
+
         Assert.Equal(3, result.ExitCode);
-        Assert.Contains("TACIT_DECISION_API_KEY", result.Stderr);
+        Assert.Contains("models.embedding.endpoint", result.Stderr);
     }
 
     [Fact]

@@ -8,12 +8,12 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 - **.NET 10 SDK**：用于构建。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
-- **三个辅助模型**（必填，需自行准备，均为 HTTP 端点）：
-  - 嵌入模型：OpenAI 兼容接口（`/embeddings`）；
-  - reranker：Cohere/Jina 兼容接口（`/rerank`）；
-  - 决策模型：TypeSafe Jev 原生决策接口（`/systemone`），密钥见「密钥」一节。
+- **三个辅助模型**（必填，需自行准备，均为 HTTP 端点）：各自按一种通用协议请求，`url` 填写完整请求地址，程序原样请求、不追加路径：
+  - 嵌入模型：OpenAI Embeddings 协议；
+  - reranker：Cohere/Jina Rerank 协议；
+  - 决策模型：System One 协议（TypeSafe 的原生决策接口即其一个服务）。
 
-`endpoint` 填写基础地址，程序会在其后追加上述路径。
+三个模型的密钥均可不配：配置了密钥的请求带 `Authorization: Bearer`，没有则不带认证头，见「密钥」一节。
 
 ## 构建
 
@@ -33,7 +33,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
    生成配置 `~/.tacit/config.yaml` 与记忆仓库。语言默认取系统界面语言，可用 `--language zh|en` 指定；`--memory <路径>` 可指定记忆仓库位置。
 
-2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `endpoint` 与 `model`；决策模型的密钥见「密钥」一节。
+2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `url`（完整请求地址）与 `model`；密钥可省略，见「密钥」一节。
 
 3. **绑定客户端**
 
@@ -136,10 +136,12 @@ backup:
 
 | 配置键 | 环境变量 | 何时必需 |
 | :--- | :--- | :--- |
-| `models.decision.apiKey` | `TACIT_DECISION_API_KEY` | 总是 |
+| `models.embedding.apiKey` | `TACIT_EMBEDDING_API_KEY` | 嵌入模型需要密钥时 |
+| `models.reranker.apiKey` | `TACIT_RERANKER_API_KEY` | reranker 需要密钥时 |
+| `models.decision.apiKey` | `TACIT_DECISION_API_KEY` | 决策模型需要密钥时 |
 | `backup.webdav.password` | `TACIT_WEBDAV_PASSWORD` | 配置了 `backup.webdav.username` 时 |
 
-必需的密钥两处都没有时加载配置会报错，并同时指出键路径与环境变量名。配置中写了明文密钥时，备份会提示妥善保管备份文件。
+WebDAV 密码（配置了 `backup.webdav.username` 时）两处都没有时加载配置会报错，并同时指出键路径与环境变量名；模型密钥两处都没有时即为无密钥，不算错误。配置中写了明文密钥时，备份会提示妥善保管备份文件。
 
 ### 日志
 
@@ -193,7 +195,7 @@ tacit disconnect --client omp
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。固定部分、`resident.md` 与 `skill.md` 各有上限，精简超限的文件后重启即可（详见 `docs/design.md` 第 12 节）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
-- **辅助模型连不上**：服务不会因此退出。写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。检查 `endpoint`、`model` 与密钥环境变量；环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`。
+- **辅助模型连不上**：服务不会因此退出。写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model` 与密钥环境变量；环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`。
 - **向量扩展无法加载**：启动时会校验 `vec0.dll` 的存在与哈希，不符即拒绝启动。确认它与 `tacit.exe` 位于同一目录，且未被替换。
 - **omp 中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。

@@ -28,16 +28,20 @@ public sealed record TacitConfig
     /// <summary>The prompt documents in <c>prompts/</c>.</summary>
     public required PromptDocuments Prompts { get; init; }
 
-    /// <summary>Whether <c>config.yaml</c> holds a plaintext secret: <c>models.decision.apiKey</c> or <c>backup.webdav.password</c>.</summary>
-    internal bool HoldsPlaintextSecret => Models.Decision.ApiKey.WrittenInConfig || Backup.WebDav?.Password?.WrittenInConfig == true;
+    /// <summary>Whether <c>config.yaml</c> holds a plaintext secret: a model's <c>apiKey</c> or <c>backup.webdav.password</c>.</summary>
+    internal bool HoldsPlaintextSecret =>
+        Models.Embedding.ApiKey?.WrittenInConfig == true || Models.Reranker.ApiKey?.WrittenInConfig == true
+        || Models.Decision.ApiKey?.WrittenInConfig == true || Backup.WebDav?.Password?.WrittenInConfig == true;
 }
 
-public sealed record ModelsConfig(ModelEndpoint Embedding, ModelEndpoint Reranker, DecisionModelEndpoint Decision);
+/// <summary>The three auxiliary models: embedding, reranker and decision. Each is configured the same way.</summary>
+public sealed record ModelsConfig(ModelConfig Embedding, ModelConfig Reranker, ModelConfig Decision);
 
-public sealed record ModelEndpoint(Uri Endpoint, string Model);
-
-/// <summary>The decision model; its key is always set, from the environment or from the config.</summary>
-public sealed record DecisionModelEndpoint(Uri Endpoint, string Model, SecretValue ApiKey);
+/// <summary>
+/// One auxiliary model. <see cref="Url"/> is the complete request address, sent as written; <see cref="ApiKey"/> is
+/// <c>null</c> when neither the environment nor <c>config.yaml</c> holds a key, and then no authentication is sent.
+/// </summary>
+public sealed record ModelConfig(Uri Url, string Model, SecretValue? ApiKey);
 
 public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page);
 

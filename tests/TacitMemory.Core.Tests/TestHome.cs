@@ -63,9 +63,9 @@ internal sealed class TestHome : IDisposable
     /// <summary>A <c>models</c> section that passes validation; nothing is listening at these addresses in tests.</summary>
     public const string Models = """
         models:
-          embedding: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-embedding-0.6b }
-          reranker: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-reranker-0.6b }
-          decision: { endpoint: 'https://api.typesafe.ai/v1', model: jev-latest, apiKey: test-key }
+          embedding: { url: 'http://127.0.0.1:38417/v1/embeddings', model: qwen3-embedding-0.6b }
+          reranker: { url: 'http://127.0.0.1:38417/v1/rerank', model: qwen3-reranker-0.6b }
+          decision: { url: 'https://api.typesafe.ai/v1/systemone', model: jev-latest, apiKey: test-key }
 
         """;
 

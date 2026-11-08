@@ -18,8 +18,8 @@ namespace TacitMemory.Cli.Tests;
 /// </summary>
 internal sealed class CliHarness : IDisposable
 {
-    /// <summary>A config that does not load: the embedding endpoint is not a URL.</summary>
-    private const string BrokenConfig = "models:\n  embedding: { endpoint: 'nope' }\n";
+    /// <summary>A config that does not load: the embedding model still uses the removed <c>endpoint</c> key.</summary>
+    private const string BrokenConfig = "models:\n  embedding: { endpoint: 'http://127.0.0.1:38417/v1' }\n";
 
     private readonly CapturedText _stdout = new();
     private readonly CapturedText _stderr = new();

@@ -224,10 +224,11 @@ internal static class StatusReporter
     private static SecretsStatus Secrets(TacitConfig config)
     {
         var language = config.Language;
-        var decision = config.Models.Decision.ApiKey;
         var items = new List<SecretStatus>
         {
-            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, decision),
+            SecretItem("models.embedding.apiKey", SecretVariables.EmbeddingApiKey, config.Models.Embedding.ApiKey),
+            SecretItem("models.reranker.apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker.ApiKey),
+            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, config.Models.Decision.ApiKey),
         };
         var lines = new List<string>();
         if (config.Backup.WebDav is { } webDav)

@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
@@ -18,10 +17,11 @@ internal interface IDecisionModel
 }
 
 /// <summary>
-/// The implementation of the System One protocol, <c>POST &lt;endpoint&gt;/systemone</c>, one choice question per request.
-/// TypeSafe's native decision API is one service that speaks it.
+/// The System One protocol, one choice question per request: <c>model</c>, <c>state</c> and <c>questions</c> go to the
+/// configured URL, and the probability of each option is read from <c>answers</c>. TypeSafe's native decision API
+/// speaks it.
 /// </summary>
-internal sealed class SystemOneDecisionModel(ModelClient client, DecisionModelEndpoint endpoint, ModelHealth health) : IDecisionModel
+internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig config, ModelHealth health) : IDecisionModel
 {
     private const string QuestionId = "q";
 
@@ -44,7 +44,7 @@ internal sealed class SystemOneDecisionModel(ModelClient client, DecisionModelEn
     {
         var body = new JsonObject
         {
-            ["model"] = endpoint.Model,
+            ["model"] = config.Model,
             ["state"] = state,
             ["questions"] = new JsonObject
             {
@@ -53,15 +53,7 @@ internal sealed class SystemOneDecisionModel(ModelClient client, DecisionModelEn
         };
         return await client.SendAsync(
             health,
-            () =>
-            {
-                var request = new HttpRequestMessage(HttpMethod.Post, ModelUrls.Append(endpoint.Endpoint, "systemone"))
-                {
-                    Content = JsonContent.Create(body),
-                };
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", endpoint.ApiKey.Value);
-                return request;
-            },
+            () => ModelRequest.Post(config, body),
             (response, token) => ReadAnswerAsync(response, read, token),
             cancellationToken);
     }
