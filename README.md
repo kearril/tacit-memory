@@ -17,6 +17,8 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
 提供方适配：目前支持 Cloudflare Workers AI（reranker、决策模型），在对应模型中写 `provider: cloudflare`；省略 `provider` 即为通用协议。
 
+内置的判断阈值是用某一个决策模型实测标定的。换用其他决策模型后，这些阈值可能不再适用：可能把不重复的内容判为重复而拒绝写入，或漏掉该拦下的重复与冲突。必要时可在 `config.yaml` 的阈值一节中调整。
+
 ## 构建
 
 ```powershell
