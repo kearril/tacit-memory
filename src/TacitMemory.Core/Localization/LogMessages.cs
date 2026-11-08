@@ -20,6 +20,9 @@ internal static class LogMessages
     public static readonly Localized ModelFailed = new(
         "辅助模型 {0} 请求最终失败，进入 {1} 秒冷却",
         "The auxiliary model {0} failed for good and cools down for {1} s");
+    public static readonly Localized ModelsNotConfigured = new(
+        "未配置的辅助模型：{0}，服务不调用它们",
+        "Auxiliary models not configured: {0}; the service does not call them");
     public static readonly Localized ApiCall = new(
         "管理 API {0} {1} 返回 {2}，耗时 {3} 毫秒",
         "Management API {0} {1} answered {2} in {3} ms");

@@ -26,6 +26,25 @@ public sealed class OutputStylingTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_with_an_unconfigured_model_shows_the_same_words_at_a_terminal_and_in_a_pipe()
+    {
+        _cli.InitReady();
+        _cli.RemoveModels();
+
+        var pipe = await _cli.RunAsync(["status"]);
+
+        var styled = await _cli.RunAsync(["status"], stdoutIsTerminal: true);
+
+        Assert.Equal(4, pipe.ExitCode);
+        Assert.Equal(pipe.ExitCode, styled.ExitCode);
+        Assert.Contains("辅助模型", pipe.Stdout, StringComparison.Ordinal);
+        Assert.Contains("embedding：未配置", pipe.Stdout, StringComparison.Ordinal);
+        Assert.DoesNotContain(OutputWords.Escape, pipe.Stdout);
+        Assert.Contains(OutputWords.Escape, styled.Stdout);
+        Assert.Equal(OutputWords.Of(pipe.Stdout), OutputWords.Of(styled.Stdout));
+    }
+
+    [Fact]
     public async Task Status_at_a_terminal_with_NO_COLOR_is_the_same_plain_text()
     {
         _cli.InitReady();

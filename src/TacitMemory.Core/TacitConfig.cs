@@ -28,16 +28,34 @@ public sealed record TacitConfig
     /// <summary>The prompt documents in <c>prompts/</c>.</summary>
     public required PromptDocuments Prompts { get; init; }
 
-    /// <summary>Whether <c>config.yaml</c> holds a plaintext secret: <c>models.decision.apiKey</c> or <c>backup.webdav.password</c>.</summary>
-    internal bool HoldsPlaintextSecret => Models.Decision.ApiKey.WrittenInConfig || Backup.WebDav?.Password?.WrittenInConfig == true;
+    /// <summary>Whether <c>config.yaml</c> holds a plaintext secret: a model's <c>apiKey</c> or <c>backup.webdav.password</c>.</summary>
+    internal bool HoldsPlaintextSecret =>
+        Models.Embedding?.ApiKey?.WrittenInConfig == true || Models.Reranker?.ApiKey?.WrittenInConfig == true
+        || Models.Decision?.ApiKey?.WrittenInConfig == true || Backup.WebDav?.Password?.WrittenInConfig == true;
 }
 
-public sealed record ModelsConfig(ModelEndpoint Embedding, ModelEndpoint Reranker, DecisionModelEndpoint Decision);
+/// <summary>
+/// The three auxiliary models: embedding, reranker and decision. A <c>null</c> member is an unconfigured model: the service
+/// runs without it, never calls it, and never lists it as unavailable. Each configured model is set up the same way.
+/// </summary>
+public sealed record ModelsConfig(ModelConfig? Embedding, ModelConfig? Reranker, ModelConfig? Decision);
 
-public sealed record ModelEndpoint(Uri Endpoint, string Model);
+/// <summary>
+/// One auxiliary model. <see cref="Url"/> is the complete request address, sent as written; <see cref="ApiKey"/> is
+/// <c>null</c> when neither the environment nor <c>config.yaml</c> holds a key, and then no authentication is sent.
+/// <see cref="Provider"/> chooses the request format where a provider departs from the generic protocol.
+/// </summary>
+public sealed record ModelConfig(Uri Url, string Model, SecretValue? ApiKey, ModelProvider Provider);
 
-/// <summary>The decision model; its key is always set, from the environment or from the config.</summary>
-public sealed record DecisionModelEndpoint(Uri Endpoint, string Model, SecretValue ApiKey);
+/// <summary>The request format of an auxiliary model: the generic protocol of its kind, or the one of Cloudflare Workers AI.</summary>
+public enum ModelProvider
+{
+    /// <summary>The generic protocol: OpenAI Embeddings, Cohere/Jina Rerank or System One, by model kind.</summary>
+    Generic,
+
+    /// <summary>Cloudflare Workers AI, where its format differs from the generic protocol.</summary>
+    Cloudflare,
+}
 
 public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page);
 

@@ -63,7 +63,7 @@ internal static class ConfigLoader
         var retrieval = ReadRetrieval(reader, root);
         var backup = ReadBackup(reader, root, options.Secrets);
 
-        if (reader.Errors.Count > 0 || models is null)
+        if (reader.Errors.Count > 0)
         {
             var message = new StringBuilder(Messages.ConfigErrors.Format(language, path));
             foreach (var error in reader.Errors)
@@ -162,35 +162,50 @@ internal static class ConfigLoader
         };
     }
 
-    /// <summary>The <c>models</c> section, or <c>null</c> when any part of it is missing or wrong (all reported).</summary>
-    private static ModelsConfig? ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
+    /// <summary>
+    /// The <c>models</c> section. A model whose mapping is absent is unconfigured, and so is every model when the section is
+    /// absent or empty. A mapping that is present needs a non-empty <c>url</c> and <c>model</c>, and takes an optional
+    /// <c>apiKey</c> and an optional <c>provider</c>; no other key is known. Every problem is reported, and a model with one
+    /// is left out of the result.
+    /// </summary>
+    private static ModelsConfig ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
-        var models = reader.Mapping(root, "", "models", required: true);
+        var models = reader.Mapping(root, "", "models");
         reader.OnlyKnown(models, "models", "embedding", "reranker", "decision");
 
-        ModelEndpoint? Endpoint(string key)
+        ModelConfig? Model(string key, string variable)
         {
             var path = ConfigReader.Join("models", key);
-            var map = reader.Mapping(models, "models", key, required: models is not null);
-            reader.OnlyKnown(map, path, "endpoint", "model");
-            var url = reader.Url(map, path, "endpoint");
-            var model = reader.Text(map, path, "model", required: map is not null);
-            return url is null || model is null ? null : new ModelEndpoint(url, model);
+            var map = reader.Mapping(models, "models", key);
+            if (map is null)
+                return null;
+            reader.OnlyKnown(map, path, "provider", "url", "model", "apiKey");
+            var provider = ReadProvider(reader, map, path);
+            var url = reader.Url(map, path, "url");
+            var model = reader.Text(map, path, "model", required: true);
+            var apiKey = ReadSecret(reader, map, path, "apiKey", variable, secrets, required: false);
+            return url is null || model is null ? null : new ModelConfig(url, model, apiKey, provider);
         }
 
-        var embedding = Endpoint("embedding");
-        var reranker = Endpoint("reranker");
+        return new ModelsConfig(
+            Model("embedding", SecretVariables.EmbeddingApiKey),
+            Model("reranker", SecretVariables.RerankerApiKey),
+            Model("decision", SecretVariables.DecisionApiKey));
+    }
 
-        const string decisionPath = "models.decision";
-        var decision = reader.Mapping(models, "models", "decision", required: models is not null);
-        reader.OnlyKnown(decision, decisionPath, "endpoint", "model", "apiKey");
-        var decisionUrl = reader.Url(decision, decisionPath, "endpoint");
-        var decisionModel = reader.Text(decision, decisionPath, "model", required: decision is not null);
-        var apiKey = ReadSecret(reader, decision, decisionPath, "apiKey", SecretVariables.DecisionApiKey, secrets, required: decision is not null);
-
-        return embedding is null || reranker is null || decisionUrl is null || decisionModel is null || apiKey is null
-            ? null
-            : new ModelsConfig(embedding, reranker, new DecisionModelEndpoint(decisionUrl, decisionModel, apiKey));
+    /// <summary>
+    /// The <c>provider</c> of a model: absent means the generic protocol, <c>cloudflare</c> in any letter case means
+    /// Cloudflare's. Any other value is reported with the values it may take, and the generic protocol is used meanwhile.
+    /// </summary>
+    private static ModelProvider ReadProvider(ConfigReader reader, YamlMappingNode? map, string path)
+    {
+        var text = reader.Text(map, path, "provider");
+        if (text is null)
+            return ModelProvider.Generic;
+        if (string.Equals(text, "cloudflare", StringComparison.OrdinalIgnoreCase))
+            return ModelProvider.Cloudflare;
+        reader.Error(ConfigReader.Join(path, "provider"), Messages.ConfigExpectedProvider, text);
+        return ModelProvider.Generic;
     }
 
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)

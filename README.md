@@ -8,12 +8,14 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 - **.NET 10 SDK**：用于构建。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
-- **三个辅助模型**（必填，需自行准备，均为 HTTP 端点）：
-  - 嵌入模型：OpenAI 兼容接口（`/embeddings`）；
-  - reranker：Cohere/Jina 兼容接口（`/rerank`）；
-  - 决策模型：TypeSafe Jev 原生决策接口（`/systemone`），密钥见「密钥」一节。
+- **三个辅助模型**（可选，均为 HTTP 端点，需自行准备；不配置的模型即未配置，服务照常运行，依赖它的功能按降级规则处理）：各自按一种通用协议请求，`url` 填写完整请求地址，程序原样请求、不追加路径：
+  - 嵌入模型：OpenAI Embeddings 协议；
+  - reranker：Cohere/Jina Rerank 协议；
+  - 决策模型：System One 协议（TypeSafe 的原生决策接口即其一个服务）。
 
-`endpoint` 填写基础地址，程序会在其后追加上述路径。
+三个模型的密钥均可不配：配置了密钥的请求带 `Authorization: Bearer`，没有则不带认证头，见「密钥」一节。
+
+提供方适配：目前支持 Cloudflare Workers AI（reranker、决策模型），在对应模型中写 `provider: cloudflare`；省略 `provider` 即为通用协议。
 
 ## 构建
 
@@ -33,7 +35,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
    生成配置 `~/.tacit/config.yaml` 与记忆仓库。语言默认取系统界面语言，可用 `--language zh|en` 指定；`--memory <路径>` 可指定记忆仓库位置。
 
-2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `endpoint` 与 `model`；决策模型的密钥见「密钥」一节。
+2. **填写模型**（可选）：编辑 `config.yaml` 的 `models` 一节，填入要用的模型的 `url`（完整请求地址）与 `model`；不写的模型即未配置，可以之后再补。密钥可省略，见「密钥」一节。
 
 3. **绑定客户端**
 
@@ -110,7 +112,8 @@ tacit show instructions --default > ~/.tacit/prompts/instructions.md
 
 服务运行时，下列命令经管理 API（`127.0.0.1` 上的 `/api`）完成工作，无需停止服务；服务未运行时，`reindex`、`backup`、`restore` 会提示先执行 `tacit serve` 并以退出码 4 结束。
 
-- **`tacit status`**：列出服务（运行与否、地址、版本、已运行时长）、辅助模型（可用或冷却中）、绑定、上次体检、待处理问题、备份、日志目录与各密钥的来源（环境变量或配置文件，不显示值）。服务未运行时仍输出不依赖服务的部分；服务栏始终给出 MCP 端点。`config.yaml` 无法加载时仍列出全部错误，并按 `server.port` 能读出的端口（读不出时为 18888）探测服务：服务在运行则同时显示它的报告，退出码仍为 3。
+- **`tacit status`**：列出服务（运行与否、地址、版本、已运行时长）、辅助模型（可用、冷却中或未配置）、绑定、上次体检、待处理问题、备份、日志目录与各密钥的来源（环境变量或配置文件，不显示值）。服务未运行时仍输出不依赖服务的部分：辅助模型栏只列未配置的模型，三个都已配置时省略该栏；服务栏始终给出 MCP 端点。`config.yaml` 无法加载时仍列出全部错误，并按 `server.port` 能读出的端口（读不出时为 18888）探测服务：服务在运行则同时显示它的报告，退出码仍为 3。
+- **`tacit probe [embedding|reranker|decision]`**：对 `config.yaml` 中配置的模型各发一次真实请求，检查它能否正常使用；不带参数时依次探测三个模型，未配置的跳过。不需要服务运行，也不需要记忆仓库已初始化，读取的是 `config.yaml`（运行中的服务仍用启动时的配置，修改后需重启）。请求为内置的英文文本，不发送记忆内容。成功只输出"成功"；失败输出 HTTP 状态码、响应体前 500 个字符与耗时，网络错误与超时输出类别与耗时。退出码：全部成功为 0；有模型失败，或明确指定的模型未配置为 1；参数非法为 2；`config.yaml` 无效为 3。
 - **`tacit reindex`**：全量重建派生索引，见上文。
 - **`tacit backup`**：立即在 `TACIT_HOME/backups/` 生成手动备份 `manual-YYYY-MM-DD-HHmmss.zip`，不被自动清理。`--to <目录>` 写到指定目录（不存在时创建）。`--remote` 现场生成一份备份，上传到云端，替换远端唯一的 `tacit-backup.zip`；`--to` 与 `--remote` 不能同时使用。备份内容为记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/`、`bindings.json` 与清单。
 - **`tacit restore --from <zip>`** 与 **`tacit restore --remote`**（两者恰好给一个）：先显示备份的生成时间、tacit 版本、种类（自动、手动、保险或云端）、记忆仓库 HEAD 的提交号与说明、文件数，以及将被替换的内容；输入 `y` 才开始，`--yes`（`-y`）跳过确认。标准输入不是终端且未带 `--yes` 时，显示预览后以退出码 2 结束，不恢复。恢复前会先生成保险备份 `pre-restore-*.zip`，路径会显示在结果中。默认只恢复记忆仓库；加 `--include-config` 时一并恢复 `config.yaml` 与 `prompts/`，`bindings.json` 永不恢复（绑定请重新执行 `tacit connect`）。恢复期间记忆工具的调用排队等待，结束后索引全量重建。恢复回来的 `config.yaml` 需要重启 `tacit serve` 才生效。
@@ -136,10 +139,12 @@ backup:
 
 | 配置键 | 环境变量 | 何时必需 |
 | :--- | :--- | :--- |
-| `models.decision.apiKey` | `TACIT_DECISION_API_KEY` | 总是 |
+| `models.embedding.apiKey` | `TACIT_EMBEDDING_API_KEY` | 嵌入模型需要密钥时 |
+| `models.reranker.apiKey` | `TACIT_RERANKER_API_KEY` | reranker 需要密钥时 |
+| `models.decision.apiKey` | `TACIT_DECISION_API_KEY` | 决策模型需要密钥时 |
 | `backup.webdav.password` | `TACIT_WEBDAV_PASSWORD` | 配置了 `backup.webdav.username` 时 |
 
-必需的密钥两处都没有时加载配置会报错，并同时指出键路径与环境变量名。配置中写了明文密钥时，备份会提示妥善保管备份文件。
+WebDAV 密码（配置了 `backup.webdav.username` 时）两处都没有时加载配置会报错，并同时指出键路径与环境变量名；模型密钥两处都没有时即为无密钥，不算错误。配置中写了明文密钥时，备份会提示妥善保管备份文件。
 
 ### 日志
 
@@ -185,7 +190,7 @@ tacit disconnect --client omp
 
 `serve` 的日志见「日志」一节。
 
-终端中的输出会排版上色：`tacit status` 的各栏用面板呈现，正常为绿色，冷却中、待处理或未运行为黄色，出错为红色；`restore` 预览把将被替换的内容高亮；`connect` 打印的 MCP 端点放在面板中；`reindex`、`backup --remote` 与 `restore` 执行时，stderr 显示转圈与已用时间，结束即清除。输出被重定向或管道接收，或设置了环境变量 `NO_COLOR`（非空）时，输出退回与之前相同的纯文本；stdout 与 stderr 各自判断。
+终端中的输出会排版上色：`tacit status` 的各栏用面板呈现，正常为绿色，冷却中、待处理或未运行为黄色，出错为红色（未配置的模型不上色）；`restore` 预览把将被替换的内容高亮；`connect` 打印的 MCP 端点放在面板中；`reindex`、`backup --remote` 与 `restore` 执行时，stderr 显示转圈与已用时间，结束即清除。输出被重定向或管道接收，或设置了环境变量 `NO_COLOR`（非空）时，输出退回与之前相同的纯文本；stdout 与 stderr 各自判断。
 
 - **任何问题先看 `tacit status`**（各栏见「运维」）：服务应答并给出报告时退出码 0；服务拒绝给出报告（或离线报告读取失败）时为 1，原因写在 stderr；服务未运行或端口被其他程序占用时 4，`config.yaml` 无法加载时 3（有错误时列出全部出错的键路径；文件不存在或记忆仓库未初始化时说明缺少什么；此时仍探测服务，服务在运行时一并显示其报告）。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
@@ -193,7 +198,7 @@ tacit disconnect --client omp
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。固定部分、`resident.md` 与 `skill.md` 各有上限，精简超限的文件后重启即可（详见 `docs/design.md` 第 12 节）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
-- **辅助模型连不上**：服务不会因此退出。写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。检查 `endpoint`、`model` 与密钥环境变量；环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`。
+- **辅助模型连不上**：先运行 `tacit probe`（输出与退出码见上文「命令」），据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
 - **向量扩展无法加载**：启动时会校验 `vec0.dll` 的存在与哈希，不符即拒绝启动。确认它与 `tacit.exe` 位于同一目录，且未被替换。
 - **omp 中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。

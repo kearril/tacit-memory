@@ -11,9 +11,14 @@ internal sealed class VectorSync(MemoryIndex index, EmbeddingModel model)
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _backgroundGate = new();
 
-    /// <summary>Embeds every unit still missing a vector. <c>false</c> when the model could not be reached.</summary>
+    /// <summary>
+    /// Embeds every unit still missing a vector. <c>false</c> when the embedding model is configured but could not be reached.
+    /// Without a configured embedding model nothing can be waited for, so it is <c>true</c> and nothing is tried.
+    /// </summary>
     public async Task<bool> FillAsync(CancellationToken cancellationToken)
     {
+        if (!model.Configured)
+            return true;
         await _gate.WaitAsync(cancellationToken);
         try
         {

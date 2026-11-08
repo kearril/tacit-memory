@@ -15,7 +15,7 @@ public sealed record StatusReport
     /// <summary>Whether the service runs, and if so where, which version, and for how long.</summary>
     public ServiceStatus? Service { get; init; }
 
-    /// <summary>The auxiliary models' states. Present only when the service runs.</summary>
+    /// <summary>The auxiliary models' states. When the service runs, every model; when it does not, only the unconfigured ones.</summary>
     public ModelsStatus? Models { get; init; }
 
     /// <summary>Each client binding and whether its files are still in place.</summary>
@@ -86,17 +86,22 @@ public sealed record ServiceStatus(
     public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select(_ => (StatusLevel?)(Running ? StatusLevel.Ok : StatusLevel.Attention)).ToList();
 }
 
-/// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data.</summary>
+/// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data. Offline, only the unconfigured models are listed.</summary>
 public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn
 {
-    /// <summary>A model line is ok while the model is available, attention while it cools down; a line without an item is plain.</summary>
-    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index < Items.Count
-        ? (StatusLevel?)(Items[index].State == ModelState.Available ? StatusLevel.Ok : StatusLevel.Attention)
-        : null).ToList();
+    /// <summary>A model line is ok while the model is available and attention while it cools down; an unconfigured model and a line without an item are plain.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index < Items.Count ? LevelOf(Items[index].State) : null).ToList();
+
+    private static StatusLevel? LevelOf(ModelState state) => state switch
+    {
+        ModelState.Available => StatusLevel.Ok,
+        ModelState.CoolingDown => StatusLevel.Attention,
+        _ => null,
+    };
 }
 
 /// <param name="Role">The model's role name in <c>config.yaml</c>: <c>embedding</c>, <c>reranker</c> or <c>decision</c>.</param>
-/// <param name="State">Available, or cooling down after a failed request.</param>
+/// <param name="State">Available, cooling down after a failed request, or unconfigured.</param>
 /// <param name="CoolingSeconds">Seconds left in the cooldown, rounded up; <c>null</c> unless cooling down.</param>
 public sealed record ModelStatus(string Role, ModelState State, int? CoolingSeconds);
 
@@ -107,6 +112,9 @@ public enum ModelState
 
     /// <summary>A request finally failed; the model is not called until the cooldown ends.</summary>
     CoolingDown,
+
+    /// <summary>Not configured in <c>config.yaml</c>: the model is never called and never fails.</summary>
+    Unconfigured,
 }
 
 /// <summary>The bindings, one line each; <paramref name="Items"/> carries the same checks as data.</summary>

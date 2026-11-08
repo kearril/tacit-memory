@@ -22,6 +22,7 @@ internal static class ManagementApiMessages
     public static readonly Localized ModelsTitle = new("辅助模型", "Auxiliary models");
     public static readonly Localized ModelAvailable = new("{0}：可用", "{0}: available");
     public static readonly Localized ModelCoolingDown = new("{0}：冷却中，剩余 {1} 秒", "{0}: cooling down, {1} s left");
+    public static readonly Localized ModelUnconfigured = new("{0}：未配置", "{0}: not configured");
 
     public static readonly Localized LogsTitle = new("日志", "Logs");
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
@@ -96,8 +97,8 @@ internal static class ManagementApiMessages
         "{0}: from the environment variable {1}; the value in config.yaml is ignored");
     public static readonly Localized SecretFromConfig = new("{0}：来自配置文件", "{0}: from config.yaml");
     public static readonly Localized SecretMissing = new(
-        "{0}：缺失（环境变量 {1} 与配置文件都没有）",
-        "{0}: missing (neither the environment variable {1} nor config.yaml holds it)");
+        "{0}：未设置（环境变量 {1} 与配置文件都没有）",
+        "{0}: not set (neither the environment variable {1} nor config.yaml holds it)");
     public static readonly Localized SecretWebDavNotConfigured = new("backup.webdav：未配置，不需要密钥", "backup.webdav: not configured, no secret needed");
 
     public static readonly Localized ApiFileFailed = new(

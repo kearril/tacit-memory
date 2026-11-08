@@ -107,13 +107,16 @@ internal sealed class MemoryIndex : IDisposable
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
-    private readonly string _embeddingModel;
+    private readonly string? _embeddingModel;
     private readonly Lock _gate = new();
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
     private SqliteConnection _connection;
 
-    /// <param name="embeddingModel">The configured embedding model; vectors made by another model are dropped.</param>
-    public MemoryIndex(string memoryPath, string embeddingModel, MemoryLanguage language)
+    /// <param name="embeddingModel">
+    /// The configured embedding model, or <c>null</c> when none is configured. Vectors made by another model are dropped. With
+    /// none configured, the stored vectors and the model name they were made by are kept as they are.
+    /// </param>
+    public MemoryIndex(string memoryPath, string? embeddingModel, MemoryLanguage language)
     {
         _memoryPath = memoryPath;
         _databasePath = Path.Combine(memoryPath, ".cache", "index.db");
@@ -121,7 +124,7 @@ internal sealed class MemoryIndex : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
         VectorExtension.Verify(language);
         _connection = OpenCurrent();
-        if (Meta("embedding_model") != embeddingModel)
+        if (embeddingModel is not null && Meta("embedding_model") != embeddingModel)
         {
             DropVectors();
             SetMeta("embedding_model", embeddingModel);
@@ -391,7 +394,8 @@ internal sealed class MemoryIndex : IDisposable
             _connection.Dispose();
             _skipped.Clear();
             _connection = Create();
-            SetMeta("embedding_model", _embeddingModel);
+            if (_embeddingModel is not null)
+                SetMeta("embedding_model", _embeddingModel);
         }
     }
 

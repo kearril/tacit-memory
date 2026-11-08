@@ -3,31 +3,47 @@ using System.Text.Json.Serialization;
 
 namespace TacitMemory.Core.Models;
 
-/// <summary>The embedding model behind an OpenAI-compatible <c>/embeddings</c> endpoint.</summary>
-internal sealed class EmbeddingModel(ModelClient client, ModelEndpoint endpoint, ModelHealth health)
+/// <summary>
+/// The embedding model, speaking the OpenAI Embeddings protocol: <c>model</c> and <c>input</c> go to the configured URL,
+/// and <c>data[].index</c> and <c>data[].embedding</c> come back.
+/// </summary>
+internal sealed class EmbeddingModel(ModelClient client, ModelConfig? config, ModelHealth health)
 {
     /// <summary>Texts sent in one request.</summary>
     public const int BatchSize = 32;
 
-    public string Name => endpoint.Model;
+    /// <summary>Whether the model is configured. An unconfigured model is never called and never cools down.</summary>
+    public bool Configured => config is not null;
 
     public ModelHealth Health => health;
 
-    /// <summary>One vector per text, or <c>null</c> when the model cannot be reached or answers wrongly.</summary>
+    /// <summary>
+    /// The probe's one request: the fixed English sentence, answered and read as <see cref="EmbedAsync"/> reads it.
+    /// </summary>
+    public static Task<ProbeResult> ProbeAsync(ModelProbe probe, ModelConfig settings, CancellationToken cancellationToken) =>
+        probe.SendAsync(
+            ModelRole.Embedding,
+            () => ModelRequest.Post(settings, new Request(settings.Model, [ProbeInputs.Sentence])),
+            (response, token) => ReadVectorsAsync(response, 1, token),
+            cancellationToken);
+
+    /// <summary>
+    /// One vector per text, or <c>null</c> when the model is not configured, cannot be reached or answers wrongly. An
+    /// unconfigured model answers at once, without a request.
+    /// </summary>
     public async Task<float[][]?> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken)
     {
         if (texts.Count == 0)
             return [];
+        if (config is not { } settings)
+            return null;
 
         var vectors = new List<float[]>(texts.Count);
         foreach (var batch in texts.Chunk(BatchSize))
         {
             var answer = await client.SendAsync(
                 health,
-                () => new HttpRequestMessage(HttpMethod.Post, ModelUrls.Append(endpoint.Endpoint, "embeddings"))
-                {
-                    Content = JsonContent.Create(new Request(endpoint.Model, batch)),
-                },
+                () => ModelRequest.Post(settings, new Request(settings.Model, batch)),
                 (response, token) => ReadVectorsAsync(response, batch.Length, token),
                 cancellationToken);
             if (answer is null)
@@ -61,10 +77,4 @@ internal sealed class EmbeddingModel(ModelClient client, ModelEndpoint endpoint,
     private sealed record Item(
         [property: JsonPropertyName("index")] int Index,
         [property: JsonPropertyName("embedding")] float[]? Embedding);
-}
-
-internal static class ModelUrls
-{
-    /// <summary><paramref name="endpoint"/> with <paramref name="path"/> appended, whether or not it ends with a slash.</summary>
-    public static Uri Append(Uri endpoint, string path) => new(endpoint.AbsoluteUri.TrimEnd('/') + "/" + path);
 }

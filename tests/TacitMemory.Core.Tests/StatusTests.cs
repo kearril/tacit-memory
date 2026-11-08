@@ -88,6 +88,25 @@ public sealed class StatusTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unconfigured_model_is_listed_beside_an_available_and_a_cooling_one()
+    {
+        File.WriteAllText(ConfigPath, $"language: zh\nmodels:\n  embedding: {{ url: '{_models.EmbeddingUrl}', model: double-embedding }}\n  decision: {{ url: '{_models.DecisionUrl}', model: double-decision, apiKey: test-key }}\n");
+        _models.EmbeddingDown = true;
+        await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        _home.Clock.Advance(TimeSpan.FromSeconds(10));
+
+        var models = Assert.IsType<ModelsStatus>((await Service.StatusAsync(Endpoint)).Models);
+
+        Assert.Equal(new[] { "embedding", "reranker", "decision" }, models.Items.Select(item => item.Role));
+        Assert.Equal(ModelState.CoolingDown, Assert.Single(models.Items, item => item.Role == "embedding").State);
+        Assert.Equal(20, Assert.Single(models.Items, item => item.Role == "embedding").CoolingSeconds);
+        Assert.Equal(ModelState.Unconfigured, Assert.Single(models.Items, item => item.Role == "reranker").State);
+        Assert.Equal(ModelState.Available, Assert.Single(models.Items, item => item.Role == "decision").State);
+        Assert.Equal(new[] { "embedding：冷却中，剩余 20 秒", "reranker：未配置", "decision：可用" }, models.Lines);
+        Assert.Equal(new StatusLevel?[] { StatusLevel.Attention, null, StatusLevel.Ok }, ((IStatusColumn)models).LineLevels());
+    }
+
+    [Fact]
     public async Task The_offline_report_says_the_service_is_not_running_and_leaves_out_the_columns_that_need_it()
     {
         var tacit = _home.Tacit();
@@ -145,7 +164,8 @@ public sealed class StatusTests : IDisposable
         Assert.Null(report.Models);
         var config = Assert.IsType<ConfigStatus>(report.Config);
         Assert.Contains(config.Lines, line => line.Contains("models.embedding.endpoint", StringComparison.Ordinal));
-        Assert.Contains(config.Lines, line => line.Contains("models.reranker", StringComparison.Ordinal));
+        Assert.Contains(config.Lines, line => line.Contains("models.embedding.url", StringComparison.Ordinal));
+        Assert.DoesNotContain(config.Lines, line => line.Contains("models.reranker", StringComparison.Ordinal));
         Assert.Equal(Path.Combine(_home.TacitHome, "logs"), report.Logs!.Directory);
     }
 

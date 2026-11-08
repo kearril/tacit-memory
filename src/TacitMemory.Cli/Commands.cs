@@ -147,6 +147,64 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     [Command("show skill")]
     public Task<int> ShowSkill(bool @default = false) => ShowPart(ShowTarget.Skill, @default);
 
+    /// <summary>
+    /// Sends one real request to each model in config.yaml and says whether it works. The request is a fixed English text;
+    /// nothing from memory is read or sent. Needs no running service and no initialized memory repository.
+    /// </summary>
+    /// <remarks>
+    /// Exit codes: 0 when every model probed works, or none is configured and none was named; 1 when a model fails, or a model
+    /// named on the command line is not configured; 2 for an unknown target or an extra argument; 3 when config.yaml does not
+    /// load. Without a target, models that are not configured are skipped.
+    /// </remarks>
+    [Command("probe")]
+    public Task<int> ProbeAll(ConsoleAppContext context) => Execute(() =>
+    {
+        var target = FirstArgument(context);
+        if (target is not null)
+            throw new UsageException($"Unknown probe target '{target}'. Valid targets: {string.Join(", ", ModelRoles.All.Select(ModelRoles.Name))}.");
+        return RunProbeAsync(AllModels, explicitTargets: false);
+    });
+
+    /// <summary>Probe the embedding model in config.yaml.</summary>
+    [Command("probe embedding")]
+    public Task<int> ProbeEmbedding(ConsoleAppContext context) => ProbeOne(context, ModelRole.Embedding);
+
+    /// <summary>Probe the reranker in config.yaml.</summary>
+    [Command("probe reranker")]
+    public Task<int> ProbeReranker(ConsoleAppContext context) => ProbeOne(context, ModelRole.Reranker);
+
+    /// <summary>Probe the decision model in config.yaml.</summary>
+    [Command("probe decision")]
+    public Task<int> ProbeDecision(ConsoleAppContext context) => ProbeOne(context, ModelRole.Decision);
+
+    /// <summary>The models the bare <c>probe</c> command probes, in report order.</summary>
+    private static readonly ModelRole[] AllModels = [.. ModelRoles.All];
+
+    private Task<int> ProbeOne(ConsoleAppContext context, ModelRole role) => Execute(() =>
+    {
+        RejectArguments(context);
+        return RunProbeAsync([role], explicitTargets: true);
+    });
+
+    /// <summary>
+    /// Probes the given models and prints the report. The exit code is 1 when a model failed, or when a model the user named is
+    /// not configured; 0 otherwise. An unconfigured model that was not named is skipped and is not a failure.
+    /// </summary>
+    private async Task<int> RunProbeAsync(IReadOnlyList<ModelRole> roles, bool explicitTargets)
+    {
+        var config = _tacit.LoadConfigFile();
+        var report = await _tacit.ProbeAsync(config, roles, explicitTargets);
+        if (console.StylesOut)
+            StyledOutput.Probe(console.Out, report.Lines);
+        else
+            foreach (var line in report.Lines)
+                console.Out.WriteLine(line.Text);
+        return ProbeExitCode(report.Results, explicitTargets);
+    }
+
+    private static int ProbeExitCode(IReadOnlyList<ProbeResult> results, bool explicitTargets) =>
+        results.Any(result => result.Outcome == ProbeOutcome.Failed || (explicitTargets && result.Outcome == ProbeOutcome.Unconfigured)) ? 1 : 0;
+
     /// <summary>Show the memory tools the agent can call.</summary>
     [Command("show tools")]
     public Task<int> ShowTools(ConsoleAppContext context) => Execute(() =>

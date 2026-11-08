@@ -14,6 +14,9 @@ internal static class DuplicatePages
     private const string NotCheckedStatus =
         "Not checked: the decision or embedding model is unavailable, so whether changed pages repeat existing ones was not checked.";
 
+    private const string NotConfiguredStatus =
+        "Not checked (not configured): the decision or embedding model is not configured, so whether changed pages repeat existing ones was not checked.";
+
     /// <summary>Reads the changed pages and submits each one's judgment; the result is awaited with the budget.</summary>
     public static async Task<AwaitAnswers<CheckupSection>> StartAsync(
         CheckupContext context, CheckupServices services, JudgmentSession judgments, CancellationToken cancellationToken)
@@ -50,6 +53,7 @@ internal static class DuplicatePages
 
             var status = Unanswered.Of(reasons).Status(
                 _ => NotCheckedStatus,
+                _ => NotConfiguredStatus,
                 count => $"{count} changed page(s) not checked yet, because the checkup ran out of time. Run the tacit-checkup skill again to continue.");
             return new CheckupSection(CheckupTitles.DuplicatePages, findings, status);
         };
@@ -63,18 +67,18 @@ internal static class DuplicatePages
     {
         var memory = config.MemoryPath;
         if (PageDocument.TryLoad(memory, page) is not { } document || !services.Index.HasOtherPagesInProject(page))
-            return new PreparedChoice<PageId>(null, false);
+            return new PreparedChoice<PageId>(null, null);
 
         var vector = await services.Embedding.EmbedAsync([string.Join('\n', [document.Header.Title, .. document.Header.Aliases])], cancellationToken);
         if (vector is null)
-            return new PreparedChoice<PageId>(null, true);
+            return new PreparedChoice<PageId>(null, JudgmentPool.NoAnswerReason(services.Embedding.Configured));
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var options = DuplicatePageCheck.Describe(memory, DuplicatePageCheck.Nearest(services.Index, page, vector[0]))
             .Select(option => new ChoiceOption<PageId>(option.Text, option.Page))
             .ToList();
         if (options.Count == 0)
-            return new PreparedChoice<PageId>(null, false);
+            return new PreparedChoice<PageId>(null, null);
 
         var sections = document.Sections.Select(section => new PageSectionInput(section.Name, section.Body)).ToList();
         var question = new ChoiceQuestion<PageId>(
@@ -82,7 +86,7 @@ internal static class DuplicatePages
             DuplicatePageCheck.Instructions,
             DuplicatePageCheck.NoneText,
             options);
-        return new PreparedChoice<PageId>(question, false);
+        return new PreparedChoice<PageId>(question, null);
     }
 
     /// <summary>A page as the report names it: its identifier and its title, or the identifier alone when it cannot be read.</summary>

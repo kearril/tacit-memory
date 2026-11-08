@@ -57,6 +57,16 @@ internal static class StyledOutput
     }
 
     /// <summary>
+    /// Prints the probe report with each line coloured by its level: ok green, problem red, and a line with no level plain.
+    /// Only the layout and colour change; the words are those of the plain report.
+    /// </summary>
+    public static void Probe(TextWriter writer, IReadOnlyList<ProbeReportLine> lines)
+    {
+        var rows = lines.Select(line => (IRenderable)new Text(line.Text, StyleOf(ColourOf(line.Level)))).ToList();
+        Create(writer).Write(new Rows(rows));
+    }
+
+    /// <summary>
     /// Runs the call while a spinner and the elapsed time show on the error stream. Both are cleared when the call ends,
     /// and an exception from the call propagates unchanged. No percentage is shown: the service reports no progress.
     /// </summary>

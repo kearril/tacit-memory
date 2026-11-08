@@ -69,13 +69,16 @@ public static class CommandLine
     }
 
     /// <summary>The command names. Their match ignores case, so <c>tacit CONNECT</c> is <c>tacit connect</c>.</summary>
-    private static readonly string[] CommandNames = ["init", "serve", "connect", "disconnect", "show", "status", "reindex", "backup", "restore"];
+    private static readonly string[] CommandNames = ["init", "serve", "connect", "disconnect", "show", "probe", "status", "reindex", "backup", "restore"];
 
     /// <summary>The <c>show</c> subcommands. Their match ignores case, like the command names.</summary>
     private static readonly string[] ShowNames = ["instructions", "resident", "skill", "tools", "remember", "checkup"];
 
+    /// <summary>The <c>probe</c> targets. Their match ignores case, like the <c>show</c> subcommands.</summary>
+    private static readonly string[] ProbeNames = [.. ModelRoles.All.Select(ModelRoles.Name)];
+
     /// <summary>
-    /// Rewrites the command word, and the subcommand word after <c>show</c>, to the spelling the framework routes by. Every
+    /// Rewrites the command word, and the subcommand word after <c>show</c> or <c>probe</c>, to the spelling the framework routes by. Every
     /// other word, option values included, is passed on as it was given.
     /// </summary>
     private static string[] WithCanonicalWords(string[] args)
@@ -87,6 +90,8 @@ public static class CommandLine
         words[0] = Canonical(words[0], CommandNames);
         if (words[0] == "show" && words.Length > 1)
             words[1] = Canonical(words[1], ShowNames);
+        if (words[0] == "probe" && words.Length > 1)
+            words[1] = Canonical(words[1], ProbeNames);
         return words;
     }
 

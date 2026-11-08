@@ -9,8 +9,8 @@ namespace TacitMemory.Core.Checkup;
 /// Candidates whose occurrences fall on at least <c>candidates.minDays</c> distinct days, and that are not a sure repeat
 /// of the persona or the rejection list: the user is asked to confirm, reject or defer each one. Each finding gives the
 /// text, the section it belongs to, the day count and every quote. A candidate the decision model finds possibly the
-/// same as an existing entry says so. When a listed candidate could not be compared, whether the models were unavailable
-/// or the budget ran out, the section says so and asks the agent to compare the candidates itself.
+/// same as an existing entry says so. When a listed candidate could not be compared, whether the models were unavailable or not
+/// configured, or the budget ran out, the section says so and asks the agent to compare the candidates itself.
 /// </summary>
 internal static class ConfirmableCandidates
 {
@@ -44,6 +44,8 @@ internal static class ConfirmableCandidates
         var because = new List<string>();
         if (unanswered.ModelUnavailable > 0)
             because.Add("the decision or embedding model is unavailable");
+        if (unanswered.Unconfigured > 0)
+            because.Add("the decision or embedding model is not configured");
         if (unanswered.OutOfBudget > 0)
             because.Add("the checkup ran out of time");
         var status = because.Count == 0

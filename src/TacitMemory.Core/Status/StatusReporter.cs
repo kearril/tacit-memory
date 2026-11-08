@@ -47,12 +47,29 @@ internal static class StatusReporter
 
     /// <summary>
     /// The report when no service answers. It reads no model; the service column says so, says whether another program
-    /// answers on the port, and gives the endpoint the service would listen on.
+    /// answers on the port, and gives the endpoint the service would listen on. The models column lists only the models
+    /// the config leaves out, since the states of the others need the service.
     /// </summary>
     public static async Task<StatusReport> OfflineAsync(TacitOptions options, TacitConfig config, bool otherProgramAnswered, CancellationToken cancellationToken)
     {
         var shared = await SharedAsync(options, config, cancellationToken);
-        return shared with { Service = OfflineService(config.Language, config.Port, otherProgramAnswered) };
+        return shared with
+        {
+            Service = OfflineService(config.Language, config.Port, otherProgramAnswered),
+            Models = OfflineModels(config.Language, config.Models),
+        };
+    }
+
+    /// <summary>
+    /// The models column when no service answers: one line per model the config leaves out, or <c>null</c> when every
+    /// model is configured. A configured model's state needs the service, so it is not listed.
+    /// </summary>
+    private static ModelsStatus? OfflineModels(MemoryLanguage language, ModelsConfig models)
+    {
+        var unconfigured = ModelRoles.Unconfigured(models)
+            .Select(role => new ModelStatus(ModelRoles.Name(role), ModelState.Unconfigured, null))
+            .ToList();
+        return unconfigured.Count == 0 ? null : Models(language, unconfigured);
     }
 
     /// <summary>The service column when nothing answers: not running, the endpoint it would listen on, and whether another program holds the port.</summary>
@@ -224,10 +241,11 @@ internal static class StatusReporter
     private static SecretsStatus Secrets(TacitConfig config)
     {
         var language = config.Language;
-        var decision = config.Models.Decision.ApiKey;
         var items = new List<SecretStatus>
         {
-            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, decision),
+            SecretItem("models.embedding.apiKey", SecretVariables.EmbeddingApiKey, config.Models.Embedding?.ApiKey),
+            SecretItem("models.reranker.apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker?.ApiKey),
+            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, config.Models.Decision?.ApiKey),
         };
         var lines = new List<string>();
         if (config.Backup.WebDav is { } webDav)
@@ -261,6 +279,7 @@ internal static class StatusReporter
     private static string ModelLine(MemoryLanguage language, ModelStatus model) => model.State switch
     {
         ModelState.CoolingDown => ManagementApiMessages.ModelCoolingDown.Format(language, model.Role, model.CoolingSeconds),
+        ModelState.Unconfigured => ManagementApiMessages.ModelUnconfigured.Format(language, model.Role),
         _ => ManagementApiMessages.ModelAvailable.Format(language, model.Role),
     };
 

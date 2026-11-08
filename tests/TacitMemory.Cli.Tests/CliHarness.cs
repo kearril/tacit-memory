@@ -18,8 +18,8 @@ namespace TacitMemory.Cli.Tests;
 /// </summary>
 internal sealed class CliHarness : IDisposable
 {
-    /// <summary>A config that does not load: the embedding endpoint is not a URL.</summary>
-    private const string BrokenConfig = "models:\n  embedding: { endpoint: 'nope' }\n";
+    /// <summary>A config that does not load: the embedding model still uses the removed <c>endpoint</c> key.</summary>
+    private const string BrokenConfig = "models:\n  embedding: { endpoint: 'http://127.0.0.1:38417/v1' }\n";
 
     private readonly CapturedText _stdout = new();
     private readonly CapturedText _stderr = new();
@@ -42,8 +42,11 @@ internal sealed class CliHarness : IDisposable
 
     public string ConfigPath => Path.Combine(Home.TacitHome, "config.yaml");
 
-    /// <summary>Runs <c>init</c> and writes a config that loads, listening on <see cref="Port"/>.</summary>
-    public void InitReady() => Home.InitReady(extraConfig: ServerSection);
+    /// <summary>
+    /// Runs <c>init</c> and writes a config that loads, listening on <see cref="Port"/>. The models are <paramref name="models"/>, or
+    /// <see cref="ModelDouble.Quiet"/> when none is given.
+    /// </summary>
+    public void InitReady(ModelDouble? models = null) => Home.InitReady(extraConfig: ServerSection, models: models);
 
     /// <summary>
     /// The <c>connect</c> arguments for the omp paths under the throwaway user home. The folders a user would already have
@@ -61,6 +64,9 @@ internal sealed class CliHarness : IDisposable
     /// <summary>Replaces the config with one whose decision model has no key, so it does not load.</summary>
     public void RemoveDecisionKey() =>
         File.WriteAllText(ConfigPath, (ModelDouble.Quiet.ModelsYaml(decisionKey: string.Empty) + ServerSection).ReplaceLineEndings("\n"));
+
+    /// <summary>Replaces the config with one that has no <c>models</c> section at all: every model is unconfigured.</summary>
+    public void RemoveModels() => File.WriteAllText(ConfigPath, ServerSection);
 
     private string ServerSection => $"server:\n  port: {Port}\n";
 

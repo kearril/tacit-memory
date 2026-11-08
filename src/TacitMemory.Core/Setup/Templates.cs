@@ -58,7 +58,7 @@ internal static class Templates
 
     private static readonly Localized ConfigTemplate = new(
         """
-        # TacitMemory 配置。除 models 外各项均可省略，省略时取注释中的默认值。
+        # TacitMemory 配置。各项均可省略，省略时取注释中的默认值。
 
         server:
           port: 18888                 # 常驻服务在 127.0.0.1 上监听的端口
@@ -67,18 +67,24 @@ internal static class Templates
         {memory}
         language: {language}                  # 记忆语言：zh 或 en
 
-        # 辅助模型，必填。
-        models:
-          embedding:                  # OpenAI 兼容接口，程序在 endpoint 后追加 /embeddings
-            endpoint: ''
-            model: ''
-          reranker:                   # Cohere/Jina 兼容接口，程序在 endpoint 后追加 /rerank
-            endpoint: ''
-            model: ''
-          decision:                   # TypeSafe 原生决策接口，程序在 endpoint 后追加 /systemone
-            endpoint: ''
-            model: ''
-            apiKey: ''                # 密钥；可省略，改设环境变量 TACIT_DECISION_API_KEY（两处都有时以环境变量为准）
+        # 辅助模型，均可省略：省略的模型即未配置，服务照常运行、按降级工作。三个模型的 url 都是完整请求地址，程序原样请求、不追加路径；
+        # apiKey 可省略，有密钥时以 Authorization: Bearer 发送。
+        # models:
+        #   embedding:                  # 通用协议：OpenAI Embeddings
+        #     provider: ''              # 可省略；cloudflare 与通用协议相同
+        #     url: ''                   # 完整请求地址
+        #     model: ''
+        #     apiKey: ''                # 可省略，改设环境变量 TACIT_EMBEDDING_API_KEY（两处都有时以环境变量为准）
+        #   reranker:                   # 通用协议：Cohere/Jina Rerank
+        #     provider: ''              # 可省略；cloudflare 为 Cloudflare Workers AI 的格式
+        #     url: ''                   # 完整请求地址
+        #     model: ''
+        #     apiKey: ''                # 可省略，改设环境变量 TACIT_RERANKER_API_KEY（两处都有时以环境变量为准）
+        #   decision:                   # 通用协议：System One
+        #     provider: ''              # 可省略；cloudflare 为 Cloudflare Workers AI 的格式
+        #     url: ''                   # 完整请求地址
+        #     model: ''
+        #     apiKey: ''                # 可省略，改设环境变量 TACIT_DECISION_API_KEY（两处都有时以环境变量为准）
 
         limits:
           persona:                    # 画像各节的条数上限
@@ -121,7 +127,7 @@ internal static class Templates
 
         """,
         """
-        # TacitMemory configuration. Everything except models may be left out; the defaults are in the comments.
+        # TacitMemory configuration. Everything may be left out; the defaults are in the comments.
 
         server:
           port: 18888                 # port the memory service listens on at 127.0.0.1
@@ -130,18 +136,24 @@ internal static class Templates
         {memory}
         language: {language}                  # memory language: zh or en
 
-        # Auxiliary models; required.
-        models:
-          embedding:                  # OpenAI-compatible; /embeddings is appended to endpoint
-            endpoint: ''
-            model: ''
-          reranker:                   # Cohere/Jina-compatible; /rerank is appended to endpoint
-            endpoint: ''
-            model: ''
-          decision:                   # TypeSafe's native decision API; /systemone is appended to endpoint
-            endpoint: ''
-            model: ''
-            apiKey: ''                # may be left out: set the environment variable TACIT_DECISION_API_KEY instead (the variable wins if both are set)
+        # Auxiliary models, all optional: a model left out is unconfigured, and the service runs without it, degraded. Each url is
+        # the complete request address, sent as written, with no path added. apiKey may be left out; when set, it is sent as a Bearer token.
+        # models:
+        #   embedding:                  # OpenAI Embeddings protocol
+        #     provider: ''              # may be left out; cloudflare is the same as the generic protocol
+        #     url: ''                   # complete request address
+        #     model: ''
+        #     apiKey: ''                # may be left out: set the environment variable TACIT_EMBEDDING_API_KEY instead (the variable wins if both are set)
+        #   reranker:                   # Cohere/Jina Rerank protocol
+        #     provider: ''              # may be left out; cloudflare is Cloudflare Workers AI's format
+        #     url: ''                   # complete request address
+        #     model: ''
+        #     apiKey: ''                # may be left out: set the environment variable TACIT_RERANKER_API_KEY instead (the variable wins if both are set)
+        #   decision:                   # System One protocol
+        #     provider: ''              # may be left out; cloudflare is Cloudflare Workers AI's format
+        #     url: ''                   # complete request address
+        #     model: ''
+        #     apiKey: ''                # may be left out: set the environment variable TACIT_DECISION_API_KEY instead (the variable wins if both are set)
 
         limits:
           persona:                    # item limits of the persona sections

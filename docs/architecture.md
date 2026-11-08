@@ -54,13 +54,15 @@ flowchart LR
 | `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://checkup-report`）与服务端说明，并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
 | `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Mcp` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `McpHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
 
+`tacit probe` 经门面 `LoadConfigFile` 严格加载配置（不要求记忆仓库已初始化），再经门面 `ProbeAsync` 探测；门面返回的 `ProbeReport` 已含按记忆语言排好的报告行，CLI 原样打印，颜色由 `StyledOutput` 按终端规则施加，退出码由 `Commands` 按结果算出。它不经 `Commands` 的服务路径，不需要服务运行。
+
 ## 3. Core 内部模块
 
 | 模块 | 职责 | 状态 |
 | :--- | :--- | :--- |
 | 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听，体检报告的入口是 `MemoryService.CheckupReportAsync` | 已实现 |
 | 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
-| 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；密钥（`models.decision.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/design.md` 第 12 节）；校验服务端说明的固定部分长度 | 已实现 |
+| 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/design.md` 第 12 节）；校验服务端说明的固定部分长度 | 已实现 |
 | 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
 | 维护操作 | `MemoryService.RunMaintenanceAsync`：独占 `MaintenanceGate`，先等在途的向量补齐、判断与自动备份结束，再执行；期间其他读写与后台任务排队（范围见 `docs/design.md` 第 12 节「运行」）。`reindex`（`ReindexAsync`）与 `restore`（`RestoreAsync`）都是维护操作；恢复的校验在 `Backup/RestoreArchive`，换入与回退在 `Backup/RestoreInstall`（`Maintenance/MoveJournal` 记录每次移动并逆序撤销）。 | 已实现 |
 | 近期活动 | 写入活动（`add_activity`、`replaces`）与近期主线（`update_mainline`）：按日定位标题并保留其余字节、计算活动短码与版本短码；写入后的回复附主线与近期活动 | 已实现 |
@@ -69,12 +71,13 @@ flowchart LR
 | Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由体检报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、项目与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存体检判断的概率，键为提问内容的哈希，三档在读取时按阈值计算 | 已实现 |
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
-| 决策模型接口 | 与模型无关的三种题型（选择、打分、真伪）；TypeSafe Jev 适配器，密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先） | 已实现 |
-| 辅助模型客户端 | 以 `HttpClient` 调用三个模型，三者共用 `ModelClient` 的请求内重试与冷却（数值与判定规则见 `docs/design.md` 第 4 节）；状态提示只按冷却判定 | 已实现 |
+| 决策模型接口 | 只含选择题（返回各选项概率）；System One 协议的实现 `SystemOneDecisionModel`，请求发往配置的完整 URL（TypeSafe 的原生决策接口即其一个服务），密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先），没有密钥时不带认证头；`provider: cloudflare` 时请求体相同，只在读取响应时先取 `result` | 已实现 |
+| 辅助模型客户端 | 以 `HttpClient` 调用三个模型，三者共用 `ModelClient` 的请求内重试与冷却（数值与判定规则见 `docs/design.md` 第 4 节）；每个模型的请求由 `ModelRequest` 构造：发往配置的完整 URL，有密钥时带 `Authorization: Bearer`，没有则不带认证头；提供方分派只在构造请求与读取响应两处（`RerankerModel` 的 Cloudflare 格式与 `SystemOneDecisionModel` 的 `result` 信封，信封类型为 `CloudflareEnvelope`，`success` 不为真或无 `result` 即格式不对）。未配置的模型（`Configured` 为假）的调用直接返回"无结果"，不发请求、不影响健康状态；未配置与不可用的判定集中在 `AuxiliaryModels`（`Statuses` 给出 `Unconfigured`、`Unavailable` 与可用三种）；状态提示只按冷却判定 | 已实现 |
+| 探测 | `ModelProbe`：`tacit probe` 的一次性请求（规则见 `docs/design.md` 第 4 节「探测」）；每个模型的 `ProbeAsync` 复用其请求构建与响应读取，内置英文探测文本在 `ProbeInputs`。`ProbeLines` 按记忆语言把结果排成报告行，文字在 `Localization/ProbeMessages`。门面 `ProbeAsync` 接收严格加载的配置、角色与是否点名，返回 `ProbeReport`（结果与报告行），不打印；门面 `LoadConfigFile` 只校验 `config.yaml`，不要求记忆仓库。CLI 只打印报告行并按结果定退出码 | 已实现 |
 | 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示），执行长度上限与截断顺序；生成三个 skill（`Skills/SkillSet`：`tacit-memory` 由 `MemorySkill` 生成并接 `skill.md`；`tacit-remember` 与 `tacit-checkup` 共用 `CommandSkill` 的外壳，正文分别来自 `RememberSkill`、`CheckupSkill`；内容不变不写） | 已实现 |
 | 客户端绑定 | 通用绑定：`connect` 与 `disconnect` 的门面、客户端名称规范化与 `~` 展开、路径比较（规范化后的完整路径，Windows 上不区分大小写，不解析联接与软链接）、常驻区块与三个 skill 链接的建立与拆除（`Clients/SkillLink`：Windows 用目录联接，其他平台用软链接；删除时只删指向 tacit 的链接本身）、`bindings.json` 读写（`Clients/BindingStore`）；共用的上下文文件与 skill 目录由 `Clients/SharedPaths` 判断引用者，渲染按路径去重；不读写任何客户端的 MCP 配置 | 已实现 |
 | 体检报告 | 现场计算报告（`Checkup/`），由 `CheckupResource` 作为资源 `tacit://checkup-report` 的正文返回：前面加上今天的日期、记忆仓库绝对路径与 `git -C` 用法。报告内容包括上次体检基准（最近的 `checkup:` 提交，否则 `init:`，都没有则从未体检）；疑似重复的页与互相冲突的画像条目经判断工作池与限时会话取得答案（`JudgmentPool`、`JudgmentSession`）；可确认与待清理的画像候选；违反格式或规则（`FormatViolations`，生成报告时重新解析全部记忆文件）；过期的近期主线。六类的计算方式、限时与缓存规则见 `docs/design.md` 第 9 节。`CheckupReport` 按报告顺序组装各类，无问题的类别写 `None.`；体检提示（`CheckupReminder`）复用其中不调模型的部分 | 已实现 |
-| 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次体检与待处理问题复用 `CheckupSummary`，与体检提示同一入口，不调模型；最近本地备份取 `auto-`、`manual-`、`pre-restore-` 三种前缀中写入时间最新者，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
+| 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致；只有辅助模型栏例外，离线时只列未配置的模型（`StatusReporter.OfflineAsync`）。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次体检与待处理问题复用 `CheckupSummary`，与体检提示同一入口，不调模型；最近本地备份取 `auto-`、`manual-`、`pre-restore-` 三种前缀中写入时间最新者，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
 | 备份与恢复 | `Backup/`：`BackupArchive` 是所有备份共用的打包（同一份内容清单，清单类型为 `BackupManifest`，含 `kind` 与 `memoryHeadSubject`，HEAD 由 `MemoryCommit` 读取一次）；自动备份（`AutomaticBackup`，每日一份，保留 `backup.keep`，只清理 `auto-*`）、手动备份（`ManualBackup`，在写入队列中打包，`--to` 指定目录，不清理）与保险备份（恢复前生成，不清理）已实现，时间戳与同秒重名拒绝由 `BackupNames` 统一。云端备份（`CloudBackup`，`tacit backup --remote`）在写入锁下打包到临时目录，锁外由 `WebDavClient` 上传为 `.part` 再 MOVE 覆盖远端 `tacit-backup.zip`，每次尝试记入 `backups/remote.json`，不在本地留副本。恢复：`RestoreArchive` 打开并校验备份，`RestorePreviewBuilder` 生成预览（`--include-config` 时检查备份中的 `config.yaml`），`RestoreInstall` 负责文件操作（保险备份、暂存、交换、撤销，经 `Maintenance/MoveJournal`），`MemoryService` 只编排维护操作的门与后续步骤（索引、监听、常驻区块）。云端恢复（`CloudDownload`）先下载到 `backups/.download/`，之后走同一流程 | 已实现 |
 | Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间 | 已实现 |
 | 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见设计文档第 12 节；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
@@ -145,9 +148,9 @@ flowchart LR
 | 索引驱动 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建索引文件） | 已引入 |
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），连同上游 LICENSE 存于仓库 `lib/sqlite-vec/`，构建时复制到输出目录；每次加载前校验代码中记录的 SHA-256，不符则拒绝启动；不使用 NuGet 上的第三方包 | 已引入 |
 | 查询与映射 | `Dapper` | 已引入 |
-| 嵌入 | `HttpClient`，调用 OpenAI 兼容的 `/embeddings`；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
-| reranker | `HttpClient` 类型化客户端，调用 Cohere/Jina 兼容的 `/rerank` | 已引入 |
-| 决策模型 | `HttpClient`，调用 TypeSafe Jev 的 `/systemone` | 已引入 |
+| 嵌入 | `HttpClient`，按 OpenAI Embeddings 协议请求配置的完整 URL；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
+| reranker | `HttpClient` 类型化客户端，按 Cohere/Jina Rerank 协议请求配置的完整 URL | 已引入 |
+| 决策模型 | `HttpClient`，实现 System One 协议，请求配置的完整 URL | 已引入 |
 | 重试与超时 | 辅助模型请求内重试（规则见上表辅助模型客户端行与 `docs/design.md` 第 4 节）；每次尝试设超时，并受一次请求 20 秒总时限截断 | 已实现 |
 | 日志 | `Serilog`（`Serilog.Sinks.File` 写文件，`Serilog.Extensions.Logging` 接入 `Microsoft.Extensions.Logging`）；Core 只引用 `Microsoft.Extensions.Logging.Abstractions` | 已引入 |
 | 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、GET、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，请求本身不重试（父目录缺失时的 MKCOL 与重传规则见 `docs/design.md` 第 12 节） | 已实现 |

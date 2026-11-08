@@ -37,33 +37,47 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
-        Assert.Equal(new Uri("http://127.0.0.1:38417/v1"), config.Models.Embedding.Endpoint);
-        Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker.Model);
-        Assert.Equal(new DecisionModelEndpoint(new Uri("https://api.typesafe.ai/v1"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true)), config.Models.Decision);
+        Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
+        Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker!.Model);
+        Assert.Equal(
+            new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), ModelProvider.Generic),
+            config.Models.Decision);
     }
 
     [Fact]
-    public void The_template_written_by_init_loads_once_models_are_filled_in()
+    public void The_template_written_by_init_loads_as_it_is_with_every_model_unconfigured()
     {
-        var template = File.ReadAllText(ConfigPath);
-        WriteConfig(template[..template.IndexOf("models:", StringComparison.Ordinal)] + Models +
-                    template[template.IndexOf("limits:", StringComparison.Ordinal)..]);
-
         var config = _home.Tacit().LoadConfig();
 
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
+        Assert.Null(config.Models.Embedding);
+        Assert.Null(config.Models.Reranker);
+        Assert.Null(config.Models.Decision);
     }
 
     [Fact]
-    public void An_unfilled_template_names_every_missing_model_setting()
+    public void The_template_has_its_models_section_commented_out_with_its_setting_names_kept()
     {
-        var error = LoadFails();
+        var lines = File.ReadAllLines(ConfigPath);
 
-        Assert.Equal(TacitError.ConfigInvalid, error.Error);
-        foreach (var key in new[] { "models.embedding.endpoint", "models.embedding.model", "models.reranker.endpoint", "models.decision.model", "models.decision" })
-            Assert.Contains(key, error.Message);
+        Assert.DoesNotContain(lines, line => line.StartsWith("models:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.StartsWith("# models:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("#     url:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("#     model:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("#     apiKey:", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void The_template_loads_once_models_are_filled_in_at_its_end()
+    {
+        WriteConfig(File.ReadAllText(ConfigPath) + "\n" + Models);
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
+    }
+
 
     [Fact]
     public void Configured_values_override_the_defaults()
@@ -115,12 +129,58 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void The_endpoint_setting_is_an_unknown_setting_named_with_its_key_path()
+    {
+        WriteConfig(Models.Replace("url: 'http://127.0.0.1:38417/v1/embeddings'", "endpoint: 'http://127.0.0.1:38417/v1'"));
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("models.embedding.endpoint", message);
+        Assert.Contains("models.embedding.url", message);
+    }
+
+    [Theory]
+    [InlineData("url: 'ftp://127.0.0.1/v1/embeddings'")]
+    [InlineData("url: '/v1/embeddings'")]
+    [InlineData("url: 'not a url'")]
+    [InlineData("url: ''")]
+    public void A_url_that_is_not_an_absolute_http_or_https_address_is_refused_with_its_key_path(string setting)
+    {
+        WriteConfig(Models.Replace("url: 'http://127.0.0.1:38417/v1/embeddings'", setting));
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("models.embedding.url", error.Message);
+    }
+
+    [Fact]
+    public void A_url_is_kept_exactly_as_written_with_its_trailing_slash_and_no_path_is_added()
+    {
+        WriteConfig(Models.Replace("http://127.0.0.1:38417/v1/embeddings", "http://127.0.0.1:38417/v1/embeddings/")
+            .Replace("https://api.typesafe.ai/v1/systemone", "https://api.typesafe.ai/v1"));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal("http://127.0.0.1:38417/v1/embeddings/", config.Models.Embedding!.Url.OriginalString);
+        Assert.Equal("https://api.typesafe.ai/v1", config.Models.Decision!.Url.OriginalString);
+    }
+
+    [Fact]
+    public void A_model_with_an_empty_model_name_is_refused_with_its_key_path()
+    {
+        WriteConfig(Models.Replace("model: qwen3-embedding-0.6b", "model: ''"));
+
+        Assert.Contains("models.embedding.model", LoadFails().Message);
+    }
+
+    [Fact]
     public void A_decision_key_in_the_environment_overrides_the_config_and_both_are_recorded()
     {
         WriteConfig(Models);
         _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
 
-        var decision = _home.Tacit().LoadConfig().Models.Decision;
+        var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
         Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: true), decision.ApiKey);
     }
@@ -131,7 +191,7 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models.Replace(", apiKey: test-key", ""));
         _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
 
-        var decision = _home.Tacit().LoadConfig().Models.Decision;
+        var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
         Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: false), decision.ApiKey);
     }
@@ -142,20 +202,100 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models);
         _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "  ";
 
-        var decision = _home.Tacit().LoadConfig().Models.Decision;
+        var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
         Assert.Equal(new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), decision.ApiKey);
     }
 
     [Fact]
-    public void A_decision_model_with_no_key_anywhere_is_refused_naming_the_key_path_and_the_variable()
+    public void The_embedding_and_reranker_keys_come_from_their_own_variables_or_the_config()
+    {
+        WriteConfig(Models
+            .Replace("model: qwen3-embedding-0.6b }", "model: qwen3-embedding-0.6b, apiKey: emb-config }")
+            .Replace("model: qwen3-reranker-0.6b }", "model: qwen3-reranker-0.6b, apiKey: rer-config }"));
+        _home.EnvironmentVariables["TACIT_EMBEDDING_API_KEY"] = "emb-env";
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new SecretValue("emb-env", SecretSource.Environment, WrittenInConfig: true), config.Models.Embedding!.ApiKey);
+        Assert.Equal(new SecretValue("rer-config", SecretSource.ConfigFile, WrittenInConfig: true), config.Models.Reranker!.ApiKey);
+    }
+
+    [Fact]
+    public void A_reranker_key_only_in_its_variable_needs_no_entry_in_the_config()
+    {
+        WriteConfig(Models);
+        _home.EnvironmentVariables["TACIT_RERANKER_API_KEY"] = "rer-env";
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new SecretValue("rer-env", SecretSource.Environment, WrittenInConfig: false), config.Models.Reranker!.ApiKey);
+    }
+
+    [Fact]
+    public void A_model_with_no_key_anywhere_loads_with_no_key()
     {
         WriteConfig(Models.Replace(", apiKey: test-key", ""));
 
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Null(config.Models.Decision!.ApiKey);
+        Assert.Null(config.Models.Embedding!.ApiKey);
+        Assert.Null(config.Models.Reranker!.ApiKey);
+    }
+
+    [Fact]
+    public void A_model_without_a_provider_speaks_the_generic_protocol()
+    {
+        WriteConfig(Models);
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(ModelProvider.Generic, config.Models.Embedding!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Reranker!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Decision!.Provider);
+    }
+
+    [Theory]
+    [InlineData("cloudflare")]
+    [InlineData("Cloudflare")]
+    [InlineData("CLOUDFLARE")]
+    public void A_provider_of_cloudflare_in_any_letter_case_selects_cloudflare(string provider)
+    {
+        WriteConfig(Models
+            .Replace("model: qwen3-reranker-0.6b", $"model: qwen3-reranker-0.6b, provider: {provider}")
+            .Replace("model: jev-latest", $"model: jev-latest, provider: {provider}"));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Reranker!.Provider);
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Decision!.Provider);
+    }
+
+    [Fact]
+    public void The_embedding_model_accepts_the_cloudflare_provider()
+    {
+        WriteConfig(Models.Replace("model: qwen3-embedding-0.6b", "model: qwen3-embedding-0.6b, provider: cloudflare"));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Embedding!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Reranker!.Provider);
+    }
+
+    [Theory]
+    [InlineData("clouflare")]
+    [InlineData("generic")]
+    [InlineData("openai")]
+    public void An_unknown_provider_is_refused_with_its_key_path_and_the_values_it_may_take(string provider)
+    {
+        WriteConfig(Models.Replace("model: qwen3-reranker-0.6b", $"model: qwen3-reranker-0.6b, provider: {provider}"));
+
         var message = LoadFails().Message;
 
-        Assert.Contains("models.decision.apiKey", message);
-        Assert.Contains("TACIT_DECISION_API_KEY", message);
+        Assert.Contains("models.reranker.provider", message);
+        Assert.Contains("cloudflare", message);
+        Assert.Contains(provider, message);
     }
 
     [Fact]
@@ -233,7 +373,7 @@ public sealed class ConfigTests : IDisposable
     {
         var lines = File.ReadAllLines(ConfigPath);
 
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("可省略", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("可省略", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
         Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
@@ -247,18 +387,88 @@ public sealed class ConfigTests : IDisposable
 
         var lines = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
 
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("left out", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("left out", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
         Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void A_missing_model_section_is_refused()
+    public void The_templates_name_each_model_url_as_a_complete_request_address_and_its_key_variable()
     {
-        WriteConfig(Models.Replace("  reranker: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-reranker-0.6b }\n", ""));
+        var zh = File.ReadAllLines(ConfigPath);
 
-        Assert.Contains("models.reranker", LoadFails().Message);
+        Assert.Contains(zh, line => line.Contains("url:", StringComparison.Ordinal) && line.Contains("完整请求地址", StringComparison.Ordinal));
+        Assert.Contains(zh, line => line.Contains("TACIT_EMBEDDING_API_KEY", StringComparison.Ordinal));
+        Assert.Contains(zh, line => line.Contains("TACIT_RERANKER_API_KEY", StringComparison.Ordinal));
+        Assert.DoesNotContain(zh, line => line.Contains("endpoint", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_english_template_names_each_model_url_as_a_complete_request_address_and_its_key_variable()
+    {
+        using var home = new TestHome();
+        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
+
+        var en = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
+
+        Assert.Contains(en, line => line.Contains("url:", StringComparison.Ordinal) && line.Contains("complete request address", StringComparison.Ordinal));
+        Assert.Contains(en, line => line.Contains("TACIT_EMBEDDING_API_KEY", StringComparison.Ordinal));
+        Assert.Contains(en, line => line.Contains("TACIT_RERANKER_API_KEY", StringComparison.Ordinal));
+        Assert.DoesNotContain(en, line => line.Contains("endpoint", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_missing_models_section_loads_with_every_model_unconfigured()
+    {
+        WriteConfig("server: { port: 19999 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(19999, config.Port);
+        Assert.Null(config.Models.Embedding);
+        Assert.Null(config.Models.Reranker);
+        Assert.Null(config.Models.Decision);
+    }
+
+    [Fact]
+    public void An_empty_models_mapping_loads_with_every_model_unconfigured()
+    {
+        WriteConfig("models: {}\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Null(config.Models.Embedding);
+        Assert.Null(config.Models.Reranker);
+        Assert.Null(config.Models.Decision);
+    }
+
+    [Fact]
+    public void A_model_left_out_loads_as_unconfigured_while_the_others_stay_configured()
+    {
+        WriteConfig(Models.Replace("  reranker: { url: 'http://127.0.0.1:38417/v1/rerank', model: qwen3-reranker-0.6b }\n", ""));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Null(config.Models.Reranker);
+        Assert.Equal("qwen3-embedding-0.6b", config.Models.Embedding!.Model);
+        Assert.NotNull(config.Models.Decision);
+    }
+
+    [Fact]
+    public void A_model_with_a_url_but_no_model_name_is_refused_with_its_key_path()
+    {
+        WriteConfig("models:\n  embedding: { url: 'http://127.0.0.1:38417/v1/embeddings' }\n");
+
+        Assert.Contains("models.embedding.model", LoadFails().Message);
+    }
+
+    [Fact]
+    public void A_model_with_a_model_name_but_no_url_is_refused_with_its_key_path()
+    {
+        WriteConfig("models:\n  embedding: { model: qwen3-embedding-0.6b }\n");
+
+        Assert.Contains("models.embedding.url", LoadFails().Message);
     }
 
     [Fact]

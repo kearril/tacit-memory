@@ -61,6 +61,47 @@ public sealed class ManagementApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Status_json_reads_back_an_unconfigured_model_as_unconfigured()
+    {
+        // A service of its own: the shared one has all three models configured.
+        using var home = new TestHome();
+        using var models = new ModelDouble();
+        home.InitReady(models: models);
+        File.WriteAllText(
+            Path.Combine(home.TacitHome, "config.yaml"),
+            $"language: zh\nmodels:\n  embedding: {{ url: '{models.EmbeddingUrl}', model: double-embedding }}\n");
+        using var service = home.Tacit().OpenService(_ => { }, _logs);
+        await using var host = await McpHost.TryStartAsync(service, port: 0, NullLoggerProvider.Instance)
+            ?? throw new InvalidOperationException("Port 0 is never in use.");
+
+        using var response = await _http.GetAsync(new Uri($"http://127.0.0.1:{host.Endpoint.Port}/api/status"));
+        var text = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("\"unconfigured\"", text, StringComparison.Ordinal);
+        var status = JsonSerializer.Deserialize<StatusReport>(text, ManagementApiJson.Options)!.Models!;
+        Assert.Equal(ModelState.Available, Assert.Single(status.Items, item => item.Role == "embedding").State);
+        Assert.Equal(ModelState.Unconfigured, Assert.Single(status.Items, item => item.Role == "reranker").State);
+        Assert.Equal(ModelState.Unconfigured, Assert.Single(status.Items, item => item.Role == "decision").State);
+    }
+
+    [Fact]
+    public async Task Status_json_reads_back_a_secret_entry_for_each_model_and_an_unset_key_is_not_an_error()
+    {
+        using var response = await _http.GetAsync(Url("/api/status"));
+        var text = await response.Content.ReadAsStringAsync();
+
+        var report = JsonSerializer.Deserialize<StatusReport>(text, ManagementApiJson.Options)!;
+        var secrets = report.Secrets!;
+        Assert.Equal(["models.embedding.apiKey", "models.reranker.apiKey", "models.decision.apiKey"], secrets.Items.Select(item => item.Key));
+        Assert.Null(secrets.Items.Single(item => item.Key == "models.embedding.apiKey").Source);
+        Assert.Equal(SecretSource.ConfigFile, secrets.Items.Single(item => item.Key == "models.decision.apiKey").Source);
+        Assert.Contains(secrets.Lines, line => line.StartsWith("models.embedding.apiKey", StringComparison.Ordinal) && line.Contains("未设置", StringComparison.Ordinal));
+        Assert.Contains("models.reranker.apiKey", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("test-key", text, StringComparison.Ordinal);
+        Assert.DoesNotContain(((IStatusColumn)secrets).LineLevels(), level => level is not null);
+    }
+
+    [Fact]
     public async Task One_call_to_the_api_writes_one_event_with_its_route_and_status()
     {
         var response = await Send(new HttpRequestMessage(HttpMethod.Get, Url("/api/status")));
