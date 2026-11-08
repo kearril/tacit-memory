@@ -7,11 +7,17 @@ namespace TacitMemory.Core.Configuration;
 /// </summary>
 internal static class SecretVariables
 {
+    /// <summary>The embedding model's key, <c>models.embedding.apiKey</c>.</summary>
+    public const string EmbeddingApiKey = "TACIT_EMBEDDING_API_KEY";
+
+    /// <summary>The reranker's key, <c>models.reranker.apiKey</c>.</summary>
+    public const string RerankerApiKey = "TACIT_RERANKER_API_KEY";
+
     /// <summary>The decision model's key, <c>models.decision.apiKey</c>.</summary>
     public const string DecisionApiKey = "TACIT_DECISION_API_KEY";
 
     /// <summary>The WebDAV password, <c>backup.webdav.password</c>.</summary>
     public const string WebDavPassword = "TACIT_WEBDAV_PASSWORD";
 
-    public static readonly IReadOnlyList<string> All = [DecisionApiKey, WebDavPassword];
+    public static readonly IReadOnlyList<string> All = [EmbeddingApiKey, RerankerApiKey, DecisionApiKey, WebDavPassword];
 }

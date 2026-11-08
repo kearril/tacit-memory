@@ -37,9 +37,11 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
-        Assert.Equal(new Uri("http://127.0.0.1:38417/v1"), config.Models.Embedding.Endpoint);
+        Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding.Url);
         Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker.Model);
-        Assert.Equal(new DecisionModelEndpoint(new Uri("https://api.typesafe.ai/v1"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true)), config.Models.Decision);
+        Assert.Equal(
+            new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true)),
+            config.Models.Decision);
     }
 
     [Fact]
@@ -61,7 +63,7 @@ public sealed class ConfigTests : IDisposable
         var error = LoadFails();
 
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
-        foreach (var key in new[] { "models.embedding.endpoint", "models.embedding.model", "models.reranker.endpoint", "models.decision.model", "models.decision" })
+        foreach (var key in new[] { "models.embedding.url", "models.embedding.model", "models.reranker.url", "models.reranker.model", "models.decision.url", "models.decision.model" })
             Assert.Contains(key, error.Message);
     }
 
@@ -115,6 +117,52 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void The_endpoint_setting_is_an_unknown_setting_named_with_its_key_path()
+    {
+        WriteConfig(Models.Replace("url: 'http://127.0.0.1:38417/v1/embeddings'", "endpoint: 'http://127.0.0.1:38417/v1'"));
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("models.embedding.endpoint", message);
+        Assert.Contains("models.embedding.url", message);
+    }
+
+    [Theory]
+    [InlineData("url: 'ftp://127.0.0.1/v1/embeddings'")]
+    [InlineData("url: '/v1/embeddings'")]
+    [InlineData("url: 'not a url'")]
+    [InlineData("url: ''")]
+    public void A_url_that_is_not_an_absolute_http_or_https_address_is_refused_with_its_key_path(string setting)
+    {
+        WriteConfig(Models.Replace("url: 'http://127.0.0.1:38417/v1/embeddings'", setting));
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("models.embedding.url", error.Message);
+    }
+
+    [Fact]
+    public void A_url_is_kept_exactly_as_written_with_its_trailing_slash_and_no_path_is_added()
+    {
+        WriteConfig(Models.Replace("http://127.0.0.1:38417/v1/embeddings", "http://127.0.0.1:38417/v1/embeddings/")
+            .Replace("https://api.typesafe.ai/v1/systemone", "https://api.typesafe.ai/v1"));
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal("http://127.0.0.1:38417/v1/embeddings/", config.Models.Embedding.Url.OriginalString);
+        Assert.Equal("https://api.typesafe.ai/v1", config.Models.Decision.Url.OriginalString);
+    }
+
+    [Fact]
+    public void A_model_with_an_empty_model_name_is_refused_with_its_key_path()
+    {
+        WriteConfig(Models.Replace("model: qwen3-embedding-0.6b", "model: ''"));
+
+        Assert.Contains("models.embedding.model", LoadFails().Message);
+    }
+
+    [Fact]
     public void A_decision_key_in_the_environment_overrides_the_config_and_both_are_recorded()
     {
         WriteConfig(Models);
@@ -148,14 +196,40 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void A_decision_model_with_no_key_anywhere_is_refused_naming_the_key_path_and_the_variable()
+    public void The_embedding_and_reranker_keys_come_from_their_own_variables_or_the_config()
+    {
+        WriteConfig(Models
+            .Replace("model: qwen3-embedding-0.6b }", "model: qwen3-embedding-0.6b, apiKey: emb-config }")
+            .Replace("model: qwen3-reranker-0.6b }", "model: qwen3-reranker-0.6b, apiKey: rer-config }"));
+        _home.EnvironmentVariables["TACIT_EMBEDDING_API_KEY"] = "emb-env";
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new SecretValue("emb-env", SecretSource.Environment, WrittenInConfig: true), config.Models.Embedding.ApiKey);
+        Assert.Equal(new SecretValue("rer-config", SecretSource.ConfigFile, WrittenInConfig: true), config.Models.Reranker.ApiKey);
+    }
+
+    [Fact]
+    public void A_reranker_key_only_in_its_variable_needs_no_entry_in_the_config()
+    {
+        WriteConfig(Models);
+        _home.EnvironmentVariables["TACIT_RERANKER_API_KEY"] = "rer-env";
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new SecretValue("rer-env", SecretSource.Environment, WrittenInConfig: false), config.Models.Reranker.ApiKey);
+    }
+
+    [Fact]
+    public void A_model_with_no_key_anywhere_loads_with_no_key()
     {
         WriteConfig(Models.Replace(", apiKey: test-key", ""));
 
-        var message = LoadFails().Message;
+        var config = _home.Tacit().LoadConfig();
 
-        Assert.Contains("models.decision.apiKey", message);
-        Assert.Contains("TACIT_DECISION_API_KEY", message);
+        Assert.Null(config.Models.Decision.ApiKey);
+        Assert.Null(config.Models.Embedding.ApiKey);
+        Assert.Null(config.Models.Reranker.ApiKey);
     }
 
     [Fact]
@@ -254,9 +328,34 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void The_templates_name_each_model_url_as_a_complete_request_address_and_its_key_variable()
+    {
+        var zh = File.ReadAllLines(ConfigPath);
+
+        Assert.Contains(zh, line => line.Contains("url:", StringComparison.Ordinal) && line.Contains("完整请求地址", StringComparison.Ordinal));
+        Assert.Contains(zh, line => line.Contains("TACIT_EMBEDDING_API_KEY", StringComparison.Ordinal));
+        Assert.Contains(zh, line => line.Contains("TACIT_RERANKER_API_KEY", StringComparison.Ordinal));
+        Assert.DoesNotContain(zh, line => line.Contains("endpoint", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_english_template_names_each_model_url_as_a_complete_request_address_and_its_key_variable()
+    {
+        using var home = new TestHome();
+        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
+
+        var en = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
+
+        Assert.Contains(en, line => line.Contains("url:", StringComparison.Ordinal) && line.Contains("complete request address", StringComparison.Ordinal));
+        Assert.Contains(en, line => line.Contains("TACIT_EMBEDDING_API_KEY", StringComparison.Ordinal));
+        Assert.Contains(en, line => line.Contains("TACIT_RERANKER_API_KEY", StringComparison.Ordinal));
+        Assert.DoesNotContain(en, line => line.Contains("endpoint", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_missing_model_section_is_refused()
     {
-        WriteConfig(Models.Replace("  reranker: { endpoint: 'http://127.0.0.1:38417/v1', model: qwen3-reranker-0.6b }\n", ""));
+        WriteConfig(Models.Replace("  reranker: { url: 'http://127.0.0.1:38417/v1/rerank', model: qwen3-reranker-0.6b }\n", ""));
 
         Assert.Contains("models.reranker", LoadFails().Message);
     }

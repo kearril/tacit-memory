@@ -11,9 +11,11 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// The three auxiliary models on 127.0.0.1, answering from what each test sets: <c>/v1/embeddings</c>,
-/// <c>/v1/rerank</c> and <c>/v1/systemone</c>. A model that is down answers <see cref="DownStatus"/> at once; that is a
-/// client error, which the service does not retry, so tests that are not about retries never wait on the clock. The
-/// scripts make the next requests of one model answer otherwise, in order, before it answers as set.
+/// <c>/v1/rerank</c> and <c>/v1/systemone</c>. Configuration gives each model its full URL, so these are the URLs a test
+/// writes. A model that is down answers <see cref="DownStatus"/> at once; that is a client error, which the service does
+/// not retry, so tests that are not about retries never wait on the clock. The scripts make the next requests of one
+/// model answer otherwise, in order, before it answers as set. Every request is recorded with its path, its
+/// Authorization header and its JSON body.
 /// </summary>
 internal sealed class ModelDouble : IDisposable
 {
@@ -29,6 +31,9 @@ internal sealed class ModelDouble : IDisposable
     private readonly ConcurrentQueue<ModelReply> _embeddingScript = new();
     private readonly ConcurrentQueue<ModelReply> _rerankScript = new();
     private readonly ConcurrentQueue<ModelReply> _decisionScript = new();
+    private readonly ConcurrentQueue<ReceivedRequest> _embeddingReceived = new();
+    private readonly ConcurrentQueue<ReceivedRequest> _rerankReceived = new();
+    private readonly ConcurrentQueue<ReceivedRequest> _decisionReceived = new();
     private readonly RequestCount _embeddingRequests = new();
     private readonly RequestCount _rerankRequests = new();
     private readonly RequestCount _decisionRequests = new();
@@ -55,7 +60,10 @@ internal sealed class ModelDouble : IDisposable
         _app.MapPost("/v1/rerank", RerankAsync);
         _app.MapPost("/v1/systemone", DecideAsync);
         _app.StartAsync().GetAwaiter().GetResult();
-        Endpoint = new Uri($"http://127.0.0.1:{new Uri(_app.Urls.Single()).Port}/v1");
+        var root = new Uri(_app.Urls.Single());
+        EmbeddingUrl = new Uri(root, "/v1/embeddings");
+        RerankUrl = new Uri(root, "/v1/rerank");
+        DecisionUrl = new Uri(root, "/v1/systemone");
     }
 
     /// <summary>
@@ -64,7 +72,14 @@ internal sealed class ModelDouble : IDisposable
     /// </summary>
     public static ModelDouble Quiet => SharedQuiet.Value;
 
-    public Uri Endpoint { get; }
+    /// <summary>The full URL the embedding model answers at; what configuration writes as <c>url</c>.</summary>
+    public Uri EmbeddingUrl { get; }
+
+    /// <summary>The full URL the reranker answers at.</summary>
+    public Uri RerankUrl { get; }
+
+    /// <summary>The full URL the decision model answers at.</summary>
+    public Uri DecisionUrl { get; }
 
     public bool EmbeddingDown { get; set; }
 
@@ -100,6 +115,15 @@ internal sealed class ModelDouble : IDisposable
                 return _peakDecisionsInFlight;
         }
     }
+
+    /// <summary>Every request the embedding model received, in order, scripted ones included.</summary>
+    public IReadOnlyList<ReceivedRequest> EmbeddingRequests => _embeddingReceived.ToArray();
+
+    /// <summary>Every request the reranker received, in order, scripted ones included.</summary>
+    public IReadOnlyList<ReceivedRequest> RerankRequests => _rerankReceived.ToArray();
+
+    /// <summary>Every request the decision model received, in order, scripted ones included.</summary>
+    public IReadOnlyList<ReceivedRequest> DecisionRequests => _decisionReceived.ToArray();
 
     /// <summary>Completes once the decision model has received <paramref name="number"/> requests, the count including the scripted ones.</summary>
     public Task DecisionRequestsReached(int number) => _decisionRequests.Reached(number);
@@ -143,7 +167,8 @@ internal sealed class ModelDouble : IDisposable
     }
 
     /// <summary>The body and the Authorization header of the latest decision request.</summary>
-    public (JsonObject Body, string? Authorization)? LastDecision { get; private set; }
+    public (JsonObject Body, string? Authorization)? LastDecision =>
+        DecisionRequests.LastOrDefault() is { } last ? (last.Body, last.Authorization) : null;
 
     /// <summary>Completes once the embedding model has received <paramref name="number"/> requests, the count including the scripted ones.</summary>
     public Task EmbeddingRequestsReached(int number) => _embeddingRequests.Reached(number);
@@ -157,12 +182,18 @@ internal sealed class ModelDouble : IDisposable
     /// <summary>Replies to the next decision requests, in order, before the model answers as set.</summary>
     public void ScriptDecision(params ModelReply[] replies) => Enqueue(_decisionScript, replies);
 
-    /// <summary>A <c>models</c> section pointing every model at this double, with the decision model's key given.</summary>
-    public string ModelsYaml(string embeddingModel = "double-embedding", string decisionKey = "test-key") => $$"""
+    /// <summary>
+    /// A <c>models</c> section pointing every model at this double's full URL. The decision model's key is given as
+    /// <paramref name="decisionKey"/>; an empty one writes no key. The embedding and reranker keys are written only when
+    /// given, so by default those models send no authentication.
+    /// </summary>
+    public string ModelsYaml(
+        string embeddingModel = "double-embedding", string decisionKey = "test-key", string? embeddingKey = null, string? rerankerKey = null) =>
+        $$"""
         models:
-          embedding: { endpoint: '{{Endpoint}}', model: {{embeddingModel}} }
-          reranker: { endpoint: '{{Endpoint}}', model: double-reranker }
-          decision: { endpoint: '{{Endpoint}}', model: double-decision, apiKey: {{decisionKey}} }
+          embedding: { url: '{{EmbeddingUrl}}', model: {{embeddingModel}}{{KeyPart(embeddingKey)}} }
+          reranker: { url: '{{RerankUrl}}', model: double-reranker{{KeyPart(rerankerKey)}} }
+          decision: { url: '{{DecisionUrl}}', model: double-decision{{KeyPart(decisionKey)}} }
 
         """;
 
@@ -185,10 +216,21 @@ internal sealed class ModelDouble : IDisposable
         return length == 0 ? [1, .. new float[63]] : vector.Select(value => value / length).ToArray();
     }
 
+    private static string KeyPart(string? key) => string.IsNullOrEmpty(key) ? "" : $", apiKey: {key}";
+
     private static void Enqueue(ConcurrentQueue<ModelReply> script, IEnumerable<ModelReply> replies)
     {
         foreach (var reply in replies)
             script.Enqueue(reply);
+    }
+
+    /// <summary>Records one request the model received, with its path, its Authorization header and its body.</summary>
+    private static async Task<JsonObject> RecordAsync(HttpRequest request, ConcurrentQueue<ReceivedRequest> received)
+    {
+        var body = (await JsonNode.ParseAsync(request.Body))!.AsObject();
+        string? authorization = request.Headers.Authorization;
+        received.Enqueue(new ReceivedRequest(request.Path.Value ?? "", authorization, body));
+        return body;
     }
 
     private async Task<IResult?> ScriptedAsync(ConcurrentQueue<ModelReply> script, HttpContext http) =>
@@ -197,6 +239,7 @@ internal sealed class ModelDouble : IDisposable
     private async Task<IResult> EmbeddingsAsync(HttpRequest request)
     {
         _embeddingRequests.Increment();
+        var body = await RecordAsync(request, _embeddingReceived);
         Task? hold;
         lock (_embeddingGate)
             hold = _embeddingHold?.Task;
@@ -206,8 +249,7 @@ internal sealed class ModelDouble : IDisposable
             return scripted;
         if (EmbeddingDown)
             return Results.StatusCode(DownStatus);
-        var body = await JsonNode.ParseAsync(request.Body);
-        var inputs = body!["input"]!.AsArray().Select(node => node!.GetValue<string>()).ToList();
+        var inputs = body["input"]!.AsArray().Select(node => node!.GetValue<string>()).ToList();
         var data = new JsonArray();
         for (var i = 0; i < inputs.Count; i++)
             data.Add(new JsonObject { ["index"] = i, ["embedding"] = new JsonArray(Embed(inputs[i]).Select(value => (JsonNode)value).ToArray()) });
@@ -217,12 +259,12 @@ internal sealed class ModelDouble : IDisposable
     private async Task<IResult> RerankAsync(HttpRequest request)
     {
         _rerankRequests.Increment();
+        var body = await RecordAsync(request, _rerankReceived);
         if (await ScriptedAsync(_rerankScript, request.HttpContext) is { } scripted)
             return scripted;
         if (RerankDown)
             return Results.StatusCode(DownStatus);
-        var body = await JsonNode.ParseAsync(request.Body);
-        var query = body!["query"]!.GetValue<string>();
+        var query = body["query"]!.GetValue<string>();
         var documents = body["documents"]!.AsArray().Select(node => node!.GetValue<string>()).ToList();
         foreach (var document in documents)
             _rerankedDocuments.Enqueue(document);
@@ -255,8 +297,7 @@ internal sealed class ModelDouble : IDisposable
 
     private async Task<IResult> AnswerDecisionAsync(HttpRequest request)
     {
-        var body = (await JsonNode.ParseAsync(request.Body))!.AsObject();
-        LastDecision = (body, request.Headers.Authorization.ToString());
+        var body = await RecordAsync(request, _decisionReceived);
         Task? hold;
         lock (_decisionGate)
             hold = _decisionHold?.Task;
@@ -289,6 +330,9 @@ internal sealed class ModelDouble : IDisposable
             probabilities[key] = probability;
         return new JsonObject { ["type"] = "choice", ["probabilities"] = probabilities };
     }
+
+    /// <summary>One request a model received: its path, its Authorization header when it sent one, and its JSON body.</summary>
+    public sealed record ReceivedRequest(string Path, string? Authorization, JsonObject Body);
 
     /// <summary>Counts the requests a model received, and lets a test wait for the n-th one.</summary>
     private sealed class RequestCount

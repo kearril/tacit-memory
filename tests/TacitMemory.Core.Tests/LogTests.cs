@@ -33,10 +33,12 @@ public sealed class LogTests : IDisposable
 
     private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, _logs);
 
-    private void Configure(string decisionKey = "test-key")
+    private void Configure(string decisionKey = "test-key", string? embeddingKey = null, string? rerankerKey = null)
     {
         _home.InitReady(models: _models);
-        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), _models.ModelsYaml(decisionKey: decisionKey).ReplaceLineEndings("\n"));
+        File.WriteAllText(
+            Path.Combine(_home.TacitHome, "config.yaml"),
+            _models.ModelsYaml(decisionKey: decisionKey, embeddingKey: embeddingKey, rerankerKey: rerankerKey).ReplaceLineEndings("\n"));
     }
 
     private static WritePageRequest Create(string page, string title = "部署脚本") => new()
@@ -115,16 +117,27 @@ public sealed class LogTests : IDisposable
     }
 
     [Fact]
-    public async Task No_event_holds_the_decision_model_key()
+    public async Task No_event_holds_any_model_key()
     {
-        Configure(decisionKey: SecretKey);
+        const string EmbeddingKey = "sk-log-embedding-secret-2d8e";
+        const string RerankerKey = "sk-log-reranker-secret-9b1c";
+        Configure(decisionKey: SecretKey, embeddingKey: EmbeddingKey, rerankerKey: RerankerKey);
+        _models.EmbeddingDown = true;
+        _models.RerankDown = true;
         await Service.WritePageAsync(Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失"));
+        _models.EmbeddingDown = false;
+        _home.Clock.Advance(TimeSpan.FromMinutes(1));
         _models.DecisionDown = true;
 
         await Service.WritePageAsync(Create("tacit-memory/pg-search", "升级后搜不到中文"));
+        await Service.RecallAsync(new RecallRequest { Query = "升级" });
 
-        Assert.NotEmpty(_logs.Entries);
+        Assert.Contains(_logs.Entries, entry => entry.Message.Contains("embedding", StringComparison.Ordinal));
+        Assert.Contains(_logs.Entries, entry => entry.Message.Contains("reranker", StringComparison.Ordinal));
+        Assert.Contains(_logs.Entries, entry => entry.Message.Contains("decision", StringComparison.Ordinal));
         Assert.DoesNotContain(SecretKey, _logs.AllText, StringComparison.Ordinal);
+        Assert.DoesNotContain(EmbeddingKey, _logs.AllText, StringComparison.Ordinal);
+        Assert.DoesNotContain(RerankerKey, _logs.AllText, StringComparison.Ordinal);
     }
 
     [Fact]

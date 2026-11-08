@@ -3,8 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace TacitMemory.Core.Models;
 
-/// <summary>The reranker behind an OpenAI-compatible <c>/rerank</c> endpoint, scoring documents against one query.</summary>
-internal sealed class RerankerModel(ModelClient client, ModelEndpoint endpoint, ModelHealth health)
+/// <summary>
+/// The reranker, speaking the Cohere/Jina Rerank protocol: <c>model</c>, <c>query</c> and <c>documents</c> go to the
+/// configured URL, and <c>results[].index</c> and <c>results[].relevance_score</c> come back.
+/// </summary>
+internal sealed class RerankerModel(ModelClient client, ModelConfig config, ModelHealth health)
 {
     public ModelHealth Health => health;
 
@@ -16,10 +19,7 @@ internal sealed class RerankerModel(ModelClient client, ModelEndpoint endpoint, 
 
         return await client.SendAsync(
             health,
-            () => new HttpRequestMessage(HttpMethod.Post, ModelUrls.Append(endpoint.Endpoint, "rerank"))
-            {
-                Content = JsonContent.Create(new Request(endpoint.Model, query, documents)),
-            },
+            () => ModelRequest.Post(config, new Request(config.Model, query, documents)),
             (response, token) => ReadScoresAsync(response, documents.Count, token),
             cancellationToken);
     }

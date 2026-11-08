@@ -61,6 +61,23 @@ public sealed class ManagementApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Status_json_reads_back_a_secret_entry_for_each_model_and_an_unset_key_is_not_an_error()
+    {
+        using var response = await _http.GetAsync(Url("/api/status"));
+        var text = await response.Content.ReadAsStringAsync();
+
+        var report = JsonSerializer.Deserialize<StatusReport>(text, ManagementApiJson.Options)!;
+        var secrets = report.Secrets!;
+        Assert.Equal(["models.embedding.apiKey", "models.reranker.apiKey", "models.decision.apiKey"], secrets.Items.Select(item => item.Key));
+        Assert.Null(secrets.Items.Single(item => item.Key == "models.embedding.apiKey").Source);
+        Assert.Equal(SecretSource.ConfigFile, secrets.Items.Single(item => item.Key == "models.decision.apiKey").Source);
+        Assert.Contains(secrets.Lines, line => line.StartsWith("models.embedding.apiKey", StringComparison.Ordinal) && line.Contains("未设置", StringComparison.Ordinal));
+        Assert.Contains("models.reranker.apiKey", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("test-key", text, StringComparison.Ordinal);
+        Assert.DoesNotContain(((IStatusColumn)secrets).LineLevels(), level => level is not null);
+    }
+
+    [Fact]
     public async Task One_call_to_the_api_writes_one_event_with_its_route_and_status()
     {
         var response = await Send(new HttpRequestMessage(HttpMethod.Get, Url("/api/status")));

@@ -11,7 +11,7 @@
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值、校验错误与定位、未初始化提示、`rules.md` 的生成与超限，以及密钥来源优先级与 `backup.webdav` 的校验；已删除的 `apiKeyEnv` 与 `backup.remote` 按未知键报错。
+     - `ConfigTests`：配置的默认值、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv` 与 `backup.remote` 按未知键报错；中英模板的 `url` 与密钥变量名。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-checkup` 指向资源 `tacit://checkup-report`、`tacit serve` 与 `checkup:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show checkup` 的输出，以及 `--default` 被拒绝。
@@ -26,10 +26,10 @@
      - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）；skill 目录被两个客户端共用时的复用报告，以及两种解绑顺序下链接的保留与拆除。
      - `ServiceTests`：服务端说明的组成、语言与项目部分、状态提示，以及启动与运行中的绑定渲染（共用的上下文文件只渲染一次）。
      - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用，服务栏含 MCP 端点），三个辅助模型的可用与冷却中（含剩余秒数，冷却结束后回到可用），日志位置，配置有误时的错误键路径与服务栏，宽松读取的端口与语言（`server.port` 可读而其他键有错、文件不存在、YAML 无法解析三种情况）；离线报告不含依赖服务的列。
-     - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；共用路径的问题只出现一次、挂在第一个引用它的绑定上，`SharedWith` 列出共用的其他绑定；上次体检的三种基准（初始提交、体检提交、从未体检）；待处理计数与体检提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源的三种情况且不显示值；服务运行与未运行时共用的栏内容一致。
+     - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；共用路径的问题只出现一次、挂在第一个引用它的绑定上，`SharedWith` 列出共用的其他绑定；上次体检的三种基准（初始提交、体检提交、从未体检）；待处理计数与体检提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源栏列出三个模型的密钥与 WebDAV 密码的来源（环境变量、配置文件或"未设置"，"未设置"不算错误、不上色，不显示值）；服务运行与未运行时共用的栏内容一致。
      - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除。
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
-     - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含决策模型密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
+     - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含三个模型的密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
      - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新。
      - `PageTests`：细节页的新建与读取、按短码修改小节与页头、`section` 误填短码的拒绝（含 `hash` 同填、大写或带空白的短码、同名小节按名字改写、不属于本页的短码样值照常新建）、`dates`、串行写入、页面标识校验、未知参数的拒绝（点名、与 op 问题一并列出、下一步、不写文件）。
      - `DuplicatePageTests`：新建细节页时的重复页判断与放行。
@@ -39,8 +39,9 @@
      - `ReindexTests`：`reindex` 的结果：重建前后同一查询的结果一致、每个单元都有向量；重建后判断缓存清空，体检重新调用决策模型；嵌入模型不可用时只重建全文并注明向量待补；非 UTF-8 文件列入结果；开始、结束与结果写入日志。
      - `MaintenanceTests`：维护操作独占：维护期间到达的写入、`recall` 与服务端说明排队，完成后照常执行；两个维护操作依次执行。用挂起的嵌入替身让重建停在补齐阶段，等待的调用在短暂停顿后仍未完成，才断言它们被挡住。
      - `RerankTests`：reranker 精排的排序、过滤、不可用时的处理与恢复。
+     - `ModelProtocolTests`：三个模型的请求经 `ModelDouble` 收到：每个模型请求其配置的完整 URL、不追加路径（路径与配置一致）；嵌入、reranker、决策模型各自的请求字段；有密钥时带 `Authorization: Bearer`，没有密钥时不带认证头。
      - `ModelRetryTests`：辅助模型的请求内重试：429、5xx、网络错误与单次超时在第 2～5 次成功时模型仍可用；5 次都失败后冷却；401/403、400/404/422 与格式不对的响应只调用一次；可重试与不可重试的失败、退避与 `Retry-After`、20 秒总时限、冷却与冷却后的再次尝试，以及 `recall`、实时写入判断与体检判断经过重试。
-     - `BackupTests`：每日自动备份的生成、保留、关闭、明文密钥提示与失败处理。
+     - `BackupTests`：每日自动备份的生成、保留、关闭、明文密钥提示（配置中写了任一模型的明文 `apiKey` 或 WebDAV 明文密码即提示，环境变量覆盖时仍提示）与失败处理。
      - `ManualBackupTests`：手动备份的位置与文件名（本地时间）、内容与清单（`kind`、`memoryHeadSubject`）、写入队列中排在其前的写入、不被自动清理、`--to` 创建目录、同秒重名拒绝且不覆盖、`keep: 0` 时照常、明文密钥提示、相对目录被拒。
      - `RestoreTests`：恢复的预览（备份信息与将被替换的内容，`--include-config` 时三项替换）、旧清单（无 `kind`、`memoryHeadSubject`）、无清单拒绝；清单与内容不符、条目位置越界（`..`、绝对路径、未列出的文件）各自拒绝且什么都不改、不生成保险备份；仅恢复记忆仓库；`--include-config` 替换配置与提示词并删除多余的提示词文件；`bindings.json` 永不恢复；恢复前先生成保险备份并记录日志；恢复后的检索、服务端说明与常驻区块反映备份内容；恢复回来的 `memory.path` 不同时的提示；换入失败时回滚（记忆仓库回到恢复前内容）；恢复期间到达的写入落在恢复后的仓库中；恢复回来的 `config.yaml` 不能加载（如含旧版 `apiKeyEnv`）时恢复照常完成、结果附错误说明，预览同样提示；恢复结束后记忆仓库内没有残留的 `.tacit-*` 暂存目录；`path` 与 `remote` 的来源校验、`remote` 只能预览的规则由门面拒绝。
      - `RemoteBackupTests`：云端备份经 `WebDavDouble`：PUT `.part` 后 MOVE 覆盖（`Overwrite: T`，基本认证头）；第二次上传替换远端内容；父目录缺失时 MKCOL 后重试一次；MOVE 不支持（405）时报错、远端旧文件不变、`.part` 被删；上传中途断开时远端旧文件不变；认证与连接失败的阶段；错误与日志不含密码；`remote.json` 的记录与 `status` 的云端行（不访问网络）；未配置时的提示；目录被拒；无用户名时不发认证；配置中的明文密码提示；本地 `backups/` 中不留副本。
@@ -62,7 +63,7 @@
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
      - `McpHostTests`：服务端说明下发、工具列表与标注、必填参数与取值（`required`、`enum`）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表含 `tacit://checkup-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致。
-     - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）。
+     - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
@@ -75,7 +76,7 @@
    - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
    - 测试类索引：
      - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺子命令或子命令未知、`connect` 缺 `--client`、`--context` 或 `--skills`、名称不合规、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 的 `--from` 与 `--remote` 不恰好一个、`show tools` 等不接受的 `--default`）；空路径选项（`restore --from ""`、`backup --to` 为空白、`init --memory ""`）为一行说明的用法错误；用法错误先于配置检查；枚举取值不区分大小写，命令词与子命令也不区分大小写。
-     - `ConfigRefusalTests`：配置无法加载（endpoint 非法，或缺决策模型密钥）时 `connect`、`status`、`backup`、`reindex`、`show`（含 `show tools`）为 3，说明含缺失的环境变量名；`disconnect` 与 `show … --default` 照常为 0。
+     - `ConfigRefusalTests`：配置无法加载（`endpoint` 键，即未知键，导致 3 且说明含键路径）时 `connect`、`status`、`backup`、`reindex`、`show`（含 `show tools`）为 3；缺少模型密钥不再导致配置无法加载，`connect` 为 0；`disconnect` 与 `show … --default` 照常为 0。
      - `ServiceExitCodeTests`：服务未运行时 `reindex`、`backup`、`restore`、`status` 为 4，说明提示先执行 `tacit serve`；端口被非 tacit 的 HTTP 监听占用时 `status` 为 4；服务运行时 `status` 为 0，纯文本输出无控制字符；服务拒绝 `status` 的报告时为 1、拒绝原因只在 stderr；服务拒绝 `restore` 等请求时同为 1；`backup` 不给选项时写到 `TACIT_HOME/backups/`。
      - `HelpAndOutputTests`：`-h`、`--help`、`connect --help`、裸命令与 `--version` 为 0；`connect` 只绑定临时用户主目录；`show … --default` 的 stdout 只有内置文本；`show tools` 的 stdout 含配置填入的上限；总览的退出码表只出现一次；命令与子命令的词不区分大小写；命令帮助不露出 `[Default` 与可空标记 `?>`。
      - `BindingCommandTests`：`connect` 缺任一选项为 2 且不写任何文件；成功时 stdout 含 MCP 端点 URL；名称不合规为 2；`disconnect` 只需 `--client`、路径取自记录；名称不存在为 1。
@@ -87,7 +88,7 @@
 
 ## 2. 模型依赖
 
-测试不调用真实模型，也不访问网络。`ModelDouble` 是进程内的 HTTP 替身，按用例返回确定的结果：`/v1/embeddings` 默认返回文本相邻字对的散列向量（措辞相近即相近），也可按用例指定任意文本的向量；`/v1/systemone` 按用例给出选择题各选项的概率（默认选"都不是"），并记录请求次数与最近一次请求；`/v1/rerank` 默认给每个文本 1.0 分，可按用例指定分数。每个模型都可设为不可用（立即返回 404，这是不重试的客户端错误，因此不涉及重试的测试不会等待退避）。`ModelDouble.ScriptEmbedding`、`ScriptRerank`、`ScriptDecision` 按次编排某个模型的下几次请求：`ModelReply.Status(code, retryAfterSeconds)` 返回状态码（可带 `Retry-After`），`ModelReply.Body` 返回指定正文，`ModelReply.Drop()` 断开连接（客户端看到网络错误），`ModelReply.Hang()` 挂起直到客户端放弃；脚本用完后模型按用例设定的方式回答。`EmbeddingRequestsReached(n)` 等待嵌入模型收到第 n 个请求，用于确定地拨动挂起的请求。`TestHome.InitReady` 默认让所有模型指向一个共享替身：嵌入模型与 reranker 不可用，决策模型对一切选择题答"都不是"，因此不涉及模型的测试不会等待网络，写入也不会被判为重复页；用到模型的测试传入自己的替身。测试中形似凭据的样本在运行时拼接，源码里不出现完整的凭据格式。
+测试不调用真实模型，也不访问网络。`ModelDouble` 是进程内的 HTTP 替身，按用例返回确定的结果。配置中每个模型的 `url` 是替身上的完整地址（`EmbeddingUrl`、`RerankUrl`、`DecisionUrl`，分别为 `/v1/embeddings`、`/v1/rerank` 与 `/v1/systemone`，路由不变）：`/v1/embeddings` 默认返回文本相邻字对的散列向量（措辞相近即相近），也可按用例指定任意文本的向量；`/v1/systemone` 按用例给出选择题各选项的概率（默认选"都不是"）；`/v1/rerank` 默认给每个文本 1.0 分，可按用例指定分数。每个请求都被记录：`EmbeddingRequests`、`RerankRequests`、`DecisionRequests` 各按顺序列出收到的 `ReceivedRequest`，含请求路径（`Path`）、`Authorization` 头（没有则为 `null`）与 JSON 正文（`Body`），用于断言认证头与字段；`LastDecision` 取决策模型的最近一次。`ModelsYaml(embeddingModel, decisionKey, embeddingKey, rerankerKey)` 写出指向替身的 `models` 一节，只在给出密钥时写出对应的 `apiKey`。每个模型都可设为不可用（立即返回 404，这是不重试的客户端错误，因此不涉及重试的测试不会等待退避）。`ModelDouble.ScriptEmbedding`、`ScriptRerank`、`ScriptDecision` 按次编排某个模型的下几次请求：`ModelReply.Status(code, retryAfterSeconds)` 返回状态码（可带 `Retry-After`），`ModelReply.Body` 返回指定正文，`ModelReply.Drop()` 断开连接（客户端看到网络错误），`ModelReply.Hang()` 挂起直到客户端放弃；脚本用完后模型按用例设定的方式回答。`EmbeddingRequestsReached(n)` 等待嵌入模型收到第 n 个请求，用于确定地拨动挂起的请求。`TestHome.InitReady` 默认让所有模型指向一个共享替身：嵌入模型与 reranker 不可用，决策模型对一切选择题答"都不是"，因此不涉及模型的测试不会等待网络，写入也不会被判为重复页；用到模型的测试传入自己的替身。测试中形似凭据的样本在运行时拼接，源码里不出现完整的凭据格式。
 
 `HoldEmbeddings()` 挂起所有嵌入请求，直到 `ReleaseEmbeddings()`，用于让重建停在向量补齐阶段，再拨动它。
 

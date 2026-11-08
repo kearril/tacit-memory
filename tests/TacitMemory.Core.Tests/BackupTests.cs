@@ -149,6 +149,20 @@ public sealed class BackupTests : IDisposable
     }
 
     [Fact]
+    public async Task A_plaintext_embedding_key_in_config_is_reported()
+    {
+        using var home = new TestHome();
+        home.InitReady();
+        File.WriteAllText(
+            Path.Combine(home.TacitHome, "config.yaml"),
+            ModelDouble.Quiet.ModelsYaml(embeddingKey: "emb-plain-key", decisionKey: string.Empty).ReplaceLineEndings("\n"));
+
+        var notices = await NoticesAfterWrite(home);
+
+        Assert.Contains(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_key_only_in_the_environment_is_not_reported()
     {
         using var home = new TestHome();

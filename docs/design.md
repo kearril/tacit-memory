@@ -40,7 +40,7 @@
 | reranker | 对检索候选精排，并按分数阈值过滤 |
 | 决策模型 | 回答选择题，返回各选项概率 |
 
-三者均为必需配置。决策模型接口与具体模型无关，只包含选择题；首个实现为 System One 协议（TypeSafe 的原生决策接口即其一个服务）。发给决策模型的问题一律使用英文，被判断的内容保持原文。
+三者均为必需配置，每个模型配置 `url`（完整请求地址，程序原样请求，不追加路径）、`model`，以及可选的 `apiKey`（有密钥时以 `Authorization: Bearer` 发送，没有则不发送任何认证头）。三个模型各按一种通用协议请求：嵌入模型为 OpenAI Embeddings，reranker 为 Cohere/Jina Rerank，决策模型为 System One（TypeSafe 的原生决策接口即其一个服务）。决策模型接口与具体模型无关，只包含选择题。发给决策模型的问题一律使用英文，被判断的内容保持原文。
 
 ### 判断
 
@@ -501,7 +501,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ### 配置
 
-配置目录为 `TACIT_HOME`（默认 `~/.tacit`），包含 `config.yaml`、`prompts/`（提示词文档）、`skills/`（生成的记忆 skill）、`bindings.json`、`backups/` 与 `logs/`。环境变量只用于指定 `TACIT_HOME`、提供密钥与关闭终端美化：`TACIT_DECISION_API_KEY`（决策模型）与 `TACIT_WEBDAV_PASSWORD`（WebDAV 密码）两处都有时以环境变量为准；`NO_COLOR` 的规则见下文「运行」。
+配置目录为 `TACIT_HOME`（默认 `~/.tacit`），包含 `config.yaml`、`prompts/`（提示词文档）、`skills/`（生成的记忆 skill）、`bindings.json`、`backups/` 与 `logs/`。环境变量只用于指定 `TACIT_HOME`、提供密钥与关闭终端美化：`TACIT_EMBEDDING_API_KEY`、`TACIT_RERANKER_API_KEY`、`TACIT_DECISION_API_KEY`（三个模型的密钥）与 `TACIT_WEBDAV_PASSWORD`（WebDAV 密码）两处都有时以环境变量为准；`NO_COLOR` 的规则见下文「运行」。
 
 ```yaml
 server:
@@ -511,9 +511,9 @@ memory:
 language: zh
 
 models:                       # 必填，无默认值
-  embedding: { endpoint: …, model: … }
-  reranker:  { endpoint: …, model: … }
-  decision:  { endpoint: …, model: …, apiKey: … }   # apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
+  embedding: { url: …, model: …, apiKey: … }   # url 为完整请求地址，原样请求，不追加路径；apiKey 可省略，改设环境变量 TACIT_EMBEDDING_API_KEY
+  reranker:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_RERANKER_API_KEY
+  decision:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
 
 limits:
   persona: { redLines: 5, workingRules: 20, preferences: 15, profile: 10 }
@@ -532,7 +532,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 ```
 
 - 除 `models` 外各项均有默认值；判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
-- 密钥：`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值；两处都没有时加载配置报错，指出键路径与变量名。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`；写了 `username` 时必须有密码。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
+- 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models.<模型>` 的 `url` 与 `model` 必填，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
 
 ### 提示词文档
 

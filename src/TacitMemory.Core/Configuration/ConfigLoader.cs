@@ -162,35 +162,33 @@ internal static class ConfigLoader
         };
     }
 
-    /// <summary>The <c>models</c> section, or <c>null</c> when any part of it is missing or wrong (all reported).</summary>
+    /// <summary>
+    /// The <c>models</c> section, or <c>null</c> when any part of it is missing or wrong (all reported). Each model takes
+    /// <c>url</c>, <c>model</c> and an optional <c>apiKey</c>; no other key is known.
+    /// </summary>
     private static ModelsConfig? ReadModels(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
         var models = reader.Mapping(root, "", "models", required: true);
         reader.OnlyKnown(models, "models", "embedding", "reranker", "decision");
 
-        ModelEndpoint? Endpoint(string key)
+        ModelConfig? Model(string key, string variable)
         {
             var path = ConfigReader.Join("models", key);
             var map = reader.Mapping(models, "models", key, required: models is not null);
-            reader.OnlyKnown(map, path, "endpoint", "model");
-            var url = reader.Url(map, path, "endpoint");
+            reader.OnlyKnown(map, path, "url", "model", "apiKey");
+            var url = reader.Url(map, path, "url");
             var model = reader.Text(map, path, "model", required: map is not null);
-            return url is null || model is null ? null : new ModelEndpoint(url, model);
+            var apiKey = ReadSecret(reader, map, path, "apiKey", variable, secrets, required: false);
+            return url is null || model is null ? null : new ModelConfig(url, model, apiKey);
         }
 
-        var embedding = Endpoint("embedding");
-        var reranker = Endpoint("reranker");
+        var embedding = Model("embedding", SecretVariables.EmbeddingApiKey);
+        var reranker = Model("reranker", SecretVariables.RerankerApiKey);
+        var decision = Model("decision", SecretVariables.DecisionApiKey);
 
-        const string decisionPath = "models.decision";
-        var decision = reader.Mapping(models, "models", "decision", required: models is not null);
-        reader.OnlyKnown(decision, decisionPath, "endpoint", "model", "apiKey");
-        var decisionUrl = reader.Url(decision, decisionPath, "endpoint");
-        var decisionModel = reader.Text(decision, decisionPath, "model", required: decision is not null);
-        var apiKey = ReadSecret(reader, decision, decisionPath, "apiKey", SecretVariables.DecisionApiKey, secrets, required: decision is not null);
-
-        return embedding is null || reranker is null || decisionUrl is null || decisionModel is null || apiKey is null
+        return embedding is null || reranker is null || decision is null
             ? null
-            : new ModelsConfig(embedding, reranker, new DecisionModelEndpoint(decisionUrl, decisionModel, apiKey));
+            : new ModelsConfig(embedding, reranker, decision);
     }
 
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)
