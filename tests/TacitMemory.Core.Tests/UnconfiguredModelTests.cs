@@ -300,6 +300,25 @@ public sealed class UnconfiguredModelTests : IDisposable
         Assert.Contains("备份", (await Service.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard)).Text);
     }
 
+    [Fact]
+    public async Task A_cached_answer_is_not_used_once_the_decision_model_is_removed()
+    {
+        WriteModels(EmbeddingLine, DecisionLine);
+        await AddPreference("沟通：先要结论");
+        await AddPreference("回复别太长");
+        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.JudgmentCompletion.WaitAsync(Guard);
+        var asked = _models.DecisionCalls;
+        Assert.True(asked > 0, "The first checkup should have asked the decision model.");
+        StopService();
+
+        WriteModels(EmbeddingLine);
+        var report = await Service.CheckupReportAsync().WaitAsync(Guard);
+
+        Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
+        Assert.Equal(asked, _models.DecisionCalls);
+    }
+
     /// <summary>The vectors stored in the index, read with the model name the index was made for; <c>null</c> reads it without one.</summary>
     private int StoredVectors(string? model)
     {

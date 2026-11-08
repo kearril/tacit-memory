@@ -126,8 +126,9 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
     }
 
     /// <summary>
-    /// Answers the question from the cache when it is there. Otherwise it is asked of the decision model, unless the model is
-    /// not configured, is cooling down or the budget has run out: a question not yet asked is not asked after that.
+    /// Answers the question when the decision model is configured: from the cache when it is there, otherwise by asking the
+    /// model, unless it is cooling down or the budget has run out. An unconfigured model answers nothing and the cache is not
+    /// read, so a cached answer never stands in for a model the config has removed.
     /// </summary>
     private async Task<JudgmentOutcome<T>> AskAsync<T>(ChoiceQuestion<T> question, Threshold threshold, CancellationToken queue)
     {
@@ -142,11 +143,11 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
         texts[NoneKey] = question.NoneText;
 
         var cacheKey = CacheKey(question.State, question.Instructions, texts);
+        if (!decision.Configured)
+            return JudgmentOutcome<T>.Unchecked(UncheckedReason.Unconfigured);
         var probabilities = index.CachedJudgment(cacheKey);
         if (probabilities is null)
         {
-            if (!decision.Configured)
-                return JudgmentOutcome<T>.Unchecked(UncheckedReason.Unconfigured);
             if (decision.Health.CoolingDown)
                 return JudgmentOutcome<T>.Unchecked(UncheckedReason.ModelUnavailable);
             if (queue.IsCancellationRequested)
