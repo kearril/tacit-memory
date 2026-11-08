@@ -42,6 +42,8 @@
 
 三者均为必需配置，每个模型配置 `url`（完整请求地址，程序原样请求，不追加路径）、`model`，以及可选的 `apiKey`（有密钥时以 `Authorization: Bearer` 发送，没有则不发送任何认证头）。三个模型各按一种通用协议请求：嵌入模型为 OpenAI Embeddings，reranker 为 Cohere/Jina Rerank，决策模型为 System One（TypeSafe 的原生决策接口即其一个服务）。决策模型接口与具体模型无关，只包含选择题。发给决策模型的问题一律使用英文，被判断的内容保持原文。
 
+每个模型可配置 `provider`，省略即为通用协议；写 `cloudflare`（不区分大小写）则按 Cloudflare Workers AI 的格式收发，这是目前唯一的提供方适配。差异只有两处：reranker 发送 `query` 与 `contexts[].text`，不发送模型名（`model` 仍必填，只用于显示），按 `result.response[].id` 与 `score` 对回每段文档的分数；决策模型的请求与 System One 相同，响应先取 `result` 再按 System One 读取。嵌入模型接受 `provider: cloudflare`，按通用协议处理。Cloudflare 响应的 `success` 不为真或缺少 `result`，与其他格式错误一样视为格式不对、不重试。reranker 的每段文档都须得到且只得到一个分数，缺漏、重复或越界的序号同样是格式不对。重试、退避、单次超时、总时限与冷却由同一个模型客户端负责，两种提供方不分支；判断阈值与 `minRerankScore` 的默认值不随提供方或模型变化，换模型后的判断质量由使用者自行核对。
+
 ### 判断
 
 | 判断 | 题型 | 确定时 | 拿不准时 |
@@ -532,7 +534,8 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 ```
 
 - 除 `models` 外各项均有默认值；判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
-- 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models.<模型>` 的 `url` 与 `model` 必填，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
+- `models.<模型>.provider` 可省略（即通用协议），写 `cloudflare`（不区分大小写）选用 Cloudflare 适配；其他值按配置错误报告，并列出可用取值。三个模型的 `model` 都必填，包括 Cloudflare 的 reranker（它的模型名在 URL 中，`model` 只用于显示）。
+- 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models.<模型>` 的 `url` 与 `model` 必填，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
 
 ### 提示词文档
 

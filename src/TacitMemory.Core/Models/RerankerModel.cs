@@ -4,8 +4,10 @@ using System.Text.Json.Serialization;
 namespace TacitMemory.Core.Models;
 
 /// <summary>
-/// The reranker, speaking the Cohere/Jina Rerank protocol: <c>model</c>, <c>query</c> and <c>documents</c> go to the
-/// configured URL, and <c>results[].index</c> and <c>results[].relevance_score</c> come back.
+/// The reranker. By the generic protocol, Cohere/Jina Rerank: <c>model</c>, <c>query</c> and <c>documents</c> go to the
+/// configured URL, and <c>results[].index</c> and <c>results[].relevance_score</c> come back. Cloudflare Workers AI takes
+/// <c>query</c> and <c>contexts[].text</c> with no model name, and answers <c>result.response[].id</c> and
+/// <c>score</c> inside its envelope. Either way every document gets exactly one score.
 /// </summary>
 internal sealed class RerankerModel(ModelClient client, ModelConfig config, ModelHealth health)
 {
@@ -19,22 +21,43 @@ internal sealed class RerankerModel(ModelClient client, ModelConfig config, Mode
 
         return await client.SendAsync(
             health,
-            () => ModelRequest.Post(config, new Request(config.Model, query, documents)),
+            () => ModelRequest.Post(config, RequestBody(query, documents)),
             (response, token) => ReadScoresAsync(response, documents.Count, token),
             cancellationToken);
     }
 
-    private static async Task<double[]?> ReadScoresAsync(HttpResponseMessage response, int count, CancellationToken cancellationToken)
+    private object RequestBody(string query, IReadOnlyList<string> documents) => config.Provider switch
     {
+        ModelProvider.Cloudflare => new CloudflareRequest(query, documents.Select(text => new Context(text)).ToList()),
+        _ => new Request(config.Model, query, documents),
+    };
+
+    private async Task<double[]?> ReadScoresAsync(HttpResponseMessage response, int count, CancellationToken cancellationToken)
+    {
+        if (config.Provider == ModelProvider.Cloudflare)
+        {
+            var answer = (await response.Content.ReadFromJsonAsync<CloudflareEnvelope<CloudflareResult>>(cancellationToken))?.Answer;
+            return Scores((answer?.Response ?? []).Select(item => (item?.Id, item?.Score)), count);
+        }
+
         var body = await response.Content.ReadFromJsonAsync<Response>(cancellationToken);
+        return Scores((body?.Results ?? []).Select(item => (item?.Index, item?.RelevanceScore)), count);
+    }
+
+    /// <summary>
+    /// One score per document, each document named by exactly one index in range. A missing, repeated or out-of-range
+    /// index, or a missing score, is a wrong answer.
+    /// </summary>
+    private static double[]? Scores(IEnumerable<(int? Index, double? Score)> items, int count)
+    {
         var scores = new double[count];
         var scored = new bool[count];
-        foreach (var item in body?.Results ?? [])
+        foreach (var (index, score) in items)
         {
-            if (item.Index is not { } index || index < 0 || index >= count || scored[index] || item.RelevanceScore is not { } score)
+            if (index is not { } i || i < 0 || i >= count || scored[i] || score is not { } value)
                 return null;
-            scores[index] = score;
-            scored[index] = true;
+            scores[i] = value;
+            scored[i] = true;
         }
         return scored.Any(done => !done) ? null : scores;
     }
@@ -49,4 +72,16 @@ internal sealed class RerankerModel(ModelClient client, ModelConfig config, Mode
     private sealed record Item(
         [property: JsonPropertyName("index")] int? Index,
         [property: JsonPropertyName("relevance_score")] double? RelevanceScore);
+
+    private sealed record CloudflareRequest(
+        [property: JsonPropertyName("query")] string Query,
+        [property: JsonPropertyName("contexts")] IReadOnlyList<Context> Contexts);
+
+    private sealed record Context([property: JsonPropertyName("text")] string Text);
+
+    private sealed record CloudflareResult([property: JsonPropertyName("response")] IReadOnlyList<CloudflareItem>? Response);
+
+    private sealed record CloudflareItem(
+        [property: JsonPropertyName("id")] int? Id,
+        [property: JsonPropertyName("score")] double? Score);
 }
