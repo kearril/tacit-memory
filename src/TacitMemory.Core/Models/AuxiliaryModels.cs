@@ -13,7 +13,7 @@ internal sealed class AuxiliaryModels : IDisposable
         var client = new ModelClient(_http, time);
         Embedding = new EmbeddingModel(client, config.Models.Embedding, new ModelHealth(time, "embedding", log));
         Reranker = new RerankerModel(client, config.Models.Reranker, new ModelHealth(time, "reranker", log));
-        Decision = new JevDecisionModel(client, config.Models.Decision, new ModelHealth(time, "decision", log));
+        Decision = new SystemOneDecisionModel(client, config.Models.Decision, new ModelHealth(time, "decision", log));
     }
 
     public EmbeddingModel Embedding { get; }

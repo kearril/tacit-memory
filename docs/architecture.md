@@ -69,7 +69,7 @@ flowchart LR
 | Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由体检报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、项目与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存体检判断的概率，键为提问内容的哈希，三档在读取时按阈值计算 | 已实现 |
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
-| 决策模型接口 | 与模型无关的三种题型（选择、打分、真伪）；TypeSafe Jev 适配器，密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先） | 已实现 |
+| 决策模型接口 | 只含选择题（返回各选项概率）；System One 协议的实现 `SystemOneDecisionModel`（TypeSafe 的原生决策接口即其一个服务），密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先） | 已实现 |
 | 辅助模型客户端 | 以 `HttpClient` 调用三个模型，三者共用 `ModelClient` 的请求内重试与冷却（数值与判定规则见 `docs/design.md` 第 4 节）；状态提示只按冷却判定 | 已实现 |
 | 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示），执行长度上限与截断顺序；生成三个 skill（`Skills/SkillSet`：`tacit-memory` 由 `MemorySkill` 生成并接 `skill.md`；`tacit-remember` 与 `tacit-checkup` 共用 `CommandSkill` 的外壳，正文分别来自 `RememberSkill`、`CheckupSkill`；内容不变不写） | 已实现 |
 | 客户端绑定 | 通用绑定：`connect` 与 `disconnect` 的门面、客户端名称规范化与 `~` 展开、路径比较（规范化后的完整路径，Windows 上不区分大小写，不解析联接与软链接）、常驻区块与三个 skill 链接的建立与拆除（`Clients/SkillLink`：Windows 用目录联接，其他平台用软链接；删除时只删指向 tacit 的链接本身）、`bindings.json` 读写（`Clients/BindingStore`）；共用的上下文文件与 skill 目录由 `Clients/SharedPaths` 判断引用者，渲染按路径去重；不读写任何客户端的 MCP 配置 | 已实现 |
@@ -147,7 +147,7 @@ flowchart LR
 | 查询与映射 | `Dapper` | 已引入 |
 | 嵌入 | `HttpClient`，调用 OpenAI 兼容的 `/embeddings`；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
 | reranker | `HttpClient` 类型化客户端，调用 Cohere/Jina 兼容的 `/rerank` | 已引入 |
-| 决策模型 | `HttpClient`，调用 TypeSafe Jev 的 `/systemone` | 已引入 |
+| 决策模型 | `HttpClient`，实现 System One 协议（`<endpoint>/systemone`） | 已引入 |
 | 重试与超时 | 辅助模型请求内重试（规则见上表辅助模型客户端行与 `docs/design.md` 第 4 节）；每次尝试设超时，并受一次请求 20 秒总时限截断 | 已实现 |
 | 日志 | `Serilog`（`Serilog.Sinks.File` 写文件，`Serilog.Extensions.Logging` 接入 `Microsoft.Extensions.Logging`）；Core 只引用 `Microsoft.Extensions.Logging.Abstractions` | 已引入 |
 | 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、GET、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，请求本身不重试（父目录缺失时的 MKCOL 与重传规则见 `docs/design.md` 第 12 节） | 已实现 |

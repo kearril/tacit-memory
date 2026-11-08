@@ -19,16 +19,16 @@ internal sealed record ChoiceVerdict(Tier Tier, string? Option);
 /// <summary>Turns the decision model's probabilities into tiers using a judgment's two thresholds.</summary>
 internal static class Judgment
 {
-    /// <summary>Defaults for same-preference checks, measured on Chinese persona-write samples with TypeSafe Jev; <c>config.yaml</c> may override them.</summary>
+    /// <summary>Defaults for same-preference checks, measured on Chinese persona-write samples with a System One model; <c>config.yaml</c> may override them.</summary>
     public static readonly Threshold SamePreference = new(Certain: 0.85, Unlikely: 0.25);
 
-    /// <summary>Defaults measured on real Chinese samples with TypeSafe Jev; <c>config.yaml</c> may override them.</summary>
+    /// <summary>Defaults measured on real Chinese samples with a System One model; <c>config.yaml</c> may override them.</summary>
     public static readonly Threshold SamePage = new(Certain: 0.85, Unlikely: 0.25);
 
     /// <summary>Defaults for same-topic activity checks: the values of <c>samePage</c>, measured on Chinese same-day samples; <c>config.yaml</c> may override them.</summary>
     public static readonly Threshold SameTopic = new(Certain: 0.85, Unlikely: 0.25);
 
-    /// <summary>Defaults for rule-conflict checks on the persona file, measured on Chinese persona-write samples with TypeSafe Jev; <c>config.yaml</c> may override them.</summary>
+    /// <summary>Defaults for rule-conflict checks on the persona file, measured on Chinese persona-write samples with a System One model; <c>config.yaml</c> may override them.</summary>
     public static readonly Threshold RuleConflict = new(Certain: 0.85, Unlikely: 0.25);
 
     /// <summary>
@@ -45,10 +45,4 @@ internal static class Judgment
             return new ChoiceVerdict(Tier.Certain, best.Key);
         return best.Value <= threshold.Unlikely ? new ChoiceVerdict(Tier.Unlikely, null) : new ChoiceVerdict(Tier.Uncertain, best.Key);
     }
-
-    /// <summary>A true-or-false question: at or above <c>certain</c> is true, at or below <c>unlikely</c> false.</summary>
-    public static Tier TrueOrFalse(double probability, Threshold threshold) =>
-        probability >= threshold.Certain ? Tier.Certain
-        : probability <= threshold.Unlikely ? Tier.Unlikely
-        : Tier.Uncertain;
 }
