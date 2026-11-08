@@ -15,6 +15,8 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
 三个模型的密钥均可不配：配置了密钥的请求带 `Authorization: Bearer`，没有则不带认证头，见「密钥」一节。
 
+提供方适配：目前支持 Cloudflare Workers AI（reranker、决策模型），在对应模型中写 `provider: cloudflare`；省略 `provider` 即为通用协议。
+
 ## 构建
 
 ```powershell

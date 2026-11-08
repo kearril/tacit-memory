@@ -44,6 +44,9 @@ internal static class Messages
     public static readonly Localized ConfigExpectedProbability = new("应为 0 到 1 之间的数，实际为 {0}", "must be a number from 0 to 1, but is {0}");
     public static readonly Localized ConfigExpectedUrl = new("应为 http 或 https 地址，实际为 {0}", "must be an http or https URL, but is {0}");
     public static readonly Localized ConfigExpectedLanguage = new("应为 zh 或 en，实际为 {0}", "must be zh or en, but is {0}");
+    public static readonly Localized ConfigExpectedProvider = new(
+        "可用取值为 cloudflare（省略即为通用协议），实际为 {0}",
+        "the values are cloudflare (omit it for the generic protocol), but is {0}");
     public static readonly Localized ConfigSecretMissing = new(
         "未设置，请写入此键或设置环境变量 {0}",
         "not set; write it here or set the environment variable {0}");

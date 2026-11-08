@@ -70,14 +70,17 @@ internal static class Templates
         # 辅助模型，必填。三个模型的 url 都是完整请求地址，程序原样请求、不追加路径；apiKey 可省略，有密钥时以 Authorization: Bearer 发送。
         models:
           embedding:                  # 通用协议：OpenAI Embeddings
+            provider: ''              # 可省略；cloudflare 与通用协议相同
             url: ''                   # 完整请求地址
             model: ''
             apiKey: ''                # 可省略，改设环境变量 TACIT_EMBEDDING_API_KEY（两处都有时以环境变量为准）
           reranker:                   # 通用协议：Cohere/Jina Rerank
+            provider: ''              # 可省略；cloudflare 为 Cloudflare Workers AI 的格式
             url: ''                   # 完整请求地址
             model: ''
             apiKey: ''                # 可省略，改设环境变量 TACIT_RERANKER_API_KEY（两处都有时以环境变量为准）
           decision:                   # 通用协议：System One
+            provider: ''              # 可省略；cloudflare 为 Cloudflare Workers AI 的格式
             url: ''                   # 完整请求地址
             model: ''
             apiKey: ''                # 可省略，改设环境变量 TACIT_DECISION_API_KEY（两处都有时以环境变量为准）
@@ -135,14 +138,17 @@ internal static class Templates
         # Auxiliary models; required. Each url is the complete request address, sent as written. apiKey may be left out; when set, it is sent as a Bearer token.
         models:
           embedding:                  # OpenAI Embeddings protocol
+            provider: ''              # may be left out; cloudflare is the same as the generic protocol
             url: ''                   # complete request address
             model: ''
             apiKey: ''                # may be left out: set the environment variable TACIT_EMBEDDING_API_KEY instead (the variable wins if both are set)
           reranker:                   # Cohere/Jina Rerank protocol
+            provider: ''              # may be left out; cloudflare is the Cloudflare Workers AI format
             url: ''                   # complete request address
             model: ''
             apiKey: ''                # may be left out: set the environment variable TACIT_RERANKER_API_KEY instead (the variable wins if both are set)
           decision:                   # System One protocol
+            provider: ''              # may be left out; cloudflare is the Cloudflare Workers AI format
             url: ''                   # complete request address
             model: ''
             apiKey: ''                # may be left out: set the environment variable TACIT_DECISION_API_KEY instead (the variable wins if both are set)

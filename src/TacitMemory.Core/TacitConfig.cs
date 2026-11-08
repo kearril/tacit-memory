@@ -40,8 +40,19 @@ public sealed record ModelsConfig(ModelConfig Embedding, ModelConfig Reranker, M
 /// <summary>
 /// One auxiliary model. <see cref="Url"/> is the complete request address, sent as written; <see cref="ApiKey"/> is
 /// <c>null</c> when neither the environment nor <c>config.yaml</c> holds a key, and then no authentication is sent.
+/// <see cref="Provider"/> chooses the request format where a provider departs from the generic protocol.
 /// </summary>
-public sealed record ModelConfig(Uri Url, string Model, SecretValue? ApiKey);
+public sealed record ModelConfig(Uri Url, string Model, SecretValue? ApiKey, ModelProvider Provider);
+
+/// <summary>The request format of an auxiliary model: the generic protocol of its kind, or the one of Cloudflare Workers AI.</summary>
+public enum ModelProvider
+{
+    /// <summary>The generic protocol: OpenAI Embeddings, Cohere/Jina Rerank or System One, by model kind.</summary>
+    Generic,
+
+    /// <summary>Cloudflare Workers AI, where its format differs from the generic protocol.</summary>
+    Cloudflare,
+}
 
 public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page);
 
