@@ -11,8 +11,8 @@ internal static class Messages
         "补上的骨架文件未提交，请在记忆仓库中自行提交。",
         "The added skeleton files are not committed; commit them in the memory repository yourself.");
     public static readonly Localized InitNextSteps = new(
-        "下一步：在 {0} 中填写 models 一节，然后用 tacit connect --client <名称> --context <文件> --skills <目录> 绑定客户端，最后执行 tacit serve。",
-        "Next: fill in the models section of {0}, then bind a client with tacit connect --client <name> --context <file> --skills <folder>, and run tacit serve.");
+        "下一步：按需在 {0} 中填写 models 一节（可省略，见注释），然后用 tacit connect --client <名称> --context <文件> --skills <目录> 绑定客户端，最后执行 tacit serve。",
+        "Next: fill in the models section of {0} if you want models (optional, see its comments), then bind a client with tacit connect --client <name> --context <file> --skills <folder>, and run tacit serve.");
 
     public static readonly Localized MemoryDirectoryNotEmpty = new(
         "目录 {0} 不为空且不是 Git 仓库，不能用作记忆仓库。请指定空目录或已有的记忆仓库（--memory）。",

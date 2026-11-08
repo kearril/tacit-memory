@@ -99,7 +99,7 @@ internal static class ManagementApiMessages
     public static readonly Localized SecretMissing = new(
         "{0}：未设置（环境变量 {1} 与配置文件都没有）",
         "{0}: not set (neither the environment variable {1} nor config.yaml holds it)");
-    public static readonly Localized SecretWebDavNotConfigured = new("backup.webdav：未配置，不需要密钥", "backup.webdav: not configured, no secret needed");
+    public static readonly Localized SecretNotConfigured = new("{0}：未配置，不需要密钥", "{0}: not configured, no secret needed");
 
     public static readonly Localized ApiFileFailed = new(
         "无法读写文件或文件夹：{0}",

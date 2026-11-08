@@ -237,23 +237,32 @@ internal static class StatusReporter
         }
     }
 
-    /// <summary>Where each secret came from. The values are never read into the report.</summary>
+    /// <summary>
+    /// Where each secret came from. The values are never read into the report. A model or the WebDAV backup that is not
+    /// configured needs no secret: it gets a line saying so and no item.
+    /// </summary>
     private static SecretsStatus Secrets(TacitConfig config)
     {
         var language = config.Language;
-        var items = new List<SecretStatus>
-        {
-            SecretItem("models.embedding.apiKey", SecretVariables.EmbeddingApiKey, config.Models.Embedding?.ApiKey),
-            SecretItem("models.reranker.apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker?.ApiKey),
-            SecretItem("models.decision.apiKey", SecretVariables.DecisionApiKey, config.Models.Decision?.ApiKey),
-        };
+        var items = new List<SecretStatus>();
         var lines = new List<string>();
-        if (config.Backup.WebDav is { } webDav)
-            items.Add(SecretItem("backup.webdav.password", SecretVariables.WebDavPassword, webDav.Password));
-        else
-            lines.Add(ManagementApiMessages.SecretWebDavNotConfigured.In(language));
 
-        lines.InsertRange(0, items.Select(item => SecretLine(language, item)));
+        void Add(string owner, string key, string variable, bool configured, SecretValue? secret)
+        {
+            if (!configured)
+            {
+                lines.Add(ManagementApiMessages.SecretNotConfigured.Format(language, owner));
+                return;
+            }
+            var item = SecretItem($"{owner}.{key}", variable, secret);
+            items.Add(item);
+            lines.Add(SecretLine(language, item));
+        }
+
+        Add("models.embedding", "apiKey", SecretVariables.EmbeddingApiKey, config.Models.Embedding is not null, config.Models.Embedding?.ApiKey);
+        Add("models.reranker", "apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker is not null, config.Models.Reranker?.ApiKey);
+        Add("models.decision", "apiKey", SecretVariables.DecisionApiKey, config.Models.Decision is not null, config.Models.Decision?.ApiKey);
+        Add("backup.webdav", "password", SecretVariables.WebDavPassword, config.Backup.WebDav is not null, config.Backup.WebDav?.Password);
         return new SecretsStatus(ManagementApiMessages.SecretsTitle.In(language), lines, items);
     }
 

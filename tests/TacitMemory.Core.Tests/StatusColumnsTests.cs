@@ -527,6 +527,20 @@ public sealed class StatusColumnsTests : IDisposable
     }
 
     [Fact]
+    public async Task An_unconfigured_model_needs_no_key_even_when_its_variable_is_set()
+    {
+        ConfigureEmbeddingOnly();
+        _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "dec-env-secret";
+
+        var secrets = (await OfflineReport()).Secrets!;
+
+        Assert.Equal(["models.embedding.apiKey"], secrets.Items.Select(item => item.Key));
+        Assert.Equal(
+            ["models.embedding.apiKey：未设置（环境变量 TACIT_EMBEDDING_API_KEY 与配置文件都没有）", "models.reranker：未配置，不需要密钥", "models.decision：未配置，不需要密钥", "backup.webdav：未配置，不需要密钥"],
+            secrets.Lines);
+    }
+
+    [Fact]
     public async Task A_password_from_the_environment_alone_is_reported_as_from_the_environment()
     {
         _home.InitReady("backup:\n  webdav: { url: https://dav.example/tacit/, username: me }\n", _models);
