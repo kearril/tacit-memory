@@ -81,7 +81,9 @@ public sealed class MemoryService : IDisposable
         foreach (var render in StartupRender)
             _log.Record(LevelOf(render), render.Message);
         _models = new AuxiliaryModels(config, options.Time, _log);
-        _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding.Model, config.Language);
+        if (_models.Unconfigured is { Count: > 0 } unconfigured)
+            _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
+        _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding?.Model, config.Language);
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
         _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Checkup.MaxConcurrency);
@@ -400,6 +402,8 @@ public sealed class MemoryService : IDisposable
             lines.AddRange(skipped.Select(path => $"  {path}"));
         }
 
+        if (!_models.Embedding.Configured)
+            lines.Add(MaintenanceMessages.EmbeddingNotConfigured.In(Config.Language));
         if (vectorsPending)
             lines.Add(MaintenanceMessages.VectorsPending.In(Config.Language));
         return string.Join('\n', lines);

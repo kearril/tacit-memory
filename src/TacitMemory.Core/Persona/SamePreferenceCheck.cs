@@ -65,7 +65,7 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
 
         var vector = await embedding.EmbedAsync([text], cancellationToken);
         if (vector is null)
-            return new SamePreferenceVerdict(null, EmbeddingDown);
+            return new SamePreferenceVerdict(null, embedding.Configured ? EmbeddingDown : null);
 
         await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var nearest = index.SearchJudgments(vector[0], Sources, OtherOptions);
@@ -88,7 +88,7 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
         var state = StateOf(text, section, config.Language);
         var probabilities = await decision.ChooseAsync(state, Instructions, options, cancellationToken);
         if (probabilities is null)
-            return new SamePreferenceVerdict(null, DecisionDown);
+            return new SamePreferenceVerdict(null, decision.Configured ? DecisionDown : null);
 
         var verdict = Judgment.Choice(probabilities, None, config.Decision.SamePreference ?? Judgment.SamePreference);
         return verdict.Tier == Tier.Certain

@@ -56,7 +56,7 @@ internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision
         options[None] = NoneText;
         var probabilities = await decision.ChooseAsync(state, Instructions, options, cancellationToken);
         if (probabilities is null)
-            return new SameTopicVerdict(null, DecisionDown);
+            return new SameTopicVerdict(null, decision.Configured ? DecisionDown : null);
 
         var verdict = Judgment.Choice(probabilities, None, config.Decision.SameTopic ?? Judgment.SameTopic);
         return verdict.Tier == Tier.Certain

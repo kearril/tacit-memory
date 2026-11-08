@@ -9,32 +9,40 @@ namespace TacitMemory.Core.Models;
 /// <c>query</c> and <c>contexts[].text</c> with no model name, and answers <c>result.response[].id</c> and
 /// <c>score</c> inside its envelope. Either way every document gets exactly one score.
 /// </summary>
-internal sealed class RerankerModel(ModelClient client, ModelConfig config, ModelHealth health)
+internal sealed class RerankerModel(ModelClient client, ModelConfig? config, ModelHealth health)
 {
+    /// <summary>Whether the model is configured. An unconfigured model is never called and never cools down.</summary>
+    public bool Configured => config is not null;
+
     public ModelHealth Health => health;
 
-    /// <summary>One relevance score per document in input order, or <c>null</c> when the model cannot be reached or answers wrongly.</summary>
+    /// <summary>
+    /// One relevance score per document in input order, or <c>null</c> when the model is not configured, cannot be reached or
+    /// answers wrongly. An unconfigured model answers at once, without a request.
+    /// </summary>
     public async Task<double[]?> ScoreAsync(string query, IReadOnlyList<string> documents, CancellationToken cancellationToken)
     {
         if (documents.Count == 0)
             return [];
+        if (config is not { } settings)
+            return null;
 
         return await client.SendAsync(
             health,
-            () => ModelRequest.Post(config, RequestBody(query, documents)),
-            (response, token) => ReadScoresAsync(response, documents.Count, token),
+            () => ModelRequest.Post(settings, RequestBody(settings, query, documents)),
+            (response, token) => ReadScoresAsync(settings.Provider, response, documents.Count, token),
             cancellationToken);
     }
 
-    private object RequestBody(string query, IReadOnlyList<string> documents) => config.Provider switch
+    private static object RequestBody(ModelConfig settings, string query, IReadOnlyList<string> documents) => settings.Provider switch
     {
         ModelProvider.Cloudflare => new CloudflareRequest(query, documents.Select(text => new Context(text)).ToList()),
-        _ => new Request(config.Model, query, documents),
+        _ => new Request(settings.Model, query, documents),
     };
 
-    private async Task<double[]?> ReadScoresAsync(HttpResponseMessage response, int count, CancellationToken cancellationToken)
+    private static async Task<double[]?> ReadScoresAsync(ModelProvider provider, HttpResponseMessage response, int count, CancellationToken cancellationToken)
     {
-        if (config.Provider == ModelProvider.Cloudflare)
+        if (provider == ModelProvider.Cloudflare)
         {
             var answer = (await response.Content.ReadFromJsonAsync<CloudflareEnvelope<CloudflareResult>>(cancellationToken))?.Answer;
             return Scores((answer?.Response ?? []).Select(item => (item?.Id, item?.Score)), count);

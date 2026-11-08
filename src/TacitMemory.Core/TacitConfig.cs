@@ -30,12 +30,15 @@ public sealed record TacitConfig
 
     /// <summary>Whether <c>config.yaml</c> holds a plaintext secret: a model's <c>apiKey</c> or <c>backup.webdav.password</c>.</summary>
     internal bool HoldsPlaintextSecret =>
-        Models.Embedding.ApiKey?.WrittenInConfig == true || Models.Reranker.ApiKey?.WrittenInConfig == true
-        || Models.Decision.ApiKey?.WrittenInConfig == true || Backup.WebDav?.Password?.WrittenInConfig == true;
+        Models.Embedding?.ApiKey?.WrittenInConfig == true || Models.Reranker?.ApiKey?.WrittenInConfig == true
+        || Models.Decision?.ApiKey?.WrittenInConfig == true || Backup.WebDav?.Password?.WrittenInConfig == true;
 }
 
-/// <summary>The three auxiliary models: embedding, reranker and decision. Each is configured the same way.</summary>
-public sealed record ModelsConfig(ModelConfig Embedding, ModelConfig Reranker, ModelConfig Decision);
+/// <summary>
+/// The three auxiliary models: embedding, reranker and decision. A <c>null</c> member is an unconfigured model: the service
+/// runs without it, never calls it, and never lists it as unavailable. Each configured model is set up the same way.
+/// </summary>
+public sealed record ModelsConfig(ModelConfig? Embedding, ModelConfig? Reranker, ModelConfig? Decision);
 
 /// <summary>
 /// One auxiliary model. <see cref="Url"/> is the complete request address, sent as written; <see cref="ApiKey"/> is

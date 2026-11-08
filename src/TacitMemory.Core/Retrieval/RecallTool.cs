@@ -77,7 +77,10 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var notes = new List<string>();
         var queryVector = await embedding.EmbedAsync([request.Query!], cancellationToken);
         if (queryVector is null)
-            notes.Add(EmbeddingDown);
+        {
+            if (embedding.Configured)
+                notes.Add(EmbeddingDown);
+        }
         else
         {
             await vectors.PrepareSearchAsync(queryVector[0].Length, cancellationToken);
@@ -112,7 +115,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var scores = await reranker.ScoreAsync(query, units.Select(unit => unit.Text).ToList(), cancellationToken);
         if (scores is null)
         {
-            notes.Add(RerankerDown);
+            if (reranker.Configured)
+                notes.Add(RerankerDown);
             return units;
         }
 

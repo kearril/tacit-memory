@@ -37,35 +37,47 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
-        Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding.Url);
-        Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker.Model);
+        Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
+        Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker!.Model);
         Assert.Equal(
             new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), ModelProvider.Generic),
             config.Models.Decision);
     }
 
     [Fact]
-    public void The_template_written_by_init_loads_once_models_are_filled_in()
+    public void The_template_written_by_init_loads_as_it_is_with_every_model_unconfigured()
     {
-        var template = File.ReadAllText(ConfigPath);
-        WriteConfig(template[..template.IndexOf("models:", StringComparison.Ordinal)] + Models +
-                    template[template.IndexOf("limits:", StringComparison.Ordinal)..]);
-
         var config = _home.Tacit().LoadConfig();
 
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
+        Assert.Null(config.Models.Embedding);
+        Assert.Null(config.Models.Reranker);
+        Assert.Null(config.Models.Decision);
     }
 
     [Fact]
-    public void An_unfilled_template_names_every_missing_model_setting()
+    public void The_template_has_its_models_section_commented_out_with_its_setting_names_kept()
     {
-        var error = LoadFails();
+        var lines = File.ReadAllLines(ConfigPath);
 
-        Assert.Equal(TacitError.ConfigInvalid, error.Error);
-        foreach (var key in new[] { "models.embedding.url", "models.embedding.model", "models.reranker.url", "models.reranker.model", "models.decision.url", "models.decision.model" })
-            Assert.Contains(key, error.Message);
+        Assert.DoesNotContain(lines, line => line.StartsWith("models:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.StartsWith("# models:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("#     url:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("#     model:", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("#     apiKey:", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void The_template_loads_once_models_are_filled_in_at_its_end()
+    {
+        WriteConfig(File.ReadAllText(ConfigPath) + "\n" + Models);
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
+    }
+
 
     [Fact]
     public void Configured_values_override_the_defaults()
@@ -150,8 +162,8 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal("http://127.0.0.1:38417/v1/embeddings/", config.Models.Embedding.Url.OriginalString);
-        Assert.Equal("https://api.typesafe.ai/v1", config.Models.Decision.Url.OriginalString);
+        Assert.Equal("http://127.0.0.1:38417/v1/embeddings/", config.Models.Embedding!.Url.OriginalString);
+        Assert.Equal("https://api.typesafe.ai/v1", config.Models.Decision!.Url.OriginalString);
     }
 
     [Fact]
@@ -168,7 +180,7 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models);
         _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
 
-        var decision = _home.Tacit().LoadConfig().Models.Decision;
+        var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
         Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: true), decision.ApiKey);
     }
@@ -179,7 +191,7 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models.Replace(", apiKey: test-key", ""));
         _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
 
-        var decision = _home.Tacit().LoadConfig().Models.Decision;
+        var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
         Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: false), decision.ApiKey);
     }
@@ -190,7 +202,7 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models);
         _home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "  ";
 
-        var decision = _home.Tacit().LoadConfig().Models.Decision;
+        var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
         Assert.Equal(new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), decision.ApiKey);
     }
@@ -205,8 +217,8 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new SecretValue("emb-env", SecretSource.Environment, WrittenInConfig: true), config.Models.Embedding.ApiKey);
-        Assert.Equal(new SecretValue("rer-config", SecretSource.ConfigFile, WrittenInConfig: true), config.Models.Reranker.ApiKey);
+        Assert.Equal(new SecretValue("emb-env", SecretSource.Environment, WrittenInConfig: true), config.Models.Embedding!.ApiKey);
+        Assert.Equal(new SecretValue("rer-config", SecretSource.ConfigFile, WrittenInConfig: true), config.Models.Reranker!.ApiKey);
     }
 
     [Fact]
@@ -217,7 +229,7 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new SecretValue("rer-env", SecretSource.Environment, WrittenInConfig: false), config.Models.Reranker.ApiKey);
+        Assert.Equal(new SecretValue("rer-env", SecretSource.Environment, WrittenInConfig: false), config.Models.Reranker!.ApiKey);
     }
 
     [Fact]
@@ -227,9 +239,9 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Null(config.Models.Decision.ApiKey);
-        Assert.Null(config.Models.Embedding.ApiKey);
-        Assert.Null(config.Models.Reranker.ApiKey);
+        Assert.Null(config.Models.Decision!.ApiKey);
+        Assert.Null(config.Models.Embedding!.ApiKey);
+        Assert.Null(config.Models.Reranker!.ApiKey);
     }
 
     [Fact]
@@ -239,9 +251,9 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(ModelProvider.Generic, config.Models.Embedding.Provider);
-        Assert.Equal(ModelProvider.Generic, config.Models.Reranker.Provider);
-        Assert.Equal(ModelProvider.Generic, config.Models.Decision.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Embedding!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Reranker!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Decision!.Provider);
     }
 
     [Theory]
@@ -256,8 +268,8 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(ModelProvider.Cloudflare, config.Models.Reranker.Provider);
-        Assert.Equal(ModelProvider.Cloudflare, config.Models.Decision.Provider);
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Reranker!.Provider);
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Decision!.Provider);
     }
 
     [Fact]
@@ -267,8 +279,8 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(ModelProvider.Cloudflare, config.Models.Embedding.Provider);
-        Assert.Equal(ModelProvider.Generic, config.Models.Reranker.Provider);
+        Assert.Equal(ModelProvider.Cloudflare, config.Models.Embedding!.Provider);
+        Assert.Equal(ModelProvider.Generic, config.Models.Reranker!.Provider);
     }
 
     [Theory]
@@ -361,7 +373,7 @@ public sealed class ConfigTests : IDisposable
     {
         var lines = File.ReadAllLines(ConfigPath);
 
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("可省略", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("可省略", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
         Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
@@ -375,7 +387,7 @@ public sealed class ConfigTests : IDisposable
 
         var lines = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
 
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("left out", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.Contains("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("left out", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
         Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
@@ -407,11 +419,56 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void A_missing_model_section_is_refused()
+    public void A_missing_models_section_loads_with_every_model_unconfigured()
+    {
+        WriteConfig("server: { port: 19999 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(19999, config.Port);
+        Assert.Null(config.Models.Embedding);
+        Assert.Null(config.Models.Reranker);
+        Assert.Null(config.Models.Decision);
+    }
+
+    [Fact]
+    public void An_empty_models_mapping_loads_with_every_model_unconfigured()
+    {
+        WriteConfig("models: {}\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Null(config.Models.Embedding);
+        Assert.Null(config.Models.Reranker);
+        Assert.Null(config.Models.Decision);
+    }
+
+    [Fact]
+    public void A_model_left_out_loads_as_unconfigured_while_the_others_stay_configured()
     {
         WriteConfig(Models.Replace("  reranker: { url: 'http://127.0.0.1:38417/v1/rerank', model: qwen3-reranker-0.6b }\n", ""));
 
-        Assert.Contains("models.reranker", LoadFails().Message);
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Null(config.Models.Reranker);
+        Assert.Equal("qwen3-embedding-0.6b", config.Models.Embedding!.Model);
+        Assert.NotNull(config.Models.Decision);
+    }
+
+    [Fact]
+    public void A_model_with_a_url_but_no_model_name_is_refused_with_its_key_path()
+    {
+        WriteConfig("models:\n  embedding: { url: 'http://127.0.0.1:38417/v1/embeddings' }\n");
+
+        Assert.Contains("models.embedding.model", LoadFails().Message);
+    }
+
+    [Fact]
+    public void A_model_with_a_model_name_but_no_url_is_refused_with_its_key_path()
+    {
+        WriteConfig("models:\n  embedding: { model: qwen3-embedding-0.6b }\n");
+
+        Assert.Contains("models.embedding.url", LoadFails().Message);
     }
 
     [Fact]

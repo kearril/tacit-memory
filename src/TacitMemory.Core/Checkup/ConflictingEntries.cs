@@ -55,6 +55,7 @@ internal static class ConflictingEntries
                 .ToList();
             var status = Unanswered.Of(reasons).Status(
                 count => $"Not checked: the decision or embedding model is unavailable, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
+                count => $"Not checked (not configured): the decision or embedding model is not configured, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
                 count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the checkup ran out of time. Run the tacit-checkup skill again to continue.");
             return new CheckupSection(CheckupTitles.ConflictingEntries, lines, status);
         };
@@ -81,18 +82,18 @@ internal static class ConflictingEntries
         TacitConfig config, CheckupServices services, PersonaDocument persona, int entryCount, ConflictingEntry entry, CancellationToken cancellationToken)
     {
         if (entryCount < 2)
-            return new PreparedChoice<ConflictingEntry>(null, false);
+            return new PreparedChoice<ConflictingEntry>(null, null);
 
         var vector = await services.Embedding.EmbedAsync([entry.Item.JudgmentText], cancellationToken);
         if (vector is null)
-            return new PreparedChoice<ConflictingEntry>(null, true);
+            return new PreparedChoice<ConflictingEntry>(null, JudgmentPool.NoAnswerReason(services.Embedding.Configured));
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         // One more than the offered count: the entry itself may be among the nearest and is skipped by Nearest.
         var hits = services.Index.SearchJudgments(vector[0], [SourceKinds.Persona], RuleConflictCheck.OtherOptions + 1);
         var nearest = RuleConflictCheck.Nearest(hits, persona, entry.Item.Line);
         if (nearest.Count == 0)
-            return new PreparedChoice<ConflictingEntry>(null, false);
+            return new PreparedChoice<ConflictingEntry>(null, null);
 
         var language = config.Language;
         var options = nearest
@@ -103,7 +104,7 @@ internal static class ConflictingEntries
             RuleConflictCheck.Instructions,
             RuleConflictCheck.NoneText,
             options);
-        return new PreparedChoice<ConflictingEntry>(question, false);
+        return new PreparedChoice<ConflictingEntry>(question, null);
     }
 
     /// <summary>An entry as the report names it: its short code, its text, and its section in the memory language.</summary>

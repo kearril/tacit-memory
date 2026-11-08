@@ -58,7 +58,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
 
         var vector = await embedding.EmbedAsync([text], cancellationToken);
         if (vector is null)
-            return new RuleConflictVerdict(null, EmbeddingDown);
+            return new RuleConflictVerdict(null, embedding.Configured ? EmbeddingDown : null);
 
         await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         // One more than OtherOptions: the replaced entry may be among the nearest and is skipped by Nearest.
@@ -80,7 +80,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
         options[None] = NoneText;
         var probabilities = await decision.ChooseAsync(StateOf(text, section, config.Language), Instructions, options, cancellationToken);
         if (probabilities is null)
-            return new RuleConflictVerdict(null, DecisionDown);
+            return new RuleConflictVerdict(null, decision.Configured ? DecisionDown : null);
 
         var verdict = Judgment.Choice(probabilities, None, config.Decision.RuleConflict ?? Judgment.RuleConflict);
         return new RuleConflictVerdict(verdict.Tier == Tier.Certain ? entries[verdict.Option!] : null, null);

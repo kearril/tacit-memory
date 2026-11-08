@@ -89,10 +89,15 @@ public sealed record ServiceStatus(
 /// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data.</summary>
 public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn
 {
-    /// <summary>A model line is ok while the model is available, attention while it cools down; a line without an item is plain.</summary>
-    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index < Items.Count
-        ? (StatusLevel?)(Items[index].State == ModelState.Available ? StatusLevel.Ok : StatusLevel.Attention)
-        : null).ToList();
+    /// <summary>A model line is ok while the model is available and attention while it cools down; an unconfigured model and a line without an item are plain.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index < Items.Count ? LevelOf(Items[index].State) : null).ToList();
+
+    private static StatusLevel? LevelOf(ModelState state) => state switch
+    {
+        ModelState.Available => StatusLevel.Ok,
+        ModelState.CoolingDown => StatusLevel.Attention,
+        _ => null,
+    };
 }
 
 /// <param name="Role">The model's role name in <c>config.yaml</c>: <c>embedding</c>, <c>reranker</c> or <c>decision</c>.</param>
@@ -107,6 +112,9 @@ public enum ModelState
 
     /// <summary>A request finally failed; the model is not called until the cooldown ends.</summary>
     CoolingDown,
+
+    /// <summary>Not configured in <c>config.yaml</c>: the model is never called and never fails.</summary>
+    Unconfigured,
 }
 
 /// <summary>The bindings, one line each; <paramref name="Items"/> carries the same checks as data.</summary>

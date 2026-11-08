@@ -154,7 +154,7 @@
 - 细节页 `upsert_section`、`delete_section` 的 `section` 填了本页某小节的短码（且本页没有同名小节）时，拒绝并返回英文：`Parameter section "<短码>" is the short code of section <小节标题>, not a section name.`；下一步：`Call write_page op=upsert_section again with section set to the name <小节标题> and hash set to the short code <短码>.`（删除时为 `op=delete_section`），`Related` 附该小节的标题、短码与正文。
 - 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_recent` 与 `write_persona` 同形，不列 `page`）；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.`
 - 同主题退回、候选并入、提议命中拒绝列表或画像都是正常结果，不标记错误，同样给出下一步该怎么做。
-- 辅助模型不可用而跳过某项判断时，在回复末尾以 `Note:` 注明。
+- 辅助模型不可用而跳过某项判断时，在回复末尾以 `Note:` 注明；模型未配置时不注明，因为这不是故障，只是没有该功能。
 
 "下一步"是纠正调用错误的主要手段：Agent 用错参数或短码过期时，按它改正即可。
 

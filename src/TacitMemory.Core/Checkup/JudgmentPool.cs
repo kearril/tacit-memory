@@ -18,15 +18,19 @@ internal sealed record ChoiceOption<T>(string Text, T Target);
 internal sealed record ChoiceQuestion<T>(string State, string Instructions, string NoneText, IReadOnlyList<ChoiceOption<T>> Options);
 
 /// <summary>
-/// What a judgment prepared before it asks: the question, or <c>null</c> when there is nothing to compare with; or
-/// <see cref="ModelUnavailable"/> when the text could not be prepared because a model was not reachable.
+/// What a judgment prepared before it asks: the question, or <c>null</c> when there is nothing to compare with; or the reason
+/// it is not checked, when the text could not be prepared because a model gave no answer.
 /// </summary>
-internal sealed record PreparedChoice<T>(ChoiceQuestion<T>? Question, bool ModelUnavailable);
+internal sealed record PreparedChoice<T>(ChoiceQuestion<T>? Question, UncheckedReason? Unchecked);
 
-/// <summary>Why a judgment of a checkup was not answered: the models could not answer it, or the budget ran out first.</summary>
+/// <summary>
+/// Why a judgment of a checkup was not answered: the models could not answer it, they are not configured, or the budget
+/// ran out first.
+/// </summary>
 internal enum UncheckedReason
 {
     ModelUnavailable,
+    Unconfigured,
     Budget,
 }
 
@@ -46,9 +50,9 @@ internal sealed record JudgmentOutcome<T>(Tier? Tier, T? Target, UncheckedReason
 /// The choice judgments of the checkup, shared by every checkup of the service. At most <c>checkup.maxConcurrency</c> of
 /// them run at once, each in one slot: its text is prepared (embedded and searched), then its question is answered from
 /// the judgment cache, or asked of the decision model and cached. The budget holds back only the asking: a judgment that
-/// holds a slot still reads the cache after the budget ran out, and a model that is cooling down is not called. Only the
-/// checkup reads and writes the cache; the live judgments never do. A judgment that has started always runs to its end,
-/// so its answer is cached even when the checkup that asked stopped waiting for it.
+/// holds a slot still reads the cache after the budget ran out, and a model that is cooling down or not configured is
+/// not called. Only the checkup reads and writes the cache; the live judgments never do. A judgment that has started always
+/// runs to its end, so its answer is cached even when the checkup that asked stopped waiting for it.
 /// </summary>
 internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, TimeProvider time, int maxConcurrency)
 {
@@ -58,6 +62,10 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
     private readonly SemaphoreSlim _slots = new(maxConcurrency, maxConcurrency);
     private readonly Lock _gate = new();
     private readonly List<Task> _running = [];
+
+    /// <summary>The reason a text whose model gave no answer is not checked: the model is unavailable, or it is not configured.</summary>
+    public static UncheckedReason NoAnswerReason(bool configured) =>
+        configured ? UncheckedReason.ModelUnavailable : UncheckedReason.Unconfigured;
 
     /// <summary>Starts the judgments of one checkup. The budget is started by the session, once every judgment is submitted.</summary>
     public JudgmentSession Begin(CancellationToken cancellationToken) => new(this, time, cancellationToken);
@@ -105,8 +113,8 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
         try
         {
             var prepared = await prepare(CancellationToken.None);
-            if (prepared.ModelUnavailable)
-                return JudgmentOutcome<T>.Unchecked(UncheckedReason.ModelUnavailable);
+            if (prepared.Unchecked is { } reason)
+                return JudgmentOutcome<T>.Unchecked(reason);
             if (prepared.Question is not { } question)
                 return JudgmentOutcome<T>.NothingToAsk;
             return await AskAsync(question, threshold, queue);
@@ -118,8 +126,8 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
     }
 
     /// <summary>
-    /// Answers the question from the cache when it is there. Otherwise it is asked of the decision model, unless the model
-    /// is cooling down or the budget has run out: a question not yet asked is not asked after that.
+    /// Answers the question from the cache when it is there. Otherwise it is asked of the decision model, unless the model is
+    /// not configured, is cooling down or the budget has run out: a question not yet asked is not asked after that.
     /// </summary>
     private async Task<JudgmentOutcome<T>> AskAsync<T>(ChoiceQuestion<T> question, Threshold threshold, CancellationToken queue)
     {
@@ -137,6 +145,8 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
         var probabilities = index.CachedJudgment(cacheKey);
         if (probabilities is null)
         {
+            if (!decision.Configured)
+                return JudgmentOutcome<T>.Unchecked(UncheckedReason.Unconfigured);
             if (decision.Health.CoolingDown)
                 return JudgmentOutcome<T>.Unchecked(UncheckedReason.ModelUnavailable);
             if (queue.IsCancellationRequested)

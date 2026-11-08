@@ -8,7 +8,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 - **.NET 10 SDK**：用于构建。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
-- **三个辅助模型**（必填，需自行准备，均为 HTTP 端点）：各自按一种通用协议请求，`url` 填写完整请求地址，程序原样请求、不追加路径：
+- **三个辅助模型**（可选，均为 HTTP 端点，需自行准备；不配置的模型即未配置，服务照常运行，依赖它的功能按降级规则处理）：各自按一种通用协议请求，`url` 填写完整请求地址，程序原样请求、不追加路径：
   - 嵌入模型：OpenAI Embeddings 协议；
   - reranker：Cohere/Jina Rerank 协议；
   - 决策模型：System One 协议（TypeSafe 的原生决策接口即其一个服务）。
@@ -35,7 +35,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
    生成配置 `~/.tacit/config.yaml` 与记忆仓库。语言默认取系统界面语言，可用 `--language zh|en` 指定；`--memory <路径>` 可指定记忆仓库位置。
 
-2. **填写模型**：编辑 `config.yaml` 的 `models` 一节，填入三个模型的 `url`（完整请求地址）与 `model`；密钥可省略，见「密钥」一节。
+2. **填写模型**（可选）：编辑 `config.yaml` 的 `models` 一节，填入要用的模型的 `url`（完整请求地址）与 `model`；不写的模型即未配置，可以之后再补。密钥可省略，见「密钥」一节。
 
 3. **绑定客户端**
 

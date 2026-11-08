@@ -22,6 +22,7 @@ internal static class ManagementApiMessages
     public static readonly Localized ModelsTitle = new("辅助模型", "Auxiliary models");
     public static readonly Localized ModelAvailable = new("{0}：可用", "{0}: available");
     public static readonly Localized ModelCoolingDown = new("{0}：冷却中，剩余 {1} 秒", "{0}: cooling down, {1} s left");
+    public static readonly Localized ModelUnconfigured = new("{0}：未配置", "{0}: not configured");
 
     public static readonly Localized LogsTitle = new("日志", "Logs");
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
