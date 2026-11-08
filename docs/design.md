@@ -1,6 +1,6 @@
 # TacitMemory 设计
 
-本文档定义系统**做什么**：记忆如何分层、如何存储、何时写入、如何检索与注入、对外暴露哪些接口，描述的是 v1 的目标行为。代码如何组织与各模块的实现状况见 `docs/architecture.md`，术语见 `GLOSSARY.md`。
+本文档定义系统**做什么**：记忆如何分层、如何存储、何时写入、如何检索与注入，描述的是 v1 的目标行为。对外接口与可配置项的逐项说明见 `docs/reference/`（`mcp.md`、`cli.md`、`configuration.md`），运维做法见 `docs/operations.md`，代码如何组织与各模块的实现状况见 `docs/architecture.md`，术语见 `GLOSSARY.md`。
 
 ## 1. 目标
 
@@ -43,6 +43,8 @@
 三者均可不配置：某个模型的映射缺失即为未配置，服务照常启动并按降级工作（见下文「降级」）。已配置的模型每个配置 `url`（完整请求地址，程序原样请求，不追加路径）、`model`，以及可选的 `apiKey`（有密钥时以 `Authorization: Bearer` 发送，没有则不发送任何认证头）。三个模型各按一种通用协议请求：嵌入模型为 OpenAI Embeddings，reranker 为 Cohere/Jina Rerank，决策模型为 System One（TypeSafe 的原生决策接口即其一个服务）。决策模型接口与具体模型无关，只包含选择题。发给决策模型的问题一律使用英文，被判断的内容保持原文。
 
 每个模型可配置 `provider`，省略即为通用协议；写 `cloudflare`（不区分大小写）则按 Cloudflare Workers AI 的格式收发，这是目前唯一的提供方适配。差异只有两处：reranker 发送 `query` 与 `contexts[].text`，不发送模型名（`model` 仍必填，只用于显示），按 `result.response[].id` 与 `score` 对回每段文档的分数；决策模型的请求与 System One 相同，响应先取 `result` 再按 System One 读取。嵌入模型接受 `provider: cloudflare`，按通用协议处理。Cloudflare 响应的 `success` 不为真或缺少 `result`，与其他格式错误一样视为格式不对、不重试。reranker 的每段文档都须得到且只得到一个分数，缺漏、重复或越界的序号同样是格式不对。重试、退避、单次超时、总时限与冷却由同一个模型客户端负责，两种提供方不分支；判断阈值与 `minRerankScore` 的默认值不随提供方或模型变化，换模型后的判断质量由使用者自行核对。
+
+配置项的写法与校验见 `docs/reference/configuration.md`「`models`」。
 
 ### 判断
 
@@ -261,7 +263,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ### 值得记标准
 
-`prompts/rules.md` 分"值得记"与"不记"两节（条数上限见第 12 节），原样写入服务端说明。初始化时生成默认模板；文件被删除后，下次加载配置时（启动服务、绑定、解绑）按记忆语言重新生成。旧位置 `TACIT_HOME/rules.md` 不再读取。
+`prompts/rules.md` 分"值得记"与"不记"两节（条数上限见 `docs/reference/configuration.md`「提示词文档」），原样写入服务端说明。初始化时生成默认模板；文件被删除后，下次加载配置时（启动服务、绑定、解绑）按记忆语言重新生成。旧位置 `TACIT_HOME/rules.md` 不再读取。
 
 默认值得记：用户纠正或打断 Agent；方案拍板（保留用户原话）；查明根因的排错（含试过但无效的做法）；新的环境事实；用户明确要求记下。默认不记：常规的写代码、改错字、看日志；能从代码、仓库文档、配置中查到的内容。
 
@@ -349,14 +351,16 @@ related: [my-app/backup-script, _topics/pgroonga]
 ### 常驻区块
 
 - 由 `<!-- tacit:begin … -->` 与 `<!-- tacit:end -->` 界定，内部以 `<user_memory>` 包裹；起止标记不完整或不唯一时拒绝改写；结果未变不写文件；区块外的内容从不改动。
-- 外壳两段与四节引导语来自 `prompts/resident.md`，整份替换内置默认；文件缺失时用内置默认（即现有文字）。起止标记、`<user_memory>` 标签、节标题与画像条目仍由服务生成。格式与校验见第 12 节。
+- 外壳两段与四节引导语来自 `prompts/resident.md`，整份替换内置默认；文件缺失时用内置默认（即现有文字）。起止标记、`<user_memory>` 标签、节标题与画像条目仍由服务生成。格式与校验见 `docs/reference/configuration.md`「提示词文档」。
 - `resident.md` 或 `persona.md` 变化后，去抖重渲染所有已绑定文件中的常驻区块；渲染彼此串行，失败只提示。连接时使用当前的 `resident.md`。
 - 渲染时去掉来源注释；节标题使用英文，条目保持记忆语言。
 - 每次渲染都重新读取 `bindings.json`，因此运行中的服务能感知新的绑定；`connect` 在绑定时立即渲染一次。
 
 ### 服务端说明
 
-- 组成：开场、核心规则（`prompts/instructions.md`，缺失时为内置默认）、通用规则（代码提供，始终在核心规则之后）、语言规范与值得记标准是固定部分。长度上限、截断顺序、文件校验与运行中保存的处理见第 12 节。
+- 组成：开场、核心规则（`prompts/instructions.md`，缺失时为内置默认）、通用规则（代码提供，始终在核心规则之后）、语言规范与值得记标准是固定部分；其后是近期摘要、状态提示、已有项目与体检提示。提示词文档的文件校验与运行中保存的处理见 `docs/reference/configuration.md`「提示词文档」。
+- 固定部分合计不超过 2500 字符。启动时超出则拒绝启动，报告超出的字符数，并列出可精简的文件（`rules.md`；存在 `instructions.md` 时一并列出）。
+- 服务端说明总长不超过 4000 字符。生成时超出则依次截断近期摘要中最早的活动，再从末尾起截断已有项目列表，列表无法容纳时整段省略；固定部分、状态提示与体检提示不截断。
 - 记忆规则各条的内容与职责见 `docs/prompts.md` 第 4 节。
 - 语言规范：记忆内容与检索语句使用记忆语言；用户原话、代码、路径、命令与专有名词保持原样。
 - 值得记标准：`prompts/rules.md` 两节的条目原样写入；修改 `prompts/rules.md` 后，下一个会话生效。
@@ -367,7 +371,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 ## 9. 体检
 
-用户在任意目录通过 `tacit-checkup` skill 开始体检（omp 中的触发方式见 `README.md`，附加要求可省略）。该 skill 的正文只取决于代码与记忆语言，不读记忆仓库，依次包含：开场（现在开始体检；先读取资源 `tacit://checkup-report`，读不到就停下请用户运行 `tacit serve`；记忆仓库的绝对路径；直接用绝对路径改文件，并在该目录中执行 git，不要求当前目录是记忆仓库）、体检步骤、当前记忆语言的结构词对照表与候选块、拒绝列表条目的示例。体检报告不在正文中，由该资源现场返回（见第 10 节）。主会话依据报告直接修改记忆仓库中的文件，最后在记忆仓库中提交，提交信息以 `checkup:` 开头。
+用户在任意目录通过 `tacit-checkup` skill 开始体检（omp 中的触发方式见 `README.md`，附加要求可省略）。该 skill 的正文只取决于代码与记忆语言，不读记忆仓库，依次包含：开场（现在开始体检；先读取资源 `tacit://checkup-report`，读不到就停下请用户运行 `tacit serve`；记忆仓库的绝对路径；直接用绝对路径改文件，并在该目录中执行 git，不要求当前目录是记忆仓库）、体检步骤、当前记忆语言的结构词对照表与候选块、拒绝列表条目的示例。体检报告不在正文中，由该资源现场返回（见 `docs/reference/mcp.md` 第 4 节）。主会话依据报告直接修改记忆仓库中的文件，最后在记忆仓库中提交，提交信息以 `checkup:` 开头。
 
 体检步骤（英文，按顺序）：
 
@@ -407,33 +411,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 工作池：同时进行的判断不超过 `checkup.maxConcurrency`（默认 5），一个完成就补发下一个。工作池由服务共享，多次体检之间的并发合计也不超过该数。模型进入冷却后，尚未发出的判断不再发出，计为"未检查（模型不可用）"；已在进行的照常完成。
 - 限时：`checkup.budgetSeconds`（默认 20）从各类别读取仓库并提交全部判断之后开始计时。到点时，已返回的结果写入报告；未返回的计为"未检查"，报告注明"还有 N 项未检查，再运行一次 `tacit-checkup` 接着算"；尚未取得并发槽位的判断不再发出，已取得槽位的判断照常读取缓存，缓存未命中且未到点才发出。已在进行的判断不取消，跑完后写入缓存，再运行一次 `tacit-checkup` 即可取得。读取仓库、解析与组装报告不计入预算。
 
-## 10. 工具、资源与服务端说明
-
-常驻服务以无状态方式提供三种 MCP 机制：工具、资源与服务端说明。资源只有一个，`tacit://checkup-report`（名为 `checkup-report`，`text/markdown`，描述写明只在运行 `tacit-checkup` skill时读取），读取时现场返回体检报告（`MemoryService.CheckupReportAsync`）；不使用资源模板、订阅与 `list_changed` 通知。不提供 prompt：`prompts/list` 恒答空列表，`prompts/get` 一律报错，因为 omp 不看能力声明、每次都请求 prompt 列表，请求失败就丢弃服务器。不使用 completions、elicitation、sampling、roots 与 logging。
-
-### 工具
-
-| 工具 | `op` | 必填参数 |
-| :--- | :--- | :--- |
-| `recall` | — | `query` 或 `page`；可选 `project`、`from`、`to`、`kind` |
-| `write_page` | `create` | `page`、`title`、`aliases`、`sections`；可选 `related` |
-| | `upsert_section` | `page`、`section`、`body`；替换时加 `hash` |
-| | `delete_section` | `page`、`section`、`hash` |
-| | `update_header` | `page`；`title`、`add_aliases`、`related` 至少一项 |
-| `write_recent` | `add_activity` | `text`；可选 `project`、`source`、`replaces` |
-| | `update_mainline` | `items`、`hash`（近期主线的版本短码） |
-| `write_persona` | `add` | `persona_section`、`text`、`source`；可选 `confirm_no_secret` |
-| | `replace` | `hash`、`text`、`source`；可选 `confirm_no_secret` |
-| | `delete` | `hash` |
-| | `propose` | `persona_section`、`text`、`source` |
-
-- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`update_mainline` 的规则见第 6 节。
-- 参数结构扁平，由服务按 `op` 校验。
-- `replace`、`delete` 缺短码或短码与任何画像条目都不符时，不按缺参数处理，而是拒绝并返回整份画像：按节列出，每节标明条数与上限，每条附短码；`delete` 不接受 `text`、`source`、`confirm_no_secret`，`replace` 不接受 `persona_section`。
-- 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
-- 返回 Markdown 风格的纯文本，不返回结构化数据。
-- 参数缺失、短码过期、超出上限或违反规则时标记错误，按"拒绝 / 下一步 / 相关内容"三段返回，"下一步"是主会话可直接执行的动作。同主题活动被退回、候选并入已有候选、提议命中拒绝列表或画像属于正常分支，不标记错误。
-- 参数名不在工具 schema 中的（未知参数）一律拒绝，每个未知参数一条 `Unknown parameter <名>.`，排在最前；同一次调用中缺 `op`、`op` 无效、放错 `op` 的已知参数一并列出，只拒绝一次。判断不看值：键在、名字不在 schema 中即为未知，值为 `null` 或空串也算；已知参数值为 `null` 仍按放错 `op` 的规则视为未给出。下一步：`op` 有效时列出该 op 的参数（`write_page` 另列 `page`）；`op` 缺失或无效时列出 `op` 的取值与工具的全部参数；`recall` 列出全部参数。拒绝不写文件、不提交，经调用记录路径记入日志，日志不含参数值。
+## 10. 记忆指令与记忆 skill
 
 ### 记忆指令
 
@@ -445,6 +423,14 @@ related: [my-app/backup-script, _topics/pgroonga]
 | `tacit-checkup` | 让主会话依据体检报告整理记忆仓库（见本文第 9 节） | 代码与记忆语言；报告经资源 `tacit://checkup-report` 读取 |
 
 两者 frontmatter 都含 `disable-model-invocation: true`，只由用户触发（触发方式见 `README.md`）。用户附在命令后的文字是本次的重点或附加要求，Agent 须遵从。`tacit-remember` 写完后列出写了什么：页面附页面标识，活动与画像条目附短码，候选附原文；不预先征求确认，与画像矛盾时先问用户。
+
+### 记忆 skill
+
+- 位置：`TACIT_HOME/skills/tacit-memory/SKILL.md`，由代码生成，用户不直接修改；成品结构与各部分的措辞见 `docs/prompts.md` 第 11 节。`prompts/skill.md` 存在且非空白时，末尾接 `## User conventions` 一节。
+- `prompts/skill.md` 的长度与格式规则见 `docs/reference/configuration.md`「提示词文档」。
+- 生成时机：服务启动时；`prompts/` 下的文件变化时；门面的 `GenerateSkills` 操作（返回三个 skill 各自的路径与是否写入），不需要服务运行；`connect` 绑定时也调用它。内容不变时不写文件。
+- 两个记忆指令与记忆 skill 同时生成。`tacit-remember` 的成品只取决于代码，`tacit-checkup` 只取决于代码与记忆语言；两者都不读取记忆仓库，也不读 `prompts/`，没有覆盖或追加文件，个人要求在触发时附上即可。
+- 不进入自动备份。系统部分正文的措辞验证方式见 `docs/testing.md` 第 4 节。
 
 ## 11. 语言
 
@@ -458,9 +444,9 @@ related: [my-app/backup-script, _topics/pgroonga]
 
 用户在 `prompts/` 下写的文档（`rules.md`、`instructions.md`、`resident.md`、`skill.md`）不检查语言，可用任一语言；语言规范只约束系统提供的文字。
 
-## 12. 客户端、备份与运行
+## 12. 运行
 
-### 客户端与绑定
+### 客户端绑定
 
 | 绑定写入 | 位置 |
 | :--- | :--- |
@@ -468,7 +454,7 @@ related: [my-app/backup-script, _topics/pgroonga]
 | skill 链接 | skill 目录下的 `tacit-memory`、`tacit-remember`、`tacit-checkup` 三个链接，分别指向 `TACIT_HOME/skills/` 下的同名目录 |
 | 绑定记录 | `TACIT_HOME/bindings.json`，每条含 `client`、`contextFile`、`skillsFolder` 与 `createdContextFile`；三个链接的位置由 `skillsFolder` 与固定的三个 skill 名推出 |
 
-绑定 = 客户端名称 + 上下文文件 + skill 目录。名称只是标签：只允许小写字母、数字与连字符，长度 1 到 32，大小写不同视为同一名称并以小写记录。两个路径都必填、没有默认值；开头的 `~` 展开为用户目录，记录的是绝对路径。tacit 不读写任何客户端的 MCP 配置：`connect` 打印 MCP 端点（`http://127.0.0.1:<port>/mcp`，传输方式 Streamable HTTP，建议的服务名 `tacit`），由用户在客户端中自行配置；改了 `server.port` 也须自行更新客户端中的配置。
+绑定 = 客户端名称 + 上下文文件 + skill 目录。名称只是标签：只允许小写字母、数字与连字符，长度 1 到 32，大小写不同视为同一名称并以小写记录。两个路径都必填、没有默认值；开头的 `~` 展开为用户目录，记录的是绝对路径。tacit 不读写任何客户端的 MCP 配置：`connect` 打印 MCP 端点（见 `docs/reference/mcp.md` 第 1 节），由用户在客户端中自行配置。命令的用法见 `docs/reference/cli.md`。
 
 `connect` 的检查顺序，任一步拒绝都不写任何文件：名称合规；同名记录的路径不同则拒绝，提示先 `disconnect`；上下文文件的上一级目录存在；skill 目录存在（不存在时拒绝，不创建）；三个链接位置无冲突（不存在，或已是指向 tacit 对应 skill 的链接）；严格加载配置与画像；上下文文件是 UTF-8 且标记完整。通过后依次生成三个 skill、写常驻区块、建立缺失的链接、写绑定记录；其后某一步失败时撤回本次新建的链接。同名同路径重复执行是安全的：补齐缺失的链接，常驻区块按当前画像重写。
 
@@ -483,14 +469,6 @@ related: [my-app/backup-script, _topics/pgroonga]
 - `status` 绑定栏：每条绑定注明与之共用路径的其他绑定；共用路径只检查一次，问题挂在第一个引用它的绑定上，其余绑定只注明共用。
 
 链接的形式：Windows 用目录联接（不需要管理员权限），其他平台用软链接。三个位置中任一被占用（同名的目录或文件，或指向别处的链接）时，`connect` 整体拒绝并指出冲突的位置：三个链接一个都不建，skill 成品与其他文件也不写，不回退为复制。链接无法建立（如 `TACIT_HOME` 位于网络盘）时同样拒绝。`disconnect` 只删除指向 tacit 的链接本身，不跟随链接删除目标，skill 成品保留。
-
-### 记忆 skill
-
-- 位置：`TACIT_HOME/skills/tacit-memory/SKILL.md`，由代码生成，用户不直接修改；成品结构与各部分的措辞见 `docs/prompts.md` 第 11 节。`prompts/skill.md` 存在且非空白时，末尾接 `## User conventions` 一节。
-- `prompts/skill.md` 的长度与格式规则见下文「提示词文档」。
-- 生成时机：服务启动时；`prompts/` 下的文件变化时；门面的 `GenerateSkills` 操作（返回三个 skill 各自的路径与是否写入），不需要服务运行；`connect` 绑定时也调用它。内容不变时不写文件。
-- 两个记忆指令与记忆 skill 同时生成。`tacit-remember` 的成品只取决于代码，`tacit-checkup` 只取决于代码与记忆语言；两者都不读取记忆仓库，也不读 `prompts/`，没有覆盖或追加文件，个人要求在触发时附上即可。
-- 不进入自动备份。系统部分正文的措辞验证方式见 `docs/testing.md` 第 4 节。
 
 ### 备份与恢复
 
@@ -511,97 +489,12 @@ related: [my-app/backup-script, _topics/pgroonga]
 - 结果：保险备份路径、恢复后的 HEAD、索引重建的文件数、单元数与向量数；加 `--include-config` 时附"`config.yaml` 重启 `tacit serve` 后生效"；恢复回来的 `memory.path` 不同时附"重启后会指向 X，记忆仓库已恢复到 Y"。
 - 云端恢复（`--remote`）：服务先把远端的 `tacit-backup.zip` 下载到 `backups/.download/tacit-backup.zip`（覆盖已有文件），校验后预览，预览中给出下载文件的本地路径。确认后以这个路径走上面的同一条恢复流程，所以确认的与恢复的是同一个文件；恢复成功后删除该文件，失败则保留以便排查。远端没有备份时提示"远端没有云端备份"；认证、连接与下载失败沿用云端备份的阶段提示。`.download/` 不是备份：不计入 `status` 的最近本地备份，也不被清理逻辑触及。
 
-### 配置
-
-配置目录为 `TACIT_HOME`（默认 `~/.tacit`），包含 `config.yaml`、`prompts/`（提示词文档）、`skills/`（生成的记忆 skill）、`bindings.json`、`backups/` 与 `logs/`。环境变量只用于指定 `TACIT_HOME`、提供密钥与关闭终端美化：`TACIT_EMBEDDING_API_KEY`、`TACIT_RERANKER_API_KEY`、`TACIT_DECISION_API_KEY`（三个模型的密钥）与 `TACIT_WEBDAV_PASSWORD`（WebDAV 密码）两处都有时以环境变量为准；`NO_COLOR` 的规则见下文「运行」。
-
-```yaml
-server:
-  port: 18888
-memory:
-  path: ~/.tacit/memory       # 默认为 $TACIT_HOME/memory
-language: zh
-
-models:                       # 可选；省略的模型即未配置，省略整个 models 段则三个都未配置
-  embedding: { url: …, model: …, apiKey: … }   # url 为完整请求地址，原样请求，不追加路径；apiKey 可省略，改设环境变量 TACIT_EMBEDDING_API_KEY
-  reranker:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_RERANKER_API_KEY
-  decision:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
-
-limits:
-  persona: { redLines: 5, workingRules: 20, preferences: 15, profile: 10 }
-  itemLength: 200
-  mainline: 5
-  page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
-candidates: { minDays: 2 }
-checkup: { remindAfterDays: 7, mainlineStaleDays: 14, budgetSeconds: 20, maxConcurrency: 5 }   # budgetSeconds：一次体检最多等模型的秒数；maxConcurrency：同时进行的模型判断数
-decision:                     # 各判断的上下阈值
-  samePreference: { certain: …, unlikely: … }
-  samePage:       { certain: …, unlikely: … }
-  sameTopic:      { certain: …, unlikely: … }
-  ruleConflict:   { certain: …, unlikely: … }
-retrieval: { candidates: 30, topK: 5, minRerankScore: … }
-backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云端备份（WebDAV）；password 可省略，改设 TACIT_WEBDAV_PASSWORD
-```
-
-- 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见第 4 节「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
-- `models.<模型>.provider` 可省略（即通用协议），写 `cloudflare`（不区分大小写）选用该提供方的适配；其他值按配置错误报告，并列出可用取值。已配置的模型的 `model` 都必填，包括 Cloudflare 的 reranker（它的模型名在 URL 中，`model` 只用于显示）。
-- 密钥：`models.embedding.apiKey`（`TACIT_EMBEDDING_API_KEY`）、`models.reranker.apiKey`（`TACIT_RERANKER_API_KEY`）、`models.decision.apiKey`（`TACIT_DECISION_API_KEY`）与 `backup.webdav.password`（`TACIT_WEBDAV_PASSWORD`）各有固定的环境变量名；环境变量非空时优先，否则用配置中的值，两处都没有即为未设置。辅助模型没有密钥不是错误，请求不带认证头；WebDAV 只有写了 `username` 时密码必填，两处都没有时加载配置报错，指出键路径与变量名。`models` 段或某个模型的映射缺失即为未配置，不报错；映射存在时 `url` 与 `model` 必填且不得为空，`url` 须为 http 或 https 绝对地址，原样保存，不补也不删末尾的 `/`；映射中只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错。`backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。`apiKeyEnv` 与 `backup.remote` 已删除，按未知键报错。
-
-### 提示词文档
-
-`TACIT_HOME/prompts/` 下的文档在启动与运行中保存时按以下规则检查；长度上限均以字符计。
-
-- **固定部分**（开场、核心规则、通用规则、语言规范与值得记标准）合计不超过 2500 字符。启动时超出则拒绝启动，报告超出的字符数，并列出可精简的文件（`rules.md`；存在 `instructions.md` 时一并列出）。
-- **服务端说明**总长不超过 4000 字符。生成时超出则依次截断近期摘要中最早的活动，再从末尾起截断已有项目列表，列表无法容纳时整段省略；固定部分、状态提示与体检提示不截断。
-- **核心规则**（`instructions.md`）中独占一行的 HTML 注释（`<!-- -->`）下发前删去，不计入长度；与文字同行的注释原样下发。
-- **值得记标准**（`rules.md`）：「值得记」与「不记」两节各最多 10 条，条目为顶层 `- ` 列表项。缺失时按记忆语言重新生成。
-- **常驻区块**（`resident.md`）全文不超过 1500 字符，换行按 LF 计，末尾空行也计入。开头为外壳正文，之后以 `## red_lines`、`## working_rules`、`## preferences`、`## profile` 分节，小节标题须与名称完全一致。出现其他小节标题或同一小节出现两次时拒绝启动，并指出文件与行号。缺少某一节时，该节只显示条目，不显示引导语。
-- **记忆 skill**（`skill.md`）不超过 3000 字符，不能以 frontmatter（开头的 `---` 部分）起始。
-- 以上文档均不检查语言。
-- 运行中保存时逐个文件检查：某文件出错则只它沿用上一版并提示，其余文件照常生效。`rules.md` 与 `instructions.md` 合计超过固定部分上限时两者都沿用上一版。
-
-### 运行
+### 服务运行
 
 - 单一常驻 HTTP MCP 服务，只监听 `127.0.0.1`，不做鉴权：本机视为可信边界。管理 API（`/api`）另有 Origin、Host 与 POST 的 Content-Type 三道防护，拒绝外部网页、DNS 重绑定与非 JSON 的 POST 请求（防护细节见 `docs/architecture.md` 第 5 节）。记忆工具的读写、服务端说明与体检报告资源的生成、后台的索引同步与常驻区块渲染、提示词重载共用一把读写锁：写入与后台任务之间串行，读取彼此共享；维护操作（`reindex`，以及恢复）独占，期间上述操作排队等待，完成后照常执行。服务未运行时记忆工具不可用，已写入的常驻区块仍然有效。
 - 启动时按文件哈希比对增量同步索引；运行时监听记忆仓库，文件变化即同步对应索引，画像变化时重新渲染常驻区块。
 - 索引记录表结构版本不一致时删除并全量重建；嵌入模型名或向量维度与记录不一致时只丢弃向量，全文索引保留，向量按文件哈希补齐。
-- 日志写入 `TACIT_HOME/logs/tacit-YYYYMMDD.log`，只有 `serve` 写入：按天一份，保留最近 14 份，级别从 Information 起，格式为「时间 级别 消息」；ASP.NET Core 与 MCP SDK 的日志只写警告。记录的事件：启动（版本、端口、记忆仓库路径）、监听地址、端口被占用、常驻区块渲染结果、提示词重载、索引同步失败、辅助模型最终失败与冷却、管理 API 每次调用（方法、路由、状态码、耗时）、记忆工具每次调用（工具、`op`、页面标识或短码、结果、耗时）；维护操作的开始、结束与失败（耗时）；索引重建的结果（文件、单元、向量、跳过的非 UTF-8 文件）与向量待补；自动、手动与保险备份的写入与失败，明文密钥提示；云端备份的上传、下载与失败，以及 `remote.json` 写入失败；恢复的开始、完成、回退与回退失败，以及临时目录未能删除。消息语言随记忆语言。不记录记忆正文、原话、查询文本、提示词内容、密钥与 WebDAV 密码。
-
-| 命令 | 作用 | 需要服务运行 |
-| :--- | :--- | :--- |
-| `tacit init [--language zh\|en] [--memory <路径>]` | 生成配置模板并创建记忆仓库 | 否 |
-| `tacit serve` | 启动常驻服务；未初始化时报错 | — |
-| `tacit connect` / `tacit disconnect` | `connect --client <名称> --context <文件> --skills <目录>`（三个选项都必填）；`disconnect --client <名称>`，路径取自绑定记录 | 否 |
-| `tacit probe [embedding\|reranker\|decision]` | 对 `config.yaml` 中配置的模型各发一次探测请求，报告结果与退出码（规则见第 4 节「探测」）。只读配置文件，不要求记忆仓库已初始化 | 否 |
-| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容，标明每一部分的来源（代码、内置默认或用户文件）与长度；`--default` 输出内置默认文本（`skill` 只输出系统部分）。`tools` 先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置；`remember` 与 `checkup` 输出对应 skill 的成品（不含体检报告）。`remember`、`checkup` 与 `tools` 不接受 `--default` | 否 |
-| `tacit status` | 服务（地址、版本、运行时长）、辅助模型的可用、冷却（含剩余秒数）与未配置、绑定（上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个）、上次体检（日期与距今天数，从未体检时写明）、待处理问题（可确认的候选、格式问题、主线是否过期，口径与体检提示相同）、最近本地备份（三种前缀中最新的一份）、云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）、日志位置、密钥来源（环境变量或配置文件，不显示值；未配置的模型或 WebDAV 写明"未配置，不需要密钥"）。服务未运行时写明"服务未运行"，服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`），省略服务运行时数据，辅助模型栏只列未配置的模型（三个都已配置时省略该栏），其余各栏照常（退出码 4）。`config.yaml` 无法加载时（有错误、文件不存在或记忆仓库未初始化）列出原因，有错误时列出全部错误的键路径；此时仍宽松读取 `server.port`（读不出、文件不存在或 YAML 无法解析时为 18888）与 `language`（读不出时取系统界面语言）探测服务：服务在运行则并入它的各栏，未运行或端口被他人占用则在服务栏注明，退出码均为 3。配置有效时退出码只看服务：应答并给出报告为 0；服务拒绝给出报告，或离线报告读取遇到 IO 或权限错误，为 1（原因写入 stderr）；无应答或端口被他人占用为 4；不因模型冷却或待处理问题而变化。不访问网络，不调用模型 | 否 |
-| `tacit reindex` | 全量重建派生索引（全文、向量、判断缓存）：删除并重建索引文件，按文件重新同步，等待向量补齐后输出文件数、单元数、已有向量的单元数、跳过的非 UTF-8 文件与耗时；嵌入模型未配置时只重建全文并注明嵌入模型未配置，嵌入模型不可用时只重建全文并注明向量待补。维护操作，期间记忆工具排队等待 | 是 |
-| `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份（不给选项时写到 `TACIT_HOME/backups/`，`--to` 写到指定目录）；`--remote` 上传云端备份，远端只保留一份；两者不能同时使用 | 是 |
-| `tacit restore --from <文件>\|--remote [--include-config] [--yes]` | 从本地备份或云端备份恢复：先显示预览，输入 `y` 后执行（`--yes`，短写 `-y`，跳过确认）；`--from` 与 `--remote` 恰好给一个；`--include-config` 一并恢复 `config.yaml` 与 `prompts/`；`--remote` 先下载云端备份，确认的即恢复的文件 | 是 |
-
-退出码（所有命令一致；`status` 的取值见表后）：
-
-| 码 | 含义 |
-| :--- | :--- |
-| 0 | 成功；`status` 中表示服务在运行 |
-| 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认，`probe` 有模型失败或明确指定的模型未配置 |
-| 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突、非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`、`probe`（`probe` 不要求记忆仓库，只因 `config.yaml` 而返回），以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
-| 4 | 服务未运行，含端口被其他程序占用 |
-
-结果写 stdout；错误与确认提示写 stderr。`restore` 在标准输入不是终端且未带 `--yes` 时以 2 结束，不挂起等待。
-`status` 的取值：配置无效为 3（即使服务拒绝报告，拒绝原因也只写入 stderr）；配置有效时，服务应答并给出报告为 0；服务拒绝给出报告，或离线报告读取遇到 IO 或权限错误，为 1，原因写入 stderr，stdout 不输出报告；无应答或端口被其他程序占用为 4。多余参数为用法错误 2。
-
-输出美化只在终端中进行，且每一路（stdout、stderr）各自判断：该路是终端且未设置环境变量 `NO_COLOR` 时美化，否则输出与美化前逐字相同的纯文本，不含任何控制字符。美化只改变排版与颜色，不新增任何文字，中英两种记忆语言下的内容一致。范围与颜色规则如下：
-- `status`：每栏的标题与行放进面板。颜色由各栏已有的结构化字段决定：服务正常为绿色、未运行为黄色；模型可用为绿色、冷却中为黄色、未配置不上色；绑定无问题为绿色、有问题为红色；待处理的计数均为零且主线未过期为绿色，有计数或主线过期为黄色，无法读取为红色；云端备份最近一次成功为绿色、失败为红色；配置栏总是红色。
-- `restore` 预览：`Report` 放进面板，将被替换的条目高亮。
-- 等待转圈：`reindex`、`backup --remote` 与 `restore` 的执行阶段，stderr 为终端时显示转圈与已用时间，不显示百分比，结束即清除。
-- `connect`：端点三行（端点、传输方式、建议的服务名）放进面板，其余照常。
-- `probe`：每行按结果上色：成功为绿色，失败与明确指定却未配置的为红色；未配置而跳过的行不上色。
-
-- `init` 在服务首次启动前创建记忆仓库，是唯一不经常驻服务写入记忆仓库的入口；`connect` 写客户端文件、客户端 skill 目录中的链接、`bindings.json` 与三个 skill 成品，`disconnect` 写客户端文件、链接与 `bindings.json`；两者加载配置时都会按上文补写缺失的 `rules.md`，只有 `connect` 生成 skill。
-- `show` 与 `init`、`connect` 一样直接调用门面，不读写常驻服务的状态；输出不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）。
-- 上表为 v1 的目标命令；各命令的实现状况见 `docs/architecture.md`。
+- 日志的位置、格式与记录的事件见 `docs/operations.md`「日志」；各命令的用法与退出码见 `docs/reference/cli.md`。
 
 ## 13. 不做的事（v1）
 

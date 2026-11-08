@@ -1,6 +1,6 @@
 # TacitMemory 架构
 
-本文档记录代码如何组织：程序集边界、模块分工、数据流与外部依赖。系统行为、接口与规则见 `docs/design.md`，术语见 `GLOSSARY.md`。代码结构变化时同步更新。
+本文档记录代码如何组织：程序集边界、模块分工、数据流与外部依赖。系统行为与规则见 `docs/design.md`，对外接口与配置项见 `docs/reference/`，术语见 `GLOSSARY.md`。代码结构变化时同步更新。
 
 本文描述 v1 的目标结构。各表的"状态"列标明是否已实现：**已实现**、**部分**（尚未实现的部分写在括号里）、**计划**。
 
@@ -51,7 +51,7 @@ flowchart LR
 | 程序集 | 职责 | 依赖 |
 | :--- | :--- | :--- |
 | `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService` 与契约类型，其余为 `internal` | 无内部依赖 |
-| `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://checkup-report`）与服务端说明，并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
+| `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://checkup-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`），并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
 | `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Mcp` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `McpHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
 
 `tacit probe` 经门面 `LoadConfigFile` 严格加载配置（不要求记忆仓库已初始化），再经门面 `ProbeAsync` 探测；门面返回的 `ProbeReport` 已含按记忆语言排好的报告行，CLI 原样打印，颜色由 `StyledOutput` 按终端规则施加，退出码由 `Commands` 按结果算出。它不经 `Commands` 的服务路径，不需要服务运行。
@@ -62,9 +62,9 @@ flowchart LR
 | :--- | :--- | :--- |
 | 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听，体检报告的入口是 `MemoryService.CheckupReportAsync` | 已实现 |
 | 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
-| 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/design.md` 第 12 节）；校验服务端说明的固定部分长度 | 已实现 |
+| 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/reference/configuration.md`「提示词文档」）；校验服务端说明的固定部分长度（见 `docs/design.md` 第 8 节） | 已实现 |
 | 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
-| 维护操作 | `MemoryService.RunMaintenanceAsync`：独占 `MaintenanceGate`，先等在途的向量补齐、判断与自动备份结束，再执行；期间其他读写与后台任务排队（范围见 `docs/design.md` 第 12 节「运行」）。`reindex`（`ReindexAsync`）与 `restore`（`RestoreAsync`）都是维护操作；恢复的校验在 `Backup/RestoreArchive`，换入与回退在 `Backup/RestoreInstall`（`Maintenance/MoveJournal` 记录每次移动并逆序撤销）。 | 已实现 |
+| 维护操作 | `MemoryService.RunMaintenanceAsync`：独占 `MaintenanceGate`，先等在途的向量补齐、判断与自动备份结束，再执行；期间其他读写与后台任务排队（范围见 `docs/design.md` 第 12 节「服务运行」）。`reindex`（`ReindexAsync`）与 `restore`（`RestoreAsync`）都是维护操作；恢复的校验在 `Backup/RestoreArchive`，换入与回退在 `Backup/RestoreInstall`（`Maintenance/MoveJournal` 记录每次移动并逆序撤销）。 | 已实现 |
 | 近期活动 | 写入活动（`add_activity`、`replaces`）与近期主线（`update_mainline`）：按日定位标题并保留其余字节、计算活动短码与版本短码；写入后的回复附主线与近期活动 | 已实现 |
 | 画像写入 | `write_persona` 的四个操作：参数按 `op` 校验，经校验与判断（画像冲突、同一偏好）后按行修改画像或候选文件，经串行队列写入并提交；画像变化时重渲染常驻区块。行为见 `docs/design.md` 第 6 节 | 已实现 |
 | 细节页写入 | `write_page` 的四个操作（`create`、`upsert_section`、`delete_section`、`update_header`）：参数按 `op` 校验，凭据检测，小节以短码定位，只改写本次文件并提交，写入后同步该页的索引 | 已实现 |
@@ -80,7 +80,7 @@ flowchart LR
 | 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致；只有辅助模型栏例外，离线时只列未配置的模型（`StatusReporter.OfflineAsync`）。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次体检与待处理问题复用 `CheckupSummary`，与体检提示同一入口，不调模型；最近本地备份取 `auto-`、`manual-`、`pre-restore-` 三种前缀中写入时间最新者，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
 | 备份与恢复 | `Backup/`：`BackupArchive` 是所有备份共用的打包（同一份内容清单，清单类型为 `BackupManifest`，含 `kind` 与 `memoryHeadSubject`，HEAD 由 `MemoryCommit` 读取一次）；自动备份（`AutomaticBackup`，每日一份，保留 `backup.keep`，只清理 `auto-*`）、手动备份（`ManualBackup`，在写入队列中打包，`--to` 指定目录，不清理）与保险备份（恢复前生成，不清理）已实现，时间戳与同秒重名拒绝由 `BackupNames` 统一。云端备份（`CloudBackup`，`tacit backup --remote`）在写入锁下打包到临时目录，锁外由 `WebDavClient` 上传为 `.part` 再 MOVE 覆盖远端 `tacit-backup.zip`，每次尝试记入 `backups/remote.json`，不在本地留副本。恢复：`RestoreArchive` 打开并校验备份，`RestorePreviewBuilder` 生成预览（`--include-config` 时检查备份中的 `config.yaml`），`RestoreInstall` 负责文件操作（保险备份、暂存、交换、撤销，经 `Maintenance/MoveJournal`），`MemoryService` 只编排维护操作的门与后续步骤（索引、监听、常驻区块）。云端恢复（`CloudDownload`）先下载到 `backups/.download/`，之后走同一流程 | 已实现 |
 | Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间 | 已实现 |
-| 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见设计文档第 12 节；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
+| 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见 `docs/reference/configuration.md`「提示词文档」；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
 | 日志 | `Logging/ServiceLog`：各事件经此写入，消息随记忆语言，通知（`notice`）同时显示给用户；记忆工具调用只在 `MemoryService` 的 `RecordToolCall` 一处记录。`serve` 的日志文件由 CLI 的 `ServeLog` 建立（Serilog，按天滚动，保留 14 份） | 已实现 |
 | 本地化 | 面向人的短文本与结构词：每一项以 `Localized(Zh, En)` 一并定义，缺一种写法即无法编译；面向 Agent 的英文文本只有一份 | 已实现 |
 | 查看 | `tacit show`：读取与常驻服务相同的来源，输出服务端说明、常驻区块、记忆 skill、工具说明，或 `remember`、`checkup` 的 skill 正文，每一部分标明来源与长度；`--default` 输出内置文本；不需要运行中的服务 | 已实现 |

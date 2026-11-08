@@ -180,7 +180,7 @@ _Avoid_: 后端、守护进程、server
 _Avoid_: 运维接口、控制面板、admin
 
 **维护操作**（Maintenance operation）：
-独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md` 第 12 节「运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
+独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md` 第 12 节「服务运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
 _Avoid_: 运维操作、独占操作、锁定操作
 
 **自动备份**（Automatic backup）：
