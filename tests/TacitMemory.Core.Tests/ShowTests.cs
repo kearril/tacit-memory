@@ -33,6 +33,8 @@ public sealed class ShowTests : IDisposable
         Assert.Equal(2500, result.Fixed!.Limit);
         Assert.Equal(4000, result.Whole!.Limit);
         Assert.True(result.Fixed.Length <= result.Fixed.Limit);
+        // The built-in fixed part keeps a margin under its limit, so a user's rules.md has room to grow.
+        Assert.True(result.Fixed.Length <= 1800, $"the built-in fixed part is {result.Fixed.Length} characters");
         Assert.True(result.Whole.Length >= result.Fixed.Length && result.Whole.Length <= result.Whole.Limit);
         var heading = result.Report.Split('\n')[0];
         Assert.Contains($"{result.Fixed!.Length}/2500", heading);
