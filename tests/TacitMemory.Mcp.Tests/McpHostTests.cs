@@ -582,7 +582,7 @@ public sealed class McpHostTests : IAsyncLifetime
         });
 
         Assert.NotEqual(true, proposed.IsError);
-        Assert.Contains("1/2", Text(proposed));
+        Assert.Contains("Recorded as a new candidate (scope: global)", Text(proposed));
         Assert.DoesNotMatch(@"\[[0-9a-f]{6}", Text(proposed));
         Assert.Contains(
             "### 沟通：先要结论\n归属：偏好\n- 2026-11-02 原话「先要结论」\n",
@@ -630,7 +630,7 @@ public sealed class McpHostTests : IAsyncLifetime
         });
 
         Assert.NotEqual(true, merged.IsError);
-        Assert.Contains("2/2", Text(merged));
+        Assert.Contains("Merged into the candidate \"沟通：先要结论\" (scope: global)", Text(merged));
         Assert.NotEqual(true, refused.IsError);
         Assert.Contains("2026-10-20", Text(refused));
         Assert.Contains(

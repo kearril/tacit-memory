@@ -40,7 +40,6 @@ limits:
   domainEntries: 10
   triggerLength: 60
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
-candidates: { minDays: 2 }
 consolidation: { remindAfterDays: 7, mainlineStaleDays: 14, budgetSeconds: 20, maxConcurrency: 5 }
 decision:                     # 各判断的上下阈值
   samePreference: { certain: …, unlikely: … }
@@ -84,7 +83,6 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - `limits.itemLength`：画像条目与活动正文的长度上限（字符），默认 200。
 - `limits.mainline`：近期主线的条数上限，默认 5。
 - `limits.page`：细节页标题与别名的长度上限，以及别名的最少个数。
-- `candidates.minDays`：画像候选的出现天数（不同日期）达到该值时可确认，默认 2。
 
 工具说明中的上限数字取自 `limits`，改配置后需重启服务。
 

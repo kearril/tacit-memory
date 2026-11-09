@@ -36,13 +36,14 @@ public sealed partial class PersonaProposeTests : IDisposable
 
     private const string Today = "2026-11-02";
 
-    private static WritePersonaRequest Propose(string? section, string? text, string? source = "先说结论", bool? confirmNoSecret = null) => new()
+    private static WritePersonaRequest Propose(string? section, string? text, string? source = "先说结论", bool? confirmNoSecret = null, string? scope = null) => new()
     {
         Op = "propose",
         Section = section,
         Text = text,
         Source = source,
         ConfirmNoSecret = confirmNoSecret,
+        Scope = scope,
     };
 
     private static string ShortOf(string text) =>
@@ -93,7 +94,9 @@ public sealed partial class PersonaProposeTests : IDisposable
             + "## 拒绝列表\n\n手写的注释\n",
             File.ReadAllText(CandidatesMd));
         Assert.Equal(persona, File.ReadAllText(PersonaMd));
-        Assert.Contains("1/2", result.Text);
+        Assert.Contains("new candidate", result.Text);
+        Assert.Contains("scope: global", result.Text);
+        Assert.DoesNotContain("days", result.Text);
         Assert.DoesNotMatch(ShortCodeInReply(), result.Text);
         Assert.Equal($"candidates: propose {ShortOf("沟通：先要结论")}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("candidates.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
@@ -289,17 +292,66 @@ public sealed partial class PersonaProposeTests : IDisposable
         Assert.True(await EventuallyAsync(() => !File.ReadAllText(AgentsMd).Contains("STALE", StringComparison.Ordinal)));
     }
 
-    [Fact]
-    public async Task The_minimum_days_setting_is_read_for_the_reply_and_reaching_it_says_it_can_be_confirmed()
+    [Theory]
+    [InlineData("domain:network-proxy")]
+    [InlineData("project:my-app")]
+    public async Task A_scoped_proposal_writes_its_scope_line_after_the_section_line(string scope)
     {
-        using var home = new TestHome();
-        home.InitReady("candidates:\n  minDays: 1\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        WriteCandidates("## 候选\n\n## 拒绝列表\n");
 
-        var result = await service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await _service.WritePersonaAsync(Propose("preferences", "网络：走固定出口", "走固定出口", scope: scope));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("1/1", result.Text);
-        Assert.Contains("consolidation", result.Text);
+        Assert.Contains($"scope: {scope}", result.Text);
+        Assert.Equal(
+            "## 候选\n\n### 网络：走固定出口\n归属：偏好\n"
+            + $"作用域：{scope}\n- {Today} 原话「走固定出口」\n\n## 拒绝列表\n",
+            File.ReadAllText(CandidatesMd));
+    }
+
+    [Fact]
+    public async Task A_proposal_with_a_scope_that_is_not_one_is_refused_and_the_next_step_names_op_propose()
+    {
+        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        var before = File.ReadAllText(CandidatesMd);
+
+        var result = await _service.WritePersonaAsync(Propose("preferences", "网络：走固定出口", scope: "domain:Bad Name"));
+
+        Assert.True(result.IsError);
+        Assert.False(result.Written);
+        Assert.Contains("domain:<label>", result.Text);
+        Assert.Contains("op=propose", result.Text);
+        Assert.Equal(before, File.ReadAllText(CandidatesMd));
+    }
+
+    [Fact]
+    public async Task A_proposal_takes_no_trigger_because_the_candidate_does_not_create_the_domain()
+    {
+        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+
+        var request = Propose("preferences", "网络：走固定出口", scope: "domain:network-proxy") with { Trigger = "改代理时" };
+        var result = await _service.WritePersonaAsync(request);
+
+        Assert.True(result.IsError);
+        Assert.Contains("Parameter trigger does not apply to op propose.", result.Text);
+        Assert.False(result.Written);
+    }
+
+    [Fact]
+    public async Task In_an_english_memory_the_scope_line_is_written_in_english()
+    {
+        using var home = new TestHome();
+        home.InitReady("language: en\n");
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
+        File.WriteAllText(candidates, "## Candidates\n\n## Rejection list\n");
+
+        var result = await service.WritePersonaAsync(Propose("preferences", "Network: fixed exit", "fixed exit", scope: "domain:network-proxy"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(
+            "## Candidates\n\n### Network: fixed exit\nBelongs to: Preferences\nScope: domain:network-proxy\n"
+            + $"- {Today} quote「fixed exit」\n\n## Rejection list\n",
+            File.ReadAllText(candidates));
     }
 }

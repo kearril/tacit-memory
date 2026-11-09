@@ -143,6 +143,20 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     [Fact]
+    public async Task A_candidate_scope_line_that_is_not_a_scope_is_reported_and_a_valid_one_is_not()
+    {
+        using var service = Open();
+        Write("candidates.md", "## 候选\n### 先说结论\n归属：偏好\n作用域：domain:Bad Name\n- 2026-10-28 原话「先说结论」\n### 再说结论\n归属：偏好\nScope: domain:network-proxy\n- 2026-10-28 原话「再说结论」\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Invalid scope", violations);
+        Assert.Contains("line 4", violations);
+        Assert.DoesNotContain("line 8", violations);
+        Assert.DoesNotContain("Unrecognized occurrence line", violations);
+    }
+
+    [Fact]
     public async Task Entries_outside_a_date_heading_and_bad_date_headings_are_reported()
     {
         using var service = Open();

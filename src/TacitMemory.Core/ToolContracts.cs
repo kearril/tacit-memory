@@ -136,7 +136,7 @@ public sealed record WritePersonaRequest
 
     /// <summary>
     /// The scope the entry goes into: <c>global</c> when omitted, <c>project:&lt;name&gt;</c> or <c>domain:&lt;label&gt;</c>.
-    /// Used by add only.
+    /// Used by add and propose.
     /// </summary>
     public string? Scope { get; init; }
 

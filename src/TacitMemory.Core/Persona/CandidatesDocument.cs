@@ -9,14 +9,15 @@ internal sealed record CandidateOccurrence(DateOnly Day, string Quote, bool Reje
 
 /// <summary>
 /// A candidate, or a rejected one: its text (the heading, the entry as it would be written into the persona), the
-/// section it belongs to, and its occurrence records in file order.
+/// section it belongs to, its occurrence records in file order, and the scope it goes into.
 /// </summary>
-internal sealed record PersonaCandidate(string Text, PersonaSection Section, IReadOnlyList<CandidateOccurrence> Occurrences);
+internal sealed record PersonaCandidate(string Text, PersonaSection Section, IReadOnlyList<CandidateOccurrence> Occurrences, PersonaScope Scope);
 
 /// <summary>
 /// <c>candidates.md</c> parsed leniently. Under its two <c>## </c> sections, in any language, each <c>### </c> heading
-/// starts a candidate, followed by a <c>归属：</c> line naming its section and dated occurrence lines. A block without a
-/// recognized section, and every line that is not a recognized occurrence, is left out; nothing is reported as an error.
+/// starts a candidate, followed by a <c>归属：</c> line naming its section, an optional <c>作用域：</c> line naming its
+/// scope (global when absent), and dated occurrence lines. A block without a recognized section, and every line that is
+/// not a recognized occurrence, is left out; nothing is reported as an error.
 /// </summary>
 internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candidates, IReadOnlyList<PersonaCandidate> RejectionList)
 {
@@ -31,14 +32,16 @@ internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candid
         List<PersonaCandidate>? list = null;
         string? title = null;
         PersonaSection? belongsTo = null;
+        string? scopeText = null;
         var occurrences = new List<CandidateOccurrence>();
 
         void EndCandidate()
         {
             if (list is not null && title is { Length: > 0 } && belongsTo is { } section)
-                list.Add(new PersonaCandidate(title, section, occurrences));
+                list.Add(new PersonaCandidate(title, section, occurrences, ScopeOfText(scopeText)));
             title = null;
             belongsTo = null;
+            scopeText = null;
             occurrences = [];
         }
 
@@ -61,6 +64,7 @@ internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candid
             else if (title is not null)
             {
                 belongsTo ??= BelongsToOf(line);
+                scopeText ??= ScopeTextOf(line);
                 if (OccurrenceOf(line) is { } occurrence)
                     occurrences.Add(occurrence);
             }
@@ -88,6 +92,21 @@ internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candid
             .FirstOrDefault(word => line.StartsWith(word, StringComparison.OrdinalIgnoreCase));
         return prefix is null ? null : PersonaDocument.KindOf(line[prefix.Length..].Trim());
     }
+
+    /// <summary>The text after a <c>作用域：</c> line's prefix, in either language; <c>null</c> when the line is not one.</summary>
+    internal static string? ScopeTextOf(string line)
+    {
+        var prefix = new[] { StructureWords.Scope.Zh, StructureWords.Scope.En }
+            .FirstOrDefault(word => line.StartsWith(word, StringComparison.OrdinalIgnoreCase));
+        return prefix is null ? null : line[prefix.Length..].Trim();
+    }
+
+    /// <summary>
+    /// The scope a candidate's scope line names. A missing line is the global scope, and so is a line that does not name a
+    /// scope; the format check reports the latter.
+    /// </summary>
+    internal static PersonaScope ScopeOfText(string? text) =>
+        text is not null && PersonaScope.TryParse(text, out var scope) ? scope : PersonaScope.Global;
 
     internal static CandidateOccurrence? OccurrenceOf(string line)
     {

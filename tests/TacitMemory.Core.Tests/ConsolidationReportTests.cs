@@ -117,7 +117,7 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task A_candidate_on_fewer_days_than_the_minimum_is_not_confirmable()
+    public async Task A_candidate_on_one_day_is_listed_because_there_is_no_day_threshold()
     {
         using var service = Open();
         WriteCandidates("# 候选\n\n## 候选\n"
@@ -129,7 +129,7 @@ public sealed class ConsolidationReportTests : IDisposable
 
         Assert.Contains("两天的候选", section);
         Assert.Contains("「2026-10-31的话」", section);
-        Assert.DoesNotContain("一天的候选", section);
+        Assert.Contains("一天的候选", section);
     }
 
     [Fact]

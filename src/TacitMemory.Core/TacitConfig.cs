@@ -14,9 +14,6 @@ public sealed record TacitConfig
 
     public required LimitsConfig Limits { get; init; }
 
-    /// <summary>Distinct days a persona candidate must appear on before it can be confirmed.</summary>
-    public required int CandidateMinDays { get; init; }
-
     public required ConsolidationConfig Consolidation { get; init; }
 
     public required DecisionThresholds Decision { get; init; }

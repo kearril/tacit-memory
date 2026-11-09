@@ -27,7 +27,8 @@ internal sealed record IndexHit(long Id, string Source, string Kind, string? Sec
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
 /// <param name="Section">The persona section the unit belongs to; <c>null</c> when the stored name is none of the four.</param>
 /// <param name="Text">The unit's text, as the judgment compares it.</param>
-internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string Text);
+/// <param name="Scope">The scope the unit's entry is in: global, or the project or domain of its block.</param>
+internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string Text, PersonaScope Scope);
 
 /// <summary>
 /// Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.
@@ -96,7 +97,7 @@ internal static class UnitKinds
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "7";
+    private const string SchemaVersion = "8";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
@@ -306,24 +307,41 @@ internal sealed class MemoryIndex : IDisposable
     /// <summary>
     /// The <paramref name="limit"/> judgment units (persona entries, candidates and rejected candidates) of the sources of
     /// the given kinds nearest to <paramref name="vector"/>, best first; empty when no vectors of that length are stored.
+    /// <paramref name="scopes"/> keeps only the units in those scopes; <c>null</c> keeps every scope.
     /// Judgment units never reach a search; this is the only way to read them back, for judgments.
     /// </summary>
     public IReadOnlyList<JudgmentHit> SearchJudgments(
-        float[] vector, IReadOnlyCollection<string> sourceKinds, int limit, IReadOnlyCollection<string>? unitKinds = null)
+        float[] vector,
+        IReadOnlyCollection<string> sourceKinds,
+        int limit,
+        IReadOnlyCollection<string>? unitKinds = null,
+        IReadOnlyCollection<PersonaScope>? scopes = null)
     {
         lock (_gate)
         {
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
-            return _connection.Query<IndexHit>($"""
-                SELECT {HitColumns}
+            var scopeFilter = scopes is null ? "" : "AND u.scope IN @scopes";
+            return _connection.Query<JudgmentRow>($"""
+                SELECT u.kind AS Kind, u.section AS Section, u.raw AS Text, u.scope AS Scope
                 FROM units_vec v JOIN units u ON u.id = v.rowid JOIN sources s ON s.id = u.source_id
-                WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds
+                WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds {scopeFilter}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
-                """, new { sourceKinds = sourceKinds.ToList(), unitKinds = (unitKinds ?? JudgmentKinds).ToList(), vector = Blob(vector), limit })
-                    .Select(hit => new JudgmentHit(hit.Kind, PersonaSectionNamed(hit.Section), hit.Text)).ToList();
+                """, new
+                {
+                    sourceKinds = sourceKinds.ToList(),
+                    unitKinds = (unitKinds ?? JudgmentKinds).ToList(),
+                    scopes = scopes?.Select(scope => scope.ToString()).ToList(),
+                    vector = Blob(vector),
+                    limit,
+                })
+                .Select(row => new JudgmentHit(row.Kind, PersonaSectionNamed(row.Section), row.Text, PersonaScope.Stored(row.Scope ?? "global")))
+                .ToList();
         }
     }
+
+    /// <summary>A judgment unit as a search reads it: its kind, its stored section and scope names, and its text.</summary>
+    private sealed record JudgmentRow(string Kind, string? Section, string Text, string? Scope);
 
     /// <summary>The persona section a stored section name stands for; <c>null</c> when it is none of the four.</summary>
     private static PersonaSection? PersonaSectionNamed(string? name) => Enum.TryParse<PersonaSection>(name, out var section) ? section : null;
@@ -635,27 +653,19 @@ internal sealed class MemoryIndex : IDisposable
             transaction);
         var scope = new UnitScope("", null, null);
         for (var i = 0; i < units.Count; i++)
-            AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction);
+            AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction, judgmentScope: units[i].Scope.ToString());
         transaction.Commit();
     }
 
     /// <summary>
-    /// The units of <c>persona.md</c>: one per list entry under a known section, its text with its continuation lines
-    /// but without its source comment.
+    /// The units of <c>persona.md</c>: one per list entry under a known section, in any scope, its text with its continuation
+    /// lines but without its source comment.
     /// </summary>
-    private static IReadOnlyList<JudgmentUnit> PersonaUnits(string text)
-    {
-        var units = new List<JudgmentUnit>();
-        foreach (var part in PersonaDocument.Parse(text).Parts)
-        {
-            if (part.Kind is not { } section)
-                continue;
-            foreach (var item in part.Items.Where(item => item.IsListItem && item.Text.Length > 0))
-                units.Add(new JudgmentUnit(UnitKinds.PersonaEntry, section, item.JudgmentText));
-        }
-
-        return units;
-    }
+    private static IReadOnlyList<JudgmentUnit> PersonaUnits(string text) =>
+        PersonaDocument.Parse(text).KnownEntries()
+            .Where(entry => entry.Item.IsListItem && entry.Item.Text.Length > 0)
+            .Select(entry => new JudgmentUnit(UnitKinds.PersonaEntry, entry.Kind, entry.Item.JudgmentText, entry.Scope))
+            .ToList();
 
     /// <summary>The units of <c>candidates.md</c>: one per candidate and one per rejected candidate, each named by its text.</summary>
     private static IReadOnlyList<JudgmentUnit> CandidateUnits(string text)
@@ -663,30 +673,31 @@ internal sealed class MemoryIndex : IDisposable
         var document = CandidatesDocument.Parse(text);
         return
         [
-            .. document.Candidates.Select(candidate => new JudgmentUnit(UnitKinds.Candidate, candidate.Section, candidate.Text)),
-            .. document.RejectionList.Select(candidate => new JudgmentUnit(UnitKinds.RejectedCandidate, candidate.Section, candidate.Text)),
+            .. document.Candidates.Select(candidate => new JudgmentUnit(UnitKinds.Candidate, candidate.Section, candidate.Text, candidate.Scope)),
+            .. document.RejectionList.Select(candidate => new JudgmentUnit(UnitKinds.RejectedCandidate, candidate.Section, candidate.Text, candidate.Scope)),
         ];
     }
 
     /// <summary>Whether a source path is one of the two persona files.</summary>
     private static bool IsJudgmentFile(string path) => path is PersonaFiles.Persona or PersonaFiles.Candidates;
 
-    /// <summary>One unit of a persona file: its kind, the persona section it belongs to, and its text.</summary>
-    private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text);
+    /// <summary>One unit of a persona file: its kind, the persona section it belongs to, its text, and the scope it is in.</summary>
+    private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text, PersonaScope Scope);
 
     /// <summary>The project and dates every unit of a source carries.</summary>
     private sealed record UnitScope(string Project, string? First, string? Last);
 
     /// <param name="hash">A section's content hash; the other kinds of unit have none.</param>
     /// <param name="changed">A section's last changed date as yyyy-MM-dd; the other kinds of unit have none.</param>
+    /// <param name="judgmentScope">A judgment unit's persona scope as its text; the other kinds of unit have none.</param>
     private void AddUnit(
         string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction,
-        string? code = null, string? hash = null, string? changed = null)
+        string? code = null, string? hash = null, string? changed = null, string? judgmentScope = null)
     {
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code, hash, changed) "
-            + "VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code, @hash, @changed) RETURNING id",
-            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code, hash, changed }, transaction);
+            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code, hash, changed, scope) "
+            + "VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code, @hash, @changed, @judgmentScope) RETURNING id",
+            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope }, transaction);
         _connection.Execute("INSERT INTO units_fts (rowid, text) VALUES (@unit, @text)", new { unit, text = IndexText.ForIndex(raw) }, transaction);
     }
 
@@ -773,7 +784,7 @@ internal sealed class MemoryIndex : IDisposable
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
-            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT);
+            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
             CREATE TABLE judgment_cache (cache_key TEXT PRIMARY KEY, probabilities TEXT NOT NULL, written TEXT NOT NULL);
