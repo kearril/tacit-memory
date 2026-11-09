@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using TacitMemory.Core;
 
 namespace TacitMemory.Mcp;
@@ -37,7 +39,11 @@ public sealed class McpHost : IAsyncDisposable
         builder.Logging.AddFilter("Microsoft.Extensions.Hosting", LogLevel.None);
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, port));
         builder.Services.AddSingleton(service);
-        builder.Services.AddMcpServer(options => options.ServerInfo = new() { Name = "tacit", Version = Version })
+        builder.Services.AddMcpServer(options =>
+            {
+                options.ServerInfo = new() { Name = "tacit", Version = Version };
+                options.Filters.Message.IncomingFilters.Add(RecordClients(service));
+            })
             .WithHttpTransport(options =>
             {
                 options.SessionMode = HttpServerSessionMode.Stateless;
@@ -72,6 +78,54 @@ public sealed class McpHost : IAsyncDisposable
 
         var bound = new Uri(app.Urls.Single()).Port;
         return new McpHost(app, new Uri($"http://127.0.0.1:{bound}/mcp"));
+    }
+
+    /// <summary>
+    /// The incoming filter that hands each client's declaration to the service. On the 2026-07-28 revision every request carries
+    /// it in its metadata. On the older revisions it comes only with the initialize request, whose parameters are read here, so
+    /// the other requests of those sessions pass on unrecorded. The filter only observes: it never changes the request or its answer.
+    /// </summary>
+    private static McpMessageFilter RecordClients(MemoryService service) => next => async (context, cancellationToken) =>
+    {
+        if (context.JsonRpcMessage is JsonRpcRequest request)
+            RecordRequest(service, request);
+        await next(context, cancellationToken);
+    };
+
+    private static void RecordRequest(MemoryService service, JsonRpcRequest request)
+    {
+        if (request.Method == RequestMethods.Initialize)
+        {
+            var initialize = request.Params is { } parameters
+                ? JsonSerializer.Deserialize<InitializeRequestParams>(parameters.ToJsonString(), McpJsonUtilities.DefaultOptions)
+                : null;
+            if (initialize?.ClientInfo is { } info)
+                service.RecordClient(Observation(info, initialize.ProtocolVersion, initialize.Capabilities));
+            return;
+        }
+
+        var envelope = request.Context;
+        if (envelope?.ClientInfo is { } client)
+            service.RecordClient(Observation(client, envelope.ProtocolVersion, envelope.ClientCapabilities));
+    }
+
+    /// <summary>The plain record of what a client declared: the name and version, the protocol revision, and the capabilities and extensions it named.</summary>
+    private static ClientObservation Observation(Implementation client, string? protocolVersion, ClientCapabilities? declared)
+    {
+        var capabilities = new List<string>();
+        if (declared?.Elicitation is not null)
+            capabilities.Add("elicitation");
+        // Sampling and roots are deprecated for the 2026-07-28 revision, but clients still declare them, and the record
+        // reports what a client declares on the wire. Reading the field here does not use the feature.
+#pragma warning disable MCP9005
+        if (declared?.Sampling is not null)
+            capabilities.Add("sampling");
+        if (declared?.Roots is not null)
+            capabilities.Add("roots");
+#pragma warning restore MCP9005
+        capabilities.AddRange(declared?.Experimental?.Keys ?? []);
+        var extensions = declared?.Extensions?.Keys ?? [];
+        return new ClientObservation(client.Name, client.Version, protocolVersion ?? "", capabilities, extensions.ToList());
     }
 
     public async ValueTask DisposeAsync()

@@ -24,6 +24,14 @@ internal static class ManagementApiMessages
     public static readonly Localized ModelCoolingDown = new("{0}：冷却中，剩余 {1} 秒", "{0}: cooling down, {1} s left");
     public static readonly Localized ModelUnconfigured = new("{0}：未配置", "{0}: not configured");
 
+    public static readonly Localized ClientsTitle = new("客户端", "Clients");
+    public static readonly Localized ClientsNone = new("尚未有客户端连接过服务。", "No client has connected to the service yet.");
+    public static readonly Localized ClientsUnreadable = new("无法读取客户端记录：{0}", "The client record cannot be read: {0}");
+    public static readonly Localized ClientLine = new(
+        "{0} {1}：最近连接 {2}，协议 {3}，扩展：{4}",
+        "{0} {1}: last connected {2}, protocol {3}, extensions: {4}");
+    public static readonly Localized ClientNoExtensions = new("无", "none");
+
     public static readonly Localized LogsTitle = new("日志", "Logs");
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
 
