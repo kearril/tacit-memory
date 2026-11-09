@@ -128,8 +128,8 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     {
         var subcommand = FirstArgument(context);
         throw new UsageException(subcommand is null
-            ? "Missing show subcommand. Valid subcommands: instructions, resident, skill, tools, remember, consolidation."
-            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, resident, skill, tools, remember, consolidation.");
+            ? "Missing show subcommand. Valid subcommands: instructions, resident, skill, tools, remember, consolidate."
+            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, resident, skill, tools, remember, consolidate.");
     });
 
     /// <summary>Show the server instructions a session receives.</summary>
@@ -221,7 +221,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
 
     /// <summary>Show the consolidation skill.</summary>
     [Command("show consolidate")]
-    public Task<int> ShowConsolidation(ConsoleAppContext context) => ShowPart(ShowTarget.Consolidation, useDefault: false, context);
+    public Task<int> ShowConsolidate(ConsoleAppContext context) => ShowPart(ShowTarget.Consolidation, useDefault: false, context);
 
     /// <summary>Prints one part of what the agent receives. A context is given only by the parts that take no options, so leftover words are refused.</summary>
     private Task<int> ShowPart(ShowTarget target, bool useDefault, ConsoleAppContext? context = null) => Execute(async () =>
