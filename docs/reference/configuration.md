@@ -38,7 +38,7 @@ limits:
   mainline: 5
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
 candidates: { minDays: 2 }
-checkup: { remindAfterDays: 7, mainlineStaleDays: 14, budgetSeconds: 20, maxConcurrency: 5 }
+consolidation: { remindAfterDays: 7, mainlineStaleDays: 14, budgetSeconds: 20, maxConcurrency: 5 }
 decision:                     # 各判断的上下阈值
   samePreference: { certain: …, unlikely: … }
   samePage:       { certain: …, unlikely: … }
@@ -82,12 +82,12 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 工具说明中的上限数字取自 `limits`，改配置后需重启服务。
 
-### `checkup`
+### `consolidation`
 
-- `remindAfterDays`（默认 7）：距上次体检达到该天数时，服务端说明出现体检提示。
+- `remindAfterDays`（默认 7）：距上次整理达到该天数时，服务端说明出现整理提示。
 - `mainlineStaleDays`（默认 14）：`recent.md` 最近一次提交距今超过该天数时，近期主线视为过期。
-- `budgetSeconds`（默认 20）：一次体检最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-checkup` 接着算"。
-- `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次体检共享。
+- `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
+- `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
 
 计时与缓存规则见 `docs/design.md` 第 9 节。
 

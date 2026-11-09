@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.Consolidation;
 
 namespace TacitMemory.Core.Pages;
 
@@ -62,7 +62,7 @@ internal sealed partial class PageDocument
 
     /// <summary>
     /// The format problems of this page against the page limits, in line order. Parsing stays lenient and never reports
-    /// them; the checkup asks for them. The file's name and its related pages are checked by the caller.
+    /// them; the consolidation asks for them. The file's name and its related pages are checked by the caller.
     /// </summary>
     public IReadOnlyList<FormatIssue> Problems(PageLimits limits)
     {

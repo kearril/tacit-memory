@@ -284,7 +284,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         var subject = dirty ? $"candidates: propose {code} (with user edits)" : $"candidates: propose {code}";
         var minDays = config.CandidateMinDays;
         var reply = $"Recorded as a candidate: it has appeared on 1/{minDays} days."
-            + CheckupNote(1, minDays)
+            + ConsolidationNote(1, minDays)
             + (judged.Note is { } note ? $"\n\n{note}" : "");
         return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
     }
@@ -318,7 +318,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         var days = candidate.Occurrences.Select(occurrence => occurrence.Day).Distinct().Count();
         var minDays = config.CandidateMinDays;
         if (candidate.Occurrences.Any(occurrence => occurrence.Day == today))
-            return ToolText.Ok($"Already recorded today: \"{candidate.Text}\" has appeared on {days}/{minDays} days." + CheckupNote(days, minDays));
+            return ToolText.Ok($"Already recorded today: \"{candidate.Text}\" has appeared on {days}/{minDays} days." + ConsolidationNote(days, minDays));
 
         var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, today, source, config.Language);
         if (after is null)
@@ -328,7 +328,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         var code = ShortCode.Of(ShortCode.Normalize(candidate.Text));
         var subject = dirty ? $"candidates: merge {code} (with user edits)" : $"candidates: merge {code}";
         var reply = $"Merged into the candidate \"{candidate.Text}\", which has appeared on {days + 1}/{minDays} days."
-            + CheckupNote(days + 1, minDays);
+            + ConsolidationNote(days + 1, minDays);
         return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
     }
 
@@ -540,8 +540,8 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// <summary>A success reply, with the note that a skipped judgment adds at its end.</summary>
     private static string WithNote(string reply, string? note) => note is null ? reply : $"{reply}\n\n{note}";
 
-    /// <summary>The note a candidate at or past the minimum number of days gets: it can be confirmed at the next checkup.</summary>
-    private static string CheckupNote(int days, int minDays) => days >= minDays ? " It can be confirmed at the next checkup." : "";
+    /// <summary>The note a candidate at or past the minimum number of days gets: it can be confirmed at the next consolidation.</summary>
+    private static string ConsolidationNote(int days, int minDays) => days >= minDays ? " It can be confirmed at the next consolidation." : "";
 
     private static ToolResult NotUtf8(string relative, string op) => ToolText.Refuse(
         $"{relative} is not valid UTF-8, so writing to it would change its text.",

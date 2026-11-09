@@ -1,10 +1,10 @@
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// The checkup's time budget, worker pool and model cooldown through the facade. The decision model holds its answers
+/// The consolidation's time budget, worker pool and model cooldown through the facade. The decision model holds its answers
 /// until the test releases them, and the budget is a timer on the test clock, so each test decides when the budget runs out.
 /// </summary>
-public sealed class CheckupBudgetTests : IDisposable
+public sealed class ConsolidationBudgetTests : IDisposable
 {
     /// <summary>A bound on each await: a wait for a timer the test never moves fails here instead of hanging.</summary>
     private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
@@ -75,10 +75,10 @@ public sealed class CheckupBudgetTests : IDisposable
         return next < 0 ? body : body[..next];
     }
 
-    /// <summary>Starts a checkup and waits until its budget timer exists, so the test can run the budget out.</summary>
-    private async Task<Task<string>> StartCheckupAsync()
+    /// <summary>Starts a consolidation and waits until its budget timer exists, so the test can run the budget out.</summary>
+    private async Task<Task<string>> StartConsolidationAsync()
     {
-        var report = Service.CheckupReportAsync().WaitAsync(Guard);
+        var report = Service.ConsolidationReportAsync().WaitAsync(Guard);
         await _home.Clock.NextTimerAsync(Budget).WaitAsync(Guard);
         return report;
     }
@@ -86,35 +86,35 @@ public sealed class CheckupBudgetTests : IDisposable
     [Fact]
     public async Task The_report_returns_when_the_budget_runs_out_and_says_what_is_left_unchecked()
     {
-        Configure($"checkup:\n  budgetSeconds: {Budget.TotalSeconds}\n");
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
         Write("回答尽量简短", "回复别太长");
         PickPersonaEntry();
         _models.HoldDecisions();
 
-        var report = await StartCheckupAsync();
+        var report = await StartConsolidationAsync();
         await _models.DecisionRequestsReached(2).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);
         var text = await report;
 
         Assert.Contains("not checked yet", Section(text, Removal));
-        Assert.Contains("checkup", Section(text, Removal));
+        Assert.Contains("consolidation", Section(text, Removal));
     }
 
     [Fact]
-    public async Task A_judgment_still_running_when_the_budget_runs_out_is_not_cancelled_and_is_cached_for_the_next_checkup()
+    public async Task A_judgment_still_running_when_the_budget_runs_out_is_not_cancelled_and_is_cached_for_the_next_consolidation()
     {
-        Configure($"checkup:\n  budgetSeconds: {Budget.TotalSeconds}\n");
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
         Write("回答尽量简短", "回复别太长");
         PickPersonaEntry();
         _models.HoldDecisions();
-        var report = await StartCheckupAsync();
+        var report = await StartConsolidationAsync();
         await _models.DecisionRequestsReached(2).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);
         await report;
 
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
-        var complete = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Equal(2, _models.DecisionCalls);
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
@@ -125,11 +125,11 @@ public sealed class CheckupBudgetTests : IDisposable
     [Fact]
     public async Task Judgments_not_yet_issued_when_the_budget_runs_out_are_never_issued()
     {
-        Configure($"checkup:\n  budgetSeconds: {Budget.TotalSeconds}\n  maxConcurrency: 1\n");
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n  maxConcurrency: 1\n");
         Write("回答尽量简短", "回复别太长", "别绕弯子");
         PickPersonaEntry();
         _models.HoldDecisions();
-        var report = await StartCheckupAsync();
+        var report = await StartConsolidationAsync();
         await _models.DecisionRequestsReached(1).WaitAsync(Guard);
 
         _home.Clock.Elapse(Budget);
@@ -144,11 +144,11 @@ public sealed class CheckupBudgetTests : IDisposable
     [Fact]
     public async Task No_more_judgments_run_at_once_than_the_configured_concurrency()
     {
-        Configure("checkup:\n  maxConcurrency: 2\n");
+        Configure("consolidation:\n  maxConcurrency: 2\n");
         Write("回答尽量简短", "回复别太长", "别绕弯子", "少用表情", "别客套");
         PickPersonaEntry();
         _models.HoldDecisions();
-        var report = Service.CheckupReportAsync().WaitAsync(Guard);
+        var report = Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         await _models.DecisionRequestsReached(2).WaitAsync(Guard);
         _models.ReleaseDecisions();
@@ -161,12 +161,12 @@ public sealed class CheckupBudgetTests : IDisposable
     [Fact]
     public async Task Once_the_decision_model_cools_down_the_queued_judgments_are_not_sent()
     {
-        Configure("checkup:\n  maxConcurrency: 1\n");
+        Configure("consolidation:\n  maxConcurrency: 1\n");
         Write("回答尽量简短", "回复别太长", "别绕弯子");
         PickPersonaEntry();
         _models.ScriptDecision(ModelReply.Status(ModelDouble.DownStatus));
 
-        var text = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var text = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(text, Removal));
@@ -174,17 +174,17 @@ public sealed class CheckupBudgetTests : IDisposable
     }
 
     [Fact]
-    public async Task After_the_cooldown_the_next_checkup_asks_the_model_again()
+    public async Task After_the_cooldown_the_next_consolidation_asks_the_model_again()
     {
-        Configure("checkup:\n  maxConcurrency: 1\n");
+        Configure("consolidation:\n  maxConcurrency: 1\n");
         Write("回答尽量简短", "回复别太长", "别绕弯子");
         PickPersonaEntry();
         _models.ScriptDecision(ModelReply.Status(ModelDouble.DownStatus));
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         var callsWhileCooling = _models.DecisionCalls;
 
         _home.Clock.Elapse(TimeSpan.FromSeconds(30));
-        var text = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var text = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > callsWhileCooling);
         Assert.DoesNotContain("Not checked", Section(text, Removal));
@@ -193,12 +193,12 @@ public sealed class CheckupBudgetTests : IDisposable
     [Fact]
     public async Task A_later_category_is_not_starved_when_an_earlier_one_runs_out_of_the_budget()
     {
-        Configure($"checkup:\n  budgetSeconds: {Budget.TotalSeconds}\n");
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
         Write("回答尽量简短");
         await CreatePage("alpha", "数据库升级", "内容一");
         await CreatePage("beta", "数据库迁移", "内容二");
         PickPersonaEntry();
-        var first = await StartCheckupAsync();
+        var first = await StartConsolidationAsync();
         await first;
 
         EditPage("alpha", "内容一", "内容三");
@@ -206,7 +206,7 @@ public sealed class CheckupBudgetTests : IDisposable
         var asked = _models.DecisionCalls + 2;
         var embedded = _models.EmbeddingCalls + 3;
         _models.HoldDecisions();
-        var report = await StartCheckupAsync();
+        var report = await StartConsolidationAsync();
         await _models.DecisionRequestsReached(asked).WaitAsync(Guard);
         await _models.EmbeddingRequestsReached(embedded).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);
@@ -216,7 +216,7 @@ public sealed class CheckupBudgetTests : IDisposable
 
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
-        var complete = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
@@ -225,11 +225,11 @@ public sealed class CheckupBudgetTests : IDisposable
     [Fact]
     public async Task A_confirmable_candidate_whose_check_ran_out_of_time_says_to_compare_it_with_the_persona_itself()
     {
-        Configure($"checkup:\n  budgetSeconds: {Budget.TotalSeconds}\n");
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
         Write("回答尽量简短");
         PickPersonaEntry();
         _models.HoldDecisions();
-        var report = await StartCheckupAsync();
+        var report = await StartConsolidationAsync();
         await _models.DecisionRequestsReached(1).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);
         var text = await report;

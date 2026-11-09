@@ -4,11 +4,11 @@ using System.Text;
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// The checkup's candidate clean-up through the facade: every candidate is judged against the persona and the rejection
+/// The consolidation's candidate clean-up through the facade: every candidate is judged against the persona and the rejection
 /// list with the live same-preference question; a sure match is listed for removal, an unsure one is hinted, and a
 /// judgment the models cannot make is reported as not checked. Answers are cached by the question's content.
 /// </summary>
-public sealed class CheckupCandidateTests : IDisposable
+public sealed class ConsolidationCandidateTests : IDisposable
 {
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
@@ -75,7 +75,7 @@ public sealed class CheckupCandidateTests : IDisposable
         return next < 0 ? body : body[..next];
     }
 
-    private async Task<string> Checkup() => await Service.CheckupReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
+    private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
     [Fact]
     public async Task A_candidate_the_decision_model_is_sure_repeats_a_persona_entry_is_listed_for_removal_with_its_short_code()
@@ -84,7 +84,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.95);
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Contains(Candidate, Section(report, Removal));
         Assert.Contains($"[{ShortOf("沟通：先要结论")}]", Section(report, Removal));
@@ -98,7 +98,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(EmptyPersona, "## 候选\n\n" + Block(Candidate, "2026-10-31") + "## 拒绝列表\n\n" + Block(Candidate, "2026-10-20").Replace("原话", "拒绝 原话", StringComparison.Ordinal));
         PickOption(Candidate, 0.95);
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Contains(Candidate, Section(report, Removal));
         Assert.Contains("rejected", Section(report, Removal));
@@ -115,7 +115,7 @@ public sealed class CheckupCandidateTests : IDisposable
             option => option.Key,
             option => option.Value.Contains("先要结论", StringComparison.Ordinal) ? 0.5 : option.Key == options.Keys.Last() ? 0.1 : 0.0);
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.DoesNotContain(Candidate, Section(report, Removal));
         var confirmable = Section(report, Confirmable);
@@ -131,7 +131,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.2);
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.DoesNotContain(Candidate, Section(report, Removal));
         var confirmable = Section(report, Confirmable);
@@ -146,7 +146,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, "## 候选\n\n" + Block(Candidate, "2026-10-30", "2026-10-31") + Block("另一个候选", "2026-10-30")
             + "## 拒绝列表\n\n" + Block("被拒的偏好", "2026-10-20").Replace("原话", "拒绝 原话", StringComparison.Ordinal));
 
-        await Checkup();
+        await Consolidation();
 
         var offered = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!["criteria"]!.AsObject()
             .Where(option => option.Key != "none")
@@ -162,7 +162,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Configure();
         Write(EmptyPersona, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(0, _models.DecisionCalls);
         Assert.Contains("None.", Section(report, Removal));
@@ -176,7 +176,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         _models.DecisionDown = true;
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Contains("Not checked", Section(report, Removal));
         var confirmable = Section(report, Confirmable);
@@ -191,7 +191,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         _models.EmbeddingDown = true;
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(0, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(report, Removal));
@@ -205,7 +205,7 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.95);
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.DoesNotContain(Candidate, Section(report, Removal));
         Assert.Contains("possibly the same as", Section(report, Confirmable));
@@ -218,8 +218,8 @@ public sealed class CheckupCandidateTests : IDisposable
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.95);
 
-        var first = await Checkup();
-        var second = await Checkup();
+        var first = await Consolidation();
+        var second = await Consolidation();
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains(Candidate, Section(first, Removal));
@@ -232,10 +232,10 @@ public sealed class CheckupCandidateTests : IDisposable
         Configure();
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.95);
-        await Checkup();
+        await Consolidation();
 
         File.WriteAllText(PersonaMd, PersonaWithPreference.Replace("先要结论", "先给结论", StringComparison.Ordinal).ReplaceLineEndings("\n"));
-        await Checkup();
+        await Consolidation();
 
         Assert.Equal(2, _models.DecisionCalls);
     }
@@ -246,12 +246,12 @@ public sealed class CheckupCandidateTests : IDisposable
         Configure();
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.95);
-        Assert.Contains(Candidate, Section(await Checkup(), Removal));
+        Assert.Contains(Candidate, Section(await Consolidation(), Removal));
 
         _service!.Dispose();
         _service = null;
         Configure("decision:\n  samePreference: { certain: 0.99, unlikely: 0.1 }\n");
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.DoesNotContain(Candidate, Section(report, Removal));
@@ -264,13 +264,13 @@ public sealed class CheckupCandidateTests : IDisposable
         Configure();
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
         PickOption("先要结论", 0.95);
-        await Checkup();
+        await Consolidation();
 
         _service!.Dispose();
         _service = null;
         foreach (var suffix in new[] { "", "-wal", "-shm" })
             File.Delete(Path.Combine(Memory, ".cache", "index.db" + suffix));
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(2, _models.DecisionCalls);
         Assert.Contains(Candidate, Section(report, Removal));

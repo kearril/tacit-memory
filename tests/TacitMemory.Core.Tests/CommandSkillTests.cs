@@ -22,7 +22,7 @@ public sealed class CommandSkillTests : IDisposable
 
     [Theory]
     [InlineData("tacit-remember")]
-    [InlineData("tacit-checkup")]
+    [InlineData("tacit-consolidate")]
     public void Generation_writes_a_memory_command_the_model_may_not_invoke_on_its_own(string name)
     {
         var result = _home.Tacit().GenerateSkills();
@@ -42,7 +42,7 @@ public sealed class CommandSkillTests : IDisposable
 
         Assert.True(File.Exists(SkillFile("tacit-memory")));
         Assert.True(File.Exists(SkillFile("tacit-remember")));
-        Assert.True(File.Exists(SkillFile("tacit-checkup")));
+        Assert.True(File.Exists(SkillFile("tacit-consolidate")));
     }
 
     [Fact]
@@ -79,21 +79,21 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_checkup_skill_reads_the_report_resource_first_and_ends_with_a_checkup_commit()
+    public void The_consolidation_skill_reads_the_report_resource_first_and_ends_with_a_consolidation_commit()
     {
         _home.Tacit().GenerateSkills();
 
-        var text = File.ReadAllText(SkillFile("tacit-checkup"));
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
 
-        Assert.Contains("tacit://checkup-report", text, StringComparison.Ordinal);
-        Assert.Contains("checkup:", text, StringComparison.Ordinal);
+        Assert.Contains("tacit://consolidation-report", text, StringComparison.Ordinal);
+        Assert.Contains("consolidate:", text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void The_checkup_skill_writes_the_structure_words_and_examples_in_the_memory_language()
+    public void The_consolidation_skill_writes_the_structure_words_and_examples_in_the_memory_language()
     {
         _home.Tacit().GenerateSkills();
-        var chinese = File.ReadAllText(SkillFile("tacit-checkup"));
+        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
         Assert.Contains("拒绝列表", chinese, StringComparison.Ordinal);
         Assert.Contains("改为", chinese, StringComparison.Ordinal);
         Assert.Contains("归属：偏好", chinese, StringComparison.Ordinal);
@@ -103,7 +103,7 @@ public sealed class CommandSkillTests : IDisposable
         // InitReady rewrites config.yaml without the language key, so the memory language is set again here.
         home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
         home.Tacit().GenerateSkills();
-        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-checkup", "SKILL.md"));
+        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
         Assert.Contains("Rejection list", english, StringComparison.Ordinal);
         Assert.Contains("instead", english, StringComparison.Ordinal);
         Assert.Contains("Belongs to: Preferences", english, StringComparison.Ordinal);
@@ -113,7 +113,7 @@ public sealed class CommandSkillTests : IDisposable
 
     [Theory]
     [InlineData(ShowTarget.Remember, "tacit-remember")]
-    [InlineData(ShowTarget.Checkup, "tacit-checkup")]
+    [InlineData(ShowTarget.Consolidation, "tacit-consolidate")]
     public async Task Show_prints_a_memory_command_as_written_and_has_no_built_in_default(ShowTarget target, string name)
     {
         var tacit = _home.Tacit();

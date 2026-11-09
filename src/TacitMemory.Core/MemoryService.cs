@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Backup;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -60,7 +60,7 @@ public sealed class MemoryService : IDisposable
     private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
     private readonly JudgmentPool _judgments;
-    private readonly CheckupServices _checkup;
+    private readonly ConsolidationServices _consolidation;
     private readonly RecallTool _recall;
     private PromptDocuments _prompts;
     private string? _instructions;
@@ -86,8 +86,8 @@ public sealed class MemoryService : IDisposable
         _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding?.Model, config.Language);
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
-        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Checkup.MaxConcurrency);
-        _checkup = new CheckupServices(_index, _models.Embedding, _vectors, _judgments);
+        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Consolidation.MaxConcurrency);
+        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
         _vectors.FillInBackground();
         _pages = new PageTools(
             options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
@@ -146,8 +146,8 @@ public sealed class MemoryService : IDisposable
 
             var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
             var projects = ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels);
-            var checkup = await CheckupReminder.RenderAsync(Config, _options.Today, cancellationToken);
-            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, projects, checkup).Text;
+            var consolidation = await ConsolidationReminder.RenderAsync(Config, _options.Today, cancellationToken);
+            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, projects, consolidation).Text;
 
             lock (_instructionsGate)
             {
@@ -167,13 +167,13 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
-    /// The text of the checkup report resource, built from the repository as it is now: the repository's path, today's
-    /// date and the checkup report. Reads only. Cancelling it abandons the report; nothing is written either way.
+    /// The text of the consolidation report resource, built from the repository as it is now: the repository's path, today's
+    /// date and the consolidation report. Reads only. Cancelling it abandons the report; nothing is written either way.
     /// </summary>
-    public async Task<string> CheckupReportAsync(CancellationToken cancellationToken = default)
+    public async Task<string> ConsolidationReportAsync(CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return await CheckupResource.RenderAsync(_options, Config, _checkup, cancellationToken);
+        return await ConsolidationResource.RenderAsync(_options, Config, _consolidation, cancellationToken);
     }
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
@@ -260,7 +260,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
     internal Task VectorCompletion => _vectors.Background;
 
-    /// <summary>Completes when the checkup judgments started so far have finished and their answers are cached. Tests await it.</summary>
+    /// <summary>Completes when the consolidation judgments started so far have finished and their answers are cached. Tests await it.</summary>
     internal Task JudgmentCompletion => _judgments.Completion;
 
     /// <summary>Writes the management API's event for one call: its method, route, status code and time taken.</summary>
@@ -346,7 +346,7 @@ public sealed class MemoryService : IDisposable
             // Judgments read the index, so it follows a manual edit first and this write right after; the watcher's later event finds the hash unchanged.
             _index.SyncJudgments();
             var result = await _persona.WriteAsync(request, cancellationToken);
-            // The candidates and the persona feed the checkup reminder, so the instructions are rebuilt on their next use.
+            // The candidates and the persona feed the consolidation reminder, so the instructions are rebuilt on their next use.
             InvalidateInstructions();
             _index.SyncJudgments();
             if (!result.Written)
@@ -411,8 +411,8 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Runs a maintenance operation with the memory to itself. First it waits for the background work already started (vector
-    /// fills, checkup judgments and automatic backups) to finish, so the operation never races them. While it runs, memory
-    /// tool calls, server instructions, the checkup report and background syncs wait, then run. The operation must not call the read
+    /// fills, consolidation judgments and automatic backups) to finish, so the operation never races them. While it runs, memory
+    /// tool calls, server instructions, the consolidation report and background syncs wait, then run. The operation must not call the read
     /// or write paths, which would wait for it. Its start, its end and its failure are logged.
     /// </summary>
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)

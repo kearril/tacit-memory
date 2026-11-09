@@ -6,9 +6,9 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
-/// <summary>One option of a choice question: the text the decision model reads, and the target the checkup takes when it is chosen.</summary>
+/// <summary>One option of a choice question: the text the decision model reads, and the target the consolidation takes when it is chosen.</summary>
 internal sealed record ChoiceOption<T>(string Text, T Target);
 
 /// <summary>
@@ -24,7 +24,7 @@ internal sealed record ChoiceQuestion<T>(string State, string Instructions, stri
 internal sealed record PreparedChoice<T>(ChoiceQuestion<T>? Question, UncheckedReason? Unchecked);
 
 /// <summary>
-/// Why a judgment of a checkup was not answered: the models could not answer it, they are not configured, or the budget
+/// Why a judgment of a consolidation was not answered: the models could not answer it, they are not configured, or the budget
 /// ran out first.
 /// </summary>
 internal enum UncheckedReason
@@ -47,12 +47,12 @@ internal sealed record JudgmentOutcome<T>(Tier? Tier, T? Target, UncheckedReason
 }
 
 /// <summary>
-/// The choice judgments of the checkup, shared by every checkup of the service. At most <c>checkup.maxConcurrency</c> of
+/// The choice judgments of the consolidation, shared by every consolidation of the service. At most <c>consolidation.maxConcurrency</c> of
 /// them run at once, each in one slot: its text is prepared (embedded and searched), then its question is answered from
 /// the judgment cache, or asked of the decision model and cached. The budget holds back only the asking: a judgment that
 /// holds a slot still reads the cache after the budget ran out, and a model that is cooling down or not configured is
-/// not called. Only the checkup reads and writes the cache; the live judgments never do. A judgment that has started always
-/// runs to its end, so its answer is cached even when the checkup that asked stopped waiting for it.
+/// not called. Only the consolidation reads and writes the cache; the live judgments never do. A judgment that has started always
+/// runs to its end, so its answer is cached even when the consolidation that asked stopped waiting for it.
 /// </summary>
 internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, TimeProvider time, int maxConcurrency)
 {
@@ -67,10 +67,10 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
     public static UncheckedReason NoAnswerReason(bool configured) =>
         configured ? UncheckedReason.ModelUnavailable : UncheckedReason.Unconfigured;
 
-    /// <summary>Starts the judgments of one checkup. The budget is started by the session, once every judgment is submitted.</summary>
+    /// <summary>Starts the judgments of one consolidation. The budget is started by the session, once every judgment is submitted.</summary>
     public JudgmentSession Begin(CancellationToken cancellationToken) => new(this, time, cancellationToken);
 
-    /// <summary>Completes when every judgment started so far has finished, including those a checkup stopped waiting for.</summary>
+    /// <summary>Completes when every judgment started so far has finished, including those a consolidation stopped waiting for.</summary>
     public Task Completion
     {
         get

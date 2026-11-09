@@ -300,6 +300,6 @@ public sealed partial class PersonaProposeTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("1/1", result.Text);
-        Assert.Contains("checkup", result.Text);
+        Assert.Contains("consolidation", result.Text);
     }
 }

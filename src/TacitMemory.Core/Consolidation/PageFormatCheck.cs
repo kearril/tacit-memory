@@ -1,6 +1,6 @@
 using TacitMemory.Core.Pages;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The format checks of one detail page file: its name against the page file rule, its content against the page limits

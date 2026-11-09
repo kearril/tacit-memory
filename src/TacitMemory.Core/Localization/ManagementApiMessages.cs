@@ -71,13 +71,13 @@ internal static class ManagementApiMessages
         "{0}: the skill link {3} is missing or does not point at tacit (context file {1}; skills folder {2})");
     public static readonly Localized BindingSharedWith = new("（与 {0} 共用路径）", " (shares paths with {0})");
 
-    public static readonly Localized CheckupTitle = new("上次体检", "Last checkup");
-    public static readonly Localized CheckupOn = new("上次体检：{0}，{1}", "Last checkup: {0}, {1}");
-    public static readonly Localized CheckupFromInit = new("尚未体检，从初始化提交（{0}）起算，{1}", "No checkup yet; counting from the init commit ({0}), {1}");
-    public static readonly Localized CheckupNever = new("从未体检（仓库没有 checkup: 或 init: 提交）", "Never checked (the repository has no checkup: or init: commit)");
+    public static readonly Localized ConsolidationTitle = new("上次整理", "Last consolidation");
+    public static readonly Localized ConsolidationOn = new("上次整理：{0}，{1}", "Last consolidation: {0}, {1}");
+    public static readonly Localized ConsolidationFromInit = new("尚未整理，从初始化提交（{0}）起算，{1}", "No consolidation yet; counting from the init commit ({0}), {1}");
+    public static readonly Localized ConsolidationNever = new("从未整理（仓库没有 consolidate: 或 init: 提交）", "Never checked (the repository has no consolidate: or init: commit)");
     public static readonly Localized DaysAgo = new("距今 {0} 天", "{0} days ago");
     public static readonly Localized DayAgo = new("距今 1 天", "1 day ago");
-    public static readonly Localized CheckupUnreadable = new("无法读取记忆仓库的历史：{0}", "The repository's history cannot be read: {0}");
+    public static readonly Localized ConsolidationUnreadable = new("无法读取记忆仓库的历史：{0}", "The repository's history cannot be read: {0}");
 
     public static readonly Localized PendingTitle = new("待处理问题", "Pending issues");
     public static readonly Localized PendingConfirmable = new("可确认的候选：{0}", "Candidates that can be confirmed: {0}");

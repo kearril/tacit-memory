@@ -3,7 +3,7 @@ using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// Candidates whose occurrences fall on at least <c>candidates.minDays</c> distinct days, and that are not a sure repeat
@@ -14,10 +14,10 @@ namespace TacitMemory.Core.Checkup;
 /// </summary>
 internal static class ConfirmableCandidates
 {
-    public static CheckupSection Produce(TacitConfig config, CandidateReview? review)
+    public static ConsolidationSection Produce(TacitConfig config, CandidateReview? review)
     {
         if (review is null)
-            return new CheckupSection(CheckupTitles.ConfirmableCandidates, [], CandidateReview.NotReadable);
+            return new ConsolidationSection(ConsolidationTitles.ConfirmableCandidates, [], CandidateReview.NotReadable);
 
         var language = config.Language;
         var findings = new List<string>();
@@ -47,11 +47,11 @@ internal static class ConfirmableCandidates
         if (unanswered.Unconfigured > 0)
             because.Add("the decision or embedding model is not configured");
         if (unanswered.OutOfBudget > 0)
-            because.Add("the checkup ran out of time");
+            because.Add("the consolidation ran out of time");
         var status = because.Count == 0
             ? null
             : $"Not checked for an existing same preference: {string.Join(", and ", because)}. "
               + "Compare each candidate below with the persona yourself before asking the user.";
-        return new CheckupSection(CheckupTitles.ConfirmableCandidates, findings, status);
+        return new ConsolidationSection(ConsolidationTitles.ConfirmableCandidates, findings, status);
     }
 }

@@ -1,4 +1,4 @@
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>How a format problem is handled: the agent fixes it directly, asks the user, or only reports it.</summary>
 internal enum FormatHandling

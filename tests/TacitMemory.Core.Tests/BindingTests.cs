@@ -489,7 +489,7 @@ public sealed class BindingTests : IDisposable
         Assert.Contains("bindings.json", error.Message);
     }
 
-    private static readonly string[] SkillNames = ["tacit-memory", "tacit-remember", "tacit-checkup"];
+    private static readonly string[] SkillNames = ["tacit-memory", "tacit-remember", "tacit-consolidate"];
 
     private string OtherAgentsMd => Path.Combine(_home.UserHome, "beta", "AGENTS.md");
 

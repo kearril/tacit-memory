@@ -28,7 +28,7 @@ flowchart LR
         Index[派生索引与检索]
         Judge[判断]
         Inject[注入渲染]
-        Checkup[体检报告]
+        Consolidation[整理报告]
         Backup[备份与恢复]
     end
     Facade --> Service
@@ -51,7 +51,7 @@ flowchart LR
 | 程序集 | 职责 | 依赖 |
 | :--- | :--- | :--- |
 | `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService` 与契约类型，其余为 `internal` | 无内部依赖 |
-| `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://checkup-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`），并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
+| `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://consolidation-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`），并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
 | `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Mcp` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `McpHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
 
 `tacit probe` 经门面 `LoadConfigFile` 严格加载配置（不要求记忆仓库已初始化），再经门面 `ProbeAsync` 探测；门面返回的 `ProbeReport` 已含按记忆语言排好的报告行，CLI 原样打印，颜色由 `StyledOutput` 按终端规则施加，退出码由 `Commands` 按结果算出。它不经 `Commands` 的服务路径，不需要服务运行。
@@ -60,7 +60,7 @@ flowchart LR
 
 | 模块 | 职责 | 状态 |
 | :--- | :--- | :--- |
-| 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听，体检报告的入口是 `MemoryService.CheckupReportAsync` | 已实现 |
+| 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听，整理报告的入口是 `MemoryService.ConsolidationReportAsync` | 已实现 |
 | 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
 | 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/reference/configuration.md`「提示词文档」）；校验服务端说明的固定部分长度（见 `docs/design.md` 第 8 节） | 已实现 |
 | 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
@@ -68,22 +68,22 @@ flowchart LR
 | 近期活动 | 写入活动（`add_activity`、`replaces`）与近期主线（`update_mainline`）：按日定位标题并保留其余字节、计算活动短码与版本短码；写入后的回复附主线与近期活动 | 已实现 |
 | 画像写入 | `write_persona` 的四个操作：参数按 `op` 校验，经校验与判断（画像冲突、同一偏好）后按行修改画像或候选文件，经串行队列写入并提交；画像变化时重渲染常驻区块。行为见 `docs/design.md` 第 6 节 | 已实现 |
 | 细节页写入 | `write_page` 的四个操作（`create`、`upsert_section`、`delete_section`、`update_header`）：参数按 `op` 校验，凭据检测，小节以短码定位，只改写本次文件并提交，写入后同步该页的索引 | 已实现 |
-| Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由体检报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
-| 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、项目与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存体检判断的概率，键为提问内容的哈希，三档在读取时按阈值计算 | 已实现 |
+| Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由整理报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
+| 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、项目与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存整理判断的概率，键为提问内容的哈希，三档在读取时按阈值计算 | 已实现 |
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
 | 决策模型接口 | 只含选择题（返回各选项概率）；System One 协议的实现 `SystemOneDecisionModel`，请求发往配置的完整 URL（TypeSafe 的原生决策接口即其一个服务），密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先），没有密钥时不带认证头；`provider: cloudflare` 时请求体相同，只在读取响应时先取 `result` | 已实现 |
 | 辅助模型客户端 | 以 `HttpClient` 调用三个模型，三者共用 `ModelClient` 的请求内重试与冷却（数值与判定规则见 `docs/design.md` 第 4 节）；每个模型的请求由 `ModelRequest` 构造：发往配置的完整 URL，有密钥时带 `Authorization: Bearer`，没有则不带认证头；提供方分派只在构造请求与读取响应两处（`RerankerModel` 的 Cloudflare 格式与 `SystemOneDecisionModel` 的 `result` 信封，信封类型为 `CloudflareEnvelope`，`success` 不为真或无 `result` 即格式不对）。未配置的模型（`Configured` 为假）的调用直接返回"无结果"，不发请求、不影响健康状态；未配置与不可用的判定集中在 `AuxiliaryModels`（`Statuses` 给出 `Unconfigured`、`Unavailable` 与可用三种）；状态提示只按冷却判定 | 已实现 |
 | 探测 | `ModelProbe`：`tacit probe` 的一次性请求（规则见 `docs/design.md` 第 4 节「探测」）；每个模型的 `ProbeAsync` 复用其请求构建与响应读取，内置英文探测文本在 `ProbeInputs`。`ProbeLines` 按记忆语言把结果排成报告行，文字在 `Localization/ProbeMessages`。门面 `ProbeAsync` 接收严格加载的配置、角色与是否点名，返回 `ProbeReport`（结果与报告行），不打印；门面 `LoadConfigFile` 只校验 `config.yaml`，不要求记忆仓库。CLI 只打印报告行并按结果定退出码 | 已实现 |
-| 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示），执行长度上限与截断顺序；生成三个 skill（`Skills/SkillSet`：`tacit-memory` 由 `MemorySkill` 生成并接 `skill.md`；`tacit-remember` 与 `tacit-checkup` 共用 `CommandSkill` 的外壳，正文分别来自 `RememberSkill`、`CheckupSkill`；内容不变不写） | 已实现 |
+| 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、整理提示），执行长度上限与截断顺序；生成三个 skill（`Skills/SkillSet`：`tacit-memory` 由 `MemorySkill` 生成并接 `skill.md`；`tacit-remember` 与 `tacit-consolidate` 共用 `CommandSkill` 的外壳，正文分别来自 `RememberSkill`、`ConsolidationSkill`；内容不变不写） | 已实现 |
 | 客户端绑定 | 通用绑定：`connect` 与 `disconnect` 的门面、客户端名称规范化与 `~` 展开、路径比较（规范化后的完整路径，Windows 上不区分大小写，不解析联接与软链接）、常驻区块与三个 skill 链接的建立与拆除（`Clients/SkillLink`：Windows 用目录联接，其他平台用软链接；删除时只删指向 tacit 的链接本身）、`bindings.json` 读写（`Clients/BindingStore`）；共用的上下文文件与 skill 目录由 `Clients/SharedPaths` 判断引用者，渲染按路径去重；不读写任何客户端的 MCP 配置 | 已实现 |
-| 体检报告 | 现场计算报告（`Checkup/`），由 `CheckupResource` 作为资源 `tacit://checkup-report` 的正文返回：前面加上今天的日期、记忆仓库绝对路径与 `git -C` 用法。报告内容包括上次体检基准（最近的 `checkup:` 提交，否则 `init:`，都没有则从未体检）；疑似重复的页与互相冲突的画像条目经判断工作池与限时会话取得答案（`JudgmentPool`、`JudgmentSession`）；可确认与待清理的画像候选；违反格式或规则（`FormatViolations`，生成报告时重新解析全部记忆文件）；过期的近期主线。六类的计算方式、限时与缓存规则见 `docs/design.md` 第 9 节。`CheckupReport` 按报告顺序组装各类，无问题的类别写 `None.`；体检提示（`CheckupReminder`）复用其中不调模型的部分 | 已实现 |
-| 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致；只有辅助模型栏例外，离线时只列未配置的模型（`StatusReporter.OfflineAsync`）。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次体检与待处理问题复用 `CheckupSummary`，与体检提示同一入口，不调模型；最近本地备份取 `auto-`、`manual-`、`pre-restore-` 三种前缀中写入时间最新者，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
+| 整理报告 | 现场计算报告（`Consolidation/`），由 `ConsolidationResource` 作为资源 `tacit://consolidation-report` 的正文返回：前面加上今天的日期、记忆仓库绝对路径与 `git -C` 用法。报告内容包括上次整理基准（最近的 `consolidate:` 提交，否则 `init:`，都没有则从未整理）；疑似重复的页与互相冲突的画像条目经判断工作池与限时会话取得答案（`JudgmentPool`、`JudgmentSession`）；可确认与待清理的画像候选；违反格式或规则（`FormatViolations`，生成报告时重新解析全部记忆文件）；过期的近期主线。六类的计算方式、限时与缓存规则见 `docs/design.md` 第 9 节。`ConsolidationReport` 按报告顺序组装各类，无问题的类别写 `None.`；整理提示（`ConsolidationReminder`）复用其中不调模型的部分 | 已实现 |
+| 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致；只有辅助模型栏例外，离线时只列未配置的模型（`StatusReporter.OfflineAsync`）。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次整理与待处理问题复用 `ConsolidationSummary`，与整理提示同一入口，不调模型；最近本地备份取 `auto-`、`manual-`、`pre-restore-` 三种前缀中写入时间最新者，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
 | 备份与恢复 | `Backup/`：`BackupArchive` 是所有备份共用的打包（同一份内容清单，清单类型为 `BackupManifest`，含 `kind` 与 `memoryHeadSubject`，HEAD 由 `MemoryCommit` 读取一次）；自动备份（`AutomaticBackup`，每日一份，保留 `backup.keep`，只清理 `auto-*`）、手动备份（`ManualBackup`，在写入队列中打包，`--to` 指定目录，不清理）与保险备份（恢复前生成，不清理）已实现，时间戳与同秒重名拒绝由 `BackupNames` 统一。云端备份（`CloudBackup`，`tacit backup --remote`）在写入锁下打包到临时目录，锁外由 `WebDavClient` 上传为 `.part` 再 MOVE 覆盖远端 `tacit-backup.zip`，每次尝试记入 `backups/remote.json`，不在本地留副本。恢复：`RestoreArchive` 打开并校验备份，`RestorePreviewBuilder` 生成预览（`--include-config` 时检查备份中的 `config.yaml`），`RestoreInstall` 负责文件操作（保险备份、暂存、交换、撤销，经 `Maintenance/MoveJournal`），`MemoryService` 只编排维护操作的门与后续步骤（索引、监听、常驻区块）。云端恢复（`CloudDownload`）先下载到 `backups/.download/`，之后走同一流程 | 已实现 |
 | Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间 | 已实现 |
 | 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见 `docs/reference/configuration.md`「提示词文档」；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
 | 日志 | `Logging/ServiceLog`：各事件经此写入，消息随记忆语言，通知（`notice`）同时显示给用户；记忆工具调用只在 `MemoryService` 的 `RecordToolCall` 一处记录。`serve` 的日志文件由 CLI 的 `ServeLog` 建立（Serilog，按天滚动，保留 14 份） | 已实现 |
 | 本地化 | 面向人的短文本与结构词：每一项以 `Localized(Zh, En)` 一并定义，缺一种写法即无法编译；面向 Agent 的英文文本只有一份 | 已实现 |
-| 查看 | `tacit show`：读取与常驻服务相同的来源，输出服务端说明、常驻区块、记忆 skill、工具说明，或 `remember`、`checkup` 的 skill 正文，每一部分标明来源与长度；`--default` 输出内置文本；不需要运行中的服务 | 已实现 |
+| 查看 | `tacit show`：读取与常驻服务相同的来源，输出服务端说明、常驻区块、记忆 skill、工具说明，或 `remember`、`consolidation` 的 skill 正文，每一部分标明来源与长度；`--default` 输出内置文本；不需要运行中的服务 | 已实现 |
 
 ## 4. 数据流
 
@@ -106,16 +106,16 @@ flowchart LR
 3. 向量：`vec0`（余弦距离），单元与筛选规则同全文；缺向量的单元按批补齐：启动与监听同步后在后台进行，每次写入后与模型恢复后的第一次检索时则在本次调用中完成。
 4. 两路各取候选，RRF 合并后交 reranker，按阈值过滤并截取（数量见 `docs/design.md` 第 7 节）。
 
-### 体检
+### 整理
 
-- 体检报告经资源 `tacit://checkup-report` 进入体检报告模块（`MemoryService.CheckupReportAsync`）：先读取记忆仓库的提交历史（上次体检的基准），再由各类别的生成函数读取 `candidates.md`、`recent.md` 的最近提交等，组装报告。报告计算不写记忆仓库的文件；判断的概率写入派生索引的判断缓存。修改由主会话在记忆仓库中完成。
-- 判断工作池（`Checkup/JudgmentPool`）由服务共享，持有并发上限与判断缓存；每次体检的 `JudgmentSession` 负责限时：各类别读取仓库、提交全部判断之后才开始计时，读取与提交不计入预算。到点时尚未取得并发槽位的判断不再发出；已取得槽位的判断照常准备问题并先读缓存，只有缓存未命中且未到点才调用决策模型；在途的调用跑完后写入缓存。三类判断都经此接缝：问题由类别准备（嵌入、检索近邻），回答由工作池取得（缓存或决策模型），三档由类别用自己的阈值划分。
-- `tacit-checkup` 正文的结构（开场、步骤、结构词对照表与示例）见 `docs/prompts.md` 第 7 节；报告的内容见 `docs/design.md` 第 9 节。
+- 整理报告经资源 `tacit://consolidation-report` 进入整理报告模块（`MemoryService.ConsolidationReportAsync`）：先读取记忆仓库的提交历史（上次整理的基准），再由各类别的生成函数读取 `candidates.md`、`recent.md` 的最近提交等，组装报告。报告计算不写记忆仓库的文件；判断的概率写入派生索引的判断缓存。修改由主会话在记忆仓库中完成。
+- 判断工作池（`Consolidation/JudgmentPool`）由服务共享，持有并发上限与判断缓存；每次整理的 `JudgmentSession` 负责限时：各类别读取仓库、提交全部判断之后才开始计时，读取与提交不计入预算。到点时尚未取得并发槽位的判断不再发出；已取得槽位的判断照常准备问题并先读缓存，只有缓存未命中且未到点才调用决策模型；在途的调用跑完后写入缓存。三类判断都经此接缝：问题由类别准备（嵌入、检索近邻），回答由工作池取得（缓存或决策模型），三档由类别用自己的阈值划分。
+- `tacit-consolidate` 正文的结构（开场、步骤、结构词对照表与示例）见 `docs/prompts.md` 第 7 节；报告的内容见 `docs/design.md` 第 9 节。
 
 ### 注入
 
-- `MemoryService` 生成服务端说明后缓存（`ServerInstructionsAsync`，同一时间只生成一次）。以下变化使缓存失效：`persona.md` 与 `candidates.md`、`pages/` 下的任何文件、`recent/` 下的文件与近期主线、记忆仓库的提交（`.git` 下的 `HEAD`、`refs/`、`logs/` 与 `packed-refs`，含空的体检提交）、`prompts/` 下的提示词文档重新载入，以及本服务写入页面、画像或活动之后。每次取用时比对状态（不可用的模型、被跳过的文件、当天日期），不同则重新生成。体检提示在生成时由 `CheckupReminder` 读取仓库现状，不调用模型。无状态模式下 SDK 每个请求都要求给出服务端说明，状态相同时直接返回缓存。
-- skill：`Skills/SkillSet` 在服务启动时与 `prompts/` 变化后生成 `TACIT_HOME/skills/` 下的三个 skill：`tacit-memory`（`MemorySkill`，成品取决于代码与 `prompts/skill.md`）、`tacit-remember` 与 `tacit-checkup`（正文只取决于代码与记忆语言）；门面 `GenerateSkills` 不依赖运行中的服务。三者都不读取记忆仓库，因此记忆变化不会重写它们。
+- `MemoryService` 生成服务端说明后缓存（`ServerInstructionsAsync`，同一时间只生成一次）。以下变化使缓存失效：`persona.md` 与 `candidates.md`、`pages/` 下的任何文件、`recent/` 下的文件与近期主线、记忆仓库的提交（`.git` 下的 `HEAD`、`refs/`、`logs/` 与 `packed-refs`，含空的整理提交）、`prompts/` 下的提示词文档重新载入，以及本服务写入页面、画像或活动之后。每次取用时比对状态（不可用的模型、被跳过的文件、当天日期），不同则重新生成。整理提示在生成时由 `ConsolidationReminder` 读取仓库现状，不调用模型。无状态模式下 SDK 每个请求都要求给出服务端说明，状态相同时直接返回缓存。
+- skill：`Skills/SkillSet` 在服务启动时与 `prompts/` 变化后生成 `TACIT_HOME/skills/` 下的三个 skill：`tacit-memory`（`MemorySkill`，成品取决于代码与 `prompts/skill.md`）、`tacit-remember` 与 `tacit-consolidate`（正文只取决于代码与记忆语言）；门面 `GenerateSkills` 不依赖运行中的服务。三者都不读取记忆仓库，因此记忆变化不会重写它们。
 - `connect` 绑定时先检查路径与三个链接位置，通过后生成三个 skill、写常驻区块，再建立缺失的链接并写绑定记录；检查与拒绝规则见 `docs/design.md` 第 12 节。
 - `persona.md` 或 `resident.md` 变化后（文件监听事件去抖 300 ms），注入渲染重写所有已绑定文件中的常驻区块。渲染彼此串行；失败只在控制台提示，不中断服务。
 
@@ -130,7 +130,7 @@ flowchart LR
 ## 5. 进程与传输
 
 - `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权；管理 API 另有 Origin、Host 与 POST 的 Content-Type 三道防护（规则见本节下文）。
-- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。资源由 `MemoryResources` 声明，只有 `tacit://checkup-report`，读取时转交 `MemoryService.CheckupReportAsync`。不声明 prompt：列表与取回请求分别由 `WithListPromptsHandler`（返回空列表）与 `WithGetPromptHandler`（报错）处理。omp 不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `McpHost` 不启动，由 CLI 报告。
+- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。资源由 `MemoryResources` 声明，只有 `tacit://consolidation-report`，读取时转交 `MemoryService.ConsolidationReportAsync`。不声明 prompt：列表与取回请求分别由 `WithListPromptsHandler`（返回空列表）与 `WithGetPromptHandler`（报错）处理。omp 不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `McpHost` 不启动，由 CLI 报告。
 - 必填与取值由标注声明：`write_page` 的 `op` 与 `page`、`write_recent` 与 `write_persona` 的 `op` 用 `[Required]`，取值用 `[AllowedValues]`（`op`、`write_persona` 的 `persona_section`、`recall` 的 `kind`）；SDK 把它们写入输入 schema 的 `required` 与 `enum`。取值只在 Core 的 `ToolValues` 中定义一次，Mcp 的标注与 Core 的 op 分派、参数表都引用它；参数类型仍可空，缺参的调用到达服务后由 Core 拒绝。
 - 未知参数：`MemoryTools` 的四个工具（`recall` 与三个写入工具）以 `RequestContext<CallToolRequestParams>` 取得原始调用；`UnknownArguments` 比对原始参数名与该工具 `ProtocolTool.InputSchema` 的属性名，得到未知参数名列表，经请求对象的 `UnknownParameters` 交给 Core。SDK 绑定参数时丢弃未知名，因此只能从原始调用读取。Mcp 不写拒绝文字，拒绝与下一步全部由 Core 给出。
 - 管理 API 挂载于 `/api`，将来的 Web UI 也走这里。已实现：`GET /api/status`（`tacit status`）、`POST /api/reindex`（`tacit reindex`）、`POST /api/backup`（`tacit backup`，本地目标与 `target` 为 `remote` 的云端目标）与 `POST /api/restore`（`tacit restore`）。恢复的请求为 `{path, remote, config, preview}`：`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`path` 与 `remote` 二选一，两者的校验在 Core 中完成。

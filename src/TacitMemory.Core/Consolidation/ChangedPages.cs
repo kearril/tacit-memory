@@ -1,7 +1,7 @@
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Pages;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The detail pages changed since the baseline: those whose content in the working tree differs from the baseline
@@ -13,7 +13,7 @@ internal static class ChangedPages
     private const string Folder = "pages";
 
     /// <summary>The changed pages, in ordinal order of their paths.</summary>
-    public static async Task<IReadOnlyList<PageId>> ReadAsync(CheckupContext context, CancellationToken cancellationToken)
+    public static async Task<IReadOnlyList<PageId>> ReadAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
         var memory = context.Config.MemoryPath;
         var paths = context.Baseline.Commit is { } commit

@@ -14,7 +14,7 @@ internal sealed record RuleConflictVerdict(ConflictingEntry? Conflict, string? N
 /// <summary>
 /// Before an entry is added to the persona or replaces one, asks whether it conflicts with, duplicates or supersedes an
 /// existing entry of any of the four sections: the nearest entries by embedding, plus "none of these", go to the decision
-/// model as a choice question. The checkup asks the same question about the entries it finds changed.
+/// model as a choice question. The consolidation asks the same question about the entries it finds changed.
 /// </summary>
 internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
 {

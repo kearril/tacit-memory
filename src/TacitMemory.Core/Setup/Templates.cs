@@ -102,11 +102,11 @@ internal static class Templates
         candidates:
           minDays: 2                  # 画像候选在不同日期出现满几天后可确认
 
-        checkup:
-          remindAfterDays: 7          # 距上次体检多少天后提示
+        consolidation:
+          remindAfterDays: 7          # 距上次整理多少天后提示
           mainlineStaleDays: 14       # 近期主线多少天未更新视为过期
-          budgetSeconds: 20           # 一次体检最多等模型多少秒，到点照常出报告
-          maxConcurrency: 5           # 一次体检同时进行的模型判断数
+          budgetSeconds: 20           # 一次整理最多等模型多少秒，到点照常出报告
+          maxConcurrency: 5           # 一次整理同时进行的模型判断数
 
         # 各判断的上下阈值，默认值内置；需要时取消注释并修改。
         # decision:
@@ -171,11 +171,11 @@ internal static class Templates
         candidates:
           minDays: 2                  # distinct days a persona candidate must appear on before it can be confirmed
 
-        checkup:
-          remindAfterDays: 7          # days after the last checkup before reminding
+        consolidation:
+          remindAfterDays: 7          # days after the last consolidation before reminding
           mainlineStaleDays: 14       # days without update after which the mainline counts as stale
-          budgetSeconds: 20           # seconds one checkup waits for the models before it reports what it has
-          maxConcurrency: 5           # model judgments one checkup runs at once
+          budgetSeconds: 20           # seconds one consolidation waits for the models before it reports what it has
+          maxConcurrency: 5           # model judgments one consolidation runs at once
 
         # Upper and lower thresholds of each judgment; built-in defaults. Uncomment to change.
         # decision:

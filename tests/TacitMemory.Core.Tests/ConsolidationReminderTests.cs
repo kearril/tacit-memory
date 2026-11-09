@@ -4,9 +4,9 @@ using TacitMemory.Core.Show;
 
 namespace TacitMemory.Core.Tests;
 
-public sealed class CheckupReminderTests : IDisposable
+public sealed class ConsolidationReminderTests : IDisposable
 {
-    private const string Heading = "## Checkup reminder";
+    private const string Heading = "## Consolidation reminder";
 
     private const string TwoDayCandidate = "## 候选\n\n### 回答尽量简短\n归属：偏好\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n";
 
@@ -25,7 +25,7 @@ public sealed class CheckupReminderTests : IDisposable
 
     private string CandidatesMd => Path.Combine(Memory, "candidates.md");
 
-    /// <summary>The day of the init commit, which the reminder counts from when no checkup has run.</summary>
+    /// <summary>The day of the init commit, which the reminder counts from when no consolidation has run.</summary>
     private DateOnly InitDay => DateOnly.ParseExact(
         TestHome.Git(Memory, "log", "-1", "--format=%as").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -78,7 +78,7 @@ public sealed class CheckupReminderTests : IDisposable
     }
 
     [Fact]
-    public async Task The_reminder_appears_once_the_last_checkup_is_seven_days_old()
+    public async Task The_reminder_appears_once_the_last_consolidation_is_seven_days_old()
     {
         Ready();
         using var service = Open();
@@ -89,14 +89,14 @@ public sealed class CheckupReminderTests : IDisposable
 
         ClockOn(InitDay.AddDays(7));
         var instructions = await service.ServerInstructionsAsync();
-        Assert.Contains($"{Heading}\nNo checkup has been run yet; the repository was set up 7 days ago, on {InitDay:yyyy-MM-dd}.", instructions);
+        Assert.Contains($"{Heading}\nNo consolidation has been run yet; the repository was set up 7 days ago, on {InitDay:yyyy-MM-dd}.", instructions);
         Assert.EndsWith("suggest it when the moment fits, and do not start one unasked.", instructions);
     }
 
     [Fact]
-    public async Task The_days_come_from_checkup_remind_after_days()
+    public async Task The_days_come_from_consolidation_remind_after_days()
     {
-        Ready("checkup:\n  remindAfterDays: 3\n");
+        Ready("consolidation:\n  remindAfterDays: 3\n");
         using var service = Open();
 
         ClockOn(InitDay.AddDays(2));
@@ -117,7 +117,7 @@ public sealed class CheckupReminderTests : IDisposable
 
         Assert.Contains(Heading, instructions);
         Assert.Contains("- Candidates that can be confirmed: 1.", instructions);
-        Assert.Contains("No checkup has been run yet", instructions);
+        Assert.Contains("No consolidation has been run yet", instructions);
     }
 
     [Fact]
@@ -140,7 +140,7 @@ public sealed class CheckupReminderTests : IDisposable
         using var service = Open();
 
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
-        var prompt = await service.CheckupReportAsync();
+        var prompt = await service.ConsolidationReportAsync();
         Assert.DoesNotContain("None.", Section(prompt, "Format and rule violations"));
     }
 
@@ -163,7 +163,7 @@ public sealed class CheckupReminderTests : IDisposable
     }
 
     [Fact]
-    public async Task A_checkup_commit_clears_the_reminder_in_the_next_instructions()
+    public async Task A_consolidation_commit_clears_the_reminder_in_the_next_instructions()
     {
         Ready();
         using var service = Open();
@@ -171,7 +171,7 @@ public sealed class CheckupReminderTests : IDisposable
         ClockOn(today);
         Assert.Contains(Heading, await service.ServerInstructionsAsync());
 
-        CommitOn(today, "checkup: no changes");
+        CommitOn(today, "consolidate: no changes");
 
         await Eventually(async () => !(await service.ServerInstructionsAsync()).Contains(Heading, StringComparison.Ordinal));
     }
@@ -200,7 +200,7 @@ public sealed class CheckupReminderTests : IDisposable
         var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
 
         Assert.Contains(Heading, result.Report);
-        Assert.Contains(result.Parts, part => part.Key == "checkup");
+        Assert.Contains(result.Parts, part => part.Key == "consolidation");
     }
 
     [Fact]
@@ -211,6 +211,6 @@ public sealed class CheckupReminderTests : IDisposable
         var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
 
         Assert.DoesNotContain(Heading, result.Report);
-        Assert.DoesNotContain(result.Parts, part => part.Key == "checkup");
+        Assert.DoesNotContain(result.Parts, part => part.Key == "consolidation");
     }
 }

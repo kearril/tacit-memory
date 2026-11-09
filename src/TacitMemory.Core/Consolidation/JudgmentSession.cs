@@ -1,8 +1,8 @@
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The judgments of one checkup. Judgments are submitted to the pool as they are prepared and start at once, but the
-/// checkup waits for them only while the budget lasts. The budget is started explicitly, after every category has
+/// The judgments of one consolidation. Judgments are submitted to the pool as they are prepared and start at once, but the
+/// consolidation waits for them only while the budget lasts. The budget is started explicitly, after every category has
 /// submitted its judgments, so reading the repository is never counted. When it runs out, a judgment that has not
 /// got a slot is not started, and one already running is left to finish, so its answer still reaches the cache.
 /// </summary>
@@ -10,23 +10,23 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
 {
     private readonly CancellationToken _request = cancellationToken;
 
-    /// <summary>Cancelled when the budget runs out or the checkup ends: a judgment that has not started stops here.</summary>
+    /// <summary>Cancelled when the budget runs out or the consolidation ends: a judgment that has not started stops here.</summary>
     private readonly CancellationTokenSource _queue = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-    /// <summary>Stops the budget timer when the checkup ends.</summary>
+    /// <summary>Stops the budget timer when the consolidation ends.</summary>
     private readonly CancellationTokenSource _ended = new();
 
     private Task? _expired;
 
-    /// <summary>Submits a choice judgment. Nothing is awaited here, so the judgments of a checkup run side by side.</summary>
+    /// <summary>Submits a choice judgment. Nothing is awaited here, so the judgments of a consolidation run side by side.</summary>
     public Task<JudgmentOutcome<T>> Submit<T>(Func<CancellationToken, Task<PreparedChoice<T>>> prepare, Threshold threshold) =>
         pool.Start(prepare, threshold, _queue.Token);
 
-    /// <summary>Starts the budget. Call it once, after the last judgment of the checkup is submitted.</summary>
+    /// <summary>Starts the budget. Call it once, after the last judgment of the consolidation is submitted.</summary>
     public void StartBudget(TimeSpan budget)
     {
         if (_expired is not null)
-            throw new InvalidOperationException("The budget of a checkup is started once.");
+            throw new InvalidOperationException("The budget of a consolidation is started once.");
         _expired = Task.Delay(budget, time, _ended.Token).ContinueWith(_ => _queue.Cancel(), TaskScheduler.Default);
     }
 
@@ -36,7 +36,7 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
     /// </summary>
     public async Task<JudgmentOutcome<T>> CollectAsync<T>(Task<JudgmentOutcome<T>> judgment)
     {
-        var expired = _expired ?? throw new InvalidOperationException("The budget of a checkup starts before its judgments are collected.");
+        var expired = _expired ?? throw new InvalidOperationException("The budget of a consolidation starts before its judgments are collected.");
         _request.ThrowIfCancellationRequested();
         if (!judgment.IsCompleted)
             await Task.WhenAny(judgment, expired);
@@ -44,7 +44,7 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
         return judgment.IsCompleted ? await judgment : JudgmentOutcome<T>.Unchecked(UncheckedReason.Budget);
     }
 
-    /// <summary>Ends the checkup: judgments that have not started are not started, and the budget timer stops.</summary>
+    /// <summary>Ends the consolidate: judgments that have not started are not started, and the budget timer stops.</summary>
     public void Dispose()
     {
         _ended.Cancel();

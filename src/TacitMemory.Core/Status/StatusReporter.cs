@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Backup;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
 
@@ -112,18 +112,18 @@ internal static class StatusReporter
         : ManagementApiMessages.NotRunningHint.Format(language);
 
     /// <summary>
-    /// The columns that need no service: bindings, the checkup, the pending counts, the local backups, the secrets and
-    /// the logs. The checkup and pending columns share one read; when the history cannot be read, they say why and the
+    /// The columns that need no service: bindings, the consolidation, the pending counts, the local backups, the secrets and
+    /// the logs. The consolidation and pending columns share one read; when the history cannot be read, they say why and the
     /// rest of the report still comes out.
     /// </summary>
     private static async Task<StatusReport> SharedAsync(TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         var language = config.Language;
-        var (summary, unreadable) = await ReadCheckupAsync(options, config, cancellationToken);
+        var (summary, unreadable) = await ReadConsolidationAsync(options, config, cancellationToken);
         return new StatusReport
         {
             Bindings = BindingChecks.Produce(options, language),
-            Checkup = Checkup(options, language, summary, unreadable),
+            Consolidation = Consolidation(options, language, summary, unreadable),
             Pending = Pending(language, summary, unreadable),
             Backups = Backups(options, config),
             Logs = Logs(options, language),
@@ -131,13 +131,13 @@ internal static class StatusReporter
         };
     }
 
-    /// <summary>The checkup summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
-    private static async Task<(CheckupSummary? Summary, string? Unreadable)> ReadCheckupAsync(
+    /// <summary>The consolidation summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
+    private static async Task<(ConsolidationSummary? Summary, string? Unreadable)> ReadConsolidationAsync(
         TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         try
         {
-            return (await CheckupSummary.ReadAsync(config, options.Today, cancellationToken), null);
+            return (await ConsolidationSummary.ReadAsync(config, options.Today, cancellationToken), null);
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
@@ -149,25 +149,25 @@ internal static class StatusReporter
         }
     }
 
-    private static CheckupStatus Checkup(TacitOptions options, MemoryLanguage language, CheckupSummary? summary, string? unreadable)
+    private static ConsolidationStatus Consolidation(TacitOptions options, MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
-        var title = ManagementApiMessages.CheckupTitle.In(language);
+        var title = ManagementApiMessages.ConsolidationTitle.In(language);
         if (summary is null)
-            return new CheckupStatus(title, [ManagementApiMessages.CheckupUnreadable.Format(language, unreadable)], null, null);
+            return new ConsolidationStatus(title, [ManagementApiMessages.ConsolidationUnreadable.Format(language, unreadable)], null, null);
 
         var baseline = summary.Baseline;
         if (baseline.Commit is not { } commit)
-            return new CheckupStatus(title, [ManagementApiMessages.CheckupNever.In(language)], null, null);
+            return new ConsolidationStatus(title, [ManagementApiMessages.ConsolidationNever.In(language)], null, null);
 
         var day = commit.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var ago = DaysAgo(language, summary.DaysSince!.Value);
-        var line = baseline.Kind == BaselineKind.Checkup
-            ? ManagementApiMessages.CheckupOn.Format(language, day, ago)
-            : ManagementApiMessages.CheckupFromInit.Format(language, day, ago);
-        return new CheckupStatus(title, [line], commit.Day, summary.DaysSince);
+        var line = baseline.Kind == BaselineKind.Consolidation
+            ? ManagementApiMessages.ConsolidationOn.Format(language, day, ago)
+            : ManagementApiMessages.ConsolidationFromInit.Format(language, day, ago);
+        return new ConsolidationStatus(title, [line], commit.Day, summary.DaysSince);
     }
 
-    private static PendingStatus Pending(MemoryLanguage language, CheckupSummary? summary, string? unreadable)
+    private static PendingStatus Pending(MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
         var title = ManagementApiMessages.PendingTitle.In(language);
         if (summary is null)

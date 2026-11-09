@@ -2,10 +2,10 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Persona;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The persona entries that are new or rewritten since the last checkup, each judged against the other entries of the
+/// The persona entries that are new or rewritten since the last consolidation, each judged against the other entries of the
 /// persona with the live rule-conflict question. A sure or unsure conflict, duplicate or supersession is listed once per
 /// unordered pair of entries, with both entries' sections, texts, short codes and the tier.
 /// </summary>
@@ -14,13 +14,13 @@ internal static class ConflictingEntries
     public const string NotReadable = "Not checked: persona.md is not valid UTF-8.";
 
     /// <summary>Reads the persona and submits a judgment for each changed entry; the result is awaited with the budget.</summary>
-    public static async Task<AwaitAnswers<CheckupSection>> StartAsync(
-        CheckupContext context, CheckupServices services, JudgmentSession judgments, CancellationToken cancellationToken)
+    public static async Task<AwaitAnswers<ConsolidationSection>> StartAsync(
+        ConsolidationContext context, ConsolidationServices services, JudgmentSession judgments, CancellationToken cancellationToken)
     {
         var config = context.Config;
         var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
         if (persona is null)
-            return () => Task.FromResult(new CheckupSection(CheckupTitles.ConflictingEntries, [], NotReadable));
+            return () => Task.FromResult(new ConsolidationSection(ConsolidationTitles.ConflictingEntries, [], NotReadable));
 
         // The judgments search the index, so bring it up to date with a manual edit first.
         services.Index.SyncJudgments();
@@ -56,16 +56,16 @@ internal static class ConflictingEntries
             var status = Unanswered.Of(reasons).Status(
                 count => $"Not checked: the decision or embedding model is unavailable, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
                 count => $"Not checked (not configured): the decision or embedding model is not configured, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
-                count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the checkup ran out of time. Run the tacit-checkup skill again to continue.");
-            return new CheckupSection(CheckupTitles.ConflictingEntries, lines, status);
+                count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the consolidation ran out of time. Run the tacit-consolidate skill again to continue.");
+            return new ConsolidationSection(ConsolidationTitles.ConflictingEntries, lines, status);
         };
     }
 
     /// <summary>
-    /// The short codes of the persona as the last checkup saw it, or <c>null</c> when there is no checkup or init commit:
+    /// The short codes of the persona as the last consolidation saw it, or <c>null</c> when there is no consolidation or init commit:
     /// then every entry counts as changed. A persona file absent from the baseline commit has no codes.
     /// </summary>
-    private static async Task<HashSet<string>?> BaselineCodesAsync(CheckupContext context, CancellationToken cancellationToken)
+    private static async Task<HashSet<string>?> BaselineCodesAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
         if (context.Baseline.Commit is not { } commit)
             return null;
@@ -79,7 +79,7 @@ internal static class ConflictingEntries
     /// model is not reachable.
     /// </summary>
     private static async Task<PreparedChoice<ConflictingEntry>> PrepareAsync(
-        TacitConfig config, CheckupServices services, PersonaDocument persona, int entryCount, ConflictingEntry entry, CancellationToken cancellationToken)
+        TacitConfig config, ConsolidationServices services, PersonaDocument persona, int entryCount, ConflictingEntry entry, CancellationToken cancellationToken)
     {
         if (entryCount < 2)
             return new PreparedChoice<ConflictingEntry>(null, null);

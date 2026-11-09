@@ -4,11 +4,11 @@ using System.Text;
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// The checkup's conflicting persona entries through the facade: only the entries new or rewritten since the last
-/// checkup are judged, each against the other entries with the live rule-conflict question. A pair is listed once, with
+/// The consolidation's conflicting persona entries through the facade: only the entries new or rewritten since the last
+/// consolidation are judged, each against the other entries with the live rule-conflict question. A pair is listed once, with
 /// the tier of its judgment, and a judgment the models cannot make is reported as not checked.
 /// </summary>
-public sealed class CheckupConflictTests : IDisposable
+public sealed class ConsolidationConflictTests : IDisposable
 {
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
@@ -48,11 +48,11 @@ public sealed class CheckupConflictTests : IDisposable
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--allow-empty", "-q", "-m", message);
     }
 
-    /// <summary>Makes the persona as the last checkup left it: the given persona, committed as a checkup.</summary>
+    /// <summary>Makes the persona as the last consolidation left it: the given persona, committed as a consolidation.</summary>
     private void CheckedBaseline(string persona = Baseline)
     {
         File.WriteAllText(PersonaMd, persona.ReplaceLineEndings("\n"));
-        Commit("checkup: baseline");
+        Commit("consolidate: baseline");
     }
 
     /// <summary>Writes the persona as it is now, with the new entries added to the preferences section; uncommitted.</summary>
@@ -88,10 +88,10 @@ public sealed class CheckupConflictTests : IDisposable
         return count;
     }
 
-    private async Task<string> Checkup() => await Service.CheckupReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
+    private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
     [Fact]
-    public async Task Only_an_entry_changed_since_the_last_checkup_is_judged_against_the_others()
+    public async Task Only_an_entry_changed_since_the_last_consolidation_is_judged_against_the_others()
     {
         Configure();
         CheckedBaseline();
@@ -99,7 +99,7 @@ public sealed class CheckupConflictTests : IDisposable
         Edit(Changed);
         PickOption(Old, 0.95);
 
-        var section = Section(await Checkup(), Conflicting);
+        var section = Section(await Consolidation(), Conflicting);
 
         Assert.Contains($"[{ShortOf(Changed)}]", section);
         Assert.Contains($"[{ShortOf(Old)}]", section);
@@ -115,7 +115,7 @@ public sealed class CheckupConflictTests : IDisposable
         File.WriteAllText(PersonaMd, Baseline.Replace("## 红线\n\n", $"## 红线\n- {Changed}\n\n").ReplaceLineEndings("\n"));
         PickOption(Old, 0.95);
 
-        var section = Section(await Checkup(), Conflicting);
+        var section = Section(await Consolidation(), Conflicting);
 
         Assert.Contains($"Certain: [{ShortOf(Changed)}] \"{Changed}\" in section 红线", section);
         Assert.Contains($"[{ShortOf(Old)}] \"{Old}\" in section 偏好", section);
@@ -126,7 +126,7 @@ public sealed class CheckupConflictTests : IDisposable
     {
         Configure();
         CheckedBaseline("## 红线\n\n## 协作规则\n\n## 偏好\n- 回复别太长\n\n## 档案\n");
-        // Both entries are new since the checkup, and each one's nearest other entry is the other.
+        // Both entries are new since the consolidation, and each one's nearest other entry is the other.
         File.WriteAllText(PersonaMd, ("## 红线\n\n## 协作规则\n\n## 偏好\n- 回复别太长\n- " + Old + "\n- " + Changed + "\n\n## 档案\n").ReplaceLineEndings("\n"));
         _models.Choose = (_, options) => options.ToDictionary(
             option => option.Key,
@@ -134,7 +134,7 @@ public sealed class CheckupConflictTests : IDisposable
                 : option.Key == options.Keys.Last() ? 0.05
                 : 0.0);
 
-        var section = Section(await Checkup(), Conflicting);
+        var section = Section(await Consolidation(), Conflicting);
 
         Assert.Equal(1, CountOf(section, "- Certain:"));
         Assert.Equal(2, _models.DecisionCalls);
@@ -157,7 +157,7 @@ public sealed class CheckupConflictTests : IDisposable
                 return option.Key == options.Keys.Last() ? 1.0 : 0.0;
             });
 
-        var section = Section(await Checkup(), Conflicting);
+        var section = Section(await Consolidation(), Conflicting);
 
         Assert.Contains($"- Certain: [{ShortOf(Changed)}]", section);
         Assert.Contains($"- Unsure: [{ShortOf(Terse)}]", section);
@@ -172,7 +172,7 @@ public sealed class CheckupConflictTests : IDisposable
         Edit(Changed);
         PickOption(Old, 0.05);
 
-        var section = Section(await Checkup(), Conflicting);
+        var section = Section(await Consolidation(), Conflicting);
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.DoesNotContain("- Certain:", section);
@@ -186,7 +186,7 @@ public sealed class CheckupConflictTests : IDisposable
         CheckedBaseline("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n");
         File.WriteAllText(PersonaMd, "## 红线\n\n## 协作规则\n\n## 偏好\n- " + Changed + "\n\n## 档案\n");
 
-        var section = Section(await Checkup(), Conflicting);
+        var section = Section(await Consolidation(), Conflicting);
 
         Assert.Equal(0, _models.DecisionCalls);
         Assert.Contains("None.", section);
@@ -200,7 +200,7 @@ public sealed class CheckupConflictTests : IDisposable
         Edit(Changed);
         _models.DecisionDown = true;
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         var section = Section(report, Conflicting);
         Assert.Contains("Not checked", section);

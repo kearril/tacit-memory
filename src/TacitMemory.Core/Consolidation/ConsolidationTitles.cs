@@ -1,10 +1,10 @@
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The titles of the six report categories, in English. The steps of the tacit-checkup skill refer to them by these
-/// names, and the checkup report resource uses them as headings, so they are defined once.
+/// The titles of the six report categories, in English. The steps of the tacit-consolidate skill refer to them by these
+/// names, and the consolidation report resource uses them as headings, so they are defined once.
 /// </summary>
-internal static class CheckupTitles
+internal static class ConsolidationTitles
 {
     public const string DuplicatePages = "Suspected duplicate pages";
 

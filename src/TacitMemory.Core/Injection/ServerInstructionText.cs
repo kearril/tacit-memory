@@ -24,7 +24,7 @@ internal sealed record InstructionText(InstructionPart Part, string Text);
 /// The server instructions as parts: the fixed parts, the recent summary with the project list, and the whole text the
 /// agent receives.
 /// </summary>
-internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Checkup, string Text);
+internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Consolidation, string Text);
 
 /// <summary>
 /// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
@@ -145,14 +145,14 @@ internal static class ServerInstructionText
     }
 
     /// <summary>
-    /// The server instructions as parts: the fixed parts, the recent summary with its projects, the checkup reminder and
+    /// The server instructions as parts: the fixed parts, the recent summary with its projects, the consolidation reminder and
     /// the whole text.
     /// </summary>
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
     /// <param name="skippedFiles">Pages, activity record files and persona files left out of the index because they are not UTF-8.</param>
     /// <param name="recent">The mainline and the last seven days of activities.</param>
     /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
-    /// <param name="checkupReminder">The checkup reminder, already rendered; <c>null</c> when no checkup is due.</param>
+    /// <param name="consolidationReminder">The consolidation reminder, already rendered; <c>null</c> when no consolidation is due.</param>
     public static InstructionSet Assemble(
         MemoryLanguage language,
         PromptDocuments prompts,
@@ -160,7 +160,7 @@ internal static class ServerInstructionText
         IReadOnlyList<string> skippedFiles,
         RecentSummary recent,
         IReadOnlyList<string> projects,
-        string? checkupReminder)
+        string? consolidationReminder)
     {
         var fixedParts = FixedParts(language, prompts);
         var fixedText = Join(fixedParts.Select(part => part.Text));
@@ -178,11 +178,11 @@ internal static class ServerInstructionText
         {
             var summary = Summary(recent.Mainline, activities);
             var projectList = kept.Count == 0 ? "" : "## Projects\n" + string.Join(", ", kept);
-            var checkup = checkupReminder ?? "";
-            var text = Join([fixedText, summary, statusText, projectList, checkup]);
+            var consolidation = consolidationReminder ?? "";
+            var text = Join([fixedText, summary, statusText, projectList, consolidation]);
             var recentText = Join([summary, projectList]);
             if (text.Length <= TotalLimit || (activities.Count == 0 && kept.Count == 0))
-                return new InstructionSet(fixedParts, fixedText, recentText, checkup, text);
+                return new InstructionSet(fixedParts, fixedText, recentText, consolidation, text);
             if (activities.Count > 0)
                 activities.RemoveAt(activities.Count - 1);
             else

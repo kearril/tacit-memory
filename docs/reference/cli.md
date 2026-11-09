@@ -10,8 +10,8 @@
 | `tacit serve` | 启动常驻服务 | — |
 | `tacit connect --client <名称> --context <文件> --skills <目录>` | 绑定客户端 | 否 |
 | `tacit disconnect --client <名称>` | 解除绑定 | 否 |
-| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|checkup` | 查看 Agent 收到的内容 | 否 |
-| `tacit status` | 查看服务、模型、绑定、体检、备份与密钥的状况 | 否 |
+| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|consolidation` | 查看 Agent 收到的内容 | 否 |
+| `tacit status` | 查看服务、模型、绑定、整理、备份与密钥的状况 | 否 |
 | `tacit probe [embedding\|reranker\|decision]` | 探测配置中的辅助模型 | 否 |
 | `tacit reindex` | 全量重建派生索引 | 是 |
 | `tacit backup [--to <目录>] [--remote]` | 立即生成手动备份或上传云端备份 | 是 |
@@ -47,7 +47,7 @@ tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.omp/agen
 - `--skills`：客户端扫描 skill 的目录，必须已存在。
 - 三个选项都必填，开头的 `~` 指用户目录。
 - 绑定前严格加载配置：有错误时拒绝执行并列出出错的键路径；省略 `models` 不算错误。
-- 成功后写入常驻区块，在 skill 目录中建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-checkup`），最后打印 MCP 端点（见 `docs/reference/mcp.md` 第 1 节）。检查顺序、拒绝条件与链接形式见 `docs/design.md` 第 12 节「客户端绑定」。
+- 成功后写入常驻区块，在 skill 目录中建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-consolidate`），最后打印 MCP 端点（见 `docs/reference/mcp.md` 第 1 节）。检查顺序、拒绝条件与链接形式见 `docs/design.md` 第 12 节「客户端绑定」。
 - 同名同路径重复执行是安全的：补齐缺失的链接，常驻区块按当前画像重写。升级后用同样的参数重新执行，即可补上新增的 skill 链接。
 
 **共用**：两个客户端若读取同一个 skill 目录，可以都绑定到它，例如共用 `~/.agents/skills`：
@@ -82,9 +82,9 @@ tacit disconnect --client omp
 | `resident` | 常驻区块 |
 | `skill` | 记忆 skill 的成品 |
 | `tools` | 工具说明；先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置 |
-| `remember`、`checkup` | 对应记忆指令 skill 的成品（不含体检报告） |
+| `remember`、`consolidation` | 对应记忆指令 skill 的成品（不含整理报告） |
 
-`--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`resident` 与 `skill`；`remember`、`checkup` 与 `tools` 不接受。
+`--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`resident` 与 `skill`；`remember`、`consolidation` 与 `tools` 不接受。
 
 ### `tacit status`
 
@@ -93,8 +93,8 @@ tacit disconnect --client omp
 - 服务：地址、版本、运行时长；未运行时写明"服务未运行"。服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`）。
 - 辅助模型：可用、冷却（含剩余秒数）或未配置。
 - 绑定：上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个。每条绑定注明与之共用路径的其他绑定；共用路径只检查一次，问题挂在第一个引用它的绑定上。
-- 上次体检：日期与距今天数，从未体检时写明。
-- 待处理问题：可确认的候选、格式问题、主线是否过期，口径与体检提示相同。
+- 上次整理：日期与距今天数，从未整理时写明。
+- 待处理问题：可确认的候选、格式问题、主线是否过期，口径与整理提示相同。
 - 最近本地备份（三种前缀中最新的一份）与云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）。
 - 日志位置。
 - 密钥来源：环境变量或配置文件，不显示值；未配置的模型或 WebDAV 写明"未配置，不需要密钥"。
@@ -155,7 +155,7 @@ tacit restore --remote [--include-config] [--yes]
 | 0 | 成功；`status` 中表示服务在运行 |
 | 1 | 运行失败：服务拒绝、IO 或权限错误、`serve` 端口被占、`restore` 未确认，`probe` 有模型失败或明确指定的模型未配置 |
 | 2 | 用法错误：未知命令或选项、缺参数、参数值非法、互斥选项冲突、非终端下 `restore` 未带 `--yes` |
-| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`、`probe`（`probe` 不要求记忆仓库，只因 `config.yaml` 而返回），以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show checkup`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
+| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制。只有严格加载配置的命令会返回：`serve`、`connect`、`status`、`reindex`、`backup`、`restore`、`probe`（`probe` 不要求记忆仓库，只因 `config.yaml` 而返回），以及不带 `--default` 的 `show instructions`、`show resident`、`show skill`、`show remember`、`show consolidate`、`show tools`；`init`、`disconnect` 与带 `--default` 的 `show` 不会返回 |
 | 4 | 服务未运行，含端口被其他程序占用 |
 
 ## 4. 输出

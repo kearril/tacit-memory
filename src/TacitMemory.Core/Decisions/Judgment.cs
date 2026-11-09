@@ -6,7 +6,7 @@ internal enum Tier
     /// <summary>Yes: act on it.</summary>
     Certain,
 
-    /// <summary>Not sure either way: let it through and leave it to the checkup.</summary>
+    /// <summary>Not sure either way: let it through and leave it to the consolidation.</summary>
     Uncertain,
 
     /// <summary>No.</summary>

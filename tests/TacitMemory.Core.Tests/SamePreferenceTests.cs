@@ -74,7 +74,7 @@ public sealed class SamePreferenceTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
         Assert.Contains("2/2", result.Text);
-        Assert.Contains("checkup", result.Text);
+        Assert.Contains("consolidation", result.Text);
         Assert.Equal(
             "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n"
             + "- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「提交前跑全量测试」\n\n## 拒绝列表\n",
@@ -94,7 +94,7 @@ public sealed class SamePreferenceTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("2/3", result.Text);
-        Assert.DoesNotContain("checkup", result.Text);
+        Assert.DoesNotContain("consolidation", result.Text);
     }
 
     [Fact]
@@ -111,13 +111,13 @@ public sealed class SamePreferenceTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
         Assert.Contains("Already recorded today", result.Text);
-        Assert.Contains("checkup", result.Text);
+        Assert.Contains("consolidation", result.Text);
         Assert.Equal(before, File.ReadAllText(CandidatesMd));
         Assert.Equal(head, Git("rev-parse", "HEAD"));
     }
 
     [Fact]
-    public async Task A_candidate_already_recorded_today_does_not_mention_the_checkup_below_the_minimum_days()
+    public async Task A_candidate_already_recorded_today_does_not_mention_the_consolidation_below_the_minimum_days()
     {
         Configure("candidates:\n  minDays: 3\n");
         Baseline("## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「先跑全量」\n\n## 拒绝列表\n");
@@ -128,7 +128,7 @@ public sealed class SamePreferenceTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.Contains("Already recorded today", result.Text);
         Assert.Contains("2/3", result.Text);
-        Assert.DoesNotContain("checkup", result.Text);
+        Assert.DoesNotContain("consolidation", result.Text);
     }
 
     [Fact]

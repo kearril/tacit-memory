@@ -1,4 +1,4 @@
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The judgments of one category that were not answered, counted by reason. Each category words its own status lines,
