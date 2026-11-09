@@ -219,4 +219,95 @@ public sealed class FormatViolationTests : IDisposable
         AssertNotListed(section, "pages/tacit-memory/long-21.md");
         Assert.Contains("1 more not listed", section);
     }
+
+    [Fact]
+    public async Task A_summary_section_is_not_taken_for_an_unrecognized_date_heading()
+    {
+        using var service = Open();
+        WriteFile("recent/2026-11.md", "## 2026-11-02\n- 一件事\n\n## 汇总\n- 2026-W45：本周\n- 2026-11：本月\n");
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        Assert.Contains("None.", section);
+    }
+
+    [Fact]
+    public async Task A_week_summary_in_the_month_file_of_another_thursday_is_listed()
+    {
+        using var service = Open();
+        // 2026-W45's Thursday is 2026-11-05, so its summary belongs in 2026-11.md.
+        WriteFile("recent/2026-10.md", "## 汇总\n- 2026-W45：写错了文件\n");
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        AssertListed(section, "recent/2026-10.md", "line 2");
+        Assert.Contains("Summary in the wrong file", section);
+    }
+
+    [Fact]
+    public async Task A_week_that_is_not_in_its_iso_year_is_listed_as_a_week_number_error()
+    {
+        using var service = Open();
+        // 2026 has 53 ISO weeks and 2027 has 52, so 2027-W53 does not exist, and neither does 2026-W54.
+        WriteFile("recent/2026-12.md", "## 汇总\n- 2026-W54：没有这一周\n");
+        WriteFile("recent/2027-01.md", "## 汇总\n- 2027-W53：也没有这一周\n");
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        AssertListed(section, "recent/2026-12.md", "line 2");
+        AssertListed(section, "recent/2027-01.md", "line 2");
+        Assert.Contains("Week number error", section);
+    }
+
+    [Fact]
+    public async Task Weeks_across_the_year_end_are_filed_by_their_thursday()
+    {
+        using var service = Open();
+        // 2026-W53 (2026-12-28 to 2027-01-03) has its Thursday on 2026-12-31; 2027-W01 has its Thursday on 2027-01-07.
+        WriteFile("recent/2026-12.md", "## 汇总\n- 2026-W53：跨年的一周\n");
+        WriteFile("recent/2027-01.md", "## 汇总\n- 2027-W01：新年第一周\n");
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        Assert.Contains("None.", section);
+    }
+
+    [Fact]
+    public async Task A_week_of_the_new_year_written_in_the_old_year_file_is_listed()
+    {
+        using var service = Open();
+        WriteFile("recent/2027-01.md", "## 汇总\n- 2026-W53：这一周的周四在 2026-12-31\n");
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        AssertListed(section, "recent/2027-01.md", "line 2");
+        Assert.Contains("Summary in the wrong file", section);
+    }
+
+    [Fact]
+    public async Task Lines_in_the_summary_section_that_are_neither_week_nor_month_summaries_are_listed()
+    {
+        using var service = Open();
+        WriteFile("recent/2026-11.md", "## 汇总\n- 2026-11-05：日期不是汇总\n- 2026-11：\n- 2026-13：不存在的月份\n");
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        AssertListed(section, "recent/2026-11.md", "line 2");
+        AssertListed(section, "recent/2026-11.md", "line 3");
+        AssertListed(section, "recent/2026-11.md", "line 4");
+        Assert.Contains("Unrecognized summary line", section);
+        Assert.Contains("Month number error", section);
+    }
+
+    [Fact]
+    public async Task Summary_format_problems_disappear_once_fixed()
+    {
+        using var service = Open();
+        WriteFile("recent/2026-10.md", "## 汇总\n- 2026-W45：写错了文件\n");
+        Assert.Contains("Summary in the wrong file", Section(await service.ConsolidationReportAsync(), Category));
+
+        WriteFile("recent/2026-10.md", "## 汇总\n- 2026-W42：放回正确的文件\n");
+
+        Assert.Contains("None.", Section(await service.ConsolidationReportAsync(), Category));
+    }
 }

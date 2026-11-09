@@ -136,8 +136,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     /// </summary>
     private (string Text, List<IndexHit> Shown) Format(IReadOnlyList<IndexHit> hits)
     {
-        // Pages group by source. Each activity is a result of its own, so two activities of one month file stay apart.
-        var results = hits.GroupBy(hit => (hit.Source, Code: hit.Kind == UnitKinds.Activity ? hit.Code : null)).Take(config.Retrieval.TopK).ToList();
+        // Pages group by source. Each activity and each summary is a result of its own, so two of one month file stay apart.
+        var results = hits.GroupBy(GroupKey).Take(config.Retrieval.TopK).ToList();
         var text = new StringBuilder();
         var shownResults = 0;
         var returned = new List<IndexHit>();
@@ -150,6 +150,13 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
                 shownResults++;
                 var label = sample.Project.Length > 0 ? $", project {sample.Project}" : "";
                 text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
+                continue;
+            }
+
+            if (sample.Kind == UnitKinds.Summary)
+            {
+                shown++;
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] summary, {sample.Section} starting {sample.Date}\n{sample.Text}\n");
                 continue;
             }
 
@@ -178,6 +185,10 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             : $"{shownResults} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
         return (body, returned);
     }
+
+    /// <summary>Hits of one activity or summary are one result each; the hits of a page's sections share the page's result.</summary>
+    private static (string Source, string? Code, string? Text) GroupKey(IndexHit hit) =>
+        hit.Kind is UnitKinds.Activity or UnitKinds.Summary ? (hit.Source, hit.Code, hit.Text) : (hit.Source, null, null);
 
     private static DateOnly? Date(string? raw, string name, List<string> problems)
     {

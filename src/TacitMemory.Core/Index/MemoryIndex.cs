@@ -16,7 +16,7 @@ namespace TacitMemory.Core.Index;
 /// <param name="Id">The unit's row ID; the usage statistics count returns by it.</param>
 /// <param name="Source">The source the unit hangs off: a detail page's ID, a month file's path, or the path of a persona file.</param>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
-/// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>null</c> for the title and aliases and for activities.</param>
+/// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>week</c> or <c>month</c> for a summary; <c>null</c> for the title and aliases and for activities.</param>
 /// <param name="Text">The indexed text of the unit: a section's name and body, the title and aliases, or an activity's body.</param>
 /// <param name="Project">The unit's project; empty when an activity has no project label.</param>
 /// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
@@ -72,6 +72,9 @@ internal static class UnitKinds
     /// <summary>A dated line of a month file of the recent activity log.</summary>
     public const string Activity = "activity";
 
+    /// <summary>A summary line of the <c>## 汇总</c> section of a month file: a retrieval unit of the activity kind.</summary>
+    public const string Summary = "summary";
+
     /// <summary>An entry of <c>persona.md</c>; indexed for judgments only, never returned by search.</summary>
     public const string PersonaEntry = "persona";
 
@@ -85,7 +88,7 @@ internal static class UnitKinds
 /// <summary>
 /// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file: a detail page, a month
 /// file of the activity log, or one of the two persona files. One row per source with its file hash; one unit per
-/// section and one for the title and aliases of a page, one per dated line of a month file, and one per entry of
+/// section and one for the title and aliases of a page, one per dated line and one per summary line of a month file, and one per entry of
 /// <c>persona.md</c> or candidate of <c>candidates.md</c>, each carrying its kind, project and dates. Persona units
 /// serve judgments only. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
@@ -100,7 +103,7 @@ internal sealed class MemoryIndex : IDisposable
         (@project IS NULL OR u.project = @project)
         AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
         AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
-        AND (@activities IS NULL OR (u.kind = '{UnitKinds.Activity}') = @activities)
+        AND (@activities IS NULL OR (u.kind IN ('{UnitKinds.Activity}', '{UnitKinds.Summary}')) = @activities)
         AND u.kind NOT IN ('{UnitKinds.PersonaEntry}', '{UnitKinds.Candidate}', '{UnitKinds.RejectedCandidate}')
         """;
 
@@ -586,6 +589,12 @@ internal sealed class MemoryIndex : IDisposable
         {
             var day = DateText(activity.Day);
             AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
+        }
+
+        foreach (var summary in SummaryLines.All(read.Text))
+        {
+            var kind = summary.Kind == SummaryKind.Week ? "week" : "month";
+            AddUnit(relativePath, UnitKinds.Summary, kind, summary.Line, summary.Text, new UnitScope("", DateText(summary.First), DateText(summary.Last)), transaction);
         }
 
         transaction.Commit();

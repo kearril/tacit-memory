@@ -22,6 +22,7 @@ internal static class FormatViolations
         StructureWords.Candidates,
         StructureWords.RejectionList,
         StructureWords.Mainline,
+        StructureWords.Summary,
     ];
 
     /// <summary>The quote mark of a source comment or an occurrence line, with the rejected mark before it on an occurrence.</summary>
@@ -83,7 +84,7 @@ internal static class FormatViolations
         if (relative == MainlineSection.RelativePath)
             issues.AddRange(MainlineFormatCheck.Check(text.Text, context.Config));
         if (relative.StartsWith(RecentFile.Folder + "/", StringComparison.Ordinal))
-            issues.AddRange(RecentFormatCheck.Check(text.Text));
+            issues.AddRange(RecentFormatCheck.Check(text.Text, relative));
         return issues;
     }
 
