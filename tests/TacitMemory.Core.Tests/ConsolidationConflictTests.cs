@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
@@ -58,9 +60,6 @@ public sealed class ConsolidationConflictTests : IDisposable
     /// <summary>Writes the persona as it is now, with the new entries added to the preferences section; uncommitted.</summary>
     private void Edit(params string[] added) =>
         File.WriteAllText(PersonaMd, Baseline.Replace("- 回复别太长\n", "- 回复别太长\n" + string.Concat(added.Select(text => $"- {text}\n"))).ReplaceLineEndings("\n"));
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     /// <summary>Makes the decision model pick the option whose text contains <paramref name="contains"/> with <paramref name="probability"/>.</summary>
     private void PickOption(string contains, double probability) =>

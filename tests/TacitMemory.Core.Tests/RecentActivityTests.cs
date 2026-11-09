@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed partial class RecentActivityTests : IDisposable
@@ -38,9 +40,6 @@ public sealed partial class RecentActivityTests : IDisposable
         };
 
     private string Git(params string[] args) => TestHome.Git(Memory, args);
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\]")]
     private static partial Regex CodeInReply();

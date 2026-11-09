@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed class SamePreferenceTests : IDisposable
@@ -47,9 +49,6 @@ public sealed class SamePreferenceTests : IDisposable
         Text = text,
         Source = source,
     };
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     /// <summary>Makes the decision model pick the option whose text contains <paramref name="contains"/> with <paramref name="probability"/>.</summary>
     private void PickOption(string contains, double probability) =>
