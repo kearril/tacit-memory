@@ -31,8 +31,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
     private const string Removal = "Persona candidates to remove";
 
-    private const string Confirmable = "Confirmable persona candidates";
-
     private const string PersonaWithPreference =
         "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n\n## 档案\n";
 
@@ -88,7 +86,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
         Assert.Contains(Candidate, Section(report, Removal));
         Assert.Contains($"[{ShortOf("沟通：先要结论")}]", Section(report, Removal));
-        Assert.DoesNotContain(Candidate, Section(report, Confirmable));
     }
 
     [Fact]
@@ -102,11 +99,10 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
         Assert.Contains(Candidate, Section(report, Removal));
         Assert.Contains("rejected", Section(report, Removal));
-        Assert.DoesNotContain(Candidate, Section(report, Confirmable));
     }
 
     [Fact]
-    public async Task A_candidate_the_decision_model_is_not_sure_about_stays_confirmable_and_is_hinted_with_the_match()
+    public async Task A_candidate_the_decision_model_is_not_sure_about_is_neither_removed_nor_listed()
     {
         Configure();
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));
@@ -118,10 +114,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
         var report = await Consolidation();
 
         Assert.DoesNotContain(Candidate, Section(report, Removal));
-        var confirmable = Section(report, Confirmable);
-        Assert.Contains(Candidate, confirmable);
-        Assert.Contains("possibly the same as", confirmable);
-        Assert.Contains($"[{ShortOf("沟通：先要结论")}]", confirmable);
     }
 
     [Fact]
@@ -134,9 +126,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
         var report = await Consolidation();
 
         Assert.DoesNotContain(Candidate, Section(report, Removal));
-        var confirmable = Section(report, Confirmable);
-        Assert.Contains(Candidate, confirmable);
-        Assert.DoesNotContain("possibly the same as", confirmable);
     }
 
     [Fact]
@@ -166,7 +155,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
         Assert.Equal(0, _models.DecisionCalls);
         Assert.Contains("None.", Section(report, Removal));
-        Assert.Contains(Candidate, Section(report, Confirmable));
     }
 
     [Fact]
@@ -179,9 +167,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
         var report = await Consolidation();
 
         Assert.Contains("Not checked", Section(report, Removal));
-        var confirmable = Section(report, Confirmable);
-        Assert.Contains(Candidate, confirmable);
-        Assert.Contains("Not checked", confirmable);
     }
 
     [Fact]
@@ -195,7 +180,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
         Assert.Equal(0, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(report, Removal));
-        Assert.Contains(Candidate, Section(report, Confirmable));
     }
 
     [Fact]
@@ -208,7 +192,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
         var report = await Consolidation();
 
         Assert.DoesNotContain(Candidate, Section(report, Removal));
-        Assert.Contains("possibly the same as", Section(report, Confirmable));
     }
 
     [Fact]
@@ -255,7 +238,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.DoesNotContain(Candidate, Section(report, Removal));
-        Assert.Contains("possibly the same as", Section(report, Confirmable));
     }
 
     [Fact]

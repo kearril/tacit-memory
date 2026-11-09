@@ -15,7 +15,7 @@
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含项目列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
-     - `ConsolidationReportTests`：整理报告（资源正文）：绝对路径与 `git -C` 用法、六类、上次整理的三种基准（`consolidate:`、`init:`、都没有）、候选不设天数门槛（一天的也列出）、主线过期与不过期、每类 20 项上限、取消。
+     - `ConsolidationReportTests`：整理报告（资源正文）：绝对路径与 `git -C` 用法、A、B 两部分及其类别的顺序与标题、无内容写 None.、限时的说明（头部）、上次整理的三种基准（`consolidate:`、`init:`、都没有）、缺少页面类型的格式问题不受基准限制、每类 20 项上限与剩余数量、取消。
      - `ConsolidationCandidateTests`：候选清理的三档（确定列为待清理并写明画像短码或拒绝列表条目，拿不准附提示且仍可确认，否定两者都不列）、选项只取画像与拒绝列表、无可比对时不提问、决策与嵌入模型不可用时的降级、阈值改变、判断缓存（内容不变不再调用、改阈值分档改变而不调用、重建索引后重新调用）。
      - `ConsolidationConflictTests`：互相冲突的画像条目：只判断上次整理后新增或改写的条目（含未提交的修改）、跨节、同一对只报一次、确定与拿不准两档标明档位、无其他条目时不提问、决策模型不可用时的降级。
      - `ConsolidationDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同项目没有其他页时不提问；删除的页不参与；没有 `consolidate:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
@@ -55,7 +55,8 @@
      - `RecentActivityTests`：新增活动与 `replaces` 改写、回复只有一行（附新短码）、写入不改动 `recent.md`；已删除的 `op`、`items`、`hash` 与其他未知参数按名拒绝，下一步指向 `tacit-consolidate`。
      - `SameTopicTests`：近期活动的同主题判断与退回。
      - `RecallActivityTests`：检索近期活动：`kind` 筛选、过滤、主线不入索引、同步。
-     - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与项目筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步；ISO 周边界（经 `SummaryLines.WeekOf`）；已完成且有活动、但还没有汇总的周与月（经 `SummaryCalendar.Unsummarized`）。
+     - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与项目筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步。
+     - `ConsolidationSummariesTests`：整理报告中的汇总材料：已结束、有活动但没有汇总行的周（跨月的周只列一次且汇总写入周四所在月的文件、只有部分天数的周、没有项目的活动归为"其他"、跨年的 ISO 周、进行中的周与已汇总的周不列）与月（附写入该月文件的周汇总）；主线材料取最近 4 个周汇总与主线，主线为空时写明一行。只经门面读取报告，不直接读取 `SummaryLines` 或 `SummaryCalendar`。
      - `RecentSummaryInstructionTests`：服务端说明中的最近 7 天活动：`<recent_activity>` 标签包裹、不含短码与主线、排序、七条上限、截断（先截最早的活动，固定部分保持完整）、窗口随日期前移、手改活动记录后的刷新。
      - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并；作用域：领域与项目块的创建与放置（全局四节之后，领域在前、项目在后，各自按名称排序）、块内节的补回、新领域缺少或超长、多行的触发描述被拒、`scope` 格式不合规被拒、领域个数与领域条数上限（条目不计入全局上限）、跨作用域的短码后缀。
      - `PersonaReplaceDeleteTests`：画像 `replace` 与 `delete` 的定位、校验与回显；按短码跨作用域定位，`replace` 保持原作用域，删除领域条目后块保留标题；拒绝时的短码不附整份画像，下一步指向 `recall kind=persona`。
@@ -63,7 +64,7 @@
      - `PersonaProposeTests`：候选 `propose` 的写入、校验与标题补回；作用域行（中英两套）的写入与不合规的拒绝，`trigger` 不适用，英文记忆的写法。
      - `SamePreferenceTests`：`propose` 的同一偏好判断、出现记录与拒绝列表；跨作用域：并入候选保留原作用域，选项标明作用域与归属节，问题原文逐字比对，画像与拒绝列表的领域条目也参与比较，无天数门槛的回复。
      - `PersonaIndexTests`：画像与候选不进入派生索引，无法识别的行与非 UTF-8 画像文件的状态提示。
-     - `FormatChecksPersonaTests`：整理报告中画像、候选文件、活动记录与近期主线的格式问题：文件、行号与问题说明，修正后消失，两种超限的处理方式；作用域块的问题（缺触发行、触发超长、块内无法识别的三级标题、域名不合规、领域条数与个数超限）。
+     - `FormatChecksPersonaTests`：整理报告中画像、候选文件、活动记录与近期主线的格式问题：文件、行号与问题说明，修正后消失；需要用户拍板的超限项列在 B 部分的"超限的节"，其余列在 A 部分；作用域块的问题（缺触发行、触发超长、块内无法识别的三级标题、域名不合规、领域条数与个数超限）。
    - 未自动化：内置常驻区块逐字节不变，已用中英两种默认配置手工比对确认，不写入测试。
    - 未自动化：`serve` 日志文件的按天滚动与保留 14 份（由 Serilog 保证），在验收中手工确认。
 2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
@@ -108,7 +109,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ## 3. 本地化完整性
 
-两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。`SummaryTests` 中的 ISO 周边界与未汇总列表同样直接读取 `SummaryLines` 与 `SummaryCalendar`，因为这两个查询尚无公开入口；工单 11、12 把它们接入整理报告后，应改为经门面测试并删去这里的直接读取。
+两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。ISO 周边界与未汇总列表原先也直接读取 `SummaryLines` 与 `SummaryCalendar`；它们接入整理报告后，改由 `ConsolidationSummariesTests` 经门面测试，这里不再有直接读取。
 
 ## 4. 提示词的验证
 

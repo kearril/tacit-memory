@@ -105,7 +105,6 @@ internal static class Templates
 
         consolidation:
           remindAfterDays: 7          # 距上次整理多少天后提示
-          mainlineStaleDays: 14       # 近期主线多少天未更新视为过期
           budgetSeconds: 20           # 一次整理最多等模型多少秒，到点照常出报告
           maxConcurrency: 5           # 一次整理同时进行的模型判断数
 
@@ -175,7 +174,6 @@ internal static class Templates
 
         consolidation:
           remindAfterDays: 7          # days after the last consolidation before reminding
-          mainlineStaleDays: 14       # days without update after which the mainline counts as stale
           budgetSeconds: 20           # seconds one consolidation waits for the models before it reports what it has
           maxConcurrency: 5           # model judgments one consolidation runs at once
 

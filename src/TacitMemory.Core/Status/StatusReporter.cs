@@ -209,11 +209,11 @@ internal static class StatusReporter
                     ? ManagementApiMessages.PendingConfirmable.Format(language, count)
                     : ManagementApiMessages.PendingConfirmableUnknown.In(language),
                 ManagementApiMessages.PendingFormatProblems.Format(language, summary.Problems),
-                summary.MainlineStale ? ManagementApiMessages.PendingMainlineStale.In(language) : ManagementApiMessages.PendingMainlineFresh.In(language),
+                summary.MainlineEmpty ? ManagementApiMessages.PendingMainlineEmpty.In(language) : ManagementApiMessages.PendingMainlineSet.In(language),
             ],
             confirmable,
             summary.Problems,
-            summary.MainlineStale);
+            summary.MainlineEmpty);
     }
 
     /// <summary>

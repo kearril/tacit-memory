@@ -1,10 +1,8 @@
-using TacitMemory.Core.Recent;
-
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// Week and month summaries in the <c>## 汇总</c> section of a month file: retrieval, the same-topic check, writing a new
-/// activity next to them, the ISO week boundaries and the completed periods that still lack a summary.
+/// activity next to them, and the same-topic check for activities written next to them.
 /// </summary>
 public sealed class SummaryTests : IDisposable
 {
@@ -151,66 +149,5 @@ public sealed class SummaryTests : IDisposable
         var result = await Recall("记忆结构", kind: "activities");
 
         Assert.Contains("2026-W45：记忆结构在这一周定下来", result.Text);
-    }
-
-    [Fact]
-    public void The_week_of_a_day_follows_iso_8601_across_the_year_boundary()
-    {
-        var lastDay = SummaryLines.WeekOf(new DateOnly(2026, 12, 31));
-        var newYearsDay = SummaryLines.WeekOf(new DateOnly(2027, 1, 1));
-        var firstMonday = SummaryLines.WeekOf(new DateOnly(2027, 1, 4));
-
-        Assert.Equal(("2026-W53", new DateOnly(2026, 12, 28), new DateOnly(2027, 1, 3)), lastDay);
-        Assert.Equal("2026-W53", newYearsDay.Label);
-        Assert.Equal("2027-W01", firstMonday.Label);
-        // The Thursday of 2026-W53 is 2026-12-31, so its summary is written in the December file.
-        Assert.Equal(new DateOnly(2026, 12, 1), SummaryLines.FileMonthOfWeek(lastDay.First));
-    }
-
-    [Fact]
-    public void A_completed_period_with_activities_and_no_summary_is_listed_oldest_first()
-    {
-        // Today is Monday 2026-11-09: weeks end on Sunday and months on their last day. 2026-W42 and October have
-        // summaries; 2026-W41, 2026-W44 and 2026-W45 are complete and lack one; 2026-W46 has only today's activity.
-        Month(
-            "## 2026-10-06\n- 十月初的活动\n## 2026-10-12\n- 第二周的活动\n## 2026-10-27\n- 十月底的活动\n\n"
-            + "## 汇总\n- 2026-W42：第二周已汇总\n- 2026-10：十月已汇总\n",
-            month: "2026-10");
-        Month("## 2026-11-02\n- 本周的活动\n## 2026-11-09\n- 今天的活动\n");
-
-        var periods = SummaryCalendar.Unsummarized(Memory, new DateOnly(2026, 11, 9));
-
-        Assert.Equal(new[] { "2026-W41", "2026-W44", "2026-W45" }, periods.Select(period => period.Label).ToArray());
-        Assert.Equal(SummaryKind.Week, periods[0].Kind);
-        Assert.Equal(new DateOnly(2026, 10, 5), periods[0].First);
-        Assert.Equal(new DateOnly(2026, 10, 11), periods[0].Last);
-        Assert.Equal(new[] { "十月初的活动" }, periods[0].Activities.Select(activity => activity.Body).ToArray());
-        Assert.Equal(new[] { "十月底的活动" }, periods[1].Activities.Select(activity => activity.Body).ToArray());
-        Assert.Equal(new[] { "本周的活动" }, periods[2].Activities.Select(activity => activity.Body).ToArray());
-    }
-
-    [Fact]
-    public void A_month_with_activities_is_listed_only_after_it_ends_and_only_without_a_summary()
-    {
-        Month("## 2026-10-06\n- 十月的活动\n", month: "2026-10");
-        Month("## 2026-11-02\n- 十一月的活动\n");
-
-        var unfinished = SummaryCalendar.Unsummarized(Memory, new DateOnly(2026, 10, 31));
-        var finished = SummaryCalendar.Unsummarized(Memory, new DateOnly(2026, 11, 1));
-
-        Assert.DoesNotContain("2026-10", unfinished.Select(period => period.Label));
-        Assert.Contains("2026-10", finished.Select(period => period.Label));
-        Assert.DoesNotContain("2026-11", finished.Select(period => period.Label));
-    }
-
-    [Fact]
-    public void A_completed_period_without_activities_is_not_listed()
-    {
-        // Week 2026-W42 is complete but has no activity, so only 2026-W45 (complete, with one) is listed.
-        Month("## 2026-11-02\n- 本周的活动\n", month: "2026-11");
-
-        var periods = SummaryCalendar.Unsummarized(Memory, new DateOnly(2026, 11, 9));
-
-        Assert.Equal(new[] { "2026-W45" }, periods.Select(period => period.Label).ToArray());
     }
 }

@@ -93,8 +93,8 @@ internal static class ManagementApiMessages
         "可确认的候选：未统计（candidates.md 不是 UTF-8）",
         "Candidates that can be confirmed: not counted (candidates.md is not UTF-8)");
     public static readonly Localized PendingFormatProblems = new("格式问题：{0}", "Format and rule problems: {0}");
-    public static readonly Localized PendingMainlineStale = new("主线：已过期", "Mainline: stale");
-    public static readonly Localized PendingMainlineFresh = new("主线：未过期", "Mainline: not stale");
+    public static readonly Localized PendingMainlineEmpty = new("主线：为空", "Mainline: empty");
+    public static readonly Localized PendingMainlineSet = new("主线：已设定", "Mainline: set");
     public static readonly Localized PendingUnreadable = new("无法统计待处理问题：{0}", "Pending issues cannot be counted: {0}");
 
 

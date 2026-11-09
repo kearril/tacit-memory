@@ -2,7 +2,7 @@ namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The consolidation reminder the server instructions end with. When a consolidation is due it says how long ago the last one was,
-/// how many candidates can be confirmed, how many format problems there are and whether the mainline is stale. Every
+/// how many candidates can be confirmed, how many format problems there are and whether the mainline is empty. Every
 /// count comes from <see cref="ConsolidationSummary"/>, which asks no model, so building the reminder never calls one.
 /// </summary>
 internal static class ConsolidationReminder
@@ -44,7 +44,7 @@ internal static class ConsolidationReminder
             BaselineLine(summary.Baseline, summary.DaysSince),
             $"- Candidates that can be confirmed: {summary.Confirmable}.",
             $"- Format and rule problems: {summary.Problems}.",
-            summary.MainlineStale ? "- Mainline: stale." : "- Mainline: not stale.",
+            summary.MainlineEmpty ? "- Mainline: empty." : "- Mainline: not empty.",
             "The user can run the tacit-consolidate skill to start a consolidation; suggest it when the moment fits, and do not start one unasked.",
         ]);
 

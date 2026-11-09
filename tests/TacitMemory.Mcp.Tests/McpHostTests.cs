@@ -235,18 +235,21 @@ public sealed class McpHostTests : IAsyncLifetime
         var result = await client.ReadResourceAsync("tacit://consolidation-report");
         var text = string.Concat(result.Contents.OfType<ModelContextProtocol.Protocol.TextResourceContents>().Select(contents => contents.Text));
         Assert.Contains(_home.DefaultMemory, text);
-        foreach (var title in new[]
+        var headings = new[]
         {
-            "Suspected duplicate pages",
-            "Conflicting persona entries",
-            "Confirmable persona candidates",
-            "Persona candidates to remove",
-            "Format and rule violations",
-            "Stale mainline",
-        })
-        {
-            Assert.Contains($"### {title}\n", text);
-        }
+            "## A. Automatic\n",
+            "### Format and rule violations\n",
+            "### Persona candidates to remove\n",
+            "### Weeks to summarize\n",
+            "### Months to summarize\n",
+            "### Mainline material\n",
+            "## B. For proposals\n",
+            "### Suspected duplicate pages\n",
+            "### Conflicting persona entries\n",
+            "### Sections over their limit\n",
+        };
+        foreach (var heading in headings)
+            Assert.Contains(heading, text);
     }
 
     [Fact]

@@ -67,13 +67,16 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     [Fact]
-    public async Task A_memory_with_nothing_to_report_says_so_in_the_report()
+    public async Task A_memory_with_no_problems_still_lists_both_parts_with_none_under_the_problem_categories()
     {
         using var service = Open();
 
         var prompt = await service.ConsolidationReportAsync();
 
-        Assert.Contains("No problems found in any category.", prompt);
+        Assert.Contains("## A. Automatic\n", prompt);
+        Assert.Contains("## B. For proposals\n", prompt);
+        Assert.Contains("None.", Section(prompt, Category));
+        Assert.DoesNotContain("No problems found", prompt);
     }
 
     [Fact]
