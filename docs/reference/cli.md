@@ -10,7 +10,7 @@
 | `tacit serve` | 启动常驻服务 | — |
 | `tacit connect --client <名称> --context <文件> --skills <目录>` | 绑定客户端 | 否 |
 | `tacit disconnect --client <名称>` | 解除绑定 | 否 |
-| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|consolidation` | 查看 Agent 收到的内容 | 否 |
+| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|consolidate` | 查看 Agent 收到的内容 | 否 |
 | `tacit status` | 查看服务、模型、绑定、整理、备份与密钥的状况 | 否 |
 | `tacit probe [embedding\|reranker\|decision]` | 探测配置中的辅助模型 | 否 |
 | `tacit reindex` | 全量重建派生索引 | 是 |
@@ -82,9 +82,9 @@ tacit disconnect --client omp
 | `resident` | 常驻区块 |
 | `skill` | 记忆 skill 的成品 |
 | `tools` | 工具说明；先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置 |
-| `remember`、`consolidation` | 对应记忆指令 skill 的成品（不含整理报告） |
+| `remember`、`consolidate` | 对应记忆指令 skill 的成品（不含整理报告） |
 
-`--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`resident` 与 `skill`；`remember`、`consolidation` 与 `tools` 不接受。
+`--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`resident` 与 `skill`；`remember`、`consolidate` 与 `tools` 不接受。
 
 ### `tacit status`
 
@@ -92,7 +92,7 @@ tacit disconnect --client omp
 
 - 服务：地址、版本、运行时长；未运行时写明"服务未运行"。服务栏始终给出 MCP 端点（`http://127.0.0.1:<端口>/mcp`）。
 - 辅助模型：可用、冷却（含剩余秒数）或未配置。
-- 客户端：每个记录过的客户端一行，最近连接者在前：名称与版本、最近连接日期、协议版本、声明的扩展（无则写"无"）；没有记录时写明"尚未有客户端连接过服务"。服务运行与未运行时都显示（记录见 `docs/design.md` 第 12 节「客户端记录」）。
+- 客户端：每个记录过的客户端一行，最近连接者在前：名称与版本、最近连接日期、协议版本、声明的扩展（无则写"无"）；没有记录时写明"尚未有客户端连接过服务"。服务运行与未运行时都显示（记录见 `docs/design.md` 第 12 节「客户端能力记录」）。
 - 绑定：上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个。每条绑定注明与之共用路径的其他绑定；共用路径只检查一次，问题挂在第一个引用它的绑定上。
 - 上次整理：日期与距今天数，从未整理时写明。
 - 待处理问题：可确认的候选、格式问题、主线是否为空、待汇总的周，口径与整理提示相同。

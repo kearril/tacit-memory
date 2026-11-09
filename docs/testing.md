@@ -11,7 +11,7 @@
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`，以及项目简报上限 `limits.brief`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote`、`candidates` 节与整理改名前的旧配置节（`checkup`）按未知键报错；中英模板的 `url` 与密钥变量名。
+     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`，以及项目简报上限 `limits.brief`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote`、`candidates` 节与已删除的 `checkup` 节按未知键报错；中英模板的 `url` 与密钥变量名。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含项目列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
@@ -27,7 +27,7 @@
      - `ServiceTests`：服务端说明的组成（不含项目列表）、语言部分、状态提示，以及启动与运行中的绑定渲染（共用的上下文文件只渲染一次）。
      - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用，服务栏含 MCP 端点），三个辅助模型的可用、冷却中（含剩余秒数，冷却结束后回到可用）与未配置（与可用、冷却中并列），日志位置，配置有误时的错误键路径与服务栏，宽松读取的端口与语言（`server.port` 可读而其他键有错、文件不存在、YAML 无法解析三种情况）；离线报告不含依赖服务的列，其辅助模型栏只列未配置的模型。
      - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；共用路径的问题只出现一次、挂在第一个引用它的绑定上，`SharedWith` 列出共用的其他绑定；上次整理的三种基准（初始提交、整理提交、从未整理），改名前的旧前缀提交不作为基准；待处理计数（含待汇总的周）与整理提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源栏列出三个模型的密钥与 WebDAV 密码的来源（环境变量、配置文件或"未设置"，"未设置"不算错误、不上色，不显示值），未配置的模型即使设了环境变量也只写"未配置，不需要密钥"；服务运行与未运行时共用的栏内容一致；离线辅助模型栏只列未配置的模型，三个都已配置时省略，在线与离线中"未配置"的写法一致；客户端栏：无记录时一行说明，有记录时每个客户端一行（名称、版本、日期、协议版本、扩展，无扩展写"无"），服务未运行时同样显示。
-     - `ClientRecordTests`：客户端记录的核心行为：首次见到写文件并记一条日志；同一天重复既不写文件也不记日志；能力或扩展变化再记一条；跨天只更新日期；名称与版本为键；声明的文字去掉控制字符；服务重启后记录仍在；文件无法写入时记警告且调用照常返回；备份不含该文件。
+     - `ClientRecordTests`：客户端能力记录的核心行为：首次见到写文件并记一条日志；同一天重复既不写文件也不记日志；能力或扩展变化再记一条；跨天只更新日期；名称与版本为键；声明的文字去掉控制字符；服务重启后记录仍在；文件无法写入时记警告且调用照常返回；备份不含该文件。
      - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除；新节的内容与顺序（领域索引、主线、近几周、项目，位于全局四节之后）、领域索引行与条目不进入常驻区块、领域行数上限（`limits.domains`）、近几周的选取（最近 3 个有内容的已完成周，有汇总时显示汇总，否则确定性地显示计数与项目）、空节不出现、`resident.md` 为新节给出的引导语；主线、活动记录、项目目录变化后重新渲染；经 `TestHome.Clock` 跨过本地午夜后重新渲染。
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
      - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含三个模型的密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
@@ -109,7 +109,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ## 3. 本地化完整性
 
-两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。ISO 周边界与未汇总列表原先也直接读取 `SummaryLines` 与 `SummaryCalendar`；它们接入整理报告后，改由 `ConsolidationSummariesTests` 经门面测试，这里不再有直接读取。
+两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。ISO 周边界与未汇总列表经门面由 `ConsolidationSummariesTests` 覆盖，不直接读取 `SummaryLines` 与 `SummaryCalendar`。
 
 ## 4. 提示词的验证
 

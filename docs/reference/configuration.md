@@ -75,7 +75,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 配置后可用 `tacit probe` 检查模型能否正常使用。
 
-### `limits` 与 `candidates`
+### `limits`
 
 - `limits.persona`：全局四节各自的条数上限，默认红线 5、协作规则 15、偏好 10、档案 10，只约束 `add`（见 `docs/design.md` 第 6 节「画像」）。
 - `limits.domains`：画像中领域的个数上限，默认 10，`add` 新建领域时检查。
@@ -95,7 +95,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
 - `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
 
-已删除的 `mainlineStaleDays` 出现在配置中时按未知键报错，并点名键路径。
+已删除的键按未知键报错，并点名键路径：`mainlineStaleDays`，以及 `candidates`（含 `minDays`）与 `checkup` 两节。
 
 计时与缓存规则见 `docs/design.md` 第 9 节。
 

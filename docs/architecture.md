@@ -71,6 +71,8 @@ flowchart LR
 | Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由整理报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
 | 画像读取 | `recall` 的 `kind=persona` 与 `rules`：`PersonaReading` 渲染整份画像或领域规则，每条附短码，原话注释不输出；不经派生索引、不计使用统计。行为见 `docs/design.md` 第 7 节 | 已实现 |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、项目与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存整理判断的概率，键为提问内容的哈希，三档在读取时按阈值计算；小节保存内容哈希与最后变化日期，单元保存返回次数与最近返回日期（使用统计，见 `docs/design.md` 第 7 节） | 已实现 |
+| 项目简报 | `Retrieval/ProjectBrief`：`recall` 只给 `project` 时由 `RecallTool` 交给它。读取该项目的页面文件、项目作用域的画像与月文件，组装项目名、项目约定、未决事项、页目录（按类型分组）、最近 3 条活动与最近一次周汇总；超出 `limits.brief` 时截断页目录；经索引同步页面并计入使用统计，不经全文与向量检索。行为见 `docs/design.md` 第 7 节 | 已实现 |
+| 汇总 | `Recent/Summary`、`SummaryCalendar`、`SummaryMaterial`：汇总行的解析与写法（周按 ISO 周、月按自然月）、已结束且未汇总的周期的判定，以及整理报告中的汇总材料。服务不写汇总，汇总由整理时的主会话直接编辑活动记录文件；汇总节不参与活动的短码与同主题判断 | 已实现 |
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
 | 决策模型接口 | 只含选择题（返回各选项概率）；System One 协议的实现 `SystemOneDecisionModel`，请求发往配置的完整 URL（TypeSafe 的原生决策接口即其一个服务），密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先），没有密钥时不带认证头；`provider: cloudflare` 时请求体相同，只在读取响应时先取 `result` | 已实现 |
 | 辅助模型客户端 | 以 `HttpClient` 调用三个模型，三者共用 `ModelClient` 的请求内重试与冷却（数值与判定规则见 `docs/design.md` 第 4 节）；每个模型的请求由 `ModelRequest` 构造：发往配置的完整 URL，有密钥时带 `Authorization: Bearer`，没有则不带认证头；提供方分派只在构造请求与读取响应两处（`RerankerModel` 的 Cloudflare 格式与 `SystemOneDecisionModel` 的 `result` 信封，信封类型为 `CloudflareEnvelope`，`success` 不为真或无 `result` 即格式不对）。未配置的模型（`Configured` 为假）的调用直接返回"无结果"，不发请求、不影响健康状态；未配置与不可用的判定集中在 `AuxiliaryModels`（`Statuses` 给出 `Unconfigured`、`Unavailable` 与可用三种）；状态提示只按冷却判定 | 已实现 |
@@ -82,10 +84,10 @@ flowchart LR
 | 备份与恢复 | `Backup/`：`BackupArchive` 是所有备份共用的打包（同一份内容清单，清单类型为 `BackupManifest`，含 `kind` 与 `memoryHeadSubject`，HEAD 由 `MemoryCommit` 读取一次）；自动备份（`AutomaticBackup`，每日一份，保留 `backup.keep`，只清理 `auto-*`）、手动备份（`ManualBackup`，在写入队列中打包，`--to` 指定目录，不清理）与保险备份（恢复前生成，不清理）已实现，时间戳与同秒重名拒绝由 `BackupNames` 统一。云端备份（`CloudBackup`，`tacit backup --remote`）在写入锁下打包到临时目录，锁外由 `WebDavClient` 上传为 `.part` 再 MOVE 覆盖远端 `tacit-backup.zip`，每次尝试记入 `backups/remote.json`，不在本地留副本。恢复：`RestoreArchive` 打开并校验备份，`RestorePreviewBuilder` 生成预览（`--include-config` 时检查备份中的 `config.yaml`），`RestoreInstall` 负责文件操作（保险备份、暂存、交换、撤销，经 `Maintenance/MoveJournal`），`MemoryService` 只编排维护操作的门与后续步骤（索引、监听、常驻区块）。云端恢复（`CloudDownload`）先下载到 `backups/.download/`，之后走同一流程 | 已实现 |
 | Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间 | 已实现 |
 | 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见 `docs/reference/configuration.md`「提示词文档」；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
-| 客户端记录 | `ClientRecords/`：`ClientObservation` 是核心的公开输入（名称、版本、协议版本、能力与扩展标识的普通值）；`ClientRecordStore` 读写 `TACIT_HOME/clients.json`，持有自己的锁，不经写入队列；只在新客户端或内容变化时写文件与记一条日志，同一天的重复请求不写。入口为 `MemoryService.RecordClient`，状态报告的客户端栏经 `ReadFor` 读同一文件。读取 SDK 声明的入站过滤器在 `Mcp` 层（`McpHost.RecordClients`），2026-07-28 从请求的元数据取、旧版本从 `initialize` 参数取。行为见 `docs/design.md` 第 12 节 | 已实现 |
+| 客户端能力记录 | `ClientRecords/`：`ClientObservation` 是核心的公开输入（名称、版本、协议版本、能力与扩展标识的普通值）；`ClientRecordStore` 读写 `TACIT_HOME/clients.json`，持有自己的锁，不经写入队列；只在新客户端或内容变化时写文件与记一条日志，同一天的重复请求不写。入口为 `MemoryService.RecordClient`，状态报告的客户端栏经 `ReadFor` 读同一文件。读取 SDK 声明的入站过滤器在 `Mcp` 层（`McpHost.RecordClients`），2026-07-28 从请求的元数据取、旧版本从 `initialize` 参数取。行为见 `docs/design.md` 第 12 节 | 已实现 |
 | 日志 | `Logging/ServiceLog`：各事件经此写入，消息随记忆语言，通知（`notice`）同时显示给用户；记忆工具调用只在 `MemoryService` 的 `RecordToolCall` 一处记录。`serve` 的日志文件由 CLI 的 `ServeLog` 建立（Serilog，按天滚动，保留 14 份） | 已实现 |
 | 本地化 | 面向人的短文本与结构词：每一项以 `Localized(Zh, En)` 一并定义，缺一种写法即无法编译；面向 Agent 的英文文本只有一份 | 已实现 |
-| 查看 | `tacit show`：读取与常驻服务相同的来源，输出服务端说明、常驻区块、记忆 skill、工具说明，或 `remember`、`consolidation` 的 skill 正文，每一部分标明来源与长度；`--default` 输出内置文本；不需要运行中的服务 | 已实现 |
+| 查看 | `tacit show`：读取与常驻服务相同的来源，输出服务端说明、常驻区块、记忆 skill、工具说明，或 `remember`、`consolidate` 的 skill 正文，每一部分标明来源与长度；`--default` 输出内置文本；不需要运行中的服务 | 已实现 |
 
 ## 4. 数据流
 
@@ -97,7 +99,7 @@ flowchart LR
 4. 按行修改 Markdown 文件；
 5. 用 `git` 只提交本次写入的文件；
 6. 同步受影响的索引条目（写入后立即同步，随后的文件监听事件因哈希相同而跳过）；
-7. 画像变化时重新渲染常驻区块；当天首次写入后触发自动备份。
+7. 画像、主线、汇总或项目集合变化时重新渲染常驻区块；当天首次写入后触发自动备份。
 
 调用 `git` 一律加 `-c core.quotepath=off` 并以 UTF-8 读取输出，避免中文路径被转义或乱码。
 
