@@ -210,10 +210,12 @@ internal static class StatusReporter
                     : ManagementApiMessages.PendingConfirmableUnknown.In(language),
                 ManagementApiMessages.PendingFormatProblems.Format(language, summary.Problems),
                 summary.MainlineEmpty ? ManagementApiMessages.PendingMainlineEmpty.In(language) : ManagementApiMessages.PendingMainlineSet.In(language),
+                ManagementApiMessages.PendingWeeks.Format(language, summary.UnsummarizedWeeks),
             ],
             confirmable,
             summary.Problems,
-            summary.MainlineEmpty);
+            summary.MainlineEmpty,
+            summary.UnsummarizedWeeks);
     }
 
     /// <summary>

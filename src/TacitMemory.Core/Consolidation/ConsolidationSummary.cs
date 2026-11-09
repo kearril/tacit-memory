@@ -14,13 +14,15 @@ namespace TacitMemory.Core.Consolidation;
 /// <param name="Confirmable">Candidates that are not a sure repeat of a persona entry or a rejected candidate.</param>
 /// <param name="Problems">Format and rule problems.</param>
 /// <param name="MainlineEmpty">Whether the mainline has no items.</param>
+/// <param name="UnsummarizedWeeks">Completed ISO weeks that have activities and no summary line yet.</param>
 internal sealed record ConsolidationSummary(
     ConsolidationBaseline Baseline,
     int? DaysSince,
     bool CandidatesReadable,
     int Confirmable,
     int Problems,
-    bool MainlineEmpty)
+    bool MainlineEmpty,
+    int UnsummarizedWeeks)
 {
     /// <summary>
     /// Reads the repository. Throws when git cannot read it, so each caller decides what that means: the reminder gives
@@ -38,8 +40,9 @@ internal sealed record ConsolidationSummary(
         var confirmable = review?.Judgments.Count(judgment => judgment.Outcome.Tier != Tier.Certain) ?? 0;
         var problems = FormatViolations.Issues(context).Count;
         var mainlineEmpty = MainlineSection.ReadItems(config.MemoryPath).Count == 0;
+        var unsummarizedWeeks = SummaryCalendar.Unsummarized(config.MemoryPath, today).Count(period => period.Kind == SummaryKind.Week);
 
         var days = baseline.Commit is { } commit ? today.DayNumber - commit.Day.DayNumber : (int?)null;
-        return new ConsolidationSummary(baseline, days, review is not null, confirmable, problems, mainlineEmpty);
+        return new ConsolidationSummary(baseline, days, review is not null, confirmable, problems, mainlineEmpty, unsummarizedWeeks);
     }
 }

@@ -4,7 +4,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
 {
     private const string FormatTitle = "Format and rule violations";
 
-    private const string OverLimitTitle = "Sections over their limit";
+    private const string OverLimitTitle = "Over-limit sections and domain hygiene";
 
     private readonly TestHome _home = new();
 

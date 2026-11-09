@@ -244,9 +244,12 @@ public sealed class McpHostTests : IAsyncLifetime
             "### Months to summarize\n",
             "### Mainline material\n",
             "## B. For proposals\n",
+            "### Persona evidence\n",
+            "### Incident lessons\n",
+            "### Changed pages\n",
             "### Suspected duplicate pages\n",
             "### Conflicting persona entries\n",
-            "### Sections over their limit\n",
+            "### Over-limit sections and domain hygiene\n",
         };
         foreach (var heading in headings)
             Assert.Contains(heading, text);

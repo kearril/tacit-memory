@@ -53,13 +53,13 @@ internal sealed record ConsolidationReport(
         var candidates = await CandidateReview.StartAsync(context, services, judgments, cancellationToken);
         judgments.StartBudget(TimeSpan.FromSeconds(config.Consolidation.BudgetSeconds));
 
-        var proposals = new List<ConsolidationSection>
-        {
-            await duplicatePages(),
-            await conflicts(),
-        };
+        var duplicateSection = await duplicatePages();
+        var conflictSection = await conflicts();
         var review = await candidates();
+        var (lessons, changed) = ChangedPageFindings.Produce(context, services, await ChangedPages.ReadAsync(context, cancellationToken));
+        var evidence = await PersonaEvidence.ProduceAsync(context, review, cancellationToken);
         var issues = FormatViolations.Issues(context);
+        var overLimit = FormatViolations.OverLimit(issues);
         var automatic = new[]
         {
             FormatViolations.Automatic(issues),
@@ -68,7 +68,15 @@ internal sealed record ConsolidationReport(
             SummaryMaterial.Months(context),
             SummaryMaterial.Mainline(context),
         };
-        proposals.Add(FormatViolations.OverLimit(issues));
+        var proposals = new[]
+        {
+            evidence,
+            lessons,
+            changed,
+            duplicateSection,
+            conflictSection,
+            new ConsolidationSection(ConsolidationTitles.SectionsOverLimit, [.. overLimit.Findings, .. DomainHygiene.Findings(config)]),
+        };
         return new ConsolidationReport(context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, automatic, proposals);
     }
 

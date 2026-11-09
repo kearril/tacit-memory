@@ -41,7 +41,7 @@ limits:
   triggerLength: 60
   brief: 3000
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
-consolidation: { remindAfterDays: 7, budgetSeconds: 20, maxConcurrency: 5 }
+consolidation: { remindAfterDays: 7, remindCandidates: 5, budgetSeconds: 20, maxConcurrency: 5 }
 decision:                     # 各判断的上下阈值
   samePreference: { certain: …, unlikely: … }
   samePage:       { certain: …, unlikely: … }
@@ -90,7 +90,8 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 ### `consolidation`
 
-- `remindAfterDays`（默认 7）：距上次整理达到该天数时，服务端说明出现整理提示。
+- `remindAfterDays`（默认 7）：距上次整理达到该天数时，服务端说明出现整理提示。四个触发条件见 `docs/design.md` 第 8 节。
+- `remindCandidates`（默认 5）：可确认的候选达到该个数时，服务端说明出现整理提示。
 - `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
 - `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
 

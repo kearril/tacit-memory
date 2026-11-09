@@ -29,7 +29,12 @@ public sealed class ConsolidationReminderTests : IDisposable
     private DateOnly InitDay => DateOnly.ParseExact(
         TestHome.Git(Memory, "log", "-1", "--format=%as").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    private void Ready(string extraConfig = "") => _home.InitReady(extraConfig, _models);
+    /// <summary>A ready memory with a non-empty mainline, so only the triggers a test sets off bring the reminder.</summary>
+    private void Ready(string extraConfig = "")
+    {
+        _home.InitReady(extraConfig, _models);
+        File.WriteAllText(Path.Combine(Memory, "recent.md"), "## 近期主线\n- 一条主线\n");
+    }
 
     private MemoryService Open() => _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
@@ -107,9 +112,33 @@ public sealed class ConsolidationReminderTests : IDisposable
     }
 
     [Fact]
-    public async Task A_candidate_that_can_be_confirmed_brings_the_reminder_at_once()
+    public async Task Candidates_below_remind_candidates_do_not_bring_the_reminder()
     {
         Ready();
+        WriteCandidates(TwoDayCandidate);
+        using var service = Open();
+
+        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+    }
+
+    [Fact]
+    public async Task Candidates_reaching_remind_candidates_bring_the_reminder_with_their_count()
+    {
+        Ready("consolidation:\n  remindCandidates: 2\n");
+        var second = "\n### 先给结论\n归属：偏好\n- 2026-10-31 原话「直接说结论」\n";
+        WriteCandidates(TwoDayCandidate.Replace("\n## 拒绝列表", second + "\n## 拒绝列表"));
+        using var service = Open();
+
+        var instructions = await service.ServerInstructionsAsync();
+
+        Assert.Contains(Heading, instructions);
+        Assert.Contains("- Candidates that can be confirmed: 2.", instructions);
+    }
+
+    [Fact]
+    public async Task A_candidate_written_at_remind_candidates_one_brings_the_reminder_when_the_threshold_is_one()
+    {
+        Ready("consolidation:\n  remindCandidates: 1\n");
         WriteCandidates(TwoDayCandidate);
         using var service = Open();
 
@@ -121,9 +150,40 @@ public sealed class ConsolidationReminderTests : IDisposable
     }
 
     [Fact]
-    public async Task A_candidate_written_while_running_brings_the_reminder_on_the_next_instructions()
+    public async Task A_completed_week_without_a_summary_brings_the_reminder_with_the_weeks_count()
     {
         Ready();
+        CommitOn(InitDay, "consolidate: pass");
+        var lastWeek = InitDay.AddDays(-14);
+        Directory.CreateDirectory(Path.Combine(Memory, "recent"));
+        File.WriteAllText(Path.Combine(Memory, "recent", lastWeek.ToString("yyyy-MM", CultureInfo.InvariantCulture) + ".md"),
+            $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");
+        using var service = Open();
+
+        var instructions = await service.ServerInstructionsAsync();
+
+        Assert.Contains(Heading, instructions);
+        Assert.Contains("- Weeks to summarize: 1.", instructions);
+    }
+
+    [Fact]
+    public async Task An_empty_mainline_brings_the_reminder_with_the_mainline_line()
+    {
+        Ready();
+        File.WriteAllText(Path.Combine(Memory, "recent.md"), "## 近期主线\n");
+        CommitOn(InitDay, "consolidate: pass");
+        using var service = Open();
+
+        var instructions = await service.ServerInstructionsAsync();
+
+        Assert.Contains(Heading, instructions);
+        Assert.Contains("- Mainline: empty.", instructions);
+    }
+
+    [Fact]
+    public async Task A_candidate_written_while_running_brings_the_reminder_on_the_next_instructions()
+    {
+        Ready("consolidation:\n  remindCandidates: 1\n");
         using var service = Open();
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
 
@@ -147,7 +207,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     [Fact]
     public async Task Building_the_reminder_calls_no_model()
     {
-        Ready();
+        Ready("consolidation:\n  remindCandidates: 1\n");
         WriteCandidates(TwoDayCandidate);
         using var service = Open();
         await service.VectorCompletion;

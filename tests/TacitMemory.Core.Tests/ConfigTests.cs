@@ -36,7 +36,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(10, config.Limits.DomainEntries);
         Assert.Equal(60, config.Limits.TriggerLength);
         Assert.Equal(3000, config.Limits.Brief);
-        Assert.Equal(new ConsolidationConfig(7, 20, 5), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
@@ -614,11 +614,11 @@ public sealed class ConfigTests : IDisposable
     [Fact]
     public void Configured_consolidation_budget_and_concurrency_override_the_defaults()
     {
-        WriteConfig(Models + "consolidation: { budgetSeconds: 5, maxConcurrency: 2 }\n");
+        WriteConfig(Models + "consolidation: { budgetSeconds: 5, maxConcurrency: 2, remindCandidates: 3 }\n");
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new ConsolidationConfig(7, 5, 2), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(7, 5, 2, 3), config.Consolidation);
     }
 
     [Theory]

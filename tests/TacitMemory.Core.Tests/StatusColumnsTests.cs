@@ -378,6 +378,8 @@ public sealed class StatusColumnsTests : IDisposable
         File.WriteAllText(PersonaMd, "## 红线\n- 不要删库\n\n## 偏好\n- 沟通：先要结论\n");
         File.WriteAllText(CandidatesMd, TwoDayCandidate.ReplaceLineEndings("\n"));
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent.md"), "## 近期主线\n- 一条主线\n");
+        // One candidate is below the default threshold of five, so the reminder is brought by the candidate count alone.
+        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "consolidation:\n  remindCandidates: 1\n");
         var service = Service;
 
         var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
@@ -390,6 +392,22 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Contains($"- Candidates that can be confirmed: {pending.Confirmable}.", reminder);
         Assert.Contains($"- Format and rule problems: {pending.FormatProblems}.", reminder);
         Assert.Contains("- Mainline: not empty.", reminder);
+    }
+
+    [Fact]
+    public async Task The_pending_counts_include_the_weeks_to_summarize_that_the_reminder_counts()
+    {
+        var lastWeek = InitDay.AddDays(-14);
+        Directory.CreateDirectory(Path.Combine(Memory, "recent"));
+        File.WriteAllText(Path.Combine(Memory, "recent", lastWeek.ToString("yyyy-MM", CultureInfo.InvariantCulture) + ".md"),
+            $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");
+        var service = Service;
+
+        var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
+
+        Assert.Equal(1, pending.UnsummarizedWeeks);
+        Assert.Contains("待汇总的周：1", pending.Lines);
+        Assert.Contains("- Weeks to summarize: 1.", await service.ServerInstructionsAsync());
     }
 
     [Fact]
