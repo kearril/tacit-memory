@@ -27,7 +27,7 @@ public sealed record StatusReport
     /// <summary>When the last consolidation was, and how many days ago.</summary>
     public ConsolidationStatus? Consolidation { get; init; }
 
-    /// <summary>The counts a consolidation would raise: confirmable candidates, format problems, a stale mainline.</summary>
+    /// <summary>The counts a consolidation would raise: confirmable candidates, format problems, an empty mainline.</summary>
     public PendingStatus? Pending { get; init; }
 
     /// <summary>The latest local backup and the cloud backup record.</summary>
@@ -168,19 +168,19 @@ public sealed record ConsolidationStatus(string Title, IReadOnlyList<string> Lin
 
 /// <param name="Confirmable">Candidates that can be confirmed; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
 /// <param name="FormatProblems">Format and rule problems; <c>null</c> when the history cannot be read.</param>
-/// <param name="MainlineStale">Whether the mainline is stale; <c>null</c> when the history cannot be read.</param>
-public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Confirmable, int? FormatProblems, bool? MainlineStale) : IStatusColumn
+/// <param name="MainlineEmpty">Whether the mainline has no items; <c>null</c> when the history cannot be read.</param>
+public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Confirmable, int? FormatProblems, bool? MainlineEmpty) : IStatusColumn
 {
     /// <summary>
     /// The lines are the confirmable count, the format problems and the mainline, in that order. No count means the history
-    /// or the file could not be read, which is a problem; a count above zero, or a stale mainline, needs attention.
+    /// or the file could not be read, which is a problem; a count above zero, or an empty mainline, needs attention.
     /// </summary>
     public IReadOnlyList<StatusLevel?> LineLevels() =>
-        new StatusLevel?[] { CountLevel(Confirmable), CountLevel(FormatProblems), MainlineLevel(MainlineStale) }.Take(Lines.Count).ToList();
+        new StatusLevel?[] { CountLevel(Confirmable), CountLevel(FormatProblems), MainlineLevel(MainlineEmpty) }.Take(Lines.Count).ToList();
 
     private static StatusLevel CountLevel(int? count) => count is null ? StatusLevel.Problem : count > 0 ? StatusLevel.Attention : StatusLevel.Ok;
 
-    private static StatusLevel MainlineLevel(bool? stale) => stale is null ? StatusLevel.Problem : stale.Value ? StatusLevel.Attention : StatusLevel.Ok;
+    private static StatusLevel MainlineLevel(bool? empty) => empty is null ? StatusLevel.Problem : empty.Value ? StatusLevel.Attention : StatusLevel.Ok;
 }
 
 /// <param name="Latest">The file name of the newest local backup of any kind; <c>null</c> when there is none.</param>

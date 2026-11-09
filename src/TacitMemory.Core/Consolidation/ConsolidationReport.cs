@@ -20,8 +20,19 @@ internal sealed record ConsolidationSection(string Title, IReadOnlyList<string> 
 /// </summary>
 internal delegate Task<T> AwaitAnswers<T>();
 
-/// <summary>The consolidation report: the baseline and the six categories, computed when asked for.</summary>
-internal sealed record ConsolidationReport(ConsolidationBaseline Baseline, IReadOnlyList<ConsolidationSection> Sections)
+/// <summary>
+/// The consolidation report: the baseline, the budget's outcome, and the categories of its two parts, computed when asked for.
+/// </summary>
+/// <param name="BudgetSeconds">The budget of the model judgments, in seconds.</param>
+/// <param name="BudgetRanOut">Whether the budget ran out before every judgment was answered.</param>
+/// <param name="Automatic">Part A: the categories the agent handles itself.</param>
+/// <param name="Proposals">Part B: the categories the agent gathers into one numbered list for the user.</param>
+internal sealed record ConsolidationReport(
+    ConsolidationBaseline Baseline,
+    int BudgetSeconds,
+    bool BudgetRanOut,
+    IReadOnlyList<ConsolidationSection> Automatic,
+    IReadOnlyList<ConsolidationSection> Proposals)
 {
     /// <summary>Most findings a category lists; the rest are counted.</summary>
     public const int MaxFindingsPerCategory = 20;
@@ -42,28 +53,40 @@ internal sealed record ConsolidationReport(ConsolidationBaseline Baseline, IRead
         var candidates = await CandidateReview.StartAsync(context, services, judgments, cancellationToken);
         judgments.StartBudget(TimeSpan.FromSeconds(config.Consolidation.BudgetSeconds));
 
-        var sections = new List<ConsolidationSection>
+        var proposals = new List<ConsolidationSection>
         {
             await duplicatePages(),
             await conflicts(),
         };
         var review = await candidates();
-        sections.Add(ConfirmableCandidates.Produce(config, review));
-        sections.Add(RedundantCandidates.Produce(config, review));
-        sections.Add(FormatViolations.Produce(context));
-        sections.Add(await StaleMainline.ProduceAsync(context, cancellationToken));
-        return new ConsolidationReport(context.Baseline, sections);
+        var issues = FormatViolations.Issues(context);
+        var automatic = new[]
+        {
+            FormatViolations.Automatic(issues),
+            RedundantCandidates.Produce(config, review),
+            SummaryMaterial.Weeks(context),
+            SummaryMaterial.Months(context),
+            SummaryMaterial.Mainline(context),
+        };
+        proposals.Add(FormatViolations.OverLimit(issues));
+        return new ConsolidationReport(context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, automatic, proposals);
     }
 
     /// <summary>The report as the consolidation report resource shows it, in English.</summary>
     public string Render()
     {
         var text = new StringBuilder();
-        text.Append(BaselineLine(Baseline)).Append("\n\n");
-        if (Sections.All(section => section.Findings.Count == 0 && section.Status is null))
-            text.Append("No problems found in any category.\n\n");
+        text.Append(BaselineLine(Baseline)).Append('\n');
+        text.Append(BudgetLine()).Append("\n\n");
+        RenderPart(text, ConsolidationTitles.AutomaticPart, Automatic);
+        RenderPart(text, ConsolidationTitles.ProposalPart, Proposals);
+        return text.ToString();
+    }
 
-        foreach (var section in Sections)
+    private static void RenderPart(StringBuilder text, string title, IReadOnlyList<ConsolidationSection> sections)
+    {
+        text.Append("## ").Append(title).Append("\n\n");
+        foreach (var section in sections)
         {
             text.Append("### ").Append(section.Title).Append('\n');
             if (section.Status is { } status)
@@ -77,9 +100,11 @@ internal sealed record ConsolidationReport(ConsolidationBaseline Baseline, IRead
                     .Append(" more not listed. Run the tacit-consolidate skill again after handling these.\n");
             text.Append('\n');
         }
-
-        return text.ToString();
     }
+
+    private string BudgetLine() => BudgetRanOut
+        ? $"Budget: {BudgetSeconds} seconds for the model judgments; they ran out before all of them finished, and the categories say what is not checked yet."
+        : $"Budget: {BudgetSeconds} seconds for the model judgments; all of them finished in time.";
 
     private static string BaselineLine(ConsolidationBaseline baseline) => baseline.Kind switch
     {

@@ -60,6 +60,6 @@
 
 | URI | 名称 | 类型 | 内容 |
 | :--- | :--- | :--- | :--- |
-| `tacit://consolidation-report` | `consolidation-report` | `text/markdown` | 读取时现场生成的整理报告（`MemoryService.ConsolidationReportAsync`），内容见 `docs/design.md` 第 9 节 |
+| `tacit://consolidation-report` | `consolidation-report` | `text/markdown` | 读取时现场生成的整理报告（`MemoryService.ConsolidationReportAsync`），分 A、B 两部分，内容见 `docs/design.md` 第 9 节 |
 
 资源描述写明只在运行 `tacit-consolidate` skill 时读取。

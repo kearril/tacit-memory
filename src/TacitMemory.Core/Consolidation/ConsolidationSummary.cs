@@ -1,4 +1,6 @@
+using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Consolidation;
 
@@ -9,16 +11,16 @@ namespace TacitMemory.Core.Consolidation;
 /// <param name="Baseline">The last consolidation, or the init commit standing in for it, or none.</param>
 /// <param name="DaysSince">Days from the baseline's commit to today; <c>null</c> when there is no baseline commit.</param>
 /// <param name="CandidatesReadable">Whether <c>candidates.md</c> is valid UTF-8; the candidate count is zero otherwise.</param>
-/// <param name="Confirmable">Candidates that can be confirmed.</param>
+/// <param name="Confirmable">Candidates that are not a sure repeat of a persona entry or a rejected candidate.</param>
 /// <param name="Problems">Format and rule problems.</param>
-/// <param name="MainlineStale">Whether the mainline is stale.</param>
+/// <param name="MainlineEmpty">Whether the mainline has no items.</param>
 internal sealed record ConsolidationSummary(
     ConsolidationBaseline Baseline,
     int? DaysSince,
     bool CandidatesReadable,
     int Confirmable,
     int Problems,
-    bool MainlineStale)
+    bool MainlineEmpty)
 {
     /// <summary>
     /// Reads the repository. Throws when git cannot read it, so each caller decides what that means: the reminder gives
@@ -31,13 +33,13 @@ internal sealed record ConsolidationSummary(
         var git = new GitCli(config.MemoryPath, config.Language);
         var baseline = await ConsolidationBaseline.ReadAsync(git, cancellationToken);
         var context = new ConsolidationContext(config, today, git, baseline);
-        // Candidates are counted by the days they appeared on only, so no model is asked.
+        // Candidates are counted without a model: every one that is not a sure repeat of an entry counts.
         var review = CandidateReview.Unjudged(config);
-        var confirmable = ConfirmableCandidates.Produce(config, review).Findings.Count;
-        var problems = FormatViolations.Produce(context).Findings.Count;
-        var mainlineStale = (await StaleMainline.ProduceAsync(context, cancellationToken)).Findings.Count > 0;
+        var confirmable = review?.Judgments.Count(judgment => judgment.Outcome.Tier != Tier.Certain) ?? 0;
+        var problems = FormatViolations.Issues(context).Count;
+        var mainlineEmpty = MainlineSection.ReadItems(config.MemoryPath).Count == 0;
 
         var days = baseline.Commit is { } commit ? today.DayNumber - commit.Day.DayNumber : (int?)null;
-        return new ConsolidationSummary(baseline, days, review is not null, confirmable, problems, mainlineStale);
+        return new ConsolidationSummary(baseline, days, review is not null, confirmable, problems, mainlineEmpty);
     }
 }

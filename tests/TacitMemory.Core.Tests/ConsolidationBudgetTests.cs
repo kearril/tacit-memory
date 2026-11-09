@@ -171,7 +171,6 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(text, Removal));
-        Assert.Contains("回答尽量简短", Section(text, "Confirmable persona candidates"));
     }
 
     [Fact]
@@ -214,6 +213,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         var text = await report;
 
         Assert.Contains("2 changed page(s) not checked yet", Section(text, "Suspected duplicate pages"));
+        Assert.Contains("they ran out before all of them finished", text);
 
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
@@ -221,23 +221,5 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
-    }
-
-    [Fact]
-    public async Task A_confirmable_candidate_whose_check_ran_out_of_time_says_to_compare_it_with_the_persona_itself()
-    {
-        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
-        Write("回答尽量简短");
-        PickPersonaEntry();
-        _models.HoldDecisions();
-        var report = await StartConsolidationAsync();
-        await _models.DecisionRequestsReached(1).WaitAsync(Guard);
-        _home.Clock.Elapse(Budget);
-        var text = await report;
-
-        var confirmable = Section(text, "Confirmable persona candidates");
-        Assert.Contains("回答尽量简短", confirmable);
-        Assert.Contains("Compare each candidate below with the persona yourself", confirmable);
-        Assert.DoesNotContain("possibly the same as", confirmable);
     }
 }

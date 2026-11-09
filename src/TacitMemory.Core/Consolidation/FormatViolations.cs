@@ -33,17 +33,25 @@ internal static class FormatViolations
 
     private static readonly Regex InsteadWord = new(@"\binstead\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    public static ConsolidationSection Produce(ConsolidationContext context)
+    /// <summary>Every problem of every memory file, each with its file's path. The report splits them into the two parts.</summary>
+    public static IReadOnlyList<FormatIssue> Issues(ConsolidationContext context)
     {
-        var findings = new List<string>();
+        var issues = new List<FormatIssue>();
         foreach (var relative in MemoryFiles(context.Config.MemoryPath))
-        {
-            var issues = FileIssues(context, relative);
-            findings.AddRange(issues.Select(issue => (issue with { File = relative }).ToFinding()));
-        }
-
-        return new ConsolidationSection(ConsolidationTitles.FormatViolations, findings);
+            issues.AddRange(FileIssues(context, relative).Select(issue => issue with { File = relative }));
+        return issues;
     }
+
+    /// <summary>Part A: the problems the agent fixes directly, or only hints at, without asking the user.</summary>
+    public static ConsolidationSection Automatic(IReadOnlyList<FormatIssue> issues) =>
+        new(ConsolidationTitles.FormatViolations, Findings(issues, handling => handling != FormatHandling.AskUser));
+
+    /// <summary>Part B: the problems the user decides, such as a section over its limit.</summary>
+    public static ConsolidationSection OverLimit(IReadOnlyList<FormatIssue> issues) =>
+        new(ConsolidationTitles.SectionsOverLimit, Findings(issues, handling => handling == FormatHandling.AskUser));
+
+    private static List<string> Findings(IReadOnlyList<FormatIssue> issues, Func<FormatHandling, bool> include) =>
+        issues.Where(issue => include(issue.Handling)).Select(issue => issue.ToFinding()).ToList();
 
     /// <summary>
     /// The memory files the service reads, relative to the repository with forward slashes, in ordinal order: the detail

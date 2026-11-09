@@ -1,20 +1,30 @@
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The titles of the six report categories, in English. The steps of the tacit-consolidate skill refer to them by these
-/// names, and the consolidation report resource uses them as headings, so they are defined once.
+/// The titles of the consolidation report, in English: its two parts and their categories. The steps of the tacit-consolidate
+/// skill refer to them by these names, and the consolidation report resource uses them as headings, so they are defined once.
 /// </summary>
 internal static class ConsolidationTitles
 {
+    /// <summary>Part A: what the agent does itself, without asking the user.</summary>
+    public const string AutomaticPart = "A. Automatic";
+
+    /// <summary>Part B: what the agent gathers into one numbered list for the user.</summary>
+    public const string ProposalPart = "B. For proposals";
+
+    public const string FormatViolations = "Format and rule violations";
+
+    public const string RedundantCandidates = "Persona candidates to remove";
+
+    public const string WeeksToSummarize = "Weeks to summarize";
+
+    public const string MonthsToSummarize = "Months to summarize";
+
+    public const string MainlineMaterial = "Mainline material";
+
     public const string DuplicatePages = "Suspected duplicate pages";
 
     public const string ConflictingEntries = "Conflicting persona entries";
 
-    public const string ConfirmableCandidates = "Confirmable persona candidates";
-
-    public const string RedundantCandidates = "Persona candidates to remove";
-
-    public const string FormatViolations = "Format and rule violations";
-
-    public const string StaleMainline = "Stale mainline";
+    public const string SectionsOverLimit = "Sections over their limit";
 }

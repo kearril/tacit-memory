@@ -55,7 +55,7 @@ internal static class ConsolidationSkill
         text.Append("# Memory consolidation\n\n");
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText).Append("\n\n");
         text.Append("First read the resource ").Append(ReportUri).Append(" from the MCP server named tacit. It is computed when read: ")
-            .Append("the memory repository's absolute path, today's date, the last consolidation's commit, and the report's six categories. ")
+            .Append("the memory repository's absolute path, today's date, the last consolidation's commit, and the report's categories. ")
             .Append("If it cannot be read, stop and ask the user to start the TacitMemory service with tacit serve; do not check the memory from what you remember.\n");
         text.Append("Edit the repository's files by the absolute path the report gives, and run git in that directory (git -C \"")
             .Append(Repository).Append("\" ...), whatever the current directory is. Below, ").Append(Repository).Append(" stands for that path.\n\n");
@@ -63,14 +63,14 @@ internal static class ConsolidationSkill
         text.Append("## Steps\n");
         text.Append("1. Fix the items under \"").Append(ConsolidationTitles.FormatViolations).Append("\" that say they are fixed directly, without asking the user. Items that only give a hint need no change.\n");
         text.Append("2. Delete every item under \"").Append(ConsolidationTitles.RedundantCandidates).Append("\" directly, without asking: the persona or the rejection list already holds the same preference.\n");
-        text.Append("3. For each item under \"").Append(ConsolidationTitles.ConfirmableCandidates).Append("\", ask the user one at a time, and accept \"confirm\", \"reject\" or \"defer\":\n");
+        text.Append("3. For each candidate left in candidates.md, ask the user one at a time, and accept \"confirm\", \"reject\" or \"defer\":\n");
         text.Append("   - confirm: move the candidate into its persona section as an entry, its text as written, and below it an indented comment line `<!-- ")
             .Append(Date).Append(' ').Append(quote).Append("「quote」 -->` with today's date and the quote; then delete the candidate from candidates.md;\n");
         text.Append("   - reject: move the candidate into the rejection list in candidates.md, and add an occurrence line marked as rejected, dated today;\n");
         text.Append("   - defer: leave the candidate exactly as it is; it is reported again at the next consolidation.\n");
         text.Append("4. For each item under \"").Append(ConsolidationTitles.DuplicatePages).Append("\", \"").Append(ConsolidationTitles.ConflictingEntries)
-            .Append("\", and each section over its limit, ask the user one at a time. Merge pages or rewrite entries only after the user agrees.\n");
-        text.Append("5. If the mainline is stale, or over its limit, rewrite the mainline in recent.md from the activities of the last month.\n");
+            .Append("\", and \"").Append(ConsolidationTitles.SectionsOverLimit).Append("\", ask the user one at a time. Merge pages or rewrite entries only after the user agrees.\n");
+        text.Append("5. If the mainline is empty, or over its limit, rewrite the mainline in recent.md from the activities of the last month.\n");
         text.Append("6. Review the whole persona for duplicate entries and entries worded almost alike. Propose each merge to the user, and apply it only after the user confirms.\n");
         text.Append("7. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
             .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")

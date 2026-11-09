@@ -4,6 +4,8 @@ public sealed class FormatChecksPersonaTests : IDisposable
 {
     private const string FormatTitle = "Format and rule violations";
 
+    private const string OverLimitTitle = "Sections over their limit";
+
     private readonly TestHome _home = new();
 
     public void Dispose() => _home.Dispose();
@@ -35,6 +37,10 @@ public sealed class FormatChecksPersonaTests : IDisposable
 
     private async Task<string> Violations(MemoryService service) =>
         Section(await service.ConsolidationReportAsync(), FormatTitle);
+
+    /// <summary>The problems put to the user, which sit in part B of the report.</summary>
+    private async Task<string> OverLimit(MemoryService service) =>
+        Section(await service.ConsolidationReportAsync(), OverLimitTitle);
 
     [Fact]
     public async Task A_red_line_without_instead_is_reported_at_its_line_and_fixed_directly()
@@ -95,7 +101,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
         using var service = Open("limits:\n  persona:\n    preferences: 1\n");
         Write("persona.md", "## 偏好\n- 第一条\n- 第二条\n");
 
-        var violations = await Violations(service);
+        var violations = await OverLimit(service);
 
         Assert.Contains("Section over limit", violations);
         Assert.Contains("Ask the user.", violations);
@@ -181,7 +187,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
         using var service = Open();
         Write("recent.md", "## 近期主线\n- 一\n- 二\n- 三\n- 四\n- 五\n- 六\n");
 
-        var violations = await Violations(service);
+        var violations = await OverLimit(service);
 
         Assert.Contains("recent.md", violations);
         Assert.Contains("Mainline over limit", violations);
@@ -247,7 +253,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
         using var service = Open("limits:\n  domains: 1\n  domainEntries: 1\n");
         Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 第一条\n- 第二条\n\n## 领域：writing\n触发：写文章时\n### 偏好\n- 写作\n");
 
-        var violations = await Violations(service);
+        var violations = await OverLimit(service);
 
         Assert.Contains("Domain over limit", violations);
         Assert.Contains("Too many domains", violations);

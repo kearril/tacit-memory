@@ -19,21 +19,21 @@ public sealed class ConsolidationReportTests : IDisposable
 
     private string HeadHash() => TestHome.Git(Memory, "rev-parse", "--short", "HEAD").Trim();
 
-    /// <summary>The text of one report category: from its heading to the next heading, or to the end.</summary>
+    /// <summary>
+    /// The text of one category: from its heading to the next heading of the second or third level, or to the end. A part
+    /// heading ends the category above it, so a category never reads into the next part.
+    /// </summary>
     private static string Section(string text, string title)
     {
         var start = text.IndexOf($"### {title}\n", StringComparison.Ordinal);
         Assert.True(start >= 0, $"No category \"{title}\" in the report.");
         var body = text[(start + title.Length + 5)..];
-        var next = body.IndexOf("\n### ", StringComparison.Ordinal);
-        return next < 0 ? body : body[..next];
+        var ends = new[] { "\n### ", "\n## " }
+            .Select(marker => body.IndexOf(marker, StringComparison.Ordinal))
+            .Where(index => index >= 0)
+            .ToList();
+        return ends.Count == 0 ? body : body[..ends.Min()];
     }
-
-    private void WriteCandidates(string candidates) =>
-        File.WriteAllText(Path.Combine(Memory, "candidates.md"), candidates.ReplaceLineEndings("\n"));
-
-    private static string Candidate(string title, string section, params string[] days) =>
-        $"### {title}\n归属：{section}\n" + string.Concat(days.Select(day => $"- {day} 原话「{day}的话」\n")) + "\n";
 
     /// <summary>Moves the test clock to 10:00 UTC on <paramref name="day"/>.</summary>
     private void ClockOn(DateOnly day)
@@ -54,24 +54,50 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task The_report_lists_the_six_categories_under_their_headings()
+    public async Task The_report_has_part_a_then_part_b_and_each_category_under_its_heading_in_that_order()
     {
         using var service = Open();
 
-        var prompt = await service.ConsolidationReportAsync();
+        var report = await service.ConsolidationReportAsync();
 
-        foreach (var title in new[]
+        var headings = new[]
         {
-            "Suspected duplicate pages",
-            "Conflicting persona entries",
-            "Confirmable persona candidates",
-            "Persona candidates to remove",
-            "Format and rule violations",
-            "Stale mainline",
-        })
-        {
-            Assert.Contains($"### {title}\n", prompt);
-        }
+            "## A. Automatic\n",
+            "### Format and rule violations\n",
+            "### Persona candidates to remove\n",
+            "### Weeks to summarize\n",
+            "### Months to summarize\n",
+            "### Mainline material\n",
+            "## B. For proposals\n",
+            "### Suspected duplicate pages\n",
+            "### Conflicting persona entries\n",
+            "### Sections over their limit\n",
+        };
+        var positions = headings.Select(heading => report.IndexOf(heading, StringComparison.Ordinal)).ToArray();
+        Assert.All(positions, position => Assert.True(position >= 0));
+        Assert.Equal(positions.Order().ToArray(), positions);
+    }
+
+    [Fact]
+    public async Task A_category_with_nothing_to_report_says_none()
+    {
+        using var service = Open();
+
+        var report = await service.ConsolidationReportAsync();
+
+        Assert.Contains("None.", Section(report, "Persona candidates to remove"));
+        Assert.Contains("None.", Section(report, "Suspected duplicate pages"));
+        Assert.Contains("None.", Section(report, "Sections over their limit"));
+    }
+
+    [Fact]
+    public async Task The_header_gives_the_budget_for_the_model_judgments()
+    {
+        using var service = Open();
+
+        var report = await service.ConsolidationReportAsync();
+
+        Assert.Contains("Budget: 20 seconds for the model judgments", report);
     }
 
     [Fact]
@@ -117,49 +143,36 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task A_candidate_on_one_day_is_listed_because_there_is_no_day_threshold()
+    public async Task A_page_without_a_type_is_reported_in_every_report_even_after_a_consolidation_commit()
     {
         using var service = Open();
-        WriteCandidates("# 候选\n\n## 候选\n"
-            + Candidate("一天的候选", "偏好", "2026-10-30", "2026-10-30")
-            + Candidate("两天的候选", "偏好", "2026-10-30", "2026-10-31")
-            + "\n## 拒绝列表\n");
+        var path = Path.Combine(Memory, "pages", "tacit-memory", "untyped.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "---\ntitle: 无类型的页\naliases: [无类型]\ndates: { first: 2026-10-30, last: 2026-10-30 }\n---\n\n## 要点\n- 内容\n");
+        Commit("consolidate: earlier pass");
 
-        var section = Section(await service.ConsolidationReportAsync(), "Confirmable persona candidates");
+        var section = Section(await service.ConsolidationReportAsync(), "Format and rule violations");
 
-        Assert.Contains("两天的候选", section);
-        Assert.Contains("「2026-10-31的话」", section);
-        Assert.Contains("一天的候选", section);
+        Assert.Contains("untyped.md", section);
+        Assert.Contains("page type", section);
     }
 
     [Fact]
-    public async Task A_stale_mainline_is_reported_only_past_the_configured_days()
+    public async Task Each_category_lists_at_most_twenty_items_oldest_first_and_counts_the_rest()
     {
         using var service = Open();
-        var committed = DateOnly.Parse(TestHome.Git(Memory, "log", "-1", "--format=%as", "--", "recent.md").Trim(), System.Globalization.CultureInfo.InvariantCulture);
+        // Twenty-one completed weeks, from ISO 2026-W02 (Monday 2026-01-05) to 2026-W22, each with one activity.
+        WriteActivityLog(Enumerable.Range(0, 21).Select(week =>
+            (new DateOnly(2026, 1, 5).AddDays(7 * week), "每周一件事")));
+        ClockOn(new DateOnly(2026, 6, 1));
 
-        ClockOn(committed.AddDays(14));
-        var fresh = Section(await service.ConsolidationReportAsync(), "Stale mainline");
-        Assert.DoesNotContain(committed.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), fresh);
+        var section = Section(await service.ConsolidationReportAsync(), "Weeks to summarize");
 
-        ClockOn(committed.AddDays(15));
-        var stale = Section(await service.ConsolidationReportAsync(), "Stale mainline");
-        Assert.Contains(committed.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), stale);
-    }
-
-    [Fact]
-    public async Task Each_category_lists_at_most_twenty_items_and_counts_the_rest()
-    {
-        using var service = Open();
-        WriteCandidates("## 候选\n"
-            + string.Concat(Enumerable.Range(1, 21).Select(number =>
-                Candidate($"habit-{number:00}", "偏好", "2026-10-30", "2026-10-31"))));
-
-        var section = Section(await service.ConsolidationReportAsync(), "Confirmable persona candidates");
-
-        Assert.Contains("habit-20", section);
-        Assert.DoesNotContain("habit-21", section);
+        Assert.Contains("2026-W02", section);
+        Assert.Contains("2026-W21", section);
+        Assert.DoesNotContain("2026-W22", section);
         Assert.Contains("1 more not listed", section);
+        Assert.Contains("tacit-consolidate", section);
     }
 
     [Fact]
@@ -173,5 +186,17 @@ public sealed class ConsolidationReportTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ConsolidationReportAsync(cancelled.Token));
 
         Assert.Equal(before, TestHome.Git(Memory, "status", "--porcelain"));
+    }
+
+    /// <summary>Writes the activity log: one month file per month, each day under its heading.</summary>
+    private void WriteActivityLog(IEnumerable<(DateOnly Day, string Text)> activities)
+    {
+        foreach (var month in activities.GroupBy(activity => activity.Day.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)))
+        {
+            var text = string.Concat(month.GroupBy(activity => activity.Day).Select(day =>
+                $"## {day.Key:yyyy-MM-dd}\n" + string.Concat(day.Select(activity => $"- {activity.Text}\n")) + "\n"));
+            Directory.CreateDirectory(Path.Combine(Memory, "recent"));
+            File.WriteAllText(Path.Combine(Memory, "recent", month.Key + ".md"), text.ReplaceLineEndings("\n"));
+        }
     }
 }

@@ -237,10 +237,9 @@ internal static class ConfigLoader
     private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)
     {
         var consolidation = reader.Mapping(root, "", "consolidation");
-        reader.OnlyKnown(consolidation, "consolidation", "remindAfterDays", "mainlineStaleDays", "budgetSeconds", "maxConcurrency");
+        reader.OnlyKnown(consolidation, "consolidation", "remindAfterDays", "budgetSeconds", "maxConcurrency");
         return new ConsolidationConfig(
             Count(reader, consolidation, "consolidation", "remindAfterDays", 7),
-            Count(reader, consolidation, "consolidation", "mainlineStaleDays", 14),
             Count(reader, consolidation, "consolidation", "budgetSeconds", 20),
             Count(reader, consolidation, "consolidation", "maxConcurrency", 5));
     }

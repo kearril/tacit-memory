@@ -18,6 +18,9 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
 
     private Task? _expired;
 
+    /// <summary>Whether a judgment was left unanswered because the budget ran out; the report's header says so.</summary>
+    public bool BudgetRanOut { get; private set; }
+
     /// <summary>Submits a choice judgment. Nothing is awaited here, so the judgments of a consolidation run side by side.</summary>
     public Task<JudgmentOutcome<T>> Submit<T>(Func<CancellationToken, Task<PreparedChoice<T>>> prepare, Threshold threshold) =>
         pool.Start(prepare, threshold, _queue.Token);
@@ -41,7 +44,10 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
         if (!judgment.IsCompleted)
             await Task.WhenAny(judgment, expired);
         _request.ThrowIfCancellationRequested();
-        return judgment.IsCompleted ? await judgment : JudgmentOutcome<T>.Unchecked(UncheckedReason.Budget);
+        if (judgment.IsCompleted)
+            return await judgment;
+        BudgetRanOut = true;
+        return JudgmentOutcome<T>.Unchecked(UncheckedReason.Budget);
     }
 
     /// <summary>Ends the consolidate: judgments that have not started are not started, and the budget timer stops.</summary>

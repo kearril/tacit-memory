@@ -36,7 +36,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(10, config.Limits.DomainEntries);
         Assert.Equal(60, config.Limits.TriggerLength);
         Assert.Equal(3000, config.Limits.Brief);
-        Assert.Equal(new ConsolidationConfig(7, 14, 20, 5), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(7, 20, 5), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
@@ -359,6 +359,17 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void The_removed_mainline_stale_days_key_is_an_unknown_setting_and_its_key_path_is_named()
+    {
+        WriteConfig(Models + "consolidation: { mainlineStaleDays: 14 }\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("mainlineStaleDays", error.Message);
+    }
+
+    [Fact]
     public void The_candidates_section_is_an_unknown_setting_and_its_key_path_is_named()
     {
         WriteConfig(Models + "candidates: { minDays: 2 }\n");
@@ -607,7 +618,7 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new ConsolidationConfig(7, 14, 5, 2), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(7, 5, 2), config.Consolidation);
     }
 
     [Theory]

@@ -377,6 +377,7 @@ public sealed class StatusColumnsTests : IDisposable
     {
         File.WriteAllText(PersonaMd, "## 红线\n- 不要删库\n\n## 偏好\n- 沟通：先要结论\n");
         File.WriteAllText(CandidatesMd, TwoDayCandidate.ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent.md"), "## 近期主线\n- 一条主线\n");
         var service = Service;
 
         var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
@@ -385,10 +386,10 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Equal(1, pending.Confirmable);
         Assert.Equal(StatusLevel.Attention, pending.LineLevels()[0]);
         Assert.True(pending.FormatProblems > 0);
-        Assert.False(pending.MainlineStale);
+        Assert.False(pending.MainlineEmpty);
         Assert.Contains($"- Candidates that can be confirmed: {pending.Confirmable}.", reminder);
         Assert.Contains($"- Format and rule problems: {pending.FormatProblems}.", reminder);
-        Assert.Contains("- Mainline: not stale.", reminder);
+        Assert.Contains("- Mainline: not empty.", reminder);
     }
 
     [Fact]
@@ -430,7 +431,7 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Null(report.Consolidation!.DaysSince);
         Assert.Contains("无法读取记忆仓库的历史", Assert.Single(report.Consolidation.Lines));
         Assert.Null(report.Pending!.Confirmable);
-        Assert.Null(report.Pending.MainlineStale);
+        Assert.Null(report.Pending.MainlineEmpty);
         Assert.Contains("无法统计待处理问题", Assert.Single(report.Pending.Lines));
         Assert.NotNull(report.Bindings);
         Assert.NotNull(report.Backups);
