@@ -504,6 +504,16 @@ internal sealed class MemoryIndex : IDisposable
                 .Select(row => new PageUsageRow(row.Page, row.Count, row.Last)).ToList();
     }
 
+    /// <summary>The returns of every activity unit, by its short code. Derived state, like <see cref="PageUsages"/>.</summary>
+    public IReadOnlyDictionary<string, long> ActivityUsages()
+    {
+        lock (_gate)
+            return _connection.Query<(string Code, long Count)>(
+                "SELECT code AS Code, returns AS Count FROM units WHERE kind = @kind AND code IS NOT NULL",
+                new { kind = UnitKinds.Activity })
+                .ToDictionary(row => row.Code, row => row.Count, StringComparer.Ordinal);
+    }
+
     /// <summary>How many files, units and units with a vector the index holds now.</summary>
     public IndexCounts Counts()
     {
@@ -555,6 +565,7 @@ internal sealed class MemoryIndex : IDisposable
         var document = PageDocument.Parse(read.Text, read.HasBom, id.Slug);
         var source = id.ToString();
         var previous = SectionStates(source);
+        var carried = UsageStates(source);
         // A section a full build meets first is dated by its file's last commit; any other new or changed section is today's.
         var firstSeen = _today();
         if (_fullBuild && knownHash is null)
@@ -571,7 +582,7 @@ internal sealed class MemoryIndex : IDisposable
             new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
             transaction);
         var scope = new UnitScope(id.Project, DateText(header.First), DateText(header.Last));
-        AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction);
+        AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction, carried: carried);
         for (var i = 0; i < document.Sections.Count; i++)
         {
             var section = document.Sections[i];
@@ -580,7 +591,7 @@ internal sealed class MemoryIndex : IDisposable
             var contentHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw.TrimEnd())));
             var unchanged = previous.TryGetValue(section.Name, out var before) && before.Hash == contentHash && before.Changed is not null;
             var changed = unchanged ? before!.Changed! : DateText(firstSeen)!;
-            AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed);
+            AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed, carried: carried);
         }
 
         transaction.Commit();
@@ -597,6 +608,39 @@ internal sealed class MemoryIndex : IDisposable
         return states;
     }
 
+    /// <summary>
+    /// The usage counts each unit of a source holds, keyed by <see cref="UsageKey"/>, so a re-sync can carry them over.
+    /// Usage is derived state: only a reindex or a restore clears it, never an edit of the file.
+    /// </summary>
+    private Dictionary<string, UsageState> UsageStates(string source)
+    {
+        var states = new Dictionary<string, UsageState>(StringComparer.Ordinal);
+        foreach (var row in _connection.Query<UsageRow>(
+            "SELECT kind AS Kind, section AS Section, code AS Code, first AS First, last AS Last, returns AS Returns, returned AS Returned "
+            + "FROM units WHERE source_id = @source AND (returns > 0 OR returned IS NOT NULL)",
+            new { source }))
+            states[UsageKey(row.Kind, row.Section, row.Code, row.First, row.Last)] = new UsageState(row.Returns, row.Returned);
+        return states;
+    }
+
+    /// <summary>
+    /// What identifies a unit within its source across a re-sync: a page's section by its name, its title and aliases
+    /// by kind alone, an activity by its short code, and a summary by its section and period.
+    /// </summary>
+    private static string UsageKey(string kind, string? section, string? code, string? first, string? last) => kind switch
+    {
+        UnitKinds.Activity => $"{kind}|{code}",
+        UnitKinds.Summary => $"{kind}|{section}|{first}|{last}",
+        UnitKinds.Section => $"{kind}|{section}",
+        _ => kind,
+    };
+
+    /// <summary>A unit's usage counts as <see cref="UsageStates"/> reads them.</summary>
+    private sealed record UsageState(long Returns, string? Returned);
+
+    /// <summary>A unit's identity and usage counts, as <see cref="UsageStates"/> reads them.</summary>
+    private sealed record UsageRow(string Kind, string? Section, string? Code, string? First, string? Last, long Returns, string? Returned);
+
     private void SyncActivity(string relativePath, string fullPath, string? knownHash)
     {
         var hash = Convert.ToHexStringLower(SHA256.HashData(TextFile.ReadSharedBytes(fullPath)));
@@ -611,6 +655,7 @@ internal sealed class MemoryIndex : IDisposable
         }
 
         _skipped.Remove(relativePath);
+        var carried = UsageStates(relativePath);
         using var transaction = _connection.BeginTransaction();
         RemoveRows(relativePath, transaction);
         _connection.Execute(
@@ -620,13 +665,13 @@ internal sealed class MemoryIndex : IDisposable
         foreach (var activity in RecentFile.Activities(read.Text))
         {
             var day = DateText(activity.Day);
-            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
+            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code, carried: carried);
         }
 
         foreach (var summary in SummaryLines.All(read.Text))
         {
             var kind = summary.Kind == SummaryKind.Week ? "week" : "month";
-            AddUnit(relativePath, UnitKinds.Summary, kind, summary.Line, summary.Text, new UnitScope("", DateText(summary.First), DateText(summary.Last)), transaction);
+            AddUnit(relativePath, UnitKinds.Summary, kind, summary.Line, summary.Text, new UnitScope("", DateText(summary.First), DateText(summary.Last)), transaction, carried: carried);
         }
 
         transaction.Commit();
@@ -704,14 +749,26 @@ internal sealed class MemoryIndex : IDisposable
     /// <param name="hash">A section's content hash; the other kinds of unit have none.</param>
     /// <param name="changed">A section's last changed date as yyyy-MM-dd; the other kinds of unit have none.</param>
     /// <param name="judgmentScope">A judgment unit's persona scope as its text; the other kinds of unit have none.</param>
+    /// <param name="carried">
+    /// The usage counts of the source's units before this sync, by <see cref="UsageKey"/>. A unit that matches one takes its
+    /// counts, and each old unit passes its counts on once.
+    /// </param>
     private void AddUnit(
         string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction,
-        string? code = null, string? hash = null, string? changed = null, string? judgmentScope = null)
+        string? code = null, string? hash = null, string? changed = null, string? judgmentScope = null,
+        Dictionary<string, UsageState>? carried = null)
     {
+        var usage = carried is not null && carried.Remove(UsageKey(kind, section, code, scope.First, scope.Last), out var state) ? state : null;
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code, hash, changed, scope) "
-            + "VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code, @hash, @changed, @judgmentScope) RETURNING id",
-            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope }, transaction);
+            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code, hash, changed, scope, returns, returned) "
+            + "VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code, @hash, @changed, @judgmentScope, @returns, @returned) RETURNING id",
+            new
+            {
+                source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope,
+                returns = usage?.Returns ?? 0,
+                returned = usage?.Returned,
+            },
+            transaction);
         _connection.Execute("INSERT INTO units_fts (rowid, text) VALUES (@unit, @text)", new { unit, text = IndexText.ForIndex(raw) }, transaction);
     }
 

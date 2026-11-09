@@ -22,21 +22,6 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     /// <summary>The kinds a candidate is compared with: the persona entries and the rejected candidates, never other candidates.</summary>
     private static readonly string[] OfferedKinds = [UnitKinds.PersonaEntry, UnitKinds.RejectedCandidate];
 
-    /// <summary>
-    /// The candidates of <c>candidates.md</c> with no judgment made, so no model is asked: each one's outcome is "nothing to
-    /// compare with". Only the days each candidate appeared on are counted from it. <c>null</c> when the file is not valid UTF-8.
-    /// </summary>
-    public static CandidateReview? Unjudged(TacitConfig config)
-    {
-        var candidates = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Candidates));
-        if (candidates is null)
-            return null;
-        var judged = CandidatesDocument.Parse(candidates.Value.Text).Candidates
-            .Select(candidate => new CandidateJudgment(candidate, DayCount(candidate), JudgmentOutcome<PreferenceMatch>.NothingToAsk))
-            .ToList();
-        return new CandidateReview(judged, new Dictionary<string, string>(), config.Language);
-    }
-
     /// <summary>The number of distinct days a candidate appeared on.</summary>
     public static int DayCount(PersonaCandidate candidate) => candidate.Occurrences.Select(occurrence => occurrence.Day).Distinct().Count();
 

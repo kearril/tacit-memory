@@ -42,13 +42,46 @@ internal static class TextFile
         return buffer.ToArray();
     }
 
+    /// <summary>
+    /// Replaces the file in one step. The temporary file has a name of its own, so two writers of the same file (a render
+    /// and a manual <c>connect</c>, say) never share one, and it is removed if the replacement fails.
+    /// </summary>
     public static void Write(string path, string text, bool hasBom)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var bytes = StrictUtf8.GetBytes(text);
-        var temporary = path + ".tacit-tmp";
-        File.WriteAllBytes(temporary, hasBom ? [.. Bom, .. bytes] : bytes);
-        File.Move(temporary, path, overwrite: true);
+        var temporary = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tacit-tmp";
+        try
+        {
+            File.WriteAllBytes(temporary, hasBom ? [.. Bom, .. bytes] : bytes);
+            Replace(temporary, path);
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
+    }
+
+    /// <summary>
+    /// Moves the temporary file over the target. Windows refuses the replacement while another process holds the target
+    /// open, so the move is tried a few times, a short pause apart, before the failure is thrown.
+    /// </summary>
+    private static void Replace(string temporary, string path)
+    {
+        const int attempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporary, path, overwrite: true);
+                return;
+            }
+            catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && attempt < attempts)
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(50));
+            }
+        }
     }
 
     /// <summary>The file's line break: CRLF if it has any, otherwise LF.</summary>

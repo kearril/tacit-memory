@@ -89,6 +89,16 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
+    public async Task The_mainline_material_states_the_limit_the_rewrite_must_keep_to()
+    {
+        using var service = Open();
+
+        var report = await service.ConsolidationReportAsync();
+
+        Assert.Contains("Limit: 5 items.", Section(report, "Mainline material"));
+    }
+
+    [Fact]
     public async Task A_category_with_nothing_to_report_says_none()
     {
         using var service = Open();
@@ -273,7 +283,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.Contains("uses: 0", section);
         Assert.DoesNotContain("正文不应出现在报告里", section);
         Assert.Contains("untyped-page", section);
-        Assert.Contains("未分类", section);
+        Assert.Contains("type: untyped;", section);
     }
 
     [Fact]

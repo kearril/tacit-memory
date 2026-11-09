@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed partial class PersonaAddTests : IDisposable
@@ -42,9 +44,6 @@ public sealed partial class PersonaAddTests : IDisposable
         Source = source,
         ConfirmNoSecret = confirmNoSecret,
     };
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\]")]
     private static partial Regex CodeInReply();
@@ -485,6 +484,22 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
+    public async Task A_block_with_red_lines_and_working_rules_keeps_both_and_restores_the_missing_preferences_last()
+    {
+        WritePersona("## 领域：network-proxy\n触发：改代理时\n### 红线\n- r0\n\n### 协作规则\n- 先给结论\n");
+
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+
+        Assert.False(result.IsError, result.Text);
+        var text = File.ReadAllText(PersonaMd);
+        Assert.Contains("### 红线\n- r0\n", text, StringComparison.Ordinal);
+        Assert.Contains("### 协作规则\n- 先给结论\n", text, StringComparison.Ordinal);
+        Assert.True(text.IndexOf("### 红线", StringComparison.Ordinal) < text.IndexOf("### 协作规则", StringComparison.Ordinal));
+        Assert.True(text.IndexOf("### 协作规则", StringComparison.Ordinal) < text.IndexOf("### 偏好", StringComparison.Ordinal));
+        Assert.Contains("- 测速：只看持续测速", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_project_block_needs_no_trigger_and_holds_its_entries_under_the_project_heading()
     {
         WritePersona("## 偏好\n- 沟通：先要结论\n");
@@ -599,14 +614,41 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
-    public async Task An_entry_in_a_domain_with_the_same_text_as_a_global_one_gets_a_suffixed_code()
+    public async Task A_domain_entry_repeating_a_global_text_is_written_with_a_suffixed_code_once_the_model_judges_it_distinct()
     {
-        Assert.False((await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"))).IsError);
+        // The models are available here, so the duplicate judgment runs; the decision model picks "none" by default,
+        // which means the two entries are distinct and the write goes through.
+        using var models = new ModelDouble();
+        using var home = new TestHome();
+        home.InitReady(models: models);
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        var persona = Path.Combine(home.DefaultMemory, "persona.md");
+        Assert.False((await service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"))).IsError);
 
-        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "沟通：先要结论", "再说一遍"), "domain:writing", "写文章时"));
+        var result = await service.WritePersonaAsync(InScope(Add("preferences", "沟通：先要结论", "再说一遍"), "domain:writing", "写文章时"));
 
         Assert.False(result.IsError, result.Text);
+        // Without the judgment the suffix would still be written; a skipped check must fail here, not pass unnoticed.
+        Assert.True(models.DecisionCalls >= 1, "the duplicate judgment did not run");
         Assert.Equal($"{ShortOf("沟通：先要结论")}-2", CodeOf(result));
+        Assert.Contains("再说一遍", File.ReadAllText(persona));
+
+        // The suffixed code finds the domain entry for a replacement, and the replaced entry then finds by its own code.
+        var replaced = await service.WritePersonaAsync(new WritePersonaRequest
+        {
+            Op = "replace",
+            Hash = $"{ShortOf("沟通：先要结论")}-2",
+            Text = "沟通：写文章先给提纲",
+            Source = "写文章先给提纲",
+        });
+        Assert.False(replaced.IsError, replaced.Text);
+        Assert.DoesNotContain("再说一遍", File.ReadAllText(persona));
+        Assert.Contains("沟通：写文章先给提纲", File.ReadAllText(persona));
+
+        var deleted = await service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = ShortOf("沟通：写文章先给提纲") });
+        Assert.False(deleted.IsError, deleted.Text);
+        Assert.DoesNotContain("沟通：写文章先给提纲", File.ReadAllText(persona));
+        Assert.Contains("沟通：先要结论", File.ReadAllText(persona));
     }
 
     [Fact]

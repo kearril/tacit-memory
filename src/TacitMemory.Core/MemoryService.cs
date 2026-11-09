@@ -55,6 +55,15 @@ public sealed class MemoryService : IDisposable
     private ITimer? _dayTimer;
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
+
+    /// <summary>How many debounced retries a render gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    private const int RenderRetryLimit = 5;
+
+    private int _renderRetries;
+
+    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    private int _promptsRetries;
+
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
@@ -104,7 +113,7 @@ public sealed class MemoryService : IDisposable
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
-        _backup = new AutomaticBackup(options, config, _log);
+        _backup = new AutomaticBackup(options, config, _log, _gate);
         _manual = new ManualBackup(options, config, _log);
         _remote = new CloudBackup(options, config, _log);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
@@ -297,10 +306,13 @@ public sealed class MemoryService : IDisposable
     /// How often <c>recall</c> has returned each page's units, for every page in the index. Derived state: <c>reindex</c>
     /// resets it, and no search reads it.
     /// </summary>
-    public IReadOnlyList<PageUsage> PageUsages() =>
+    internal IReadOnlyList<PageUsage> PageUsages() =>
         _index.PageUsages()
             .Select(row => new PageUsage(row.Page, (int)row.Count, row.Last is null ? null : DateOnly.ParseExact(row.Last, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)))
             .ToList();
+
+    /// <summary>How often <c>recall</c> has returned each activity, by its short code. Derived state, as <see cref="PageUsages"/> is.</summary>
+    internal IReadOnlyDictionary<string, long> ActivityUsages() => _index.ActivityUsages();
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
     public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>
@@ -442,8 +454,10 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
+        // An automatic backup takes the write slot, which this operation holds alone, so it is waited for before the gate.
+        await Settled(_backup.Completion);
         using var hold = await _gate.MaintenanceAsync(cancellationToken);
-        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion), Settled(_backup.Completion));
+        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion));
         _log.Record(LogLevel.Information, LogMessages.MaintenanceStarted, name);
         var started = Stopwatch.GetTimestamp();
         try
@@ -718,17 +732,25 @@ public sealed class MemoryService : IDisposable
 
     private void OnChange(object sender, FileSystemEventArgs e)
     {
-        var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
-        foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
+        try
         {
-            if (relative == PersonaFiles.Persona || AffectsResident(relative))
-                ScheduleRender();
-            if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
-                ScheduleIndexSync();
-            if (AffectsInstructions(relative))
-                InvalidateInstructions();
-            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
-                ScheduleIndexSync();
+            var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
+            foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
+            {
+                if (relative == PersonaFiles.Persona || AffectsResident(relative))
+                    ScheduleRender();
+                if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
+                    ScheduleIndexSync();
+                if (AffectsInstructions(relative))
+                    InvalidateInstructions();
+                if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                    ScheduleIndexSync();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // An event handler must not throw into the watcher's thread; the overflow path or the next event catches up.
+            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, ex.Message);
         }
     }
 
@@ -861,17 +883,22 @@ public sealed class MemoryService : IDisposable
                     _prompts = prompts;
                     ClearInstructionsLocked();
                 }
+                _promptsRetries = 0;
                 // The resident blocks show resident.md: render them with the new text, as a persona change does.
                 if (residentChanged)
                     _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is IOException or ArgumentException)
+            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < RenderRetryLimit))
             {
-                // The editor still holds a file, or the folder is busy; try again once it settles.
+                // The editor still holds a file, or the folder is busy; try again once it settles. Windows refuses a
+                // replacement it cannot make with UnauthorizedAccessException, which the render path retries the same way.
+                if (e is UnauthorizedAccessException)
+                    _promptsRetries++;
                 _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
             catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
             {
+                _promptsRetries = 0;
                 _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, e.Message);
             }
         }
@@ -900,14 +927,17 @@ public sealed class MemoryService : IDisposable
             {
                 foreach (var result in Binder.RenderAll(_options, Config, _prompts))
                     _log.Notify(LevelOf(result), result.Message);
+                _renderRetries = 0;
             }
-            catch (IOException)
+            catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && _renderRetries < RenderRetryLimit)
             {
-                // The editor still holds a file; try again once it settles.
+                // The editor or another client still holds a file, which Windows refuses to replace; try again once it settles.
+                _renderRetries++;
                 _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
             {
+                _renderRetries = 0;
                 _log.Notify(LogLevel.Warning, Messages.RenderFailed, e.Message);
             }
         }
@@ -928,15 +958,18 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Runs a background read of the memory repository, such as an index sync or a render, between the writes. A write
-    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. Once the
-    /// service is disposed, the read does not run.
+    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. The wait for
+    /// the write slot is asynchronous, so a timer thread is never blocked by a write in progress. Once the service is
+    /// disposed, the read does not run.
     /// </summary>
-    private void UnderWriteGate(Action work)
+    private void UnderWriteGate(Action work) => _ = RunUnderWriteGateAsync(work);
+
+    private async Task RunUnderWriteGateAsync(Action work)
     {
         Hold hold;
         try
         {
-            hold = _gate.WriteAsync(CancellationToken.None).GetAwaiter().GetResult();
+            hold = await _gate.WriteAsync(CancellationToken.None);
         }
         catch (ObjectDisposedException)
         {
@@ -946,6 +979,11 @@ public sealed class MemoryService : IDisposable
         try
         {
             work();
+        }
+        catch (Exception e)
+        {
+            // Nothing may escape a timer or watcher callback: the failure is reported, and the next event tries again.
+            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, e.Message);
         }
         finally
         {
@@ -973,8 +1011,9 @@ public sealed class MemoryService : IDisposable
                 // The editor still holds a file; try again once it settles.
                 _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException or TacitException)
             {
+                // A git process that cannot start surfaces as a TacitException from the full build's commit dates.
                 _log.Notify(LogLevel.Warning, Messages.IndexSyncFailed, e.Message);
             }
         }

@@ -107,7 +107,7 @@ internal static class ConsolidationSkill
             .Append(Date).Append(' ').Append(quote).Append("「…」 -->` holding today's date and the user's words; a candidate is then deleted from candidates.md. A page change is applied.\n");
         text.Append("   - reject: for a candidate, move it into the rejection list, with its scope line if it has one, and add an occurrence line marked as rejected, dated today. For any other item, leave it unchanged.\n");
         text.Append("   - change: apply the version the user gave, and treat it as confirmed.\n");
-        text.Append("   - defer, or no reply: leave the item exactly as it is; it is reported again at the next consolidation.\n");
+        text.Append("   - defer, or no reply: leave the item exactly as it is. A candidate stays in candidates.md and comes back at the next consolidation; any other item comes back only when it changes again.\n");
         text.Append("5. Show the user the summaries you wrote and the new mainline.\n");
         text.Append("6. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
             .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")

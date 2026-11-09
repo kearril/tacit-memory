@@ -8,4 +8,4 @@ namespace TacitMemory.Core;
 /// <param name="Page">The page ID, such as <c>my-app/db-upgrade</c>.</param>
 /// <param name="Count">The number of returns of the page's units.</param>
 /// <param name="LastReturned">The last day any of the page's units was returned; <c>null</c> when none was.</param>
-public sealed record PageUsage(string Page, int Count, DateOnly? LastReturned);
+internal sealed record PageUsage(string Page, int Count, DateOnly? LastReturned);

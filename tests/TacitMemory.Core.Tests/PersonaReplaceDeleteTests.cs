@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed partial class PersonaReplaceDeleteTests : IDisposable
@@ -71,9 +73,6 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         Git("add", "persona.md");
         Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: persona baseline");
     }
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     private static WritePersonaRequest Replace(string? hash, string? text, string? source = "先说结论", bool? confirmNoSecret = null) => new()
     {

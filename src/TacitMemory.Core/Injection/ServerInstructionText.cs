@@ -49,10 +49,10 @@ internal static class ServerInstructionText
     public static readonly string DefaultInstructions = """
         ## Using memory
         - Mark what you infer from the persona as inference; state as remembered only what memory holds.
-        - Leave old events to the user: raise one only after the user does. When the user describes their situation, link recent context in half a sentence.
+        - Raise old events only after the user does. When the user describes their situation, link recent context in half a sentence.
 
         ## Recall
-        - At the start of work on a project, call `recall` with only `project`: its brief gives the project's conventions, open items, pages and recent activity.
+        - At the start of work on a project, call `recall` with only `project`.
         - Call `recall` when the user refers to the past, or names a person, project or term your context lacks. When it finds nothing, say you don't remember.
 
         ## Write

@@ -13,9 +13,9 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "recall", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [McpMeta("anthropic/alwaysLoad", true)]
     [Description("""
-        Search the user's memory, or read one detail page in full. Give exactly one of query and page. Give only project to get that project's brief.
+        Search the user's memory, or read one detail page in full. Give query to search, page to read one page, only project for that project's brief (its conventions, open items, pages and recent activity), or kind=persona / kind=rules alone.
         Results come per page with the matching sections in full and a short code for each section.
-        kind=persona returns the whole persona, and kind=rules returns the rules of one domain (or of every domain), each entry with its short code. Neither searches: give kind alone, and domain with rules.
+        kind=persona returns the whole persona, and kind=rules returns the rules of one domain (or of every domain), each entry with its short code. Neither searches: give kind alone, and domain only with rules.
         """)]
     public async Task<CallToolResult> Recall(
         RequestContext<CallToolRequestParams> request,

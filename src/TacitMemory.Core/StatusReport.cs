@@ -27,7 +27,7 @@ public sealed record StatusReport
     /// <summary>When the last consolidation was, and how many days ago.</summary>
     public ConsolidationStatus? Consolidation { get; init; }
 
-    /// <summary>The counts a consolidation would raise: confirmable candidates, format problems, an empty mainline.</summary>
+    /// <summary>The counts a consolidation would raise: candidates, format problems, an empty mainline.</summary>
     public PendingStatus? Pending { get; init; }
 
     /// <summary>The latest local backup and the cloud backup record.</summary>
@@ -166,17 +166,17 @@ public enum BindingProblem
 /// <param name="DaysSince">Days from that day to today; <c>null</c> together with <paramref name="LastConsolidationDay"/>.</param>
 public sealed record ConsolidationStatus(string Title, IReadOnlyList<string> Lines, DateOnly? LastConsolidationDay, int? DaysSince) : IStatusColumn;
 
-/// <param name="Confirmable">Candidates that can be confirmed; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
+/// <param name="Candidates">Candidates in <c>candidates.md</c>; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
 /// <param name="FormatProblems">Format and rule problems; <c>null</c> when the history cannot be read.</param>
 /// <param name="MainlineEmpty">Whether the mainline has no items; <c>null</c> when the history cannot be read.</param>
-public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Confirmable, int? FormatProblems, bool? MainlineEmpty, int? UnsummarizedWeeks = null) : IStatusColumn
+public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Candidates, int? FormatProblems, bool? MainlineEmpty, int? UnsummarizedWeeks = null) : IStatusColumn
 {
     /// <summary>
-    /// The lines are the confirmable count, the format problems, the mainline and the weeks to summarize, in that order. No count
+    /// The lines are the candidate count, the format problems, the mainline and the weeks to summarize, in that order. No count
     /// means the history or the file could not be read, which is a problem; a count above zero, or an empty mainline, needs attention.
     /// </summary>
     public IReadOnlyList<StatusLevel?> LineLevels() =>
-        new StatusLevel?[] { CountLevel(Confirmable), CountLevel(FormatProblems), MainlineLevel(MainlineEmpty), CountLevel(UnsummarizedWeeks) }.Take(Lines.Count).ToList();
+        new StatusLevel?[] { CountLevel(Candidates), CountLevel(FormatProblems), MainlineLevel(MainlineEmpty), CountLevel(UnsummarizedWeeks) }.Take(Lines.Count).ToList();
 
     private static StatusLevel CountLevel(int? count) => count is null ? StatusLevel.Problem : count > 0 ? StatusLevel.Attention : StatusLevel.Ok;
 

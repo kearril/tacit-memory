@@ -26,7 +26,7 @@ internal static class ManagementApiMessages
 
     public static readonly Localized ClientsTitle = new("客户端", "Clients");
     public static readonly Localized ClientsNone = new("尚未有客户端连接过服务。", "No client has connected to the service yet.");
-    public static readonly Localized ClientsUnreadable = new("无法读取客户端记录：{0}", "The client record cannot be read: {0}");
+    public static readonly Localized ClientsUnreadable = new("无法读取客户端能力记录：{0}", "The client record cannot be read: {0}");
     public static readonly Localized ClientLine = new(
         "{0} {1}：最近连接 {2}，协议 {3}，扩展：{4}",
         "{0} {1}: last connected {2}, protocol {3}, extensions: {4}");
@@ -88,10 +88,10 @@ internal static class ManagementApiMessages
     public static readonly Localized ConsolidationUnreadable = new("无法读取记忆仓库的历史：{0}", "The repository's history cannot be read: {0}");
 
     public static readonly Localized PendingTitle = new("待处理问题", "Pending issues");
-    public static readonly Localized PendingConfirmable = new("可确认的候选：{0}", "Candidates that can be confirmed: {0}");
-    public static readonly Localized PendingConfirmableUnknown = new(
-        "可确认的候选：未统计（candidates.md 不是 UTF-8）",
-        "Candidates that can be confirmed: not counted (candidates.md is not UTF-8)");
+    public static readonly Localized PendingCandidates = new("候选：{0}", "Candidates: {0}");
+    public static readonly Localized PendingCandidatesUnknown = new(
+        "候选：未统计（candidates.md 不是 UTF-8）",
+        "Candidates: not counted (candidates.md is not UTF-8)");
     public static readonly Localized PendingFormatProblems = new("格式问题：{0}", "Format and rule problems: {0}");
     public static readonly Localized PendingMainlineEmpty = new("主线：为空", "Mainline: empty");
     public static readonly Localized PendingMainlineSet = new("主线：已设定", "Mainline: set");

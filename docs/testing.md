@@ -4,7 +4,7 @@
 
 ## 1. 三个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。读取使用次数时测试使用 internal 的 `PageUsages()`（返回 internal 的 `PageUsage`）与 `ActivityUsages()`（按短码返回活动的次数），它们也不属于公开契约。让自动备份停在打包阶段时，测试在 `TacitOptions` 上设置 internal 钩子 `BeforeBackupPack`（打包前等待），见 `BackupRaceTests`。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
@@ -15,13 +15,13 @@
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含项目列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
-     - `ConsolidationReportTests`：整理报告（资源正文）：绝对路径与 `git -C` 用法、A、B 两部分及其类别的顺序与标题、无内容写 None.、限时的说明（头部）、上次整理的三种基准（`consolidate:`、`init:`、都没有）、缺少页面类型的格式问题不受基准限制、每类 20 项上限与剩余数量、取消；B 部分的画像证据（全部候选附作用域、归属与原话，原话注释只取基准以来新增的活动并按日期排列）、教训（只取基准以来变化的 `incident` 页）、变化过的页（路径、类型、缺失时的"未分类"、大小、小节日期与使用次数，不附正文，未变的页不出现，变化后出现）、只有 1 条的领域。
+     - `ConsolidationReportTests`：整理报告（资源正文）：绝对路径与 `git -C` 用法、A、B 两部分及其类别的顺序与标题、无内容写 None.、限时的说明（头部）、上次整理的三种基准（`consolidate:`、`init:`、都没有）、缺少页面类型的格式问题不受基准限制、每类 20 项上限与剩余数量、取消；B 部分的画像证据（全部候选附作用域、归属与原话，原话注释只取基准以来新增的活动并按日期排列）、教训（只取基准以来变化的 `incident` 页）、变化过的页（路径、类型、缺失时的 `untyped`、大小、小节日期与使用次数，不附正文，未变的页不出现，变化后出现）、只有 1 条的领域。
      - `ConsolidationCandidateTests`：候选清理的三档（确定列为待清理并写明画像短码或拒绝列表条目，拿不准附提示且仍可确认，否定两者都不列）、选项只取画像与拒绝列表、无可比对时不提问、决策与嵌入模型不可用时的降级、阈值改变、判断缓存（内容不变不再调用、改阈值分档改变而不调用、重建索引后重新调用）。
      - `ConsolidationConflictTests`：互相冲突的画像条目：只判断上次整理后新增或改写的条目（含未提交的修改）、跨节、同一对只报一次、确定与拿不准两档标明档位、无其他条目时不提问、决策模型不可用时的降级。
      - `ConsolidationDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同项目没有其他页时不提问；删除的页不参与；没有 `consolidate:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
-     - `ConsolidationBudgetTests`：整理限时（到点照常返回并注明未检查数量、在途调用不取消且跑完写入缓存、未发出的判断不再发出；到点后仍有缓存答案的类别照常列出，前面类别耗尽预算不影响后面类别；可确认候选的判断被截断时附"自行对照画像"的提醒）、工作池的并发上限、模型冷却后排队的提问不再发出，以及冷却结束后再次提问。
-     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead）；汇总节的格式问题（无法识别的行、不存在的周号或月份、写错文件的周或月；周号按 ISO 周的年份与周数计，跨年的周按周四所在月）；各项修正后消失，每类 20 项上限。
-     - `ConsolidationReminderTests`：整理提示：天数门槛（含 `consolidation.remindAfterDays`）、可确认候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、整理提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否；四个触发条件各自独立生效（天数、未汇总的周、可确认的候选达到 `consolidation.remindCandidates`、主线为空），低于阈值的候选数不出现，只有格式问题不出现。
+     - `ConsolidationBudgetTests`：整理限时（到点照常返回并注明未检查数量、在途调用不取消且跑完写入缓存、未发出的判断不再发出；到点后仍有缓存答案的类别照常列出，前面类别耗尽预算不影响后面类别；候选的判断被截断时附"自行对照画像"的提醒）、工作池的并发上限、模型冷却后排队的提问不再发出，以及冷却结束后再次提问；推进限时的用例断言替身未收到被客户端中断的连接（`ModelDouble.AbandonedRequests` 为 0），避免断线的重试被计时器误触发后表现为多一次调用。
+     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题（含领域、项目、触发、作用域与教训，两种语言各一例）、归属行、原话与拒绝标记、列表项中的改为与 instead）；汇总节的格式问题（无法识别的行、不存在的周号或月份、写错文件的周或月；周号按 ISO 周的年份与周数计，跨年的周按周四所在月）；各项修正后消失，每类 20 项上限。
+     - `ConsolidationReminderTests`：整理提示：天数门槛（含 `consolidation.remindAfterDays`）、候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、整理提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否；四个触发条件各自独立生效（天数、未汇总的周、候选达到 `consolidation.remindCandidates`、主线为空），低于阈值的候选数不出现，只有格式问题不出现。
      - `BindingTests`：`connect` 与 `disconnect` 的门面规则：名称规范化与拒绝（逐例断言拒绝时不写任何文件）、同名异路径的拒绝、上下文文件的上一级目录与 skill 目录不存在时的拒绝、`~` 展开与绝对路径的记录、记录的四个字段、上下文文件的创建与删除（`createdContextFile`）、常驻区块的写入与逐字节恢复、`mcp.json` 的字节不变、缺失的名称与配置无效时的 `disconnect`；共用：两个名称共用 skill 目录与上下文文件时的单一常驻区块与三个链接、两种解绑顺序、`createdContextFile` 的继承、只共用上下文文件、Windows 上大小写不同的同一路径、一次渲染只返回一个结果、名称绑到其他路径时的拒绝。
      - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）；skill 目录被两个客户端共用时的复用报告，以及两种解绑顺序下链接的保留与拆除。
      - `ServiceTests`：服务端说明的组成（不含项目列表）、语言部分、状态提示，以及启动与运行中的绑定渲染（共用的上下文文件只渲染一次）。
@@ -31,7 +31,7 @@
      - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除；新节的内容与顺序（领域索引、主线、近几周、项目，位于全局四节之后）、领域索引行与条目不进入常驻区块、领域行数上限（`limits.domains`）、近几周的选取（最近 3 个有内容的已完成周，有汇总时显示汇总，否则确定性地显示计数与项目）、空节不出现、`resident.md` 为新节给出的引导语；主线、活动记录、项目目录变化后重新渲染；经 `TestHome.Clock` 跨过本地午夜后重新渲染。
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
      - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含三个模型的密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
-     - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新。
+     - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新；SKILL.md 被占用而替换被拒时，提示词的改动在占用结束后仍会应用。
      - `PageTests`：细节页的新建与读取、按短码修改小节与页头、`section` 误填短码的拒绝（含 `hash` 同填、大写或带空白的短码、同名小节按名字改写、不属于本页的短码样值照常新建）、`dates`、串行写入、页面标识校验、未知参数的拒绝（点名、与 op 问题一并列出、下一步、不写文件）。
      - `DuplicatePageTests`：新建细节页时的重复页判断与放行。
      - `CredentialTests`：凭据检测与 `confirm_no_secret`，含小节与页头写入，删除小节不需确认。
@@ -40,7 +40,7 @@
      - `ProjectBriefTests`：项目简报（`recall` 只给 `project`）：分组与顺序（有效决定、已知坑、工作、实体、未分类），同日按使用次数排序，推翻记录与「已推翻」一行，未决事项，项目约定只取项目作用域，五段的先后，最近 3 条活动，最近一次周汇总（只取该项目活动所在周中最近一个有汇总的周），`from`、`to` 限定页面与活动，空项目返回 `No relevant memory.`，与 `kind` 同给被拒绝，每个列出的页计一次使用统计，页目录按最旧优先截断并注明省略
      - `VectorTests`：向量检索、嵌入模型不可用时的回退与补齐、模型或向量长度变化后的重建。
      - `ReindexTests`：`reindex` 的结果：重建前后同一查询的结果一致、每个单元都有向量；重建后判断缓存清空，整理重新调用决策模型；嵌入模型不可用时只重建全文并注明向量待补；嵌入模型未配置时只重建全文并注明未配置；非 UTF-8 文件列入结果；重建后小节日期取文件最近一次提交、未提交的文件取当天；开始、结束与结果写入日志。
-     - `UsageStatsTests`：使用统计的计数规则（整页读取每个小节各加一、检索计入所显示的单元、页面级命中只计标题与别名单元）、最近返回日期随时钟前移、从未返回的页无计数与日期、`reindex` 清零。
+     - `UsageStatsTests`：使用统计的计数规则（整页读取每个小节各加一、检索计入所显示的单元、页面级命中只计标题与别名单元）、最近返回日期随时钟前移、从未返回的页无计数与日期、编辑小节后计数保留、新增活动不改变同月其他活动的计数、`reindex` 清零。
      - `MaintenanceTests`：维护操作独占：维护期间到达的写入、`recall` 与服务端说明排队，完成后照常执行；两个维护操作依次执行。用挂起的嵌入替身让重建停在补齐阶段，等待的调用在短暂停顿后仍未完成，才断言它们被挡住。
      - `RerankTests`：reranker 精排的排序、过滤、不可用时的处理与恢复。
      - `ModelProtocolTests`：三个模型的请求经 `ModelDouble` 收到：每个模型请求其配置的完整 URL、不追加路径（路径与配置一致）；嵌入、reranker、决策模型各自的请求字段；有密钥时带 `Authorization: Bearer`，没有密钥时不带认证头；Cloudflare 的 reranker 请求体含 `query` 与 `contexts`、不含 `model`，`recall` 按 `id` 对回的分数排序与过滤；Cloudflare 决策请求与 System One 同体，响应取 `result` 后判断（新建重复页被识别）；`success` 为假、缺 `result` 或缺 `answers` 只调用一次并按不可用降级；`provider: cloudflare` 的嵌入请求与通用协议相同。
@@ -48,6 +48,7 @@
      - `ProbeTests`：`tacit probe` 经门面：通用协议与 Cloudflare 的成功、4xx 带响应体且截断到 500 字符、5xx 只调用一次不重试、格式不对与 Cloudflare `success` 为假、超时（20 秒，经 `TestHome.Clock`）、网络错误、未配置不发请求、请求体只含内置文本、失败的探测不使服务中的模型进入冷却、回显的密钥被替换。
      - `UnconfiguredModelTests`（经门面）：三个模型都不配置或只配置部分时服务照常启动，写入、画像候选与检索照常，返回中不附模型说明；未配置的模型不发请求、不进入冷却，服务端说明只列冷却中的模型；整理对依赖未配置模型的类别标为"未检查（未配置）"且不提问；`tacit status` 的模型项为未配置；去掉嵌入模型后向量保留，加回同一模型名不重新嵌入，换模型名则丢弃并补齐；启动日志一行列出未配置的角色且不含地址与密钥。
      - `BackupTests`：每日自动备份的生成、保留、关闭、明文密钥提示（配置中写了任一模型的明文 `apiKey` 或 WebDAV 明文密码即提示，环境变量覆盖时仍提示）与失败处理。
+     - `BackupRaceTests`：自动备份在写入槽中打包：打包期间到达的写入排队等待，不与之争用文件。
      - `ManualBackupTests`：手动备份的位置与文件名（本地时间）、内容与清单（`kind`、`memoryHeadSubject`）、写入队列中排在其前的写入、不被自动清理、`--to` 创建目录、同秒重名拒绝且不覆盖、`keep: 0` 时照常、明文密钥提示、相对目录被拒。
      - `RestoreTests`：恢复的预览（备份信息与将被替换的内容，`--include-config` 时三项替换）、旧清单（无 `kind`、`memoryHeadSubject`）、无清单拒绝；清单与内容不符、条目位置越界（`..`、绝对路径、未列出的文件）各自拒绝且什么都不改、不生成保险备份；仅恢复记忆仓库；`--include-config` 替换配置与提示词并删除多余的提示词文件；`bindings.json` 永不恢复；恢复前先生成保险备份并记录日志；恢复后的检索、服务端说明与常驻区块反映备份内容；恢复回来的 `memory.path` 不同时的提示；换入失败时回滚（记忆仓库回到恢复前内容）；恢复期间到达的写入落在恢复后的仓库中；恢复回来的 `config.yaml` 不能加载（如含旧版 `apiKeyEnv`）时恢复照常完成、结果附错误说明，预览同样提示；恢复结束后记忆仓库内没有残留的 `.tacit-*` 暂存目录；`path` 与 `remote` 的来源校验、`remote` 只能预览的规则由门面拒绝。
      - `RemoteBackupTests`：云端备份经 `WebDavDouble`：PUT `.part` 后 MOVE 覆盖（`Overwrite: T`，基本认证头）；第二次上传替换远端内容；父目录缺失时 MKCOL 后重试一次；MOVE 不支持（405）时报错、远端旧文件不变、`.part` 被删；上传中途断开时远端旧文件不变；认证与连接失败的阶段；错误与日志不含密码；`remote.json` 的记录与 `status` 的云端行（不访问网络）；未配置时的提示；目录被拒；无用户名时不发认证；配置中的明文密码提示；本地 `backups/` 中不留副本。
@@ -71,7 +72,7 @@
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
      - `McpHostTests`：服务端说明下发（含 `<recent_activity>`，不含项目列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
-     - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力变化后再记一条；服务重启后记录仍在。
+     - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端能力记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力变化后再记一条；服务重启后记录仍在。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。

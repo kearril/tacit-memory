@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
@@ -51,9 +53,6 @@ public sealed class ConsolidationCandidateTests : IDisposable
 
     private static string Block(string title, params string[] days) =>
         $"### {title}\n归属：偏好\n" + string.Concat(days.Select(day => $"- {day} 原话「{day}的话」\n")) + "\n";
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     /// <summary>Makes the decision model pick the option whose text contains <paramref name="contains"/> with <paramref name="probability"/>.</summary>
     private void PickOption(string contains, double probability) =>
@@ -158,7 +157,7 @@ public sealed class ConsolidationCandidateTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_the_decision_model_the_candidates_are_not_checked_and_the_confirmable_ones_are_listed_with_a_reminder()
+    public async Task Without_the_decision_model_the_candidates_are_not_checked_and_the_candidates_are_listed_with_a_reminder()
     {
         Configure();
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));

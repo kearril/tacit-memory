@@ -25,6 +25,11 @@ internal static class FormatViolations
         StructureWords.Leftovers,
         StructureWords.Overturned,
         StructureWords.Summary,
+        StructureWords.Domain,
+        StructureWords.Project,
+        StructureWords.Trigger,
+        StructureWords.Scope,
+        StructureWords.Lesson,
     ];
 
     /// <summary>The quote mark of a source comment or an occurrence line, with the rejected mark before it on an occurrence.</summary>
@@ -161,15 +166,18 @@ internal static class FormatViolations
     private static (string Word, MemoryLanguage Language) WordAs(Localized word, string matched) =>
         matched == word.Zh ? (word.Zh, MemoryLanguage.Zh) : (word.En, MemoryLanguage.En);
 
-    /// <summary>The section word a heading names, in either language.</summary>
+    /// <summary>
+    /// The section word a heading names, in either language. The words are compared trimmed: an English word written
+    /// with a colon and a space (<c>Scope: </c>) names the heading <c>## Scope:</c>.
+    /// </summary>
     private static (string Word, MemoryLanguage Language)? SectionWordOf(string heading)
     {
         foreach (var word in SectionWords)
         {
-            if (heading == word.Zh)
-                return (word.Zh, MemoryLanguage.Zh);
-            if (string.Equals(heading, word.En, StringComparison.OrdinalIgnoreCase))
-                return (word.En, MemoryLanguage.En);
+            if (heading == word.Zh.Trim())
+                return (word.Zh.Trim(), MemoryLanguage.Zh);
+            if (string.Equals(heading, word.En.Trim(), StringComparison.OrdinalIgnoreCase))
+                return (word.En.Trim(), MemoryLanguage.En);
         }
 
         return null;

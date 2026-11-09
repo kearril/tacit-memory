@@ -132,7 +132,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         var instructions = await service.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
-        Assert.Contains("- Candidates that can be confirmed: 2.", instructions);
+        Assert.Contains("- Persona candidates: 2.", instructions);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         var instructions = await service.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
-        Assert.Contains("- Candidates that can be confirmed: 1.", instructions);
+        Assert.Contains("- Persona candidates: 1.", instructions);
         Assert.Contains("No consolidation has been run yet", instructions);
     }
 
@@ -189,7 +189,7 @@ public sealed class ConsolidationReminderTests : IDisposable
 
         WriteCandidates(TwoDayCandidate);
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- Candidates that can be confirmed: 1.", StringComparison.Ordinal));
+        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- Persona candidates: 1.", StringComparison.Ordinal));
     }
 
     [Fact]

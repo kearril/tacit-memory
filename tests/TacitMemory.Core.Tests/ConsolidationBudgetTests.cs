@@ -7,9 +7,13 @@ namespace TacitMemory.Core.Tests;
 public sealed class ConsolidationBudgetTests : IDisposable
 {
     /// <summary>A bound on each await: a wait for a timer the test never moves fails here instead of hanging.</summary>
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(30);
 
-    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(2);
+    /// <summary>
+    /// Not a retry pause (the client waits 0.5, 1, 2 and 4 seconds): timers are matched by duration, so a budget equal to a
+    /// pause would let a retry be taken for the budget's timer.
+    /// </summary>
+    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(3);
 
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
@@ -138,6 +142,9 @@ public sealed class ConsolidationBudgetTests : IDisposable
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
 
+        // A connection the client dropped would be retried on the frozen clock, and Elapse would fire that retry too:
+        // the test then names the dropped connection instead of reporting a second call.
+        Assert.Equal(0, _models.AbandonedRequests);
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("not checked yet", Section(text, Removal));
     }

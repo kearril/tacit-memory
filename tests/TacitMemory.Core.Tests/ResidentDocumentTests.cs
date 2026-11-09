@@ -38,7 +38,13 @@ public sealed class ResidentDocumentTests : IDisposable
 
         """.ReplaceLineEndings("\n"));
 
-    private string Agents() => File.ReadAllText(AgentsMd);
+    /// <summary>Reads AGENTS.md without denying the service its replacement of the file.</summary>
+    private string Agents()
+    {
+        using var stream = new FileStream(AgentsMd, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 
     [Fact]
     public void Without_resident_md_the_block_keeps_the_built_in_shell_and_guidance()
@@ -228,6 +234,39 @@ public sealed class ResidentDocumentTests : IDisposable
 
         await Eventually(() => !Agents().Contains("SHELL-GONE", StringComparison.Ordinal));
         Assert.Contains("Background on the user from earlier sessions.", Agents());
+        Assert.NotNull(service);
+    }
+
+    [Fact]
+    public async Task A_render_that_meets_a_reader_of_agents_md_is_retried_after_the_reader_lets_go()
+    {
+        WriteFullPersona();
+        _home.Bind();
+        using var service = Open();
+
+        // The debounced render runs while this reader holds AGENTS.md, so the replacement is refused.
+        using (new FileStream(AgentsMd, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            File.WriteAllText(PersonaMd, File.ReadAllText(PersonaMd).Replace("- p1", "- p2", StringComparison.Ordinal));
+            await Task.Delay(TimeSpan.FromSeconds(1));
+        }
+
+        await Eventually(() => Agents().Contains("p2", StringComparison.Ordinal));
+        Assert.NotNull(service);
+    }
+
+    [Fact]
+    public async Task A_leftover_temporary_file_held_by_another_process_does_not_block_a_render()
+    {
+        WriteFullPersona();
+        _home.Bind();
+        using var service = Open();
+
+        // Another renderer holds the old fixed temporary name; the render must not depend on that name.
+        using var leftover = new FileStream(AgentsMd + ".tacit-tmp", FileMode.Create, FileAccess.Write, FileShare.None);
+        File.WriteAllText(PersonaMd, File.ReadAllText(PersonaMd).Replace("- p1", "- p2", StringComparison.Ordinal));
+
+        await Eventually(() => Agents().Contains("p2", StringComparison.Ordinal));
         Assert.NotNull(service);
     }
 
