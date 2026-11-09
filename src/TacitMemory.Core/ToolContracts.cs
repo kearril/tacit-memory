@@ -6,7 +6,10 @@ namespace TacitMemory.Core;
 /// </summary>
 public sealed record ToolResult(string Text, bool IsError, bool Written = false);
 
-/// <summary>A <c>recall</c> call as the agent made it; exactly one of query and page is given. The service checks the arguments.</summary>
+/// <summary>
+/// A <c>recall</c> call as the agent made it; exactly one of query and page is given, unless the kind is <c>persona</c> or
+/// <c>rules</c>, which take neither. The service checks the arguments.
+/// </summary>
 public sealed record RecallRequest
 {
     /// <summary>What to look for, in natural language.</summary>
@@ -24,8 +27,11 @@ public sealed record RecallRequest
     /// <summary>Latest date, <c>YYYY-MM-DD</c>, inclusive.</summary>
     public string? To { get; init; }
 
-    /// <summary><c>pages</c> or <c>activities</c>; both when absent.</summary>
+    /// <summary><c>pages</c>, <c>activities</c>, <c>rules</c> or <c>persona</c>; pages and activities together when absent.</summary>
     public string? Kind { get; init; }
+
+    /// <summary>The domain label whose rules to read; only with <c>kind=rules</c>, and absent for every domain.</summary>
+    public string? Domain { get; init; }
 
     /// <summary>
     /// Parameter names the call gave that the tool's input schema does not declare, as the agent wrote them. The service

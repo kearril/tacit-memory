@@ -58,5 +58,7 @@ public static class ToolValues
     {
         public const string Pages = "pages";
         public const string Activities = "activities";
+        public const string Rules = "rules";
+        public const string Persona = "persona";
     }
 }

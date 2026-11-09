@@ -137,10 +137,10 @@
 
 | 工具 | 说明包含 |
 | :--- | :--- |
-| `recall` | 用途（检索、读整页，或只给 `project` 取项目简报）；`query` 与 `page` 只给一个；结果按页返回并附小节短码；各参数的写法（记忆语言、日期格式、`kind` 取值） |
+| `recall` | 用途（检索、读整页、读整份画像与领域规则，或只给 `project` 取项目简报）；`query` 与 `page` 只给一个，读画像与规则时都不给；结果按页返回并附小节短码，画像与规则的条目附短码；各参数的写法（记忆语言、日期格式、`kind` 取值、`domain` 标签） |
 | `write_page` | 一件事一页、按小节组织；各 `op` 的必填参数；替换与删除小节需要 `recall` 给出的短码；页面标识、别名、小节正文的格式；凭据检测提醒 |
 | `write_recent` | 一条活动一行；`text` 必填及长度；`replaces` 改写当天活动；凭据检测提醒 |
-| `write_persona` | 各 `op` 的必填参数；缺短码时会返回整份画像以取短码；四节的句式；长度与条数上限；凭据检测提醒；`propose` 拒绝红线 |
+| `write_persona` | 各 `op` 的必填参数；缺短码时的下一步是 `recall kind=persona` 取短码；四节的句式；长度与条数上限；凭据检测提醒；`propose` 拒绝红线 |
 
 `write_persona` 的使用条件（何时 `add`、`propose`、`replace`、`delete`）不在工具说明中，只由服务端说明"写画像"与 `tacit-remember` 第 4 步负责，见第 9 节。
 
@@ -149,9 +149,9 @@
 ## 6. 工具回复（契约）
 
 - 成功时返回 Markdown 风格的纯文本，例如检索结果、写入后的短码与条数。
-- 拒绝时标记为错误，分三段：`Refused`（原因，多条时逐行列出）、`Next step`（主会话可直接执行的动作）、`Related`（执行下一步所需的内容，例如当天的活动或整份画像及短码）。
+- 拒绝时标记为错误，分三段：`Refused`（原因，多条时逐行列出）、`Next step`（主会话可直接执行的动作）、`Related`（执行下一步所需的内容，例如当天的活动及其短码，或超限时该范围内的条目；画像短码的拒绝不附整份画像，下一步指向 `recall kind=persona`）。
 - 细节页 `upsert_section`、`delete_section` 的 `section` 填了本页某小节的短码（且本页没有同名小节）时，拒绝并返回英文：`Parameter section "<短码>" is the short code of section <小节标题>, not a section name.`；下一步：`Call write_page op=upsert_section again with section set to the name <小节标题> and hash set to the short code <短码>.`（删除时为 `op=delete_section`），`Related` 附该小节的标题、短码与正文。
-- 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_persona` 同形，不列 `page`）；`write_recent` 没有 `op`，传入已删除的 `op`、`items`、`hash` 时，下一步为 `Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret. The mainline is maintained by the tacit-consolidate skill.`；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.`
+- 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_persona` 同形，不列 `page`）；`write_recent` 没有 `op`，传入已删除的 `op`、`items`、`hash` 时，下一步为 `Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret. The mainline is maintained by the tacit-consolidate skill.`；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, project, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.`
 - 同主题退回、候选并入、提议命中拒绝列表或画像都是正常结果，不标记错误，同样给出下一步该怎么做。
 - 辅助模型不可用而跳过某项判断时，在回复末尾以 `Note:` 注明；模型未配置时不注明，因为这不是故障，只是没有该功能。
 

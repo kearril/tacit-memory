@@ -229,7 +229,7 @@ public sealed class RecallTests : IDisposable
         var query = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["limit"] });
         var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["top_k"] });
 
-        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.", query.Text);
+        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, project, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.", query.Text);
         Assert.StartsWith("Refused: Unknown parameter top_k.\nNext step: ", read.Text);
     }
 
