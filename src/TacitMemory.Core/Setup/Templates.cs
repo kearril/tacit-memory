@@ -18,6 +18,7 @@ internal static class Templates
     [
         new("常规的写代码、改错字、看日志", "Routine coding, typo fixes and log reading"),
         new("能从代码、仓库文档、配置中查到的内容", "What code, repository docs or configuration already show"),
+        new("临时问答、一次性查询和闲聊，没有结论时", "Quick questions, one-off lookups and small talk that reach no conclusion"),
     ];
 
     public static string Rules(MemoryLanguage language) =>

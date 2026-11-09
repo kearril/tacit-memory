@@ -19,11 +19,11 @@ internal static class RememberSkill
         {CommandSkill.UserText}
 
         ## Steps
-        1. Review this session for what is worth recording, by the "Worth recording" rules.
-        2. Before writing a detail page, search with recall. Update the page that covers the topic with write_page (upsert_section, using the hash recall shows); create a page only when no existing page fits.
-        3. Write one activity with write_recent: what the user did and worked out, in one line, with the project when it belongs to one. If this session already wrote the same matter, rewrite that activity with replaces instead of adding another: its short code is in the earlier reply. An activity that is not added because today already has one on the same matter comes back with that activity's code and the next step.
-        4. Persona: write each preference or working rule you observed in this session as the {MemorySkill.Name} skill describes. Use op=propose for what you observed, and op=add only for what the user explicitly asked you to remember. Only the user sets a red line. If something contradicts a persona entry, propose nothing and ask the user first.
-        5. When done, list what you wrote, one line each: pages by page ID, activities and persona entries by short code, candidates by their text. Do not ask for confirmation before writing, except as step 5 says.
+        1. Go through this session against the "Worth recording" rules.
+        2. Pages: `recall` first. Update the page that covers the matter with write_page upsert_section, using the hash recall shows; create one with its type only when no existing page fits.
+        3. One activity with write_recent: what the user did and concluded, with its project when it belongs to one. If this session already wrote an activity, rewrite it with `replaces`, using its short code from the earlier reply.
+        4. Persona: for each correction or stated rule, ask the user once whether to keep it as a lasting rule, then `add` after they agree. A habit you observed goes in with `op=propose`. If something contradicts a persona entry, ask the user first.
+        5. List what you wrote, one line each: pages by page ID, activities and persona entries by short code, candidates by their text.
         """;
 
     /// <summary>The whole file. It depends on the code alone, so every installation gets the same text.</summary>

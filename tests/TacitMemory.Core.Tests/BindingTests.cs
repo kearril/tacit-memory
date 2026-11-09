@@ -446,7 +446,7 @@ public sealed class BindingTests : IDisposable
         _home.Bind();
 
         var text = File.ReadAllText(AgentsMd);
-        Assert.Contains("## Preferences\nDescriptions", text);
+        Assert.Contains("## Preferences\nTastes to weigh against the task.", text);
         Assert.Contains("\n沟通上喜欢直接，这一段没有写成列表\n* 星号列表也算\n", text);
         Assert.Contains("\n写在第一个标题之前的话\n</user_memory>", text);
         Assert.DoesNotContain("独立的注释", text);

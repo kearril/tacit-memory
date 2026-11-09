@@ -42,54 +42,33 @@ internal static class ServerInstructionText
         TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is listed in <recent_activity> below; details live in pages you reach with `recall`.
         """;
 
-    private const string UsingMemory = """
-        ## Using memory
-        - Keep what you know from memory apart from what you infer from the persona; never present a guess as something you remember.
-        - Do not bring up past events the user has not mentioned.
-        - When the user describes their situation, mention recent context in half a sentence.
-        """;
-
-    private const string Recalling = """
-        ## When to recall
-        - Call `recall` when the user mentions something from the past, or names a person, project or term that is not in your context.
-        - Call `recall` with the project name before starting work on a project.
-        - When `recall` finds nothing, say you do not remember; do not guess.
-        """;
-
-    private const string Writing = """
-        ## Writing pages
-        - When something worth recording happens, `recall` it first; if a page already covers the matter, update that page instead of creating one.
-        - One page per matter.
-        """;
-
-    private const string WritingRecent = """
-        ## Writing activities and mainline
-        - Write an activity when a main matter concludes; one per session, and later progress uses `replaces`.
-        """;
-
-    private const string WritingPersona = """
-        ## Writing persona
-        - Propose a habit, preference or working rule the user states, even in passing, with write_persona op=propose and its section; it becomes a candidate.
-        <!-- Permission boundary, do not remove: the next two rules -->
-        - Use op=add only when the user explicitly asks you to remember; only the user sets a red line.
-        - If the user's words contradict a persona entry, follow them, propose nothing, ask whether to update it, and op=replace only after the user agrees.
-        """;
-
     /// <summary>
     /// The built-in <c>instructions.md</c>: the policy paragraphs, used whenever the user has no such file. Its HTML
     /// comments are notes for whoever edits it; they are removed before the text is sent.
     /// </summary>
-    public static readonly string DefaultInstructions = Join([UsingMemory, Recalling, Writing, WritingRecent, WritingPersona]);
+    public static readonly string DefaultInstructions = """
+        ## Using memory
+        - Mark what you infer from the persona as inference; state as remembered only what memory holds.
+        - Leave old events to the user: raise one only after the user does. When the user describes their situation, link recent context in half a sentence.
+
+        ## Recall
+        - At the start of work on a project, call `recall` with only `project`: its brief gives the project's conventions, open items, pages and recent activity.
+        - Call `recall` when the user refers to the past, or names a person, project or term your context lacks. When it finds nothing, say you don't remember.
+
+        ## Write
+        - When something worth recording happens, `recall` first, then update the page that covers the matter or create one.
+        - When a main matter reaches a conclusion, write one activity; later progress rewrites it with `replaces`.
+        - When the user corrects you or states how they want something done, ask once whether to keep it as a lasting rule, since the persona loads into every session; `write_persona op=add` after they agree. A habit you observe across the session goes in with `op=propose`.
+        <!-- Permission boundary, do not remove -->
+        - Red lines come only from the user. Change or remove a persona entry after the user agrees.
+        """;
 
     /// <summary>
-    /// The general rules, which the code provides so they stay in place when the user replaces the core rules. They
-    /// point at the memory skill, where each kind of memory is written.
+    /// The general rule, which the code provides so it stays after the core rules when the user replaces them. It points
+    /// at the memory skill and says when to read it.
     /// </summary>
-    private static readonly string GeneralRules = $"""
-        ## General rules
-        - When a write tool refuses, do what its Next step says.
-        - How to write each kind of memory in detail is in the `{MemorySkill.Name}` skill.
-        """;
+    private static readonly string GeneralRules =
+        $"Before your first memory write in a session, and after any refusal, read the `{MemorySkill.Name}` skill.";
 
     /// <summary>
     /// Matches an HTML comment that fills its lines: one line, or a block from the line it opens on to the first

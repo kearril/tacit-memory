@@ -33,13 +33,13 @@ public sealed class ServiceTests : IDisposable
 
         Assert.Contains("<user_memory>", instructions);
         Assert.Contains("## Using memory", instructions);
-        Assert.Contains("## Writing persona", instructions);
+        Assert.Contains("## Write\n", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
         Assert.DoesNotContain("## Projects", instructions);
         Assert.DoesNotContain("my-app", instructions);
         Assert.DoesNotContain("_topics", instructions);
-        Assert.Contains("## When to recall", instructions);
-        Assert.Contains("## Writing pages", instructions);
+        Assert.Contains("## Recall", instructions);
+        Assert.Contains("`recall` first, then update the page", instructions);
         Assert.Contains("Write `recall` queries in Chinese too.", instructions);
     }
 

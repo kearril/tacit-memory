@@ -85,7 +85,7 @@ public sealed class CommandSkillTests : IDisposable
 
         var text = File.ReadAllText(SkillFile("tacit-remember"));
 
-        Assert.Contains("\n5. When done, list ", text, StringComparison.Ordinal);
+        Assert.Contains("\n5. List what you wrote, one line each", text, StringComparison.Ordinal);
         Assert.DoesNotContain("\n6. ", text, StringComparison.Ordinal);
         Assert.DoesNotContain("mainline", text, StringComparison.OrdinalIgnoreCase);
     }

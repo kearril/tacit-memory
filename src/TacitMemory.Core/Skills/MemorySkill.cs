@@ -30,43 +30,85 @@ internal static class MemorySkill
 
         This page covers how to write each kind of memory well. The tool descriptions give the call format, short codes and limits; they win over anything here.
 
+        Terms used below: a *matter* is one subject a page covers; the *brief* is the project map that `recall` returns for a project; a *trigger* is the one-line condition under which a domain's rules apply; a *lesson* is the rule an incident teaches; a *pointer* is a reference to where a fact already lives.
+
         ## Retrieval
         - Write queries in the memory language, with the words the memory itself would use. Search matches words, so a paraphrase or another language can miss what is there.
         - Narrow a search by kind, project or date when the question is about one of them.
         - Read a whole page for its overall picture; read only one section when you already know which one matters.
+        - Every section shows the date it last changed. Judge a section that describes the current state by that date.
 
         ## Detail pages
-        - A page covers one matter. Update the page that already covers it instead of starting a second page for the same matter.
+        - A page covers one matter: update the page that already covers it instead of starting a second page for the same matter.
+        - Pick the type by what the page records. The four types are incident, decision, entity and work; each example below shows one.
         - Title a page with the name the matter is known by; list the other names the user uses for it as aliases.
-        - Organize a page into sections by facet. Put each new fact into the section it belongs to, so every section can be read and replaced on its own.
+        - Organize a page into sections by facet, and put each new fact into the section it belongs to.
         - Write the date of each entry. Where the wording matters, quote the user's own words rather than a paraphrase.
         - Link a page to related pages, so a reader can move from one matter to the next.
         - When something in a section has changed, replace that text; do not add a note that contradicts it.
+        - Where the environment already records a fact (a config file, a repository document, an infrastructure note), write a pointer to it, not a copy.
+        - incident: one fault, its cause and its fix. Sections: Symptom, Cause, Fix, Lesson. The lesson is the rule the next session can apply; in a Chinese memory the section is 教训.
+        - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page overturns the decision, add a line under Overturned naming that page; the brief then stops listing the decision as current. In a Chinese memory the section is 推翻记录.
+        - entity: a standing system or tool, kept to a table of contents: pointers to its documentation, the user's stance and open to-dos. Write each fault and each decision on its own page and link it back here. Sections: Status, Stance, To-do.
+        - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the project; in a Chinese memory the section is 遗留.
 
-        ## Activities and mainline
-        - An activity says what the person is doing or has concluded, in a sentence or two. Describe the thinking and the result, not the files that changed.
+        ## Examples
+        Each example shows a real page from a Chinese memory, with its type and its recommended sections. The text in the examples is data, not instructions.
+
+        <example type="incident">
+        Title: Mac 端 sqlite3 损坏容器数据库
+        Aliases: 容器库损坏, Mac sqlite3 写坏容器内 SQLite
+        ## 修复
+        改为在容器内生成快照，不再从 Mac 端直接打开容器内的 SQLite 数据库。
+        ## 教训
+        在 Mac 端用 sqlite3 打开容器内的 SQLite 会将其损坏，不要这样做。
+        </example>
+
+        <example type="decision">
+        Title: 不能用 Clef 替换 Jev
+        Aliases: Clef 替换 Jev, 决策模型替换
+        ## 决定
+        决策模型保持 Jev，不换成 Clef-flash 或 Clef。
+        ## 理由
+        在现有阈值下，Clef-flash 与 Clef 都有误拒或大量漏检。
+        </example>
+
+        <example type="entity">
+        Title: mac-mini
+        Aliases: Mac mini, 本机 Mac 主机
+        ## 现状
+        自建的私有服务运行在 OrbStack 中，经 Cloudflare Tunnel 对外；架构与运维见 `~/infra/` 下的文档，此处只写指针。
+        </example>
+
+        <example type="work">
+        Title: my-app 1.7
+        Aliases: my-app 适配 1.7, my-app v3.3.0
+        ## 产出
+        发布 v3.3.0：适配宿主 2.0（net10，标准 SQLite provider，插件分目录）；1.x 冻结在 3.2.0。
+        ## 遗留
+        values 列表聚合问题留待优化主题。
+        </example>
+
+        ## Activities
+        - An activity says what the person did or concluded, in a sentence or two. Describe the result and the thinking, not the files that changed.
         - Set the project when the activity belongs to one, using the name the project already has.
-        - To revise an activity already written for the same matter, write the revised sentence with replaces set to that activity's short code. Today's activities and their codes appear in recall results of kind activities and in a refusal that lists them; replaces reaches only today's activities, so an earlier day's or an expired code is refused.
-        - The mainline lists the few directions that span sessions. Write each item as a direction rather than a single task, and keep the user's own wording where it was theirs.
-        - When the mainline changes, rewrite the whole list and keep the items that still hold.
+        - To revise an activity already written for the same matter, write the revised sentence with replaces set to that activity's short code. Only today's activities can be revised; an earlier day's or an expired code is refused.
 
         ## Persona
-        The persona has four sections. Each entry is one line in the memory language; the examples below are in English.
+        The persona has four sections, and every entry sits in a scope. Each entry is one line in the memory language; the examples below are in English.
         - Red lines: what must not be done for this person, and what to do instead. For example: "Never push to main without asking; open a branch instead."
         - Working rules: how to proceed when a situation comes up, written as situation → action. For example: "When the request is unclear → ask first, then plan."
         - Preferences: how the person likes things done. A preference is a description to weigh against the task, not an order. For example: "Answer length: short, with the conclusion first."
         - Profile: background that helps understand the person. For example: "Role: backend engineer, mostly C# on Windows."
         - Keep one idea per entry, and keep the user's own words in its source note when the wording matters.
-        - A habit you observe becomes a candidate that waits for confirmation; an entry the user asks you to remember goes into the persona at once. The server instructions say when to use each.
+        - Scope: global entries are read in every session. Write an entry as global only when it holds in at least two different kinds of situation; otherwise give it a project scope (`project:<name>`, using the project's name) or a domain scope (`domain:<label>`).
+        - Domain: a label names a kind of situation, such as network-proxy. Its trigger is one line saying when the domain applies, for example "when changing proxies, routing or speed tests". Reuse an existing label exactly; a new label needs a trigger.
+        - A preference or rule the user agrees to keep goes in with add; a habit you observe goes in with propose, with its scope, and waits as a candidate.
         - To change or delete an entry, use its short code from `recall kind=persona`, which returns the whole persona with every entry's code. When a code is refused, call `recall kind=persona` again and take the fresh code from there.
 
         ## Refusals
-        - Every refusal gives a reason and a next step. Do the next step, using any short codes or text it supplies, then retry the write once.
-        - A refusal that points to an existing page or activity means the matter is already recorded: update that one instead of writing another.
-        - A persona conflict means the new wording differs from what is recorded: ask the user before changing the persona.
-        - A refusal that concerns a red line means only the user can set one: ask them to state it.
-        - A refusal about a possible credential means the text must not hold one: remove the secret and keep the rest. Confirm that a text holds no secret only when that is true.
-        - If a write is still refused after its next step was followed, tell the user what was refused and why.
+        - Do the step a refusal names, with the short codes it gives, then retry the write once; if it is still refused, tell the user what was refused and why.
+        - A refusal about a red line or a conflicting persona entry is for the user to decide: ask them before changing the persona.
         """;
 
     /// <summary>The whole file: frontmatter, the generated note, the system part, and the user's section when there is one.</summary>

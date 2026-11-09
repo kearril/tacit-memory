@@ -38,6 +38,18 @@ public sealed class ToolCatalogTests
     }
 
     [Fact]
+    public void The_write_tools_state_the_credential_rule_as_where_it_is_kept()
+    {
+        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
+
+        foreach (var name in new[] { "write_page", "write_recent", "write_persona" })
+        {
+            Assert.Contains("never its value", tools[name].Description);
+            Assert.DoesNotContain("never store one", tools[name].Description);
+        }
+    }
+
+    [Fact]
     public void The_catalog_gives_parameter_names_and_types_as_clients_see_them()
     {
         var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
