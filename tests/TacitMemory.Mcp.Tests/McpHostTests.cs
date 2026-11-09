@@ -74,7 +74,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.False(recent.Annotations?.IdempotentHint);
         Assert.False(recent.Annotations?.OpenWorldHint);
         Assert.Equal(
-            ["confirm_no_secret", "hash", "items", "op", "project", "replaces", "source", "text"],
+            ["confirm_no_secret", "project", "replaces", "source", "text"],
             recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         var persona = tools["write_persona"].ProtocolTool;
         Assert.False(persona.Annotations?.ReadOnlyHint);
@@ -94,11 +94,10 @@ public sealed class McpHostTests : IAsyncLifetime
         var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
 
         Assert.Equal(["op", "page"], Required(tools["write_page"].ProtocolTool));
-        Assert.Equal(["op"], Required(tools["write_recent"].ProtocolTool));
+        Assert.Equal(["text"], Required(tools["write_recent"].ProtocolTool));
         Assert.Equal(["op"], Required(tools["write_persona"].ProtocolTool));
         Assert.Empty(Required(tools["recall"].ProtocolTool));
         Assert.Equal(["create", "upsert_section", "delete_section", "update_header"], Values(tools["write_page"].ProtocolTool, "op"));
-        Assert.Equal(["add_activity", "update_mainline"], Values(tools["write_recent"].ProtocolTool, "op"));
         Assert.Equal(["add", "propose", "replace", "delete"], Values(tools["write_persona"].ProtocolTool, "op"));
         Assert.Equal(["red_lines", "working_rules", "preferences", "profile"], Values(tools["write_persona"].ProtocolTool, "persona_section"));
         Assert.Equal(["pages", "activities"], Values(tools["recall"].ProtocolTool, "kind"));
@@ -223,7 +222,6 @@ public sealed class McpHostTests : IAsyncLifetime
 
         var written = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "想清楚了画像里缺的是人的倾向",
             ["project"] = "tacit-memory",
         });
@@ -241,7 +239,6 @@ public sealed class McpHostTests : IAsyncLifetime
         await using var client = await ConnectAsync();
         var first = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "先查了索引",
         });
         _models.Choose = (_, options) => options.ToDictionary(
@@ -250,7 +247,6 @@ public sealed class McpHostTests : IAsyncLifetime
 
         var repeated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "索引查完了，问题在分词器",
         });
 
@@ -264,31 +260,11 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_mainline_update_through_the_tool_replaces_the_list_and_the_reply_shows_the_version()
-    {
-        await using var client = await ConnectAsync();
-
-        // e3b0c4 is the version code of the empty mainline (the short code of an empty string).
-        var updated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
-        {
-            ["op"] = "update_mainline",
-            ["items"] = new[] { "主线一", "主线二" },
-            ["hash"] = "e3b0c4",
-        });
-
-        Assert.NotEqual(true, updated.IsError);
-        Assert.Contains("Mainline updated.", Text(updated));
-        Assert.Contains("- 主线一\n- 主线二", Text(updated));
-        Assert.Contains("## 近期主线\n- 主线一\n- 主线二\n", File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent.md")));
-    }
-
-    [Fact]
     public async Task An_activity_written_through_the_tool_is_recalled_by_kind()
     {
         await using var client = await ConnectAsync();
         await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "想清楚了画像里缺的是人的倾向",
             ["project"] = "tacit-memory",
         });
@@ -301,18 +277,23 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_refused_activity_comes_back_as_an_error_with_its_next_step()
+    public async Task The_removed_parameters_come_back_refused_by_name_with_the_consolidation_as_the_next_step()
     {
         await using var client = await ConnectAsync();
 
         var refused = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
             ["op"] = "add_activity",
+            ["text"] = "一件事",
             ["items"] = new[] { "不该传" },
+            ["hash"] = "e3b0c4",
         });
 
         Assert.True(refused.IsError);
-        Assert.StartsWith("Refused: Parameter items does not apply to op add_activity.\nNext step: ", Text(refused));
+        Assert.StartsWith(
+            "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\nNext step: ",
+            Text(refused));
+        Assert.Contains("The mainline is maintained by the tacit-consolidate skill.", Text(refused));
     }
 
     [Fact]

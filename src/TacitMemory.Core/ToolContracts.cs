@@ -83,13 +83,10 @@ public sealed record WritePageRequest
 }
 
 /// <summary>
-/// A <c>write_recent</c> call as the agent made it. The parameters are flat; which ones are required depends on
-/// <see cref="Op"/>, and the service checks them.
+/// A <c>write_recent</c> call as the agent made it. Only <see cref="Text"/> is required; the service checks it.
 /// </summary>
 public sealed record WriteRecentRequest
 {
-    public string? Op { get; init; }
-
     /// <summary>The activity's text: one line, without the project label.</summary>
     public string? Text { get; init; }
 
@@ -99,14 +96,8 @@ public sealed record WriteRecentRequest
     /// <summary>The user's own words behind the activity, kept as a comment under the entry.</summary>
     public string? Source { get; init; }
 
-    /// <summary>The short code of today's activity this one rewrites in place; <c>add_activity</c> only.</summary>
+    /// <summary>The short code of today's activity this one rewrites in place.</summary>
     public string? Replaces { get; init; }
-
-    /// <summary>The whole mainline for <c>update_mainline</c>, in order; an empty list clears it.</summary>
-    public IReadOnlyList<string>? Items { get; init; }
-
-    /// <summary>The version code of the mainline the agent read, required by <c>update_mainline</c>.</summary>
-    public string? Hash { get; init; }
 
     /// <summary>
     /// The agent made sure with the user that the write holds no secret: the credential check is skipped.

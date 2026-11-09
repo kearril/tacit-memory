@@ -97,9 +97,8 @@
 | 条目 | 要 Agent 做什么 | 兜底 |
 | :--- | :--- | :--- |
 | 写活动的时机 | 一件主事有了结论时写一条；每个会话至多一条，后续进展用 `replaces` 改写 | 同主题判断（只限同一天） |
-| 改主线的时机 | 只在出现持续的新方向或旧方向明确结束时改 | 版本短码只防并发，不管语义 |
 
-活动怎么写（写什么、属于项目时设 `project`）与主线的写法见记忆 skill。
+活动怎么写（写什么、属于项目时设 `project`）见记忆 skill。主线不在这里写，由整理负责。
 
 ### 写画像（策略，含权限边界）
 
@@ -140,10 +139,10 @@
 | :--- | :--- |
 | `recall` | 用途（检索或读整页）；`query` 与 `page` 只给一个；结果按页返回并附小节短码；各参数的写法（记忆语言、日期格式、`kind` 取值） |
 | `write_page` | 一件事一页、按小节组织；各 `op` 的必填参数；替换与删除小节需要 `recall` 给出的短码；页面标识、别名、小节正文的格式；凭据检测提醒 |
-| `write_recent` | 一条活动一行；各 `op` 的必填参数与长度；`replaces` 改写当天活动；`update_mainline` 需要版本短码；凭据检测提醒 |
+| `write_recent` | 一条活动一行；`text` 必填及长度；`replaces` 改写当天活动；凭据检测提醒 |
 | `write_persona` | 各 `op` 的必填参数；缺短码时会返回整份画像以取短码；四节的句式；长度与条数上限；凭据检测提醒；`propose` 拒绝红线 |
 
-`write_persona` 的使用条件（何时 `add`、`propose`、`replace`、`delete`）不在工具说明中，只由服务端说明"写画像"与 `tacit-remember` 第 5 步负责，见第 9 节。
+`write_persona` 的使用条件（何时 `add`、`propose`、`replace`、`delete`）不在工具说明中，只由服务端说明"写画像"与 `tacit-remember` 第 4 步负责，见第 9 节。
 
 上限数字由 `config.yaml` 的 `limits` 填入，工具说明中以占位写出的只有三处：`write_page` 的 `aliases` 最少个数（`limits.page.minAliases`）、`write_recent` 的活动长度上限与 `write_persona` 的条目长度上限（`limits.itemLength`）；改配置后需重启服务。
 
@@ -152,7 +151,7 @@
 - 成功时返回 Markdown 风格的纯文本，例如检索结果、写入后的短码与条数。
 - 拒绝时标记为错误，分三段：`Refused`（原因，多条时逐行列出）、`Next step`（主会话可直接执行的动作）、`Related`（执行下一步所需的内容，例如当天的活动或整份画像及短码）。
 - 细节页 `upsert_section`、`delete_section` 的 `section` 填了本页某小节的短码（且本页没有同名小节）时，拒绝并返回英文：`Parameter section "<短码>" is the short code of section <小节标题>, not a section name.`；下一步：`Call write_page op=upsert_section again with section set to the name <小节标题> and hash set to the short code <短码>.`（删除时为 `op=delete_section`），`Related` 附该小节的标题、短码与正文。
-- 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_recent` 与 `write_persona` 同形，不列 `page`）；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.`
+- 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_persona` 同形，不列 `page`）；`write_recent` 没有 `op`，传入已删除的 `op`、`items`、`hash` 时，下一步为 `Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret. The mainline is maintained by the tacit-consolidate skill.`；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.`
 - 同主题退回、候选并入、提议命中拒绝列表或画像都是正常结果，不标记错误，同样给出下一步该怎么做。
 - 辅助模型不可用而跳过某项判断时，在回复末尾以 `Note:` 注明；模型未配置时不注明，因为这不是故障，只是没有该功能。
 
@@ -169,11 +168,10 @@
   1. 按值得记标准回顾本会话；
   2. 写细节页前先检索，已有页面就按小节更新；
   3. 写一条活动，本会话已写过同一件事就用 `replaces` 改写；与当天已有活动同主题而未写入时，回复给出那条活动的短码与下一步；
-  4. 只在方向变化时改主线；缺少版本短码的调用会被拒绝，回复附当前主线与短码，据此重试；
-  5. 画像：写法依记忆 skill（第 11 节）；观察到的用 `propose`，用户明确要求的才 `add`，红线只由用户提出，与画像矛盾时先问；
-  6. 写完列出写了什么：页面附页面标识，活动与画像条目附短码，候选附原文。
+  4. 画像：写法依记忆 skill（第 11 节）；观察到的用 `propose`，用户明确要求的才 `add`，红线只由用户提出，与画像矛盾时先问；
+  5. 写完列出写了什么：页面附页面标识，活动与画像条目附短码，候选附原文。
 
-不附带当天的活动或主线，代价是第 3、4 步遇到短码时多一次往返。正文只取决于代码，不读记忆仓库。
+不附带当天的活动，代价是第 3 步遇到短码时多一次往返。正文只取决于代码，不读记忆仓库。
 
 ### tacit-consolidate
 
@@ -205,9 +203,9 @@
 
 | 规则 | 会话开始可见 | 用到时可见 |
 | :--- | :--- | :--- |
-| 矛盾时以用户为准、先问 | 常驻区块外壳；服务端说明"写画像" | `tacit-remember` 第 5 步 |
-| 只有用户明确要求才 `add`；红线只由用户提出 | 服务端说明"写画像" | `write_persona` 说明（红线）；`tacit-remember` 第 5 步 |
-| 观察到的偏好用 `propose` | 服务端说明"写画像" | `tacit-remember` 第 5 步 |
+| 矛盾时以用户为准、先问 | 常驻区块外壳；服务端说明"写画像" | `tacit-remember` 第 4 步 |
+| 只有用户明确要求才 `add`；红线只由用户提出 | 服务端说明"写画像" | `write_persona` 说明（红线）；`tacit-remember` 第 4 步 |
+| 观察到的偏好用 `propose` | 服务端说明"写画像" | `tacit-remember` 第 4 步 |
 | 先检索再写页面 | 服务端说明"写页面" | `tacit-remember` 第 2 步 |
 | 照"下一步"处理拒绝 | 服务端说明"通用规则" | 每一条拒绝回复 |
 | 不写凭据 | — | 三个写入工具的说明；凭据检测的拒绝回复 |

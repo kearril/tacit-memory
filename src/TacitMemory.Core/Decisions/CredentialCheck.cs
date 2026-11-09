@@ -30,10 +30,9 @@ internal static partial class CredentialCheck
         ("long base64 value", Base64()),
     ];
 
-    /// <param name="tool">The tool named in the next step: <c>write_page</c> or <c>write_recent</c>.</param>
-    /// <param name="op">The op named in the next step.</param>
+    /// <param name="call">The call named in the next step, such as <c>write_page op=create</c> or <c>write_recent</c>.</param>
     /// <returns>The refusal, or <c>null</c> when the write may go ahead.</returns>
-    public static ToolResult? Run(IReadOnlyList<WrittenText> texts, string tool, string op)
+    public static ToolResult? Run(IReadOnlyList<WrittenText> texts, string call)
     {
         var found = Find(texts);
         return found.Count == 0
@@ -41,7 +40,7 @@ internal static partial class CredentialCheck
             : ToolText.Refuse(
                 found,
                 "Remove the secret and write again. If it is not a real secret (a placeholder, an example, a hash), make sure "
-                + $"with the user, then call {tool} op={op} again with confirm_no_secret=true.");
+                + $"with the user, then call {call} again with confirm_no_secret=true.");
     }
 
     /// <summary>

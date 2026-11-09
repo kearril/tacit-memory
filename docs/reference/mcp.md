@@ -29,15 +29,14 @@
 | | `upsert_section` | `page`、`section`、`body`；替换时加 `hash` |
 | | `delete_section` | `page`、`section`、`hash` |
 | | `update_header` | `page`；`title`、`add_aliases`、`related` 至少一项 |
-| `write_recent` | `add_activity` | `text`；可选 `project`、`source`、`replaces` |
-| | `update_mainline` | `items`、`hash`（近期主线的版本短码） |
+| `write_recent` | — | `text`；可选 `project`、`source`、`replaces`、`confirm_no_secret` |
 | `write_persona` | `add` | `persona_section`、`text`、`source`；可选 `confirm_no_secret` |
 | | `replace` | `hash`、`text`、`source`；可选 `confirm_no_secret` |
 | | `delete` | `hash` |
 | | `propose` | `persona_section`、`text`、`source` |
 
 - `recall` 各参数的含义见 `docs/design.md` 第 7 节。
-- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`update_mainline` 的规则见 `docs/design.md` 第 6 节。
+- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`write_recent` 只写活动，没有 `op`；近期主线不经它写入，见 `docs/design.md` 第 6 节。
 - 长度与条数上限取自 `config.yaml` 的 `limits`（见 `docs/reference/configuration.md`），工具说明中的数字随配置填入。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 
@@ -45,7 +44,7 @@
 
 - 参数结构扁平，由服务按 `op` 校验。
 - `replace`、`delete` 缺短码或短码与任何画像条目都不符时，不按缺参数处理，而是拒绝并返回整份画像：按节列出，每节标明条数与上限，每条附短码；`delete` 不接受 `text`、`source`、`confirm_no_secret`，`replace` 不接受 `persona_section`。
-- 参数名不在工具 schema 中的（未知参数）一律拒绝，每个未知参数一条 `Unknown parameter <名>.`，排在最前；同一次调用中缺 `op`、`op` 无效、放错 `op` 的已知参数一并列出，只拒绝一次。判断不看值：键在、名字不在 schema 中即为未知，值为 `null` 或空串也算；已知参数值为 `null` 仍按放错 `op` 的规则视为未给出。下一步：`op` 有效时列出该 op 的参数（`write_page` 另列 `page`）；`op` 缺失或无效时列出 `op` 的取值与工具的全部参数；`recall` 列出全部参数。拒绝不写文件、不提交，经调用记录路径记入日志，日志不含参数值。
+- 参数名不在工具 schema 中的（未知参数）一律拒绝，每个未知参数一条 `Unknown parameter <名>.`，排在最前；同一次调用中缺 `op`、`op` 无效、放错 `op` 的已知参数一并列出，只拒绝一次。判断不看值：键在、名字不在 schema 中即为未知，值为 `null` 或空串也算；已知参数值为 `null` 仍按放错 `op` 的规则视为未给出。下一步：`op` 有效时列出该 op 的参数（`write_page` 另列 `page`）；`op` 缺失或无效时列出 `op` 的取值与工具的全部参数；`recall` 列出全部参数；`write_recent` 没有 `op`，下一步列出它的全部参数，并加一句 "The mainline is maintained by the tacit-consolidate skill."（`op`、`items`、`hash` 即属此类）。拒绝不写文件、不提交，经调用记录路径记入日志，日志不含参数值。
 
 ### 返回与拒绝
 

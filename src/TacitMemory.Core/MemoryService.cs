@@ -307,7 +307,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
     public Task<ToolResult> WriteRecentAsync(WriteRecentRequest request, CancellationToken cancellationToken = default) =>
-        RecordToolCall("write_recent", request.Op, Targets(request.Replaces, request.Hash), () => WriteRecentCoreAsync(request, cancellationToken));
+        RecordToolCall("write_recent", null, Targets(request.Replaces), () => WriteRecentCoreAsync(request, cancellationToken));
 
     private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {

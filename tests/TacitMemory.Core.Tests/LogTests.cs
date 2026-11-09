@@ -84,7 +84,6 @@ public sealed class LogTests : IDisposable
     {
         await Service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = ActivityMarker,
             Project = "my-app",
             Replaces = "abc123",

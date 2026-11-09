@@ -30,7 +30,7 @@ public sealed class ToolCatalogTests
         var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
 
         Assert.Contains(tools["write_page"].Parameters, parameter => parameter.Name == "op" && parameter.Type == "string");
-        Assert.Contains(tools["write_recent"].Parameters, parameter => parameter.Name == "items" && parameter.Type == "string[]");
+        Assert.Contains(tools["write_page"].Parameters, parameter => parameter.Name == "aliases" && parameter.Type == "string[]");
         Assert.Contains(tools["write_persona"].Parameters, parameter => parameter.Name == "confirm_no_secret" && parameter.Type == "bool");
         Assert.DoesNotContain(tools.Values.SelectMany(tool => tool.Parameters), parameter => parameter.Type.Contains("CancellationToken"));
     }

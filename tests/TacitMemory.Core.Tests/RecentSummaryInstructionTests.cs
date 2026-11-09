@@ -162,7 +162,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         var service = Open();
         Assert.DoesNotContain("刚写的活动", await service.ServerInstructionsAsync());
 
-        var result = await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "刚写的活动" });
+        var result = await service.WriteRecentAsync(new WriteRecentRequest { Text = "刚写的活动" });
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("刚写的活动", await service.ServerInstructionsAsync());

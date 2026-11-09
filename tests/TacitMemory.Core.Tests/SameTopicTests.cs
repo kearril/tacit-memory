@@ -27,7 +27,6 @@ public sealed class SameTopicTests : IDisposable
 
     private static WriteRecentRequest Add(string text, string? project = null, string? replaces = null) => new()
     {
-        Op = "add_activity",
         Text = text,
         Project = project,
         Replaces = replaces,

@@ -70,12 +70,24 @@ public sealed class CommandSkillTests : IDisposable
         tacit.GenerateSkills();
         var before = File.ReadAllText(SkillFile("tacit-remember"));
         using (var service = tacit.OpenService(_ => { }, NullLoggerFactory.Instance))
-            await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "写了一条今天的活动" });
+            await service.WriteRecentAsync(new WriteRecentRequest { Text = "写了一条今天的活动" });
 
         tacit.GenerateSkills();
 
         Assert.Equal(before, File.ReadAllText(SkillFile("tacit-remember")));
         Assert.DoesNotContain("写了一条今天的活动", before, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_remember_skill_has_five_steps_and_leaves_the_mainline_to_consolidation()
+    {
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-remember"));
+
+        Assert.Contains("\n5. When done, list ", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n6. ", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("mainline", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

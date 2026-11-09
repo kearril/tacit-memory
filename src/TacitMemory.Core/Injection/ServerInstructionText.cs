@@ -65,7 +65,6 @@ internal static class ServerInstructionText
     private const string WritingRecent = """
         ## Writing activities and mainline
         - Write an activity when a main matter concludes; one per session, and later progress uses `replaces`.
-        - Change the mainline only for a lasting new direction or a clearly ended one.
         """;
 
     private const string WritingPersona = """

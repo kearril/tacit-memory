@@ -310,7 +310,7 @@ public sealed class RecallTests : IDisposable
     public async Task Every_result_says_whether_it_is_a_page_or_an_activity()
     {
         DbUpgrade();
-        await Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "数据库升级后中文搜索又没有结果" });
+        await Service.WriteRecentAsync(new WriteRecentRequest { Text = "数据库升级后中文搜索又没有结果" });
 
         var result = await Recall("数据库升级 中文搜索");
 
