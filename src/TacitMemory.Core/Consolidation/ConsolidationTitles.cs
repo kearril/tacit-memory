@@ -22,9 +22,15 @@ internal static class ConsolidationTitles
 
     public const string MainlineMaterial = "Mainline material";
 
+    public const string PersonaEvidence = "Persona evidence";
+
+    public const string IncidentLessons = "Incident lessons";
+
+    public const string ChangedPages = "Changed pages";
+
     public const string DuplicatePages = "Suspected duplicate pages";
 
     public const string ConflictingEntries = "Conflicting persona entries";
 
-    public const string SectionsOverLimit = "Sections over their limit";
+    public const string SectionsOverLimit = "Over-limit sections and domain hygiene";
 }

@@ -131,6 +131,8 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     {
         var padding = new string('长', 400);
         WriteMonth(string.Concat(Enumerable.Range(1, 7).Select(i => $"## 2026-11-02\n- {i}{padding}\n")));
+        // A non-empty mainline keeps the consolidation reminder out, so the activities are the last part.
+        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n");
 
         var instructions = await Open().ServerInstructionsAsync();
 

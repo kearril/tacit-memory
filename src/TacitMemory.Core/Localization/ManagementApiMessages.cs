@@ -95,6 +95,8 @@ internal static class ManagementApiMessages
     public static readonly Localized PendingFormatProblems = new("格式问题：{0}", "Format and rule problems: {0}");
     public static readonly Localized PendingMainlineEmpty = new("主线：为空", "Mainline: empty");
     public static readonly Localized PendingMainlineSet = new("主线：已设定", "Mainline: set");
+
+    public static readonly Localized PendingWeeks = new("待汇总的周：{0}", "Weeks to summarize: {0}");
     public static readonly Localized PendingUnreadable = new("无法统计待处理问题：{0}", "Pending issues cannot be counted: {0}");
 
 

@@ -1,16 +1,18 @@
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The consolidation reminder the server instructions end with. When a consolidation is due it says how long ago the last one was,
-/// how many candidates can be confirmed, how many format problems there are and whether the mainline is empty. Every
-/// count comes from <see cref="ConsolidationSummary"/>, which asks no model, so building the reminder never calls one.
+/// The consolidation reminder the server instructions end with. When one of its four triggers is set off it says how long ago the
+/// last consolidation was, how many weeks wait for a summary, how many candidates can be confirmed, how many format problems
+/// there are and whether the mainline is empty. Every count comes from <see cref="ConsolidationSummary"/>, which asks no model,
+/// so building the reminder never calls one.
 /// </summary>
 internal static class ConsolidationReminder
 {
     /// <summary>
-    /// The reminder text, or null when none is due. It is due when the last consolidation is at least
-    /// <c>consolidation.remindAfterDays</c> days old, or when a candidate can be confirmed; format problems alone never bring it.
-    /// A repository with neither a consolidation nor an init commit has nothing to count from, so it counts as due.
+    /// The reminder text, or null when none is due. Each trigger brings it on its own: the last consolidation is at least
+    /// <c>consolidation.remindAfterDays</c> days old (or there is no baseline commit), a completed week waits for its summary,
+    /// the confirmable candidates reach <c>consolidation.remindCandidates</c>, or the mainline is empty. Format problems alone
+    /// never bring it.
     /// </summary>
     /// <remarks>
     /// The reminder is advice, so a repository that cannot be read gives no reminder rather than stopping the service.
@@ -20,8 +22,11 @@ internal static class ConsolidationReminder
         try
         {
             var summary = await ConsolidationSummary.ReadAsync(config, today, cancellationToken);
-            var due = summary.DaysSince is null || summary.DaysSince >= config.Consolidation.RemindAfterDays;
-            if (!due && summary.Confirmable == 0)
+            var due = summary.DaysSince is null || summary.DaysSince >= config.Consolidation.RemindAfterDays
+                || summary.UnsummarizedWeeks > 0
+                || (summary.Confirmable > 0 && summary.Confirmable >= config.Consolidation.RemindCandidates)
+                || summary.MainlineEmpty;
+            if (!due)
                 return null;
 
             return Render(summary);
@@ -42,6 +47,7 @@ internal static class ConsolidationReminder
         [
             "## Consolidation reminder",
             BaselineLine(summary.Baseline, summary.DaysSince),
+            $"- Weeks to summarize: {summary.UnsummarizedWeeks}.",
             $"- Candidates that can be confirmed: {summary.Confirmable}.",
             $"- Format and rule problems: {summary.Problems}.",
             summary.MainlineEmpty ? "- Mainline: empty." : "- Mainline: not empty.",

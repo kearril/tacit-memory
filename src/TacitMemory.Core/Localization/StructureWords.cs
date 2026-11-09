@@ -26,4 +26,5 @@ internal static class StructureWords
     public static readonly Localized Domain = new("领域", "Domain");
     public static readonly Localized Project = new("项目", "Project");
     public static readonly Localized Trigger = new("触发", "Trigger");
+    public static readonly Localized Lesson = new("教训", "Lesson");
 }
