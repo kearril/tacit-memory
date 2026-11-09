@@ -302,7 +302,7 @@ public sealed class MemoryService : IDisposable
     /// How often <c>recall</c> has returned each page's units, for every page in the index. Derived state: <c>reindex</c>
     /// resets it, and no search reads it.
     /// </summary>
-    public IReadOnlyList<PageUsage> PageUsages() =>
+    internal IReadOnlyList<PageUsage> PageUsages() =>
         _index.PageUsages()
             .Select(row => new PageUsage(row.Page, (int)row.Count, row.Last is null ? null : DateOnly.ParseExact(row.Last, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)))
             .ToList();
