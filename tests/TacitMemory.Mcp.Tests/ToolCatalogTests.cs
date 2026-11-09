@@ -8,7 +8,7 @@ public sealed class ToolCatalogTests
     private static readonly LimitsConfig DefaultLimits = Limits(itemLength: 200, minAliases: 2);
 
     private static LimitsConfig Limits(int itemLength, int minAliases) =>
-        new(new PersonaLimits(5, 15, 10, 10), itemLength, 5, new PageLimits(50, 30, minAliases), 10, 10, 60);
+        new(new PersonaLimits(5, 15, 10, 10), itemLength, 5, new PageLimits(50, 30, minAliases), 10, 10, 60, 3000);
 
     [Fact]
     public void The_write_persona_description_states_the_configured_domain_limits()

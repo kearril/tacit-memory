@@ -9,11 +9,14 @@ using TacitMemory.Core.Tools;
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The <c>recall</c> tool: reads one page by ID, or searches pages and activities by full text and by vector, merges the two with
-/// reciprocal rank fusion, reranks the merged units and returns the best sections, merged per page. It never changes a file.
+/// The <c>recall</c> tool: reads one page by ID, returns a project's brief when given only a project, or searches pages and
+/// activities by full text and by vector, merges the two with reciprocal rank fusion, reranks the merged units and returns the
+/// best sections, merged per page. It never changes a file.
 /// </summary>
 internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
 {
+    private readonly ProjectBrief _brief = new(config, index);
+
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";
 
@@ -45,6 +48,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var hasQuery = !string.IsNullOrWhiteSpace(request.Query);
         var hasPage = !string.IsNullOrWhiteSpace(request.Page);
         var unknown = ToolText.UnknownParameters(request.UnknownParameters);
+        if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Project))
+            return ProjectBriefCall(request, unknown);
         if (hasPage && !hasQuery)
             return unknown.Count == 0 ? pages.Read(request, index) : ToolText.Refuse(unknown, ParametersStep);
 
@@ -91,6 +96,33 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var (text, shown) = Format(ranked);
         index.RecordReturns(shown.Select(hit => hit.Id).ToList());
         return ToolText.Ok(notes.Count == 0 ? text : text + "\n\n" + string.Join('\n', notes));
+    }
+
+    /// <summary>
+    /// <c>recall</c> with only <c>project</c>: the project's brief. It takes <c>from</c> and <c>to</c> as its date range, and
+    /// refuses <c>kind</c>, which has no meaning for a brief.
+    /// </summary>
+    private ToolResult ProjectBriefCall(RecallRequest request, List<string> unknown)
+    {
+        var problems = new List<string>(unknown);
+        var from = Date(request.From, "from", problems);
+        var to = Date(request.To, "to", problems);
+        if (from > to)
+            problems.Add("from is later than to.");
+        var raw = request.Project!.Trim();
+        var project = raw.ToLowerInvariant();
+        if (project != PageId.Topics && !PageId.IsProjectName(project))
+            problems.Add($"Project {ToolText.Quote(raw)} may only use a-z, 0-9, '.', '_' and '-', and must not start with '.' or '_' (except {PageId.Topics}).");
+        if (!string.IsNullOrWhiteSpace(request.Kind))
+            problems.Add("kind does not apply to a project brief.");
+        if (problems.Count > 0)
+        {
+            var nextStep = unknown.Count > 0 ? ParametersStep
+                : "Call recall again with project alone for the project brief, or with query and kind to search the project.";
+            return ToolText.Refuse(problems, nextStep);
+        }
+
+        return ToolText.Ok(_brief.Compose(project, from, to));
     }
 
     /// <summary>Reciprocal rank fusion: each list adds 1 / (k + rank) to a unit's score.</summary>

@@ -39,6 +39,7 @@ limits:
   domains: 10
   domainEntries: 10
   triggerLength: 60
+  brief: 3000
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
 consolidation: { remindAfterDays: 7, mainlineStaleDays: 14, budgetSeconds: 20, maxConcurrency: 5 }
 decision:                     # 各判断的上下阈值
@@ -80,6 +81,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - `limits.domains`：画像中领域的个数上限，默认 10，`add` 新建领域时检查。
 - `limits.domainEntries`：每个领域四节合计的条数上限，默认 10，只约束 `add`。
 - `limits.triggerLength`：领域触发描述的字符上限，默认 60。
+- `limits.brief`：项目简报的字符上限，默认 3000；超出时只截短页目录（见 `docs/design.md` 第 7 节）。
 - `limits.itemLength`：画像条目与活动正文的长度上限（字符），默认 200。
 - `limits.mainline`：近期主线的条数上限，默认 5。
 - `limits.page`：细节页标题与别名的长度上限，以及别名的最少个数。

@@ -209,7 +209,7 @@ internal static class ConfigLoader
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)
     {
         var limits = reader.Mapping(root, "", "limits");
-        reader.OnlyKnown(limits, "limits", "persona", "itemLength", "mainline", "page", "domains", "domainEntries", "triggerLength");
+        reader.OnlyKnown(limits, "limits", "persona", "itemLength", "mainline", "page", "domains", "domainEntries", "triggerLength", "brief");
 
         var persona = reader.Mapping(limits, "limits", "persona");
         reader.OnlyKnown(persona, "limits.persona", "redLines", "workingRules", "preferences", "profile");
@@ -230,7 +230,8 @@ internal static class ConfigLoader
                 Count(reader, page, "limits.page", "minAliases", 2)),
             Count(reader, limits, "limits", "domains", 10),
             Count(reader, limits, "limits", "domainEntries", 10),
-            Count(reader, limits, "limits", "triggerLength", 60));
+            Count(reader, limits, "limits", "triggerLength", 60),
+            Count(reader, limits, "limits", "brief", 3000));
     }
 
     private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)

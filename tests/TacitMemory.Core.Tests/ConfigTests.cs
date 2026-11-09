@@ -35,6 +35,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(10, config.Limits.Domains);
         Assert.Equal(10, config.Limits.DomainEntries);
         Assert.Equal(60, config.Limits.TriggerLength);
+        Assert.Equal(3000, config.Limits.Brief);
         Assert.Equal(new ConsolidationConfig(7, 14, 20, 5), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
@@ -118,6 +119,16 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(3, config.Limits.Domains);
         Assert.Equal(4, config.Limits.DomainEntries);
         Assert.Equal(20, config.Limits.TriggerLength);
+    }
+
+    [Fact]
+    public void The_project_brief_limit_is_read_from_the_limits_section()
+    {
+        WriteConfig(Models + "limits: { brief: 1200 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(1200, config.Limits.Brief);
     }
 
     [Theory]
