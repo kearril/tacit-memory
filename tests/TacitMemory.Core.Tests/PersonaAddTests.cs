@@ -628,6 +628,8 @@ public sealed partial class PersonaAddTests : IDisposable
         var result = await service.WritePersonaAsync(InScope(Add("preferences", "沟通：先要结论", "再说一遍"), "domain:writing", "写文章时"));
 
         Assert.False(result.IsError, result.Text);
+        // Without the judgment the suffix would still be written; a skipped check must fail here, not pass unnoticed.
+        Assert.True(models.DecisionCalls >= 1, "the duplicate judgment did not run");
         Assert.Equal($"{ShortOf("沟通：先要结论")}-2", CodeOf(result));
         Assert.Contains("再说一遍", File.ReadAllText(persona));
 
