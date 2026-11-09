@@ -588,8 +588,51 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Equal(offline.Backups!.Lines, running.Backups!.Lines);
         Assert.Equal(offline.Secrets!.Lines, running.Secrets!.Lines);
         Assert.Equal(offline.Logs!.Lines, running.Logs!.Lines);
+        Assert.Equal(offline.Clients!.Lines, running.Clients!.Lines);
         Assert.Null(offline.Models);
         Assert.NotNull(running.Models);
         Assert.Equal(before, Snapshot());
+    }
+
+    [Fact]
+    public async Task Clients_says_no_client_has_connected_when_nothing_is_recorded()
+    {
+        var clients = (await OfflineReport()).Clients!;
+
+        Assert.Equal("客户端", clients.Title);
+        Assert.Equal("尚未有客户端连接过服务。", Assert.Single(clients.Lines));
+        Assert.Empty(clients.Items);
+        Assert.All(((IStatusColumn)clients).LineLevels(), level => Assert.Null(level));
+    }
+
+    [Fact]
+    public async Task Clients_lists_each_recorded_client_with_its_version_date_protocol_and_extensions_while_the_service_is_stopped()
+    {
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2026-07-28", ["sampling"], ["io.example/tasks", "io.example/apps"]));
+        _service!.Dispose();
+        _service = null;
+
+        var clients = (await OfflineReport()).Clients!;
+
+        var line = Assert.Single(clients.Lines);
+        Assert.Contains("probe-client 1.2.3", line, StringComparison.Ordinal);
+        Assert.Contains(TestHome.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), line, StringComparison.Ordinal);
+        Assert.Contains("2026-07-28", line, StringComparison.Ordinal);
+        Assert.Contains("io.example/tasks, io.example/apps", line, StringComparison.Ordinal);
+        var item = Assert.Single(clients.Items);
+        Assert.Equal("probe-client", item.Name);
+        Assert.Equal("1.2.3", item.Version);
+        Assert.Equal("2026-07-28", item.ProtocolVersion);
+        Assert.Equal(["io.example/tasks", "io.example/apps"], item.Extensions);
+    }
+
+    [Fact]
+    public async Task A_client_that_declares_no_extension_is_shown_as_none()
+    {
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2025-11-25", ["roots"], []));
+
+        var line = Assert.Single((await OfflineReport()).Clients!.Lines);
+
+        Assert.EndsWith("扩展：无", line, StringComparison.Ordinal);
     }
 }

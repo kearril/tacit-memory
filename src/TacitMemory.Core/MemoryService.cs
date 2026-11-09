@@ -5,6 +5,7 @@ using TacitMemory.Core.Logging;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Backup;
 using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.ClientRecords;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -43,6 +44,7 @@ public sealed class MemoryService : IDisposable
     private readonly ManualBackup _manual;
     private readonly CloudBackup _remote;
     private readonly ServiceLog _log;
+    private readonly ClientRecordStore _clients;
     private readonly FileSystemWatcher _watcher;
     private FileSystemWatcher? _promptsWatcher;
     private readonly Timer _renderTimer;
@@ -102,6 +104,7 @@ public sealed class MemoryService : IDisposable
         _backup = new AutomaticBackup(options, config, _log);
         _manual = new ManualBackup(options, config, _log);
         _remote = new CloudBackup(options, config, _log);
+        _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _renderTimer = new Timer(_ => RenderNow());
         _promptsTimer = new Timer(_ => ReloadPrompts());
@@ -266,6 +269,13 @@ public sealed class MemoryService : IDisposable
     internal Task JudgmentCompletion => _judgments.Completion;
 
     /// <summary>Writes the management API's event for one call: its method, route, status code and time taken.</summary>
+    /// <summary>
+    /// Records what a client declared on a request: its name, version, protocol revision, capabilities and extensions. It only
+    /// observes; no behaviour depends on the record. It takes no part in the memory's write lock, and a file that cannot be
+    /// written is logged without failing the call.
+    /// </summary>
+    public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
+
     public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
 

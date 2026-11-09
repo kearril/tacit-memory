@@ -18,6 +18,9 @@ public sealed record StatusReport
     /// <summary>The auxiliary models' states. When the service runs, every model; when it does not, only the unconfigured ones.</summary>
     public ModelsStatus? Models { get; init; }
 
+    /// <summary>The clients the service has seen, newest first, with what each declared. Read from the state file, so it is shown with the service stopped too.</summary>
+    public ClientsStatus? Clients { get; init; }
+
     /// <summary>Each client binding and whether its files are still in place.</summary>
     public BindingsStatus? Bindings { get; init; }
 
@@ -39,7 +42,7 @@ public sealed record StatusReport
     /// <summary>The columns the report carries, in the order the CLI lists them. Not part of the reply: it is derived from the columns above.</summary>
     [JsonIgnore]
     public IReadOnlyList<IStatusColumn> Columns =>
-        new IStatusColumn?[] { Config, Service, Models, Bindings, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
+        new IStatusColumn?[] { Config, Service, Models, Clients, Bindings, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
 }
 
 /// <summary>How a line of a status column stands. The CLI colours it: ok green, attention yellow, problem red.</summary>
@@ -202,3 +205,19 @@ public sealed record SecretStatus(string Key, string Variable, SecretSource? Sou
 
 /// <param name="Directory">The directory holding the service's daily log files.</param>
 public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, string Directory) : IStatusColumn;
+
+/// <summary>The recorded clients, one line each; <paramref name="Items"/> carries the same clients as data. Plain lines: a sighting is information, not a problem.</summary>
+public sealed record ClientsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ClientStatus> Items) : IStatusColumn;
+
+/// <summary>
+/// One client as the service last saw it: the name and version it declared, the day of its last request, the protocol revision
+/// it used, and the capabilities and extensions it declared then. Shown as it was written, with control characters removed.
+/// </summary>
+/// <param name="LastSeen">The local day of the last request from this client, not the time of day.</param>
+public sealed record ClientStatus(
+    string Name,
+    string Version,
+    DateOnly LastSeen,
+    string ProtocolVersion,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<string> Extensions);

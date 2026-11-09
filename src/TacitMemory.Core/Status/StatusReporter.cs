@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Backup;
+using TacitMemory.Core.ClientRecords;
 using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
@@ -102,6 +103,7 @@ internal static class StatusReporter
         {
             Config = new ConfigStatus(ManagementApiMessages.ConfigTitle.In(language), lines),
             Service = OfflineService(language, settings.Port, otherProgramAnswered),
+            Clients = Clients(options, language),
             Logs = Logs(options, language),
         };
     }
@@ -122,6 +124,7 @@ internal static class StatusReporter
         var (summary, unreadable) = await ReadConsolidationAsync(options, config, cancellationToken);
         return new StatusReport
         {
+            Clients = Clients(options, language),
             Bindings = BindingChecks.Produce(options, language),
             Consolidation = Consolidation(options, language, summary, unreadable),
             Pending = Pending(language, summary, unreadable),
@@ -129,6 +132,31 @@ internal static class StatusReporter
             Logs = Logs(options, language),
             Secrets = Secrets(config),
         };
+    }
+
+    /// <summary>
+    /// The clients column, newest first, one line each. Read from the state file the service keeps, so a stopped service
+    /// shows the same clients as a running one.
+    /// </summary>
+    private static ClientsStatus Clients(TacitOptions options, MemoryLanguage language)
+    {
+        var title = ManagementApiMessages.ClientsTitle.In(language);
+        var (clients, unreadable) = ClientRecordStore.ReadFor(ClientRecordStore.PathFor(options));
+        if (unreadable is not null)
+            return new ClientsStatus(title, [ManagementApiMessages.ClientsUnreadable.Format(language, unreadable)], []);
+        if (clients.Count == 0)
+            return new ClientsStatus(title, [ManagementApiMessages.ClientsNone.In(language)], []);
+
+        var items = clients.OrderByDescending(client => client.LastSeen).ThenBy(client => client.Name, StringComparer.Ordinal).ToList();
+        var lines = items.Select(client => ManagementApiMessages.ClientLine.Format(
+            language,
+            client.Name,
+            client.Version,
+            client.LastSeen.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            client.ProtocolVersion,
+            client.Extensions.Count == 0 ? ManagementApiMessages.ClientNoExtensions.In(language) : string.Join(", ", client.Extensions)))
+            .ToList();
+        return new ClientsStatus(title, lines, items);
     }
 
     /// <summary>The consolidation summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
