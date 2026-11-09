@@ -307,6 +307,9 @@ public sealed class MemoryService : IDisposable
             .Select(row => new PageUsage(row.Page, (int)row.Count, row.Last is null ? null : DateOnly.ParseExact(row.Last, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)))
             .ToList();
 
+    /// <summary>How often <c>recall</c> has returned each activity, by its short code. Derived state, as <see cref="PageUsages"/> is.</summary>
+    internal IReadOnlyDictionary<string, long> ActivityUsages() => _index.ActivityUsages();
+
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
     public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>
         RecordToolCall("write_page", request.Op, Targets(request.Page, request.Hash), () => WritePageCoreAsync(request, cancellationToken));

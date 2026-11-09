@@ -504,6 +504,16 @@ internal sealed class MemoryIndex : IDisposable
                 .Select(row => new PageUsageRow(row.Page, row.Count, row.Last)).ToList();
     }
 
+    /// <summary>The returns of every activity unit, by its short code. Derived state, like <see cref="PageUsages"/>.</summary>
+    public IReadOnlyDictionary<string, long> ActivityUsages()
+    {
+        lock (_gate)
+            return _connection.Query<(string Code, long Count)>(
+                "SELECT code AS Code, returns AS Count FROM units WHERE kind = @kind AND code IS NOT NULL",
+                new { kind = UnitKinds.Activity })
+                .ToDictionary(row => row.Code, row => row.Count, StringComparer.Ordinal);
+    }
+
     /// <summary>How many files, units and units with a vector the index holds now.</summary>
     public IndexCounts Counts()
     {

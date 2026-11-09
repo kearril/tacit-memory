@@ -115,6 +115,21 @@ public sealed class UsageStatsTests : IDisposable
     }
 
     [Fact]
+    public async Task Adding_an_activity_keeps_the_counts_of_the_other_activities_of_the_same_month()
+    {
+        var first = await Service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
+        Assert.False(first.IsError, first.Text);
+        var code = Regex.Match(first.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
+        await Service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
+        Assert.Equal(1, Service.ActivityUsages()[code]);
+
+        var second = await Service.WriteRecentAsync(new WriteRecentRequest { Text = "改写备份脚本的超时设置" });
+        Assert.False(second.IsError, second.Text);
+
+        Assert.Equal(1, Service.ActivityUsages()[code]);
+    }
+
+    [Fact]
     public async Task Reindex_resets_every_count()
     {
         Hand("backup", "备份", "## 要点\n每日备份到 zip\n");
