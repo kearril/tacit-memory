@@ -228,6 +228,18 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     [Fact]
+    public async Task Mixed_headings_of_the_newer_structure_words_are_a_hint_too()
+    {
+        using var service = Open();
+        WriteFile("pages/tacit-memory/lesson-mixed.md", Page(body: "## 教训\n- 内容\n\n## Lesson\n- content\n"));
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        AssertListed(section, "pages/tacit-memory/lesson-mixed.md", "line 11");
+        Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/lesson-mixed.md"));
+    }
+
+    [Fact]
     public async Task Structure_words_in_both_languages_are_a_hint_and_disappear_once_one_language_is_used()
     {
         using var service = Open();
