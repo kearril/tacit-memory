@@ -1,0 +1,271 @@
+using System.Globalization;
+using TacitMemory.Core.Index;
+using TacitMemory.Core.Injection;
+using TacitMemory.Core.Pages;
+using TacitMemory.Core.Persona;
+using TacitMemory.Core.Recent;
+
+namespace TacitMemory.Core.Retrieval;
+
+/// <summary>
+/// The project brief: what <c>recall</c> returns for a project alone. It gathers the project's conventions (its project-scope
+/// persona entries), its open items (the leftovers of its work pages), a page index grouped by type, its last three
+/// activities and the latest weekly summary of a week it had activity in. The text is capped at <c>limits.brief</c>; only the
+/// page index is shortened, oldest entry first, and the omission is said. It reads files and counts a return for each page it
+/// lists; it never changes a file.
+/// </summary>
+internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
+{
+    /// <summary>How many activities the brief lists, newest first.</summary>
+    private const int ListedActivities = 3;
+
+    /// <summary>The group headings of the page index, in the order the brief lists them.</summary>
+    private const string DecisionsHeading = "Decisions";
+    private const string PitfallsHeading = "Known pitfalls";
+    private const string WorkHeading = "Work";
+    private const string EntitiesHeading = "Entities";
+    private const string UntypedHeading = "Untyped";
+
+    /// <summary>The brief for <paramref name="project"/>, or <see cref="RecallTool.NoMemory"/> when it has no pages and no activities.</summary>
+    public string Compose(string project, DateOnly? from, DateOnly? to)
+    {
+        var pages = PageEntries(project, from, to);
+        var activities = ActivitiesOf(project, from, to);
+        if (pages.Count == 0 && activities.Count == 0)
+            return RecallTool.NoMemory;
+
+        // Overturned decisions are identifiers only: they are never listed as entries, so truncation does not touch them.
+        var entries = pages.Where(entry => !IsOverturned(entry)).ToList();
+        var overturned = pages.Where(IsOverturned).Select(entry => entry.Id).ToList();
+        var conventions = Conventions(project);
+        var openItems = OpenItems(pages);
+        var recent = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).Take(ListedActivities).ToList();
+        var summary = LatestWeekSummary(activities);
+
+        var parts = new Parts(project, conventions, openItems, entries, overturned, recent, summary);
+        var limit = config.Limits.Brief;
+        var shown = new HashSet<Entry>(entries);
+        var omitted = 0;
+        var text = Render(parts, shown, omitted, limit);
+        // Only the page index is shortened: the oldest entries go first, until the brief fits or none is left.
+        foreach (var oldest in entries.AsEnumerable().Reverse())
+        {
+            if (text.Length <= limit)
+                break;
+            shown.Remove(oldest);
+            omitted++;
+            text = Render(parts, shown, omitted, limit);
+        }
+
+        text = CutAtLimit(text, limit);
+        var listed = shown.Select(entry => entry.Id).Concat(overturned).Concat(openItems.Select(item => item.Id)).Distinct().ToList();
+        index.RecordPagesListed(listed);
+        return text;
+    }
+
+    /// <summary>A page of the project as the brief sees it: its identifier, its document, its last changed date and its use count.</summary>
+    private sealed record Entry(PageId Id, PageDocument Document, DateOnly? Changed, long Uses);
+
+    /// <summary>An open item: a work page and the non-blank lines of its leftovers.</summary>
+    private sealed record OpenItem(PageId Id, IReadOnlyList<string> Lines);
+
+    /// <summary>Everything the brief lists, gathered before any of it is shortened.</summary>
+    private sealed record Parts(
+        string Project,
+        IReadOnlyList<string> Conventions,
+        IReadOnlyList<OpenItem> OpenItems,
+        IReadOnlyList<Entry> Entries,
+        IReadOnlyList<PageId> Overturned,
+        IReadOnlyList<RecentFile.Activity> Activities,
+        string? Summary);
+
+    /// <summary>
+    /// The project's pages within the date range, newest first: by the latest date among their sections, then by how often
+    /// they were returned, then by identifier.
+    /// </summary>
+    private List<Entry> PageEntries(string project, DateOnly? from, DateOnly? to)
+    {
+        var folder = Path.Combine(config.MemoryPath, "pages", project);
+        if (!Directory.Exists(folder))
+            return [];
+
+        var uses = index.PageUsages().ToDictionary(row => row.Page, row => row.Count, StringComparer.Ordinal);
+        var entries = new List<Entry>();
+        foreach (var file in Directory.EnumerateFiles(folder, "*.md", SearchOption.TopDirectoryOnly))
+        {
+            if (!PageId.TryParse($"{project}/{Path.GetFileNameWithoutExtension(file)}", out var id, out _))
+                continue;
+            if (PageDocument.TryLoad(config.MemoryPath, id) is not { } document || !InRange(document.Header, from, to))
+                continue;
+
+            index.SyncPage(id);
+            var changes = index.SectionChanges(id);
+            var changed = changes.Count > 0 ? changes.Values.Max() : document.Header.Last;
+            entries.Add(new Entry(id, document, changed, uses.GetValueOrDefault(id.ToString())));
+        }
+
+        return entries
+            .OrderByDescending(entry => entry.Changed ?? DateOnly.MinValue)
+            .ThenByDescending(entry => entry.Uses)
+            .ThenBy(entry => entry.Id.ToString(), StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>A page is in range when its dates overlap the range, as the search filter compares them.</summary>
+    private static bool InRange(PageHeader header, DateOnly? from, DateOnly? to) =>
+        (from is null || (header.Last is { } last && last >= from))
+        && (to is null || (header.First is { } first && first <= to));
+
+    /// <summary>The project's activities in the date range, in file order.</summary>
+    private List<RecentFile.Activity> ActivitiesOf(string project, DateOnly? from, DateOnly? to)
+    {
+        var result = new List<RecentFile.Activity>();
+        foreach (var (_, file) in RecentFile.MonthFiles(config.MemoryPath))
+        {
+            if (TextFile.Read(file) is not { } read)
+                continue;
+            result.AddRange(RecentFile.Activities(read.Text).Where(activity =>
+                activity.Project == project
+                && (from is null || activity.Day >= from)
+                && (to is null || activity.Day <= to)));
+        }
+
+        return result;
+    }
+
+    /// <summary>The project-scope persona entries, each with its non-comment continuation lines.</summary>
+    private IReadOnlyList<string> Conventions(string project)
+    {
+        var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
+        if (persona?.BlockOf(new PersonaScope(PersonaScopeKind.Project, project)) is not { } block)
+            return [];
+
+        return block.Entries
+            .SelectMany(item => new[] { "- " + item.Text }.Concat(item.ContinuationWithoutComments.Select(line => "  " + line.Trim())))
+            .ToList();
+    }
+
+    /// <summary>The non-blank lines of the "leftovers" section of each work page, in the page order.</summary>
+    private static IReadOnlyList<OpenItem> OpenItems(IEnumerable<Entry> entries) =>
+        entries
+            .Where(entry => entry.Document.Header.Type == ToolValues.PageTypes.Work && entry.Document.Leftovers is not null)
+            .Select(entry => new OpenItem(entry.Id, Lines(entry.Document.Leftovers!.Body)))
+            .Where(item => item.Lines.Count > 0)
+            .ToList();
+
+    /// <summary>Whether a decision page names the page that replaced it: its "overturned" section is not blank.</summary>
+    private static bool IsOverturned(Entry entry) =>
+        entry.Document.Header.Type == ToolValues.PageTypes.Decision && entry.Document.Overturned is { } section && Lines(section.Body).Count > 0;
+
+    /// <summary>The group a page is listed under; a page with no valid type is untyped.</summary>
+    private static string GroupOf(PageDocument document) => document.Header.Type switch
+    {
+        ToolValues.PageTypes.Decision => DecisionsHeading,
+        ToolValues.PageTypes.Incident => PitfallsHeading,
+        ToolValues.PageTypes.Work => WorkHeading,
+        ToolValues.PageTypes.Entity => EntitiesHeading,
+        _ => UntypedHeading,
+    };
+
+    /// <summary>The latest week summary of a week in which the project had activity; null when none has one.</summary>
+    private string? LatestWeekSummary(IReadOnlyList<RecentFile.Activity> activities)
+    {
+        var weeks = activities.Select(activity => SummaryLines.WeekOf(activity.Day).Label).ToHashSet(StringComparer.Ordinal);
+        Summary? latest = null;
+        foreach (var (_, file) in RecentFile.MonthFiles(config.MemoryPath))
+        {
+            if (TextFile.Read(file) is not { } read)
+                continue;
+            foreach (var summary in SummaryLines.All(read.Text))
+            {
+                if (summary.Kind == SummaryKind.Week && weeks.Contains(summary.Label) && (latest is null || summary.First > latest.First))
+                    latest = summary;
+            }
+        }
+
+        return latest?.Text;
+    }
+
+    /// <summary>The brief as text. The page index keeps only the entries in <paramref name="shown"/>; <paramref name="omitted"/> says how many were left out.</summary>
+    private static string Render(Parts parts, HashSet<Entry> shown, int omitted, int limit)
+    {
+        var blocks = new List<string> { $"Project brief: {parts.Project}" };
+        if (parts.Conventions.Count > 0)
+            blocks.Add(Block("Conventions:", parts.Conventions));
+
+        if (parts.OpenItems.Count > 0)
+        {
+            var open = parts.OpenItems.SelectMany(item => new[] { "- " + item.Id }.Concat(item.Lines.Select(line => "  " + line)));
+            blocks.Add(Block("Open items:", open.ToList()));
+        }
+
+        var directory = DirectoryLines(parts, shown);
+        if (omitted > 0)
+            directory.Add($"{omitted} page entries omitted (oldest first; limits.brief is {limit} characters).");
+        if (directory.Count > 0)
+            blocks.Add(string.Join('\n', directory));
+
+        if (parts.Activities.Count > 0)
+            blocks.Add(Block("Recent activities:", parts.Activities.Select(activity =>
+                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} [{activity.Code}] {activity.Body}").ToList()));
+
+        if (parts.Summary is not null)
+            blocks.Add(Block("Latest weekly summary:", ["- " + parts.Summary]));
+
+        return string.Join("\n\n", blocks);
+    }
+
+    /// <summary>The page index: one group per type that has a page shown, decisions first, with the overturned line under them.</summary>
+    private static List<string> DirectoryLines(Parts parts, HashSet<Entry> shown)
+    {
+        var lines = new List<string>();
+        var groups = new[] { DecisionsHeading, PitfallsHeading, WorkHeading, EntitiesHeading, UntypedHeading };
+        foreach (var group in groups)
+        {
+            var members = parts.Entries.Where(entry => shown.Contains(entry) && GroupOf(entry.Document) == group).ToList();
+            var overturned = group == DecisionsHeading ? parts.Overturned : [];
+            if (members.Count == 0 && overturned.Count == 0)
+                continue;
+
+            lines.Add(group + ":");
+            lines.AddRange(members.Select(Describe));
+            if (overturned.Count > 0)
+                lines.Add("Overturned: " + string.Join(", ", overturned.Select(id => id.ToString())));
+        }
+
+        return lines;
+    }
+
+    /// <summary>One page's line: identifier, title, aliases and last changed date.</summary>
+    private static string Describe(Entry entry)
+    {
+        var header = entry.Document.Header;
+        var aliases = header.Aliases.Count > 0 ? $" (aliases: {string.Join(", ", header.Aliases)})" : "";
+        var changed = entry.Changed is { } date ? $" (last changed {date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)})" : "";
+        return $"- {entry.Id}: {header.Title}{aliases}{changed}";
+    }
+
+    private static string Block(string heading, IReadOnlyList<string> lines) => heading + "\n" + string.Join('\n', lines);
+
+    /// <summary>The non-blank lines of a section body, without their line breaks.</summary>
+    private static List<string> Lines(string body) =>
+        body.Split('\n').Select(line => line.TrimEnd('\r')).Where(line => line.Trim().Length > 0).ToList();
+
+    /// <summary>
+    /// Cuts the text to <paramref name="limit"/> characters when it is still longer, keeping its start and ending with a note.
+    /// Used only once the page index has nothing left to shorten.
+    /// </summary>
+    private static string CutAtLimit(string text, int limit)
+    {
+        if (text.Length <= limit)
+            return text;
+
+        var note = $"Brief cut at limits.brief ({limit} characters).";
+        var keep = Math.Max(0, limit - note.Length - 1);
+        if (keep == 0)
+            return note[..Math.Min(note.Length, limit)];
+        if (char.IsHighSurrogate(text[keep - 1]))
+            keep--;
+        return text[..keep] + "\n" + note;
+    }
+}
