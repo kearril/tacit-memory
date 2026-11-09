@@ -73,28 +73,15 @@ public sealed class SamePreferenceTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
-        Assert.Contains("2/2", result.Text);
-        Assert.Contains("consolidation", result.Text);
+        Assert.Contains("scope: global", result.Text);
+        Assert.DoesNotContain("consolidation", result.Text);
+        Assert.DoesNotContain("days", result.Text);
         Assert.Equal(
             "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n"
             + "- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「提交前跑全量测试」\n\n## 拒绝列表\n",
             File.ReadAllText(CandidatesMd));
         Assert.Equal($"candidates: merge {ShortOf("每次提交前都运行全量测试")}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("candidates.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
-    }
-
-    [Fact]
-    public async Task A_merge_counts_distinct_days_against_the_configured_minimum_and_stays_quiet_below_it()
-    {
-        Configure("candidates:\n  minDays: 3\n");
-        Baseline(WorkingRuleCandidate);
-        PickOption("全量测试", 0.95);
-
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("2/3", result.Text);
-        Assert.DoesNotContain("consolidation", result.Text);
     }
 
     [Fact]
@@ -111,24 +98,9 @@ public sealed class SamePreferenceTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
         Assert.Contains("Already recorded today", result.Text);
-        Assert.Contains("consolidation", result.Text);
+        Assert.DoesNotContain("consolidation", result.Text);
         Assert.Equal(before, File.ReadAllText(CandidatesMd));
         Assert.Equal(head, Git("rev-parse", "HEAD"));
-    }
-
-    [Fact]
-    public async Task A_candidate_already_recorded_today_does_not_mention_the_consolidation_below_the_minimum_days()
-    {
-        Configure("candidates:\n  minDays: 3\n");
-        Baseline("## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「先跑全量」\n\n## 拒绝列表\n");
-        PickOption("全量测试", 0.95);
-
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("Already recorded today", result.Text);
-        Assert.Contains("2/3", result.Text);
-        Assert.DoesNotContain("consolidation", result.Text);
     }
 
     [Fact]
@@ -320,5 +292,111 @@ public sealed class SamePreferenceTests : IDisposable
 
         var question = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
         Assert.DoesNotContain("Chinese", question["instructions"]!.GetValue<string>());
+    }
+
+    private const string DomainCandidate =
+        "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n作用域：domain:network-proxy\n- 2026-10-27 原话「跑一下全部测试」\n\n## 拒绝列表\n";
+
+    private const string DomainPersona =
+        "## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n\n"
+        + "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 提交前 → 先运行测试\n  <!-- 2026-10-20 原话「先跑测试」 -->\n";
+
+    /// <summary>The question's instructions as the check states them; the wording is kept as it was.</summary>
+    private const string ExpectedInstructions =
+        "The state is a new preference or working rule proposed from a conversation, with its section in brackets. "
+        + "Each option is an existing entry, with its source and section in brackets: candidate (a pending preference not yet confirmed), "
+        + "rejected (a preference the user declined), or persona (a confirmed entry of the user's persona file). "
+        + "Entries are kept as written, in whatever language they are in. "
+        + "Choose the option if it states the same preference or rule as the new one: the same thing asked for, even if phrased differently. "
+        + "Entries on the same topic that ask for different things are different, and so are opposite preferences. "
+        + "If no option states the same preference or rule, choose the none option. Answer with the option key only.";
+
+    private const string NoneOption = "None of the options states the same preference or rule as the new one.";
+
+    [Fact]
+    public async Task A_proposal_matching_a_candidate_of_another_scope_merges_into_it_and_keeps_that_scope()
+    {
+        Configure();
+        Baseline(DomainCandidate);
+        PickOption("全量测试", 0.95);
+
+        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.True(result.Written);
+        Assert.Contains("domain:network-proxy", result.Text);
+        Assert.Equal(
+            "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n作用域：domain:network-proxy\n"
+            + "- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「提交前跑全量测试」\n\n## 拒绝列表\n",
+            File.ReadAllText(CandidatesMd));
+    }
+
+    [Fact]
+    public async Task The_english_scope_line_of_a_candidate_is_read_when_a_proposal_merges_into_it()
+    {
+        using var home = new TestHome();
+        using var models = new ModelDouble();
+        home.InitReady("language: en\n", models);
+        var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
+        File.WriteAllText(
+            candidates,
+            "## Candidates\n\n### Run the full tests before committing\nBelongs to: Working rules\nScope: domain:network-proxy\n"
+            + "- 2026-10-27 quote「run all tests」\n\n## Rejection list\n");
+        models.Choose = (_, options) => options.ToDictionary(
+            option => option.Key,
+            option => option.Value.Contains("full tests", StringComparison.Ordinal) ? 0.95 : option.Key == options.Keys.Last() ? 0.05 : 0.0);
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var result = await service.WritePersonaAsync(Propose("working_rules", "Before committing → run the tests", "run all of them"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("domain:network-proxy", result.Text);
+        Assert.Contains("- 2026-10-27 quote「run all tests」\n- ", File.ReadAllText(candidates));
+    }
+
+    [Fact]
+    public async Task The_question_offers_entries_of_every_scope_with_their_scope_and_section_and_keeps_its_wording()
+    {
+        Configure();
+        Baseline(DomainCandidate, DomainPersona);
+
+        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+
+        Assert.False(result.IsError, result.Text);
+        var question = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
+        var criteria = question["criteria"]!.AsObject();
+        var offered = criteria.Select(option => option.Value!.GetValue<string>()).ToList();
+        Assert.Contains(offered, option => option.StartsWith("[candidate | 协作规则 | domain:network-proxy]", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.StartsWith("[persona | 协作规则 | domain:network-proxy]", StringComparison.Ordinal));
+        Assert.Equal(ExpectedInstructions, question["instructions"]!.GetValue<string>());
+        Assert.Equal(NoneOption, criteria.Single(option => option.Key == "none").Value!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task A_proposal_matching_a_persona_entry_of_a_domain_gives_that_entrys_short_code()
+    {
+        Configure();
+        Baseline("## 候选\n\n## 拒绝列表\n", DomainPersona);
+        PickOption("先运行测试", 0.95);
+
+        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "先跑测试"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.False(result.Written);
+        Assert.Contains($"[{ShortOf("提交前 → 先运行测试")}]", result.Text);
+    }
+
+    [Fact]
+    public async Task A_proposal_matching_a_rejected_candidate_of_a_domain_is_refused_and_says_so()
+    {
+        Configure();
+        Baseline("## 候选\n\n## 拒绝列表\n\n### 每次提交前都运行全量测试\n归属：协作规则\n作用域：domain:network-proxy\n- 2026-10-20 拒绝 原话「算了，别跑了」\n");
+        PickOption("全量测试", 0.95);
+
+        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.False(result.Written);
+        Assert.Contains("算了，别跑了", result.Text);
     }
 }

@@ -4,8 +4,9 @@ using TacitMemory.Core.Localization;
 namespace TacitMemory.Core.Persona;
 
 /// <summary>
-/// The format problems of <c>candidates.md</c>: candidate blocks with no section, and lines inside a block that are
-/// neither a section line nor an occurrence record. Both the candidates and the rejection list are checked.
+/// The format problems of <c>candidates.md</c>: candidate blocks with no section, scope lines that name no scope, and lines
+/// inside a block that are neither a section line, a scope line nor an occurrence record. Both the candidates and the
+/// rejection list are checked.
 /// </summary>
 internal static class CandidatesFormatCheck
 {
@@ -51,6 +52,13 @@ internal static class CandidatesFormatCheck
             {
                 if (CandidatesDocument.BelongsToOf(line) is not null)
                     hasSection = true;
+                else if (CandidatesDocument.ScopeTextOf(line) is { } scopeText)
+                {
+                    if (!PersonaScope.TryParse(scopeText, out _))
+                        issues.Add(new FormatIssue("", $"line {index + 1}", "Invalid scope",
+                            $"\"{scopeText}\" is not a scope: it must be global, project:<name> or domain:<label>, and the name uses only "
+                            + "lowercase letters, digits, '.', '_' and '-'. Without a valid scope the candidate is read as global.", FormatHandling.FixDirectly));
+                }
                 else if (!IsBelongsLine(line) && CandidatesDocument.OccurrenceOf(line) is null)
                     issues.Add(UnrecognizedLine(index, line));
                 else if (IsBelongsLine(line) && CandidatesDocument.BelongsToOf(line) is null)

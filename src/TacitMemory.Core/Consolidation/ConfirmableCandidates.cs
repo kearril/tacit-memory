@@ -6,11 +6,11 @@ using TacitMemory.Core.Persona;
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// Candidates whose occurrences fall on at least <c>candidates.minDays</c> distinct days, and that are not a sure repeat
-/// of the persona or the rejection list: the user is asked to confirm, reject or defer each one. Each finding gives the
-/// text, the section it belongs to, the day count and every quote. A candidate the decision model finds possibly the
-/// same as an existing entry says so. When a listed candidate could not be compared, whether the models were unavailable or not
-/// configured, or the budget ran out, the section says so and asks the agent to compare the candidates itself.
+/// Candidates that are not a sure repeat of the persona or the rejection list: the user is asked to confirm, reject or defer
+/// each one. There is no day threshold any more. Each finding gives the text, the section it belongs to, the day count and
+/// every quote. A candidate the decision model finds possibly the same as an existing entry says so. When a listed
+/// candidate could not be compared, whether the models were unavailable or not configured, or the budget ran out, the
+/// section says so and asks the agent to compare the candidates itself.
 /// </summary>
 internal static class ConfirmableCandidates
 {
@@ -25,7 +25,7 @@ internal static class ConfirmableCandidates
         foreach (var judgment in review.Judgments)
         {
             var candidate = judgment.Candidate;
-            if (judgment.Days < config.CandidateMinDays || judgment.Outcome.Tier == Tier.Certain)
+            if (judgment.Outcome.Tier == Tier.Certain)
                 continue;
 
             listed.Add(judgment);

@@ -26,8 +26,8 @@ internal static class ConflictingEntries
         services.Index.SyncJudgments();
 
         var codes = persona.CodesByLine();
-        var entries = Enum.GetValues<PersonaSection>()
-            .SelectMany(kind => persona.Entries(kind).Select(item => new ConflictingEntry(kind, item, codes[item.Line])))
+        var entries = persona.KnownEntries()
+            .Select(entry => new ConflictingEntry(entry.Scope, entry.Kind, entry.Item, codes[entry.Item.Line]))
             .ToList();
         var known = await BaselineCodesAsync(context, cancellationToken);
         var changed = entries.Where(entry => known is null || !known.Contains(entry.Code)).ToList();
@@ -90,7 +90,8 @@ internal static class ConflictingEntries
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         // One more than the offered count: the entry itself may be among the nearest and is skipped by Nearest.
-        var hits = services.Index.SearchJudgments(vector[0], [SourceKinds.Persona], RuleConflictCheck.OtherOptions + 1);
+        var hits = services.Index.SearchJudgments(
+            vector[0], [SourceKinds.Persona], RuleConflictCheck.OtherOptions + 1, scopes: RuleConflictCheck.ScopesJudged(entry.Scope));
         var nearest = RuleConflictCheck.Nearest(hits, persona, entry.Item.Line);
         if (nearest.Count == 0)
             return new PreparedChoice<ConflictingEntry>(null, null);
@@ -107,7 +108,11 @@ internal static class ConflictingEntries
         return new PreparedChoice<ConflictingEntry>(question, null);
     }
 
-    /// <summary>An entry as the report names it: its short code, its text, and its section in the memory language.</summary>
+    /// <summary>
+    /// An entry as the report names it: its short code, its text, its section in the memory language, and its scope when it
+    /// is not the global one.
+    /// </summary>
     private static string Describe(ConflictingEntry entry, MemoryLanguage language) =>
-        $"[{entry.Code}] \"{entry.Item.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section).In(language)}";
+        $"[{entry.Code}] \"{entry.Item.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section).In(language)}"
+        + (entry.Scope.IsGlobal ? "" : $" of {entry.Scope}");
 }

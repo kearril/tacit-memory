@@ -103,9 +103,6 @@ internal static class Templates
           triggerLength: 60           # 领域的触发描述最多字数
           brief: 3000                 # 项目简报最多字数，超出时只截短页目录
 
-        candidates:
-          minDays: 2                  # 画像候选在不同日期出现满几天后可确认
-
         consolidation:
           remindAfterDays: 7          # 距上次整理多少天后提示
           mainlineStaleDays: 14       # 近期主线多少天未更新视为过期
@@ -175,9 +172,6 @@ internal static class Templates
           domainEntries: 10           # max entries per domain
           triggerLength: 60           # max characters in a domain's trigger
           brief: 3000                 # max characters in a project brief; only its page index is shortened
-
-        candidates:
-          minDays: 2                  # distinct days a persona candidate must appear on before it can be confirmed
 
         consolidation:
           remindAfterDays: 7          # days after the last consolidation before reminding

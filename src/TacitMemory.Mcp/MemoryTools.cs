@@ -115,7 +115,7 @@ internal sealed class MemoryTools(MemoryService service)
         label exactly and do not invent a near-duplicate; a refusal lists the existing domains. A new domain needs trigger: one
         line saying when it applies, at most {triggerLength} characters; trigger is ignored for an existing domain.
         A domain holds at most {domainEntries} entries and the persona at most {domains} domains; a refusal lists them.
-        op=propose: needs persona_section, text and source; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a consolidation. Never propose a red line: only the user sets one. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
+        op=propose: needs persona_section, text and source, and takes scope as add does; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a consolidation. Never propose a red line: only the user sets one. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
         op=replace: needs hash, text and source; rewrites the entry with that short code in place, in its section.
         op=delete: needs hash only; removes the entry with that short code.
         A missing or stale hash is refused with the whole persona and every entry's short code; take the code from there.
@@ -135,7 +135,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
         [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,
         [Description("Short code of the entry to replace or delete, as listed in a refusal or an earlier reply; required by both. Finds an entry in any scope. Not used by add or propose.")] string? hash = null,
-        [Description("Scope of the entry: global (the default), project:<name> or domain:<label>. Used by add only; see the description above.")] string? scope = null,
+        [Description("Scope of the entry: global (the default), project:<name> or domain:<label>. Used by add and propose; see the description above.")] string? scope = null,
         [Description("Trigger of a new domain: one line saying when the domain applies. Used by add only; required when add creates the domain, ignored for an existing one.")] string? trigger = null,
         [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>

@@ -41,7 +41,7 @@ internal static class ConfigLoader
         var language = LanguageCodes.Parse(languageText) ?? fallbackLanguage;
 
         var reader = new ConfigReader(language);
-        reader.OnlyKnown(root, "", "server", "memory", "language", "models", "limits", "candidates", "consolidation", "decision", "retrieval", "backup");
+        reader.OnlyKnown(root, "", "server", "memory", "language", "models", "limits", "consolidation", "decision", "retrieval", "backup");
         if (reader.Text(root, "", "language") is { } code && LanguageCodes.Parse(code) is null)
             reader.Error("language", Messages.ConfigExpectedLanguage, code);
 
@@ -57,7 +57,6 @@ internal static class ConfigLoader
 
         var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
-        var candidateMinDays = ReadCandidates(reader, root);
         var consolidation = ReadConsolidation(reader, root);
         var decision = ReadDecision(reader, root);
         var retrieval = ReadRetrieval(reader, root);
@@ -81,7 +80,6 @@ internal static class ConfigLoader
             Language = language,
             Models = models,
             Limits = limits,
-            CandidateMinDays = candidateMinDays,
             Consolidation = consolidation,
             Decision = decision,
             Retrieval = retrieval,
@@ -234,13 +232,6 @@ internal static class ConfigLoader
             Count(reader, limits, "limits", "domainEntries", 10),
             Count(reader, limits, "limits", "triggerLength", 60),
             Count(reader, limits, "limits", "brief", 3000));
-    }
-
-    private static int ReadCandidates(ConfigReader reader, YamlMappingNode root)
-    {
-        var candidates = reader.Mapping(root, "", "candidates");
-        reader.OnlyKnown(candidates, "candidates", "minDays");
-        return Count(reader, candidates, "candidates", "minDays", 2);
     }
 
     private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)

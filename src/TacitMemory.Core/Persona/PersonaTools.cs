@@ -21,8 +21,11 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// <summary>Characters an editor shows as a line break, so none may appear in a text or source; the parser splits on LF only.</summary>
     private static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
 
-    /// <summary>The parameters the propose op takes; any other parameter given with it is refused rather than ignored.</summary>
-    private static readonly string[] EntryParameters = ["persona_section", "text", "source", "confirm_no_secret"];
+    /// <summary>
+    /// The parameters the propose op takes: the entry's, and the scope it goes into. Any other parameter given with it is
+    /// refused rather than ignored.
+    /// </summary>
+    private static readonly string[] EntryParameters = ["persona_section", "text", "source", "scope", "confirm_no_secret"];
 
     /// <summary>The parameters the add op takes: the entry's parameters, and the scope and the trigger of a domain.</summary>
     private static readonly string[] AddParameters = ["persona_section", "text", "source", "scope", "trigger", "confirm_no_secret"];
@@ -101,12 +104,9 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
                 reasons,
                 $"Call write_persona again with op=add, persona_section (one of: {SectionNames}), text and source.");
 
-        var scopeText = string.IsNullOrWhiteSpace(request.Scope) ? "global" : request.Scope.Trim();
-        if (!PersonaScope.TryParse(scopeText, out var scope))
-            return ToolText.Refuse(
-                $"Parameter scope {ToolText.Quote(scopeText)} is not a scope: it must be global, project:<name> or domain:<label>, "
-                + "and the name uses only lowercase letters, digits, '.', '_' and '-'.",
-                "Call write_persona again with op=add and scope set to global, project:<name> or domain:<label>.");
+        var (scope, scopeRefusal) = ScopeOf(request, "add");
+        if (scopeRefusal is not null)
+            return scopeRefusal;
 
         var problems = EntryProblems(text, source, sectionKind);
         if (problems.Count > 0)
@@ -127,7 +127,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (LimitRefusal(persona, scope, trigger, sectionKind) is { } limited)
             return limited;
 
-        var judgment = await conflicts.RunAsync(text, sectionKind, persona, null, cancellationToken);
+        var judgment = await conflicts.RunAsync(text, sectionKind, scope, persona, null, cancellationToken);
         if (judgment.Conflict is { } conflict)
             return ConflictRefusal(conflict);
 
@@ -148,6 +148,21 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
             ? WithNote($"Added to the {name} section as [{code}]. The section now has {persona.Entries(sectionKind).Count + 1} of {LimitOf(sectionKind)} entries.", judgment.Note)
             : WithNote(AddedToScopeReply(persona, scope, sectionKind, code, createdTrigger), judgment.Note);
         return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+    }
+
+    /// <summary>
+    /// The scope a write names: global when the parameter is omitted. The refusal is set instead when the text is not a
+    /// scope; <paramref name="op"/> names the op in its next step.
+    /// </summary>
+    private static (PersonaScope Scope, ToolResult? Refusal) ScopeOf(WritePersonaRequest request, string op)
+    {
+        var text = string.IsNullOrWhiteSpace(request.Scope) ? "global" : request.Scope.Trim();
+        if (PersonaScope.TryParse(text, out var scope))
+            return (scope, null);
+        return (PersonaScope.Global, ToolText.Refuse(
+            $"Parameter scope {ToolText.Quote(text)} is not a scope: it must be global, project:<name> or domain:<label>, "
+            + "and the name uses only lowercase letters, digits, '.', '_' and '-'.",
+            $"Call write_persona again with op={op} and scope set to global, project:<name> or domain:<label>."));
     }
 
     /// <summary>
@@ -272,7 +287,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (after == existing)
             return ToolText.Ok($"[{entry.Code}] already reads exactly so in the {name} section; nothing was written.");
 
-        var judgment = await conflicts.RunAsync(text, entry.Kind, persona, entry.Item, cancellationToken);
+        var judgment = await conflicts.RunAsync(text, entry.Kind, entry.Scope, persona, entry.Item, cancellationToken);
         if (judgment.Conflict is { } conflict)
             return ConflictRefusal(conflict);
 
@@ -342,6 +357,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
                 "Ask the user whether this should be a red line. Only if they explicitly agree, call write_persona again with "
                 + "op=add and persona_section=red_lines.");
 
+        var (scope, scopeRefusal) = ScopeOf(request, "propose");
+        if (scopeRefusal is not null)
+            return scopeRefusal;
+
         var problems = EntryProblems(text, source, sectionKind);
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_persona op=propose again.");
@@ -364,14 +383,12 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
             && await AnswerSameAsync(same, source, existing, hasBom, dirty, path, relative, cancellationToken) is { } answer)
             return answer;
 
-        var after = CandidatesFile.AppendCandidate(existing, text, sectionKind, options.Today, source, config.Language);
+        var after = CandidatesFile.AppendCandidate(existing, text, sectionKind, scope, options.Today, source, config.Language);
         TextFile.Write(path, after, hasBom);
 
         var code = ShortCode.Of(ShortCode.Normalize(text));
         var subject = dirty ? $"candidates: propose {code} (with user edits)" : $"candidates: propose {code}";
-        var minDays = config.CandidateMinDays;
-        var reply = $"Recorded as a candidate: it has appeared on 1/{minDays} days."
-            + ConsolidationNote(1, minDays)
+        var reply = $"Recorded as a new candidate (scope: {scope})."
             + (judged.Note is { } note ? $"\n\n{note}" : "");
         return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
     }
@@ -392,30 +409,30 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         };
     }
 
-    /// <summary>Appends the proposal's words as an occurrence of the matching candidate, once per day.</summary>
+    /// <summary>
+    /// Appends the proposal's words as an occurrence of the matching candidate, once per day. The candidate keeps its own
+    /// scope: the one the proposal names is not used for a merge.
+    /// </summary>
     private async Task<ToolResult?> MergeCandidateAsync(
         PreferenceMatch same, string source, string existing, bool hasBom, bool dirty, string path, string relative, CancellationToken cancellationToken)
     {
         var candidate = CandidatesDocument.Parse(existing).Candidates
-            .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section);
+            .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section && item.Scope == same.Scope);
         if (candidate is null)
             return null;
 
         var today = options.Today;
-        var days = candidate.Occurrences.Select(occurrence => occurrence.Day).Distinct().Count();
-        var minDays = config.CandidateMinDays;
         if (candidate.Occurrences.Any(occurrence => occurrence.Day == today))
-            return ToolText.Ok($"Already recorded today: \"{candidate.Text}\" has appeared on {days}/{minDays} days." + ConsolidationNote(days, minDays));
+            return ToolText.Ok($"Already recorded today: \"{candidate.Text}\" (scope: {candidate.Scope}).");
 
-        var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, today, source, config.Language);
+        var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, candidate.Scope, today, source, config.Language);
         if (after is null)
             return null;
         TextFile.Write(path, after, hasBom);
 
         var code = ShortCode.Of(ShortCode.Normalize(candidate.Text));
         var subject = dirty ? $"candidates: merge {code} (with user edits)" : $"candidates: merge {code}";
-        var reply = $"Merged into the candidate \"{candidate.Text}\", which has appeared on {days + 1}/{minDays} days."
-            + ConsolidationNote(days + 1, minDays);
+        var reply = $"Merged into the candidate \"{candidate.Text}\" (scope: {candidate.Scope}).";
         return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
     }
 
@@ -423,16 +440,17 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     private ToolResult? RejectedReply(PreferenceMatch same, string existing)
     {
         var rejected = CandidatesDocument.Parse(existing).RejectionList
-            .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section);
+            .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section && item.Scope == same.Scope);
         if (rejected is null)
             return null;
 
         var occurrence = rejected.Occurrences.LastOrDefault(item => item.Rejected) ?? rejected.Occurrences.LastOrDefault();
         var when = occurrence is null ? "" : $" on {occurrence.Day:yyyy-MM-dd}, in the words 「{occurrence.Quote}」";
+        var scope = rejected.Scope.IsGlobal ? "" : $", scope={rejected.Scope}";
         return ToolText.Ok(
             $"Not recorded: \"{rejected.Text}\" is on the rejection list, rejected{when}.\n"
             + $"Next step: do not propose it again in this session. If the user now clearly asks for it, call write_persona again "
-            + $"with op=add, persona_section={SectionName(same.Section)} and their words as source.");
+            + $"with op=add, persona_section={SectionName(same.Section)}{scope} and their words as source.");
     }
 
     /// <summary>The answer for a proposal the persona already holds: the entry and its short code.</summary>
@@ -442,7 +460,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (read is null)
             return null;
         var persona = PersonaDocument.Parse(read.Value.Text);
-        var entry = persona.Entries(same.Section).FirstOrDefault(item => item.JudgmentText == same.Text);
+        var entry = persona.EntriesIn(same.Scope, same.Section).FirstOrDefault(item => item.JudgmentText == same.Text);
         if (entry is null)
             return null;
         var code = persona.CodesByLine()[entry.Line];
@@ -659,13 +677,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         "The new entry conflicts with, duplicates or supersedes an existing persona entry.",
         $"Ask the user whether to change that entry instead. Only if they agree, call write_persona again with op=replace, "
         + $"hash={conflict.Code}, and the new text and source; otherwise leave the persona as it is.",
-        $"{PersonaDocument.HeadingOf(conflict.Section).En} section:\n{Listed(conflict.Item, conflict.Code)}");
+        $"{PersonaDocument.HeadingOf(conflict.Section).En} section{ScopePhrase(conflict.Scope)}:\n{Listed(conflict.Item, conflict.Code)}");
 
     /// <summary>A success reply, with the note that a skipped judgment adds at its end.</summary>
     private static string WithNote(string reply, string? note) => note is null ? reply : $"{reply}\n\n{note}";
-
-    /// <summary>The note a candidate at or past the minimum number of days gets: it can be confirmed at the next consolidation.</summary>
-    private static string ConsolidationNote(int days, int minDays) => days >= minDays ? " It can be confirmed at the next consolidation." : "";
 
     private static ToolResult NotUtf8(string relative, string op) => ToolText.Refuse(
         $"{relative} is not valid UTF-8, so writing to it would change its text.",

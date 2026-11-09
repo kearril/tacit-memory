@@ -92,7 +92,7 @@ public sealed class ConsolidationCandidateTests : IDisposable
     }
 
     [Fact]
-    public async Task A_candidate_the_decision_model_is_sure_repeats_a_rejected_candidate_is_listed_for_removal_even_below_the_minimum_days()
+    public async Task A_candidate_the_decision_model_is_sure_repeats_a_rejected_candidate_is_listed_for_removal_even_on_one_day()
     {
         Configure();
         Write(EmptyPersona, "## 候选\n\n" + Block(Candidate, "2026-10-31") + "## 拒绝列表\n\n" + Block(Candidate, "2026-10-20").Replace("原话", "拒绝 原话", StringComparison.Ordinal));

@@ -33,13 +33,13 @@
 | `write_persona` | `add` | `persona_section`、`text`、`source`；可选 `scope`、`trigger`、`confirm_no_secret` |
 | | `replace` | `hash`、`text`、`source`；可选 `confirm_no_secret` |
 | | `delete` | `hash` |
-| | `propose` | `persona_section`、`text`、`source` |
+| | `propose` | `persona_section`、`text`、`source`；可选 `scope` |
 
 - `recall` 各参数的含义见 `docs/design.md` 第 7 节。只给 `project` 时返回项目简报，内容与截断规则同见第 7 节；此时 `kind` 不可同给（参数错误），`from`、`to` 可与之合用。
 - `write_page` 的 `type` 取值为 `incident`、`decision`、`entity`、`work`，各自的用途写在工具说明中；`create` 必填，`update_header` 可改。
 - `recall` 以 `page` 读整页时，页头摘要含一行 `Type: <类型>`；页面没有类型（旧页）时不显示该行。
 - `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`write_recent` 只写活动，没有 `op`；近期主线不经它写入，见 `docs/design.md` 第 6 节。
-- `write_persona` 的 `scope` 取 `global`（缺省）、`project:<名>` 或 `domain:<标签>`，仅 `add` 使用；`trigger` 为新领域的触发描述（一行），仅 `add` 使用，新建领域时必填，已有领域时忽略。`replace` 与 `delete` 凭短码定位任一作用域中的条目，`replace` 保持原作用域。
+- `write_persona` 的 `scope` 取 `global`（缺省）、`project:<名>` 或 `domain:<标签>`，`add` 与 `propose` 使用（`propose` 的候选块写入作用域行）；`trigger` 为新领域的触发描述（一行），仅 `add` 使用，新建领域时必填，已有领域时忽略。`replace` 与 `delete` 凭短码定位任一作用域中的条目，`replace` 保持原作用域。
 - 长度与条数上限取自 `config.yaml` 的 `limits`（见 `docs/reference/configuration.md`），工具说明中的数字随配置填入。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 

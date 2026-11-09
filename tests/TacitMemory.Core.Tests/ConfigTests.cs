@@ -36,7 +36,6 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(10, config.Limits.DomainEntries);
         Assert.Equal(60, config.Limits.TriggerLength);
         Assert.Equal(3000, config.Limits.Brief);
-        Assert.Equal(2, config.CandidateMinDays);
         Assert.Equal(new ConsolidationConfig(7, 14, 20, 5), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
@@ -357,6 +356,17 @@ public sealed class ConfigTests : IDisposable
 
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
         Assert.Contains("checkup", error.Message);
+    }
+
+    [Fact]
+    public void The_candidates_section_is_an_unknown_setting_and_its_key_path_is_named()
+    {
+        WriteConfig(Models + "candidates: { minDays: 2 }\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("candidates", error.Message);
     }
 
     [Fact]

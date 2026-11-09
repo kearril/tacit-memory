@@ -67,6 +67,19 @@ internal sealed record PersonaScope(PersonaScopeKind Kind, string Name)
     /// <summary>Whether a domain label or project name follows the naming rule, which is the same for both.</summary>
     public static bool IsValidName(string name) => PageId.IsProjectName(name);
 
+    /// <summary>
+    /// The scope the index stored for a unit: the text <see cref="ToString"/> gives, read back without the naming check, so a
+    /// name the file holds that breaks the rule still comes back as it was written.
+    /// </summary>
+    internal static PersonaScope Stored(string text)
+    {
+        if (text.StartsWith("project:", StringComparison.Ordinal))
+            return new PersonaScope(PersonaScopeKind.Project, text["project:".Length..]);
+        if (text.StartsWith("domain:", StringComparison.Ordinal))
+            return new PersonaScope(PersonaScopeKind.Domain, text["domain:".Length..]);
+        return Global;
+    }
+
     /// <summary>The block heading in the memory language: <c>领域：&lt;标签&gt;</c> or <c>Domain: &lt;label&gt;</c>, without its <c>## </c>.</summary>
     public string HeadingIn(MemoryLanguage language) => Word(language) + Separator(language) + Name;
 

@@ -88,8 +88,8 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
             if (hit.Section is not { } section)
                 continue;
             options.Add(new ChoiceOption<PreferenceMatch>(
-                SamePreferenceCheck.OptionText(hit.Kind, section, hit.Text, language),
-                new PreferenceMatch(hit.Kind, section, hit.Text)));
+                SamePreferenceCheck.OptionText(hit.Kind, hit.Scope, section, hit.Text, language),
+                new PreferenceMatch(hit.Kind, section, hit.Text, hit.Scope)));
         }
 
         if (options.Count == 0)
@@ -102,25 +102,32 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
         return new PreparedChoice<PreferenceMatch>(question, null);
     }
 
-    /// <summary>The short code of every persona entry, keyed by the text the judgment index holds for it; of identical texts the first wins.</summary>
+    /// <summary>
+    /// The short code of every persona entry, keyed by its scope and the text the judgment index holds for it; of identical
+    /// entries the first wins.
+    /// </summary>
     private static Dictionary<string, string> PersonaCodesOf(PersonaDocument persona)
     {
         var codes = persona.CodesByLine();
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var item in persona.Parts.SelectMany(part => part.Items).Where(item => item.IsListItem))
-            result.TryAdd(item.JudgmentText, codes[item.Line]);
+        foreach (var entry in persona.KnownEntries())
+            result.TryAdd(CodeKey(entry.Scope, entry.Item.JudgmentText), codes[entry.Item.Line]);
         return result;
     }
+
+    /// <summary>The key of a persona entry in <see cref="PersonaCodes"/>: its scope and its judgment text.</summary>
+    private static string CodeKey(PersonaScope scope, string text) => scope + "\n" + text;
 
     /// <summary>A match as the report names it: the persona entry with its short code, or the rejected candidate.</summary>
     public string Describe(PreferenceMatch match)
     {
         var heading = PersonaDocument.HeadingOf(match.Section).In(Language);
         var text = match.Text.ReplaceLineEndings(" ");
+        var scope = match.Scope.IsGlobal ? "" : $" of {match.Scope}";
         if (match.Kind == UnitKinds.RejectedCandidate)
-            return $"rejected candidate \"{text}\" in section {heading}";
-        return PersonaCodes.TryGetValue(match.Text, out var code)
-            ? $"persona entry [{code}] \"{text}\" in section {heading}"
-            : $"persona entry \"{text}\" in section {heading}";
+            return $"rejected candidate \"{text}\" in section {heading}{scope}";
+        return PersonaCodes.TryGetValue(CodeKey(match.Scope, match.Text), out var code)
+            ? $"persona entry [{code}] \"{text}\" in section {heading}{scope}"
+            : $"persona entry \"{text}\" in section {heading}{scope}";
     }
 }
