@@ -38,6 +38,7 @@ public sealed class ManualBackupTests : IDisposable
     private static WritePageRequest Create(string page) => new()
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = "手动备份测试",
         Aliases = ["手动备份别名一", "手动备份别名二"],

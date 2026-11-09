@@ -12,10 +12,10 @@ internal static class CandidatesFile
 {
     /// <summary>
     /// Appends a candidate at the end of the candidates section: its text as a <c>###</c> heading, the section it belongs to,
-    /// and its first occurrence. Returns the new text.
+    /// the scope line when the scope is not global, and its first occurrence. Returns the new text.
     /// </summary>
     public static string AppendCandidate(
-        string existing, string title, PersonaSection section, DateOnly day, string source, MemoryLanguage language)
+        string existing, string title, PersonaSection section, PersonaScope scope, DateOnly day, string source, MemoryLanguage language)
     {
         var cr = TextFile.CarriageReturnOf(existing);
         var lines = existing.Split('\n').ToList();
@@ -26,8 +26,10 @@ internal static class CandidatesFile
         {
             $"### {title}",
             $"{StructureWords.BelongsTo.In(language)}{PersonaDocument.HeadingOf(section).In(language)}",
-            Occurrence(day, source, language),
         };
+        if (!scope.IsGlobal)
+            block.Add($"{StructureWords.Scope.In(language)}{scope}");
+        block.Add(Occurrence(day, source, language));
 
         var candidates = MarkdownSections.LastHeading(lines, CandidatesDocument.IsCandidatesHeading);
         if (candidates >= 0)
@@ -54,11 +56,12 @@ internal static class CandidatesFile
     }
 
     /// <summary>
-    /// Appends an occurrence record to the candidate titled <paramref name="title"/> in the candidates section, after its
-    /// last occurrence. Returns the new text, or <c>null</c> when no such candidate of <paramref name="section"/> exists.
+    /// Appends an occurrence record to the candidate titled <paramref name="title"/> of <paramref name="section"/> and
+    /// <paramref name="scope"/> in the candidates section, after its last header or record line. Returns the new text, or
+    /// <c>null</c> when no such candidate exists.
     /// </summary>
     public static string? AppendOccurrence(
-        string existing, string title, PersonaSection section, DateOnly day, string source, MemoryLanguage language)
+        string existing, string title, PersonaSection section, PersonaScope scope, DateOnly day, string source, MemoryLanguage language)
     {
         var cr = TextFile.CarriageReturnOf(existing);
         var lines = existing.Split('\n').ToList();
@@ -84,7 +87,9 @@ internal static class CandidatesFile
                 end++;
 
             PersonaSection? belongsTo = null;
+            string? scopeText = null;
             var belongsAt = -1;
+            var scopeAt = -1;
             var lastOccurrence = -1;
             for (var i = start + 1; i < end; i++)
             {
@@ -95,14 +100,21 @@ internal static class CandidatesFile
                     belongsAt = i;
                 }
 
+                if (scopeAt < 0 && CandidatesDocument.ScopeTextOf(body) is { } named2)
+                {
+                    scopeText = named2;
+                    scopeAt = i;
+                }
+
                 if (CandidatesDocument.OccurrenceOf(body) is not null)
                     lastOccurrence = i;
             }
 
-            if (belongsTo != section)
+            if (belongsTo != section || CandidatesDocument.ScopeOfText(scopeText) != scope)
                 continue;
 
-            var at = (lastOccurrence >= 0 ? lastOccurrence : belongsAt) + 1;
+            // The record goes after the last line of the block's header or its records, whichever comes last.
+            var at = Math.Max(Math.Max(lastOccurrence, belongsAt), scopeAt) + 1;
             lines.Insert(at, Occurrence(day, source, language) + cr);
             return string.Concat(lines.Select(line => line + "\n"));
         }

@@ -5,8 +5,8 @@ using TacitMemory.Core.Models;
 
 namespace TacitMemory.Core.Persona;
 
-/// <summary>An existing persona entry the new one conflicts with: its section, its item and its short code.</summary>
-internal sealed record ConflictingEntry(PersonaSection Section, PersonaItem Item, string Code);
+/// <summary>An existing persona entry the new one conflicts with: its scope, its section, its item and its short code.</summary>
+internal sealed record ConflictingEntry(PersonaScope Scope, PersonaSection Section, PersonaItem Item, string Code);
 
 /// <summary>What the rule-conflict check found: the entry the new one conflicts with, or a note for the agent when the check was skipped.</summary>
 internal sealed record RuleConflictVerdict(ConflictingEntry? Conflict, string? Note);
@@ -14,7 +14,7 @@ internal sealed record RuleConflictVerdict(ConflictingEntry? Conflict, string? N
 /// <summary>
 /// Before an entry is added to the persona or replaces one, asks whether it conflicts with, duplicates or supersedes an
 /// existing entry of any of the four sections: the nearest entries by embedding, plus "none of these", go to the decision
-/// model as a choice question. The checkup asks the same question about the entries it finds changed.
+/// model as a choice question. The consolidation asks the same question about the entries it finds changed.
 /// </summary>
 internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
 {
@@ -44,14 +44,14 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
 
     /// <param name="text">The new entry's text, as written.</param>
     /// <param name="section">The section the new entry goes into.</param>
+    /// <param name="scope">The scope the new entry goes into, or the scope of the entry it replaces.</param>
     /// <param name="persona">The persona as it is before the write.</param>
     /// <param name="replaced">The entry the write replaces, which is never offered as an option; <c>null</c> for an add.</param>
     public async Task<RuleConflictVerdict> RunAsync(
-        string text, PersonaSection section, PersonaDocument persona, PersonaItem? replaced, CancellationToken cancellationToken)
+        string text, PersonaSection section, PersonaScope scope, PersonaDocument persona, PersonaItem? replaced, CancellationToken cancellationToken)
     {
-        var others = Enum.GetValues<PersonaSection>()
-            .SelectMany(kind => persona.Entries(kind))
-            .Where(item => item.Line != replaced?.Line)
+        var others = persona.KnownEntries()
+            .Where(entry => JudgedAgainst(entry.Scope, scope) && entry.Item.Line != replaced?.Line)
             .ToList();
         if (others.Count == 0)
             return new RuleConflictVerdict(null, null);
@@ -62,7 +62,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
 
         await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         // One more than OtherOptions: the replaced entry may be among the nearest and is skipped by Nearest.
-        var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1);
+        var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1, scopes: ScopesJudged(scope));
 
         var nearest = Nearest(hits, persona, replaced?.Line);
         if (nearest.Count == 0)
@@ -98,12 +98,22 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
     }
 
     /// <summary>
-    /// The persona entries the judgment hits name, in hit order: each hit is matched to the first entry of its text that
-    /// is not excluded, so identical entries are told apart. At most <see cref="OtherOptions"/> are returned.
+    /// The scopes a new entry is judged against: the global entries, and the entries of its own scope. The index is asked
+    /// for these scopes only, so entries of other domains and projects are never offered.
+    /// </summary>
+    internal static IReadOnlyList<PersonaScope> ScopesJudged(PersonaScope scope) => scope.IsGlobal ? [PersonaScope.Global] : [PersonaScope.Global, scope];
+
+    /// <summary>Whether an entry of <paramref name="entryScope"/> is judged against an entry of <paramref name="scope"/>.</summary>
+    internal static bool JudgedAgainst(PersonaScope entryScope, PersonaScope scope) => entryScope.IsGlobal || entryScope == scope;
+
+    /// <summary>
+    /// The persona entries the judgment hits name, in hit order: each hit is matched to the first entry of its scope, section
+    /// and text that is not excluded, so identical entries are told apart. At most <see cref="OtherOptions"/> are returned.
     /// </summary>
     internal static IReadOnlyList<ConflictingEntry> Nearest(IReadOnlyList<JudgmentHit> hits, PersonaDocument persona, int? excludedLine)
     {
         var codes = persona.CodesByLine();
+        var entries = persona.KnownEntries();
         var taken = new HashSet<int>();
         if (excludedLine is { } line)
             taken.Add(line);
@@ -112,11 +122,12 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
         {
             if (hit.Section is not { } kind)
                 continue;
-            var item = persona.Entries(kind).FirstOrDefault(entry => entry.JudgmentText == hit.Text && !taken.Contains(entry.Line));
-            if (item is null)
+            var found = entries.FirstOrDefault(entry =>
+                entry.Scope == hit.Scope && entry.Kind == kind && entry.Item.JudgmentText == hit.Text && !taken.Contains(entry.Item.Line));
+            if (found is null)
                 continue;
-            taken.Add(item.Line);
-            nearest.Add(new ConflictingEntry(kind, item, codes[item.Line]));
+            taken.Add(found.Item.Line);
+            nearest.Add(new ConflictingEntry(found.Scope, kind, found.Item, codes[found.Item.Line]));
             if (nearest.Count == OtherOptions)
                 break;
         }

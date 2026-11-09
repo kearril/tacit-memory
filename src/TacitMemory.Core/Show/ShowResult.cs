@@ -15,8 +15,8 @@ public enum ShowTarget
     /// <summary>The <c>tacit-remember</c> memory command, <c>SKILL.md</c>, as the agent reads it.</summary>
     Remember,
 
-    /// <summary>The <c>tacit-checkup</c> memory command, <c>SKILL.md</c>, as the agent reads it; not the report it reads.</summary>
-    Checkup,
+    /// <summary>The <c>tacit-consolidate</c> memory command, <c>SKILL.md</c>, as the agent reads it; not the report it reads.</summary>
+    Consolidation,
 }
 
 /// <summary>Where a part of what the agent receives comes from.</summary>

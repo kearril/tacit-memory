@@ -4,16 +4,19 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Maintenance;
 
 namespace TacitMemory.Core.Backup;
 
 /// <summary>
 /// The daily automatic backup. After a successful write, if <c>TACIT_HOME/backups/</c> holds no automatic backup for
 /// today, it packs the memory repository and the config files through <see cref="BackupArchive"/>, then keeps only the
-/// newest <c>backup.keep</c> automatic backups. It runs in the background, outside the write queue; a failure only
-/// tells the user, and never changes the write that triggered it. Manual and pre-restore backups are never pruned here.
+/// newest <c>backup.keep</c> automatic backups. It runs in the background as a write-slot task of the
+/// <see cref="MaintenanceGate"/>: a write that arrives meanwhile waits for it, so the pack never reads a file a write
+/// is replacing or a git lock a write holds. A failure only tells the user, and never changes the write that triggered
+/// it. Manual and pre-restore backups are never pruned here.
 /// </summary>
-internal sealed partial class AutomaticBackup(TacitOptions options, TacitConfig config, ServiceLog log)
+internal sealed partial class AutomaticBackup(TacitOptions options, TacitConfig config, ServiceLog log, MaintenanceGate gate)
 {
     private readonly string _directory = Path.Combine(options.TacitHome, "backups");
 
@@ -38,15 +41,23 @@ internal sealed partial class AutomaticBackup(TacitOptions options, TacitConfig 
     {
         try
         {
+            // Holds the write slot from the check to the end of the pack, so no write replaces a file while it is read.
+            using var hold = await gate.WriteAsync(CancellationToken.None);
             var target = Path.Combine(_directory, FileNameFor(options.Today));
             if (File.Exists(target))
                 return;
 
+            if (options.BeforeBackupPack is { } beforePack)
+                await beforePack();
             await _archive.WriteAsync(BackupKind.Auto, target, CancellationToken.None);
             Prune();
             log.Record(LogLevel.Information, LogMessages.BackupWritten, target);
             if (config.HoldsPlaintextSecret)
                 log.Notify(LogLevel.Information, BackupMessages.BackupPlaintextKey, Path.Combine(options.TacitHome, "config.yaml"));
+        }
+        catch (ObjectDisposedException)
+        {
+            // The service is shutting down; the run is simply not needed.
         }
         catch (Exception e)
         {

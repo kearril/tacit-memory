@@ -76,7 +76,7 @@ public sealed class PersonaConflictTests : IDisposable
     /// <summary>The short code the persona lists for the entry whose line contains <paramref name="line"/>, read from a refused replace.</summary>
     private async Task<string> CodeOf(string line)
     {
-        var listing = await Replace("000000", "占位");
+        var listing = await Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona });
         return Regex.Match(listing.Text, @"- \[([0-9a-f]{6})\] " + Regex.Escape(line)).Groups[1].Value;
     }
 
@@ -264,5 +264,97 @@ public sealed class PersonaConflictTests : IDisposable
 
         var question = models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
         Assert.DoesNotContain("Chinese", question["instructions"]!.GetValue<string>());
+    }
+
+    /// <summary>Two domain blocks below the fixture: one with a preference, one with a working rule.</summary>
+    private const string DomainBlocks = """
+        ## 领域：network-proxy
+        触发：改代理、分流或测速时
+        ### 偏好
+        - 沟通：先展示测速数据
+          <!-- 2026-10-22 原话「先看数据」 -->
+
+        ## 领域：release
+        触发：发版时
+        ### 协作规则
+        - 发版前 → 先跑全量测试
+          <!-- 2026-10-23 原话「发版先测」 -->
+
+        """;
+
+    private Task<ToolResult> AddIn(string scope, string section, string text) => Service.WritePersonaAsync(new WritePersonaRequest
+    {
+        Op = "add",
+        Section = section,
+        Text = text,
+        Source = "这是原话",
+        Scope = scope,
+    });
+
+    /// <summary>The options the last decision question offered, as their texts.</summary>
+    private static List<string> Offered(ModelDouble models) =>
+        models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!["criteria"]!.AsObject()
+            .Select(option => option.Value!.GetValue<string>()).ToList();
+
+    [Fact]
+    public async Task A_global_entry_is_judged_only_against_the_global_entries()
+    {
+        WritePersona(Fixture + DomainBlocks);
+
+        var result = await Add("preferences", "沟通：先展开讲解");
+
+        Assert.False(result.IsError, result.Text);
+        var offered = Offered(_models);
+        Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, option => option.Contains("先展示测速数据", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_domain_entry_is_judged_against_the_global_entries_and_its_own_domain_only()
+    {
+        WritePersona(Fixture + DomainBlocks);
+
+        var result = await AddIn("domain:network-proxy", "preferences", "沟通：先给数据再给结论");
+
+        Assert.False(result.IsError, result.Text);
+        var offered = Offered(_models);
+        Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.Contains("先展示测速数据", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Replace_of_a_domain_entry_keeps_its_domain_and_is_judged_against_that_scope()
+    {
+        WritePersona(Fixture + DomainBlocks);
+        var hash = await CodeOf("沟通：先展示测速数据");
+
+        var result = await Replace(hash, "沟通：先展示测速数据并附依据");
+
+        Assert.False(result.IsError, result.Text);
+        var offered = Offered(_models);
+        Assert.DoesNotContain(offered, option => option.Contains("先展示测速数据", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
+        var text = File.ReadAllText(PersonaMd);
+        var domain = text.IndexOf("## 领域：network-proxy", StringComparison.Ordinal);
+        var next = text.IndexOf("## 领域：release", StringComparison.Ordinal);
+        var replaced = text.IndexOf("- 沟通：先展示测速数据并附依据", StringComparison.Ordinal);
+        Assert.True(domain < replaced && replaced < next, text);
+    }
+
+    [Fact]
+    public async Task A_conflict_with_a_domain_entry_is_refused_and_names_the_domain_of_that_entry()
+    {
+        WritePersona(Fixture + DomainBlocks);
+        Pick("先展示测速数据", 0.95);
+
+        var result = await AddIn("domain:network-proxy", "preferences", "沟通：先给结论再看测速");
+
+        Assert.True(result.IsError);
+        Assert.Contains("Preferences section of domain network-proxy:", result.Text);
+        Assert.Matches(@"- \[[0-9a-f]{6}\] 沟通：先展示测速数据", result.Text);
+        Assert.DoesNotContain("先展示测速数据并附依据", File.ReadAllText(PersonaMd), StringComparison.Ordinal);
     }
 }

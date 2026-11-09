@@ -16,6 +16,17 @@ public sealed class RestoreTests : IDisposable
     /// <summary>A bound on each await: a wait that never ends fails here instead of hanging.</summary>
     private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
 
+    /// <summary>Waits until the condition holds, as the service's own debounced renders take their time.</summary>
+    private static async Task Eventually(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + Guard;
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "condition not met within the guard");
+            await Task.Delay(50);
+        }
+    }
+
     private readonly TestHome _home = new();
     private readonly CapturingLoggerFactory _logs = new();
     private readonly ModelDouble _models = new();
@@ -58,6 +69,7 @@ public sealed class RestoreTests : IDisposable
     private static WritePageRequest Create(string page, string title, string body) => new()
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = [$"{title}别名一", $"{title}别名二"],
@@ -307,12 +319,14 @@ public sealed class RestoreTests : IDisposable
     }
 
     [Fact]
-    public async Task After_the_restore_recall_and_the_server_instructions_reflect_the_backup()
+    public async Task After_the_restore_recall_and_the_resident_block_reflect_the_backup()
     {
+        _home.Bind();
         await _service.WritePageAsync(Create("old-project/old-page", "旧版本记录", "旧版本内容"));
         var backup = await _service.BackupAsync(BackupTarget.Local);
         await _service.WritePageAsync(Create("new-project/new-page", "新版本记录", "新版本内容"));
-        Assert.Contains("new-project", await _service.ServerInstructionsAsync());
+        // The service renders the resident block itself, after its debounce; no second renderer may run beside it.
+        await Eventually(() => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-project", StringComparison.Ordinal));
 
         await _service.RestoreAsync(backup.Location, config: false);
 
@@ -320,9 +334,9 @@ public sealed class RestoreTests : IDisposable
         Assert.Contains("old-project/old-page", found.Text, StringComparison.Ordinal);
         var missing = await _service.RecallAsync(new RecallRequest { Query = "新版本记录" });
         Assert.DoesNotContain("new-project/new-page", missing.Text, StringComparison.Ordinal);
-        var instructions = await _service.ServerInstructionsAsync();
-        Assert.Contains("old-project", instructions, StringComparison.Ordinal);
-        Assert.DoesNotContain("new-project", instructions, StringComparison.Ordinal);
+        await Eventually(() => !File.ReadAllText(AgentsMd).Contains("new-project", StringComparison.Ordinal));
+        var block = File.ReadAllText(AgentsMd);
+        Assert.Contains("old-project", block, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -332,14 +346,12 @@ public sealed class RestoreTests : IDisposable
         _home.Bind();
         var backup = await _service.BackupAsync(BackupTarget.Local);
         File.WriteAllText(PersonaMd, PersonaWith("偏好乙"));
-        _home.Tacit().RenderBlocks();
-        Assert.Contains("偏好乙", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
+        await Eventually(() => File.ReadAllText(AgentsMd).Contains("偏好乙", StringComparison.Ordinal));
 
         await _service.RestoreAsync(backup.Location, config: false);
 
-        var text = File.ReadAllText(AgentsMd);
-        Assert.Contains("偏好甲", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("偏好乙", text, StringComparison.Ordinal);
+        await Eventually(() => File.ReadAllText(AgentsMd).Contains("偏好甲", StringComparison.Ordinal));
+        Assert.DoesNotContain("偏好乙", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
     }
 
     [Fact]

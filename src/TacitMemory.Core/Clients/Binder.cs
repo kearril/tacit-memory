@@ -42,7 +42,7 @@ internal static class Binder
         var persona = PersonaDocument.Read(personaPath)
             ?? throw new TacitException(TacitError.FileNotUtf8, Messages.PersonaUnreadable.Format(language, personaPath));
         ContextFile.Check(contextFile, language);
-        var block = ResidentBlock.Render(persona, config.Prompts.Resident);
+        var block = ResidentBlock.Render(ResidentContent.Read(config, options.Today, persona), config.Prompts.Resident);
 
         var bindings = store.Read();
         var contextUsers = SharedPaths.ContextFileUsers(bindings, client, contextFile);
@@ -161,7 +161,7 @@ internal static class Binder
         var bindings = new BindingStore(options.TacitHome, language).Read();
         var personaPath = PersonaPath(config);
         var persona = PersonaDocument.Read(personaPath);
-        var block = persona is null ? null : ResidentBlock.Render(persona, prompts.Resident);
+        var block = persona is null ? null : ResidentBlock.Render(ResidentContent.Read(config, options.Today, persona), prompts.Resident);
         var results = new List<BlockRender>();
         // A context file that several bindings share renders once; the first binding's spelling of the path names it.
         foreach (var path in bindings.Select(binding => binding.ContextFile).Distinct(BindingPath.Comparer))

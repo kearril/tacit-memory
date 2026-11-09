@@ -4,16 +4,20 @@ using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
+using TacitMemory.Core.Persona;
 using TacitMemory.Core.Tools;
 
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The <c>recall</c> tool: reads one page by ID, or searches pages and activities by full text and by vector, merges the two with
-/// reciprocal rank fusion, reranks the merged units and returns the best sections, merged per page. It never changes a file.
+/// The <c>recall</c> tool: reads one page by ID, reads the persona or its domain rules, returns a project's brief when given only a
+/// project, or searches pages and activities by full text and by vector, merges the two with reciprocal rank fusion, reranks the
+/// merged units and returns the best sections, merged per page. The persona is never searched. It never changes a file.
 /// </summary>
 internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
 {
+    private readonly ProjectBrief _brief = new(config, index);
+
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";
 
@@ -34,19 +38,32 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     private const int RrfK = 60;
 
     /// <summary>Every parameter <c>recall</c> takes, in the order the next step lists them.</summary>
-    private static readonly string[] Parameters = ["query", "page", "project", "from", "to", "kind"];
+    private static readonly string[] Parameters = ["query", "page", "project", "from", "to", "kind", "domain"];
 
     /// <summary>The next step when the call gave a parameter the schema does not declare.</summary>
     private static readonly string ParametersStep =
-        $"Call recall again with only these parameters: {string.Join(", ", Parameters)}; give exactly one of query or page.";
+        $"Call recall again with only these parameters: {string.Join(", ", Parameters)}; give exactly one of query or page, unless kind is persona or rules.";
+
+    /// <summary>The next step for <c>kind=persona</c> or <c>kind=rules</c> when the call combined it with something it does not take.</summary>
+    private static readonly Dictionary<string, string> StructuredStep = new()
+    {
+        [ToolValues.RecallKinds.Persona] = "Call recall again with kind=persona alone to read the whole persona, or with page alone to read a page.",
+        [ToolValues.RecallKinds.Rules] = "Call recall again with kind=rules, and domain set to one domain label or left out for every domain.",
+    };
 
     public async Task<ToolResult> RunAsync(RecallRequest request, CancellationToken cancellationToken)
     {
         var hasQuery = !string.IsNullOrWhiteSpace(request.Query);
         var hasPage = !string.IsNullOrWhiteSpace(request.Page);
+        var hasDomain = !string.IsNullOrWhiteSpace(request.Domain);
         var unknown = ToolText.UnknownParameters(request.UnknownParameters);
-        if (hasPage && !hasQuery)
-            return unknown.Count == 0 ? pages.Read(request) : ToolText.Refuse(unknown, ParametersStep);
+        var kind = request.Kind?.Trim();
+        if (kind is ToolValues.RecallKinds.Persona or ToolValues.RecallKinds.Rules)
+            return ReadStructured(request, kind, unknown);
+        if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Project))
+            return ProjectBriefCall(request, unknown);
+        if (hasPage && !hasQuery && !hasDomain)
+            return unknown.Count == 0 ? pages.Read(request, index) : ToolText.Refuse(unknown, ParametersStep);
 
         var problems = new List<string>(unknown);
         var queryOrPage = hasQuery == hasPage;
@@ -56,9 +73,10 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var to = Date(request.To, "to", problems);
         if (from > to)
             problems.Add("from is later than to.");
-        var kind = request.Kind?.Trim();
         if (kind is { Length: > 0 } and not (ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
-            problems.Add($"Unknown kind {ToolText.Quote(kind)}; use pages or activities.");
+            problems.Add($"Unknown kind {ToolText.Quote(kind)}; use pages, activities, rules or persona.");
+        if (hasDomain)
+            problems.Add("Parameter domain applies only to kind=rules.");
         if (problems.Count > 0)
         {
             var nextStep = unknown.Count > 0 ? ParametersStep
@@ -88,8 +106,110 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         }
 
         var ranked = await RerankAsync(request.Query!, Fuse([fullText, nearest], candidates), notes, cancellationToken);
-        var text = Format(ranked);
+        var (text, shown) = Format(ranked);
+        index.RecordReturns(shown.Select(hit => hit.Id).ToList());
         return ToolText.Ok(notes.Count == 0 ? text : text + "\n\n" + string.Join('\n', notes));
+    }
+
+    /// <summary>
+    /// <c>kind=persona</c> and <c>kind=rules</c>: they read the persona directly, so they take neither a page nor a date or
+    /// project filter; <c>query</c> is ignored. <c>domain</c> goes only with <c>rules</c>.
+    /// </summary>
+    private ToolResult ReadStructured(RecallRequest request, string kind, List<string> unknown)
+    {
+        var domain = string.IsNullOrWhiteSpace(request.Domain) ? null : request.Domain.Trim();
+        var problems = new List<string>(unknown);
+        if (!string.IsNullOrWhiteSpace(request.Page))
+            problems.Add($"Parameter page cannot be combined with kind={kind}.");
+        if (domain is not null && kind == ToolValues.RecallKinds.Persona)
+            problems.Add("Parameter domain applies only to kind=rules.");
+        if (!string.IsNullOrWhiteSpace(request.Project))
+            problems.Add($"Parameter project does not apply to kind={kind}.");
+        if (!string.IsNullOrWhiteSpace(request.From))
+            problems.Add($"Parameter from does not apply to kind={kind}.");
+        if (!string.IsNullOrWhiteSpace(request.To))
+            problems.Add($"Parameter to does not apply to kind={kind}.");
+        if (problems.Count > 0)
+            return ToolText.Refuse(problems, unknown.Count > 0 ? ParametersStep : StructuredStep[kind]);
+
+        return kind == ToolValues.RecallKinds.Persona ? ReadPersona() : ReadRules(domain);
+    }
+
+    /// <summary>The whole persona with its short codes, or <see cref="NoMemory"/> when it holds no entry.</summary>
+    private ToolResult ReadPersona()
+    {
+        if (PersonaDocument.Read(PersonaPath) is not { } persona)
+            return NotUtf8();
+        return ToolText.Ok(PersonaReading.Whole(persona, config.Limits) ?? NoMemory);
+    }
+
+    /// <summary>
+    /// The rules of one domain, or of every domain in label order. A domain the persona does not hold is refused with the labels
+    /// it holds.
+    /// </summary>
+    private ToolResult ReadRules(string? domain)
+    {
+        if (PersonaDocument.Read(PersonaPath) is not { } persona)
+            return NotUtf8();
+
+        var domains = persona.Blocks
+            .Where(block => block.Scope.Kind == PersonaScopeKind.Domain)
+            .OrderBy(block => block.Scope.Name, StringComparer.Ordinal)
+            .ToList();
+        if (domain is not null)
+        {
+            var chosen = domains.FirstOrDefault(block => block.Scope.Name == domain);
+            if (chosen is null)
+            {
+                var labels = domains.Select(block => block.Scope.Name).ToList();
+                return labels.Count == 0
+                    ? ToolText.Refuse(
+                        $"The persona has no domains, so it has no domain {ToolText.Quote(domain)}.",
+                        "Call recall again without domain to read the rules of every domain, or with kind=persona to read the whole persona.")
+                    : ToolText.Refuse(
+                        $"Domain {ToolText.Quote(domain)} is not in the persona; its domains are: {string.Join(", ", labels)}.",
+                        "Call recall again with kind=rules and domain set to one of these labels, or without domain for all of them.");
+            }
+
+            domains = [chosen];
+        }
+
+        return ToolText.Ok(PersonaReading.Domains(persona, domains, config.Limits) ?? NoMemory);
+    }
+
+    private string PersonaPath => Path.Combine(config.MemoryPath, PersonaFiles.Persona);
+
+    private static ToolResult NotUtf8() => ToolText.Refuse(
+        $"{PersonaFiles.Persona} is not valid UTF-8, so it cannot be read.",
+        $"Save {PersonaFiles.Persona} as UTF-8, then call recall again with the same kind.");
+
+    /// <summary>
+    /// <c>recall</c> with only <c>project</c>: the project's brief. It takes <c>from</c> and <c>to</c> as its date range, and
+    /// refuses <c>kind</c>, which has no meaning for a brief.
+    /// </summary>
+    private ToolResult ProjectBriefCall(RecallRequest request, List<string> unknown)
+    {
+        var problems = new List<string>(unknown);
+        var from = Date(request.From, "from", problems);
+        var to = Date(request.To, "to", problems);
+        if (from > to)
+            problems.Add("from is later than to.");
+        var raw = request.Project!.Trim();
+        var project = raw.ToLowerInvariant();
+        if (project != PageId.Topics && !PageId.IsProjectName(project))
+            problems.Add($"Project {ToolText.Quote(raw)} may only use a-z, 0-9, '.', '_' and '-', and must not start with '.' or '_' (except {PageId.Topics}).");
+        if (!string.IsNullOrWhiteSpace(request.Kind))
+            problems.Add("kind does not apply to a project brief.");
+        if (!string.IsNullOrWhiteSpace(request.Domain))
+            problems.Add("Parameter domain applies only to kind=rules.");
+        if (problems.Count > 0)
+        {
+            var nextStep = unknown.Count > 0 ? ParametersStep
+                : "Call recall again with project alone for the project brief, or with query and kind to search the project.";
+            return ToolText.Refuse(problems, nextStep);
+        }
+
+        return ToolText.Ok(_brief.Compose(project, from, to));
     }
 
     /// <summary>Reciprocal rank fusion: each list adds 1 / (k + rank) to a unit's score.</summary>
@@ -129,20 +249,34 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             .ToList();
     }
 
-    private string Format(IReadOnlyList<IndexHit> hits)
+    /// <summary>
+    /// The text of the results, and the units it shows: every unit of a shown result counts as returned. A page shown only
+    /// for its title or aliases counts its clue unit, not the sections it displays.
+    /// </summary>
+    private (string Text, List<IndexHit> Shown) Format(IReadOnlyList<IndexHit> hits)
     {
-        // Pages group by source. Each activity is a result of its own, so two activities of one month file stay apart.
-        var results = hits.GroupBy(hit => (hit.Source, Code: hit.Kind == UnitKinds.Activity ? hit.Code : null)).Take(config.Retrieval.TopK).ToList();
+        // Pages group by source. Each activity and each summary is a result of its own, so two of one month file stay apart.
+        var results = hits.GroupBy(GroupKey).Take(config.Retrieval.TopK).ToList();
         var text = new StringBuilder();
-        var shown = 0;
+        var shownResults = 0;
+        var returned = new List<IndexHit>();
         foreach (var result in results)
         {
             var sample = result.First();
             if (sample.Kind == UnitKinds.Activity)
             {
-                shown++;
+                returned.AddRange(result);
+                shownResults++;
                 var label = sample.Project.Length > 0 ? $", project {sample.Project}" : "";
-                text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
+                continue;
+            }
+
+            if (sample.Kind == UnitKinds.Summary)
+            {
+                returned.AddRange(result);
+                shownResults++;
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] summary, {sample.Section} starting {sample.Date}\n{sample.Text}\n");
                 continue;
             }
 
@@ -153,21 +287,28 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
                 ? document.Sections.Where(section => matched.Contains(section.Name)).ToList()
                 : document.Sections.Take(PageLevelSections).ToList();
             var others = document.Sections.Except(sections).Select(section => section.Name).ToList();
+            var changed = index.SectionChanges(id);
 
-            shown++;
-            text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] page {id}: {document.Header.Title}\n");
+            returned.AddRange(result);
+            shownResults++;
+            text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] page {id}: {document.Header.Title}\n");
             if (document.Header.First is { } first && document.Header.Last is { } last)
                 text.Append(CultureInfo.InvariantCulture, $"Dates: {first:yyyy-MM-dd} to {last:yyyy-MM-dd}\n");
             foreach (var section in sections)
-                text.Append(CultureInfo.InvariantCulture, $"### {section.Name} [{section.Code}]\n{section.Body}\n");
+                text.Append(CultureInfo.InvariantCulture, $"### {section.Name} [{section.Code}]{SectionDates.Note(changed, section.Name)}\n{section.Body}\n");
             if (others.Count > 0)
                 text.Append(CultureInfo.InvariantCulture, $"Other sections: {string.Join(", ", others)}\n");
         }
 
-        return shown == 0
+        var body = shownResults == 0
             ? NoMemory
-            : $"{shown} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
+            : $"{shownResults} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
+        return (body, returned);
     }
+
+    /// <summary>Hits of one activity or summary are one result each; the hits of a page's sections share the page's result.</summary>
+    private static (string Source, string? Code, string? Text) GroupKey(IndexHit hit) =>
+        hit.Kind is UnitKinds.Activity or UnitKinds.Summary ? (hit.Source, hit.Code, hit.Text) : (hit.Source, null, null);
 
     private static DateOnly? Date(string? raw, string name, List<string> problems)
     {

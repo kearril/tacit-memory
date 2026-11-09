@@ -6,7 +6,10 @@ namespace TacitMemory.Core;
 /// </summary>
 public sealed record ToolResult(string Text, bool IsError, bool Written = false);
 
-/// <summary>A <c>recall</c> call as the agent made it; exactly one of query and page is given. The service checks the arguments.</summary>
+/// <summary>
+/// A <c>recall</c> call as the agent made it; exactly one of query and page is given, unless the kind is <c>persona</c> or
+/// <c>rules</c>, which take neither. The service checks the arguments.
+/// </summary>
 public sealed record RecallRequest
 {
     /// <summary>What to look for, in natural language.</summary>
@@ -24,8 +27,11 @@ public sealed record RecallRequest
     /// <summary>Latest date, <c>YYYY-MM-DD</c>, inclusive.</summary>
     public string? To { get; init; }
 
-    /// <summary><c>pages</c> or <c>activities</c>; both when absent.</summary>
+    /// <summary><c>pages</c>, <c>activities</c>, <c>rules</c> or <c>persona</c>; pages and activities together when absent.</summary>
     public string? Kind { get; init; }
+
+    /// <summary>The domain label whose rules to read; only with <c>kind=rules</c>, and absent for every domain.</summary>
+    public string? Domain { get; init; }
 
     /// <summary>
     /// Parameter names the call gave that the tool's input schema does not declare, as the agent wrote them. The service
@@ -49,6 +55,9 @@ public sealed record WritePageRequest
     public string? Page { get; init; }
 
     public string? Title { get; init; }
+
+    /// <summary>The page's type: one of <see cref="ToolValues.PageTypes"/>. Required by <c>create</c>; <c>update_header</c> may change it.</summary>
+    public string? Type { get; init; }
 
     public IReadOnlyList<string>? Aliases { get; init; }
 
@@ -83,13 +92,10 @@ public sealed record WritePageRequest
 }
 
 /// <summary>
-/// A <c>write_recent</c> call as the agent made it. The parameters are flat; which ones are required depends on
-/// <see cref="Op"/>, and the service checks them.
+/// A <c>write_recent</c> call as the agent made it. Only <see cref="Text"/> is required; the service checks it.
 /// </summary>
 public sealed record WriteRecentRequest
 {
-    public string? Op { get; init; }
-
     /// <summary>The activity's text: one line, without the project label.</summary>
     public string? Text { get; init; }
 
@@ -99,14 +105,8 @@ public sealed record WriteRecentRequest
     /// <summary>The user's own words behind the activity, kept as a comment under the entry.</summary>
     public string? Source { get; init; }
 
-    /// <summary>The short code of today's activity this one rewrites in place; <c>add_activity</c> only.</summary>
+    /// <summary>The short code of today's activity this one rewrites in place.</summary>
     public string? Replaces { get; init; }
-
-    /// <summary>The whole mainline for <c>update_mainline</c>, in order; an empty list clears it.</summary>
-    public IReadOnlyList<string>? Items { get; init; }
-
-    /// <summary>The version code of the mainline the agent read, required by <c>update_mainline</c>.</summary>
-    public string? Hash { get; init; }
 
     /// <summary>
     /// The agent made sure with the user that the write holds no secret: the credential check is skipped.
@@ -139,6 +139,18 @@ public sealed record WritePersonaRequest
 
     /// <summary>The short code of an existing entry; for the operations that change one.</summary>
     public string? Hash { get; init; }
+
+    /// <summary>
+    /// The scope the entry goes into: <c>global</c> when omitted, <c>project:&lt;name&gt;</c> or <c>domain:&lt;label&gt;</c>.
+    /// Used by add and propose.
+    /// </summary>
+    public string? Scope { get; init; }
+
+    /// <summary>
+    /// The trigger of a domain: one line saying when the domain applies. Required when add creates a new domain, and ignored
+    /// for a domain that exists and for the other scopes. Used by add only.
+    /// </summary>
+    public string? Trigger { get; init; }
 
     /// <summary>
     /// The agent made sure with the user that the write holds no secret: the credential check is skipped.

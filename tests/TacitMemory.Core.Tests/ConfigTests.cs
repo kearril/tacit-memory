@@ -28,12 +28,15 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(18888, config.Port);
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(MemoryLanguage.Zh, config.Language);
-        Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
+        Assert.Equal(new PersonaLimits(5, 15, 10, 10), config.Limits.Persona);
         Assert.Equal(200, config.Limits.ItemLength);
         Assert.Equal(5, config.Limits.Mainline);
         Assert.Equal(new PageLimits(50, 30, 2), config.Limits.Page);
-        Assert.Equal(2, config.CandidateMinDays);
-        Assert.Equal(new CheckupConfig(7, 14, 20, 5), config.Checkup);
+        Assert.Equal(10, config.Limits.Domains);
+        Assert.Equal(10, config.Limits.DomainEntries);
+        Assert.Equal(60, config.Limits.TriggerLength);
+        Assert.Equal(3000, config.Limits.Brief);
+        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
@@ -50,7 +53,7 @@ public sealed class ConfigTests : IDisposable
         var config = _home.Tacit().LoadConfig();
 
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
-        Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
+        Assert.Equal(new PersonaLimits(5, 15, 10, 10), config.Limits.Persona);
         Assert.Null(config.Models.Embedding);
         Assert.Null(config.Models.Reranker);
         Assert.Null(config.Models.Decision);
@@ -98,12 +101,34 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(19999, config.Port);
         Assert.Equal(Path.Combine(_home.UserHome, "notes", "memory"), config.MemoryPath);
         Assert.Equal(MemoryLanguage.En, config.Language);
-        Assert.Equal(new PersonaLimits(3, 20, 15, 10), config.Limits.Persona);
+        Assert.Equal(new PersonaLimits(3, 15, 10, 10), config.Limits.Persona);
         Assert.Equal(80, config.Limits.ItemLength);
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
         Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, WrittenInConfig: true))), config.Backup);
+    }
+
+    [Fact]
+    public void The_domain_limits_are_read_from_the_limits_section()
+    {
+        WriteConfig(Models + "limits: { domains: 3, domainEntries: 4, triggerLength: 20 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(3, config.Limits.Domains);
+        Assert.Equal(4, config.Limits.DomainEntries);
+        Assert.Equal(20, config.Limits.TriggerLength);
+    }
+
+    [Fact]
+    public void The_project_brief_limit_is_read_from_the_limits_section()
+    {
+        WriteConfig(Models + "limits: { brief: 1200 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(1200, config.Limits.Brief);
     }
 
     [Theory]
@@ -323,6 +348,39 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void The_old_checkup_section_is_an_unknown_setting()
+    {
+        WriteConfig(Models + "checkup: { remindAfterDays: 7 }\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("checkup", error.Message);
+    }
+
+    [Fact]
+    public void The_removed_mainline_stale_days_key_is_an_unknown_setting_and_its_key_path_is_named()
+    {
+        WriteConfig(Models + "consolidation: { mainlineStaleDays: 14 }\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("mainlineStaleDays", error.Message);
+    }
+
+    [Fact]
+    public void The_candidates_section_is_an_unknown_setting_and_its_key_path_is_named()
+    {
+        WriteConfig(Models + "candidates: { minDays: 2 }\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("candidates", error.Message);
+    }
+
+    [Fact]
     public void Without_a_username_webdav_needs_no_password_and_the_url_becomes_a_directory()
     {
         WriteConfig(Models + "backup: { webdav: { url: 'https://dav.example/tacit' } }\n");
@@ -537,7 +595,7 @@ public sealed class ConfigTests : IDisposable
 
         Assert.StartsWith("## Worth recording\n", File.ReadAllText(RulesPath));
         Assert.Equal(5, rules.WorthRecording.Count);
-        Assert.Equal(2, rules.NotRecorded.Count);
+        Assert.Equal(3, rules.NotRecorded.Count);
     }
 
     [Fact]
@@ -554,13 +612,13 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void Configured_checkup_budget_and_concurrency_override_the_defaults()
+    public void Configured_consolidation_budget_and_concurrency_override_the_defaults()
     {
-        WriteConfig(Models + "checkup: { budgetSeconds: 5, maxConcurrency: 2 }\n");
+        WriteConfig(Models + "consolidation: { budgetSeconds: 5, maxConcurrency: 2, remindCandidates: 3 }\n");
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new CheckupConfig(7, 14, 5, 2), config.Checkup);
+        Assert.Equal(new ConsolidationConfig(7, 5, 2, 3), config.Consolidation);
     }
 
     [Theory]
@@ -569,18 +627,18 @@ public sealed class ConfigTests : IDisposable
     [InlineData("budgetSeconds", "2.5")]
     [InlineData("maxConcurrency", "0")]
     [InlineData("maxConcurrency", "nine")]
-    public void A_checkup_budget_or_concurrency_that_is_not_a_positive_whole_number_is_refused(string key, string value)
+    public void A_consolidation_budget_or_concurrency_that_is_not_a_positive_whole_number_is_refused(string key, string value)
     {
-        WriteConfig(Models + $"checkup: {{ {key}: {value} }}\n");
+        WriteConfig(Models + $"consolidation: {{ {key}: {value} }}\n");
 
         var error = LoadFails();
 
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
-        Assert.Contains($"checkup.{key}", error.Message);
+        Assert.Contains($"consolidation.{key}", error.Message);
     }
 
     [Fact]
-    public void The_chinese_template_documents_the_checkup_budget_and_concurrency()
+    public void The_chinese_template_documents_the_consolidation_budget_and_concurrency()
     {
         var lines = File.ReadAllLines(ConfigPath);
 
@@ -589,7 +647,7 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public async Task The_english_template_documents_the_checkup_budget_and_concurrency()
+    public async Task The_english_template_documents_the_consolidation_budget_and_concurrency()
     {
         using var home = new TestHome();
         await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });

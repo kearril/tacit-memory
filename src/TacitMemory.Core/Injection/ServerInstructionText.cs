@@ -24,13 +24,13 @@ internal sealed record InstructionText(InstructionPart Part, string Text);
 /// The server instructions as parts: the fixed parts, the recent summary with the project list, and the whole text the
 /// agent receives.
 /// </summary>
-internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Checkup, string Text);
+internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Consolidation, string Text);
 
 /// <summary>
 /// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
-/// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part is short and always whole. The
-/// recent summary and the project list are cut to fit <see cref="TotalLimit"/>: the oldest activities go first, then
-/// project names from the end, and the list vanishes when none fits.
+/// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part and the consolidation
+/// reminder are short and always whole. The activities of the last seven days are cut to fit <see cref="TotalLimit"/>:
+/// the oldest go first. The mainline, the recent weeks and the projects are in the resident block, not here.
 /// </summary>
 internal static class ServerInstructionText
 {
@@ -39,58 +39,36 @@ internal static class ServerInstructionText
     public const int FixedLimit = 2500;
 
     private const string Opening = """
-        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is summarized under ## Recent below; details live in pages you reach with `recall`.
-        """;
-
-    private const string UsingMemory = """
-        ## Using memory
-        - Keep what you know from memory apart from what you infer from the persona; never present a guess as something you remember.
-        - Do not bring up past events the user has not mentioned.
-        - When the user describes their situation, mention recent context in half a sentence.
-        """;
-
-    private const string Recalling = """
-        ## When to recall
-        - Call `recall` when the user mentions something from the past, or names a person, project or term that is not in your context.
-        - Call `recall` with the project name before starting work on a project.
-        - When `recall` finds nothing, say you do not remember; do not guess.
-        """;
-
-    private const string Writing = """
-        ## Writing pages
-        - When something worth recording happens, `recall` it first; if a page already covers the matter, update that page instead of creating one.
-        - One page per matter.
-        """;
-
-    private const string WritingRecent = """
-        ## Writing activities and mainline
-        - Write an activity when a main matter concludes; one per session, and later progress uses `replaces`.
-        - Change the mainline only for a lasting new direction or a clearly ended one.
-        """;
-
-    private const string WritingPersona = """
-        ## Writing persona
-        - Propose a habit, preference or working rule the user states, even in passing, with write_persona op=propose and its section; it becomes a candidate.
-        <!-- Permission boundary, do not remove: the next two rules -->
-        - Use op=add only when the user explicitly asks you to remember; only the user sets a red line.
-        - If the user's words contradict a persona entry, follow them, propose nothing, ask whether to update it, and op=replace only after the user agrees.
+        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is listed in <recent_activity> below; details live in pages you reach with `recall`.
         """;
 
     /// <summary>
     /// The built-in <c>instructions.md</c>: the policy paragraphs, used whenever the user has no such file. Its HTML
     /// comments are notes for whoever edits it; they are removed before the text is sent.
     /// </summary>
-    public static readonly string DefaultInstructions = Join([UsingMemory, Recalling, Writing, WritingRecent, WritingPersona]);
+    public static readonly string DefaultInstructions = """
+        ## Using memory
+        - Mark what you infer from the persona as inference; state as remembered only what memory holds.
+        - Raise old events only after the user does. When the user describes their situation, link recent context in half a sentence.
+
+        ## Recall
+        - At the start of work on a project, call `recall` with only `project`.
+        - Call `recall` when the user refers to the past, or names a person, project or term your context lacks. When it finds nothing, say you don't remember.
+
+        ## Write
+        - When something worth recording happens, `recall` first, then update the page that covers the matter or create one.
+        - When a main matter reaches a conclusion, write one activity; later progress rewrites it with `replaces`.
+        - When the user corrects you or states how they want something done, ask once whether to keep it as a lasting rule, since the persona loads into every session; `write_persona op=add` after they agree. A habit you observe across the session goes in with `op=propose`.
+        <!-- Permission boundary, do not remove -->
+        - Red lines come only from the user. Change or remove a persona entry after the user agrees.
+        """;
 
     /// <summary>
-    /// The general rules, which the code provides so they stay in place when the user replaces the core rules. They
-    /// point at the memory skill, where each kind of memory is written.
+    /// The general rule, which the code provides so it stays after the core rules when the user replaces them. It points
+    /// at the memory skill and says when to read it.
     /// </summary>
-    private static readonly string GeneralRules = $"""
-        ## General rules
-        - When a write tool refuses, do what its Next step says.
-        - How to write each kind of memory in detail is in the `{MemorySkill.Name}` skill.
-        """;
+    private static readonly string GeneralRules =
+        $"Before your first memory write in a session, and after any refusal, read the `{MemorySkill.Name}` skill.";
 
     /// <summary>
     /// Matches an HTML comment that fills its lines: one line, or a block from the line it opens on to the first
@@ -145,22 +123,20 @@ internal static class ServerInstructionText
     }
 
     /// <summary>
-    /// The server instructions as parts: the fixed parts, the recent summary with its projects, the checkup reminder and
-    /// the whole text.
+    /// The server instructions as parts: the fixed parts, the activities of the last seven days, the status, the consolidation
+    /// reminder and the whole text.
     /// </summary>
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
     /// <param name="skippedFiles">Pages, activity record files and persona files left out of the index because they are not UTF-8.</param>
-    /// <param name="recent">The mainline and the last seven days of activities.</param>
-    /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
-    /// <param name="checkupReminder">The checkup reminder, already rendered; <c>null</c> when no checkup is due.</param>
+    /// <param name="recent">The activities of the last seven days.</param>
+    /// <param name="consolidationReminder">The consolidation reminder, already rendered; <c>null</c> when no consolidation is due.</param>
     public static InstructionSet Assemble(
         MemoryLanguage language,
         PromptDocuments prompts,
         IReadOnlyList<string> unavailableModels,
         IReadOnlyList<string> skippedFiles,
         RecentSummary recent,
-        IReadOnlyList<string> projects,
-        string? checkupReminder)
+        string? consolidationReminder)
     {
         var fixedParts = FixedParts(language, prompts);
         var fixedText = Join(fixedParts.Select(part => part.Text));
@@ -170,63 +146,32 @@ internal static class ServerInstructionText
         if (skippedFiles.Count > 0)
             status.Add($"- Files not searchable because they are not UTF-8: {string.Join(", ", skippedFiles)}.");
         var statusText = status.Count == 0 ? "" : "## Status\n" + string.Join("\n", status);
+        var consolidation = consolidationReminder ?? "";
 
         // Newest first, so the oldest activity is the last one and goes first.
         var activities = recent.Week.ToList();
-        var kept = projects.ToList();
         while (true)
         {
-            var summary = Summary(recent.Mainline, activities);
-            var projectList = kept.Count == 0 ? "" : "## Projects\n" + string.Join(", ", kept);
-            var checkup = checkupReminder ?? "";
-            var text = Join([fixedText, summary, statusText, projectList, checkup]);
-            var recentText = Join([summary, projectList]);
-            if (text.Length <= TotalLimit || (activities.Count == 0 && kept.Count == 0))
-                return new InstructionSet(fixedParts, fixedText, recentText, checkup, text);
-            if (activities.Count > 0)
-                activities.RemoveAt(activities.Count - 1);
-            else
-                kept.RemoveAt(kept.Count - 1);
+            var activityBlock = ActivityBlock(activities);
+            var text = Join([fixedText, activityBlock, statusText, consolidation]);
+            if (text.Length <= TotalLimit || activities.Count == 0)
+                return new InstructionSet(fixedParts, fixedText, activityBlock, consolidation, text);
+            activities.RemoveAt(activities.Count - 1);
         }
     }
 
     /// <summary>
-    /// The project names the instructions list: the directories under <c>pages/</c> that do not start with an
-    /// underscore or a dot, together with every project label in the activity log; sorted by name, each once.
+    /// The activities of the last seven days, one per line with their dates and projects, inside <c>recent_activity</c>
+    /// tags so the agent reads them as data; empty when there are none.
     /// </summary>
-    public static IReadOnlyList<string> Projects(string memoryPath, IEnumerable<string> activityProjects)
+    private static string ActivityBlock(IReadOnlyList<RecentFile.Activity> activities)
     {
-        var pages = Path.Combine(memoryPath, "pages");
-        IEnumerable<string> directories = Directory.Exists(pages)
-            ? Directory.EnumerateDirectories(pages).Select(Path.GetFileName).OfType<string>()
-            : Enumerable.Empty<string>();
-        return directories
-            .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
-            .Concat(activityProjects)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-    }
-
-    /// <summary>The recent summary: the mainline without codes, then the activities with their dates and projects.</summary>
-    private static string Summary(IReadOnlyList<string> mainline, IReadOnlyList<RecentFile.Activity> activities)
-    {
-        if (mainline.Count == 0 && activities.Count == 0)
+        if (activities.Count == 0)
             return "";
 
-        var lines = new List<string> { "## Recent" };
-        if (mainline.Count > 0)
-        {
-            lines.Add("Mainline:");
-            lines.AddRange(mainline.Select(item => "- " + item));
-        }
-        if (activities.Count > 0)
-        {
-            lines.Add("Activities from the last 7 days, newest first:");
-            lines.AddRange(activities.Select(activity =>
-                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.Labeled}"));
-        }
-        return string.Join("\n", lines);
+        var lines = activities.Select(activity =>
+            $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.Labeled}");
+        return $"<recent_activity days=\"{RecentSummary.WindowDays}\">\n{string.Join("\n", lines)}\n</recent_activity>";
     }
 
     /// <summary>The two sections of <c>rules.md</c>, items word for word; an empty section is left out.</summary>

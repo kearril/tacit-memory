@@ -128,8 +128,8 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     {
         var subcommand = FirstArgument(context);
         throw new UsageException(subcommand is null
-            ? "Missing show subcommand. Valid subcommands: instructions, resident, skill, tools, remember, checkup."
-            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, resident, skill, tools, remember, checkup.");
+            ? "Missing show subcommand. Valid subcommands: instructions, resident, skill, tools, remember, consolidate."
+            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, resident, skill, tools, remember, consolidate.");
     });
 
     /// <summary>Show the server instructions a session receives.</summary>
@@ -219,9 +219,9 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     [Command("show remember")]
     public Task<int> ShowRemember(ConsoleAppContext context) => ShowPart(ShowTarget.Remember, useDefault: false, context);
 
-    /// <summary>Show the checkup skill.</summary>
-    [Command("show checkup")]
-    public Task<int> ShowCheckup(ConsoleAppContext context) => ShowPart(ShowTarget.Checkup, useDefault: false, context);
+    /// <summary>Show the consolidation skill.</summary>
+    [Command("show consolidate")]
+    public Task<int> ShowConsolidate(ConsoleAppContext context) => ShowPart(ShowTarget.Consolidation, useDefault: false, context);
 
     /// <summary>Prints one part of what the agent receives. A context is given only by the parts that take no options, so leftover words are refused.</summary>
     private Task<int> ShowPart(ShowTarget target, bool useDefault, ConsoleAppContext? context = null) => Execute(async () =>
@@ -233,7 +233,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         return 0;
     });
 
-    /// <summary>Show the service's state, models, bindings, checkup, pending items, backups, logs and secrets.</summary>
+    /// <summary>Show the service's state, models, bindings, consolidation, pending items, backups, logs and secrets.</summary>
     /// <remarks>
     /// The exit code is 3 whenever config.yaml does not load. Otherwise it is 0 while a service answers with its report,
     /// 1 when the service refuses the report or the offline report cannot be read (an IO or permission error; the reason

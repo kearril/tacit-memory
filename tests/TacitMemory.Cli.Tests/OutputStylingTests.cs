@@ -219,6 +219,46 @@ public sealed class StyledRestoreAndWaitTests : IAsyncLifetime
     }
 }
 
+/// <summary>The clients column of <c>status</c>: its words with the service stopped, and while it runs.</summary>
+[Collection(CliCollection.Name)]
+public sealed class ClientsColumnCliTests : IDisposable
+{
+    private readonly CliHarness _cli = new();
+
+    public void Dispose() => _cli.Dispose();
+
+    [Fact]
+    public async Task The_clients_column_is_shown_while_the_service_is_stopped_and_names_each_recorded_client_without_control_characters()
+    {
+        _cli.InitReady();
+        // A file that a client's own text has put control characters into: the report must still print plain words.
+        File.WriteAllText(
+            Path.Combine(_cli.Home.TacitHome, "clients.json"),
+            "{\"clients\":[{\"name\":\"probe\\u001b[31m-client\",\"version\":\"1.2.3\",\"lastSeen\":\"2026-11-02\",\"protocolVersion\":\"2026-07-28\",\"capabilities\":[],\"extensions\":[\"io.example/tasks\"]}]}");
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(4, result.ExitCode);
+        Assert.Contains("客户端" + Environment.NewLine, result.Stdout);
+        Assert.True(result.Stdout.Contains("  probe[31m-client 1.2.3：最近连接 2026-11-02，协议 2026-07-28，扩展：io.example/tasks", StringComparison.Ordinal), result.Stdout);
+        Assert.DoesNotContain(OutputWords.Escape, result.Stdout);
+    }
+
+    [Fact]
+    public async Task The_clients_column_is_shown_while_the_service_runs()
+    {
+        _cli.InitReady();
+        await _cli.StartServiceAsync();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("客户端" + Environment.NewLine, result.Stdout);
+        Assert.Contains("  尚未有客户端连接过服务。", result.Stdout);
+        Assert.DoesNotContain(OutputWords.Escape, result.Stdout);
+    }
+}
+
 /// <summary>Compares outputs by their words: the escape sequences, whitespace and box-drawing characters are left out.</summary>
 internal static class OutputWords
 {

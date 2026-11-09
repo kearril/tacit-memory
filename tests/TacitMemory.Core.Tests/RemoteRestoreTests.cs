@@ -57,6 +57,7 @@ public sealed class RemoteRestoreTests : IDisposable
     private static WritePageRequest Create(string page) => new()
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = "云端恢复测试",
         Aliases = ["云端恢复别名一", "云端恢复别名二"],

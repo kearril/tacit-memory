@@ -13,10 +13,18 @@ internal static class StructureWords
     public static readonly Localized Candidates = new("候选", "Candidates");
     public static readonly Localized RejectionList = new("拒绝列表", "Rejection list");
     public static readonly Localized Mainline = new("近期主线", "Mainline");
+    public static readonly Localized Summary = new("汇总", "Summary");
     public static readonly Localized BelongsTo = new("归属：", "Belongs to: ");
+    public static readonly Localized Scope = new("作用域：", "Scope: ");
     public static readonly Localized Quote = new("原话", "quote");
     public static readonly Localized Instead = new("改为", "instead");
     public static readonly Localized Rejected = new("拒绝", "rejected");
     public static readonly Localized WorthRecording = new("值得记", "Worth recording");
     public static readonly Localized NotRecorded = new("不记", "Not recorded");
+    public static readonly Localized Leftovers = new("遗留", "Leftovers");
+    public static readonly Localized Overturned = new("推翻记录", "Overturned");
+    public static readonly Localized Domain = new("领域", "Domain");
+    public static readonly Localized Project = new("项目", "Project");
+    public static readonly Localized Trigger = new("触发", "Trigger");
+    public static readonly Localized Lesson = new("教训", "Lesson");
 }

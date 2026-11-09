@@ -7,7 +7,10 @@ namespace TacitMemory.Core.Persona;
 
 /// <summary>A persona candidate, rejected candidate or persona entry that states the same preference as a proposal.</summary>
 /// <param name="Kind">The index unit kind: <see cref="UnitKinds.Candidate"/>, <see cref="UnitKinds.RejectedCandidate"/> or <see cref="UnitKinds.PersonaEntry"/>.</param>
-internal sealed record PreferenceMatch(string Kind, PersonaSection Section, string Text);
+/// <param name="Section">The persona section the match belongs to.</param>
+/// <param name="Text">The match's text, as the judgment index holds it.</param>
+/// <param name="Scope">The scope the match is in.</param>
+internal sealed record PreferenceMatch(string Kind, PersonaSection Section, string Text, PersonaScope Scope);
 
 /// <summary>What the same-preference check found: the matching entry, or a note for the agent when the check could not run.</summary>
 internal sealed record SamePreferenceVerdict(PreferenceMatch? Same, string? Note);
@@ -47,10 +50,13 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
     /// <summary>Longest description of one option.</summary>
     private const int OptionLength = 250;
 
-    /// <summary>One existing entry as the question offers it: its kind and section in brackets, cut to the option length.</summary>
-    internal static string OptionText(string kind, PersonaSection section, string text, MemoryLanguage language)
+    /// <summary>
+    /// One existing entry as the question offers it: its kind, its section and its scope in brackets, then its text, cut to
+    /// the option length.
+    /// </summary>
+    internal static string OptionText(string kind, PersonaScope scope, PersonaSection section, string text, MemoryLanguage language)
     {
-        var label = $"[{kind} | {PersonaDocument.HeadingOf(section).In(language)}] {text}";
+        var label = $"[{kind} | {PersonaDocument.HeadingOf(section).In(language)} | {scope}] {text}";
         return label.Length > OptionLength ? label[..OptionLength] : label;
     }
 
@@ -79,8 +85,8 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
             if (hit.Section is not { } hitSection)
                 continue;
             var key = "o" + (matches.Count + 1).ToString(CultureInfo.InvariantCulture);
-            var match = new PreferenceMatch(hit.Kind, hitSection, hit.Text);
-            options[key] = OptionText(hit.Kind, hitSection, hit.Text, config.Language);
+            var match = new PreferenceMatch(hit.Kind, hitSection, hit.Text, hit.Scope);
+            options[key] = OptionText(hit.Kind, hit.Scope, hitSection, hit.Text, config.Language);
             matches[key] = match;
         }
 

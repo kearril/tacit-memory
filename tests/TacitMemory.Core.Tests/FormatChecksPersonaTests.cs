@@ -4,6 +4,8 @@ public sealed class FormatChecksPersonaTests : IDisposable
 {
     private const string FormatTitle = "Format and rule violations";
 
+    private const string OverLimitTitle = "Over-limit sections and domain hygiene";
+
     private readonly TestHome _home = new();
 
     public void Dispose() => _home.Dispose();
@@ -34,7 +36,11 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     private async Task<string> Violations(MemoryService service) =>
-        Section(await service.CheckupReportAsync(), FormatTitle);
+        Section(await service.ConsolidationReportAsync(), FormatTitle);
+
+    /// <summary>The problems put to the user, which sit in part B of the report.</summary>
+    private async Task<string> OverLimit(MemoryService service) =>
+        Section(await service.ConsolidationReportAsync(), OverLimitTitle);
 
     [Fact]
     public async Task A_red_line_without_instead_is_reported_at_its_line_and_fixed_directly()
@@ -95,7 +101,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
         using var service = Open("limits:\n  persona:\n    preferences: 1\n");
         Write("persona.md", "## 偏好\n- 第一条\n- 第二条\n");
 
-        var violations = await Violations(service);
+        var violations = await OverLimit(service);
 
         Assert.Contains("Section over limit", violations);
         Assert.Contains("Ask the user.", violations);
@@ -143,6 +149,20 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     [Fact]
+    public async Task A_candidate_scope_line_that_is_not_a_scope_is_reported_and_a_valid_one_is_not()
+    {
+        using var service = Open();
+        Write("candidates.md", "## 候选\n### 先说结论\n归属：偏好\n作用域：domain:Bad Name\n- 2026-10-28 原话「先说结论」\n### 再说结论\n归属：偏好\nScope: domain:network-proxy\n- 2026-10-28 原话「再说结论」\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Invalid scope", violations);
+        Assert.Contains("line 4", violations);
+        Assert.DoesNotContain("line 8", violations);
+        Assert.DoesNotContain("Unrecognized occurrence line", violations);
+    }
+
+    [Fact]
     public async Task Entries_outside_a_date_heading_and_bad_date_headings_are_reported()
     {
         using var service = Open();
@@ -167,7 +187,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
         using var service = Open();
         Write("recent.md", "## 近期主线\n- 一\n- 二\n- 三\n- 四\n- 五\n- 六\n");
 
-        var violations = await Violations(service);
+        var violations = await OverLimit(service);
 
         Assert.Contains("recent.md", violations);
         Assert.Contains("Mainline over limit", violations);
@@ -184,5 +204,79 @@ public sealed class FormatChecksPersonaTests : IDisposable
         Write("persona.md", "## 红线\n- 不要发布版本；改为先请用户确认\n");
 
         Assert.DoesNotContain("Red line without instead", await Violations(service));
+    }
+
+    [Fact]
+    public async Task A_domain_without_a_trigger_is_reported_at_its_heading_and_fixed_directly()
+    {
+        using var service = Open();
+        Write("persona.md", "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n### 偏好\n- 测速：只看持续测速\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("persona.md", violations);
+        Assert.Contains("line 4", violations);
+        Assert.Contains("Domain without trigger", violations);
+        Assert.DoesNotContain("line 6", violations);
+    }
+
+    [Fact]
+    public async Task A_trigger_longer_than_its_limit_and_an_unrecognized_section_in_a_domain_are_reported()
+    {
+        using var service = Open("limits:\n  triggerLength: 5\n");
+        Write("persona.md", "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 偏好\n- 测速：只看持续测速\n### 其他\n- 不认识的节\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Trigger too long", violations);
+        Assert.Contains("line 2", violations);
+        Assert.Contains("Unrecognized section", violations);
+        Assert.Contains("section \"其他\"", violations);
+        Assert.DoesNotContain("line 6", violations);
+    }
+
+    [Fact]
+    public async Task A_red_line_inside_a_domain_is_checked_like_one_in_a_global_section()
+    {
+        using var service = Open();
+        Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 红线\n- 不要发布版本\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Red line without instead", violations);
+        Assert.Contains("line 4", violations);
+    }
+
+    [Fact]
+    public async Task A_domain_over_its_entry_limit_and_too_many_domains_are_put_to_the_user()
+    {
+        using var service = Open("limits:\n  domains: 1\n  domainEntries: 1\n");
+        Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 第一条\n- 第二条\n\n## 领域：writing\n触发：写文章时\n### 偏好\n- 写作\n");
+
+        var violations = await OverLimit(service);
+
+        Assert.Contains("Domain over limit", violations);
+        Assert.Contains("Too many domains", violations);
+        Assert.Contains("Ask the user.", violations);
+    }
+
+    [Fact]
+    public async Task A_domain_name_that_breaks_the_naming_rule_is_reported()
+    {
+        using var service = Open();
+        Write("persona.md", "## 领域：Network\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+
+        Assert.Contains("Invalid scope name", await Violations(service));
+    }
+
+    [Fact]
+    public async Task Entries_in_a_domain_are_not_part_of_the_global_section_limit()
+    {
+        using var service = Open("limits:\n  persona:\n    preferences: 1\n");
+        Write("persona.md", "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+
+        var violations = await Violations(service);
+
+        Assert.DoesNotContain("Section over limit", violations);
     }
 }

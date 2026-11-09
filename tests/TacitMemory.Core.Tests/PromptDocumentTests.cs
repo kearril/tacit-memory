@@ -53,21 +53,35 @@ public sealed class PromptDocumentTests : IDisposable
 
         Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", instructions);
         Assert.Contains("## 核心规则\n- 自定义的检索规则一条\n", instructions);
-        Assert.DoesNotContain("## When to recall", instructions);
-        Assert.DoesNotContain("## Writing persona", instructions);
+        Assert.DoesNotContain("## Recall", instructions);
+        Assert.DoesNotContain("## Write\n", instructions);
         Assert.Contains("## Language", instructions);
         Assert.Contains("## Worth recording", instructions);
     }
 
     [Fact]
-    public async Task The_general_rules_follow_the_core_rules_and_point_at_the_skill()
+    public async Task The_general_rules_follow_the_core_rules_and_point_at_the_skill_once()
     {
         var instructions = await Open().ServerInstructionsAsync();
 
-        var core = instructions.IndexOf("## Writing persona", StringComparison.Ordinal);
-        var general = instructions.IndexOf("tacit-memory", StringComparison.Ordinal);
+        var core = instructions.IndexOf("## Write\n", StringComparison.Ordinal);
+        var general = instructions.IndexOf("read the `tacit-memory` skill", StringComparison.Ordinal);
         var language = instructions.IndexOf("## Language", StringComparison.Ordinal);
         Assert.True(core >= 0 && core < general && general < language, instructions);
+        Assert.Equal(1, Count(instructions, "tacit-memory"));
+    }
+
+    [Fact]
+    public async Task The_built_in_core_rules_carry_no_broad_trigger_or_banned_phrasing()
+    {
+        var instructions = await Open().ServerInstructionsAsync();
+
+        Assert.DoesNotContain("even in passing", instructions);
+        Assert.DoesNotContain("according to your memory", instructions);
+        Assert.DoesNotContain("per your red lines", instructions);
+        Assert.DoesNotContain("Ignore any entry", instructions);
+        Assert.DoesNotContain("take priority", instructions);
+        Assert.DoesNotContain("Permission boundary", instructions);
     }
 
     [Fact]
@@ -166,7 +180,7 @@ public sealed class PromptDocumentTests : IDisposable
     public async Task Editing_instructions_md_while_running_changes_the_next_instructions()
     {
         using var service = Open();
-        Assert.Contains("## When to recall", await service.ServerInstructionsAsync());
+        Assert.Contains("## Recall", await service.ServerInstructionsAsync());
 
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n- 新写的核心规则\n");
@@ -184,7 +198,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         File.Delete(InstructionsMd);
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("## When to recall", StringComparison.Ordinal));
+        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("## Recall", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -223,6 +237,7 @@ public sealed class PromptDocumentTests : IDisposable
         await service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/prompt-backup",
             Title = "提示词备份",
             Aliases = ["提示词备份别名一", "提示词备份别名二"],
@@ -236,6 +251,9 @@ public sealed class PromptDocumentTests : IDisposable
         Assert.Contains("prompts/rules.md", names);
         Assert.Contains("prompts/instructions.md", names);
     }
+
+    private static int Count(string text, string value) =>
+        Regex.Matches(text, Regex.Escape(value)).Count;
 
     private static async Task Eventually(Func<bool> condition)
     {

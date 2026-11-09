@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -191,6 +193,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var written = await _service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份的坑", "备份问题"],
@@ -296,6 +299,90 @@ public sealed class ManagementApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Conflict, status);
         Assert.Equal(nameof(TacitError.BackupExists), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
+
+    [Fact]
+    public async Task A_client_that_connects_is_listed_in_status_with_its_name_version_protocol_and_extensions()
+    {
+        await using var client = await ConnectAsync(Declared("2026-07-28"));
+        await client.ListToolsAsync();
+
+        var text = await StatusText();
+        var recorded = Assert.Single(JsonSerializer.Deserialize<StatusReport>(text, ManagementApiJson.Options)!.Clients!.Items);
+        Assert.Equal("probe-client", recorded.Name);
+        Assert.Equal("1.2.3", recorded.Version);
+        Assert.Equal("2026-07-28", recorded.ProtocolVersion);
+        Assert.Equal(["elicitation"], recorded.Capabilities);
+        Assert.Equal(["io.example/tasks"], recorded.Extensions);
+        Assert.Contains("\"extensions\":[\"io.example/tasks\"]", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_client_on_an_older_revision_is_listed_from_its_initialize_request()
+    {
+        await using var client = await ConnectAsync(Declared("2025-11-25"));
+        await client.ListToolsAsync();
+
+        var recorded = Assert.Single(JsonSerializer.Deserialize<StatusReport>(await StatusText(), ManagementApiJson.Options)!.Clients!.Items);
+        Assert.Equal("2025-11-25", recorded.ProtocolVersion);
+        Assert.Equal(["io.example/tasks"], recorded.Extensions);
+    }
+
+    [Fact]
+    public async Task Connecting_again_logs_nothing_and_a_changed_capability_logs_one_more_event()
+    {
+        await using (var first = await ConnectAsync(Declared("2026-07-28")))
+        {
+            await first.ListToolsAsync();
+            await first.ListToolsAsync();
+        }
+        await using (var again = await ConnectAsync(Declared("2026-07-28")))
+            await again.ListToolsAsync();
+        Assert.Equal(1, EventsFor("probe-client"));
+
+        var changed = Declared("2026-07-28");
+        changed.Capabilities!.Experimental = new Dictionary<string, object> { ["io.example/experiment"] = EmptyObject() };
+        await using (var third = await ConnectAsync(changed))
+            await third.ListToolsAsync();
+
+        Assert.Equal(2, EventsFor("probe-client"));
+    }
+
+    [Fact]
+    public async Task The_recorded_client_is_still_listed_after_the_service_restarts()
+    {
+        await using (var client = await ConnectAsync(Declared("2026-07-28")))
+            await client.ListToolsAsync();
+        await _host.DisposeAsync();
+        _service.Dispose();
+        _service = _home.Tacit().OpenService(_ => { }, _logs);
+        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+
+        var recorded = Assert.Single(JsonSerializer.Deserialize<StatusReport>(await StatusText(), ManagementApiJson.Options)!.Clients!.Items);
+        Assert.Equal("probe-client", recorded.Name);
+    }
+
+    /// <summary>A client that declares the name, version, an elicitation capability and one extension, on the given protocol revision.</summary>
+    private static McpClientOptions Declared(string protocolVersion) => new()
+    {
+        ProtocolVersion = protocolVersion,
+        ClientInfo = new Implementation { Name = "probe-client", Version = "1.2.3" },
+        Capabilities = new ClientCapabilities
+        {
+            Elicitation = new ElicitationCapability(),
+            Extensions = new Dictionary<string, object> { ["io.example/tasks"] = EmptyObject() },
+        },
+    };
+
+    /// <summary>An extension's settings: an empty object, which the SDK can serialize, unlike an anonymous type.</summary>
+    private static JsonElement EmptyObject() => JsonDocument.Parse("{}").RootElement.Clone();
+
+    private Task<McpClient> ConnectAsync(McpClientOptions options) => McpClient.CreateAsync(
+        new HttpClientTransport(new HttpClientTransportOptions { Endpoint = _host.Endpoint, TransportMode = HttpTransportMode.StreamableHttp }),
+        options);
+
+    private async Task<string> StatusText() => await _http.GetStringAsync(Url("/api/status"));
+
+    private int EventsFor(string name) => _logs.Entries.Count(entry => entry.Message.Contains(name, StringComparison.Ordinal));
 
     private HttpRequestMessage Post(string path, string json) =>
         new(HttpMethod.Post, Url(path)) { Content = new StringContent(json, Encoding.UTF8, "application/json") };

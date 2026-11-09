@@ -24,6 +24,14 @@ internal static class ManagementApiMessages
     public static readonly Localized ModelCoolingDown = new("{0}：冷却中，剩余 {1} 秒", "{0}: cooling down, {1} s left");
     public static readonly Localized ModelUnconfigured = new("{0}：未配置", "{0}: not configured");
 
+    public static readonly Localized ClientsTitle = new("客户端", "Clients");
+    public static readonly Localized ClientsNone = new("尚未有客户端连接过服务。", "No client has connected to the service yet.");
+    public static readonly Localized ClientsUnreadable = new("无法读取客户端能力记录：{0}", "The client record cannot be read: {0}");
+    public static readonly Localized ClientLine = new(
+        "{0} {1}：最近连接 {2}，协议 {3}，扩展：{4}",
+        "{0} {1}: last connected {2}, protocol {3}, extensions: {4}");
+    public static readonly Localized ClientNoExtensions = new("无", "none");
+
     public static readonly Localized LogsTitle = new("日志", "Logs");
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
 
@@ -71,22 +79,24 @@ internal static class ManagementApiMessages
         "{0}: the skill link {3} is missing or does not point at tacit (context file {1}; skills folder {2})");
     public static readonly Localized BindingSharedWith = new("（与 {0} 共用路径）", " (shares paths with {0})");
 
-    public static readonly Localized CheckupTitle = new("上次体检", "Last checkup");
-    public static readonly Localized CheckupOn = new("上次体检：{0}，{1}", "Last checkup: {0}, {1}");
-    public static readonly Localized CheckupFromInit = new("尚未体检，从初始化提交（{0}）起算，{1}", "No checkup yet; counting from the init commit ({0}), {1}");
-    public static readonly Localized CheckupNever = new("从未体检（仓库没有 checkup: 或 init: 提交）", "Never checked (the repository has no checkup: or init: commit)");
+    public static readonly Localized ConsolidationTitle = new("上次整理", "Last consolidation");
+    public static readonly Localized ConsolidationOn = new("上次整理：{0}，{1}", "Last consolidation: {0}, {1}");
+    public static readonly Localized ConsolidationFromInit = new("尚未整理，从初始化提交（{0}）起算，{1}", "No consolidation yet; counting from the init commit ({0}), {1}");
+    public static readonly Localized ConsolidationNever = new("从未整理（仓库没有 consolidate: 或 init: 提交）", "Never checked (the repository has no consolidate: or init: commit)");
     public static readonly Localized DaysAgo = new("距今 {0} 天", "{0} days ago");
     public static readonly Localized DayAgo = new("距今 1 天", "1 day ago");
-    public static readonly Localized CheckupUnreadable = new("无法读取记忆仓库的历史：{0}", "The repository's history cannot be read: {0}");
+    public static readonly Localized ConsolidationUnreadable = new("无法读取记忆仓库的历史：{0}", "The repository's history cannot be read: {0}");
 
     public static readonly Localized PendingTitle = new("待处理问题", "Pending issues");
-    public static readonly Localized PendingConfirmable = new("可确认的候选：{0}", "Candidates that can be confirmed: {0}");
-    public static readonly Localized PendingConfirmableUnknown = new(
-        "可确认的候选：未统计（candidates.md 不是 UTF-8）",
-        "Candidates that can be confirmed: not counted (candidates.md is not UTF-8)");
+    public static readonly Localized PendingCandidates = new("候选：{0}", "Candidates: {0}");
+    public static readonly Localized PendingCandidatesUnknown = new(
+        "候选：未统计（candidates.md 不是 UTF-8）",
+        "Candidates: not counted (candidates.md is not UTF-8)");
     public static readonly Localized PendingFormatProblems = new("格式问题：{0}", "Format and rule problems: {0}");
-    public static readonly Localized PendingMainlineStale = new("主线：已过期", "Mainline: stale");
-    public static readonly Localized PendingMainlineFresh = new("主线：未过期", "Mainline: not stale");
+    public static readonly Localized PendingMainlineEmpty = new("主线：为空", "Mainline: empty");
+    public static readonly Localized PendingMainlineSet = new("主线：已设定", "Mainline: set");
+
+    public static readonly Localized PendingWeeks = new("待汇总的周：{0}", "Weeks to summarize: {0}");
     public static readonly Localized PendingUnreadable = new("无法统计待处理问题：{0}", "Pending issues cannot be counted: {0}");
 
 

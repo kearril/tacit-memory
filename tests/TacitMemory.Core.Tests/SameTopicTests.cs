@@ -27,7 +27,6 @@ public sealed class SameTopicTests : IDisposable
 
     private static WriteRecentRequest Add(string text, string? project = null, string? replaces = null) => new()
     {
-        Op = "add_activity",
         Text = text,
         Project = project,
         Replaces = replaces,
@@ -122,6 +121,19 @@ public sealed class SameTopicTests : IDisposable
         await Service.WriteRecentAsync(Add("另一件事"));
 
         Assert.Equal(1, _models.DecisionCalls);
+    }
+
+    [Fact]
+    public async Task With_the_decision_model_down_the_activity_is_still_written_and_the_reply_says_the_check_did_not_happen()
+    {
+        await Service.WriteRecentAsync(Add("先查了索引"));
+        _models.DecisionDown = true;
+
+        var result = await Service.WriteRecentAsync(Add("另一件事"));
+
+        Assert.True(result.Written, result.Text);
+        Assert.Contains("the decision model is unavailable, so whether this activity is about the same thing", result.Text);
+        Assert.Equal(2, EntryCount());
     }
 
     [Fact]

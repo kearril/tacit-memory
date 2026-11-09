@@ -29,6 +29,7 @@ public sealed class VectorTests : IDisposable
     private Task<ToolResult> Create(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = [title + "别名", title + "又名"],

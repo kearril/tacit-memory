@@ -59,7 +59,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task Recent_activities_and_mainline_appear_in_the_instructions_without_short_codes()
+    public async Task Recent_activities_appear_in_a_recent_activity_block_without_short_codes_and_the_mainline_stays_out()
     {
         Directory.CreateDirectory(Memory);
         File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n- 主线二\n");
@@ -67,10 +67,9 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
         var instructions = await Open().ServerInstructionsAsync();
 
-        Assert.Contains("## Recent", instructions);
-        Assert.Contains("- 主线一", instructions);
-        Assert.Contains("- 2026-11-02 [tacit-memory] 今天的事", instructions);
-        Assert.Contains("- 2026-11-01 昨天的事", instructions);
+        Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] 今天的事\n- 2026-11-01 昨天的事\n</recent_activity>", instructions);
+        Assert.DoesNotContain("主线一", instructions);
+        Assert.DoesNotContain("\n## Recent\n", instructions);
         Assert.DoesNotMatch(ShortCode(), instructions);
     }
 
@@ -83,6 +82,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         var instructions = await Open().ServerInstructionsAsync();
 
         Assert.Contains("- 2026-11-02 第9件事", instructions);
+        Assert.Equal(7, instructions.Split('\n').Count(line => line.StartsWith("- 2026-11-02 第", StringComparison.Ordinal)));
         Assert.Contains("- 2026-11-02 第3件事", instructions);
         Assert.DoesNotContain("第2件事", instructions);
         Assert.DoesNotContain("太早的事", instructions);
@@ -115,16 +115,15 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task Projects_list_the_page_directories_and_every_activity_project_once_sorted()
+    public async Task The_project_list_is_not_in_the_instructions_even_when_projects_exist()
     {
         Directory.CreateDirectory(Path.Combine(Memory, "pages", "zeta"));
-        Directory.CreateDirectory(Path.Combine(Memory, "pages", "_topics"));
-        WriteMonth("## 2026-10-01\n- [alpha] 很久以前的事\n## 2026-11-02\n- [zeta] 今天的事\n");
+        WriteMonth("## 2026-11-02\n- [zeta] 今天的事\n");
 
         var instructions = await Open().ServerInstructionsAsync();
 
-        Assert.EndsWith("## Projects\nalpha, zeta", instructions);
-        Assert.DoesNotContain("_topics", instructions);
+        Assert.Contains("- 2026-11-02 [zeta] 今天的事", instructions);
+        Assert.DoesNotContain("## Projects", instructions);
     }
 
     [Fact]
@@ -132,26 +131,26 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     {
         var padding = new string('长', 400);
         WriteMonth(string.Concat(Enumerable.Range(1, 7).Select(i => $"## 2026-11-02\n- {i}{padding}\n")));
+        // A non-empty mainline keeps the consolidation reminder out, so the activities are the last part.
+        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n");
 
         var instructions = await Open().ServerInstructionsAsync();
 
         Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
         Assert.Contains("## Using memory", instructions);
-        Assert.Contains("## Writing activities and mainline", instructions);
+        Assert.Contains("## Write\n", instructions);
+        Assert.EndsWith("</recent_activity>", instructions);
         Assert.Contains("- 2026-11-02 7" + padding, instructions);
         Assert.DoesNotContain("- 2026-11-02 1" + padding, instructions);
     }
 
     [Fact]
-    public async Task Editing_recent_md_or_the_activity_log_by_hand_changes_the_next_instructions()
+    public async Task Editing_the_activity_log_by_hand_changes_the_next_instructions()
     {
         var service = Open();
-        Assert.DoesNotContain("手改的主线", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("手改的活动", await service.ServerInstructionsAsync());
 
         Directory.CreateDirectory(Memory);
-        File.WriteAllText(RecentPath, "## 近期主线\n- 手改的主线\n");
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 手改的主线", StringComparison.Ordinal));
-
         WriteMonth("## 2026-11-02\n- 手改的活动\n");
         await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("手改的活动", StringComparison.Ordinal));
     }
@@ -162,7 +161,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         var service = Open();
         Assert.DoesNotContain("刚写的活动", await service.ServerInstructionsAsync());
 
-        var result = await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "刚写的活动" });
+        var result = await service.WriteRecentAsync(new WriteRecentRequest { Text = "刚写的活动" });
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("刚写的活动", await service.ServerInstructionsAsync());

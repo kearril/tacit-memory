@@ -4,7 +4,8 @@ using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Backup;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.ClientRecords;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -25,8 +26,8 @@ namespace TacitMemory.Core;
 /// <summary>
 /// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
 /// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
-/// <c>persona.md</c> changes, syncs the index when page, activity or persona files change, and refreshes
-/// the instructions when projects appear or disappear under <c>pages/</c>, and a watcher that reloads the prompt
+/// <c>persona.md</c>, the mainline, the activity log or a project folder changes and again at each local midnight,
+/// syncs the index when page, activity or persona files change, and a watcher that reloads the prompt
 /// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
@@ -43,13 +44,26 @@ public sealed class MemoryService : IDisposable
     private readonly ManualBackup _manual;
     private readonly CloudBackup _remote;
     private readonly ServiceLog _log;
+    private readonly ClientRecordStore _clients;
     private readonly FileSystemWatcher _watcher;
     private FileSystemWatcher? _promptsWatcher;
     private readonly Timer _renderTimer;
     private readonly Timer _promptsTimer;
     private readonly Timer _indexTimer;
+
+    /// <summary>Fires at each local midnight: the resident block shows dates, so it is rendered again then. Replaced each time it fires.</summary>
+    private ITimer? _dayTimer;
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
+
+    /// <summary>How many debounced retries a render gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    private const int RenderRetryLimit = 5;
+
+    private int _renderRetries;
+
+    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    private int _promptsRetries;
+
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
@@ -60,7 +74,7 @@ public sealed class MemoryService : IDisposable
     private readonly MemoryIndex _index;
     private readonly VectorSync _vectors;
     private readonly JudgmentPool _judgments;
-    private readonly CheckupServices _checkup;
+    private readonly ConsolidationServices _consolidation;
     private readonly RecallTool _recall;
     private PromptDocuments _prompts;
     private string? _instructions;
@@ -83,11 +97,13 @@ public sealed class MemoryService : IDisposable
         _models = new AuxiliaryModels(config, options.Time, _log);
         if (_models.Unconfigured is { Count: > 0 } unconfigured)
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
-        _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding?.Model, config.Language);
+        _index = new MemoryIndex(
+            config.MemoryPath, config.Models.Embedding?.Model, config.Language,
+            () => options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays("pages"));
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
-        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Checkup.MaxConcurrency);
-        _checkup = new CheckupServices(_index, _models.Embedding, _vectors, _judgments);
+        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Consolidation.MaxConcurrency);
+        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
         _vectors.FillInBackground();
         _pages = new PageTools(
             options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
@@ -97,13 +113,15 @@ public sealed class MemoryService : IDisposable
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
-        _backup = new AutomaticBackup(options, config, _log);
+        _backup = new AutomaticBackup(options, config, _log, _gate);
         _manual = new ManualBackup(options, config, _log);
         _remote = new CloudBackup(options, config, _log);
+        _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _renderTimer = new Timer(_ => RenderNow());
         _promptsTimer = new Timer(_ => ReloadPrompts());
         _indexTimer = new Timer(_ => SyncIndexNow());
+        _dayTimer = ArmDayTimer();
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
@@ -122,8 +140,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// The server instructions, generated on first use and kept until something they are built from may have changed: a
-    /// prompt document, the persona or its candidates, a page or activity file, the mainline, the memory repository's
-    /// commits, the project list, or the status (unavailable models, skipped files, the date). Builds run one at a time.
+    /// prompt document, the persona or its candidates, a page or activity file, the mainline (which the consolidation
+    /// reminder reads), the memory repository's commits, or the status (unavailable models, skipped files, the date).
+    /// Builds run one at a time.
     /// </summary>
     public async Task<string> ServerInstructionsAsync(CancellationToken cancellationToken = default)
     {
@@ -144,10 +163,9 @@ public sealed class MemoryService : IDisposable
                 prompts = _prompts;
             }
 
-            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
-            var projects = ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels);
-            var checkup = await CheckupReminder.RenderAsync(Config, _options.Today, cancellationToken);
-            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, projects, checkup).Text;
+            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today, Config.Language);
+            var consolidation = await ConsolidationReminder.RenderAsync(Config, _options.Today, cancellationToken);
+            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, consolidation).Text;
 
             lock (_instructionsGate)
             {
@@ -167,13 +185,13 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
-    /// The text of the checkup report resource, built from the repository as it is now: the repository's path, today's
-    /// date and the checkup report. Reads only. Cancelling it abandons the report; nothing is written either way.
+    /// The text of the consolidation report resource, built from the repository as it is now: the repository's path, today's
+    /// date and the consolidation report. Reads only. Cancelling it abandons the report; nothing is written either way.
     /// </summary>
-    public async Task<string> CheckupReportAsync(CancellationToken cancellationToken = default)
+    public async Task<string> ConsolidationReportAsync(CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return await CheckupResource.RenderAsync(_options, Config, _checkup, cancellationToken);
+        return await ConsolidationResource.RenderAsync(_options, Config, _consolidation, cancellationToken);
     }
 
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
@@ -260,10 +278,17 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
     internal Task VectorCompletion => _vectors.Background;
 
-    /// <summary>Completes when the checkup judgments started so far have finished and their answers are cached. Tests await it.</summary>
+    /// <summary>Completes when the consolidation judgments started so far have finished and their answers are cached. Tests await it.</summary>
     internal Task JudgmentCompletion => _judgments.Completion;
 
     /// <summary>Writes the management API's event for one call: its method, route, status code and time taken.</summary>
+    /// <summary>
+    /// Records what a client declared on a request: its name, version, protocol revision, capabilities and extensions. It only
+    /// observes; no behaviour depends on the record. It takes no part in the memory's write lock, and a file that cannot be
+    /// written is logged without failing the call.
+    /// </summary>
+    public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
+
     public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
 
@@ -276,6 +301,18 @@ public sealed class MemoryService : IDisposable
         using var hold = await _gate.ReadAsync(cancellationToken);
         return await _recall.RunAsync(request, cancellationToken);
     }
+
+    /// <summary>
+    /// How often <c>recall</c> has returned each page's units, for every page in the index. Derived state: <c>reindex</c>
+    /// resets it, and no search reads it.
+    /// </summary>
+    internal IReadOnlyList<PageUsage> PageUsages() =>
+        _index.PageUsages()
+            .Select(row => new PageUsage(row.Page, (int)row.Count, row.Last is null ? null : DateOnly.ParseExact(row.Last, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)))
+            .ToList();
+
+    /// <summary>How often <c>recall</c> has returned each activity, by its short code. Derived state, as <see cref="PageUsages"/> is.</summary>
+    internal IReadOnlyDictionary<string, long> ActivityUsages() => _index.ActivityUsages();
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
     public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>
@@ -307,7 +344,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
     public Task<ToolResult> WriteRecentAsync(WriteRecentRequest request, CancellationToken cancellationToken = default) =>
-        RecordToolCall("write_recent", request.Op, Targets(request.Replaces, request.Hash), () => WriteRecentCoreAsync(request, cancellationToken));
+        RecordToolCall("write_recent", null, Targets(request.Replaces), () => WriteRecentCoreAsync(request, cancellationToken));
 
     private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
@@ -346,7 +383,7 @@ public sealed class MemoryService : IDisposable
             // Judgments read the index, so it follows a manual edit first and this write right after; the watcher's later event finds the hash unchanged.
             _index.SyncJudgments();
             var result = await _persona.WriteAsync(request, cancellationToken);
-            // The candidates and the persona feed the checkup reminder, so the instructions are rebuilt on their next use.
+            // The candidates and the persona feed the consolidation reminder, so the instructions are rebuilt on their next use.
             InvalidateInstructions();
             _index.SyncJudgments();
             if (!result.Written)
@@ -411,14 +448,16 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Runs a maintenance operation with the memory to itself. First it waits for the background work already started (vector
-    /// fills, checkup judgments and automatic backups) to finish, so the operation never races them. While it runs, memory
-    /// tool calls, server instructions, the checkup report and background syncs wait, then run. The operation must not call the read
+    /// fills, consolidation judgments and automatic backups) to finish, so the operation never races them. While it runs, memory
+    /// tool calls, server instructions, the consolidation report and background syncs wait, then run. The operation must not call the read
     /// or write paths, which would wait for it. Its start, its end and its failure are logged.
     /// </summary>
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
+        // An automatic backup takes the write slot, which this operation holds alone, so it is waited for before the gate.
+        await Settled(_backup.Completion);
         using var hold = await _gate.MaintenanceAsync(cancellationToken);
-        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion), Settled(_backup.Completion));
+        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion));
         _log.Record(LogLevel.Information, LogMessages.MaintenanceStarted, name);
         var started = Stopwatch.GetTimestamp();
         try
@@ -631,6 +670,7 @@ public sealed class MemoryService : IDisposable
             _promptsWatcher?.Dispose();
             _renderTimer.Dispose();
             _promptsTimer.Dispose();
+            _dayTimer?.Dispose();
         }
         lock (_indexTimerGate)
             _indexTimer.Dispose();
@@ -692,17 +732,25 @@ public sealed class MemoryService : IDisposable
 
     private void OnChange(object sender, FileSystemEventArgs e)
     {
-        var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
-        foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
+        try
         {
-            if (relative == PersonaFiles.Persona)
-                ScheduleRender();
-            if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
-                ScheduleIndexSync();
-            if (AffectsInstructions(relative))
-                InvalidateInstructions();
-            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
-                ScheduleIndexSync();
+            var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
+            foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
+            {
+                if (relative == PersonaFiles.Persona || AffectsResident(relative))
+                    ScheduleRender();
+                if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
+                    ScheduleIndexSync();
+                if (AffectsInstructions(relative))
+                    InvalidateInstructions();
+                if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                    ScheduleIndexSync();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // An event handler must not throw into the watcher's thread; the overflow path or the next event catches up.
+            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, ex.Message);
         }
     }
 
@@ -725,6 +773,38 @@ public sealed class MemoryService : IDisposable
     {
         _instructions = null;
         _instructionsVersion++;
+    }
+
+    /// <summary>
+    /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
+    /// mainline, an activity month file (its counts and its summaries), or a project folder directly under <c>pages/</c>.
+    /// </summary>
+    private static bool AffectsResident(string relative) =>
+        relative == MainlineSection.RelativePath
+        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
+        || relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0);
+
+    /// <summary>Arms the timer for the next local midnight.</summary>
+    private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
+
+    /// <summary>The time from now until the next local midnight; always positive.</summary>
+    private TimeSpan UntilNextMidnight()
+    {
+        var now = _options.Time.GetLocalNow().DateTime;
+        return now.Date.AddDays(1) - now;
+    }
+
+    /// <summary>Runs on the timer thread at midnight: the date has changed, so the resident blocks are rendered again.</summary>
+    private void OnDayChanged()
+    {
+        lock (_renderGate)
+        {
+            if (_disposed)
+                return;
+            _dayTimer?.Dispose();
+            _dayTimer = ArmDayTimer();
+        }
+        ScheduleRender();
     }
 
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
@@ -803,17 +883,22 @@ public sealed class MemoryService : IDisposable
                     _prompts = prompts;
                     ClearInstructionsLocked();
                 }
+                _promptsRetries = 0;
                 // The resident blocks show resident.md: render them with the new text, as a persona change does.
                 if (residentChanged)
                     _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is IOException or ArgumentException)
+            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < RenderRetryLimit))
             {
-                // The editor still holds a file, or the folder is busy; try again once it settles.
+                // The editor still holds a file, or the folder is busy; try again once it settles. Windows refuses a
+                // replacement it cannot make with UnauthorizedAccessException, which the render path retries the same way.
+                if (e is UnauthorizedAccessException)
+                    _promptsRetries++;
                 _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
             catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
             {
+                _promptsRetries = 0;
                 _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, e.Message);
             }
         }
@@ -842,14 +927,17 @@ public sealed class MemoryService : IDisposable
             {
                 foreach (var result in Binder.RenderAll(_options, Config, _prompts))
                     _log.Notify(LevelOf(result), result.Message);
+                _renderRetries = 0;
             }
-            catch (IOException)
+            catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && _renderRetries < RenderRetryLimit)
             {
-                // The editor still holds a file; try again once it settles.
+                // The editor or another client still holds a file, which Windows refuses to replace; try again once it settles.
+                _renderRetries++;
                 _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
             {
+                _renderRetries = 0;
                 _log.Notify(LogLevel.Warning, Messages.RenderFailed, e.Message);
             }
         }
@@ -870,15 +958,18 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Runs a background read of the memory repository, such as an index sync or a render, between the writes. A write
-    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. Once the
-    /// service is disposed, the read does not run.
+    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. The wait for
+    /// the write slot is asynchronous, so a timer thread is never blocked by a write in progress. Once the service is
+    /// disposed, the read does not run.
     /// </summary>
-    private void UnderWriteGate(Action work)
+    private void UnderWriteGate(Action work) => _ = RunUnderWriteGateAsync(work);
+
+    private async Task RunUnderWriteGateAsync(Action work)
     {
         Hold hold;
         try
         {
-            hold = _gate.WriteAsync(CancellationToken.None).GetAwaiter().GetResult();
+            hold = await _gate.WriteAsync(CancellationToken.None);
         }
         catch (ObjectDisposedException)
         {
@@ -888,6 +979,11 @@ public sealed class MemoryService : IDisposable
         try
         {
             work();
+        }
+        catch (Exception e)
+        {
+            // Nothing may escape a timer or watcher callback: the failure is reported, and the next event tries again.
+            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, e.Message);
         }
         finally
         {
@@ -915,8 +1011,9 @@ public sealed class MemoryService : IDisposable
                 // The editor still holds a file; try again once it settles.
                 _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException or TacitException)
             {
+                // A git process that cannot start surfaces as a TacitException from the full build's commit dates.
                 _log.Notify(LogLevel.Warning, Messages.IndexSyncFailed, e.Message);
             }
         }

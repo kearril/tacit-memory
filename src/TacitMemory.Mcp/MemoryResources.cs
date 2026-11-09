@@ -8,8 +8,8 @@ namespace TacitMemory.Mcp;
 [McpServerResourceType]
 internal sealed class MemoryResources(MemoryService service)
 {
-    [McpServerResource(UriTemplate = "tacit://checkup-report", Name = "checkup-report", MimeType = "text/markdown")]
-    [Description("The memory checkup report, computed when read: the repository's path, today's date, the last checkup and the problems found. Read it only while running the tacit-checkup skill.")]
-    public Task<string> CheckupReport(CancellationToken cancellationToken) =>
-        service.CheckupReportAsync(cancellationToken);
+    [McpServerResource(UriTemplate = "tacit://consolidation-report", Name = "consolidation-report", MimeType = "text/markdown")]
+    [Description("The memory consolidation report, computed when read: the repository's path, today's date, the last consolidation and the problems found. Read it only while running the tacit-consolidate skill.")]
+    public Task<string> ConsolidationReport(CancellationToken cancellationToken) =>
+        service.ConsolidationReportAsync(cancellationToken);
 }

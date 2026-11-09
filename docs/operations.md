@@ -10,8 +10,9 @@
 ~/.tacit/
 ├── config.yaml                    # 配置
 ├── prompts/                       # 可编辑的提示词文档
-├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-checkup，请勿手改
+├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-consolidate，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
+├── clients.json                   # 连接过服务的客户端能力记录（运行状态，不进入备份）
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见第 3 节）
 └── memory/                        # 记忆仓库（Git），memory.path 可改
@@ -22,7 +23,7 @@
 绑定所给的两个路径会被改动（只改 TacitMemory 自己的部分）：
 
 - 上下文文件（`connect --context`；omp 为 `~/.omp/agent/AGENTS.md`）：起止标记之间的常驻区块；
-- skill 目录（`connect --skills`；omp 为 `~/.omp/agent/skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-checkup`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
+- skill 目录（`connect --skills`；omp 为 `~/.omp/agent/skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-consolidate`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
 
 ## 2. 备份与恢复
 
@@ -52,7 +53,8 @@
 - 管理 API 每次调用（方法、路由、状态码、耗时）、记忆工具每次调用（工具、`op`、页面标识或短码、结果、耗时）；
 - 维护操作的开始、结束与失败（耗时）；索引重建的结果（文件、单元、向量、跳过的非 UTF-8 文件）与向量待补；
 - 自动、手动与保险备份的写入与失败，明文密钥提示；云端备份的上传、下载与失败，以及 `remote.json` 写入失败；
-- 恢复的开始、完成、回退与回退失败，以及临时目录未能删除。
+- 恢复的开始、完成、回退与回退失败，以及临时目录未能删除；
+- 客户端能力记录的更新（首次见到某个客户端，或其协议版本、能力、扩展变化），以及 `clients.json` 无法写入或无法读取。
 
 不记录记忆正文、原话、查询文本、提示词内容、密钥与 WebDAV 密码。
 
@@ -60,7 +62,7 @@
 
 派生索引（`memory/.cache/`）损坏或换了嵌入模型时执行 `tacit reindex`（需服务运行）。嵌入模型名或向量维度变化时服务也会自动丢弃旧向量并补齐，`reindex` 用于需要立即全量重建的情况。
 
-换了决策模型后，也建议执行一次 `tacit reindex`。体检的判断缓存不随模型变化而失效（缓存键不含模型名，见 `docs/design.md` 第 9 节），内容没变的提问会沿用旧模型的答案；`reindex` 会清空判断缓存，之后的体检全部改问新模型。对话中实时写入的判断不读缓存，不受影响。
+换了决策模型后，也建议执行一次 `tacit reindex`。整理的判断缓存不随模型变化而失效（缓存键不含模型名，见 `docs/design.md` 第 9 节），内容没变的提问会沿用旧模型的答案；`reindex` 会清空判断缓存，之后的整理全部改问新模型。对话中实时写入的判断不读缓存，不受影响。
 
 ## 5. 排障
 
@@ -68,6 +70,7 @@
 
 - **任何问题先看 `tacit status`**（各栏与退出码见 `docs/reference/cli.md`「`tacit status`」）。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
+- **升级后报未知键**：报错点名的键已删除（清单见 `docs/reference/configuration.md`），从 `config.yaml` 中删去后重启。升级前绑定的 skill 目录里可能还留着旧的 `tacit-checkup` 链接（已改名为 `tacit-consolidate`），它指向已不再生成的目录；`disconnect` 不删除它，需手动删除。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md` 第 4 节，固定部分的上限见 `docs/design.md` 第 8 节）。

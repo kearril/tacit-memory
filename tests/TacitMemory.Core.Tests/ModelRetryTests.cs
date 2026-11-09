@@ -32,7 +32,7 @@ public sealed class ModelRetryTests : IDisposable
 
     private Task<ToolResult> Recall() => Service.RecallAsync(new RecallRequest { Query = "部署" }).WaitAsync(Guard);
 
-    private Task<ToolResult> Write(string text) => Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = text }).WaitAsync(Guard);
+    private Task<ToolResult> Write(string text) => Service.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
 
     /// <summary>Makes the decision model pick the option whose text contains <paramref name="text"/> with <paramref name="probability"/>.</summary>
     private void Match(string text, double probability) => _models.Choose = (_, options) => options.ToDictionary(

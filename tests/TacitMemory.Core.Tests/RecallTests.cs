@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 
 namespace TacitMemory.Core.Tests;
@@ -50,7 +51,7 @@ public sealed class RecallTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("[1] page tacit-memory/db-upgrade: 数据库升级后扩展丢失", result.Text);
-        Assert.Matches(@"### 现象 \[[0-9a-f]{6}\]\n升级 PostgreSQL 后中文搜索没有结果。", result.Text);
+        Assert.Matches(@"### 现象 \[[0-9a-f]{6}\] \(last changed 2026-11-02\)\n升级 PostgreSQL 后中文搜索没有结果。", result.Text);
         Assert.Contains("Dates: 2026-10-01 to 2026-10-05", result.Text);
     }
 
@@ -78,6 +79,54 @@ public sealed class RecallTests : IDisposable
         Assert.Contains("### 现象 [", result.Text);
         Assert.Contains("### 根因 [", result.Text);
         Assert.Contains("Other sections: 解法", result.Text);
+    }
+
+    [Fact]
+    public async Task A_section_shows_the_day_it_last_changed_and_the_others_keep_theirs()
+    {
+        Hand("tacit-memory", "dated", "日期测试", "## 现状\n旧的说法\n\n## 历史\n早先的记录");
+        // The first read opens the service, which indexes the page on the day it was written.
+        var before = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/dated" });
+        _home.Clock.Advance(TimeSpan.FromDays(3));
+
+        var hash = Regex.Match(before.Text, @"## 现状 \[([0-9a-f]{6})\]").Groups[1].Value;
+        var edited = await Service.WritePageAsync(new WritePageRequest
+        {
+            Op = "upsert_section", Page = "tacit-memory/dated", Section = "现状", Body = "新的说法", Hash = hash,
+        });
+        var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/dated" });
+
+        Assert.False(edited.IsError, edited.Text);
+        Assert.Matches(@"## 现状 \[[0-9a-f]{6}\] \(last changed 2026-11-05\)\n新的说法", read.Text);
+        Assert.Matches(@"## 历史 \[[0-9a-f]{6}\] \(last changed 2026-11-02\)\n早先的记录", read.Text);
+    }
+
+    [Fact]
+    public async Task A_search_result_shows_the_date_after_each_matched_section_heading()
+    {
+        DbUpgrade();
+
+        var result = await Recall("PGroonga 扩展 pgroonga");
+
+        Assert.Matches(@"### 根因 \[[0-9a-f]{6}\] \(last changed 2026-11-02\)\n", result.Text);
+        Assert.Matches(@"### 解法 \[[0-9a-f]{6}\] \(last changed 2026-11-02\)\n", result.Text);
+    }
+
+    [Fact]
+    public async Task Usage_never_changes_the_order_of_results()
+    {
+        Hand("tacit-memory", "first", "备份甲", "## 要点\n每日备份到 zip");
+        Hand("tacit-memory", "second", "备份乙", "## 要点\n每日备份到 zip");
+        var before = await Recall("每日备份");
+        int CountOf() => Service.PageUsages().Single(usage => usage.Page == "tacit-memory/second").Count;
+        var countBefore = CountOf();
+
+        for (var i = 0; i < 30; i++)
+            await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/second" });
+        Assert.Equal(countBefore + 30, CountOf());
+
+        var after = await Recall("每日备份");
+        Assert.Equal(before.Text, after.Text);
     }
 
     [Fact]
@@ -180,7 +229,7 @@ public sealed class RecallTests : IDisposable
         var query = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["limit"] });
         var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["top_k"] });
 
-        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, project, from, to, kind; give exactly one of query or page.", query.Text);
+        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, project, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.", query.Text);
         Assert.StartsWith("Refused: Unknown parameter top_k.\nNext step: ", read.Text);
     }
 
@@ -198,6 +247,7 @@ public sealed class RecallTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/deploy",
             Title = "部署脚本超时",
             Aliases = ["发布卡住", "上线超时"],
@@ -207,6 +257,17 @@ public sealed class RecallTests : IDisposable
         var result = await Recall("拉取镜像超时");
 
         Assert.Contains("tacit-memory/deploy", result.Text);
+    }
+
+    [Fact]
+    public async Task A_page_without_a_type_is_found_like_any_other()
+    {
+        Hand("tacit-memory", "untyped", "数据库升级后扩展丢失", "## 现象\n升级 PostgreSQL 后中文搜索没有结果。");
+
+        var result = await Recall("上次数据库升级以后中文搜索没有结果");
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("tacit-memory/untyped", result.Text);
     }
 
     [Fact]
@@ -310,7 +371,7 @@ public sealed class RecallTests : IDisposable
     public async Task Every_result_says_whether_it_is_a_page_or_an_activity()
     {
         DbUpgrade();
-        await Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "数据库升级后中文搜索又没有结果" });
+        await Service.WriteRecentAsync(new WriteRecentRequest { Text = "数据库升级后中文搜索又没有结果" });
 
         var result = await Recall("数据库升级 中文搜索");
 

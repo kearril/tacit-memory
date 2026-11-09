@@ -10,6 +10,15 @@ internal static class LogMessages
         "常驻服务启动：版本 {0}，端口 {1}，记忆仓库 {2}",
         "Memory service starting: version {0}, port {1}, memory repository {2}");
     public static readonly Localized PromptsReloaded = new("提示词文档已重新载入", "The prompt documents were reloaded");
+    public static readonly Localized ClientRecorded = new(
+        "客户端能力记录更新：{0} {1}，协议 {2}，能力 {3}，扩展 {4}",
+        "Client record updated: {0} {1}, protocol {2}, capabilities {3}, extensions {4}");
+    public static readonly Localized ClientRecordWriteFailed = new(
+        "客户端能力记录无法写入 {0}：{1}",
+        "The client record cannot be written to {0}: {1}");
+    public static readonly Localized ClientRecordUnreadable = new(
+        "客户端能力记录无法读取，从空记录开始：{0}：{1}",
+        "The client record cannot be read; starting empty: {0}: {1}");
     public static readonly Localized BackupWritten = new("自动备份已写入：{0}", "Automatic backup written: {0}");
     public static readonly Localized ManualBackupWritten = new("手动备份已写入：{0}，{1} 字节", "Manual backup written: {0}, {1} bytes");
     public static readonly Localized ManualBackupFailed = new("手动备份失败：{0}", "The manual backup failed: {0}");

@@ -1,4 +1,6 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Show;
 
 namespace TacitMemory.Core.Tests;
@@ -22,7 +24,7 @@ public sealed class CommandSkillTests : IDisposable
 
     [Theory]
     [InlineData("tacit-remember")]
-    [InlineData("tacit-checkup")]
+    [InlineData("tacit-consolidate")]
     public void Generation_writes_a_memory_command_the_model_may_not_invoke_on_its_own(string name)
     {
         var result = _home.Tacit().GenerateSkills();
@@ -42,7 +44,7 @@ public sealed class CommandSkillTests : IDisposable
 
         Assert.True(File.Exists(SkillFile("tacit-memory")));
         Assert.True(File.Exists(SkillFile("tacit-remember")));
-        Assert.True(File.Exists(SkillFile("tacit-checkup")));
+        Assert.True(File.Exists(SkillFile("tacit-consolidate")));
     }
 
     [Fact]
@@ -70,7 +72,7 @@ public sealed class CommandSkillTests : IDisposable
         tacit.GenerateSkills();
         var before = File.ReadAllText(SkillFile("tacit-remember"));
         using (var service = tacit.OpenService(_ => { }, NullLoggerFactory.Instance))
-            await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "写了一条今天的活动" });
+            await service.WriteRecentAsync(new WriteRecentRequest { Text = "写了一条今天的活动" });
 
         tacit.GenerateSkills();
 
@@ -79,41 +81,141 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_checkup_skill_reads_the_report_resource_first_and_ends_with_a_checkup_commit()
+    public void The_remember_skill_has_five_steps_and_leaves_the_mainline_to_consolidation()
     {
         _home.Tacit().GenerateSkills();
 
-        var text = File.ReadAllText(SkillFile("tacit-checkup"));
+        var text = File.ReadAllText(SkillFile("tacit-remember"));
 
-        Assert.Contains("tacit://checkup-report", text, StringComparison.Ordinal);
-        Assert.Contains("checkup:", text, StringComparison.Ordinal);
+        Assert.Contains("\n5. List what you wrote, one line each", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n6. ", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("mainline", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void The_checkup_skill_writes_the_structure_words_and_examples_in_the_memory_language()
+    public void The_consolidation_skill_has_six_steps_in_order_and_ends_with_a_consolidation_commit()
     {
         _home.Tacit().GenerateSkills();
-        var chinese = File.ReadAllText(SkillFile("tacit-checkup"));
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.Contains("## Steps\n", text, StringComparison.Ordinal);
+        var position = 0;
+        for (var step = 1; step <= 6; step++)
+        {
+            var found = text.IndexOf($"\n{step}. ", position, StringComparison.Ordinal);
+            Assert.True(found >= 0, $"step {step} is missing or out of order");
+            position = found;
+        }
+        Assert.DoesNotContain("\n7. ", text, StringComparison.Ordinal);
+        Assert.Contains("consolidate:", text, StringComparison.Ordinal);
+        Assert.Contains("--allow-empty", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_does_not_promise_every_deferred_item_again_at_the_next_consolidation()
+    {
+        // Only candidates stay in candidates.md; the other categories are reported only when they change again.
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.DoesNotContain("reported again at the next consolidation", text, StringComparison.Ordinal);
+        Assert.Contains("A candidate stays in candidates.md and comes back at the next consolidation", text, StringComparison.Ordinal);
+        Assert.Contains("comes back only when it changes again", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_reads_the_report_resource_first_and_stops_without_it()
+    {
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        var resource = text.IndexOf("tacit://consolidation-report", StringComparison.Ordinal);
+        Assert.True(resource >= 0);
+        Assert.True(resource < text.IndexOf("## Steps", StringComparison.Ordinal));
+        Assert.Contains("tacit serve", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_names_every_report_title_from_the_shared_definition()
+    {
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+        var titles = typeof(ConsolidationTitles).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.FieldType == typeof(string))
+            .Select(field => (string)field.GetValue(null)!)
+            .ToList();
+
+        Assert.Equal(13, titles.Count);
+        foreach (var title in titles)
+            Assert.Contains(title, text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_keeps_changes_behind_the_user_s_confirmation_and_numbers_the_list()
+    {
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.Contains("only after the user confirms", text, StringComparison.Ordinal);
+        Assert.Contains("one numbered list", text, StringComparison.Ordinal);
+        Assert.Contains("1 2 4 confirm", text, StringComparison.Ordinal);
+        Assert.Contains("change to project scope", text, StringComparison.Ordinal);
+        Assert.Contains("generalization", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_has_no_checkup_terms_and_no_real_dates()
+    {
+        _home.Tacit().GenerateSkills();
+        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
+        Assert.DoesNotContain("checkup", chinese, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("体检", chinese, StringComparison.Ordinal);
+        Assert.DoesNotContain("可确认", chinese, StringComparison.Ordinal);
+        Assert.Contains("YYYY-Www", chinese, StringComparison.Ordinal);
+        Assert.DoesNotMatch(new Regex(@"\b\d{4}-\d{2}-\d{2}\b"), chinese);
+        Assert.DoesNotMatch(new Regex(@"\b\d{4}-W\d{2}\b"), chinese);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_writes_the_structure_words_and_examples_in_the_memory_language()
+    {
+        _home.Tacit().GenerateSkills();
+        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
         Assert.Contains("拒绝列表", chinese, StringComparison.Ordinal);
         Assert.Contains("改为", chinese, StringComparison.Ordinal);
         Assert.Contains("归属：偏好", chinese, StringComparison.Ordinal);
         Assert.Contains("拒绝 原话「", chinese, StringComparison.Ordinal);
+        foreach (var word in new[] { "作用域：", "领域", "项目", "触发", "遗留", "推翻记录", "教训", "汇总" })
+            Assert.Contains(word, chinese, StringComparison.Ordinal);
+        Assert.Contains("## 领域：network-proxy", chinese, StringComparison.Ordinal);
+        Assert.Contains("作用域：domain:network-proxy", chinese, StringComparison.Ordinal);
+        Assert.Contains("- YYYY-Www：", chinese, StringComparison.Ordinal);
 
         using var home = new TestHome();
         // InitReady rewrites config.yaml without the language key, so the memory language is set again here.
         home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
         home.Tacit().GenerateSkills();
-        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-checkup", "SKILL.md"));
+        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
         Assert.Contains("Rejection list", english, StringComparison.Ordinal);
         Assert.Contains("instead", english, StringComparison.Ordinal);
         Assert.Contains("Belongs to: Preferences", english, StringComparison.Ordinal);
         Assert.Contains("rejected quote「", english, StringComparison.Ordinal);
+        foreach (var word in new[] { "Scope: ", "Domain", "Project", "Trigger", "Leftovers", "Overturned", "Lesson", "Summary" })
+            Assert.Contains(word, english, StringComparison.Ordinal);
+        Assert.Contains("## Domain: network-proxy", english, StringComparison.Ordinal);
+        Assert.Contains("Scope: domain:network-proxy", english, StringComparison.Ordinal);
+        Assert.Contains("- YYYY-Www：", english, StringComparison.Ordinal);
         Assert.DoesNotContain("拒绝列表", english, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData(ShowTarget.Remember, "tacit-remember")]
-    [InlineData(ShowTarget.Checkup, "tacit-checkup")]
+    [InlineData(ShowTarget.Consolidation, "tacit-consolidate")]
     public async Task Show_prints_a_memory_command_as_written_and_has_no_built_in_default(ShowTarget target, string name)
     {
         var tacit = _home.Tacit();

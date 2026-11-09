@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using static TacitMemory.Core.Tests.ShortCodes;
+
 namespace TacitMemory.Core.Tests;
 
 public sealed partial class PersonaAddTests : IDisposable
@@ -42,9 +44,6 @@ public sealed partial class PersonaAddTests : IDisposable
         Source = source,
         ConfirmNoSecret = confirmNoSecret,
     };
-
-    private static string ShortOf(string text) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ReplaceLineEndings("\n").Trim())))[..6].ToLowerInvariant();
 
     [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\]")]
     private static partial Regex CodeInReply();
@@ -397,7 +396,7 @@ public sealed partial class PersonaAddTests : IDisposable
         var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论") with { UnknownParameters = ["content"] });
 
         Assert.True(result.IsError);
-        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_persona again with only the parameters for op add: persona_section, text, source, confirm_no_secret.", result.Text);
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_persona again with only the parameters for op add: persona_section, text, source, scope, trigger, confirm_no_secret.", result.Text);
         Assert.Equal(before, File.ReadAllText(PersonaMd));
         Assert.Equal(commits, Git("rev-list", "--count", "HEAD").Trim());
     }
@@ -408,7 +407,257 @@ public sealed partial class PersonaAddTests : IDisposable
         var missing = await _service.WritePersonaAsync(new WritePersonaRequest { Section = "preferences", Text = "沟通：先要结论", UnknownParameters = ["content", "limit"] });
         var misplaced = await _service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Text = "沟通：先要结论", UnknownParameters = ["content"] });
 
-        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Missing parameter op.\nNext step: Call write_persona again with op set to one of: add, propose, replace, delete; its parameters are: op, persona_section, text, source, confirm_no_secret, hash.", missing.Text);
+        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Missing parameter op.\nNext step: Call write_persona again with op set to one of: add, propose, replace, delete; its parameters are: op, persona_section, text, source, scope, trigger, confirm_no_secret, hash.", missing.Text);
         Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Parameter text does not apply to op delete.\nNext step: Call write_persona again with only the parameters for op delete: hash.", misplaced.Text);
+    }
+
+    private static WritePersonaRequest InScope(WritePersonaRequest request, string scope, string? trigger = null) =>
+        request with { Scope = scope, Trigger = trigger };
+
+    [Fact]
+    public async Task A_new_domain_gets_a_block_with_its_trigger_after_the_global_sections()
+    {
+        WritePersona("## 红线\n- 不要删库；改为先备份\n\n## 协作规则\n\n## 偏好\n\n## 档案\n- 系统：Windows 11 x64\n");
+        Git("add", "persona.md");
+        Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: persona baseline");
+
+        var result = await _service.WritePersonaAsync(
+            InScope(Add("working_rules", "性能比较 → 不拿单次测速当结论", "别拿单次测速下结论"), "domain:network-proxy", "改代理、分流或测速时"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.True(result.Written);
+        Assert.Equal(
+            "## 红线\n- 不要删库；改为先备份\n\n## 协作规则\n\n## 偏好\n\n## 档案\n- 系统：Windows 11 x64\n\n"
+            + "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 性能比较 → 不拿单次测速当结论\n"
+            + $"  <!-- {Today} 原话「别拿单次测速下结论」 -->\n",
+            File.ReadAllText(PersonaMd));
+        Assert.Equal(ShortOf("性能比较 → 不拿单次测速当结论"), CodeOf(result));
+        Assert.Contains("domain network-proxy", result.Text);
+        Assert.Contains("created", result.Text);
+        Assert.Equal($"persona: add {ShortOf("性能比较 → 不拿单次测速当结论")}", Git("log", "-1", "--format=%s").Trim());
+        Assert.Equal("persona.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
+    }
+
+    [Fact]
+    public async Task An_existing_domain_takes_entries_under_its_section_and_ignores_a_trigger_given_again()
+    {
+        WritePersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 旧规则 → 旧做法\n### 偏好\n- 测速：只看持续测速\n");
+
+        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "切换节点 → 先备份配置", "先备份"), "domain:network-proxy", "完全不同的触发"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(
+            "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 旧规则 → 旧做法\n"
+            + $"- 切换节点 → 先备份配置\n  <!-- {Today} 原话「先备份」 -->\n### 偏好\n- 测速：只看持续测速\n",
+            File.ReadAllText(PersonaMd));
+        Assert.DoesNotContain("完全不同的触发", File.ReadAllText(PersonaMd));
+    }
+
+    [Fact]
+    public async Task Scope_blocks_follow_the_global_sections_with_domains_first_and_each_kind_sorted_by_name()
+    {
+        WritePersona("## 红线\n\n## 偏好\n- 沟通：先要结论\n\n## 领域：zeta\n触发：收尾时\n### 偏好\n- 收尾：先列清单\n\n## 项目：my-app\n### 偏好\n- 发布：先打标签\n");
+
+        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
+        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "project:alpha"))).IsError);
+
+        var text = File.ReadAllText(PersonaMd);
+        var headings = new[] { "\n## 偏好", "\n## 领域：alpha", "\n## 领域：zeta", "\n## 项目：alpha", "\n## 项目：my-app" };
+        var positions = headings.Select(heading => text.IndexOf(heading, StringComparison.Ordinal)).ToArray();
+        Assert.All(positions, position => Assert.True(position >= 0, text));
+        Assert.Equal(positions.Order().ToArray(), positions);
+    }
+
+    [Fact]
+    public async Task A_missing_section_inside_a_block_is_restored_in_the_standard_order_within_the_block()
+    {
+        WritePersona("## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+
+        var result = await _service.WritePersonaAsync(
+            InScope(Add("red_lines", "不要用单次测速下结论；改为先看持续测速", "别下结论"), "domain:network-proxy"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(
+            "## 领域：network-proxy\n触发：改代理时\n\n### 红线\n- 不要用单次测速下结论；改为先看持续测速\n"
+            + $"  <!-- {Today} 原话「别下结论」 -->\n\n### 偏好\n- 测速：只看持续测速\n",
+            File.ReadAllText(PersonaMd));
+    }
+
+    [Fact]
+    public async Task A_block_with_red_lines_and_working_rules_keeps_both_and_restores_the_missing_preferences_last()
+    {
+        WritePersona("## 领域：network-proxy\n触发：改代理时\n### 红线\n- r0\n\n### 协作规则\n- 先给结论\n");
+
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+
+        Assert.False(result.IsError, result.Text);
+        var text = File.ReadAllText(PersonaMd);
+        Assert.Contains("### 红线\n- r0\n", text, StringComparison.Ordinal);
+        Assert.Contains("### 协作规则\n- 先给结论\n", text, StringComparison.Ordinal);
+        Assert.True(text.IndexOf("### 红线", StringComparison.Ordinal) < text.IndexOf("### 协作规则", StringComparison.Ordinal));
+        Assert.True(text.IndexOf("### 协作规则", StringComparison.Ordinal) < text.IndexOf("### 偏好", StringComparison.Ordinal));
+        Assert.Contains("- 测速：只看持续测速", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_project_block_needs_no_trigger_and_holds_its_entries_under_the_project_heading()
+    {
+        WritePersona("## 偏好\n- 沟通：先要结论\n");
+
+        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "project:my-app"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(
+            "## 偏好\n- 沟通：先要结论\n\n## 项目：my-app\n### 协作规则\n- 发版 → 先问我\n"
+            + $"  <!-- {Today} 原话「发版前问我」 -->\n",
+            File.ReadAllText(PersonaMd));
+        Assert.Contains("project my-app", result.Text);
+    }
+
+    [Fact]
+    public async Task A_new_domain_without_a_trigger_is_refused_with_the_next_step_and_writes_nothing()
+    {
+        WritePersona("## 偏好\n- 沟通：先要结论\n");
+        var before = File.ReadAllText(PersonaMd);
+
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+
+        Assert.True(result.IsError);
+        Assert.False(result.Written);
+        Assert.Contains("trigger", result.Text);
+        Assert.Contains("Next step:", result.Text);
+        Assert.Equal(before, File.ReadAllText(PersonaMd));
+    }
+
+    [Fact]
+    public async Task A_trigger_must_be_one_line_within_the_trigger_limit()
+    {
+        using var home = new TestHome();
+        home.InitReady("limits:\n  triggerLength: 6\n");
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        var request = InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy");
+
+        var tooLong = await service.WritePersonaAsync(request with { Trigger = "改代理、分流或测速时" });
+        var twoLines = await service.WritePersonaAsync(request with { Trigger = "改代理\n测速" });
+        var fits = await service.WritePersonaAsync(request with { Trigger = "改代理时" });
+
+        Assert.True(tooLong.IsError);
+        Assert.Contains("limit is 6", tooLong.Text);
+        Assert.True(twoLines.IsError);
+        Assert.Contains("one line", twoLines.Text);
+        Assert.False(fits.IsError, fits.Text);
+    }
+
+    [Theory]
+    [InlineData("area:network")]
+    [InlineData("domain:Network")]
+    [InlineData("domain:")]
+    [InlineData("project:.hidden")]
+    [InlineData("domain")]
+    public async Task A_scope_that_is_not_global_a_project_or_a_domain_with_a_valid_name_is_refused(string scope)
+    {
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), scope, "改代理时"));
+
+        Assert.True(result.IsError);
+        Assert.False(result.Written);
+        Assert.Contains("global, project:<name> or domain:<label>", result.Text);
+        Assert.Contains("Next step:", result.Text);
+    }
+
+    [Fact]
+    public async Task The_domain_limit_refuses_a_new_domain_and_lists_the_domains_that_exist()
+    {
+        using var home = new TestHome();
+        home.InitReady("limits:\n  domains: 1\n");
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+
+        var refused = await service.WritePersonaAsync(InScope(Add("preferences", "写作：先给结论"), "domain:writing", "写文章时"));
+        var existing = await service.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"));
+
+        Assert.True(refused.IsError);
+        Assert.False(refused.Written);
+        Assert.Contains("limit is 1", refused.Text);
+        Assert.Contains("Domain network-proxy", refused.Text);
+        Assert.False(existing.IsError, existing.Text);
+    }
+
+    [Fact]
+    public async Task The_domain_entry_limit_refuses_an_add_and_lists_the_domain_entries_with_their_codes()
+    {
+        using var home = new TestHome();
+        home.InitReady("limits:\n  domainEntries: 2\n");
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"))).IsError);
+
+        var refused = await service.WritePersonaAsync(InScope(Add("red_lines", "不要单次下结论；改为看持续数据"), "domain:network-proxy"));
+
+        Assert.True(refused.IsError);
+        Assert.False(refused.Written);
+        Assert.Contains("limit is 2", refused.Text);
+        Assert.Contains($"[{ShortOf("测速：只看持续测速")}]", refused.Text);
+        Assert.Contains("Next step:", refused.Text);
+        Assert.Contains("replace", refused.Text);
+    }
+
+    [Fact]
+    public async Task Domain_entries_do_not_count_against_the_global_section_limit()
+    {
+        using var home = new TestHome();
+        home.InitReady("limits:\n  persona:\n    preferences: 1\n");
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        Assert.False((await service.WritePersonaAsync(Add("preferences", "沟通：先要结论"))).IsError);
+
+        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.True((await service.WritePersonaAsync(Add("preferences", "节奏：短句优先"))).IsError);
+    }
+
+    [Fact]
+    public async Task A_domain_entry_repeating_a_global_text_is_written_with_a_suffixed_code_once_the_model_judges_it_distinct()
+    {
+        // The models are available here, so the duplicate judgment runs; the decision model picks "none" by default,
+        // which means the two entries are distinct and the write goes through.
+        using var models = new ModelDouble();
+        using var home = new TestHome();
+        home.InitReady(models: models);
+        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        var persona = Path.Combine(home.DefaultMemory, "persona.md");
+        Assert.False((await service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"))).IsError);
+
+        var result = await service.WritePersonaAsync(InScope(Add("preferences", "沟通：先要结论", "再说一遍"), "domain:writing", "写文章时"));
+
+        Assert.False(result.IsError, result.Text);
+        // Without the judgment the suffix would still be written; a skipped check must fail here, not pass unnoticed.
+        Assert.True(models.DecisionCalls >= 1, "the duplicate judgment did not run");
+        Assert.Equal($"{ShortOf("沟通：先要结论")}-2", CodeOf(result));
+        Assert.Contains("再说一遍", File.ReadAllText(persona));
+
+        // The suffixed code finds the domain entry for a replacement, and the replaced entry then finds by its own code.
+        var replaced = await service.WritePersonaAsync(new WritePersonaRequest
+        {
+            Op = "replace",
+            Hash = $"{ShortOf("沟通：先要结论")}-2",
+            Text = "沟通：写文章先给提纲",
+            Source = "写文章先给提纲",
+        });
+        Assert.False(replaced.IsError, replaced.Text);
+        Assert.DoesNotContain("再说一遍", File.ReadAllText(persona));
+        Assert.Contains("沟通：写文章先给提纲", File.ReadAllText(persona));
+
+        var deleted = await service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = ShortOf("沟通：写文章先给提纲") });
+        Assert.False(deleted.IsError, deleted.Text);
+        Assert.DoesNotContain("沟通：写文章先给提纲", File.ReadAllText(persona));
+        Assert.Contains("沟通：先要结论", File.ReadAllText(persona));
+    }
+
+    [Fact]
+    public async Task A_secret_in_the_trigger_is_refused_like_one_in_the_text()
+    {
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", $"密钥 {OpenAiKey}"));
+
+        Assert.True(result.IsError);
+        Assert.Contains("confirm_no_secret", result.Text);
+        Assert.False(File.Exists(PersonaMd) && File.ReadAllText(PersonaMd).Contains("sk-", StringComparison.Ordinal));
     }
 }

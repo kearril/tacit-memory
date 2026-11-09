@@ -32,6 +32,20 @@ public sealed class ConfigRefusalTests : IDisposable
         Assert.Equal(3, result.ExitCode);
     }
 
+    [Theory]
+    [MemberData(nameof(CommandsThatLoadTheConfig))]
+    public async Task A_config_still_holding_the_removed_candidates_section_exits_3_and_names_the_key(string[] args)
+    {
+        _cli.InitReady();
+        File.AppendAllText(_cli.ConfigPath, "candidates: { minDays: 2 }\n");
+
+        var result = await _cli.RunAsync(args);
+
+        Assert.Equal(3, result.ExitCode);
+        // status reports config errors on stdout as its report; the other commands write them to stderr.
+        Assert.Contains("candidates", result.Stdout + result.Stderr);
+    }
+
     [Fact]
     public async Task Connect_exits_3_when_the_config_does_not_load()
     {

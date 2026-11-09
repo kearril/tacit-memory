@@ -63,15 +63,15 @@ public sealed class Tacit(TacitOptions options)
     /// service. Loading the config may create <c>prompts/</c> and rewrite a missing <c>rules.md</c>, as the service does at
     /// startup; nothing else is written. With <paramref name="useDefault"/> it returns only the built-in text, which can be
     /// saved as the file that replaces it, and then needs no config; a memory command has no file that replaces it, so it
-    /// refuses. The instructions end with the checkup reminder when one is due, read from the memory repository's history;
+    /// refuses. The instructions end with the consolidation reminder when one is due, read from the memory repository's history;
     /// no model is called.
     /// </summary>
     public async Task<ShowResult> ShowAsync(ShowTarget target, bool useDefault = false, CancellationToken cancellationToken = default)
     {
         if (!useDefault)
             return await Viewer.Show(options, LoadConfig(), target, cancellationToken);
-        if (target is ShowTarget.Remember or ShowTarget.Checkup)
-            throw NoBuiltInText(target == ShowTarget.Remember ? "remember" : "checkup");
+        if (target is ShowTarget.Remember or ShowTarget.Consolidation)
+            throw NoBuiltInText(target == ShowTarget.Remember ? "remember" : "consolidate");
         return Viewer.Default(target);
     }
 
@@ -98,8 +98,11 @@ public sealed class Tacit(TacitOptions options)
     /// <exception cref="TacitException">No binding has that name.</exception>
     public BindingResult Disconnect(string client) => Binder.Disconnect(options, client);
 
-    /// <summary>Renders the current persona and <c>resident.md</c> into every bound context file, reading <c>bindings.json</c> afresh.</summary>
-    public IReadOnlyList<BlockRender> RenderBlocks()
+    /// <summary>
+    /// Renders the current persona and <c>resident.md</c> into every bound context file, reading <c>bindings.json</c> afresh.
+    /// Internal: the service renders on its own; a test that renders beside a running service races it.
+    /// </summary>
+    internal IReadOnlyList<BlockRender> RenderBlocks()
     {
         var config = LoadConfig();
         return Binder.RenderAll(options, config, config.Prompts);

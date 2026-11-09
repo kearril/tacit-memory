@@ -14,10 +14,7 @@ public sealed record TacitConfig
 
     public required LimitsConfig Limits { get; init; }
 
-    /// <summary>Distinct days a persona candidate must appear on before it can be confirmed.</summary>
-    public required int CandidateMinDays { get; init; }
-
-    public required CheckupConfig Checkup { get; init; }
+    public required ConsolidationConfig Consolidation { get; init; }
 
     public required DecisionThresholds Decision { get; init; }
 
@@ -57,13 +54,18 @@ public enum ModelProvider
     Cloudflare,
 }
 
-public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page);
+/// <param name="Domains">Domains the persona may hold; a new domain beyond it is refused.</param>
+/// <param name="DomainEntries">Entries a domain may hold in all four sections together.</param>
+/// <param name="TriggerLength">Characters a domain's trigger may have.</param>
+/// <param name="Brief">Characters a project brief may have; only its page index is shortened to fit.</param>
+public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page, int Domains, int DomainEntries, int TriggerLength, int Brief);
 
 public sealed record PersonaLimits(int RedLines, int WorkingRules, int Preferences, int Profile);
 
 public sealed record PageLimits(int TitleLength, int AliasLength, int MinAliases);
 
-public sealed record CheckupConfig(int RemindAfterDays, int MainlineStaleDays, int BudgetSeconds, int MaxConcurrency);
+/// <param name="RemindCandidates">Candidates at which the consolidation reminder is due.</param>
+public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
 public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameTopic, Threshold? RuleConflict);
@@ -112,8 +114,17 @@ public sealed record RecordingCriteria(IReadOnlyList<string> WorthRecording, IRe
 public sealed record PromptDocuments(RecordingCriteria Rules, string? Instructions, ResidentDocument? Resident, string? Skill);
 
 /// <summary>
-/// <c>resident.md</c>: the shell paragraph of the resident block and the guidance under each of its four sections,
-/// in the file's own words. An empty <see cref="Shell"/> leaves the paragraph out; a <c>null</c> guidance leaves
-/// the guidance line out under that section.
+/// <c>resident.md</c>: the shell paragraph of the resident block and the guidance under each of its sections, in the
+/// file's own words. An empty <see cref="Shell"/> leaves the paragraph out; a <c>null</c> guidance leaves the guidance
+/// line out under that section.
 /// </summary>
-public sealed record ResidentDocument(string Shell, string? RedLines, string? WorkingRules, string? Preferences, string? Profile);
+public sealed record ResidentDocument(
+    string Shell,
+    string? RedLines,
+    string? WorkingRules,
+    string? Preferences,
+    string? Profile,
+    string? SituationalRules,
+    string? Mainline,
+    string? RecentWeeks,
+    string? Projects);

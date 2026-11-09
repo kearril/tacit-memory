@@ -1,5 +1,5 @@
 using System.Text;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
@@ -33,8 +33,8 @@ internal static class Viewer
     private static readonly Localized GeneralRulesLabel = new("通用规则", "General rules");
     private static readonly Localized LanguageLabel = new("语言规范", "Language norms");
     private static readonly Localized RecordingCriteriaLabel = new("值得记标准", "Recording criteria");
-    private static readonly Localized RecentLabel = new("近期摘要与已有项目", "Recent activity and projects");
-    private static readonly Localized CheckupLabel = new("体检提示", "Checkup reminder");
+    private static readonly Localized RecentLabel = new("最近 7 天活动", "Activities of the last seven days");
+    private static readonly Localized ConsolidationLabel = new("整理提示", "Consolidation reminder");
 
     private static readonly Localized ResidentTitle = new(
         "[常驻区块外壳与四节引导语] 来源：{0}，{1}/{2} 字符",
@@ -83,7 +83,7 @@ internal static class Viewer
             ShowTarget.Resident => Resident(options, config),
             ShowTarget.Skill => Skill(options, config),
             ShowTarget.Remember => Command(RememberSkill.Name, RememberSkill.Compose(), config.Language),
-            ShowTarget.Checkup => Command(CheckupSkill.Name, CheckupSkill.Compose(config.Language), config.Language),
+            ShowTarget.Consolidation => Command(ConsolidationSkill.Name, ConsolidationSkill.Compose(config.Language), config.Language),
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
         };
     }
@@ -115,19 +115,18 @@ internal static class Viewer
     private static async Task<ShowResult> Instructions(TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         var language = config.Language;
-        var recent = RecentSummary.Read(config.MemoryPath, options.Today);
-        var projects = ServerInstructionText.Projects(config.MemoryPath, recent.ProjectLabels);
-        // The service's text without its runtime status, cut to the same limits, with the checkup reminder as it would be sent now.
-        var checkup = await CheckupReminder.RenderAsync(config, options.Today, cancellationToken);
-        var set = ServerInstructionText.Assemble(language, config.Prompts, [], [], recent, projects, checkup);
+        var recent = RecentSummary.Read(config.MemoryPath, options.Today, language);
+        // The service's text without its runtime status, cut to the same limits, with the consolidation reminder as it would be sent now.
+        var consolidation = await ConsolidationReminder.RenderAsync(config, options.Today, cancellationToken);
+        var set = ServerInstructionText.Assemble(language, config.Prompts, [], [], recent, consolidation);
 
         var sections = set.Fixed
             .Select(part => (Label: LabelOf(part.Part), Shown: InstructionShowPart(part, config, options.TacitHome)))
             .ToList();
         if (set.Recent.Length > 0)
             sections.Add((RecentLabel, new ShowPart("recent", ShowSource.Code, null, set.Recent)));
-        if (set.Checkup.Length > 0)
-            sections.Add((CheckupLabel, new ShowPart("checkup", ShowSource.Code, null, set.Checkup)));
+        if (set.Consolidation.Length > 0)
+            sections.Add((ConsolidationLabel, new ShowPart("consolidation", ShowSource.Code, null, set.Consolidation)));
 
         var heading = InstructionsTitle.Format(
             language, set.FixedText.Length, ServerInstructionText.FixedLimit, set.Text.Length, ServerInstructionText.TotalLimit);
@@ -186,7 +185,7 @@ internal static class Viewer
 
         var parts = new List<ShowPart> { new("shell", source, path, document.Shell) };
         parts.AddRange(ResidentFile.Sections.Select(section =>
-            new ShowPart(section.Name, source, path, ResidentFile.GuidanceOf(document, section.Kind) ?? "")));
+            new ShowPart(section.Name, source, path, ResidentFile.GuidanceOf(document, section.Part) ?? "")));
         var heading = ResidentTitle.Format(language, SourceText(language, source, path), length, ResidentFile.MaxLength);
         return new ShowResult(
             heading + "\n\n" + text,

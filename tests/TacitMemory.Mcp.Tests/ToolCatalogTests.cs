@@ -8,7 +8,20 @@ public sealed class ToolCatalogTests
     private static readonly LimitsConfig DefaultLimits = Limits(itemLength: 200, minAliases: 2);
 
     private static LimitsConfig Limits(int itemLength, int minAliases) =>
-        new(new PersonaLimits(5, 20, 15, 10), itemLength, 5, new PageLimits(50, 30, minAliases));
+        new(new PersonaLimits(5, 15, 10, 10), itemLength, 5, new PageLimits(50, 30, minAliases), 10, 10, 60, 3000);
+
+    [Fact]
+    public void The_write_persona_description_states_the_configured_domain_limits()
+    {
+        var limits = DefaultLimits with { TriggerLength = 25, DomainEntries = 4, Domains = 3 };
+
+        var description = ToolCatalog.Describe(limits).ToDictionary(tool => tool.Name)["write_persona"].Description;
+
+        Assert.Contains("at most 25 characters", description);
+        Assert.Contains("at most 4 entries", description);
+        Assert.Contains("at most 3 domains", description);
+        Assert.DoesNotContain('{', description);
+    }
 
     [Fact]
     public void The_catalog_lists_every_memory_tool_with_its_parameters_described()
@@ -25,12 +38,24 @@ public sealed class ToolCatalogTests
     }
 
     [Fact]
+    public void The_write_tools_state_the_credential_rule_as_where_it_is_kept()
+    {
+        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
+
+        foreach (var name in new[] { "write_page", "write_recent", "write_persona" })
+        {
+            Assert.Contains("never its value", tools[name].Description);
+            Assert.DoesNotContain("never store one", tools[name].Description);
+        }
+    }
+
+    [Fact]
     public void The_catalog_gives_parameter_names_and_types_as_clients_see_them()
     {
         var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
 
         Assert.Contains(tools["write_page"].Parameters, parameter => parameter.Name == "op" && parameter.Type == "string");
-        Assert.Contains(tools["write_recent"].Parameters, parameter => parameter.Name == "items" && parameter.Type == "string[]");
+        Assert.Contains(tools["write_page"].Parameters, parameter => parameter.Name == "aliases" && parameter.Type == "string[]");
         Assert.Contains(tools["write_persona"].Parameters, parameter => parameter.Name == "confirm_no_secret" && parameter.Type == "bool");
         Assert.DoesNotContain(tools.Values.SelectMany(tool => tool.Parameters), parameter => parameter.Type.Contains("CancellationToken"));
     }

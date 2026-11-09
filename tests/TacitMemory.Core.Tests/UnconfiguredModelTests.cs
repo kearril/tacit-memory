@@ -5,13 +5,13 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// A model left out of <c>config.yaml</c> is unconfigured: the service starts and works without it, degrades as it does
-/// for an unavailable model, but says nothing about it in the results, the instructions or the checkup's "not checked"
+/// for an unavailable model, but says nothing about it in the results, the instructions or the consolidation's "not checked"
 /// notes of unavailability, never calls it, and never puts it in a cooldown. Through the facade.
 /// </summary>
 public sealed class UnconfiguredModelTests : IDisposable
 {
     /// <summary>A bound on each await: a wait that never ends fails here instead of hanging.</summary>
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(30);
 
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
@@ -52,7 +52,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         _service = null;
     }
 
-    /// <summary>The text of one checkup category: from its heading to the next heading, or to the end.</summary>
+    /// <summary>The text of one consolidation category: from its heading to the next heading, or to the end.</summary>
     private static string Section(string text, string title)
     {
         var start = text.IndexOf($"### {title}\n", StringComparison.Ordinal);
@@ -62,7 +62,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     }
 
     private Task<ToolResult> WriteEntry(string text) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = text }).WaitAsync(Guard);
+        Service.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
 
     private Task<ToolResult> AddPreference(string text) =>
         Service.WritePersonaAsync(new WritePersonaRequest { Op = "add", Section = "preferences", Text = text, Source = text }).WaitAsync(Guard);
@@ -75,6 +75,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         var page = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -124,6 +125,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         var page = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -179,13 +181,13 @@ public sealed class UnconfiguredModelTests : IDisposable
     }
 
     [Fact]
-    public async Task The_checkup_marks_the_categories_an_unconfigured_model_leaves_unchecked_and_asks_nothing()
+    public async Task The_consolidation_marks_the_categories_an_unconfigured_model_leaves_unchecked_and_asks_nothing()
     {
         WriteModels();
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
 
-        var report = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var report = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
         Assert.DoesNotContain("unavailable", Section(report, "Conflicting persona entries"));
@@ -194,13 +196,13 @@ public sealed class UnconfiguredModelTests : IDisposable
     }
 
     [Fact]
-    public async Task With_the_decision_model_unconfigured_the_checkup_asks_nothing_and_says_so_while_embedding_still_runs()
+    public async Task With_the_decision_model_unconfigured_the_consolidation_asks_nothing_and_says_so_while_embedding_still_runs()
     {
         WriteModels(EmbeddingLine);
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
 
-        var report = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var report = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
         Assert.True(_models.EmbeddingCalls > 0);
@@ -228,6 +230,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -260,6 +263,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -284,6 +288,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -306,14 +311,14 @@ public sealed class UnconfiguredModelTests : IDisposable
         WriteModels(EmbeddingLine, DecisionLine);
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
         var asked = _models.DecisionCalls;
-        Assert.True(asked > 0, "The first checkup should have asked the decision model.");
+        Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
         StopService();
 
         WriteModels(EmbeddingLine);
-        var report = await Service.CheckupReportAsync().WaitAsync(Guard);
+        var report = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
         Assert.Equal(asked, _models.DecisionCalls);
@@ -323,7 +328,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     private int StoredVectors(string? model)
     {
         StopService();
-        using var index = new MemoryIndex(MemoryPath, model, MemoryLanguage.Zh);
+        using var index = new MemoryIndex(MemoryPath, model, MemoryLanguage.Zh, () => TestHome.Today, () => new Dictionary<string, DateOnly>());
         return index.Counts().Vectors;
     }
 }

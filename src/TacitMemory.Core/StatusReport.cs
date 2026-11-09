@@ -18,13 +18,16 @@ public sealed record StatusReport
     /// <summary>The auxiliary models' states. When the service runs, every model; when it does not, only the unconfigured ones.</summary>
     public ModelsStatus? Models { get; init; }
 
+    /// <summary>The clients the service has seen, newest first, with what each declared. Read from the state file, so it is shown with the service stopped too.</summary>
+    public ClientsStatus? Clients { get; init; }
+
     /// <summary>Each client binding and whether its files are still in place.</summary>
     public BindingsStatus? Bindings { get; init; }
 
-    /// <summary>When the last checkup was, and how many days ago.</summary>
-    public CheckupStatus? Checkup { get; init; }
+    /// <summary>When the last consolidation was, and how many days ago.</summary>
+    public ConsolidationStatus? Consolidation { get; init; }
 
-    /// <summary>The counts a checkup would raise: confirmable candidates, format problems, a stale mainline.</summary>
+    /// <summary>The counts a consolidation would raise: candidates, format problems, an empty mainline.</summary>
     public PendingStatus? Pending { get; init; }
 
     /// <summary>The latest local backup and the cloud backup record.</summary>
@@ -39,7 +42,7 @@ public sealed record StatusReport
     /// <summary>The columns the report carries, in the order the CLI lists them. Not part of the reply: it is derived from the columns above.</summary>
     [JsonIgnore]
     public IReadOnlyList<IStatusColumn> Columns =>
-        new IStatusColumn?[] { Config, Service, Models, Bindings, Checkup, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
+        new IStatusColumn?[] { Config, Service, Models, Clients, Bindings, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
 }
 
 /// <summary>How a line of a status column stands. The CLI colours it: ok green, attention yellow, problem red.</summary>
@@ -159,25 +162,25 @@ public enum BindingProblem
     SkillLinkNotTacit,
 }
 
-/// <param name="LastCheckupDay">The day of the last checkup, or of the init commit standing in for it; <c>null</c> when there is none, or the history cannot be read.</param>
-/// <param name="DaysSince">Days from that day to today; <c>null</c> together with <paramref name="LastCheckupDay"/>.</param>
-public sealed record CheckupStatus(string Title, IReadOnlyList<string> Lines, DateOnly? LastCheckupDay, int? DaysSince) : IStatusColumn;
+/// <param name="LastConsolidationDay">The day of the last consolidation, or of the init commit standing in for it; <c>null</c> when there is none, or the history cannot be read.</param>
+/// <param name="DaysSince">Days from that day to today; <c>null</c> together with <paramref name="LastConsolidationDay"/>.</param>
+public sealed record ConsolidationStatus(string Title, IReadOnlyList<string> Lines, DateOnly? LastConsolidationDay, int? DaysSince) : IStatusColumn;
 
-/// <param name="Confirmable">Candidates that can be confirmed; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
+/// <param name="Candidates">Candidates in <c>candidates.md</c>; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
 /// <param name="FormatProblems">Format and rule problems; <c>null</c> when the history cannot be read.</param>
-/// <param name="MainlineStale">Whether the mainline is stale; <c>null</c> when the history cannot be read.</param>
-public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Confirmable, int? FormatProblems, bool? MainlineStale) : IStatusColumn
+/// <param name="MainlineEmpty">Whether the mainline has no items; <c>null</c> when the history cannot be read.</param>
+public sealed record PendingStatus(string Title, IReadOnlyList<string> Lines, int? Candidates, int? FormatProblems, bool? MainlineEmpty, int? UnsummarizedWeeks = null) : IStatusColumn
 {
     /// <summary>
-    /// The lines are the confirmable count, the format problems and the mainline, in that order. No count means the history
-    /// or the file could not be read, which is a problem; a count above zero, or a stale mainline, needs attention.
+    /// The lines are the candidate count, the format problems, the mainline and the weeks to summarize, in that order. No count
+    /// means the history or the file could not be read, which is a problem; a count above zero, or an empty mainline, needs attention.
     /// </summary>
     public IReadOnlyList<StatusLevel?> LineLevels() =>
-        new StatusLevel?[] { CountLevel(Confirmable), CountLevel(FormatProblems), MainlineLevel(MainlineStale) }.Take(Lines.Count).ToList();
+        new StatusLevel?[] { CountLevel(Candidates), CountLevel(FormatProblems), MainlineLevel(MainlineEmpty), CountLevel(UnsummarizedWeeks) }.Take(Lines.Count).ToList();
 
     private static StatusLevel CountLevel(int? count) => count is null ? StatusLevel.Problem : count > 0 ? StatusLevel.Attention : StatusLevel.Ok;
 
-    private static StatusLevel MainlineLevel(bool? stale) => stale is null ? StatusLevel.Problem : stale.Value ? StatusLevel.Attention : StatusLevel.Ok;
+    private static StatusLevel MainlineLevel(bool? empty) => empty is null ? StatusLevel.Problem : empty.Value ? StatusLevel.Attention : StatusLevel.Ok;
 }
 
 /// <param name="Latest">The file name of the newest local backup of any kind; <c>null</c> when there is none.</param>
@@ -202,3 +205,19 @@ public sealed record SecretStatus(string Key, string Variable, SecretSource? Sou
 
 /// <param name="Directory">The directory holding the service's daily log files.</param>
 public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, string Directory) : IStatusColumn;
+
+/// <summary>The recorded clients, one line each; <paramref name="Items"/> carries the same clients as data. Plain lines: a sighting is information, not a problem.</summary>
+public sealed record ClientsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ClientStatus> Items) : IStatusColumn;
+
+/// <summary>
+/// One client as the service last saw it: the name and version it declared, the day of its last request, the protocol revision
+/// it used, and the capabilities and extensions it declared then. Shown as it was written, with control characters removed.
+/// </summary>
+/// <param name="LastSeen">The local day of the last request from this client, not the time of day.</param>
+public sealed record ClientStatus(
+    string Name,
+    string Version,
+    DateOnly LastSeen,
+    string ProtocolVersion,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<string> Extensions);

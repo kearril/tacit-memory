@@ -40,7 +40,6 @@ public sealed class RecallActivityTests : IDisposable
 
     private static WriteRecentRequest Activity(string text, string? project = null) => new()
     {
-        Op = "add_activity",
         Text = text,
         Project = project,
     };
@@ -53,6 +52,7 @@ public sealed class RecallActivityTests : IDisposable
     private Task WritePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = ["别名甲", "别名乙"],

@@ -18,6 +18,7 @@ internal static class Templates
     [
         new("常规的写代码、改错字、看日志", "Routine coding, typo fixes and log reading"),
         new("能从代码、仓库文档、配置中查到的内容", "What code, repository docs or configuration already show"),
+        new("临时问答、一次性查询和闲聊，没有结论时", "Quick questions, one-off lookups and small talk that reach no conclusion"),
     ];
 
     public static string Rules(MemoryLanguage language) =>
@@ -89,8 +90,8 @@ internal static class Templates
         limits:
           persona:                    # 画像各节的条数上限
             redLines: 5
-            workingRules: 20
-            preferences: 15
+            workingRules: 15
+            preferences: 10
             profile: 10
           itemLength: 200             # 每条最多字数，不含来源注释
           mainline: 5                 # 近期主线最多条数
@@ -98,15 +99,16 @@ internal static class Templates
             titleLength: 50           # 细节页标题最多字数
             aliasLength: 30           # 每个别名最多字数
             minAliases: 2             # 别名最少个数
+          domains: 10                 # 领域最多个数
+          domainEntries: 10           # 每个领域最多条数
+          triggerLength: 60           # 领域的触发描述最多字数
+          brief: 3000                 # 项目简报最多字数，超出时只截短页目录
 
-        candidates:
-          minDays: 2                  # 画像候选在不同日期出现满几天后可确认
-
-        checkup:
-          remindAfterDays: 7          # 距上次体检多少天后提示
-          mainlineStaleDays: 14       # 近期主线多少天未更新视为过期
-          budgetSeconds: 20           # 一次体检最多等模型多少秒，到点照常出报告
-          maxConcurrency: 5           # 一次体检同时进行的模型判断数
+        consolidation:
+          remindAfterDays: 7          # 距上次整理多少天后提示
+          remindCandidates: 5         # 候选达到多少个时提示
+          budgetSeconds: 20           # 一次整理最多等模型多少秒，到点照常出报告
+          maxConcurrency: 5           # 一次整理同时进行的模型判断数
 
         # 各判断的上下阈值，默认值内置；需要时取消注释并修改。
         # decision:
@@ -158,8 +160,8 @@ internal static class Templates
         limits:
           persona:                    # item limits of the persona sections
             redLines: 5
-            workingRules: 20
-            preferences: 15
+            workingRules: 15
+            preferences: 10
             profile: 10
           itemLength: 200             # max characters per item, source comment excluded
           mainline: 5                 # max mainline items
@@ -167,15 +169,16 @@ internal static class Templates
             titleLength: 50           # max characters in a page title
             aliasLength: 30           # max characters per alias
             minAliases: 2             # min number of aliases
+          domains: 10                 # max number of domains
+          domainEntries: 10           # max entries per domain
+          triggerLength: 60           # max characters in a domain's trigger
+          brief: 3000                 # max characters in a project brief; only its page index is shortened
 
-        candidates:
-          minDays: 2                  # distinct days a persona candidate must appear on before it can be confirmed
-
-        checkup:
-          remindAfterDays: 7          # days after the last checkup before reminding
-          mainlineStaleDays: 14       # days without update after which the mainline counts as stale
-          budgetSeconds: 20           # seconds one checkup waits for the models before it reports what it has
-          maxConcurrency: 5           # model judgments one checkup runs at once
+        consolidation:
+          remindAfterDays: 7          # days after the last consolidation before reminding
+          remindCandidates: 5         # candidates at which to remind
+          budgetSeconds: 20           # seconds one consolidation waits for the models before it reports what it has
+          maxConcurrency: 5           # model judgments one consolidation runs at once
 
         # Upper and lower thresholds of each judgment; built-in defaults. Uncomment to change.
         # decision:

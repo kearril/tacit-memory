@@ -37,17 +37,68 @@ public sealed class McpHostTests : IAsyncLifetime
     [Fact]
     public async Task A_client_receives_the_server_instructions_when_it_connects()
     {
+        // Written before the first connection, so the instructions are first built with this activity in them.
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md"), "## 2026-11-02\n- [tacit-memory] MCP 接缝测试活动\n");
         await using var client = await ConnectAsync();
 
         Assert.Equal("tacit", client.ServerInfo?.Name);
         var instructions = Assert.IsType<string>(client.ServerInstructions);
         Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
-        Assert.Contains("## When to recall", instructions);
-        Assert.Contains("## Writing pages", instructions);
+        Assert.Contains("## Recall", instructions);
+        Assert.Contains("`recall` first, then update the page", instructions);
         Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
         Assert.Contains("tacit-memory", instructions);
-        Assert.EndsWith("## Projects\ntacit-memory", instructions);
+        Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] MCP 接缝测试活动\n</recent_activity>", instructions);
+        Assert.DoesNotContain("## Projects", instructions);
+    }
+
+    [Fact]
+    public async Task A_client_on_the_2026_07_28_revision_runs_without_a_session()
+    {
+        await using var client = await ConnectAsync();
+
+        Assert.Equal("2026-07-28", client.NegotiatedProtocolVersion);
+        Assert.Null(client.SessionId);
+        Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", client.ServerInstructions);
+        Assert.Equal(["recall", "write_page", "write_persona", "write_recent"], (await client.ListToolsAsync()).Select(tool => tool.Name).Order());
+    }
+
+    [Theory]
+    [InlineData("2025-03-26")]
+    [InlineData("2025-06-18")]
+    [InlineData("2025-11-25")]
+    public async Task A_client_on_an_older_revision_still_connects_through_initialize_without_a_session(string version)
+    {
+        await using var client = await McpClient.CreateAsync(
+            new HttpClientTransport(new HttpClientTransportOptions { Endpoint = _host.Endpoint, TransportMode = HttpTransportMode.StreamableHttp }),
+            new McpClientOptions { ProtocolVersion = version });
+
+        Assert.Equal(version, client.NegotiatedProtocolVersion);
+        Assert.Null(client.SessionId);
+        Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", client.ServerInstructions);
+        var recalled = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "数据库" });
+        Assert.NotEqual(true, recalled.IsError);
+    }
+
+    [Fact]
+    public async Task A_raw_initialize_answer_carries_no_session_header()
+    {
+        using var http = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, _host.Endpoint)
+        {
+            Content = new StringContent(
+                """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"raw","version":"1"}}}""",
+                System.Text.Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        using var response = await http.SendAsync(request);
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.False(response.Headers.Contains("Mcp-Session-Id"));
     }
 
     [Fact]
@@ -74,7 +125,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.False(recent.Annotations?.IdempotentHint);
         Assert.False(recent.Annotations?.OpenWorldHint);
         Assert.Equal(
-            ["confirm_no_secret", "hash", "items", "op", "project", "replaces", "source", "text"],
+            ["confirm_no_secret", "project", "replaces", "source", "text"],
             recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         var persona = tools["write_persona"].ProtocolTool;
         Assert.False(persona.Annotations?.ReadOnlyHint);
@@ -82,7 +133,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.False(persona.Annotations?.IdempotentHint);
         Assert.False(persona.Annotations?.OpenWorldHint);
         Assert.Equal(
-            ["confirm_no_secret", "hash", "op", "persona_section", "source", "text"],
+            ["confirm_no_secret", "hash", "op", "persona_section", "scope", "source", "text", "trigger"],
             persona.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
     }
 
@@ -94,14 +145,17 @@ public sealed class McpHostTests : IAsyncLifetime
         var tools = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
 
         Assert.Equal(["op", "page"], Required(tools["write_page"].ProtocolTool));
-        Assert.Equal(["op"], Required(tools["write_recent"].ProtocolTool));
+        Assert.Equal(["text"], Required(tools["write_recent"].ProtocolTool));
         Assert.Equal(["op"], Required(tools["write_persona"].ProtocolTool));
         Assert.Empty(Required(tools["recall"].ProtocolTool));
         Assert.Equal(["create", "upsert_section", "delete_section", "update_header"], Values(tools["write_page"].ProtocolTool, "op"));
-        Assert.Equal(["add_activity", "update_mainline"], Values(tools["write_recent"].ProtocolTool, "op"));
         Assert.Equal(["add", "propose", "replace", "delete"], Values(tools["write_persona"].ProtocolTool, "op"));
         Assert.Equal(["red_lines", "working_rules", "preferences", "profile"], Values(tools["write_persona"].ProtocolTool, "persona_section"));
-        Assert.Equal(["pages", "activities"], Values(tools["recall"].ProtocolTool, "kind"));
+        Assert.Equal(["incident", "decision", "entity", "work"], Values(tools["write_page"].ProtocolTool, "type"));
+        Assert.Equal(["pages", "activities", "rules", "persona"], Values(tools["recall"].ProtocolTool, "kind"));
+        Assert.Equal(
+            ["domain", "from", "kind", "page", "project", "query", "to"],
+            tools["recall"].ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         Assert.False(tools["write_page"].ProtocolTool.InputSchema.GetProperty("properties").GetProperty("page").TryGetProperty("enum", out _));
     }
 
@@ -162,29 +216,43 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_checkup_report_is_listed_as_a_resource_and_reads_back_the_memory_path_and_the_report()
+    public async Task The_old_checkup_report_uri_is_not_a_resource()
+    {
+        await using var client = await ConnectAsync();
+
+        await Assert.ThrowsAnyAsync<ModelContextProtocol.McpException>(() => client.ReadResourceAsync("tacit://checkup-report").AsTask());
+    }
+
+    [Fact]
+    public async Task The_consolidation_report_is_listed_as_a_resource_and_reads_back_the_memory_path_and_the_report()
     {
         await using var client = await ConnectAsync();
 
         var resource = Assert.Single(await client.ListResourcesAsync());
-        Assert.Equal("tacit://checkup-report", resource.Uri);
-        Assert.Contains("tacit-checkup", resource.Description, StringComparison.Ordinal);
+        Assert.Equal("tacit://consolidation-report", resource.Uri);
+        Assert.Contains("tacit-consolidate", resource.Description, StringComparison.Ordinal);
 
-        var result = await client.ReadResourceAsync("tacit://checkup-report");
+        var result = await client.ReadResourceAsync("tacit://consolidation-report");
         var text = string.Concat(result.Contents.OfType<ModelContextProtocol.Protocol.TextResourceContents>().Select(contents => contents.Text));
         Assert.Contains(_home.DefaultMemory, text);
-        foreach (var title in new[]
+        var headings = new[]
         {
-            "Suspected duplicate pages",
-            "Conflicting persona entries",
-            "Confirmable persona candidates",
-            "Persona candidates to remove",
-            "Format and rule violations",
-            "Stale mainline",
-        })
-        {
-            Assert.Contains($"### {title}\n", text);
-        }
+            "## A. Automatic\n",
+            "### Format and rule violations\n",
+            "### Persona candidates to remove\n",
+            "### Weeks to summarize\n",
+            "### Months to summarize\n",
+            "### Mainline material\n",
+            "## B. For proposals\n",
+            "### Persona evidence\n",
+            "### Incident lessons\n",
+            "### Changed pages\n",
+            "### Suspected duplicate pages\n",
+            "### Conflicting persona entries\n",
+            "### Over-limit sections and domain hygiene\n",
+        };
+        foreach (var heading in headings)
+            Assert.Contains(heading, text);
     }
 
     [Fact]
@@ -197,6 +265,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["op"] = "create",
             ["page"] = "tacit-memory/db-upgrade",
             ["title"] = "数据库升级后扩展丢失",
+            ["type"] = "incident",
             ["aliases"] = new[] { "全文检索插件失效", "升级后搜索不到中文" },
             ["sections"] = new[] { new Dictionary<string, string> { ["name"] = "根因", ["body"] = "扩展没有重装。" } },
         });
@@ -215,7 +284,6 @@ public sealed class McpHostTests : IAsyncLifetime
 
         var written = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "想清楚了画像里缺的是人的倾向",
             ["project"] = "tacit-memory",
         });
@@ -233,7 +301,6 @@ public sealed class McpHostTests : IAsyncLifetime
         await using var client = await ConnectAsync();
         var first = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "先查了索引",
         });
         _models.Choose = (_, options) => options.ToDictionary(
@@ -242,7 +309,6 @@ public sealed class McpHostTests : IAsyncLifetime
 
         var repeated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "索引查完了，问题在分词器",
         });
 
@@ -256,31 +322,11 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_mainline_update_through_the_tool_replaces_the_list_and_the_reply_shows_the_version()
-    {
-        await using var client = await ConnectAsync();
-
-        // e3b0c4 is the version code of the empty mainline (the short code of an empty string).
-        var updated = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
-        {
-            ["op"] = "update_mainline",
-            ["items"] = new[] { "主线一", "主线二" },
-            ["hash"] = "e3b0c4",
-        });
-
-        Assert.NotEqual(true, updated.IsError);
-        Assert.Contains("Mainline updated.", Text(updated));
-        Assert.Contains("- 主线一\n- 主线二", Text(updated));
-        Assert.Contains("## 近期主线\n- 主线一\n- 主线二\n", File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent.md")));
-    }
-
-    [Fact]
     public async Task An_activity_written_through_the_tool_is_recalled_by_kind()
     {
         await using var client = await ConnectAsync();
         await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
-            ["op"] = "add_activity",
             ["text"] = "想清楚了画像里缺的是人的倾向",
             ["project"] = "tacit-memory",
         });
@@ -293,18 +339,23 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_refused_activity_comes_back_as_an_error_with_its_next_step()
+    public async Task The_removed_parameters_come_back_refused_by_name_with_the_consolidation_as_the_next_step()
     {
         await using var client = await ConnectAsync();
 
         var refused = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
             ["op"] = "add_activity",
+            ["text"] = "一件事",
             ["items"] = new[] { "不该传" },
+            ["hash"] = "e3b0c4",
         });
 
         Assert.True(refused.IsError);
-        Assert.StartsWith("Refused: Parameter items does not apply to op add_activity.\nNext step: ", Text(refused));
+        Assert.StartsWith(
+            "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\nNext step: ",
+            Text(refused));
+        Assert.Contains("The mainline is maintained by the tacit-consolidate skill.", Text(refused));
     }
 
     [Fact]
@@ -316,6 +367,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["op"] = "create",
             ["page"] = "tacit-memory/db-upgrade",
             ["title"] = "数据库升级后扩展丢失",
+            ["type"] = "incident",
             ["aliases"] = new[] { "全文检索插件失效", "升级后搜索不到中文" },
             ["sections"] = new[] { new Dictionary<string, string> { ["name"] = "根因", ["body"] = "扩展没有重装。" } },
         });
@@ -347,6 +399,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["op"] = "create",
             ["page"] = "tacit-memory/db-upgrade",
             ["title"] = "数据库升级后扩展丢失",
+            ["type"] = "incident",
             ["aliases"] = new[] { "全文检索插件失效", "升级后搜索不到中文" },
             ["sections"] = new[] { new Dictionary<string, string> { ["name"] = "根因", ["body"] = "扩展没有重装。" } },
         });
@@ -436,6 +489,27 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_domain_entry_with_its_scope_and_trigger_lands_in_its_block_through_the_tool()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "add",
+            ["persona_section"] = "working_rules",
+            ["text"] = "切换节点 → 先备份配置",
+            ["source"] = "先备份",
+            ["scope"] = "domain:network-proxy",
+            ["trigger"] = "改代理、分流或测速时",
+        });
+
+        Assert.NotEqual(true, written.IsError);
+        Assert.Contains(
+            "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 切换节点 → 先备份配置\n  <!-- 2026-11-02 原话「先备份」 -->\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
+    }
+
+    [Fact]
     public async Task Replace_and_delete_through_the_tool_check_their_parameters_and_take_a_short_code_from_a_refusal()
     {
         await using var client = await ConnectAsync();
@@ -461,12 +535,14 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.True(misplaced.IsError);
         Assert.Contains("persona_section", Text(misplaced));
         Assert.True(noHash.IsError);
-        Assert.Contains("Related:", Text(noHash));
+        Assert.DoesNotContain("Related:", Text(noHash));
+        Assert.Contains("Call recall with kind=persona", Text(noHash));
         Assert.True(deleteWithText.IsError);
         Assert.Contains("text", Text(deleteWithText));
         Assert.Equal("## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n- 反感客套和铺垫\n", File.ReadAllText(persona));
 
-        var code = System.Text.RegularExpressions.Regex.Match(Text(noHash), @"\[([0-9a-f]{6})\] 沟通：先要结论").Groups[1].Value;
+        var listed = Text(await client.CallToolAsync("recall", new Dictionary<string, object?> { ["kind"] = "persona" }));
+        var code = System.Text.RegularExpressions.Regex.Match(listed, @"\[([0-9a-f]{6})\] 沟通：先要结论").Groups[1].Value;
         var replaced = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
         {
             ["op"] = "replace",
@@ -474,7 +550,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["text"] = "沟通：先说结论",
             ["source"] = "先说结论",
         });
-        var refreshed = System.Text.RegularExpressions.Regex.Match(Text(noHash), @"\[([0-9a-f]{6})\] 反感客套和铺垫").Groups[1].Value;
+        var refreshed = System.Text.RegularExpressions.Regex.Match(listed, @"\[([0-9a-f]{6})\] 反感客套和铺垫").Groups[1].Value;
         var deleted = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
         {
             ["op"] = "delete",
@@ -521,7 +597,7 @@ public sealed class McpHostTests : IAsyncLifetime
         });
 
         Assert.NotEqual(true, proposed.IsError);
-        Assert.Contains("1/2", Text(proposed));
+        Assert.Contains("Recorded as a new candidate (scope: global)", Text(proposed));
         Assert.DoesNotMatch(@"\[[0-9a-f]{6}", Text(proposed));
         Assert.Contains(
             "### 沟通：先要结论\n归属：偏好\n- 2026-11-02 原话「先要结论」\n",
@@ -569,7 +645,7 @@ public sealed class McpHostTests : IAsyncLifetime
         });
 
         Assert.NotEqual(true, merged.IsError);
-        Assert.Contains("2/2", Text(merged));
+        Assert.Contains("Merged into the candidate \"沟通：先要结论\" (scope: global)", Text(merged));
         Assert.NotEqual(true, refused.IsError);
         Assert.Contains("2026-10-20", Text(refused));
         Assert.Contains(

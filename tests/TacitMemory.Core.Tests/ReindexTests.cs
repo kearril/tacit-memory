@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
 namespace TacitMemory.Core.Tests;
@@ -34,6 +35,7 @@ public sealed class ReindexTests : IDisposable
         var result = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = page,
             Title = title,
             Aliases = [title + "的坑", title + "问题"],
@@ -44,6 +46,9 @@ public sealed class ReindexTests : IDisposable
 
     private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
 
+    /// <summary>The text without the section dates shown after headings.</summary>
+    private static string WithoutDates(string text) => Regex.Replace(text, @" \(last changed \d{4}-\d{2}-\d{2}\)", "");
+
     [Fact]
     public async Task After_a_rebuild_the_same_query_returns_the_same_result_and_every_unit_has_a_vector()
     {
@@ -53,7 +58,8 @@ public sealed class ReindexTests : IDisposable
 
         var result = await Service.ReindexAsync().WaitAsync(Guard);
 
-        Assert.Equal(before.Text, (await Recall("备份")).Text);
+        // The rebuild dates each section by its file's commit, which the test clock does not control; the dates have their own test.
+        Assert.Equal(WithoutDates(before.Text), WithoutDates((await Recall("备份")).Text));
         Assert.True(result.Files >= 2, $"Expected at least the two pages, got {result.Files} files.");
         Assert.True(result.Units > 0);
         Assert.Equal(result.Units, result.Vectors);
@@ -62,21 +68,21 @@ public sealed class ReindexTests : IDisposable
     }
 
     [Fact]
-    public async Task The_rebuild_empties_the_judgment_cache_so_the_next_checkup_asks_the_decision_model_again()
+    public async Task The_rebuild_empties_the_judgment_cache_so_the_next_consolidation_asks_the_decision_model_again()
     {
         Write("回答尽量简短");
         PickPersonaEntry();
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
         var asked = _models.DecisionCalls;
-        Assert.True(asked > 0, "The first checkup should have asked the decision model.");
+        Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
 
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
         Assert.Equal(asked, _models.DecisionCalls);
 
         await Service.ReindexAsync().WaitAsync(Guard);
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > asked);
@@ -118,6 +124,27 @@ public sealed class ReindexTests : IDisposable
         Assert.Single(_logs.Entries, entry => entry.Message.Contains("维护操作开始：reindex", StringComparison.Ordinal));
         Assert.Single(_logs.Entries, entry => entry.Message.Contains("维护操作结束：reindex", StringComparison.Ordinal));
         Assert.Single(_logs.Entries, entry => entry.Message.Contains("索引已重建", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task After_a_rebuild_each_section_takes_the_date_of_its_files_last_commit_and_an_uncommitted_file_takes_today()
+    {
+        var committed = Path.Combine(_home.DefaultMemory, "pages", "tacit-memory", "old.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(committed)!);
+        File.WriteAllText(committed, "---\ntitle: 旧页\naliases: [旧坑, 老问题]\n---\n\n## 现状\n每日备份到 zip\n");
+        TestHome.Git(_home.DefaultMemory, "-c", "user.name=test", "-c", "user.email=test@localhost", "add", "--", "pages");
+        TestHome.Git(
+            _home.DefaultMemory, "-c", "user.name=test", "-c", "user.email=test@localhost",
+            "commit", "-q", "--date=2026-10-20T09:00:00+00:00", "-m", "pages: old");
+        var uncommitted = Path.Combine(_home.DefaultMemory, "pages", "tacit-memory", "new.md");
+        File.WriteAllText(uncommitted, "---\ntitle: 新页\naliases: [新坑, 新问题]\n---\n\n## 现状\n每日备份到 zip\n");
+
+        await Service.ReindexAsync().WaitAsync(Guard);
+
+        var old = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/old" });
+        var fresh = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/new" });
+        Assert.Contains("(last changed 2026-10-20)", old.Text);
+        Assert.Contains("(last changed 2026-11-02)", fresh.Text);
     }
 
     private void Write(params string[] candidateTitles)

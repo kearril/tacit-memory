@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -12,20 +13,22 @@ using TacitMemory.Core.Recent;
 namespace TacitMemory.Core.Index;
 
 /// <summary>A unit of the index that matched a query.</summary>
+/// <param name="Id">The unit's row ID; the usage statistics count returns by it.</param>
 /// <param name="Source">The source the unit hangs off: a detail page's ID, a month file's path, or the path of a persona file.</param>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
-/// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>null</c> for the title and aliases and for activities.</param>
+/// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>week</c> or <c>month</c> for a summary; <c>null</c> for the title and aliases and for activities.</param>
 /// <param name="Text">The indexed text of the unit: a section's name and body, the title and aliases, or an activity's body.</param>
 /// <param name="Project">The unit's project; empty when an activity has no project label.</param>
 /// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
 /// <param name="Code">An activity's short code; <c>null</c> for pages.</param>
-internal sealed record IndexHit(string Source, string Kind, string? Section, string Text, string Project, string? Date, string? Code);
+internal sealed record IndexHit(long Id, string Source, string Kind, string? Section, string Text, string Project, string? Date, string? Code);
 
 /// <summary>A judgment unit a judgment compares a new text with: its kind, the persona section it belongs to, and its text.</summary>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
 /// <param name="Section">The persona section the unit belongs to; <c>null</c> when the stored name is none of the four.</param>
 /// <param name="Text">The unit's text, as the judgment compares it.</param>
-internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string Text);
+/// <param name="Scope">The scope the unit's entry is in: global, or the project or domain of its block.</param>
+internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string Text, PersonaScope Scope);
 
 /// <summary>
 /// Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.
@@ -38,6 +41,9 @@ internal sealed record PendingUnit(long Id, string Text);
 
 /// <summary>What the index holds: its files, its units and the units that have a vector.</summary>
 internal sealed record IndexCounts(int Files, int Units, int Vectors);
+
+/// <summary>A page with the total of its units' returns and the last day one was returned, as yyyy-MM-dd or <c>null</c>.</summary>
+internal sealed record PageUsageRow(string Page, long Count, string? Last);
 
 /// <summary>The kinds of source the index holds.</summary>
 internal static class SourceKinds
@@ -67,6 +73,9 @@ internal static class UnitKinds
     /// <summary>A dated line of a month file of the recent activity log.</summary>
     public const string Activity = "activity";
 
+    /// <summary>A summary line of the <c>## 汇总</c> section of a month file: a retrieval unit of the activity kind.</summary>
+    public const string Summary = "summary";
+
     /// <summary>An entry of <c>persona.md</c>; indexed for judgments only, never returned by search.</summary>
     public const string PersonaEntry = "persona";
 
@@ -80,7 +89,7 @@ internal static class UnitKinds
 /// <summary>
 /// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file: a detail page, a month
 /// file of the activity log, or one of the two persona files. One row per source with its file hash; one unit per
-/// section and one for the title and aliases of a page, one per dated line of a month file, and one per entry of
+/// section and one for the title and aliases of a page, one per dated line and one per summary line of a month file, and one per entry of
 /// <c>persona.md</c> or candidate of <c>candidates.md</c>, each carrying its kind, project and dates. Persona units
 /// serve judgments only. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
@@ -88,14 +97,14 @@ internal static class UnitKinds
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "6";
+    private const string SchemaVersion = "8";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
         (@project IS NULL OR u.project = @project)
         AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
         AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
-        AND (@activities IS NULL OR (u.kind = '{UnitKinds.Activity}') = @activities)
+        AND (@activities IS NULL OR (u.kind IN ('{UnitKinds.Activity}', '{UnitKinds.Summary}')) = @activities)
         AND u.kind NOT IN ('{UnitKinds.PersonaEntry}', '{UnitKinds.Candidate}', '{UnitKinds.RejectedCandidate}')
         """;
 
@@ -103,24 +112,39 @@ internal sealed class MemoryIndex : IDisposable
     private static readonly string[] JudgmentKinds = [UnitKinds.PersonaEntry, UnitKinds.Candidate, UnitKinds.RejectedCandidate];
 
     /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
-    private const string HitColumns = "u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.project AS Project, u.first AS Date, u.code AS Code";
+    private const string HitColumns = "u.id AS Id, u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.project AS Project, u.first AS Date, u.code AS Code";
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
     private readonly string? _embeddingModel;
     private readonly Lock _gate = new();
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
+    private readonly Func<DateOnly> _today;
+    private readonly Func<IReadOnlyDictionary<string, DateOnly>> _commitDays;
+    private IReadOnlyDictionary<string, DateOnly>? _commitDayCache;
+
+    /// <summary>
+    /// Set when the index was created empty, so the next <see cref="SyncAll"/> is a full build: a section it meets for the
+    /// first time then takes the date of its file's last commit instead of today.
+    /// </summary>
+    private bool _fullBuild;
     private SqliteConnection _connection;
 
     /// <param name="embeddingModel">
     /// The configured embedding model, or <c>null</c> when none is configured. Vectors made by another model are dropped. With
     /// none configured, the stored vectors and the model name they were made by are kept as they are.
     /// </param>
-    public MemoryIndex(string memoryPath, string? embeddingModel, MemoryLanguage language)
+    /// <param name="today">The local date today, which a section changed now carries.</param>
+    /// <param name="commitDays">The last commit date of each page file, keyed by relative path; asked for once per full build.</param>
+    public MemoryIndex(
+        string memoryPath, string? embeddingModel, MemoryLanguage language,
+        Func<DateOnly> today, Func<IReadOnlyDictionary<string, DateOnly>> commitDays)
     {
         _memoryPath = memoryPath;
         _databasePath = Path.Combine(memoryPath, ".cache", "index.db");
         _embeddingModel = embeddingModel;
+        _today = today;
+        _commitDays = commitDays;
         Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
         VectorExtension.Verify(language);
         _connection = OpenCurrent();
@@ -170,6 +194,8 @@ internal sealed class MemoryIndex : IDisposable
                 SyncActivity(path, fullPath, known.GetValueOrDefault(path));
             SyncJudgments();
             _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
+            _fullBuild = false;
+            _commitDayCache = null;
         }
     }
 
@@ -281,24 +307,41 @@ internal sealed class MemoryIndex : IDisposable
     /// <summary>
     /// The <paramref name="limit"/> judgment units (persona entries, candidates and rejected candidates) of the sources of
     /// the given kinds nearest to <paramref name="vector"/>, best first; empty when no vectors of that length are stored.
+    /// <paramref name="scopes"/> keeps only the units in those scopes; <c>null</c> keeps every scope.
     /// Judgment units never reach a search; this is the only way to read them back, for judgments.
     /// </summary>
     public IReadOnlyList<JudgmentHit> SearchJudgments(
-        float[] vector, IReadOnlyCollection<string> sourceKinds, int limit, IReadOnlyCollection<string>? unitKinds = null)
+        float[] vector,
+        IReadOnlyCollection<string> sourceKinds,
+        int limit,
+        IReadOnlyCollection<string>? unitKinds = null,
+        IReadOnlyCollection<PersonaScope>? scopes = null)
     {
         lock (_gate)
         {
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
-            return _connection.Query<IndexHit>($"""
-                SELECT {HitColumns}
+            var scopeFilter = scopes is null ? "" : "AND u.scope IN @scopes";
+            return _connection.Query<JudgmentRow>($"""
+                SELECT u.kind AS Kind, u.section AS Section, u.raw AS Text, u.scope AS Scope
                 FROM units_vec v JOIN units u ON u.id = v.rowid JOIN sources s ON s.id = u.source_id
-                WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds
+                WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds {scopeFilter}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
-                """, new { sourceKinds = sourceKinds.ToList(), unitKinds = (unitKinds ?? JudgmentKinds).ToList(), vector = Blob(vector), limit })
-                    .Select(hit => new JudgmentHit(hit.Kind, PersonaSectionNamed(hit.Section), hit.Text)).ToList();
+                """, new
+                {
+                    sourceKinds = sourceKinds.ToList(),
+                    unitKinds = (unitKinds ?? JudgmentKinds).ToList(),
+                    scopes = scopes?.Select(scope => scope.ToString()).ToList(),
+                    vector = Blob(vector),
+                    limit,
+                })
+                .Select(row => new JudgmentHit(row.Kind, PersonaSectionNamed(row.Section), row.Text, PersonaScope.Stored(row.Scope ?? "global")))
+                .ToList();
         }
     }
+
+    /// <summary>A judgment unit as a search reads it: its kind, its stored section and scope names, and its text.</summary>
+    private sealed record JudgmentRow(string Kind, string? Section, string Text, string? Scope);
 
     /// <summary>The persona section a stored section name stands for; <c>null</c> when it is none of the four.</summary>
     private static PersonaSection? PersonaSectionNamed(string? name) => Enum.TryParse<PersonaSection>(name, out var section) ? section : null;
@@ -399,6 +442,78 @@ internal sealed class MemoryIndex : IDisposable
         }
     }
 
+    /// <summary>The last changed date of each section of a page, by section name; empty when the page is not indexed.</summary>
+    public IReadOnlyDictionary<string, DateOnly> SectionChanges(PageId id)
+    {
+        lock (_gate)
+        {
+            var dates = new Dictionary<string, DateOnly>(StringComparer.Ordinal);
+            foreach (var row in _connection.Query<(string Section, string Changed)>(
+                "SELECT section AS Section, changed AS Changed FROM units WHERE source_id = @source AND kind = @kind AND changed IS NOT NULL",
+                new { source = id.ToString(), kind = UnitKinds.Section }))
+                dates[row.Section] = DateOnly.ParseExact(row.Changed, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            return dates;
+        }
+    }
+
+    /// <summary>Counts one return of each of the units, and records today as their last return.</summary>
+    public void RecordReturns(IReadOnlyCollection<long> unitIds)
+    {
+        if (unitIds.Count == 0)
+            return;
+        lock (_gate)
+            _connection.Execute(
+                "UPDATE units SET returns = returns + 1, returned = MAX(COALESCE(returned, ''), @day) WHERE id IN @ids",
+                new { day = DateText(_today()), ids = unitIds.ToList() });
+    }
+
+    /// <summary>Counts one return of each section of a page, as reading the whole page does.</summary>
+    public void RecordPageRead(PageId id)
+    {
+        lock (_gate)
+            _connection.Execute(
+                "UPDATE units SET returns = returns + 1, returned = MAX(COALESCE(returned, ''), @day) WHERE source_id = @source AND kind = @kind",
+                new { day = DateText(_today()), source = id.ToString(), kind = UnitKinds.Section });
+    }
+
+    /// <summary>
+    /// Counts one return for each listed page, as a project brief does: the count lands on the page's title and aliases unit,
+    /// so each page adds one whatever its size.
+    /// </summary>
+    public void RecordPagesListed(IReadOnlyCollection<PageId> pages)
+    {
+        if (pages.Count == 0)
+            return;
+        lock (_gate)
+            _connection.Execute(
+                "UPDATE units SET returns = returns + 1, returned = MAX(COALESCE(returned, ''), @day) WHERE source_id IN @sources AND kind = @kind",
+                new { day = DateText(_today()), sources = pages.Select(page => page.ToString()).ToList(), kind = UnitKinds.Clue });
+    }
+
+    /// <summary>
+    /// Every page with the total of its units' returns and the last day any of them was returned; a page never returned
+    /// has zero and no day. These statistics never reach the ranking.
+    /// </summary>
+    public IReadOnlyList<PageUsageRow> PageUsages()
+    {
+        lock (_gate)
+            return _connection.Query<(string Page, long Count, string? Last)>(
+                "SELECT s.id AS Page, SUM(u.returns) AS Count, MAX(u.returned) AS Last FROM sources s JOIN units u ON u.source_id = s.id "
+                + "WHERE s.kind = @kind GROUP BY s.id ORDER BY s.id",
+                new { kind = SourceKinds.Page })
+                .Select(row => new PageUsageRow(row.Page, row.Count, row.Last)).ToList();
+    }
+
+    /// <summary>The returns of every activity unit, by its short code. Derived state, like <see cref="PageUsages"/>.</summary>
+    public IReadOnlyDictionary<string, long> ActivityUsages()
+    {
+        lock (_gate)
+            return _connection.Query<(string Code, long Count)>(
+                "SELECT code AS Code, returns AS Count FROM units WHERE kind = @kind AND code IS NOT NULL",
+                new { kind = UnitKinds.Activity })
+                .ToDictionary(row => row.Code, row => row.Count, StringComparer.Ordinal);
+    }
+
     /// <summary>How many files, units and units with a vector the index holds now.</summary>
     public IndexCounts Counts()
     {
@@ -448,20 +563,83 @@ internal sealed class MemoryIndex : IDisposable
 
         _skipped.Remove(id.RelativePath);
         var document = PageDocument.Parse(read.Text, read.HasBom, id.Slug);
+        var source = id.ToString();
+        var previous = SectionStates(source);
+        var carried = UsageStates(source);
+        // A section a full build meets first is dated by its file's last commit; any other new or changed section is today's.
+        var firstSeen = _today();
+        if (_fullBuild && knownHash is null)
+        {
+            _commitDayCache ??= _commitDays();
+            firstSeen = _commitDayCache.GetValueOrDefault(id.RelativePath, firstSeen);
+        }
+
         using var transaction = _connection.BeginTransaction();
         RemoveRows(id.RelativePath, transaction);
         var header = document.Header;
-        var source = id.ToString();
         _connection.Execute(
             "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
             new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
             transaction);
         var scope = new UnitScope(id.Project, DateText(header.First), DateText(header.Last));
-        AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction);
+        AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction, carried: carried);
         for (var i = 0; i < document.Sections.Count; i++)
-            AddUnit(source, UnitKinds.Section, document.Sections[i].Name, i + 1, document.Sections[i].Name + "\n" + document.Sections[i].Body, scope, transaction);
+        {
+            var section = document.Sections[i];
+            var raw = section.Name + "\n" + section.Body;
+            // Trailing whitespace is not content, so a newline at the end of a file does not make its last section changed.
+            var contentHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw.TrimEnd())));
+            var unchanged = previous.TryGetValue(section.Name, out var before) && before.Hash == contentHash && before.Changed is not null;
+            var changed = unchanged ? before!.Changed! : DateText(firstSeen)!;
+            AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed, carried: carried);
+        }
+
         transaction.Commit();
     }
+
+    /// <summary>The content hash and last changed date each section of a page had when last synced, by section name.</summary>
+    private Dictionary<string, (string Hash, string? Changed)> SectionStates(string source)
+    {
+        var states = new Dictionary<string, (string Hash, string? Changed)>(StringComparer.Ordinal);
+        foreach (var row in _connection.Query<(string Section, string Hash, string? Changed)>(
+            "SELECT section AS Section, hash AS Hash, changed AS Changed FROM units WHERE source_id = @source AND kind = @kind",
+            new { source, kind = UnitKinds.Section }))
+            states[row.Section] = (row.Hash, row.Changed);
+        return states;
+    }
+
+    /// <summary>
+    /// The usage counts each unit of a source holds, keyed by <see cref="UsageKey"/>, so a re-sync can carry them over.
+    /// Usage is derived state: only a reindex or a restore clears it, never an edit of the file.
+    /// </summary>
+    private Dictionary<string, UsageState> UsageStates(string source)
+    {
+        var states = new Dictionary<string, UsageState>(StringComparer.Ordinal);
+        foreach (var row in _connection.Query<UsageRow>(
+            "SELECT kind AS Kind, section AS Section, code AS Code, first AS First, last AS Last, returns AS Returns, returned AS Returned "
+            + "FROM units WHERE source_id = @source AND (returns > 0 OR returned IS NOT NULL)",
+            new { source }))
+            states[UsageKey(row.Kind, row.Section, row.Code, row.First, row.Last)] = new UsageState(row.Returns, row.Returned);
+        return states;
+    }
+
+    /// <summary>
+    /// What identifies a unit within its source across a re-sync: a page's section by its name, its title and aliases
+    /// by kind alone, an activity by its short code, and a summary by its section and period.
+    /// </summary>
+    private static string UsageKey(string kind, string? section, string? code, string? first, string? last) => kind switch
+    {
+        UnitKinds.Activity => $"{kind}|{code}",
+        UnitKinds.Summary => $"{kind}|{section}|{first}|{last}",
+        UnitKinds.Section => $"{kind}|{section}",
+        _ => kind,
+    };
+
+    /// <summary>A unit's usage counts as <see cref="UsageStates"/> reads them.</summary>
+    private sealed record UsageState(long Returns, string? Returned);
+
+    /// <summary>A unit's identity and usage counts, as <see cref="UsageStates"/> reads them.</summary>
+    private sealed record UsageRow(string Kind, string? Section, string? Code, string? First, string? Last, long Returns, string? Returned);
 
     private void SyncActivity(string relativePath, string fullPath, string? knownHash)
     {
@@ -477,6 +655,7 @@ internal sealed class MemoryIndex : IDisposable
         }
 
         _skipped.Remove(relativePath);
+        var carried = UsageStates(relativePath);
         using var transaction = _connection.BeginTransaction();
         RemoveRows(relativePath, transaction);
         _connection.Execute(
@@ -486,7 +665,13 @@ internal sealed class MemoryIndex : IDisposable
         foreach (var activity in RecentFile.Activities(read.Text))
         {
             var day = DateText(activity.Day);
-            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code);
+            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code, carried: carried);
+        }
+
+        foreach (var summary in SummaryLines.All(read.Text))
+        {
+            var kind = summary.Kind == SummaryKind.Week ? "week" : "month";
+            AddUnit(relativePath, UnitKinds.Summary, kind, summary.Line, summary.Text, new UnitScope("", DateText(summary.First), DateText(summary.Last)), transaction, carried: carried);
         }
 
         transaction.Commit();
@@ -527,27 +712,19 @@ internal sealed class MemoryIndex : IDisposable
             transaction);
         var scope = new UnitScope("", null, null);
         for (var i = 0; i < units.Count; i++)
-            AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction);
+            AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction, judgmentScope: units[i].Scope.ToString());
         transaction.Commit();
     }
 
     /// <summary>
-    /// The units of <c>persona.md</c>: one per list entry under a known section, its text with its continuation lines
-    /// but without its source comment.
+    /// The units of <c>persona.md</c>: one per list entry under a known section, in any scope, its text with its continuation
+    /// lines but without its source comment.
     /// </summary>
-    private static IReadOnlyList<JudgmentUnit> PersonaUnits(string text)
-    {
-        var units = new List<JudgmentUnit>();
-        foreach (var part in PersonaDocument.Parse(text).Parts)
-        {
-            if (part.Kind is not { } section)
-                continue;
-            foreach (var item in part.Items.Where(item => item.IsListItem && item.Text.Length > 0))
-                units.Add(new JudgmentUnit(UnitKinds.PersonaEntry, section, item.JudgmentText));
-        }
-
-        return units;
-    }
+    private static IReadOnlyList<JudgmentUnit> PersonaUnits(string text) =>
+        PersonaDocument.Parse(text).KnownEntries()
+            .Where(entry => entry.Item.IsListItem && entry.Item.Text.Length > 0)
+            .Select(entry => new JudgmentUnit(UnitKinds.PersonaEntry, entry.Kind, entry.Item.JudgmentText, entry.Scope))
+            .ToList();
 
     /// <summary>The units of <c>candidates.md</c>: one per candidate and one per rejected candidate, each named by its text.</summary>
     private static IReadOnlyList<JudgmentUnit> CandidateUnits(string text)
@@ -555,25 +732,43 @@ internal sealed class MemoryIndex : IDisposable
         var document = CandidatesDocument.Parse(text);
         return
         [
-            .. document.Candidates.Select(candidate => new JudgmentUnit(UnitKinds.Candidate, candidate.Section, candidate.Text)),
-            .. document.RejectionList.Select(candidate => new JudgmentUnit(UnitKinds.RejectedCandidate, candidate.Section, candidate.Text)),
+            .. document.Candidates.Select(candidate => new JudgmentUnit(UnitKinds.Candidate, candidate.Section, candidate.Text, candidate.Scope)),
+            .. document.RejectionList.Select(candidate => new JudgmentUnit(UnitKinds.RejectedCandidate, candidate.Section, candidate.Text, candidate.Scope)),
         ];
     }
 
     /// <summary>Whether a source path is one of the two persona files.</summary>
     private static bool IsJudgmentFile(string path) => path is PersonaFiles.Persona or PersonaFiles.Candidates;
 
-    /// <summary>One unit of a persona file: its kind, the persona section it belongs to, and its text.</summary>
-    private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text);
+    /// <summary>One unit of a persona file: its kind, the persona section it belongs to, its text, and the scope it is in.</summary>
+    private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text, PersonaScope Scope);
 
     /// <summary>The project and dates every unit of a source carries.</summary>
     private sealed record UnitScope(string Project, string? First, string? Last);
 
-    private void AddUnit(string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction, string? code = null)
+    /// <param name="hash">A section's content hash; the other kinds of unit have none.</param>
+    /// <param name="changed">A section's last changed date as yyyy-MM-dd; the other kinds of unit have none.</param>
+    /// <param name="judgmentScope">A judgment unit's persona scope as its text; the other kinds of unit have none.</param>
+    /// <param name="carried">
+    /// The usage counts of the source's units before this sync, by <see cref="UsageKey"/>. A unit that matches one takes its
+    /// counts, and each old unit passes its counts on once.
+    /// </param>
+    private void AddUnit(
+        string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction,
+        string? code = null, string? hash = null, string? changed = null, string? judgmentScope = null,
+        Dictionary<string, UsageState>? carried = null)
     {
+        var usage = carried is not null && carried.Remove(UsageKey(kind, section, code, scope.First, scope.Last), out var state) ? state : null;
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code) VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code) RETURNING id",
-            new { source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code }, transaction);
+            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code, hash, changed, scope, returns, returned) "
+            + "VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code, @hash, @changed, @judgmentScope, @returns, @returned) RETURNING id",
+            new
+            {
+                source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope,
+                returns = usage?.Returns ?? 0,
+                returned = usage?.Returned,
+            },
+            transaction);
         _connection.Execute("INSERT INTO units_fts (rowid, text) VALUES (@unit, @text)", new { unit, text = IndexText.ForIndex(raw) }, transaction);
     }
 
@@ -653,13 +848,14 @@ internal sealed class MemoryIndex : IDisposable
     /// <summary>Deletes the index files and creates an empty index with the current schema.</summary>
     private SqliteConnection Create()
     {
+        _fullBuild = true;
         foreach (var suffix in (string[])["", "-wal", "-shm", "-journal"])
             File.Delete(_databasePath + suffix);
         var fresh = Connect();
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
-            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT);
+            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
             CREATE TABLE judgment_cache (cache_key TEXT PRIMARY KEY, probabilities TEXT NOT NULL, written TEXT NOT NULL);

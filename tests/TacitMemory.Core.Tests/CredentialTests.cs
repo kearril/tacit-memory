@@ -26,6 +26,7 @@ public sealed class CredentialTests : IDisposable
     private Task<ToolResult> Create(string body, bool? confirm = null, string title = "部署脚本") => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = "my-app/deploy",
         Title = title,
         Aliases = ["上线脚本", "发布流程"],

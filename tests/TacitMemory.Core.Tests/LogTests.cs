@@ -44,6 +44,7 @@ public sealed class LogTests : IDisposable
     private static WritePageRequest Create(string page, string title = "部署脚本") => new()
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = ["上线脚本", "发布流程"],
@@ -84,7 +85,6 @@ public sealed class LogTests : IDisposable
     {
         await Service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = ActivityMarker,
             Project = "my-app",
             Replaces = "abc123",

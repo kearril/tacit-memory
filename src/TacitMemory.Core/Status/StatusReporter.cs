@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Backup;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.ClientRecords;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
 
@@ -102,6 +103,7 @@ internal static class StatusReporter
         {
             Config = new ConfigStatus(ManagementApiMessages.ConfigTitle.In(language), lines),
             Service = OfflineService(language, settings.Port, otherProgramAnswered),
+            Clients = Clients(options, language),
             Logs = Logs(options, language),
         };
     }
@@ -112,18 +114,19 @@ internal static class StatusReporter
         : ManagementApiMessages.NotRunningHint.Format(language);
 
     /// <summary>
-    /// The columns that need no service: bindings, the checkup, the pending counts, the local backups, the secrets and
-    /// the logs. The checkup and pending columns share one read; when the history cannot be read, they say why and the
+    /// The columns that need no service: bindings, the consolidation, the pending counts, the local backups, the secrets and
+    /// the logs. The consolidation and pending columns share one read; when the history cannot be read, they say why and the
     /// rest of the report still comes out.
     /// </summary>
     private static async Task<StatusReport> SharedAsync(TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         var language = config.Language;
-        var (summary, unreadable) = await ReadCheckupAsync(options, config, cancellationToken);
+        var (summary, unreadable) = await ReadConsolidationAsync(options, config, cancellationToken);
         return new StatusReport
         {
+            Clients = Clients(options, language),
             Bindings = BindingChecks.Produce(options, language),
-            Checkup = Checkup(options, language, summary, unreadable),
+            Consolidation = Consolidation(options, language, summary, unreadable),
             Pending = Pending(language, summary, unreadable),
             Backups = Backups(options, config),
             Logs = Logs(options, language),
@@ -131,13 +134,38 @@ internal static class StatusReporter
         };
     }
 
-    /// <summary>The checkup summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
-    private static async Task<(CheckupSummary? Summary, string? Unreadable)> ReadCheckupAsync(
+    /// <summary>
+    /// The clients column, newest first, one line each. Read from the state file the service keeps, so a stopped service
+    /// shows the same clients as a running one.
+    /// </summary>
+    private static ClientsStatus Clients(TacitOptions options, MemoryLanguage language)
+    {
+        var title = ManagementApiMessages.ClientsTitle.In(language);
+        var (clients, unreadable) = ClientRecordStore.ReadFor(ClientRecordStore.PathFor(options));
+        if (unreadable is not null)
+            return new ClientsStatus(title, [ManagementApiMessages.ClientsUnreadable.Format(language, unreadable)], []);
+        if (clients.Count == 0)
+            return new ClientsStatus(title, [ManagementApiMessages.ClientsNone.In(language)], []);
+
+        var items = clients.OrderByDescending(client => client.LastSeen).ThenBy(client => client.Name, StringComparer.Ordinal).ToList();
+        var lines = items.Select(client => ManagementApiMessages.ClientLine.Format(
+            language,
+            client.Name,
+            client.Version,
+            client.LastSeen.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            client.ProtocolVersion,
+            client.Extensions.Count == 0 ? ManagementApiMessages.ClientNoExtensions.In(language) : string.Join(", ", client.Extensions)))
+            .ToList();
+        return new ClientsStatus(title, lines, items);
+    }
+
+    /// <summary>The consolidation summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
+    private static async Task<(ConsolidationSummary? Summary, string? Unreadable)> ReadConsolidationAsync(
         TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         try
         {
-            return (await CheckupSummary.ReadAsync(config, options.Today, cancellationToken), null);
+            return (await ConsolidationSummary.ReadAsync(config, options.Today, cancellationToken), null);
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {
@@ -149,43 +177,45 @@ internal static class StatusReporter
         }
     }
 
-    private static CheckupStatus Checkup(TacitOptions options, MemoryLanguage language, CheckupSummary? summary, string? unreadable)
+    private static ConsolidationStatus Consolidation(TacitOptions options, MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
-        var title = ManagementApiMessages.CheckupTitle.In(language);
+        var title = ManagementApiMessages.ConsolidationTitle.In(language);
         if (summary is null)
-            return new CheckupStatus(title, [ManagementApiMessages.CheckupUnreadable.Format(language, unreadable)], null, null);
+            return new ConsolidationStatus(title, [ManagementApiMessages.ConsolidationUnreadable.Format(language, unreadable)], null, null);
 
         var baseline = summary.Baseline;
         if (baseline.Commit is not { } commit)
-            return new CheckupStatus(title, [ManagementApiMessages.CheckupNever.In(language)], null, null);
+            return new ConsolidationStatus(title, [ManagementApiMessages.ConsolidationNever.In(language)], null, null);
 
         var day = commit.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var ago = DaysAgo(language, summary.DaysSince!.Value);
-        var line = baseline.Kind == BaselineKind.Checkup
-            ? ManagementApiMessages.CheckupOn.Format(language, day, ago)
-            : ManagementApiMessages.CheckupFromInit.Format(language, day, ago);
-        return new CheckupStatus(title, [line], commit.Day, summary.DaysSince);
+        var line = baseline.Kind == BaselineKind.Consolidation
+            ? ManagementApiMessages.ConsolidationOn.Format(language, day, ago)
+            : ManagementApiMessages.ConsolidationFromInit.Format(language, day, ago);
+        return new ConsolidationStatus(title, [line], commit.Day, summary.DaysSince);
     }
 
-    private static PendingStatus Pending(MemoryLanguage language, CheckupSummary? summary, string? unreadable)
+    private static PendingStatus Pending(MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
         var title = ManagementApiMessages.PendingTitle.In(language);
         if (summary is null)
             return new PendingStatus(title, [ManagementApiMessages.PendingUnreadable.Format(language, unreadable)], null, null, null);
 
-        var confirmable = summary.CandidatesReadable ? summary.Confirmable : (int?)null;
+        var candidates = summary.CandidatesReadable ? summary.Candidates : (int?)null;
         return new PendingStatus(
             title,
             [
-                confirmable is { } count
-                    ? ManagementApiMessages.PendingConfirmable.Format(language, count)
-                    : ManagementApiMessages.PendingConfirmableUnknown.In(language),
+                candidates is { } count
+                    ? ManagementApiMessages.PendingCandidates.Format(language, count)
+                    : ManagementApiMessages.PendingCandidatesUnknown.In(language),
                 ManagementApiMessages.PendingFormatProblems.Format(language, summary.Problems),
-                summary.MainlineStale ? ManagementApiMessages.PendingMainlineStale.In(language) : ManagementApiMessages.PendingMainlineFresh.In(language),
+                summary.MainlineEmpty ? ManagementApiMessages.PendingMainlineEmpty.In(language) : ManagementApiMessages.PendingMainlineSet.In(language),
+                ManagementApiMessages.PendingWeeks.Format(language, summary.UnsummarizedWeeks),
             ],
-            confirmable,
+            candidates,
             summary.Problems,
-            summary.MainlineStale);
+            summary.MainlineEmpty,
+            summary.UnsummarizedWeeks);
     }
 
     /// <summary>

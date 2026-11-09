@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// The status columns that need no model or network: bindings, the last checkup, the pending counts, the latest local
+/// The status columns that need no model or network: bindings, the last consolidation, the pending counts, the latest local
 /// backup and the secrets' sources. Each is read through the facade, both with the service stopped and running.
 /// </summary>
 public sealed class StatusColumnsTests : IDisposable
@@ -42,7 +42,7 @@ public sealed class StatusColumnsTests : IDisposable
 
     private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-    /// <summary>The day of the init commit, which the checkup columns count from when no checkup has run.</summary>
+    /// <summary>The day of the init commit, which the consolidation columns count from when no consolidation has run.</summary>
     private DateOnly InitDay => DateOnly.ParseExact(
         TestHome.Git(Memory, "log", "-1", "--format=%as").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -324,58 +324,90 @@ public sealed class StatusColumnsTests : IDisposable
     {
         ClockOn(InitDay.AddDays(9));
 
-        var checkup = (await OfflineReport()).Checkup!;
+        var consolidation = (await OfflineReport()).Consolidation!;
 
-        Assert.Equal(InitDay, checkup.LastCheckupDay);
-        Assert.Equal(9, checkup.DaysSince);
-        Assert.Contains("尚未体检", Assert.Single(checkup.Lines));
+        Assert.Equal(InitDay, consolidation.LastConsolidationDay);
+        Assert.Equal(9, consolidation.DaysSince);
+        Assert.Contains("尚未整理", Assert.Single(consolidation.Lines));
     }
 
     [Fact]
-    public async Task The_latest_checkup_commit_is_the_baseline_and_its_day_counts()
+    public async Task The_latest_consolidation_commit_is_the_baseline_and_its_day_counts()
+    {
+        var init = InitDay;
+        CommitOn(init.AddDays(3), "consolidate: first");
+        CommitOn(init.AddDays(5), "consolidate: second");
+        ClockOn(init.AddDays(10));
+
+        var consolidation = (await OfflineReport()).Consolidation!;
+
+        Assert.Equal(init.AddDays(5), consolidation.LastConsolidationDay);
+        Assert.Equal(5, consolidation.DaysSince);
+        Assert.Contains($"{init.AddDays(5):yyyy-MM-dd}", Assert.Single(consolidation.Lines));
+    }
+
+    [Fact]
+    public async Task A_commit_with_the_old_checkup_prefix_is_not_the_baseline()
     {
         var init = InitDay;
         CommitOn(init.AddDays(3), "checkup: first");
-        CommitOn(init.AddDays(5), "checkup: second");
         ClockOn(init.AddDays(10));
 
-        var checkup = (await OfflineReport()).Checkup!;
+        var consolidation = (await OfflineReport()).Consolidation!;
 
-        Assert.Equal(init.AddDays(5), checkup.LastCheckupDay);
-        Assert.Equal(5, checkup.DaysSince);
-        Assert.Contains($"{init.AddDays(5):yyyy-MM-dd}", Assert.Single(checkup.Lines));
+        Assert.Equal(init, consolidation.LastConsolidationDay);
+        Assert.Equal(10, consolidation.DaysSince);
     }
 
     [Fact]
-    public async Task A_repository_with_no_checkup_and_no_init_commit_has_never_been_checked()
+    public async Task A_repository_with_no_consolidation_and_no_init_commit_has_never_been_checked()
     {
-        // The init commit is reworded, so the history holds neither a checkup: nor an init: commit.
+        // The init commit is reworded, so the history holds neither a consolidate: nor an init: commit.
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup");
 
-        var checkup = (await OfflineReport()).Checkup!;
+        var consolidation = (await OfflineReport()).Consolidation!;
 
-        Assert.Null(checkup.LastCheckupDay);
-        Assert.Null(checkup.DaysSince);
-        Assert.Equal(["从未体检（仓库没有 checkup: 或 init: 提交）"], checkup.Lines);
+        Assert.Null(consolidation.LastConsolidationDay);
+        Assert.Null(consolidation.DaysSince);
+        Assert.Equal(["从未整理（仓库没有 consolidate: 或 init: 提交）"], consolidation.Lines);
     }
 
     [Fact]
-    public async Task The_pending_counts_are_the_numbers_the_checkup_reminder_shows()
+    public async Task The_pending_counts_are_the_numbers_the_consolidation_reminder_shows()
     {
         File.WriteAllText(PersonaMd, "## 红线\n- 不要删库\n\n## 偏好\n- 沟通：先要结论\n");
         File.WriteAllText(CandidatesMd, TwoDayCandidate.ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent.md"), "## 近期主线\n- 一条主线\n");
+        // One candidate is below the default threshold of five, so the reminder is brought by the candidate count alone.
+        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "consolidation:\n  remindCandidates: 1\n");
         var service = Service;
 
         var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
         var reminder = await service.ServerInstructionsAsync();
 
-        Assert.Equal(1, pending.Confirmable);
+        Assert.Equal(1, pending.Candidates);
         Assert.Equal(StatusLevel.Attention, pending.LineLevels()[0]);
         Assert.True(pending.FormatProblems > 0);
-        Assert.False(pending.MainlineStale);
-        Assert.Contains($"- Candidates that can be confirmed: {pending.Confirmable}.", reminder);
+        Assert.False(pending.MainlineEmpty);
+        Assert.Contains($"- Persona candidates: {pending.Candidates}.", reminder);
         Assert.Contains($"- Format and rule problems: {pending.FormatProblems}.", reminder);
-        Assert.Contains("- Mainline: not stale.", reminder);
+        Assert.Contains("- Mainline: not empty.", reminder);
+    }
+
+    [Fact]
+    public async Task The_pending_counts_include_the_weeks_to_summarize_that_the_reminder_counts()
+    {
+        var lastWeek = InitDay.AddDays(-14);
+        Directory.CreateDirectory(Path.Combine(Memory, "recent"));
+        File.WriteAllText(Path.Combine(Memory, "recent", lastWeek.ToString("yyyy-MM", CultureInfo.InvariantCulture) + ".md"),
+            $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");
+        var service = Service;
+
+        var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
+
+        Assert.Equal(1, pending.UnsummarizedWeeks);
+        Assert.Contains("待汇总的周：1", pending.Lines);
+        Assert.Contains("- Weeks to summarize: 1.", await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -400,7 +432,7 @@ public sealed class StatusColumnsTests : IDisposable
 
         var pending = (await OfflineReport()).Pending!;
 
-        Assert.Null(pending.Confirmable);
+        Assert.Null(pending.Candidates);
         Assert.Contains("未统计", pending.Lines[0]);
     }
 
@@ -414,10 +446,10 @@ public sealed class StatusColumnsTests : IDisposable
 
         var report = await service.StatusAsync(Endpoint);
 
-        Assert.Null(report.Checkup!.DaysSince);
-        Assert.Contains("无法读取记忆仓库的历史", Assert.Single(report.Checkup.Lines));
-        Assert.Null(report.Pending!.Confirmable);
-        Assert.Null(report.Pending.MainlineStale);
+        Assert.Null(report.Consolidation!.DaysSince);
+        Assert.Contains("无法读取记忆仓库的历史", Assert.Single(report.Consolidation.Lines));
+        Assert.Null(report.Pending!.Candidates);
+        Assert.Null(report.Pending.MainlineEmpty);
         Assert.Contains("无法统计待处理问题", Assert.Single(report.Pending.Lines));
         Assert.NotNull(report.Bindings);
         Assert.NotNull(report.Backups);
@@ -559,7 +591,7 @@ public sealed class StatusColumnsTests : IDisposable
     {
         Connect();
         var init = InitDay;
-        CommitOn(init.AddDays(2), "checkup: a");
+        CommitOn(init.AddDays(2), "consolidate: a");
         WriteBackup("auto-2026-11-01.zip", new DateTime(2026, 11, 1, 8, 0, 0));
         ClockOn(init.AddDays(4));
         var service = Service;
@@ -569,14 +601,57 @@ public sealed class StatusColumnsTests : IDisposable
         var offline = await OfflineReport();
 
         Assert.Equal(offline.Bindings!.Lines, running.Bindings!.Lines);
-        Assert.Equal(offline.Checkup!.Lines, running.Checkup!.Lines);
-        Assert.Equal(offline.Checkup.DaysSince, running.Checkup.DaysSince);
+        Assert.Equal(offline.Consolidation!.Lines, running.Consolidation!.Lines);
+        Assert.Equal(offline.Consolidation.DaysSince, running.Consolidation.DaysSince);
         Assert.Equal(offline.Pending!.Lines, running.Pending!.Lines);
         Assert.Equal(offline.Backups!.Lines, running.Backups!.Lines);
         Assert.Equal(offline.Secrets!.Lines, running.Secrets!.Lines);
         Assert.Equal(offline.Logs!.Lines, running.Logs!.Lines);
+        Assert.Equal(offline.Clients!.Lines, running.Clients!.Lines);
         Assert.Null(offline.Models);
         Assert.NotNull(running.Models);
         Assert.Equal(before, Snapshot());
+    }
+
+    [Fact]
+    public async Task Clients_says_no_client_has_connected_when_nothing_is_recorded()
+    {
+        var clients = (await OfflineReport()).Clients!;
+
+        Assert.Equal("客户端", clients.Title);
+        Assert.Equal("尚未有客户端连接过服务。", Assert.Single(clients.Lines));
+        Assert.Empty(clients.Items);
+        Assert.All(((IStatusColumn)clients).LineLevels(), level => Assert.Null(level));
+    }
+
+    [Fact]
+    public async Task Clients_lists_each_recorded_client_with_its_version_date_protocol_and_extensions_while_the_service_is_stopped()
+    {
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2026-07-28", ["sampling"], ["io.example/tasks", "io.example/apps"]));
+        _service!.Dispose();
+        _service = null;
+
+        var clients = (await OfflineReport()).Clients!;
+
+        var line = Assert.Single(clients.Lines);
+        Assert.Contains("probe-client 1.2.3", line, StringComparison.Ordinal);
+        Assert.Contains(TestHome.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), line, StringComparison.Ordinal);
+        Assert.Contains("2026-07-28", line, StringComparison.Ordinal);
+        Assert.Contains("io.example/tasks, io.example/apps", line, StringComparison.Ordinal);
+        var item = Assert.Single(clients.Items);
+        Assert.Equal("probe-client", item.Name);
+        Assert.Equal("1.2.3", item.Version);
+        Assert.Equal("2026-07-28", item.ProtocolVersion);
+        Assert.Equal(["io.example/tasks", "io.example/apps"], item.Extensions);
+    }
+
+    [Fact]
+    public async Task A_client_that_declares_no_extension_is_shown_as_none()
+    {
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2025-11-25", ["roots"], []));
+
+        var line = Assert.Single((await OfflineReport()).Clients!.Lines);
+
+        Assert.EndsWith("扩展：无", line, StringComparison.Ordinal);
     }
 }

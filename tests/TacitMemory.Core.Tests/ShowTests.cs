@@ -33,6 +33,8 @@ public sealed class ShowTests : IDisposable
         Assert.Equal(2500, result.Fixed!.Limit);
         Assert.Equal(4000, result.Whole!.Limit);
         Assert.True(result.Fixed.Length <= result.Fixed.Limit);
+        // The built-in fixed part keeps a margin under its limit, so a user's rules.md has room to grow.
+        Assert.True(result.Fixed.Length <= 1800, $"the built-in fixed part is {result.Fixed.Length} characters");
         Assert.True(result.Whole.Length >= result.Fixed.Length && result.Whole.Length <= result.Whole.Limit);
         var heading = result.Report.Split('\n')[0];
         Assert.Contains($"{result.Fixed!.Length}/2500", heading);
@@ -114,10 +116,34 @@ public sealed class ShowTests : IDisposable
 
         Assert.Equal(ShowSource.BuiltInDefault, Part(result, "shell").Source);
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "red_lines").Text));
-        Assert.False(string.IsNullOrWhiteSpace(Part(result, "profile").Text));
+        Assert.False(string.IsNullOrWhiteSpace(Part(result, "preferences").Text));
         Assert.Equal(1500, result.Whole!.Limit);
         Assert.Equal(result.Whole.Length, result.Report.Split("\n\n", 2)[1].Length);
         Assert.Contains($"{result.Whole!.Length}/1500", result.Report.Split('\n')[0]);
+    }
+
+    [Fact]
+    public async Task The_resident_block_shows_the_guidance_of_the_index_mainline_weeks_and_projects_sections()
+    {
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
+
+        Assert.False(string.IsNullOrWhiteSpace(Part(result, "situational_rules").Text));
+        Assert.Equal("", Part(result, "projects").Text);
+        Assert.Equal("", Part(result, "mainline").Text);
+        Assert.Equal("", Part(result, "recent_weeks").Text);
+    }
+
+    [Fact]
+    public async Task The_instructions_show_the_recent_activity_part_and_no_project_list()
+    {
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md"), "## 2026-11-02\n- [tacit-memory] 今天的事\n");
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory"));
+
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
+
+        Assert.StartsWith("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] 今天的事\n</recent_activity>", Part(result, "recent").Text);
+        Assert.DoesNotContain("## Projects", result.Report);
     }
 
     [Fact]
@@ -243,7 +269,7 @@ public sealed class ShowTests : IDisposable
         var tools = new[]
         {
             new ToolDescription("recall", "Search the memory.", [new ParameterDescription("query", "string", "What to look for.")]),
-            new ToolDescription("checkup", "Report on the memory.", []),
+            new ToolDescription("consolidation", "Report on the memory.", []),
         };
 
         var result = _home.Tacit().ShowTools(_home.Tacit().LoadConfig(), tools);
@@ -251,6 +277,6 @@ public sealed class ShowTests : IDisposable
         Assert.Contains("2", result.Report.Split('\n')[0]);
         Assert.Contains("## recall\nSearch the memory.", result.Report);
         Assert.Contains("- query (string): What to look for.", result.Report);
-        Assert.True(result.Report.IndexOf("## recall", StringComparison.Ordinal) < result.Report.IndexOf("## checkup", StringComparison.Ordinal));
+        Assert.True(result.Report.IndexOf("## recall", StringComparison.Ordinal) < result.Report.IndexOf("## consolidation", StringComparison.Ordinal));
     }
 }
