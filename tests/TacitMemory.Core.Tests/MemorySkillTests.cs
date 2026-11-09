@@ -48,6 +48,19 @@ public sealed class MemorySkillTests : IDisposable
     }
 
     [Fact]
+    public void The_skill_gives_one_example_per_page_type_inside_an_example_tag()
+    {
+        using var service = Open();
+
+        var text = File.ReadAllText(SkillFile);
+
+        Assert.Equal(4, Count(text, "<example type="));
+        Assert.Equal(4, Count(text, "</example>"));
+        foreach (var type in new[] { "incident", "decision", "entity", "work" })
+            Assert.Contains($"<example type=\"{type}\">", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Without_a_skill_prompt_the_skill_has_no_user_conventions_section()
     {
         using var service = Open();

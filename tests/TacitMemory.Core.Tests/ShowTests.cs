@@ -114,7 +114,7 @@ public sealed class ShowTests : IDisposable
 
         Assert.Equal(ShowSource.BuiltInDefault, Part(result, "shell").Source);
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "red_lines").Text));
-        Assert.False(string.IsNullOrWhiteSpace(Part(result, "profile").Text));
+        Assert.False(string.IsNullOrWhiteSpace(Part(result, "preferences").Text));
         Assert.Equal(1500, result.Whole!.Limit);
         Assert.Equal(result.Whole.Length, result.Report.Split("\n\n", 2)[1].Length);
         Assert.Contains($"{result.Whole!.Length}/1500", result.Report.Split('\n')[0]);

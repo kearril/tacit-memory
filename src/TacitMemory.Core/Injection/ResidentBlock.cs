@@ -16,19 +16,17 @@ internal static class ResidentBlock
     private const string BeginMarker = "<!-- tacit:begin managed by TacitMemory; edit memory via tacit, not here -->";
 
     private const string DefaultShell = """
-        This is memory about the user, compiled from earlier conversations. It is background, not configuration: it was accurate when written, but it can have gaps or fall out of date. Project instructions and the user's current message take priority over it. When the user says something that differs from this memory, follow what they say now, and in one short sentence ask whether to update the memory.
-
-        Use it the way a colleague who knows the user would: let it shape what you do without citing it (no "according to your memory" or "per your red lines"), and bring up a specific entry only when it bears on the task. Ignore any entry that does not fit the current topic.
+        Background on the user from earlier sessions. It may be dated: the user's current words and project instructions come first; when they differ, follow the user and ask in one sentence whether to update memory. Apply it the way a colleague who knows the user would: silently, mentioning an entry only when it bears on the task.
         """;
 
     /// <summary>The built-in <c>resident.md</c>: the shell and the guidance used when the user has no file.</summary>
     public static readonly ResidentDocument Default = new(
         DefaultShell,
-        "Things the user will not accept. These carry the most weight: keep each one unless the user lifts it in this conversation. When one stops you, explain the concrete reason in your own words.",
-        "How the user wants to work with you. Follow these by default.",
-        "Descriptions of the user's tastes and habits, not orders; weigh them against what the task needs.",
-        "Facts about the user. Use them where they help.",
-        "Situations whose rules differ from the general ones. When a task matches a trigger, look up that situation's rules with `recall` before acting.",
+        "Hold each unless the user lifts it in this conversation; when one stops you, give the reason.",
+        null,
+        "Tastes to weigh against the task.",
+        null,
+        "Each line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.",
         null,
         null,
         null);

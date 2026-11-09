@@ -34,17 +34,17 @@ internal sealed class MemoryTools(MemoryService service)
 
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
-        Write a detail page: one page per matter, organized in ## sections. Pages are committed to the memory repository.
-        op=create: new page; needs page, title, type, aliases, sections; related is optional.
-        op=upsert_section: needs page, section and body; hash is required when the section exists (its short code from recall).
-        op=delete_section: needs page, section and hash (its short code from recall).
-        op=update_header: needs page and at least one of title, type, add_aliases, related; related replaces the whole list ([] clears it).
-        type is one of these, by what the page records:
+        Write a detail page: one page per matter, organized in ## sections.
+        op=create: page, title, type, aliases and sections; related is optional.
+        op=upsert_section: page, section and body; hash (the section's short code from recall) when the section exists.
+        op=delete_section: page, section and hash (the section's short code from recall).
+        op=update_header: page and at least one of title, type, add_aliases, related; related replaces the whole list ([] clears it).
+        type, by what the page records:
         - incident: a fault, its cause and its fix.
         - decision: one decision and the reasons for it.
         - entity: a standing system or tool, as pointers to its documentation, the user's stance and open to-dos.
         - work: one unit of work and its record, such as a slice or a release.
-        Writes are checked for secrets (passwords, keys, tokens); never store one.
+        Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WritePage(
         RequestContext<CallToolRequestParams> request,
@@ -62,7 +62,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The section's Markdown body; no '#' or '##' headings, use '###' or deeper.")] string? body = null,
         [Description("Short code in brackets from the latest recall; required to replace or delete an existing section.")] string? hash = null,
         [Description("Aliases to add to the page; ones it already has are ignored.")] string[]? add_aliases = null,
-        [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
+        [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.WritePageAsync(new WritePageRequest
         {
@@ -83,11 +83,11 @@ internal sealed class MemoryTools(MemoryService service)
 
     [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
-        Record an activity in the recent activity log: one line under the day's heading in the month's file.
+        Record an activity: one line in the activity log.
         text is required: one line of at most {itemLength} characters that does not start with '['; project and source are optional.
         With replaces (a short code of today's activity), rewrites that activity in place instead of adding one; source then replaces its comment only if given.
         The mainline is not written here: the tacit-consolidate skill maintains it.
-        Writes are checked for secrets (passwords, keys, tokens); never store one.
+        Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WriteRecent(
         RequestContext<CallToolRequestParams> request,
@@ -96,7 +96,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The project the activity belongs to: the code repository's name in lowercase, for example my-app.")] string? project = null,
         [Description("The user's own words behind the activity, one line; kept as a comment under the entry.")] string? source = null,
         [Description("The short code of an activity from today to rewrite with this text, from a refusal's list or from recall. Only today's activities match.")] string? replaces = null,
-        [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
+        [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.WriteRecentAsync(new WriteRecentRequest
         {
@@ -110,23 +110,18 @@ internal sealed class MemoryTools(MemoryService service)
 
     [McpServerTool(Name = "write_persona", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
-        Change the user's persona: one line in one of four sections, rendered into the resident context from the next session.
-        op=add: needs persona_section, text and source; the entry is appended to the end of that section in its scope.
-        scope: global (the default), project:<name> or domain:<label>; the name uses lowercase letters, digits, '.', '_' and '-'.
-        A domain holds rules that apply only in some situations, and its trigger says when they apply. Reuse an existing domain
-        label exactly and do not invent a near-duplicate; a refusal lists the existing domains. A new domain needs trigger: one
-        line saying when it applies, at most {triggerLength} characters; trigger is ignored for an existing domain.
-        A domain holds at most {domainEntries} entries and the persona at most {domains} domains; a refusal lists them.
-        op=propose: needs persona_section, text and source, and takes scope as add does; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a consolidation. Never propose a red line: only the user sets one. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
-        op=replace: needs hash, text and source; rewrites the entry with that short code in place, in its section.
-        op=delete: needs hash only; removes the entry with that short code.
-        A missing or stale hash is refused with a next step: read the short codes with recall kind=persona.
-        persona_section is red_lines, working_rules, preferences or profile. Sentence form of text, by section:
-        red_lines "Don't <behaviour>; instead <alternative>" (the alternative is required); working_rules "<situation> → <action>";
-        preferences "<dimension>: <description>"; profile "<field>: <fact>".
+        Change the user's persona; it loads into every session from the next one.
+        op=add: needs persona_section, text and source; scope, and trigger for a new domain. Only after the user agrees.
+        op=propose: needs persona_section, text and source, and takes scope; for a habit you observed, kept as a candidate for the next consolidation. Never propose a red line: only the user sets one.
+        op=replace: needs hash, text and source.
+        op=delete: needs hash only.
+        hash is the entry's short code, from recall kind=persona.
+        scope: global (the default), project:<name> or domain:<label>; names use lowercase letters, digits, '.', '_' and '-'. Reuse an existing domain label exactly.
+        trigger: one line saying when a new domain applies, at most {triggerLength} characters; ignored for an existing domain.
+        A domain holds at most {domainEntries} entries and the persona at most {domains} domains.
+        persona_section is red_lines, working_rules, preferences or profile. Sentence form of text: red_lines "Don't <behaviour>; instead <alternative>"; working_rules "<situation> → <action>"; preferences "<dimension>: <description>"; profile "<field>: <fact>".
         text is one line within the entry length limit ({itemLength} characters), in the memory language; source is the user's own words behind it, one line.
-        A section holds a limited number of entries (checked on add only); a refusal lists them with their short codes. Candidates have no limit.
-        Writes are checked for secrets (passwords, keys, tokens); never store one.
+        Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WritePersona(
         RequestContext<CallToolRequestParams> request,
@@ -137,9 +132,9 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
         [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,
         [Description("Short code of the entry to replace or delete, from recall kind=persona or an earlier reply; required by both. Finds an entry in any scope. Not used by add or propose.")] string? hash = null,
-        [Description("Scope of the entry: global (the default), project:<name> or domain:<label>. Used by add and propose; see the description above.")] string? scope = null,
+        [Description("Scope of the entry: global (the default), project:<name> or domain:<label>. Used by add and propose.")] string? scope = null,
         [Description("Trigger of a new domain: one line saying when the domain applies. Used by add only; required when add creates the domain, ignored for an existing one.")] string? trigger = null,
-        [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
+        [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.WritePersonaAsync(new WritePersonaRequest
         {

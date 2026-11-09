@@ -136,7 +136,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
         Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
         Assert.Contains("## Using memory", instructions);
-        Assert.Contains("## Writing activities and mainline", instructions);
+        Assert.Contains("## Write\n", instructions);
         Assert.EndsWith("</recent_activity>", instructions);
         Assert.Contains("- 2026-11-02 7" + padding, instructions);
         Assert.DoesNotContain("- 2026-11-02 1" + padding, instructions);

@@ -46,8 +46,8 @@ public sealed class McpHostTests : IAsyncLifetime
         var instructions = Assert.IsType<string>(client.ServerInstructions);
         Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
-        Assert.Contains("## When to recall", instructions);
-        Assert.Contains("## Writing pages", instructions);
+        Assert.Contains("## Recall", instructions);
+        Assert.Contains("`recall` first, then update the page", instructions);
         Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
         Assert.Contains("tacit-memory", instructions);
         Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] MCP 接缝测试活动\n</recent_activity>", instructions);

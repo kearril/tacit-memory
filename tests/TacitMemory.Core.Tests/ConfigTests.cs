@@ -584,7 +584,7 @@ public sealed class ConfigTests : IDisposable
 
         Assert.StartsWith("## Worth recording\n", File.ReadAllText(RulesPath));
         Assert.Equal(5, rules.WorthRecording.Count);
-        Assert.Equal(2, rules.NotRecorded.Count);
+        Assert.Equal(3, rules.NotRecorded.Count);
     }
 
     [Fact]
