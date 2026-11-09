@@ -80,8 +80,8 @@ public sealed partial class PageTests : IDisposable
         Assert.Contains("# tacit-memory/db-upgrade: 数据库升级后扩展丢失", read.Text);
         Assert.Contains("Aliases: 全文检索插件失效; 升级后搜索不到中文", read.Text);
         Assert.Contains("Dates: 2026-11-02 to 2026-11-02", read.Text);
-        Assert.Contains($"## 现象 [{codes[0]}]\n升级后中文搜索没有结果。", read.Text);
-        Assert.Contains($"## 根因 [{codes[1]}]\nPGroonga 扩展没有随升级重装。", read.Text);
+        Assert.Contains($"## 现象 [{codes[0]}] (last changed 2026-11-02)\n升级后中文搜索没有结果。", read.Text);
+        Assert.Contains($"## 根因 [{codes[1]}] (last changed 2026-11-02)\nPGroonga 扩展没有随升级重装。", read.Text);
         Assert.Empty(Git("status", "--porcelain").Trim());
     }
 
@@ -187,7 +187,7 @@ public sealed partial class PageTests : IDisposable
         Assert.False(read.IsError, read.Text);
         Assert.Contains("# tacit-memory/broken: broken\n", read.Text);
         Assert.Contains("header cannot be read", read.Text);
-        Assert.Matches(@"## 现象 \[[0-9a-f]{6}\]\n内容", read.Text);
+        Assert.Matches(@"## 现象 \[[0-9a-f]{6}\] \(last changed \d{4}-\d{2}-\d{2}\)\n内容", read.Text);
     }
 
     [Fact]

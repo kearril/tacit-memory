@@ -46,7 +46,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var hasPage = !string.IsNullOrWhiteSpace(request.Page);
         var unknown = ToolText.UnknownParameters(request.UnknownParameters);
         if (hasPage && !hasQuery)
-            return unknown.Count == 0 ? pages.Read(request) : ToolText.Refuse(unknown, ParametersStep);
+            return unknown.Count == 0 ? pages.Read(request, index) : ToolText.Refuse(unknown, ParametersStep);
 
         var problems = new List<string>(unknown);
         var queryOrPage = hasQuery == hasPage;
@@ -88,7 +88,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         }
 
         var ranked = await RerankAsync(request.Query!, Fuse([fullText, nearest], candidates), notes, cancellationToken);
-        var text = Format(ranked);
+        var (text, shown) = Format(ranked);
+        index.RecordReturns(shown.Select(hit => hit.Id).ToList());
         return ToolText.Ok(notes.Count == 0 ? text : text + "\n\n" + string.Join('\n', notes));
     }
 
@@ -129,27 +130,34 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             .ToList();
     }
 
-    private string Format(IReadOnlyList<IndexHit> hits)
+    /// <summary>
+    /// The text of the results, and the units it shows: every unit of a shown result counts as returned. A page shown only
+    /// for its title or aliases counts its clue unit, not the sections it displays.
+    /// </summary>
+    private (string Text, List<IndexHit> Shown) Format(IReadOnlyList<IndexHit> hits)
     {
         // Pages group by source. Each activity and each summary is a result of its own, so two of one month file stay apart.
         var results = hits.GroupBy(GroupKey).Take(config.Retrieval.TopK).ToList();
         var text = new StringBuilder();
-        var shown = 0;
+        var shownResults = 0;
+        var returned = new List<IndexHit>();
         foreach (var result in results)
         {
             var sample = result.First();
             if (sample.Kind == UnitKinds.Activity)
             {
-                shown++;
+                returned.AddRange(result);
+                shownResults++;
                 var label = sample.Project.Length > 0 ? $", project {sample.Project}" : "";
-                text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
                 continue;
             }
 
             if (sample.Kind == UnitKinds.Summary)
             {
-                shown++;
-                text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] summary, {sample.Section} starting {sample.Date}\n{sample.Text}\n");
+                returned.AddRange(result);
+                shownResults++;
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] summary, {sample.Section} starting {sample.Date}\n{sample.Text}\n");
                 continue;
             }
 
@@ -160,20 +168,23 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
                 ? document.Sections.Where(section => matched.Contains(section.Name)).ToList()
                 : document.Sections.Take(PageLevelSections).ToList();
             var others = document.Sections.Except(sections).Select(section => section.Name).ToList();
+            var changed = index.SectionChanges(id);
 
-            shown++;
-            text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] page {id}: {document.Header.Title}\n");
+            returned.AddRange(result);
+            shownResults++;
+            text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] page {id}: {document.Header.Title}\n");
             if (document.Header.First is { } first && document.Header.Last is { } last)
                 text.Append(CultureInfo.InvariantCulture, $"Dates: {first:yyyy-MM-dd} to {last:yyyy-MM-dd}\n");
             foreach (var section in sections)
-                text.Append(CultureInfo.InvariantCulture, $"### {section.Name} [{section.Code}]\n{section.Body}\n");
+                text.Append(CultureInfo.InvariantCulture, $"### {section.Name} [{section.Code}]{SectionDates.Note(changed, section.Name)}\n{section.Body}\n");
             if (others.Count > 0)
                 text.Append(CultureInfo.InvariantCulture, $"Other sections: {string.Join(", ", others)}\n");
         }
 
-        return shown == 0
+        var body = shownResults == 0
             ? NoMemory
-            : $"{shown} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
+            : $"{shownResults} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
+        return (body, returned);
     }
 
     /// <summary>Hits of one activity or summary are one result each; the hits of a page's sections share the page's result.</summary>

@@ -83,7 +83,9 @@ public sealed class MemoryService : IDisposable
         _models = new AuxiliaryModels(config, options.Time, _log);
         if (_models.Unconfigured is { Count: > 0 } unconfigured)
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
-        _index = new MemoryIndex(config.MemoryPath, config.Models.Embedding?.Model, config.Language);
+        _index = new MemoryIndex(
+            config.MemoryPath, config.Models.Embedding?.Model, config.Language,
+            () => options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays("pages"));
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
         _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Consolidation.MaxConcurrency);
@@ -276,6 +278,15 @@ public sealed class MemoryService : IDisposable
         using var hold = await _gate.ReadAsync(cancellationToken);
         return await _recall.RunAsync(request, cancellationToken);
     }
+
+    /// <summary>
+    /// How often <c>recall</c> has returned each page's units, for every page in the index. Derived state: <c>reindex</c>
+    /// resets it, and no search reads it.
+    /// </summary>
+    public IReadOnlyList<PageUsage> PageUsages() =>
+        _index.PageUsages()
+            .Select(row => new PageUsage(row.Page, (int)row.Count, row.Last is null ? null : DateOnly.ParseExact(row.Last, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)))
+            .ToList();
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
     public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>
