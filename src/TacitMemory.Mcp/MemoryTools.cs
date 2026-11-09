@@ -74,32 +74,26 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
         Record an activity in the recent activity log: one line under the day's heading in the month's file.
-        op=add_activity: needs text, one line of at most {itemLength} characters that does not start with '['; project and source are optional.
-        op=update_mainline: needs items (the whole mainline, in order; an empty list clears it) and hash (the version code from the last reply that showed the mainline).
+        text is required: one line of at most {itemLength} characters that does not start with '['; project and source are optional.
         With replaces (a short code of today's activity), rewrites that activity in place instead of adding one; source then replaces its comment only if given.
+        The mainline is not written here: the tacit-consolidate skill maintains it.
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WriteRecent(
         RequestContext<CallToolRequestParams> request,
-        [Required, AllowedValues(ToolValues.WriteRecentOps.AddActivity, ToolValues.WriteRecentOps.UpdateMainline)]
-        [Description("Operation: add_activity, or update_mainline to replace the whole mainline list.")] string? op = null,
+        [Required]
         [Description("The activity in one line, in the memory language; without a [project] prefix, which the project parameter adds.")] string? text = null,
         [Description("The project the activity belongs to: the code repository's name in lowercase, for example my-app.")] string? project = null,
         [Description("The user's own words behind the activity, one line; kept as a comment under the entry.")] string? source = null,
         [Description("The short code of an activity from today to rewrite with this text, from a refusal's list or from recall. Only today's activities match.")] string? replaces = null,
-        [Description("For update_mainline: the whole mainline in order, one item per entry, at most the configured item count; an empty list clears it.")] string[]? items = null,
-        [Description("For update_mainline: the version code shown with the mainline in the last reply that listed it; required, and refused when it no longer matches.")] string? hash = null,
         [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = op,
             Text = text,
             Project = project,
             Source = source,
             Replaces = replaces,
-            Items = items,
-            Hash = hash,
             ConfirmNoSecret = confirm_no_secret,
             UnknownParameters = UnknownArguments.Of(request),
         }, cancellationToken));

@@ -12,22 +12,14 @@ using TacitMemory.Core.Tools;
 namespace TacitMemory.Core.Recent;
 
 /// <summary>
-/// The recent activity side of the memory tools: the <c>write_recent</c> operations. Callers serialize writes; this
+/// The recent activity side of the memory tools: the <c>write_recent</c> tool, which only adds or rewrites activities.
+/// The mainline is maintained by the consolidation, which edits <c>recent.md</c> directly. Callers serialize writes; this
 /// class assumes it runs one write at a time.
 /// </summary>
 internal sealed class RecentTools(TacitOptions options, TacitConfig config, ServiceLog log, IDecisionModel decision)
 {
-    /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
-    private static readonly Dictionary<string, string[]> OpParameters = new()
-    {
-        [ToolValues.WriteRecentOps.AddActivity] = ["text", "project", "source", "replaces", "confirm_no_secret"],
-        [ToolValues.WriteRecentOps.UpdateMainline] = ["items", "hash", "confirm_no_secret"],
-    };
-
-    private static readonly string Ops = string.Join(", ", OpParameters.Keys);
-
-    /// <summary>Every parameter <c>write_recent</c> takes, listed when the op is missing or unknown.</summary>
-    private static readonly string AllParameters = string.Join(", ", new[] { "op" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
+    /// <summary>Every parameter <c>write_recent</c> takes, listed when an unknown one is refused.</summary>
+    private const string Parameters = "text, project, source, replaces, confirm_no_secret";
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
     private readonly SameTopicCheck _sameTopic = new(config, decision);
@@ -35,32 +27,18 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
     public async Task<ToolResult> WriteAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
         var problems = ToolText.UnknownParameters(request.UnknownParameters);
-        string nextStep;
-        if (!OpParameters.TryGetValue(request.Op ?? "", out var taken))
-        {
-            problems.Add(string.IsNullOrWhiteSpace(request.Op) ? "Missing parameter op." : $"Unknown op {ToolText.Quote(request.Op)}.");
-            nextStep = $"Call write_recent again with op set to one of: {Ops}; its parameters are: {AllParameters}.";
-        }
-        else
-        {
-            problems.AddRange(MisplacedParameters(request, taken).Select(name => $"Parameter {name} does not apply to op {request.Op}."));
-            nextStep = $"Call write_recent again with only the parameters for op {request.Op}: {string.Join(", ", taken)}.";
-        }
         if (problems.Count > 0)
-            return ToolText.Refuse(problems, nextStep);
+            return ToolText.Refuse(
+                problems,
+                $"Call write_recent again with only these parameters: {Parameters}. The mainline is maintained by the tacit-consolidate skill.");
 
-        return request.Op switch
-        {
-            ToolValues.WriteRecentOps.AddActivity => await AddActivityAsync(request, cancellationToken),
-            ToolValues.WriteRecentOps.UpdateMainline => await UpdateMainlineAsync(request, cancellationToken),
-            _ => throw new InvalidOperationException($"Op {request.Op} passed the op check without a handler."),
-        };
+        return await AddActivityAsync(request, cancellationToken);
     }
 
     private async Task<ToolResult> AddActivityAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Text))
-            return ToolText.Refuse("Missing parameter text.", "Call write_recent again with op=add_activity and text set to the activity in one line.");
+            return ToolText.Refuse("Missing parameter text.", "Call write_recent again with text set to the activity in one line.");
         var text = request.Text.Trim();
         if (text.StartsWith('['))
             return ToolText.Refuse(
@@ -92,14 +70,14 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         }
 
         if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_recent op=add_activity again.");
+            return ToolText.Refuse(problems, "Fix these and call write_recent again.");
 
         if (request.ConfirmNoSecret != true)
         {
             var written = new List<WrittenText> { new("text", text) };
             if (source is not null)
                 written.Add(new WrittenText("source", source));
-            if (CredentialCheck.Run(written, "write_recent", ToolValues.WriteRecentOps.AddActivity) is { } secret)
+            if (CredentialCheck.Run(written, "write_recent") is { } secret)
                 return secret;
         }
 
@@ -110,7 +88,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         if (read is null)
             return ToolText.Refuse(
                 $"{relative} is not valid UTF-8, so writing to it would change its text.",
-                $"Save {relative} as UTF-8, then call write_recent op=add_activity again.");
+                $"Save {relative} as UTF-8, then call write_recent again.");
         var (existing, hasBom) = read.Value;
 
         var label = RecentFile.Label(project);
@@ -137,7 +115,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
             if (verdict.Same is { } same)
                 return ToolText.Ok(
                     $"Not added: today's activity [{same.Code}] is about the same thing: {same.Labeled}\n"
-                    + $"Next step: write one merged sentence that covers both, then call write_recent again with op=add_activity, that sentence as text, and replaces set to {same.Code}. Nothing was written.");
+                    + $"Next step: write one merged sentence that covers both, then call write_recent again with that sentence as text and replaces set to {same.Code}. Nothing was written.");
             sameTopicNote = verdict.Note;
         }
 
@@ -161,148 +139,17 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
 
         var code = RecentFile.CodeAt(after, line);
         var verb = replaced is null ? "Added" : "Replaced";
-        var status = sameTopicNote is null ? $"{verb} activity [{code}]." : $"{verb} activity [{code}].\n\n{sameTopicNote}";
+        var status = $"{verb} activity [{code}].";
+        // The decision model being down is the one case the reply runs to a second line: the same-topic check did not happen.
+        if (sameTopicNote is not null)
+            status = $"{status}\n{sameTopicNote}";
         if (after == existing)
-            return ToolText.Ok($"{status}\n\n{MainlineSection.Block(MainlineSection.ReadItems(config.MemoryPath))}\n\n{await ActivitiesBlockAsync(cancellationToken)}");
+            return ToolText.Ok(status);
 
         TextFile.Write(path, after, hasBom);
         var subject = replaced is null ? "recent: add" : "recent: replace";
         var commitProblem = await CommitAsync(dirty ? $"{subject} {code} (with user edits)" : $"{subject} {code}", relative, cancellationToken);
-        var reply = $"{status}\n\n{MainlineSection.Block(MainlineSection.ReadItems(config.MemoryPath))}\n\n{await ActivitiesBlockAsync(cancellationToken)}";
-        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
-    }
-
-    private async Task<ToolResult> UpdateMainlineAsync(WriteRecentRequest request, CancellationToken cancellationToken)
-    {
-        var relative = MainlineSection.RelativePath;
-        var path = Path.Combine(config.MemoryPath, relative);
-        var read = TextFile.Read(path);
-        if (read is null)
-            return ToolText.Refuse(
-                $"{relative} is not valid UTF-8, so writing to it would change its text.",
-                $"Save {relative} as UTF-8, then call write_recent op=update_mainline again.");
-        var (existing, hasBom) = read.Value;
-
-        var current = MainlineSection.Items(existing);
-        var currentVersion = MainlineSection.VersionOf(current);
-        if (string.IsNullOrWhiteSpace(request.Hash) || !string.Equals(request.Hash.Trim(), currentVersion, StringComparison.OrdinalIgnoreCase))
-        {
-            var reason = string.IsNullOrWhiteSpace(request.Hash)
-                ? "Missing parameter hash."
-                : $"Hash {ToolText.Quote(request.Hash)} does not match the current mainline.";
-            return ToolText.Refuse(
-                reason,
-                $"Call write_recent again with op=update_mainline, hash set to {currentVersion}, and the items you want.",
-                MainlineSection.Block(current));
-        }
-
-        if (request.Items is null)
-            return ToolText.Refuse(
-                "Missing parameter items.",
-                "Call write_recent again with op=update_mainline and items set to the whole mainline, in order; an empty list clears it.");
-
-        var items = request.Items.Select(item => item.Trim()).ToList();
-        var problems = new List<string>();
-        var maxItems = config.Limits.Mainline;
-        if (items.Count > maxItems)
-            problems.Add($"Mainline has {items.Count} items; the limit is {maxItems}.");
-        var maxLength = config.Limits.ItemLength;
-        for (var i = 0; i < items.Count; i++)
-        {
-            var item = items[i];
-            if (item.Length == 0)
-                problems.Add($"Item {i + 1} is empty.");
-            else if (item.Contains('\n') || item.Contains('\r'))
-                problems.Add($"Item {i + 1} must be one line.");
-            else if (Length(item) > maxLength)
-                problems.Add($"Item {i + 1} has {Length(item)} characters; the limit is {maxLength}.");
-        }
-
-        if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_recent op=update_mainline again with the same hash.", MainlineSection.Block(current));
-
-        if (request.ConfirmNoSecret != true)
-        {
-            var written = items.Select((item, i) => new WrittenText($"item {i + 1}", item)).ToList();
-            if (CredentialCheck.Run(written, "write_recent", ToolValues.WriteRecentOps.UpdateMainline) is { } secret)
-                return secret;
-        }
-
-        if (items.SequenceEqual(current, StringComparer.Ordinal))
-            return ToolText.Ok($"Mainline unchanged.\n\n{MainlineSection.Block(items)}");
-
-        // Checked before the write, as in add_activity: user edits to recent.md are noted in the commit subject.
-        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
-        var updated = MainlineSection.Replace(existing, items, MainlineSection.HeadingIn(config.Language));
-        TextFile.Write(path, updated, hasBom);
-        var commitProblem = await CommitAsync(dirty ? "recent: mainline (with user edits)" : "recent: mainline", relative, cancellationToken);
-        var reply = $"Mainline updated.\n\n{MainlineSection.Block(items)}";
-        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
-    }
-
-    /// <summary>
-    /// The activities dated on or after the day of the last commit that touched <c>recent.md</c>, newest first, at most
-    /// ten. With no such commit, or only the init commit, every activity is listed.
-    /// </summary>
-    private async Task<string> ActivitiesBlockAsync(CancellationToken cancellationToken)
-    {
-        const int listed = 10;
-        var since = await LastMainlineCommitDayAsync(cancellationToken);
-
-        var activities = new List<RecentFile.Activity>();
-        foreach (var (_, file) in RecentFile.MonthFiles(config.MemoryPath))
-        {
-            var month = Path.GetFileNameWithoutExtension(file);
-            if (since is { } start && string.CompareOrdinal(month, start.ToString("yyyy-MM", CultureInfo.InvariantCulture)) < 0)
-                continue;
-            if (TextFile.Read(file) is not { } read)
-                continue;
-            activities.AddRange(RecentFile.Activities(read.Text).Where(activity => since is null || activity.Day >= since.Value));
-        }
-
-        // Months and lines are read oldest first; reversing puts the newest line first, and the stable sort keeps that order within a day.
-        var newestFirst = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).ToList();
-        if (newestFirst.Count == 0)
-            return "No activities since the last recent.md commit.";
-
-        var lines = new List<string> { "Activities since the last recent.md commit, newest first:" };
-        lines.AddRange(newestFirst.Take(listed).Select(activity => $"- {activity.Day:yyyy-MM-dd} [{activity.Code}] {activity.Labeled}"));
-        if (newestFirst.Count > listed)
-            lines.Add($"{newestFirst.Count - listed} more not listed.");
-        return string.Join("\n", lines);
-    }
-
-    /// <summary>The day of the last commit that touched <c>recent.md</c>; null with no such commit or when it is the init commit.</summary>
-    private async Task<DateOnly?> LastMainlineCommitDayAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var line = (await _git.RunAsync(cancellationToken, "log", "-1", "--format=%as%x09%s", "--", MainlineSection.RelativePath)).Trim();
-            var parts = line.Split('\t', 2);
-            if (parts.Length < 2 || parts[1].StartsWith("init:", StringComparison.Ordinal))
-                return null;
-            return DateOnly.ParseExact(parts[0], "yyyy-MM-dd", CultureInfo.InvariantCulture);
-        }
-        catch (TacitException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>The parameters that were given but the op does not take.</summary>
-    private static List<string> MisplacedParameters(WriteRecentRequest request, string[] taken)
-    {
-        var given = new (string Name, bool IsGiven)[]
-        {
-            ("text", request.Text is not null),
-            ("project", request.Project is not null),
-            ("source", request.Source is not null),
-            ("replaces", request.Replaces is not null),
-            ("items", request.Items is not null),
-            ("hash", request.Hash is not null),
-            ("confirm_no_secret", request.ConfirmNoSecret is not null),
-        };
-        return given.Where(parameter => parameter.IsGiven && !taken.Contains(parameter.Name)).Select(parameter => parameter.Name).ToList();
+        return commitProblem is null ? ToolText.Ok(status) with { Written = true } : new ToolResult($"{status}\n\n{commitProblem}", IsError: true, Written: true);
     }
 
     /// <summary>Commits the month file; on failure, tells the user and returns the note for the agent. The file stays written.</summary>

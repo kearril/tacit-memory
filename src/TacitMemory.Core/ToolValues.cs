@@ -16,13 +16,6 @@ public static class ToolValues
         public const string UpdateHeader = "update_header";
     }
 
-    /// <summary>The <c>op</c> values of <c>write_recent</c>.</summary>
-    public static class WriteRecentOps
-    {
-        public const string AddActivity = "add_activity";
-        public const string UpdateMainline = "update_mainline";
-    }
-
     /// <summary>The <c>op</c> values of <c>write_persona</c>.</summary>
     public static class WritePersonaOps
     {

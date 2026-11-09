@@ -95,7 +95,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         using var service = Open();
         var init = HeadHash();
-        await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "做了一件事" });
+        await service.WriteRecentAsync(new WriteRecentRequest { Text = "做了一件事" });
 
         var prompt = await service.ConsolidationReportAsync();
 

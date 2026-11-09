@@ -31,7 +31,6 @@ public sealed partial class RecentActivityTests : IDisposable
     private static WriteRecentRequest Add(string text, string? project = null, string? source = null,
         bool? confirmNoSecret = null) => new()
         {
-            Op = "add_activity",
             Text = text,
             Project = project,
             Source = source,
@@ -201,7 +200,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Missing_text_is_refused()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity" });
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest());
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Missing parameter text.\nNext step: ", result.Text);
@@ -273,7 +272,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "改写后的先做的事",
             Project = "tacit-memory",
             Replaces = ShortOf("[tacit-memory] 先做的事"),
@@ -295,7 +293,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "一件事改写",
             Replaces = CodeOf(added),
             Source = "新话",
@@ -304,7 +301,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         var kept = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "一件事再改",
             Replaces = ShortOf("一件事改写"),
         });
@@ -320,7 +316,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "同一件事",
             Project = "new-one",
             Replaces = CodeOf(added),
@@ -340,7 +335,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "误改昨天",
             Replaces = ShortOf("昨天的事"),
         });
@@ -358,14 +352,12 @@ public sealed partial class RecentActivityTests : IDisposable
         var added = await _service.WriteRecentAsync(Add("旧的说法"));
         await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "新的说法",
             Replaces = CodeOf(added),
         });
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "又改一次",
             Replaces = CodeOf(added),
         });
@@ -380,7 +372,6 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "一件事",
             Replaces = "abc123",
         });
@@ -397,7 +388,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = $"用的 key 是 {OpenAiKey}",
             Replaces = CodeOf(added),
         });
@@ -415,7 +405,6 @@ public sealed partial class RecentActivityTests : IDisposable
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "不变的一句",
             Replaces = CodeOf(added),
         });
@@ -424,234 +413,52 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.Equal(commits, Git("rev-list", "--count", "HEAD"));
     }
 
-    private string RecentPath => Path.Combine(Memory, "recent.md");
-
-    private static WriteRecentRequest Mainline(IReadOnlyList<string>? items, string? hash = null, bool? confirmNoSecret = null) => new()
-    {
-        Op = "update_mainline",
-        Items = items,
-        Hash = hash,
-        ConfirmNoSecret = confirmNoSecret,
-    };
-
-    private static string VersionOf(params string[] items) => ShortOf(string.Join("\n", items));
-
     [Fact]
-    public async Task Update_mainline_replaces_the_list_under_its_heading_and_keeps_every_other_byte()
+    public async Task The_reply_is_one_line_with_the_short_code_of_the_new_activity()
     {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n- 旧的二条\n\n手写备注  \n## 其他\n正文\n");
-        Git("add", "recent.md");
-        Git("commit", "-m", "chore: seed mainline");
-
-        var result = await _service.WriteRecentAsync(Mainline(["新的一条", "新的二条"], VersionOf("旧的一条", "旧的二条")));
+        var result = await _service.WriteRecentAsync(Add("一件事", project: "tacit-memory"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 近期主线\n- 新的一条\n- 新的二条\n\n手写备注  \n## 其他\n正文\n", File.ReadAllText(RecentPath));
-        Assert.Equal("recent: mainline", Git("log", "-1", "--format=%s").Trim());
-        Assert.Contains(VersionOf("新的一条", "新的二条"), result.Text);
+        // The first line is the reply; the embedding note that a test without a model gets follows it.
+        Assert.StartsWith($"Added activity [{ShortOf("[tacit-memory] 一件事")}].", result.Text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task An_empty_list_clears_the_mainline_and_keeps_its_heading()
+    public async Task A_rewrite_replies_with_the_short_code_of_the_rewritten_activity()
     {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
-        Git("add", "recent.md");
-        Git("commit", "-m", "chore: seed mainline");
+        var added = await _service.WriteRecentAsync(Add("先说的一件事"));
 
-        var result = await _service.WriteRecentAsync(Mainline([], VersionOf("旧的一条")));
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "改写后的一件事", Replaces = CodeOf(added) });
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
-        Assert.Contains(VersionOf(), result.Text);
+        Assert.StartsWith($"Replaced activity [{ShortOf("改写后的一件事")}].", result.Text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task More_items_than_the_mainline_limit_are_refused_and_nothing_is_written()
+    public async Task Adding_an_activity_leaves_the_mainline_file_alone()
     {
-        File.WriteAllText(RecentPath, "## 近期主线\n");
+        File.WriteAllText(Path.Combine(Memory, "recent.md"), "## 近期主线\n- 主线一\n");
 
-        var result = await _service.WriteRecentAsync(Mainline(["一", "二", "三", "四", "五", "六"], VersionOf()));
+        await _service.WriteRecentAsync(Add("一件事"));
 
-        Assert.True(result.IsError);
-        Assert.StartsWith("Refused:", result.Text);
-        Assert.Contains("6 items; the limit is 5", result.Text);
-        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
+        Assert.Equal("## 近期主线\n- 主线一\n", File.ReadAllText(Path.Combine(Memory, "recent.md")));
     }
 
     [Fact]
-    public async Task An_item_over_the_length_limit_is_refused_and_the_limit_is_named()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n");
-
-        var result = await _service.WriteRecentAsync(Mainline([new string('字', 201)], VersionOf()));
-
-        Assert.True(result.IsError);
-        Assert.Contains("Item 1 has 201 characters; the limit is 200", result.Text);
-        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
-    }
-
-    [Fact]
-    public async Task A_missing_hash_is_refused_with_the_current_mainline_and_its_version()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
-
-        var result = await _service.WriteRecentAsync(Mainline(["新的一条"]));
-
-        Assert.True(result.IsError);
-        Assert.StartsWith("Refused:", result.Text);
-        Assert.Contains("- 旧的一条", result.Text);
-        Assert.Contains(VersionOf("旧的一条"), result.Text);
-        Assert.Equal("## 近期主线\n- 旧的一条\n", File.ReadAllText(RecentPath));
-    }
-
-    [Fact]
-    public async Task A_write_with_neither_items_nor_hash_is_refused_with_the_current_mainline_and_its_version()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
-
-        var result = await _service.WriteRecentAsync(Mainline(null));
-
-        Assert.True(result.IsError);
-        Assert.StartsWith("Refused:", result.Text);
-        Assert.Contains("hash", result.Text);
-        Assert.Contains("- 旧的一条", result.Text);
-        Assert.Contains(VersionOf("旧的一条"), result.Text);
-        Assert.Equal("## 近期主线\n- 旧的一条\n", File.ReadAllText(RecentPath));
-    }
-
-    [Fact]
-    public async Task A_stale_hash_is_refused_with_the_current_mainline_and_its_version()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
-
-        var result = await _service.WriteRecentAsync(Mainline(["新的一条"], "000000"));
-
-        Assert.True(result.IsError);
-        Assert.Contains("Next step:", result.Text);
-        Assert.Contains("- 旧的一条", result.Text);
-        Assert.Contains(VersionOf("旧的一条"), result.Text);
-        Assert.Equal("## 近期主线\n- 旧的一条\n", File.ReadAllText(RecentPath));
-    }
-
-    [Fact]
-    public async Task Writing_the_same_list_changes_no_file_and_makes_no_commit()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 旧的一条\n");
-        Git("add", "recent.md");
-        Git("commit", "-m", "chore: seed mainline");
-        var head = Git("rev-parse", "HEAD").Trim();
-
-        var result = await _service.WriteRecentAsync(Mainline(["旧的一条"], VersionOf("旧的一条")));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("unchanged", result.Text);
-        Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
-        await _service.BackupCompletion;
-        Assert.False(File.Exists(Path.Combine(_home.TacitHome, "backups", "auto-2026-11-02.zip")));
-    }
-
-    [Fact]
-    public async Task A_secret_in_an_item_is_refused_unless_confirmed()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n");
-
-        var refused = await _service.WriteRecentAsync(Mainline([$"用的 key 是 {OpenAiKey}"], VersionOf()));
-
-        Assert.True(refused.IsError);
-        Assert.Contains("sk-pro", refused.Text);
-        Assert.Equal("## 近期主线\n", File.ReadAllText(RecentPath));
-
-        var confirmed = await _service.WriteRecentAsync(Mainline([$"示例 {OpenAiKey}"], VersionOf(), confirmNoSecret: true));
-
-        Assert.False(confirmed.IsError, confirmed.Text);
-        Assert.Contains($"- 示例 {OpenAiKey}", File.ReadAllText(RecentPath));
-    }
-
-    [Fact]
-    public async Task The_add_reply_carries_the_mainline_and_its_version_code()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n- 主线二\n");
-
-        var result = await _service.WriteRecentAsync(Add("一件事"));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains($"Mainline, version [{VersionOf("主线一", "主线二")}]:\n- 主线一\n- 主线二", result.Text);
-    }
-
-    [Fact]
-    public async Task The_add_reply_lists_activities_dated_from_the_last_mainline_commit_onward()
-    {
-        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n");
-        Git("add", "recent.md");
-        Git("commit", "-m", "recent: mainline", "--date=2026-11-01T10:00:00+00:00");
-        Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
-        File.WriteAllText(MonthFile, "## 2026-10-31\n- 更早的事\n## 2026-11-01\n- 昨天的事\n");
-        Git("add", "recent/2026-11.md");
-        Git("commit", "-m", "chore: seed month file");
-
-        var result = await _service.WriteRecentAsync(Add("今天的事"));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("昨天的事", result.Text);
-        Assert.Contains("今天的事", result.Text);
-        Assert.DoesNotContain("更早的事", result.Text);
-    }
-
-    [Fact]
-    public async Task Until_the_mainline_is_first_committed_every_activity_is_listed()
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
-        File.WriteAllText(MonthFile, "## 2026-10-31\n- 更早的事\n");
-        Git("add", "recent/2026-11.md");
-        Git("commit", "-m", "chore: seed month file");
-
-        var result = await _service.WriteRecentAsync(Add("今天的事"));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Contains("更早的事", result.Text);
-    }
-
-    [Fact]
-    public async Task The_add_reply_lists_at_most_ten_activities_and_counts_the_rest()
-    {
-        for (var i = 1; i <= 11; i++)
-            await _service.WriteRecentAsync(Add($"第{i}件事"));
-
-        var result = await _service.WriteRecentAsync(Add("第12件事"));
-
-        Assert.False(result.IsError, result.Text);
-        Assert.Equal(10, result.Text.Split('\n').Count(line => line.StartsWith("- 2026-11-02 [", StringComparison.Ordinal)));
-        Assert.Contains($"- 2026-11-02 [{ShortOf("第12件事")}] 第12件事", result.Text);
-        Assert.Contains("2 more", result.Text);
-        Assert.DoesNotContain("第2件事", result.Text);
-    }
-
-    [Fact]
-    public async Task A_parameter_that_does_not_apply_to_the_op_is_named()
+    public async Task The_removed_parameters_are_refused_by_name_and_the_next_step_points_to_the_consolidation()
     {
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
-            Op = "add_activity",
             Text = "一件事",
-            Items = ["不该传"],
-            Hash = "abc123",
+            UnknownParameters = ["op", "items", "hash"],
         });
 
         Assert.True(result.IsError);
-        Assert.Contains("Parameter items does not apply to op add_activity.", result.Text);
-        Assert.Contains("Parameter hash does not apply to op add_activity.", result.Text);
-        Assert.False(File.Exists(MonthFile));
-    }
-
-    [Fact]
-    public async Task Missing_op_and_unknown_op_are_refused()
-    {
-        var missing = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "一件事" });
-        var unknown = await _service.WriteRecentAsync(new WriteRecentRequest { Op = "delete", Text = "一件事" });
-
-        Assert.StartsWith("Refused: Missing parameter op.\nNext step: ", missing.Text);
-        Assert.True(unknown.IsError);
-        Assert.Contains("delete", unknown.Text);
+        Assert.StartsWith(
+            "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\n"
+            + "Next step: Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret. "
+            + "The mainline is maintained by the tacit-consolidate skill.",
+            result.Text);
         Assert.False(File.Exists(MonthFile));
     }
 
@@ -661,18 +468,20 @@ public sealed partial class RecentActivityTests : IDisposable
         var result = await _service.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["content"] });
 
         Assert.True(result.IsError);
-        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_recent again with only the parameters for op add_activity: text, project, source, replaces, confirm_no_secret.", result.Text);
+        Assert.StartsWith(
+            "Refused: Unknown parameter content.\nNext step: Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret.",
+            result.Text);
         Assert.False(File.Exists(MonthFile));
         Assert.Empty(Git("status", "--porcelain").Trim());
     }
 
     [Fact]
-    public async Task Unknown_names_come_first_with_a_missing_op_and_the_next_step_lists_every_parameter()
+    public async Task An_unknown_parameter_is_refused_before_a_missing_text_is_looked_at()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "一件事", UnknownParameters = ["content"] });
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest { UnknownParameters = ["content"] });
 
-        Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Missing parameter op.\nNext step: Call write_recent again with op set to one of: add_activity, update_mainline; its parameters are: op, text, project, source, replaces, confirm_no_secret, items, hash.", result.Text);
-        Assert.False(File.Exists(MonthFile));
+        Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
+        Assert.DoesNotContain("Missing parameter text", result.Text);
     }
 
     [Fact]

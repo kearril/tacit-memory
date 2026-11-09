@@ -40,7 +40,6 @@ public sealed class RecallActivityTests : IDisposable
 
     private static WriteRecentRequest Activity(string text, string? project = null) => new()
     {
-        Op = "add_activity",
         Text = text,
         Project = project,
     };

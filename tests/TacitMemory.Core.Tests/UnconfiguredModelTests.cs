@@ -62,7 +62,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     }
 
     private Task<ToolResult> WriteEntry(string text) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = text }).WaitAsync(Guard);
+        Service.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
 
     private Task<ToolResult> AddPreference(string text) =>
         Service.WritePersonaAsync(new WritePersonaRequest { Op = "add", Section = "preferences", Text = text, Source = text }).WaitAsync(Guard);

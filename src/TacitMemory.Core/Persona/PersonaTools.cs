@@ -474,7 +474,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (request.ConfirmNoSecret == true)
             return null;
         IReadOnlyList<WrittenText> written = [new("text", text), new("source", source)];
-        return CredentialCheck.Run(written, "write_persona", op);
+        return CredentialCheck.Run(written, $"write_persona op={op}");
     }
 
     /// <summary>The entry of one of the four sections whose short code is <paramref name="hash"/>; null when none has it.</summary>

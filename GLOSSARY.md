@@ -104,10 +104,6 @@ _Avoid_: 数据库、缓存库
 服务返回条目或小节时附带在方括号里的内容哈希前 6 位，用于在后续调用的 `hash` 参数中引用它；内容一改即失效。
 _Avoid_: 条目 ID、编号
 
-**版本短码**（Version code）：
-近期主线整体的内容哈希前 6 位，用于以 `update_mainline` 整体改写主线；任一条改变即失效。
-_Avoid_: 版本号、主线哈希
-
 ### 写入
 
 **主会话**（Main session）：
@@ -309,7 +305,7 @@ _Avoid_: 搜索、search
 _Avoid_: 编辑文档、写文档
 
 **近期写入工具**（`write_recent`）：
-记录活动或改写近期主线。`op` 取 `add_activity`（追加一条活动）与 `update_mainline`（以 `items` 整体替换近期主线）。
+记录活动，或以 `replaces` 改写当天的活动。没有 `op`；`text` 必填。近期主线不经它写入，由整理改写。
 _Avoid_: 写日志、日志工具
 
 **画像写入工具**（`write_persona`）：
@@ -333,7 +329,7 @@ _Avoid_: 引文、出处
 _Avoid_: 覆盖、更新标识
 
 **短码参数**（`hash`）：
-按工具与操作指代三种短码之一：小节短码（`write_page` 的 `upsert_section` 改写已有小节、`delete_section`）、画像条目短码（`write_persona` 的 `replace`、`delete`）或版本短码（`write_recent` 的 `update_mainline`）。
+按工具与操作指代两种短码之一：小节短码（`write_page` 的 `upsert_section` 改写已有小节、`delete_section`）或画像条目短码（`write_persona` 的 `replace`、`delete`）。
 _Avoid_: 哈希、ID
 
 **项目参数**（`project`）：
