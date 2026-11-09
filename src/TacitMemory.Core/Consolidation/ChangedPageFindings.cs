@@ -10,8 +10,8 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class ChangedPageFindings
 {
-    /// <summary>The type label of a page without a type, in the memory language's own words.</summary>
-    private const string Unclassified = "未分类";
+    /// <summary>The type label of a page without a type; the report is for the agent, so the label is English as in the brief.</summary>
+    private const string Unclassified = "untyped";
 
     public static (ConsolidationSection Lessons, ConsolidationSection Changed) Produce(
         ConsolidationContext context, ConsolidationServices services, IReadOnlyList<PageId> pages)

@@ -113,6 +113,19 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
+    public void The_consolidation_skill_does_not_promise_every_deferred_item_again_at_the_next_consolidation()
+    {
+        // Only candidates stay in candidates.md; the other categories are reported only when they change again.
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.DoesNotContain("reported again at the next consolidation", text, StringComparison.Ordinal);
+        Assert.Contains("A candidate stays in candidates.md and comes back at the next consolidation", text, StringComparison.Ordinal);
+        Assert.Contains("comes back only when it changes again", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_consolidation_skill_reads_the_report_resource_first_and_stops_without_it()
     {
         _home.Tacit().GenerateSkills();
