@@ -10,12 +10,14 @@ using TacitMemory.Core.Tools;
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The <c>recall</c> tool: reads one page by ID, reads the persona or its domain rules, or searches pages and activities by full
-/// text and by vector, merges the two with reciprocal rank fusion, reranks the merged units and returns the best sections, merged
-/// per page. The persona is never searched. It never changes a file.
+/// The <c>recall</c> tool: reads one page by ID, reads the persona or its domain rules, returns a project's brief when given only a
+/// project, or searches pages and activities by full text and by vector, merges the two with reciprocal rank fusion, reranks the
+/// merged units and returns the best sections, merged per page. The persona is never searched. It never changes a file.
 /// </summary>
 internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
 {
+    private readonly ProjectBrief _brief = new(config, index);
+
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";
 
@@ -58,6 +60,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var kind = request.Kind?.Trim();
         if (kind is ToolValues.RecallKinds.Persona or ToolValues.RecallKinds.Rules)
             return ReadStructured(request, kind, unknown);
+        if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Project))
+            return ProjectBriefCall(request, unknown);
         if (hasPage && !hasQuery && !hasDomain)
             return unknown.Count == 0 ? pages.Read(request, index) : ToolText.Refuse(unknown, ParametersStep);
 
@@ -178,6 +182,35 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     private static ToolResult NotUtf8() => ToolText.Refuse(
         $"{PersonaFiles.Persona} is not valid UTF-8, so it cannot be read.",
         $"Save {PersonaFiles.Persona} as UTF-8, then call recall again with the same kind.");
+
+    /// <summary>
+    /// <c>recall</c> with only <c>project</c>: the project's brief. It takes <c>from</c> and <c>to</c> as its date range, and
+    /// refuses <c>kind</c>, which has no meaning for a brief.
+    /// </summary>
+    private ToolResult ProjectBriefCall(RecallRequest request, List<string> unknown)
+    {
+        var problems = new List<string>(unknown);
+        var from = Date(request.From, "from", problems);
+        var to = Date(request.To, "to", problems);
+        if (from > to)
+            problems.Add("from is later than to.");
+        var raw = request.Project!.Trim();
+        var project = raw.ToLowerInvariant();
+        if (project != PageId.Topics && !PageId.IsProjectName(project))
+            problems.Add($"Project {ToolText.Quote(raw)} may only use a-z, 0-9, '.', '_' and '-', and must not start with '.' or '_' (except {PageId.Topics}).");
+        if (!string.IsNullOrWhiteSpace(request.Kind))
+            problems.Add("kind does not apply to a project brief.");
+        if (!string.IsNullOrWhiteSpace(request.Domain))
+            problems.Add("Parameter domain applies only to kind=rules.");
+        if (problems.Count > 0)
+        {
+            var nextStep = unknown.Count > 0 ? ParametersStep
+                : "Call recall again with project alone for the project brief, or with query and kind to search the project.";
+            return ToolText.Refuse(problems, nextStep);
+        }
+
+        return ToolText.Ok(_brief.Compose(project, from, to));
+    }
 
     /// <summary>Reciprocal rank fusion: each list adds 1 / (k + rank) to a unit's score.</summary>
     private static List<IndexHit> Fuse(IReadOnlyList<IReadOnlyList<IndexHit>> lists, int limit)

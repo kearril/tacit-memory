@@ -24,7 +24,7 @@
 
 | 工具 | `op` | 必填参数 |
 | :--- | :--- | :--- |
-| `recall` | — | `query` 或 `page`（`kind` 为 `persona`、`rules` 时都不需要）；可选 `project`、`from`、`to`、`kind`、`domain` |
+| `recall` | — | `query` 或 `page`（`kind` 为 `persona`、`rules` 时都不需要），或只给 `project`（返回项目简报）；可选 `project`、`from`、`to`、`kind`、`domain` |
 | `write_page` | `create` | `page`、`title`、`aliases`、`sections`；可选 `related` |
 | | `upsert_section` | `page`、`section`、`body`；替换时加 `hash` |
 | | `delete_section` | `page`、`section`、`hash` |
@@ -35,7 +35,7 @@
 | | `delete` | `hash` |
 | | `propose` | `persona_section`、`text`、`source` |
 
-- `recall` 各参数的含义见 `docs/design.md` 第 7 节。`kind` 取 `pages`、`activities`、`rules` 或 `persona`；`domain` 仅与 `rules` 搭配。`persona` 与 `rules` 返回的每条都附短码，供 `write_persona` 的 `replace` 与 `delete` 使用。
+- `recall` 各参数的含义见 `docs/design.md` 第 7 节。`kind` 取 `pages`、`activities`、`rules` 或 `persona`；`domain` 仅与 `rules` 搭配。`persona` 与 `rules` 返回的每条都附短码，供 `write_persona` 的 `replace` 与 `delete` 使用。只给 `project` 时返回项目简报，内容与截断规则同见第 7 节；此时 `kind` 与 `domain` 不可同给（参数错误），`from`、`to` 可与之合用。
 - `write_page` 的 `type` 取值为 `incident`、`decision`、`entity`、`work`，各自的用途写在工具说明中；`create` 必填，`update_header` 可改。
 - `recall` 以 `page` 读整页时，页头摘要含一行 `Type: <类型>`；页面没有类型（旧页）时不显示该行。
 - `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`write_recent` 只写活动，没有 `op`；近期主线不经它写入，见 `docs/design.md` 第 6 节。

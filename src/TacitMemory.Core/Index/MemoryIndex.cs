@@ -459,6 +459,20 @@ internal sealed class MemoryIndex : IDisposable
     }
 
     /// <summary>
+    /// Counts one return for each listed page, as a project brief does: the count lands on the page's title and aliases unit,
+    /// so each page adds one whatever its size.
+    /// </summary>
+    public void RecordPagesListed(IReadOnlyCollection<PageId> pages)
+    {
+        if (pages.Count == 0)
+            return;
+        lock (_gate)
+            _connection.Execute(
+                "UPDATE units SET returns = returns + 1, returned = MAX(COALESCE(returned, ''), @day) WHERE source_id IN @sources AND kind = @kind",
+                new { day = DateText(_today()), sources = pages.Select(page => page.ToString()).ToList(), kind = UnitKinds.Clue });
+    }
+
+    /// <summary>
     /// Every page with the total of its units' returns and the last day any of them was returned; a page never returned
     /// has zero and no day. These statistics never reach the ranking.
     /// </summary>
