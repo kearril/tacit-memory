@@ -34,6 +34,7 @@ public sealed class ReindexTests : IDisposable
         var result = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = page,
             Title = title,
             Aliases = [title + "的坑", title + "问题"],

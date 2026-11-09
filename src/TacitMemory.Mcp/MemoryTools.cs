@@ -33,10 +33,15 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
         Write a detail page: one page per matter, organized in ## sections. Pages are committed to the memory repository.
-        op=create: new page; needs page, title, aliases, sections; related is optional.
+        op=create: new page; needs page, title, type, aliases, sections; related is optional.
         op=upsert_section: needs page, section and body; hash is required when the section exists (its short code from recall).
         op=delete_section: needs page, section and hash (its short code from recall).
-        op=update_header: needs page and at least one of title, add_aliases, related; related replaces the whole list ([] clears it).
+        op=update_header: needs page and at least one of title, type, add_aliases, related; related replaces the whole list ([] clears it).
+        type is one of these, by what the page records:
+        - incident: a fault, its cause and its fix.
+        - decision: one decision and the reasons for it.
+        - entity: a standing system or tool, as pointers to its documentation, the user's stance and open to-dos.
+        - work: one unit of work and its record, such as a slice or a release.
         Writes are checked for secrets (passwords, keys, tokens); never store one.
         """)]
     public async Task<CallToolResult> WritePage(
@@ -46,6 +51,8 @@ internal sealed class MemoryTools(MemoryService service)
         [Required]
         [Description("Page ID: <project>/<slug>. project is the code repository's name in lowercase, or _topics for a subject that belongs to no project; slug is lowercase words joined by hyphens.")] string? page = null,
         [Description("Page title, one line.")] string? title = null,
+        [AllowedValues(ToolValues.PageTypes.Incident, ToolValues.PageTypes.Decision, ToolValues.PageTypes.Entity, ToolValues.PageTypes.Work)]
+        [Description("The page's type, one of the four described above; required by create.")] string? type = null,
         [Description("Other names the user might call this by: spoken phrasings, Chinese and English names, nicknames. At least {minAliases}.")] string[]? aliases = null,
         [Description("The page's sections in order; each has a name (the ## heading, without '##') and a Markdown body.")] PageSectionInput[]? sections = null,
         [Description("Page IDs of related pages; each must exist.")] string[]? related = null,
@@ -60,6 +67,7 @@ internal sealed class MemoryTools(MemoryService service)
             Op = op,
             Page = page,
             Title = title,
+            Type = type,
             Aliases = aliases,
             Sections = sections,
             Related = related,

@@ -27,6 +27,7 @@ public sealed partial class PageTests : IDisposable
             Op = "create",
             Page = page,
             Title = title,
+            Type = ToolValues.PageTypes.Incident,
             Aliases = aliases ?? ["全文检索插件失效", "升级后搜索不到中文"],
             Sections = sections ?? [new("现象", "升级后中文搜索没有结果。"), new("根因", "PGroonga 扩展没有随升级重装。")],
             Related = related,
@@ -49,6 +50,7 @@ public sealed partial class PageTests : IDisposable
             title: 数据库升级后扩展丢失
             aliases: [全文检索插件失效, 升级后搜索不到中文]
             dates: { first: 2026-11-02, last: 2026-11-02 }
+            type: incident
             ---
 
             ## 现象
@@ -242,7 +244,7 @@ public sealed partial class PageTests : IDisposable
         var withoutOp = await _service.WritePageAsync(new WritePageRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["content"] });
 
         Assert.Contains("Call write_page again with only the parameters for op upsert_section: page, section, body, hash, confirm_no_secret.", withOp.Text);
-        Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, aliases, sections, related, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
+        Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, type, aliases, sections, related, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
     }
 
     [Fact]
@@ -586,7 +588,7 @@ public sealed partial class PageTests : IDisposable
         var replace = await _service.WritePageAsync(Header(page) with { Aliases = ["别名一", "别名二"] });
 
         Assert.True(empty.IsError);
-        Assert.Contains("Give at least one of title, add_aliases or related.", empty.Text);
+        Assert.Contains("Give at least one of title, type, add_aliases or related.", empty.Text);
         Assert.True(replace.IsError);
         Assert.Contains("update_header does not replace aliases; pass add_aliases to add some.", replace.Text);
         Assert.Equal(before, PageText(page));
@@ -681,6 +683,117 @@ public sealed partial class PageTests : IDisposable
         var unchanged = await _service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
         Assert.StartsWith("Nothing changed: the page already has this content.", unchanged.Text);
         Assert.Contains("last: 2026-11-03", File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md")));
+    }
+
+    [Theory]
+    [InlineData(ToolValues.PageTypes.Incident)]
+    [InlineData(ToolValues.PageTypes.Decision)]
+    [InlineData(ToolValues.PageTypes.Entity)]
+    [InlineData(ToolValues.PageTypes.Work)]
+    public async Task Creating_a_page_writes_the_type_it_was_given_in_the_header(string type)
+    {
+        var result = await _service.WritePageAsync(Create("tacit-memory/typed") with { Type = type });
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains($"\ntype: {type}\n---\n", PageText("tacit-memory/typed"));
+    }
+
+    [Fact]
+    public async Task Creating_a_page_without_a_type_is_refused_with_the_four_types_and_writes_nothing()
+    {
+        var result = await _service.WritePageAsync(Create("tacit-memory/untyped") with { Type = null });
+
+        Assert.True(result.IsError);
+        Assert.Contains("Missing parameter type.", result.Text);
+        Assert.Contains("incident, decision, entity, work", result.Text);
+        Assert.False(File.Exists(Path.Combine(Memory, "pages", "tacit-memory", "untyped.md")));
+    }
+
+    [Fact]
+    public async Task Creating_a_page_with_a_type_outside_the_four_is_refused_and_writes_nothing()
+    {
+        var result = await _service.WritePageAsync(Create("tacit-memory/odd") with { Type = "note" });
+
+        Assert.True(result.IsError);
+        Assert.Contains("Type \"note\" is not one of: incident, decision, entity, work.", result.Text);
+        Assert.False(File.Exists(Path.Combine(Memory, "pages", "tacit-memory", "odd.md")));
+    }
+
+    [Fact]
+    public async Task Update_header_changes_only_the_type_line()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var result = await _service.WritePageAsync((Header(page) with { Type = ToolValues.PageTypes.Decision }));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(before.Replace("type: incident\n", "type: decision\n"), PageText(page));
+        Assert.Equal("pages: header tacit-memory/db-upgrade", Git("log", "-1", "--format=%s").Trim());
+    }
+
+    [Fact]
+    public async Task Update_header_with_the_type_the_page_has_changes_nothing()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+
+        var result = await _service.WritePageAsync((Header(page) with { Type = ToolValues.PageTypes.Incident }));
+
+        Assert.StartsWith("Nothing changed: the page already has this content.", result.Text);
+    }
+
+    [Fact]
+    public async Task Update_header_refuses_a_type_outside_the_four_and_leaves_the_page_alone()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+        var before = PageText(page);
+
+        var result = await _service.WritePageAsync((Header(page) with { Type = "note" }));
+
+        Assert.True(result.IsError);
+        Assert.Contains("is not one of: incident, decision, entity, work.", result.Text);
+        Assert.Equal(before, PageText(page));
+    }
+
+    [Fact]
+    public async Task Update_header_accepts_a_type_on_a_page_that_has_none_and_adds_the_line()
+    {
+        Directory.CreateDirectory(Path.Combine(Memory, "pages", "tacit-memory"));
+        File.WriteAllText(Path.Combine(Memory, "pages", "tacit-memory", "legacy.md"),
+            "---\ntitle: 旧页\naliases: [旧页, legacy]\ndates: { first: 2026-10-01, last: 2026-10-01 }\n---\n\n## 要点\n- 内容\n");
+
+        var result = await _service.WritePageAsync((Header("tacit-memory/legacy") with { Type = ToolValues.PageTypes.Entity }));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("\ntype: entity\n---\n\n## 要点\n- 内容\n", PageText("tacit-memory/legacy"));
+    }
+
+    [Fact]
+    public async Task Section_writes_keep_the_type_line()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page) with { Type = ToolValues.PageTypes.Decision });
+        var hash = await CodeOf(page, "根因");
+
+        await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
+        await _service.WritePageAsync(Upsert(page, "补充", "补充说明。"));
+
+        Assert.Contains("\ntype: decision\n---\n", PageText(page));
+    }
+
+    [Fact]
+    public async Task Type_is_refused_on_an_op_that_does_not_take_it()
+    {
+        const string page = "tacit-memory/db-upgrade";
+        await _service.WritePageAsync(Create(page));
+
+        var result = await _service.WritePageAsync((Upsert(page, "根因", "x") with { Type = "decision" }));
+
+        Assert.True(result.IsError);
+        Assert.Contains("Parameter type does not apply to op upsert_section.", result.Text);
     }
 
     [GeneratedRegex(@"\[([0-9a-f]{6})\]")]

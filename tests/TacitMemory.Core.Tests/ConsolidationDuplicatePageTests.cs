@@ -55,6 +55,7 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
     private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = [title + "的坑", title + "问题"],

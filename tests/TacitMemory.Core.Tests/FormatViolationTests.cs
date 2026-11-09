@@ -44,11 +44,17 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     /// <summary>
-    /// A detail page: the title on line 2, the aliases on line 3, the related pages on line 4 when given, then the dates
-    /// and the closing fence.
+    /// A detail page: the title on line 2, the aliases on line 3, the related pages on line 4 when given, then the dates,
+    /// the type on the line after them, and the closing fence.
     /// </summary>
     private static string Page(string title = "数据库升级", string aliases = "[数据库升级, db upgrade]", string related = "", string body = "## 要点\n- 内容\n") =>
-        $"---\ntitle: {title}\naliases: {aliases}\n{(related.Length > 0 ? related + "\n" : "")}dates: {{ first: 2026-10-30, last: 2026-10-30 }}\n---\n\n{body}";
+        $"---\ntitle: {title}\naliases: {aliases}\n{(related.Length > 0 ? related + "\n" : "")}dates: {{ first: 2026-10-30, last: 2026-10-30 }}\ntype: work\n---\n\n{body}";
+
+    private void Commit(string message)
+    {
+        TestHome.Git(Memory, "add", "-A");
+        TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--allow-empty", "-q", "-m", message);
+    }
 
     [Fact]
     public async Task A_new_memory_has_no_format_violations()
@@ -101,6 +107,52 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     [Fact]
+    public async Task A_page_without_a_type_is_listed_and_disappears_once_it_has_one()
+    {
+        using var service = Open();
+        WriteFile("pages/tacit-memory/untyped.md", Page().Replace("type: work\n", ""));
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+        AssertListed(section, "pages/tacit-memory/untyped.md", "YAML header");
+        Assert.Contains("(page type)", FindingOf(section, "pages/tacit-memory/untyped.md"));
+
+        WriteFile("pages/tacit-memory/untyped.md", Page());
+        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/untyped.md");
+    }
+
+    [Fact]
+    public async Task A_type_outside_the_four_is_listed_at_its_line_and_disappears_once_fixed()
+    {
+        using var service = Open();
+        WriteFile("pages/tacit-memory/odd-type.md", Page().Replace("type: work", "type: note"));
+
+        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/odd-type.md", "line 5");
+
+        WriteFile("pages/tacit-memory/odd-type.md", Page());
+        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/odd-type.md");
+    }
+
+    [Fact]
+    public async Task A_missing_type_is_listed_whatever_the_consolidation_baseline()
+    {
+        using var service = Open();
+        WriteFile("pages/tacit-memory/untyped.md", Page().Replace("type: work\n", ""));
+        Commit("consolidate: baseline");
+
+        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/untyped.md", "YAML header");
+    }
+
+    [Fact]
+    public async Task The_two_page_section_words_count_as_structure_words_in_both_languages()
+    {
+        using var service = Open();
+        WriteFile("pages/tacit-memory/both.md", Page(body: "## 遗留\n- 未决\n\n## Overturned\n- 旧决定\n"));
+
+        var finding = FindingOf(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/both.md");
+        Assert.Contains("Hint only", finding);
+    }
+
+    [Fact]
     public async Task A_related_page_that_does_not_exist_is_listed_and_disappears_once_it_exists()
     {
         using var service = Open();
@@ -141,7 +193,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/dup.md", Page(body: "## 要点\n- 内容\n\n## 要点\n- 另一条\n"));
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md", "line 10");
+        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md", "line 11");
 
         WriteFile("pages/tacit-memory/dup.md", Page(body: "## 要点\n- 内容\n\n## 其他\n- 另一条\n"));
         AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md");
@@ -179,7 +231,7 @@ public sealed class FormatViolationTests : IDisposable
         WriteFile("pages/tacit-memory/mixed.md", Page(body: "## 偏好\n- 内容\n\n## Preferences\n- content\n"));
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
-        AssertListed(section, "pages/tacit-memory/mixed.md", "line 10");
+        AssertListed(section, "pages/tacit-memory/mixed.md", "line 11");
         Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/mixed.md"));
 
         WriteFile("pages/tacit-memory/mixed.md", Page(body: "## 偏好\n- 内容\n\n## 其他\n- content\n"));
@@ -197,12 +249,12 @@ public sealed class FormatViolationTests : IDisposable
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
-        AssertListed(section, "pages/tacit-memory/mixed-quote.md", "line 10");
-        Assert.Contains("\"quote\" on line 10", section);
-        AssertListed(section, "pages/tacit-memory/mixed-rejected.md", "line 10");
-        Assert.Contains("\"rejected\" on line 10", section);
-        AssertListed(section, "pages/tacit-memory/mixed-instead.md", "line 8");
-        Assert.Contains("\"改为\" on line 7 and \"instead\" on line 8", section);
+        AssertListed(section, "pages/tacit-memory/mixed-quote.md", "line 11");
+        Assert.Contains("\"quote\" on line 11", section);
+        AssertListed(section, "pages/tacit-memory/mixed-rejected.md", "line 11");
+        Assert.Contains("\"rejected\" on line 11", section);
+        AssertListed(section, "pages/tacit-memory/mixed-instead.md", "line 9");
+        Assert.Contains("\"改为\" on line 8 and \"instead\" on line 9", section);
         AssertNotListed(section, "pages/tacit-memory/prose.md");
     }
 

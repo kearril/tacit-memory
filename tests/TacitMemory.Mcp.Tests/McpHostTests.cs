@@ -101,6 +101,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Equal(["add_activity", "update_mainline"], Values(tools["write_recent"].ProtocolTool, "op"));
         Assert.Equal(["add", "propose", "replace", "delete"], Values(tools["write_persona"].ProtocolTool, "op"));
         Assert.Equal(["red_lines", "working_rules", "preferences", "profile"], Values(tools["write_persona"].ProtocolTool, "persona_section"));
+        Assert.Equal(["incident", "decision", "entity", "work"], Values(tools["write_page"].ProtocolTool, "type"));
         Assert.Equal(["pages", "activities"], Values(tools["recall"].ProtocolTool, "kind"));
         Assert.False(tools["write_page"].ProtocolTool.InputSchema.GetProperty("properties").GetProperty("page").TryGetProperty("enum", out _));
     }
@@ -205,6 +206,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["op"] = "create",
             ["page"] = "tacit-memory/db-upgrade",
             ["title"] = "数据库升级后扩展丢失",
+            ["type"] = "incident",
             ["aliases"] = new[] { "全文检索插件失效", "升级后搜索不到中文" },
             ["sections"] = new[] { new Dictionary<string, string> { ["name"] = "根因", ["body"] = "扩展没有重装。" } },
         });
@@ -324,6 +326,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["op"] = "create",
             ["page"] = "tacit-memory/db-upgrade",
             ["title"] = "数据库升级后扩展丢失",
+            ["type"] = "incident",
             ["aliases"] = new[] { "全文检索插件失效", "升级后搜索不到中文" },
             ["sections"] = new[] { new Dictionary<string, string> { ["name"] = "根因", ["body"] = "扩展没有重装。" } },
         });
@@ -355,6 +358,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["op"] = "create",
             ["page"] = "tacit-memory/db-upgrade",
             ["title"] = "数据库升级后扩展丢失",
+            ["type"] = "incident",
             ["aliases"] = new[] { "全文检索插件失效", "升级后搜索不到中文" },
             ["sections"] = new[] { new Dictionary<string, string> { ["name"] = "根因", ["body"] = "扩展没有重装。" } },
         });

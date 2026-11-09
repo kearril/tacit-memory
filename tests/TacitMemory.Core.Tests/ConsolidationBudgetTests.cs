@@ -44,6 +44,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         var result = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/" + name,
             Title = title,
             Aliases = [title + "的坑", title + "问题"],

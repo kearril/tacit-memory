@@ -53,6 +53,7 @@ public sealed class RecallActivityTests : IDisposable
     private Task WritePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = ["别名甲", "别名乙"],

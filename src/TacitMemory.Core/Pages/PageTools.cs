@@ -19,10 +19,10 @@ internal sealed class PageTools(
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
     {
-        [ToolValues.WritePageOps.Create] = ["title", "aliases", "sections", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.Create] = ["title", "type", "aliases", "sections", "related", "confirm_no_secret"],
         [ToolValues.WritePageOps.UpsertSection] = ["section", "body", "hash", "confirm_no_secret"],
         [ToolValues.WritePageOps.DeleteSection] = ["section", "hash"],
-        [ToolValues.WritePageOps.UpdateHeader] = ["title", "aliases", "add_aliases", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.UpdateHeader] = ["title", "type", "aliases", "add_aliases", "related", "confirm_no_secret"],
     };
 
     private static readonly string Ops = string.Join(", ", OpParameters.Keys);
@@ -80,11 +80,13 @@ internal sealed class PageTools(
         var problems = new List<string>();
         var title = request.Title?.Trim() ?? "";
         CheckTitle(title, problems);
+        var type = request.Type?.Trim() ?? "";
+        CheckType(type, problems);
         var aliases = CheckAliases(request.Aliases ?? [], problems);
         var sections = CheckSections(request.Sections ?? [], problems);
         var related = CheckRelated(id, request.Related ?? [], problems);
         if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_page op=create again.");
+            return ToolText.Refuse(problems, $"Fix these and call write_page op=create again with type set to one of: {PageDocument.PageTypeList}.");
 
         if (File.Exists(PathOf(id)))
         {
@@ -99,7 +101,7 @@ internal sealed class PageTools(
             return secret;
 
         var today = options.Today;
-        var header = new PageHeader(title, aliases, today, today, related);
+        var header = new PageHeader(title, aliases, today, today, related, type);
         var check = await duplicates.RunAsync(id, header, sections, cancellationToken);
         if (check.Duplicate is { } duplicate)
         {
@@ -187,19 +189,22 @@ internal sealed class PageTools(
             return ToolText.Refuse(
                 "update_header does not replace aliases; pass add_aliases to add some.",
                 "Call write_page op=update_header again with add_aliases instead of aliases.");
-        if (request.Title is null && request.AddAliases is null && request.Related is null)
+        if (request.Title is null && request.AddAliases is null && request.Related is null && request.Type is null)
             return ToolText.Refuse(
-                "Give at least one of title, add_aliases or related.",
+                "Give at least one of title, type, add_aliases or related.",
                 "Call write_page op=update_header again with the header field to change.");
 
         var problems = new List<string>();
         var title = request.Title?.Trim();
         if (title is not null)
             CheckTitle(title, problems);
+        var type = request.Type?.Trim();
+        if (type is not null)
+            CheckType(type, problems);
         var added = request.AddAliases is null ? [] : CheckAddedAliases(request.AddAliases, problems);
         var related = request.Related is null ? null : CheckRelated(id, request.Related, problems);
         if (problems.Count > 0)
-            return ToolText.Refuse(problems, "Fix these and call write_page op=update_header again.");
+            return ToolText.Refuse(problems, $"Fix these and call write_page op=update_header again{(type is null ? "" : $" with type set to one of: {PageDocument.PageTypeList}")}.");
 
         var written = new List<(string, string)>();
         if (title is not null)
@@ -218,6 +223,8 @@ internal sealed class PageTools(
         var changes = new List<(string Key, IReadOnlyList<string>? Block)>();
         if (title is not null && title != header.Title)
             changes.Add(("title", PageDocument.TitleBlock(title)));
+        if (type is not null && type != header.Type)
+            changes.Add(("type", PageDocument.TypeBlock(type)));
         var newAliases = added.Where(alias => !header.Aliases.Contains(alias)).ToList();
         if (newAliases.Count > 0)
             changes.Add(("aliases", PageDocument.AliasBlock(header.Aliases.Concat(newAliases).ToList())));
@@ -309,6 +316,7 @@ internal sealed class PageTools(
         var given = new (string Name, bool IsGiven)[]
         {
             ("title", request.Title is not null),
+            ("type", request.Type is not null),
             ("aliases", request.Aliases is not null),
             ("sections", request.Sections is not null),
             ("related", request.Related is not null),
@@ -332,6 +340,15 @@ internal sealed class PageTools(
         var aliases = raw.Select(alias => alias.Trim()).Where(alias => alias.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         CheckAliasLines(aliases, problems);
         return aliases;
+    }
+
+    /// <summary>Adds the reason when <paramref name="type"/> (already trimmed) is empty or not one of the page types.</summary>
+    private static void CheckType(string type, List<string> problems)
+    {
+        if (type.Length == 0)
+            problems.Add("Missing parameter type.");
+        else if (!PageDocument.IsPageType(type))
+            problems.Add($"Type {ToolText.Quote(type)} is not one of: {PageDocument.PageTypeList}.");
     }
 
     private void CheckTitle(string title, List<string> problems)
@@ -432,6 +449,8 @@ internal sealed class PageTools(
             text.Append(CultureInfo.InvariantCulture, $"Dates: {first:yyyy-MM-dd} to {last:yyyy-MM-dd}\n");
         if (header.Related.Count > 0)
             text.Append($"Related: {string.Join(", ", header.Related)}\n");
+        if (header.Type is { } type)
+            text.Append($"Type: {type}\n");
         text.Append("Short codes in brackets identify sections for write_page.\n");
         foreach (var section in document.Sections)
             text.Append($"\n## {section.Name} [{section.Code}]\n{section.Body}\n");

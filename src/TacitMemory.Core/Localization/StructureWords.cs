@@ -19,4 +19,6 @@ internal static class StructureWords
     public static readonly Localized Rejected = new("拒绝", "rejected");
     public static readonly Localized WorthRecording = new("值得记", "Worth recording");
     public static readonly Localized NotRecorded = new("不记", "Not recorded");
+    public static readonly Localized Leftovers = new("遗留", "Leftovers");
+    public static readonly Localized Overturned = new("推翻记录", "Overturned");
 }

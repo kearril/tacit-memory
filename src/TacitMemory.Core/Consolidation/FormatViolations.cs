@@ -22,6 +22,8 @@ internal static class FormatViolations
         StructureWords.Candidates,
         StructureWords.RejectionList,
         StructureWords.Mainline,
+        StructureWords.Leftovers,
+        StructureWords.Overturned,
     ];
 
     /// <summary>The quote mark of a source comment or an occurrence line, with the rejected mark before it on an occurrence.</summary>

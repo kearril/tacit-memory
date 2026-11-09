@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Pages;
 
 namespace TacitMemory.Core.Tests;
 
@@ -49,6 +50,18 @@ public sealed partial class LocalizationTests
 
         Assert.NotEmpty(headings);
         Assert.All(headings, heading => Assert.Contains(heading.TrimStart('#', ' '), words));
+    }
+
+    [Fact]
+    public void The_page_parser_finds_the_leftovers_and_overturned_sections_in_both_languages()
+    {
+        var english = PageDocument.Parse("## Leftovers\n- a\n\n## Overturned\n- b\n", hasBom: false, "page");
+        var chinese = PageDocument.Parse("## 遗留\n- a\n\n## 推翻记录\n- b\n", hasBom: false, "page");
+
+        Assert.Equal("Leftovers", english.Leftovers?.Name);
+        Assert.Equal("Overturned", english.Overturned?.Name);
+        Assert.Equal("遗留", chinese.Leftovers?.Name);
+        Assert.Equal("推翻记录", chinese.Overturned?.Name);
     }
 
     private static IEnumerable<Localized> StructureWordsIn() =>

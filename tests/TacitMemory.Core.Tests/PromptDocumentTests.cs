@@ -223,6 +223,7 @@ public sealed class PromptDocumentTests : IDisposable
         await service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/prompt-backup",
             Title = "提示词备份",
             Aliases = ["提示词备份别名一", "提示词备份别名二"],

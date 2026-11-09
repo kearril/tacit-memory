@@ -59,8 +59,12 @@ _Avoid_: 笔记、卡片、事件页、文档
 细节页正文中以二级标题开始的一段，小节名由主会话决定，在页内唯一。检索以小节为单位返回内容。
 _Avoid_: 段落、分块、chunk
 
+**页面类型**（Page type）：
+细节页页头中的 `type`，取 `incident`（排错）、`decision`（决定）、`entity`（实体）、`work`（工作记录）四种之一。新建时必须给出，`update_header` 可改。`work` 页的「遗留」小节（英文 Leftovers）与 `decision` 页的「推翻记录」小节（英文 Overturned）是服务识别的两个约定小节。
+_Avoid_: 分类、标签、种类
+
 **页头**（Header）：
-细节页开头以 `---` 围起的 YAML 块，含 `title`、`aliases`、`dates`、`related`；服务只改写其中的顶层键，其余字节保持不变。
+细节页开头以 `---` 围起的 YAML 块，含 `title`、`aliases`、`dates`、`related`、`type`；服务只改写其中的顶层键，其余字节保持不变。
 _Avoid_: 前言、元数据、front matter
 
 **页面标识**（Page identifier / `PageId`）：
@@ -293,7 +297,7 @@ _Avoid_: Push、Pull、预加载
 _Avoid_: 搜索、search
 
 **写页工具**（`write_page`）：
-增改细节页。`op` 取 `create`（新建页）、`upsert_section`（新增或改写小节）、`delete_section`（删除小节）、`update_header`（改页头的标题、别名或相关页）。
+增改细节页。`op` 取 `create`（新建页，须带 `type`）、`upsert_section`（新增或改写小节）、`delete_section`（删除小节）、`update_header`（改页头的标题、类型、别名或相关页）。
 _Avoid_: 编辑文档、写文档
 
 **近期写入工具**（`write_recent`）：
