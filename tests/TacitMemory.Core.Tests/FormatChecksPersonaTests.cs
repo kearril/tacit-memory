@@ -185,4 +185,78 @@ public sealed class FormatChecksPersonaTests : IDisposable
 
         Assert.DoesNotContain("Red line without instead", await Violations(service));
     }
+
+    [Fact]
+    public async Task A_domain_without_a_trigger_is_reported_at_its_heading_and_fixed_directly()
+    {
+        using var service = Open();
+        Write("persona.md", "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n### 偏好\n- 测速：只看持续测速\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("persona.md", violations);
+        Assert.Contains("line 4", violations);
+        Assert.Contains("Domain without trigger", violations);
+        Assert.DoesNotContain("line 6", violations);
+    }
+
+    [Fact]
+    public async Task A_trigger_longer_than_its_limit_and_an_unrecognized_section_in_a_domain_are_reported()
+    {
+        using var service = Open("limits:\n  triggerLength: 5\n");
+        Write("persona.md", "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 偏好\n- 测速：只看持续测速\n### 其他\n- 不认识的节\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Trigger too long", violations);
+        Assert.Contains("line 2", violations);
+        Assert.Contains("Unrecognized section", violations);
+        Assert.Contains("section \"其他\"", violations);
+        Assert.DoesNotContain("line 6", violations);
+    }
+
+    [Fact]
+    public async Task A_red_line_inside_a_domain_is_checked_like_one_in_a_global_section()
+    {
+        using var service = Open();
+        Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 红线\n- 不要发布版本\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Red line without instead", violations);
+        Assert.Contains("line 4", violations);
+    }
+
+    [Fact]
+    public async Task A_domain_over_its_entry_limit_and_too_many_domains_are_put_to_the_user()
+    {
+        using var service = Open("limits:\n  domains: 1\n  domainEntries: 1\n");
+        Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 第一条\n- 第二条\n\n## 领域：writing\n触发：写文章时\n### 偏好\n- 写作\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Domain over limit", violations);
+        Assert.Contains("Too many domains", violations);
+        Assert.Contains("Ask the user.", violations);
+    }
+
+    [Fact]
+    public async Task A_domain_name_that_breaks_the_naming_rule_is_reported()
+    {
+        using var service = Open();
+        Write("persona.md", "## 领域：Network\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+
+        Assert.Contains("Invalid scope name", await Violations(service));
+    }
+
+    [Fact]
+    public async Task Entries_in_a_domain_are_not_part_of_the_global_section_limit()
+    {
+        using var service = Open("limits:\n  persona:\n    preferences: 1\n");
+        Write("persona.md", "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+
+        var violations = await Violations(service);
+
+        Assert.DoesNotContain("Section over limit", violations);
+    }
 }

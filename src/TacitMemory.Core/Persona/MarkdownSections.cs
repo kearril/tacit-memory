@@ -21,11 +21,17 @@ internal static class MarkdownSections
         return -1;
     }
 
-    /// <summary>The index just after the last non-blank line of the section whose heading is at <paramref name="heading"/>.</summary>
+    /// <summary>
+    /// The index just after the last non-blank line of the section whose heading is at <paramref name="heading"/>. A section
+    /// ends at the next heading of its own level or a higher one: a <c>## </c> section runs over <c>### </c> headings, a
+    /// <c>### </c> section does not.
+    /// </summary>
     public static int EndOfSection(IReadOnlyList<string> lines, int heading)
     {
+        var subsection = lines[heading].StartsWith("### ", StringComparison.Ordinal);
         var end = heading + 1;
-        while (end < lines.Count && !lines[end].StartsWith("## ", StringComparison.Ordinal))
+        while (end < lines.Count && !(lines[end].StartsWith("## ", StringComparison.Ordinal)
+            || subsection && lines[end].StartsWith("### ", StringComparison.Ordinal)))
             end++;
 
         var at = heading + 1;

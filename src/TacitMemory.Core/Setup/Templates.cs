@@ -89,8 +89,8 @@ internal static class Templates
         limits:
           persona:                    # 画像各节的条数上限
             redLines: 5
-            workingRules: 20
-            preferences: 15
+            workingRules: 15
+            preferences: 10
             profile: 10
           itemLength: 200             # 每条最多字数，不含来源注释
           mainline: 5                 # 近期主线最多条数
@@ -98,6 +98,9 @@ internal static class Templates
             titleLength: 50           # 细节页标题最多字数
             aliasLength: 30           # 每个别名最多字数
             minAliases: 2             # 别名最少个数
+          domains: 10                 # 领域最多个数
+          domainEntries: 10           # 每个领域最多条数
+          triggerLength: 60           # 领域的触发描述最多字数
 
         candidates:
           minDays: 2                  # 画像候选在不同日期出现满几天后可确认
@@ -158,8 +161,8 @@ internal static class Templates
         limits:
           persona:                    # item limits of the persona sections
             redLines: 5
-            workingRules: 20
-            preferences: 15
+            workingRules: 15
+            preferences: 10
             profile: 10
           itemLength: 200             # max characters per item, source comment excluded
           mainline: 5                 # max mainline items
@@ -167,6 +170,9 @@ internal static class Templates
             titleLength: 50           # max characters in a page title
             aliasLength: 30           # max characters per alias
             minAliases: 2             # min number of aliases
+          domains: 10                 # max number of domains
+          domainEntries: 10           # max entries per domain
+          triggerLength: 60           # max characters in a domain's trigger
 
         candidates:
           minDays: 2                  # distinct days a persona candidate must appear on before it can be confirmed

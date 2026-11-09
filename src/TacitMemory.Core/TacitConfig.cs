@@ -57,7 +57,10 @@ public enum ModelProvider
     Cloudflare,
 }
 
-public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page);
+/// <param name="Domains">Domains the persona may hold; a new domain beyond it is refused.</param>
+/// <param name="DomainEntries">Entries a domain may hold in all four sections together.</param>
+/// <param name="TriggerLength">Characters a domain's trigger may have.</param>
+public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page, int Domains, int DomainEntries, int TriggerLength);
 
 public sealed record PersonaLimits(int RedLines, int WorkingRules, int Preferences, int Profile);
 

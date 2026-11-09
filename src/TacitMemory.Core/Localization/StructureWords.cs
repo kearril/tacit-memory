@@ -22,4 +22,7 @@ internal static class StructureWords
     public static readonly Localized NotRecorded = new("不记", "Not recorded");
     public static readonly Localized Leftovers = new("遗留", "Leftovers");
     public static readonly Localized Overturned = new("推翻记录", "Overturned");
+    public static readonly Localized Domain = new("领域", "Domain");
+    public static readonly Localized Project = new("项目", "Project");
+    public static readonly Localized Trigger = new("触发", "Trigger");
 }

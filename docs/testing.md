@@ -11,7 +11,7 @@
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote` 与整理改名前的旧配置节按未知键报错；中英模板的 `url` 与密钥变量名。
+     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote` 与整理改名前的旧配置节按未知键报错；中英模板的 `url` 与密钥变量名。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
@@ -55,19 +55,19 @@
      - `RecallActivityTests`：检索近期活动：`kind` 筛选、过滤、主线不入索引、同步。
      - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与项目筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步；ISO 周边界（经 `SummaryLines.WeekOf`）；已完成且有活动、但还没有汇总的周与月（经 `SummaryCalendar.Unsummarized`）。
      - `RecentSummaryInstructionTests`：服务端说明中的近期摘要：内容、排序、截断、窗口与刷新。
-     - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并。
-     - `PersonaReplaceDeleteTests`：画像 `replace` 与 `delete` 的定位、校验与回显。
+     - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并；作用域：领域与项目块的创建与放置（全局四节之后，领域在前、项目在后，各自按名称排序）、块内节的补回、新领域缺少或超长、多行的触发描述被拒、`scope` 格式不合规被拒、领域个数与领域条数上限（条目不计入全局上限）、跨作用域的短码后缀。
+     - `PersonaReplaceDeleteTests`：画像 `replace` 与 `delete` 的定位、校验与回显；按短码跨作用域定位，`replace` 保持原作用域，删除领域条目后块保留标题。
      - `PersonaConflictTests`：画像写入时的规则冲突判断，以及决策模型或嵌入模型不可用时的降级。
      - `PersonaProposeTests`：候选 `propose` 的写入、校验与标题补回。
      - `SamePreferenceTests`：`propose` 的同一偏好判断、出现记录与拒绝列表。
      - `PersonaIndexTests`：画像与候选不进入派生索引，无法识别的行与非 UTF-8 画像文件的状态提示。
-     - `FormatChecksPersonaTests`：整理报告中画像、候选文件、活动记录与近期主线的格式问题：文件、行号与问题说明，修正后消失，两种超限的处理方式。
+     - `FormatChecksPersonaTests`：整理报告中画像、候选文件、活动记录与近期主线的格式问题：文件、行号与问题说明，修正后消失，两种超限的处理方式；作用域块的问题（缺触发行、触发超长、块内无法识别的三级标题、域名不合规、领域条数与个数超限）。
    - 未自动化：内置常驻区块逐字节不变，已用中英两种默认配置手工比对确认，不写入测试。
    - 未自动化：`serve` 日志文件的按天滚动与保留 14 份（由 Serilog 保证），在验收中手工确认。
 2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致。
+     - `McpHostTests`：服务端说明下发、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致。
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力变化后再记一条；服务重启后记录仍在。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。

@@ -211,7 +211,7 @@ internal static class ConfigLoader
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)
     {
         var limits = reader.Mapping(root, "", "limits");
-        reader.OnlyKnown(limits, "limits", "persona", "itemLength", "mainline", "page");
+        reader.OnlyKnown(limits, "limits", "persona", "itemLength", "mainline", "page", "domains", "domainEntries", "triggerLength");
 
         var persona = reader.Mapping(limits, "limits", "persona");
         reader.OnlyKnown(persona, "limits.persona", "redLines", "workingRules", "preferences", "profile");
@@ -221,15 +221,18 @@ internal static class ConfigLoader
         return new LimitsConfig(
             new PersonaLimits(
                 Count(reader, persona, "limits.persona", "redLines", 5),
-                Count(reader, persona, "limits.persona", "workingRules", 20),
-                Count(reader, persona, "limits.persona", "preferences", 15),
+                Count(reader, persona, "limits.persona", "workingRules", 15),
+                Count(reader, persona, "limits.persona", "preferences", 10),
                 Count(reader, persona, "limits.persona", "profile", 10)),
             Count(reader, limits, "limits", "itemLength", 200),
             Count(reader, limits, "limits", "mainline", 5),
             new PageLimits(
                 Count(reader, page, "limits.page", "titleLength", 50),
                 Count(reader, page, "limits.page", "aliasLength", 30),
-                Count(reader, page, "limits.page", "minAliases", 2)));
+                Count(reader, page, "limits.page", "minAliases", 2)),
+            Count(reader, limits, "limits", "domains", 10),
+            Count(reader, limits, "limits", "domainEntries", 10),
+            Count(reader, limits, "limits", "triggerLength", 60));
     }
 
     private static int ReadCandidates(ConfigReader reader, YamlMappingNode root)

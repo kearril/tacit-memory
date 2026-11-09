@@ -212,8 +212,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
             Assert.StartsWith("Refused:", refusal.Text);
             Assert.Contains("Next step:", refusal.Text);
             Assert.Contains("1 of 5", refusal.Text);
-            Assert.Contains("1 of 20", refusal.Text);
-            Assert.Contains("2 of 15", refusal.Text);
+            Assert.Contains("1 of 15", refusal.Text);
+            Assert.Contains("2 of 10", refusal.Text);
             Assert.Contains("2 of 10", refusal.Text);
             foreach (var entry in new[] { "不要删库；改为先备份", "需求不清时 → 先连续追问", "沟通：先要结论", "反感客套和铺垫", "系统：Windows 11 x64\n另有 WSL 环境", "主力语言：C#" })
                 Assert.Contains($"[{ShortOf(entry)}]", refusal.Text);
@@ -427,5 +427,46 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         Assert.Contains("Related:", result.Text);
         Assert.Equal(before, File.ReadAllText(PersonaMd));
         Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
+    }
+
+    [Fact]
+    public async Task Replace_finds_an_entry_in_a_domain_and_keeps_its_block_and_section()
+    {
+        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先备份\n  <!-- 2026-10-25 原话「先备份」 -->\n");
+        var code = ShortOf("切换节点 → 先备份");
+
+        var result = await _service.WritePersonaAsync(Replace(code, "切换节点 → 先看延迟", "先看延迟"));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal(
+            "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先看延迟\n"
+            + $"  <!-- {Today} 原话「先看延迟」 -->\n",
+            File.ReadAllText(PersonaMd));
+        Assert.Contains("of domain network-proxy", result.Text);
+    }
+
+    [Fact]
+    public async Task Delete_finds_an_entry_in_a_project_block_and_the_block_keeps_its_heading()
+    {
+        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 项目：my-app\n### 协作规则\n- 发版 → 先问我\n  <!-- 2026-10-25 原话「发版前问我」 -->\n");
+        var code = ShortOf("发版 → 先问我");
+
+        var result = await _service.WritePersonaAsync(Delete(code));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Equal("## 偏好\n- 沟通：先要结论\n\n## 项目：my-app\n### 协作规则\n", File.ReadAllText(PersonaMd));
+        Assert.Contains("of project my-app", result.Text);
+    }
+
+    [Fact]
+    public async Task A_short_code_is_refused_with_the_whole_persona_including_its_scope_blocks()
+    {
+        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先备份\n");
+
+        var result = await _service.WritePersonaAsync(Delete("ffffff"));
+
+        Assert.True(result.IsError);
+        Assert.Contains($"[{ShortOf("切换节点 → 先备份")}]", result.Text);
+        Assert.Contains("Domain network-proxy", result.Text);
     }
 }
