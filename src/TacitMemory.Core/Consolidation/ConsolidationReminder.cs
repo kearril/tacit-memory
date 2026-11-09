@@ -2,7 +2,7 @@ namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The consolidation reminder the server instructions end with. When one of its four triggers is set off it says how long ago the
-/// last consolidation was, how many weeks wait for a summary, how many candidates can be confirmed, how many format problems
+/// last consolidation was, how many weeks wait for a summary, how many candidates there are, how many format problems
 /// there are and whether the mainline is empty. Every count comes from <see cref="ConsolidationSummary"/>, which asks no model,
 /// so building the reminder never calls one.
 /// </summary>
@@ -11,7 +11,7 @@ internal static class ConsolidationReminder
     /// <summary>
     /// The reminder text, or null when none is due. Each trigger brings it on its own: the last consolidation is at least
     /// <c>consolidation.remindAfterDays</c> days old (or there is no baseline commit), a completed week waits for its summary,
-    /// the confirmable candidates reach <c>consolidation.remindCandidates</c>, or the mainline is empty. Format problems alone
+    /// the candidates reach <c>consolidation.remindCandidates</c>, or the mainline is empty. Format problems alone
     /// never bring it.
     /// </summary>
     /// <remarks>
@@ -24,7 +24,7 @@ internal static class ConsolidationReminder
             var summary = await ConsolidationSummary.ReadAsync(config, today, cancellationToken);
             var due = summary.DaysSince is null || summary.DaysSince >= config.Consolidation.RemindAfterDays
                 || summary.UnsummarizedWeeks > 0
-                || (summary.Confirmable > 0 && summary.Confirmable >= config.Consolidation.RemindCandidates)
+                || (summary.Candidates > 0 && summary.Candidates >= config.Consolidation.RemindCandidates)
                 || summary.MainlineEmpty;
             if (!due)
                 return null;
@@ -48,7 +48,7 @@ internal static class ConsolidationReminder
             "## Consolidation reminder",
             BaselineLine(summary.Baseline, summary.DaysSince),
             $"- Weeks to summarize: {summary.UnsummarizedWeeks}.",
-            $"- Candidates that can be confirmed: {summary.Confirmable}.",
+            $"- Persona candidates: {summary.Candidates}.",
             $"- Format and rule problems: {summary.Problems}.",
             summary.MainlineEmpty ? "- Mainline: empty." : "- Mainline: not empty.",
             "The user can run the tacit-consolidate skill to start a consolidation; suggest it when the moment fits, and do not start one unasked.",

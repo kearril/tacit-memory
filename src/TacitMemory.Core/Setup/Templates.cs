@@ -106,7 +106,7 @@ internal static class Templates
 
         consolidation:
           remindAfterDays: 7          # 距上次整理多少天后提示
-          remindCandidates: 5         # 可确认的候选达到多少个时提示
+          remindCandidates: 5         # 候选达到多少个时提示
           budgetSeconds: 20           # 一次整理最多等模型多少秒，到点照常出报告
           maxConcurrency: 5           # 一次整理同时进行的模型判断数
 
@@ -176,7 +176,7 @@ internal static class Templates
 
         consolidation:
           remindAfterDays: 7          # days after the last consolidation before reminding
-          remindCandidates: 5         # confirmable candidates at which to remind
+          remindCandidates: 5         # candidates at which to remind
           budgetSeconds: 20           # seconds one consolidation waits for the models before it reports what it has
           maxConcurrency: 5           # model judgments one consolidation runs at once
 

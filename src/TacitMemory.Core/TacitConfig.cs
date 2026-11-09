@@ -64,7 +64,7 @@ public sealed record PersonaLimits(int RedLines, int WorkingRules, int Preferenc
 
 public sealed record PageLimits(int TitleLength, int AliasLength, int MinAliases);
 
-/// <param name="RemindCandidates">Candidates that can be confirmed at which the consolidation reminder is due.</param>
+/// <param name="RemindCandidates">Candidates at which the consolidation reminder is due.</param>
 public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>

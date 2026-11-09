@@ -157,7 +157,7 @@ public sealed class ConsolidationCandidateTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_the_decision_model_the_candidates_are_not_checked_and_the_confirmable_ones_are_listed_with_a_reminder()
+    public async Task Without_the_decision_model_the_candidates_are_not_checked_and_the_candidates_are_listed_with_a_reminder()
     {
         Configure();
         Write(PersonaWithPreference, Candidates(Block(Candidate, "2026-10-30", "2026-10-31")));

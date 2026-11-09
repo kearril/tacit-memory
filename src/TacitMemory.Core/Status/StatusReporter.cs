@@ -201,18 +201,18 @@ internal static class StatusReporter
         if (summary is null)
             return new PendingStatus(title, [ManagementApiMessages.PendingUnreadable.Format(language, unreadable)], null, null, null);
 
-        var confirmable = summary.CandidatesReadable ? summary.Confirmable : (int?)null;
+        var candidates = summary.CandidatesReadable ? summary.Candidates : (int?)null;
         return new PendingStatus(
             title,
             [
-                confirmable is { } count
-                    ? ManagementApiMessages.PendingConfirmable.Format(language, count)
-                    : ManagementApiMessages.PendingConfirmableUnknown.In(language),
+                candidates is { } count
+                    ? ManagementApiMessages.PendingCandidates.Format(language, count)
+                    : ManagementApiMessages.PendingCandidatesUnknown.In(language),
                 ManagementApiMessages.PendingFormatProblems.Format(language, summary.Problems),
                 summary.MainlineEmpty ? ManagementApiMessages.PendingMainlineEmpty.In(language) : ManagementApiMessages.PendingMainlineSet.In(language),
                 ManagementApiMessages.PendingWeeks.Format(language, summary.UnsummarizedWeeks),
             ],
-            confirmable,
+            candidates,
             summary.Problems,
             summary.MainlineEmpty,
             summary.UnsummarizedWeeks);

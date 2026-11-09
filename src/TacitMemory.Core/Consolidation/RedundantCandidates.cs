@@ -7,7 +7,7 @@ namespace TacitMemory.Core.Consolidation;
 /// <summary>
 /// Candidates that state a preference the persona or the rejection list already holds, whatever their days: the agent
 /// deletes them without asking, so each finding names what it repeats. An unsure match is not listed here; that candidate
-/// stays confirmable and is hinted there.
+/// stays a candidate and is hinted there.
 /// </summary>
 internal static class RedundantCandidates
 {
