@@ -155,8 +155,9 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
 
             if (sample.Kind == UnitKinds.Summary)
             {
-                shown++;
-                text.Append(CultureInfo.InvariantCulture, $"\n[{shown}] summary, {sample.Section} starting {sample.Date}\n{sample.Text}\n");
+                returned.AddRange(result);
+                shownResults++;
+                text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] summary, {sample.Section} starting {sample.Date}\n{sample.Text}\n");
                 continue;
             }
 
