@@ -725,17 +725,25 @@ public sealed class MemoryService : IDisposable
 
     private void OnChange(object sender, FileSystemEventArgs e)
     {
-        var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
-        foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
+        try
         {
-            if (relative == PersonaFiles.Persona || AffectsResident(relative))
-                ScheduleRender();
-            if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
-                ScheduleIndexSync();
-            if (AffectsInstructions(relative))
-                InvalidateInstructions();
-            if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
-                ScheduleIndexSync();
+            var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
+            foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
+            {
+                if (relative == PersonaFiles.Persona || AffectsResident(relative))
+                    ScheduleRender();
+                if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
+                    ScheduleIndexSync();
+                if (AffectsInstructions(relative))
+                    InvalidateInstructions();
+                if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                    ScheduleIndexSync();
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // An event handler must not throw into the watcher's thread; the overflow path or the next event catches up.
+            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, ex.Message);
         }
     }
 
@@ -938,15 +946,18 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Runs a background read of the memory repository, such as an index sync or a render, between the writes. A write
-    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. Once the
-    /// service is disposed, the read does not run.
+    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. The wait for
+    /// the write slot is asynchronous, so a timer thread is never blocked by a write in progress. Once the service is
+    /// disposed, the read does not run.
     /// </summary>
-    private void UnderWriteGate(Action work)
+    private void UnderWriteGate(Action work) => _ = RunUnderWriteGateAsync(work);
+
+    private async Task RunUnderWriteGateAsync(Action work)
     {
         Hold hold;
         try
         {
-            hold = _gate.WriteAsync(CancellationToken.None).GetAwaiter().GetResult();
+            hold = await _gate.WriteAsync(CancellationToken.None);
         }
         catch (ObjectDisposedException)
         {
@@ -956,6 +967,11 @@ public sealed class MemoryService : IDisposable
         try
         {
             work();
+        }
+        catch (Exception e)
+        {
+            // Nothing may escape a timer or watcher callback: the failure is reported, and the next event tries again.
+            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, e.Message);
         }
         finally
         {
@@ -983,8 +999,9 @@ public sealed class MemoryService : IDisposable
                 // The editor still holds a file; try again once it settles.
                 _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException or TacitException)
             {
+                // A git process that cannot start surfaces as a TacitException from the full build's commit dates.
                 _log.Notify(LogLevel.Warning, Messages.IndexSyncFailed, e.Message);
             }
         }
