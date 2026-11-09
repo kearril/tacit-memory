@@ -484,6 +484,22 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
+    public async Task A_block_with_red_lines_and_working_rules_keeps_both_and_restores_the_missing_preferences_last()
+    {
+        WritePersona("## 领域：network-proxy\n触发：改代理时\n### 红线\n- r0\n\n### 协作规则\n- 先给结论\n");
+
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+
+        Assert.False(result.IsError, result.Text);
+        var text = File.ReadAllText(PersonaMd);
+        Assert.Contains("### 红线\n- r0\n", text, StringComparison.Ordinal);
+        Assert.Contains("### 协作规则\n- 先给结论\n", text, StringComparison.Ordinal);
+        Assert.True(text.IndexOf("### 红线", StringComparison.Ordinal) < text.IndexOf("### 协作规则", StringComparison.Ordinal));
+        Assert.True(text.IndexOf("### 协作规则", StringComparison.Ordinal) < text.IndexOf("### 偏好", StringComparison.Ordinal));
+        Assert.Contains("- 测速：只看持续测速", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_project_block_needs_no_trigger_and_holds_its_entries_under_the_project_heading()
     {
         WritePersona("## 偏好\n- 沟通：先要结论\n");
