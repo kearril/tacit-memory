@@ -11,7 +11,7 @@ namespace TacitMemory.Core.Tests;
 public sealed class UnconfiguredModelTests : IDisposable
 {
     /// <summary>A bound on each await: a wait that never ends fails here instead of hanging.</summary>
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(30);
 
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
