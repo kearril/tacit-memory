@@ -41,7 +41,7 @@ public sealed class SummaryTests : IDisposable
         Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Project = project, From = from, To = to });
 
     private Task<ToolResult> Write(string text, string? project = null) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = text, Project = project });
+        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Project = project });
 
     [Fact]
     public async Task A_week_summary_is_recalled_as_an_activity_and_labelled_as_a_summary_of_its_week()
