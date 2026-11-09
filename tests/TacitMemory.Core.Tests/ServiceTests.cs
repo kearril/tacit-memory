@@ -22,7 +22,7 @@ public sealed class ServiceTests : IDisposable
     private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
-    public async Task Server_instructions_hold_the_memory_rules_language_norms_and_projects()
+    public async Task Server_instructions_hold_the_memory_rules_and_language_norms_but_no_projects()
     {
         Directory.CreateDirectory(Path.Combine(Pages, "tacit-memory"));
         Directory.CreateDirectory(Path.Combine(Pages, "my-app"));
@@ -35,7 +35,8 @@ public sealed class ServiceTests : IDisposable
         Assert.Contains("## Using memory", instructions);
         Assert.Contains("## Writing persona", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
-        Assert.EndsWith("## Projects\nmy-app, tacit-memory", instructions);
+        Assert.DoesNotContain("## Projects", instructions);
+        Assert.DoesNotContain("my-app", instructions);
         Assert.DoesNotContain("_topics", instructions);
         Assert.Contains("## When to recall", instructions);
         Assert.Contains("## Writing pages", instructions);
@@ -148,23 +149,6 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Too_many_projects_are_cut_from_the_end_and_the_rules_stay_whole()
-    {
-        var names = Enumerable.Range(0, 200).Select(i => $"project-{i:D3}-with-a-rather-long-name").ToList();
-        foreach (var name in names)
-            Directory.CreateDirectory(Path.Combine(Pages, name));
-
-        using var service = Open();
-        var instructions = await service.ServerInstructionsAsync();
-
-        Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
-        Assert.Contains("## Using memory", instructions);
-        Assert.Contains("Memory is written in Chinese.", instructions);
-        Assert.Contains(names[0], instructions);
-        Assert.DoesNotContain(names[^1], instructions);
-    }
-
-    [Fact]
     public async Task English_memory_language_is_named_in_the_language_norms()
     {
         File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "language: en\n");
@@ -209,29 +193,6 @@ public sealed class ServiceTests : IDisposable
 
         await Eventually(() => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
         await Eventually(() => _notices.Any(notice => notice.Contains("已写入常驻区块")));
-    }
-
-    [Fact]
-    public async Task A_new_project_directory_shows_up_in_the_next_server_instructions()
-    {
-        using var service = Open();
-        Assert.DoesNotContain("## Projects", await service.ServerInstructionsAsync());
-
-        Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
-
-        await Eventually(async () => (await service.ServerInstructionsAsync()).EndsWith("## Projects\ndb-migration", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Removing_the_whole_pages_directory_drops_the_projects_part()
-    {
-        Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
-        using var service = Open();
-        Assert.Contains("## Projects", await service.ServerInstructionsAsync());
-
-        Directory.Delete(Pages, recursive: true);
-
-        await Eventually(async () => !(await service.ServerInstructionsAsync()).Contains("## Projects", StringComparison.Ordinal));
     }
 
     [Fact]

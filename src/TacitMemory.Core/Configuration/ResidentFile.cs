@@ -1,29 +1,60 @@
 using System.Text;
 using TacitMemory.Core.Localization;
-using TacitMemory.Core.Persona;
 
 namespace TacitMemory.Core.Configuration;
 
-/// <summary>One section of the resident block: its heading in <c>resident.md</c>, the persona section it guides, and its title in the block.</summary>
-internal sealed record ResidentSection(string Name, PersonaSection Kind, string Title);
+/// <summary>
+/// The parts of the resident block that <c>resident.md</c> can give guidance for. The first four are the global persona
+/// sections; the rest are generated from the memory repository.
+/// </summary>
+internal enum ResidentPart
+{
+    RedLines,
+    WorkingRules,
+    Preferences,
+    Profile,
+    SituationalRules,
+    Mainline,
+    RecentWeeks,
+    Projects,
+}
+
+/// <summary>One section of the resident block: its heading in <c>resident.md</c>, the part it is, and its title in the block.</summary>
+internal sealed record ResidentSection(string Name, ResidentPart Part, string Title);
 
 /// <summary>
 /// <c>resident.md</c>: the shell paragraph and the guidance of the resident block. The text before the first
 /// <c>## </c> heading is the shell; the text under each heading in <see cref="Sections"/> is that section's guidance.
-/// Headings match exactly, in every language; the text is kept as written. A heading that is not one of the four, or a
+/// Headings match exactly, in every language; the text is kept as written. A heading that is not one of the sections, or a
 /// repeated one, is refused.
 /// </summary>
 internal static class ResidentFile
 {
     public const int MaxLength = 1500;
 
-    /// <summary>The four sections in block order. Everything that names a section takes its name and title from here.</summary>
+    /// <summary>The heading of the domain index section in <c>resident.md</c>.</summary>
+    public const string SituationalRulesName = "situational_rules";
+
+    /// <summary>The heading of the mainline section in <c>resident.md</c>.</summary>
+    public const string MainlineName = "mainline";
+
+    /// <summary>The heading of the recent weeks section in <c>resident.md</c>.</summary>
+    public const string RecentWeeksName = "recent_weeks";
+
+    /// <summary>The heading of the projects section in <c>resident.md</c>.</summary>
+    public const string ProjectsName = "projects";
+
+    /// <summary>The sections in block order. Everything that names a section takes its name and title from here.</summary>
     public static readonly ResidentSection[] Sections =
     [
-        new(ToolValues.PersonaSections.RedLines, PersonaSection.RedLines, "Red lines"),
-        new(ToolValues.PersonaSections.WorkingRules, PersonaSection.WorkingRules, "Working rules"),
-        new(ToolValues.PersonaSections.Preferences, PersonaSection.Preferences, "Preferences"),
-        new(ToolValues.PersonaSections.Profile, PersonaSection.Profile, "Profile"),
+        new(ToolValues.PersonaSections.RedLines, ResidentPart.RedLines, "Red lines"),
+        new(ToolValues.PersonaSections.WorkingRules, ResidentPart.WorkingRules, "Working rules"),
+        new(ToolValues.PersonaSections.Preferences, ResidentPart.Preferences, "Preferences"),
+        new(ToolValues.PersonaSections.Profile, ResidentPart.Profile, "Profile"),
+        new(SituationalRulesName, ResidentPart.SituationalRules, "Situational rules"),
+        new(MainlineName, ResidentPart.Mainline, "Mainline"),
+        new(RecentWeeksName, ResidentPart.RecentWeeks, "Recent weeks"),
+        new(ProjectsName, ResidentPart.Projects, "Projects"),
     ];
 
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
@@ -41,7 +72,7 @@ internal static class ResidentFile
                 language, path, text.Length, MaxLength, text.Length - MaxLength));
 
         var shell = new List<string>();
-        var sections = new Dictionary<PersonaSection, List<string>>();
+        var sections = new Dictionary<ResidentPart, List<string>>();
         var current = shell;
         var lines = text.Split('\n');
         for (var index = 0; index < lines.Length; index++)
@@ -57,20 +88,24 @@ internal static class ResidentFile
             var section = Sections.FirstOrDefault(candidate => candidate.Name == name)
                 ?? throw new TacitException(TacitError.PromptInvalid, Messages.ResidentUnknownSection.Format(
                     language, path, index + 1, name, string.Join(", ", Sections.Select(candidate => candidate.Name))));
-            if (sections.ContainsKey(section.Kind))
+            if (sections.ContainsKey(section.Part))
                 throw new TacitException(TacitError.PromptInvalid, Messages.ResidentRepeatedSection.Format(
                     language, path, index + 1, name));
 
             current = [];
-            sections[section.Kind] = current;
+            sections[section.Part] = current;
         }
 
         return new ResidentDocument(
             Joined(shell) ?? "",
-            Guidance(sections, PersonaSection.RedLines),
-            Guidance(sections, PersonaSection.WorkingRules),
-            Guidance(sections, PersonaSection.Preferences),
-            Guidance(sections, PersonaSection.Profile));
+            Guidance(sections, ResidentPart.RedLines),
+            Guidance(sections, ResidentPart.WorkingRules),
+            Guidance(sections, ResidentPart.Preferences),
+            Guidance(sections, ResidentPart.Profile),
+            Guidance(sections, ResidentPart.SituationalRules),
+            Guidance(sections, ResidentPart.Mainline),
+            Guidance(sections, ResidentPart.RecentWeeks),
+            Guidance(sections, ResidentPart.Projects));
     }
 
     /// <summary>The file's length as the limit counts it: trailing blank lines included, line breaks as LF.</summary>
@@ -89,24 +124,28 @@ internal static class ResidentFile
             parts.Add(document.Shell);
         foreach (var section in Sections)
         {
-            if (GuidanceOf(document, section.Kind) is { } guidance)
+            if (GuidanceOf(document, section.Part) is { } guidance)
                 parts.Add($"## {section.Name}\n{guidance}");
         }
         return string.Join("\n\n", parts);
     }
 
     /// <summary>The guidance <c>resident.md</c> gives a section, or <c>null</c> when it gives none.</summary>
-    public static string? GuidanceOf(ResidentDocument document, PersonaSection kind) => kind switch
+    public static string? GuidanceOf(ResidentDocument document, ResidentPart part) => part switch
     {
-        PersonaSection.RedLines => document.RedLines,
-        PersonaSection.WorkingRules => document.WorkingRules,
-        PersonaSection.Preferences => document.Preferences,
-        PersonaSection.Profile => document.Profile,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        ResidentPart.RedLines => document.RedLines,
+        ResidentPart.WorkingRules => document.WorkingRules,
+        ResidentPart.Preferences => document.Preferences,
+        ResidentPart.Profile => document.Profile,
+        ResidentPart.SituationalRules => document.SituationalRules,
+        ResidentPart.Mainline => document.Mainline,
+        ResidentPart.RecentWeeks => document.RecentWeeks,
+        ResidentPart.Projects => document.Projects,
+        _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };
 
-    private static string? Guidance(Dictionary<PersonaSection, List<string>> sections, PersonaSection kind) =>
-        sections.TryGetValue(kind, out var lines) ? Joined(lines) : null;
+    private static string? Guidance(Dictionary<ResidentPart, List<string>> sections, ResidentPart part) =>
+        sections.TryGetValue(part, out var lines) ? Joined(lines) : null;
 
     /// <summary>The lines joined and trimmed, or <c>null</c> when nothing is left.</summary>
     private static string? Joined(List<string> lines) =>

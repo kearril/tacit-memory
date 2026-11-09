@@ -115,8 +115,17 @@ public sealed record RecordingCriteria(IReadOnlyList<string> WorthRecording, IRe
 public sealed record PromptDocuments(RecordingCriteria Rules, string? Instructions, ResidentDocument? Resident, string? Skill);
 
 /// <summary>
-/// <c>resident.md</c>: the shell paragraph of the resident block and the guidance under each of its four sections,
-/// in the file's own words. An empty <see cref="Shell"/> leaves the paragraph out; a <c>null</c> guidance leaves
-/// the guidance line out under that section.
+/// <c>resident.md</c>: the shell paragraph of the resident block and the guidance under each of its sections, in the
+/// file's own words. An empty <see cref="Shell"/> leaves the paragraph out; a <c>null</c> guidance leaves the guidance
+/// line out under that section.
 /// </summary>
-public sealed record ResidentDocument(string Shell, string? RedLines, string? WorkingRules, string? Preferences, string? Profile);
+public sealed record ResidentDocument(
+    string Shell,
+    string? RedLines,
+    string? WorkingRules,
+    string? Preferences,
+    string? Profile,
+    string? SituationalRules,
+    string? Mainline,
+    string? RecentWeeks,
+    string? Projects);
