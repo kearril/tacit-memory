@@ -4,7 +4,7 @@
 
 ## 1. 三个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的唯一例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
@@ -20,7 +20,7 @@
      - `ConsolidationConflictTests`：互相冲突的画像条目：只判断上次整理后新增或改写的条目（含未提交的修改）、跨节、同一对只报一次、确定与拿不准两档标明档位、无其他条目时不提问、决策模型不可用时的降级。
      - `ConsolidationDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同项目没有其他页时不提问；删除的页不参与；没有 `consolidate:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
      - `ConsolidationBudgetTests`：整理限时（到点照常返回并注明未检查数量、在途调用不取消且跑完写入缓存、未发出的判断不再发出；到点后仍有缓存答案的类别照常列出，前面类别耗尽预算不影响后面类别；可确认候选的判断被截断时附"自行对照画像"的提醒）、工作池的并发上限、模型冷却后排队的提问不再发出，以及冷却结束后再次提问。
-     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead）；各项修正后消失，每类 20 项上限。
+     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead）；汇总节的格式问题（无法识别的行、不存在的周号或月份、写错文件的周或月；周号按 ISO 周的年份与周数计，跨年的周按周四所在月）；各项修正后消失，每类 20 项上限。
      - `ConsolidationReminderTests`：整理提示：天数门槛（含 `consolidation.remindAfterDays`）、可确认候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、整理提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否。
      - `BindingTests`：`connect` 与 `disconnect` 的门面规则：名称规范化与拒绝（逐例断言拒绝时不写任何文件）、同名异路径的拒绝、上下文文件的上一级目录与 skill 目录不存在时的拒绝、`~` 展开与绝对路径的记录、记录的四个字段、上下文文件的创建与删除（`createdContextFile`）、常驻区块的写入与逐字节恢复、`mcp.json` 的字节不变、缺失的名称与配置无效时的 `disconnect`；共用：两个名称共用 skill 目录与上下文文件时的单一常驻区块与三个链接、两种解绑顺序、`createdContextFile` 的继承、只共用上下文文件、Windows 上大小写不同的同一路径、一次渲染只返回一个结果、名称绑到其他路径时的拒绝。
      - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）；skill 目录被两个客户端共用时的复用报告，以及两种解绑顺序下链接的保留与拆除。
@@ -51,6 +51,7 @@
      - `RecentActivityTests`：`add_activity` 与 `replaces` 改写、`update_mainline`、添加后回复中的主线与近期活动；未知参数的拒绝与缺 op 时的参数列表。
      - `SameTopicTests`：近期活动的同主题判断与退回。
      - `RecallActivityTests`：检索近期活动：`kind` 筛选、过滤、主线不入索引、同步。
+     - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与项目筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步；ISO 周边界（经 `SummaryLines.WeekOf`）；已完成且有活动、但还没有汇总的周与月（经 `SummaryCalendar.Unsummarized`）。
      - `RecentSummaryInstructionTests`：服务端说明中的近期摘要：内容、排序、截断、窗口与刷新。
      - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并。
      - `PersonaReplaceDeleteTests`：画像 `replace` 与 `delete` 的定位、校验与回显。
@@ -103,7 +104,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ## 3. 本地化完整性
 
-两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是唯一直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。
+两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。`SummaryTests` 中的 ISO 周边界与未汇总列表同样直接读取 `SummaryLines` 与 `SummaryCalendar`，因为这两个查询尚无公开入口；工单 11、12 把它们接入整理报告后，应改为经门面测试并删去这里的直接读取。
 
 ## 4. 提示词的验证
 
