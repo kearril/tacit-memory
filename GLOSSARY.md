@@ -321,7 +321,7 @@ _Avoid_: Push、Pull、预加载
 客户端经常驻服务的 MCP 工具读写记忆；工具名、`op` 取值与参数名一律使用英文，下列各条只说明它们对应的概念。整理报告另以 MCP 资源提供，只在 `tacit-consolidate` 中读取。
 
 **检索工具**（`recall`）：
-按 `query` 检索，或以 `page`（页面标识）读取整页；`query` 与 `page` 二选一。结果以小节为单位返回，每节附短码。
+按 `query` 检索，或以 `page`（页面标识）读取整页；`query` 与 `page` 二选一。`kind=persona` 读整份画像，`kind=rules` 读领域规则（`domain` 指定领域），两者都不检索，每条附短码。结果以小节为单位返回，每节附短码。
 _Avoid_: 搜索、search
 
 **写页工具**（`write_page`）：

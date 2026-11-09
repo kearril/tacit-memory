@@ -76,7 +76,7 @@ public sealed class PersonaConflictTests : IDisposable
     /// <summary>The short code the persona lists for the entry whose line contains <paramref name="line"/>, read from a refused replace.</summary>
     private async Task<string> CodeOf(string line)
     {
-        var listing = await Replace("000000", "占位");
+        var listing = await Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona });
         return Regex.Match(listing.Text, @"- \[([0-9a-f]{6})\] " + Regex.Escape(line)).Groups[1].Value;
     }
 

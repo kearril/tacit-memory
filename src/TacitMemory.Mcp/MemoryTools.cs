@@ -15,6 +15,7 @@ internal sealed class MemoryTools(MemoryService service)
     [Description("""
         Search the user's memory, or read one detail page in full. Give exactly one of query and page.
         Results come per page with the matching sections in full and a short code for each section.
+        kind=persona returns the whole persona, and kind=rules returns the rules of one domain (or of every domain), each entry with its short code. Neither searches: give kind alone, and domain with rules.
         """)]
     public async Task<CallToolResult> Recall(
         RequestContext<CallToolRequestParams> request,
@@ -23,11 +24,12 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("Search only this project.")] string? project = null,
         [Description("Earliest date, YYYY-MM-DD; convert phrases like \"last week\" into dates.")] string? from = null,
         [Description("Latest date, YYYY-MM-DD.")] string? to = null,
-        [AllowedValues(ToolValues.RecallKinds.Pages, ToolValues.RecallKinds.Activities)]
-        [Description("pages or activities; both when omitted.")] string? kind = null,
+        [AllowedValues(ToolValues.RecallKinds.Pages, ToolValues.RecallKinds.Activities, ToolValues.RecallKinds.Rules, ToolValues.RecallKinds.Persona)]
+        [Description("pages or activities, searched together when omitted; rules or persona to read the persona's rules or the whole persona instead of searching.")] string? kind = null,
+        [Description("With kind=rules only: the domain label whose rules to return, as the persona names it; omitted, the rules of every domain are returned.")] string? domain = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.RecallAsync(
-            new RecallRequest { Query = query, Page = page, Project = project, From = from, To = to, Kind = kind, UnknownParameters = UnknownArguments.Of(request) },
+            new RecallRequest { Query = query, Page = page, Project = project, From = from, To = to, Kind = kind, Domain = domain, UnknownParameters = UnknownArguments.Of(request) },
             cancellationToken));
 
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
@@ -118,7 +120,7 @@ internal sealed class MemoryTools(MemoryService service)
         op=propose: needs persona_section, text and source; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a consolidation. Never propose a red line: only the user sets one. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
         op=replace: needs hash, text and source; rewrites the entry with that short code in place, in its section.
         op=delete: needs hash only; removes the entry with that short code.
-        A missing or stale hash is refused with the whole persona and every entry's short code; take the code from there.
+        A missing or stale hash is refused with a next step: read the short codes with recall kind=persona.
         persona_section is red_lines, working_rules, preferences or profile. Sentence form of text, by section:
         red_lines "Don't <behaviour>; instead <alternative>" (the alternative is required); working_rules "<situation> → <action>";
         preferences "<dimension>: <description>"; profile "<field>: <fact>".
@@ -134,7 +136,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The section: red_lines, working_rules, preferences or profile. Used by add and propose only.")] string? persona_section = null,
         [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
         [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,
-        [Description("Short code of the entry to replace or delete, as listed in a refusal or an earlier reply; required by both. Finds an entry in any scope. Not used by add or propose.")] string? hash = null,
+        [Description("Short code of the entry to replace or delete, from recall kind=persona or an earlier reply; required by both. Finds an entry in any scope. Not used by add or propose.")] string? hash = null,
         [Description("Scope of the entry: global (the default), project:<name> or domain:<label>. Used by add only; see the description above.")] string? scope = null,
         [Description("Trigger of a new domain: one line saying when the domain applies. Used by add only; required when add creates the domain, ignored for an existing one.")] string? trigger = null,
         [Description("true only after a write was refused as a possible secret and you made sure with the user that it holds none; skips the secret check.")] bool? confirm_no_secret = null,

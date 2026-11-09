@@ -197,7 +197,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     }
 
     [Fact]
-    public async Task A_missing_hash_is_refused_with_the_whole_persona_and_its_short_codes()
+    public async Task A_missing_hash_is_refused_with_a_next_step_to_read_the_codes_from_recall()
     {
         CommitPersona(Fixture);
         var before = File.ReadAllText(PersonaMd);
@@ -210,14 +210,9 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
             Assert.True(refusal.IsError);
             Assert.False(refusal.Written);
             Assert.StartsWith("Refused:", refusal.Text);
-            Assert.Contains("Next step:", refusal.Text);
-            Assert.Contains("1 of 5", refusal.Text);
-            Assert.Contains("1 of 15", refusal.Text);
-            Assert.Contains("2 of 10", refusal.Text);
-            Assert.Contains("2 of 10", refusal.Text);
-            foreach (var entry in new[] { "不要删库；改为先备份", "需求不清时 → 先连续追问", "沟通：先要结论", "反感客套和铺垫", "系统：Windows 11 x64\n另有 WSL 环境", "主力语言：C#" })
-                Assert.Contains($"[{ShortOf(entry)}]", refusal.Text);
-            Assert.DoesNotContain("这一节不是四节之一", refusal.Text);
+            Assert.Contains("Next step: Call recall with kind=persona to read the short codes", refusal.Text);
+            Assert.DoesNotContain("Related:", refusal.Text);
+            Assert.DoesNotContain($"[{ShortOf("沟通：先要结论")}]", refusal.Text);
         }
 
         Assert.Equal(before, File.ReadAllText(PersonaMd));
@@ -235,8 +230,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
-        Assert.Contains("Next step:", result.Text);
-        Assert.Contains($"[{ShortOf("反感客套、铺垫和寒暄")}] 反感客套、铺垫和寒暄", result.Text);
+        Assert.Contains("Next step: Call recall with kind=persona to read the short codes", result.Text);
+        Assert.DoesNotContain("Related:", result.Text);
         Assert.DoesNotContain($"[{staleCode}]", result.Text);
     }
 
@@ -424,7 +419,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
-        Assert.Contains("Related:", result.Text);
+        Assert.DoesNotContain("Related:", result.Text);
+        Assert.Contains("Call recall with kind=persona", result.Text);
         Assert.Equal(before, File.ReadAllText(PersonaMd));
         Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
     }
@@ -459,14 +455,17 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     }
 
     [Fact]
-    public async Task A_short_code_is_refused_with_the_whole_persona_including_its_scope_blocks()
+    public async Task A_short_code_is_refused_without_listing_the_scope_blocks_and_points_to_recall()
     {
         CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先备份\n");
+        var before = File.ReadAllText(PersonaMd);
 
         var result = await _service.WritePersonaAsync(Delete("ffffff"));
 
         Assert.True(result.IsError);
-        Assert.Contains($"[{ShortOf("切换节点 → 先备份")}]", result.Text);
-        Assert.Contains("Domain network-proxy", result.Text);
+        Assert.DoesNotContain($"[{ShortOf("切换节点 → 先备份")}]", result.Text);
+        Assert.DoesNotContain("Domain network-proxy", result.Text);
+        Assert.Contains("Call recall with kind=persona to read the short codes", result.Text);
+        Assert.Equal(before, File.ReadAllText(PersonaMd));
     }
 }

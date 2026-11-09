@@ -58,7 +58,7 @@ internal static class MemorySkill
         - Profile: background that helps understand the person. For example: "Role: backend engineer, mostly C# on Windows."
         - Keep one idea per entry, and keep the user's own words in its source note when the wording matters.
         - A habit you observe becomes a candidate that waits for confirmation; an entry the user asks you to remember goes into the persona at once. The server instructions say when to use each.
-        - To change or delete an entry, use its short code from the latest reading of the persona. When a code is refused, the refusal carries the current persona with fresh codes; take them from there.
+        - To change or delete an entry, use its short code from `recall kind=persona`, which returns the whole persona with every entry's code. When a code is refused, call `recall kind=persona` again and take the fresh code from there.
 
         ## Refusals
         - Every refusal gives a reason and a next step. Do the next step, using any short codes or text it supplies, then retry the write once.

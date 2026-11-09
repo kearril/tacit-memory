@@ -255,7 +255,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
         var persona = PersonaDocument.Parse(existing);
         if (Find(persona, hash) is not { } entry)
-            return NoEntry(persona, hash, reasons, "replace");
+            return NoEntry(hash, reasons, "replace");
 
         // The sentence form is checked against the section the replaced entry is in.
         if (text.Length > 0 && source.Length > 0)
@@ -304,7 +304,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
         var persona = PersonaDocument.Parse(existing);
         if (Find(persona, hash) is not { } entry)
-            return NoEntry(persona, hash, [], "delete");
+            return NoEntry(hash, [], "delete");
 
         var name = PersonaDocument.HeadingOf(entry.Kind).En;
         // Checked before the write: a file that already had user edits gets that noted in its commit subject.
@@ -609,46 +609,17 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     }
 
     /// <summary>
-    /// Refuses a short code that is missing or names no entry, with the reasons already found. The related content is the
-    /// whole persona, so the agent can take the right code from one reply.
+    /// Refuses a short code that is missing or names no entry, with the reasons already found. The next step sends the agent to
+    /// <c>recall kind=persona</c> for the codes, so the refusal itself carries no persona.
     /// </summary>
-    private ToolResult NoEntry(PersonaDocument persona, string hash, List<string> reasons, string op)
+    private static ToolResult NoEntry(string hash, List<string> reasons, string op)
     {
         reasons.Insert(0, hash.Length == 0
             ? "Missing parameter hash."
-            : $"Parameter hash {ToolText.Quote(hash)} matches no entry in the four sections; the short code is stale or wrong.");
+            : $"Parameter hash {ToolText.Quote(hash)} matches no entry in the persona; the short code is stale or wrong.");
         return ToolText.Refuse(
             reasons,
-            $"Call write_persona again with op={op} and the short code of the entry, copied from the list below.",
-            PersonaListing(persona));
-    }
-
-    /// <summary>
-    /// The four global sections, each with its entry count and limit, then each scope block with its entries and their short
-    /// codes. A domain's line also carries its trigger.
-    /// </summary>
-    private string PersonaListing(PersonaDocument persona)
-    {
-        var codes = persona.CodesByLine();
-        var sections = Enum.GetValues<PersonaSection>().Select(kind =>
-        {
-            var entries = persona.Entries(kind);
-            return string.Join(
-                "\n",
-                new[] { $"{PersonaDocument.HeadingOf(kind).En}, {entries.Count} of {LimitOf(kind)} entries:" }
-                    .Concat(entries.Select(item => Listed(item, codes[item.Line]))));
-        });
-        var blocks = persona.Blocks.Select(block =>
-        {
-            var kind = block.Scope.Kind == PersonaScopeKind.Domain ? "Domain" : "Project";
-            var trigger = block.Scope.Kind == PersonaScopeKind.Domain ? $" (trigger: {block.Trigger ?? "none"})" : "";
-            var limit = block.Scope.Kind == PersonaScopeKind.Domain ? $" of {config.Limits.DomainEntries}" : "";
-            return string.Join(
-                "\n",
-                new[] { $"{kind} {block.Scope.Name}{trigger}, {block.Entries.Count}{limit} entries:" }
-                    .Concat(block.Entries.Select(item => Listed(item, codes[item.Line]))));
-        });
-        return string.Join("\n\n", sections.Concat(blocks));
+            $"Call recall with kind=persona to read the short codes, then call write_persona again with op={op} and the short code of the entry.");
     }
 
     /// <summary>

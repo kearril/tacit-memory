@@ -148,7 +148,10 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Equal(["add", "propose", "replace", "delete"], Values(tools["write_persona"].ProtocolTool, "op"));
         Assert.Equal(["red_lines", "working_rules", "preferences", "profile"], Values(tools["write_persona"].ProtocolTool, "persona_section"));
         Assert.Equal(["incident", "decision", "entity", "work"], Values(tools["write_page"].ProtocolTool, "type"));
-        Assert.Equal(["pages", "activities"], Values(tools["recall"].ProtocolTool, "kind"));
+        Assert.Equal(["pages", "activities", "rules", "persona"], Values(tools["recall"].ProtocolTool, "kind"));
+        Assert.Equal(
+            ["domain", "from", "kind", "page", "project", "query", "to"],
+            tools["recall"].ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         Assert.False(tools["write_page"].ProtocolTool.InputSchema.GetProperty("properties").GetProperty("page").TryGetProperty("enum", out _));
     }
 
@@ -522,12 +525,14 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.True(misplaced.IsError);
         Assert.Contains("persona_section", Text(misplaced));
         Assert.True(noHash.IsError);
-        Assert.Contains("Related:", Text(noHash));
+        Assert.DoesNotContain("Related:", Text(noHash));
+        Assert.Contains("Call recall with kind=persona", Text(noHash));
         Assert.True(deleteWithText.IsError);
         Assert.Contains("text", Text(deleteWithText));
         Assert.Equal("## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n- 反感客套和铺垫\n", File.ReadAllText(persona));
 
-        var code = System.Text.RegularExpressions.Regex.Match(Text(noHash), @"\[([0-9a-f]{6})\] 沟通：先要结论").Groups[1].Value;
+        var listed = Text(await client.CallToolAsync("recall", new Dictionary<string, object?> { ["kind"] = "persona" }));
+        var code = System.Text.RegularExpressions.Regex.Match(listed, @"\[([0-9a-f]{6})\] 沟通：先要结论").Groups[1].Value;
         var replaced = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
         {
             ["op"] = "replace",
@@ -535,7 +540,7 @@ public sealed class McpHostTests : IAsyncLifetime
             ["text"] = "沟通：先说结论",
             ["source"] = "先说结论",
         });
-        var refreshed = System.Text.RegularExpressions.Regex.Match(Text(noHash), @"\[([0-9a-f]{6})\] 反感客套和铺垫").Groups[1].Value;
+        var refreshed = System.Text.RegularExpressions.Regex.Match(listed, @"\[([0-9a-f]{6})\] 反感客套和铺垫").Groups[1].Value;
         var deleted = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
         {
             ["op"] = "delete",
