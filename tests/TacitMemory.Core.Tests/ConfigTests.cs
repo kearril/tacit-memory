@@ -28,10 +28,13 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(18888, config.Port);
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(MemoryLanguage.Zh, config.Language);
-        Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
+        Assert.Equal(new PersonaLimits(5, 15, 10, 10), config.Limits.Persona);
         Assert.Equal(200, config.Limits.ItemLength);
         Assert.Equal(5, config.Limits.Mainline);
         Assert.Equal(new PageLimits(50, 30, 2), config.Limits.Page);
+        Assert.Equal(10, config.Limits.Domains);
+        Assert.Equal(10, config.Limits.DomainEntries);
+        Assert.Equal(60, config.Limits.TriggerLength);
         Assert.Equal(2, config.CandidateMinDays);
         Assert.Equal(new ConsolidationConfig(7, 14, 20, 5), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
@@ -50,7 +53,7 @@ public sealed class ConfigTests : IDisposable
         var config = _home.Tacit().LoadConfig();
 
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
-        Assert.Equal(new PersonaLimits(5, 20, 15, 10), config.Limits.Persona);
+        Assert.Equal(new PersonaLimits(5, 15, 10, 10), config.Limits.Persona);
         Assert.Null(config.Models.Embedding);
         Assert.Null(config.Models.Reranker);
         Assert.Null(config.Models.Decision);
@@ -98,12 +101,24 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(19999, config.Port);
         Assert.Equal(Path.Combine(_home.UserHome, "notes", "memory"), config.MemoryPath);
         Assert.Equal(MemoryLanguage.En, config.Language);
-        Assert.Equal(new PersonaLimits(3, 20, 15, 10), config.Limits.Persona);
+        Assert.Equal(new PersonaLimits(3, 15, 10, 10), config.Limits.Persona);
         Assert.Equal(80, config.Limits.ItemLength);
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
         Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, WrittenInConfig: true))), config.Backup);
+    }
+
+    [Fact]
+    public void The_domain_limits_are_read_from_the_limits_section()
+    {
+        WriteConfig(Models + "limits: { domains: 3, domainEntries: 4, triggerLength: 20 }\n");
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(3, config.Limits.Domains);
+        Assert.Equal(4, config.Limits.DomainEntries);
+        Assert.Equal(20, config.Limits.TriggerLength);
     }
 
     [Theory]

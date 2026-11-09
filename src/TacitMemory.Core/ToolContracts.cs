@@ -141,6 +141,18 @@ public sealed record WritePersonaRequest
     public string? Hash { get; init; }
 
     /// <summary>
+    /// The scope the entry goes into: <c>global</c> when omitted, <c>project:&lt;name&gt;</c> or <c>domain:&lt;label&gt;</c>.
+    /// Used by add only.
+    /// </summary>
+    public string? Scope { get; init; }
+
+    /// <summary>
+    /// The trigger of a domain: one line saying when the domain applies. Required when add creates a new domain, and ignored
+    /// for a domain that exists and for the other scopes. Used by add only.
+    /// </summary>
+    public string? Trigger { get; init; }
+
+    /// <summary>
     /// The agent made sure with the user that the write holds no secret: the credential check is skipped.
     /// </summary>
     public bool? ConfirmNoSecret { get; init; }

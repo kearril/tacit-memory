@@ -52,7 +52,86 @@ internal static class PersonaFormatCheck
                     $"The section has {count} entries; the limit is {limit}. The user decides which to remove.", FormatHandling.AskUser));
         }
 
+        CheckBlocks(document, config, issues);
         return issues;
+    }
+
+    /// <summary>The problems of the scope blocks: their names, their trigger lines, their sections and their limits.</summary>
+    private static void CheckBlocks(PersonaDocument document, TacitConfig config, List<FormatIssue> issues)
+    {
+        var seen = new HashSet<PersonaScope>();
+        foreach (var block in document.Blocks)
+        {
+            var section = Section(block.Heading);
+            var headingLocation = $"line {block.HeadingLine + 1}";
+            if (!PersonaScope.IsValidName(block.Scope.Name))
+                issues.Add(new FormatIssue("", section, "Invalid scope name",
+                    "The name must use only lowercase letters, digits, '.', '_' and '-', and must not start with '.' or '_'.", FormatHandling.FixDirectly));
+            else if (!seen.Add(block.Scope))
+                issues.Add(new FormatIssue("", section, "Duplicate scope block",
+                    "This scope already has a block above. Merge the two blocks into one.", FormatHandling.FixDirectly));
+
+            if (block.Scope.Kind == PersonaScopeKind.Domain)
+                CheckTrigger(block, headingLocation, config, issues);
+
+            foreach (var part in block.Parts)
+            {
+                if (part.Kind is not { } kind)
+                {
+                    foreach (var item in part.Items)
+                    {
+                        if (part.Heading is not null)
+                            continue;
+                        if (item.IsListItem)
+                            issues.Add(Issue(item, "Entry outside a section",
+                                "This entry is not under a ### section heading, so it is not read.", FormatHandling.FixDirectly));
+                        else
+                            issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
+                    }
+
+                    if (part.Heading is not null)
+                        issues.Add(new FormatIssue("", Section(part.Heading), "Unrecognized section",
+                            "This heading is not one of the four persona sections, so its entries are not read.", FormatHandling.FixDirectly));
+                    continue;
+                }
+
+                foreach (var item in part.Items)
+                {
+                    if (!item.IsListItem)
+                        issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
+                    else
+                        CheckEntry(item, kind, config, issues);
+                }
+            }
+
+            if (block.Scope.Kind == PersonaScopeKind.Domain && block.Entries.Count > config.Limits.DomainEntries)
+                issues.Add(new FormatIssue("", section, "Domain over limit",
+                    $"The domain has {block.Entries.Count} entries; the limit is {config.Limits.DomainEntries}. The user decides which to remove.",
+                    FormatHandling.AskUser));
+        }
+
+        var domains = document.Blocks.Count(block => block.Scope.Kind == PersonaScopeKind.Domain);
+        if (domains > config.Limits.Domains)
+            issues.Add(new FormatIssue("", "domains", "Too many domains",
+                $"The persona has {domains} domains; the limit is {config.Limits.Domains}. The user decides which to merge or remove.",
+                FormatHandling.AskUser));
+    }
+
+    /// <summary>A domain needs one trigger line, no longer than the trigger limit.</summary>
+    private static void CheckTrigger(PersonaBlock block, string headingLocation, TacitConfig config, List<FormatIssue> issues)
+    {
+        if (string.IsNullOrWhiteSpace(block.Trigger))
+        {
+            issues.Add(new FormatIssue("", headingLocation, "Domain without trigger",
+                "The domain has no trigger line under its heading, so the resident index cannot show when it applies. Add one line: trigger: when the domain applies.",
+                FormatHandling.FixDirectly));
+            return;
+        }
+
+        var length = PersonaTools.Length(block.Trigger);
+        if (length > config.Limits.TriggerLength)
+            issues.Add(new FormatIssue("", $"line {block.TriggerLine + 1}", "Trigger too long",
+                $"The trigger has {length} characters; the limit is {config.Limits.TriggerLength}.", FormatHandling.FixDirectly));
     }
 
     private static void CheckEntry(PersonaItem item, PersonaSection kind, TacitConfig config, List<FormatIssue> issues)

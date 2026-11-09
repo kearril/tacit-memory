@@ -31,13 +31,14 @@
 | | `update_header` | `page`；`title`、`add_aliases`、`related` 至少一项 |
 | `write_recent` | `add_activity` | `text`；可选 `project`、`source`、`replaces` |
 | | `update_mainline` | `items`、`hash`（近期主线的版本短码） |
-| `write_persona` | `add` | `persona_section`、`text`、`source`；可选 `confirm_no_secret` |
+| `write_persona` | `add` | `persona_section`、`text`、`source`；可选 `scope`、`trigger`、`confirm_no_secret` |
 | | `replace` | `hash`、`text`、`source`；可选 `confirm_no_secret` |
 | | `delete` | `hash` |
 | | `propose` | `persona_section`、`text`、`source` |
 
 - `recall` 各参数的含义见 `docs/design.md` 第 7 节。
-- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`update_mainline` 的规则见 `docs/design.md` 第 6 节。
+- `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。
+- `write_persona` 的 `scope` 取 `global`（缺省）、`project:<名>` 或 `domain:<标签>`，仅 `add` 使用；`trigger` 为新领域的触发描述（一行），仅 `add` 使用，新建领域时必填，已有领域时忽略。`replace` 与 `delete` 凭短码定位任一作用域中的条目，`replace` 保持原作用域。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`update_mainline` 的规则见 `docs/design.md` 第 6 节。
 - 长度与条数上限取自 `config.yaml` 的 `limits`（见 `docs/reference/configuration.md`），工具说明中的数字随配置填入。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 

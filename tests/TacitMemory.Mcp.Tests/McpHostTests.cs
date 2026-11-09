@@ -82,7 +82,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.False(persona.Annotations?.IdempotentHint);
         Assert.False(persona.Annotations?.OpenWorldHint);
         Assert.Equal(
-            ["confirm_no_secret", "hash", "op", "persona_section", "source", "text"],
+            ["confirm_no_secret", "hash", "op", "persona_section", "scope", "source", "text", "trigger"],
             persona.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
     }
 
@@ -441,6 +441,27 @@ public sealed class McpHostTests : IAsyncLifetime
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
         Assert.True(refused.IsError);
         Assert.Contains("source", Text(refused));
+    }
+
+    [Fact]
+    public async Task A_domain_entry_with_its_scope_and_trigger_lands_in_its_block_through_the_tool()
+    {
+        await using var client = await ConnectAsync();
+
+        var written = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
+        {
+            ["op"] = "add",
+            ["persona_section"] = "working_rules",
+            ["text"] = "切换节点 → 先备份配置",
+            ["source"] = "先备份",
+            ["scope"] = "domain:network-proxy",
+            ["trigger"] = "改代理、分流或测速时",
+        });
+
+        Assert.NotEqual(true, written.IsError);
+        Assert.Contains(
+            "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 切换节点 → 先备份配置\n  <!-- 2026-11-02 原话「先备份」 -->\n",
+            File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
     }
 
     [Fact]

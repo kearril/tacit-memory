@@ -19,4 +19,7 @@ internal static class StructureWords
     public static readonly Localized Rejected = new("拒绝", "rejected");
     public static readonly Localized WorthRecording = new("值得记", "Worth recording");
     public static readonly Localized NotRecorded = new("不记", "Not recorded");
+    public static readonly Localized Domain = new("领域", "Domain");
+    public static readonly Localized Project = new("项目", "Project");
+    public static readonly Localized Trigger = new("触发", "Trigger");
 }

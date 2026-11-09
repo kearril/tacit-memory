@@ -33,9 +33,12 @@ models:                       # 可选；省略的模型即未配置，省略整
   decision:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
 
 limits:
-  persona: { redLines: 5, workingRules: 20, preferences: 15, profile: 10 }
+  persona: { redLines: 5, workingRules: 15, preferences: 10, profile: 10 }
   itemLength: 200
   mainline: 5
+  domains: 10
+  domainEntries: 10
+  triggerLength: 60
   page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
 candidates: { minDays: 2 }
 consolidation: { remindAfterDays: 7, mainlineStaleDays: 14, budgetSeconds: 20, maxConcurrency: 5 }
@@ -74,7 +77,10 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 ### `limits` 与 `candidates`
 
-- `limits.persona`：画像四节各自的条数上限，只约束 `add`（见 `docs/design.md` 第 6 节「画像」）。
+- `limits.persona`：全局四节各自的条数上限，默认红线 5、协作规则 15、偏好 10、档案 10，只约束 `add`（见 `docs/design.md` 第 6 节「画像」）。
+- `limits.domains`：画像中领域的个数上限，默认 10，`add` 新建领域时检查。
+- `limits.domainEntries`：每个领域四节合计的条数上限，默认 10，只约束 `add`。
+- `limits.triggerLength`：领域触发描述的字符上限，默认 60。
 - `limits.itemLength`：画像条目与活动正文的长度上限（字符），默认 200。
 - `limits.mainline`：近期主线的条数上限，默认 5。
 - `limits.page`：细节页标题与别名的长度上限，以及别名的最少个数。
