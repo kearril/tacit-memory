@@ -26,8 +26,8 @@ namespace TacitMemory.Core;
 /// <summary>
 /// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
 /// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
-/// <c>persona.md</c> changes, syncs the index when page, activity or persona files change, and refreshes
-/// the instructions when projects appear or disappear under <c>pages/</c>, and a watcher that reloads the prompt
+/// <c>persona.md</c>, the mainline, the activity log or a project folder changes and again at each local midnight,
+/// syncs the index when page, activity or persona files change, and a watcher that reloads the prompt
 /// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
 /// </summary>
 public sealed class MemoryService : IDisposable
@@ -50,6 +50,9 @@ public sealed class MemoryService : IDisposable
     private readonly Timer _renderTimer;
     private readonly Timer _promptsTimer;
     private readonly Timer _indexTimer;
+
+    /// <summary>Fires at each local midnight: the resident block shows dates, so it is rendered again then. Replaced each time it fires.</summary>
+    private ITimer? _dayTimer;
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
     private readonly Lock _instructionsGate = new();
@@ -109,6 +112,7 @@ public sealed class MemoryService : IDisposable
         _renderTimer = new Timer(_ => RenderNow());
         _promptsTimer = new Timer(_ => ReloadPrompts());
         _indexTimer = new Timer(_ => SyncIndexNow());
+        _dayTimer = ArmDayTimer();
         _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
@@ -127,8 +131,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// The server instructions, generated on first use and kept until something they are built from may have changed: a
-    /// prompt document, the persona or its candidates, a page or activity file, the mainline, the memory repository's
-    /// commits, the project list, or the status (unavailable models, skipped files, the date). Builds run one at a time.
+    /// prompt document, the persona or its candidates, a page or activity file, the mainline (which the consolidation
+    /// reminder reads), the memory repository's commits, or the status (unavailable models, skipped files, the date).
+    /// Builds run one at a time.
     /// </summary>
     public async Task<string> ServerInstructionsAsync(CancellationToken cancellationToken = default)
     {
@@ -149,10 +154,9 @@ public sealed class MemoryService : IDisposable
                 prompts = _prompts;
             }
 
-            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
-            var projects = ServerInstructionText.Projects(Config.MemoryPath, recent.ProjectLabels);
+            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today, Config.Language);
             var consolidation = await ConsolidationReminder.RenderAsync(Config, _options.Today, cancellationToken);
-            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, projects, consolidation).Text;
+            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, consolidation).Text;
 
             lock (_instructionsGate)
             {
@@ -652,6 +656,7 @@ public sealed class MemoryService : IDisposable
             _promptsWatcher?.Dispose();
             _renderTimer.Dispose();
             _promptsTimer.Dispose();
+            _dayTimer?.Dispose();
         }
         lock (_indexTimerGate)
             _indexTimer.Dispose();
@@ -716,7 +721,7 @@ public sealed class MemoryService : IDisposable
         var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
         foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
         {
-            if (relative == PersonaFiles.Persona)
+            if (relative == PersonaFiles.Persona || AffectsResident(relative))
                 ScheduleRender();
             if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
                 ScheduleIndexSync();
@@ -746,6 +751,38 @@ public sealed class MemoryService : IDisposable
     {
         _instructions = null;
         _instructionsVersion++;
+    }
+
+    /// <summary>
+    /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
+    /// mainline, an activity month file (its counts and its summaries), or a project folder directly under <c>pages/</c>.
+    /// </summary>
+    private static bool AffectsResident(string relative) =>
+        relative == MainlineSection.RelativePath
+        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
+        || relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0);
+
+    /// <summary>Arms the timer for the next local midnight.</summary>
+    private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
+
+    /// <summary>The time from now until the next local midnight; always positive.</summary>
+    private TimeSpan UntilNextMidnight()
+    {
+        var now = _options.Time.GetLocalNow().DateTime;
+        return now.Date.AddDays(1) - now;
+    }
+
+    /// <summary>Runs on the timer thread at midnight: the date has changed, so the resident blocks are rendered again.</summary>
+    private void OnDayChanged()
+    {
+        lock (_renderGate)
+        {
+            if (_disposed)
+                return;
+            _dayTimer?.Dispose();
+            _dayTimer = ArmDayTimer();
+        }
+        ScheduleRender();
     }
 
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>

@@ -121,6 +121,30 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
+    public async Task The_resident_block_shows_the_guidance_of_the_index_mainline_weeks_and_projects_sections()
+    {
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
+
+        Assert.False(string.IsNullOrWhiteSpace(Part(result, "situational_rules").Text));
+        Assert.Equal("", Part(result, "projects").Text);
+        Assert.Equal("", Part(result, "mainline").Text);
+        Assert.Equal("", Part(result, "recent_weeks").Text);
+    }
+
+    [Fact]
+    public async Task The_instructions_show_the_recent_activity_part_and_no_project_list()
+    {
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md"), "## 2026-11-02\n- [tacit-memory] 今天的事\n");
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory"));
+
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
+
+        Assert.StartsWith("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] 今天的事\n</recent_activity>", Part(result, "recent").Text);
+        Assert.DoesNotContain("## Projects", result.Report);
+    }
+
+    [Fact]
     public async Task The_default_resident_text_saved_as_the_file_gives_the_same_parts()
     {
         var home = _home.Tacit();

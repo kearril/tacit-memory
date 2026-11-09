@@ -28,9 +28,9 @@ internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, stri
 
 /// <summary>
 /// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
-/// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part is short and always whole. The
-/// recent summary and the project list are cut to fit <see cref="TotalLimit"/>: the oldest activities go first, then
-/// project names from the end, and the list vanishes when none fits.
+/// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part and the consolidation
+/// reminder are short and always whole. The activities of the last seven days are cut to fit <see cref="TotalLimit"/>:
+/// the oldest go first. The mainline, the recent weeks and the projects are in the resident block, not here.
 /// </summary>
 internal static class ServerInstructionText
 {
@@ -39,7 +39,7 @@ internal static class ServerInstructionText
     public const int FixedLimit = 2500;
 
     private const string Opening = """
-        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is summarized under ## Recent below; details live in pages you reach with `recall`.
+        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is listed in <recent_activity> below; details live in pages you reach with `recall`.
         """;
 
     private const string UsingMemory = """
@@ -144,13 +144,12 @@ internal static class ServerInstructionText
     }
 
     /// <summary>
-    /// The server instructions as parts: the fixed parts, the recent summary with its projects, the consolidation reminder and
-    /// the whole text.
+    /// The server instructions as parts: the fixed parts, the activities of the last seven days, the status, the consolidation
+    /// reminder and the whole text.
     /// </summary>
     /// <param name="unavailableModels">Auxiliary models whose last call failed.</param>
     /// <param name="skippedFiles">Pages, activity record files and persona files left out of the index because they are not UTF-8.</param>
-    /// <param name="recent">The mainline and the last seven days of activities.</param>
-    /// <param name="projects">The project names listed under <c>## Projects</c>, in the order they are listed.</param>
+    /// <param name="recent">The activities of the last seven days.</param>
     /// <param name="consolidationReminder">The consolidation reminder, already rendered; <c>null</c> when no consolidation is due.</param>
     public static InstructionSet Assemble(
         MemoryLanguage language,
@@ -158,7 +157,6 @@ internal static class ServerInstructionText
         IReadOnlyList<string> unavailableModels,
         IReadOnlyList<string> skippedFiles,
         RecentSummary recent,
-        IReadOnlyList<string> projects,
         string? consolidationReminder)
     {
         var fixedParts = FixedParts(language, prompts);
@@ -169,63 +167,32 @@ internal static class ServerInstructionText
         if (skippedFiles.Count > 0)
             status.Add($"- Files not searchable because they are not UTF-8: {string.Join(", ", skippedFiles)}.");
         var statusText = status.Count == 0 ? "" : "## Status\n" + string.Join("\n", status);
+        var consolidation = consolidationReminder ?? "";
 
         // Newest first, so the oldest activity is the last one and goes first.
         var activities = recent.Week.ToList();
-        var kept = projects.ToList();
         while (true)
         {
-            var summary = Summary(recent.Mainline, activities);
-            var projectList = kept.Count == 0 ? "" : "## Projects\n" + string.Join(", ", kept);
-            var consolidation = consolidationReminder ?? "";
-            var text = Join([fixedText, summary, statusText, projectList, consolidation]);
-            var recentText = Join([summary, projectList]);
-            if (text.Length <= TotalLimit || (activities.Count == 0 && kept.Count == 0))
-                return new InstructionSet(fixedParts, fixedText, recentText, consolidation, text);
-            if (activities.Count > 0)
-                activities.RemoveAt(activities.Count - 1);
-            else
-                kept.RemoveAt(kept.Count - 1);
+            var activityBlock = ActivityBlock(activities);
+            var text = Join([fixedText, activityBlock, statusText, consolidation]);
+            if (text.Length <= TotalLimit || activities.Count == 0)
+                return new InstructionSet(fixedParts, fixedText, activityBlock, consolidation, text);
+            activities.RemoveAt(activities.Count - 1);
         }
     }
 
     /// <summary>
-    /// The project names the instructions list: the directories under <c>pages/</c> that do not start with an
-    /// underscore or a dot, together with every project label in the activity log; sorted by name, each once.
+    /// The activities of the last seven days, one per line with their dates and projects, inside <c>recent_activity</c>
+    /// tags so the agent reads them as data; empty when there are none.
     /// </summary>
-    public static IReadOnlyList<string> Projects(string memoryPath, IEnumerable<string> activityProjects)
+    private static string ActivityBlock(IReadOnlyList<RecentFile.Activity> activities)
     {
-        var pages = Path.Combine(memoryPath, "pages");
-        IEnumerable<string> directories = Directory.Exists(pages)
-            ? Directory.EnumerateDirectories(pages).Select(Path.GetFileName).OfType<string>()
-            : Enumerable.Empty<string>();
-        return directories
-            .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
-            .Concat(activityProjects)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-    }
-
-    /// <summary>The recent summary: the mainline without codes, then the activities with their dates and projects.</summary>
-    private static string Summary(IReadOnlyList<string> mainline, IReadOnlyList<RecentFile.Activity> activities)
-    {
-        if (mainline.Count == 0 && activities.Count == 0)
+        if (activities.Count == 0)
             return "";
 
-        var lines = new List<string> { "## Recent" };
-        if (mainline.Count > 0)
-        {
-            lines.Add("Mainline:");
-            lines.AddRange(mainline.Select(item => "- " + item));
-        }
-        if (activities.Count > 0)
-        {
-            lines.Add("Activities from the last 7 days, newest first:");
-            lines.AddRange(activities.Select(activity =>
-                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.Labeled}"));
-        }
-        return string.Join("\n", lines);
+        var lines = activities.Select(activity =>
+            $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.Labeled}");
+        return $"<recent_activity days=\"{RecentSummary.WindowDays}\">\n{string.Join("\n", lines)}\n</recent_activity>";
     }
 
     /// <summary>The two sections of <c>rules.md</c>, items word for word; an empty section is left out.</summary>

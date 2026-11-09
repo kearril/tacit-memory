@@ -308,12 +308,14 @@ public sealed class RestoreTests : IDisposable
     }
 
     [Fact]
-    public async Task After_the_restore_recall_and_the_server_instructions_reflect_the_backup()
+    public async Task After_the_restore_recall_and_the_resident_block_reflect_the_backup()
     {
+        _home.Bind();
         await _service.WritePageAsync(Create("old-project/old-page", "旧版本记录", "旧版本内容"));
         var backup = await _service.BackupAsync(BackupTarget.Local);
         await _service.WritePageAsync(Create("new-project/new-page", "新版本记录", "新版本内容"));
-        Assert.Contains("new-project", await _service.ServerInstructionsAsync());
+        _home.Tacit().RenderBlocks();
+        Assert.Contains("new-project", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
 
         await _service.RestoreAsync(backup.Location, config: false);
 
@@ -321,9 +323,10 @@ public sealed class RestoreTests : IDisposable
         Assert.Contains("old-project/old-page", found.Text, StringComparison.Ordinal);
         var missing = await _service.RecallAsync(new RecallRequest { Query = "新版本记录" });
         Assert.DoesNotContain("new-project/new-page", missing.Text, StringComparison.Ordinal);
-        var instructions = await _service.ServerInstructionsAsync();
-        Assert.Contains("old-project", instructions, StringComparison.Ordinal);
-        Assert.DoesNotContain("new-project", instructions, StringComparison.Ordinal);
+        _home.Tacit().RenderBlocks();
+        var block = File.ReadAllText(AgentsMd);
+        Assert.Contains("old-project", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("new-project", block, StringComparison.Ordinal);
     }
 
     [Fact]

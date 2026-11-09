@@ -33,7 +33,7 @@ internal static class Viewer
     private static readonly Localized GeneralRulesLabel = new("通用规则", "General rules");
     private static readonly Localized LanguageLabel = new("语言规范", "Language norms");
     private static readonly Localized RecordingCriteriaLabel = new("值得记标准", "Recording criteria");
-    private static readonly Localized RecentLabel = new("近期摘要与已有项目", "Recent activity and projects");
+    private static readonly Localized RecentLabel = new("最近 7 天活动", "Activities of the last seven days");
     private static readonly Localized ConsolidationLabel = new("整理提示", "Consolidation reminder");
 
     private static readonly Localized ResidentTitle = new(
@@ -115,11 +115,10 @@ internal static class Viewer
     private static async Task<ShowResult> Instructions(TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         var language = config.Language;
-        var recent = RecentSummary.Read(config.MemoryPath, options.Today);
-        var projects = ServerInstructionText.Projects(config.MemoryPath, recent.ProjectLabels);
+        var recent = RecentSummary.Read(config.MemoryPath, options.Today, language);
         // The service's text without its runtime status, cut to the same limits, with the consolidation reminder as it would be sent now.
         var consolidation = await ConsolidationReminder.RenderAsync(config, options.Today, cancellationToken);
-        var set = ServerInstructionText.Assemble(language, config.Prompts, [], [], recent, projects, consolidation);
+        var set = ServerInstructionText.Assemble(language, config.Prompts, [], [], recent, consolidation);
 
         var sections = set.Fixed
             .Select(part => (Label: LabelOf(part.Part), Shown: InstructionShowPart(part, config, options.TacitHome)))
@@ -186,7 +185,7 @@ internal static class Viewer
 
         var parts = new List<ShowPart> { new("shell", source, path, document.Shell) };
         parts.AddRange(ResidentFile.Sections.Select(section =>
-            new ShowPart(section.Name, source, path, ResidentFile.GuidanceOf(document, section.Kind) ?? "")));
+            new ShowPart(section.Name, source, path, ResidentFile.GuidanceOf(document, section.Part) ?? "")));
         var heading = ResidentTitle.Format(language, SourceText(language, source, path), length, ResidentFile.MaxLength);
         return new ShowResult(
             heading + "\n\n" + text,

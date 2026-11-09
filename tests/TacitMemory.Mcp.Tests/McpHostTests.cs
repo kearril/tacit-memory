@@ -37,6 +37,9 @@ public sealed class McpHostTests : IAsyncLifetime
     [Fact]
     public async Task A_client_receives_the_server_instructions_when_it_connects()
     {
+        // Written before the first connection, so the instructions are first built with this activity in them.
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md"), "## 2026-11-02\n- [tacit-memory] MCP 接缝测试活动\n");
         await using var client = await ConnectAsync();
 
         Assert.Equal("tacit", client.ServerInfo?.Name);
@@ -47,7 +50,8 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Contains("## Writing pages", instructions);
         Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
         Assert.Contains("tacit-memory", instructions);
-        Assert.EndsWith("## Projects\ntacit-memory", instructions);
+        Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] MCP 接缝测试活动\n</recent_activity>", instructions);
+        Assert.DoesNotContain("## Projects", instructions);
     }
 
     [Fact]
