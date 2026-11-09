@@ -55,6 +55,11 @@ public sealed class MemoryService : IDisposable
     private ITimer? _dayTimer;
     private readonly Lock _indexTimerGate = new();
     private readonly Lock _renderGate = new();
+
+    /// <summary>How many debounced retries a render gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    private const int RenderRetryLimit = 5;
+
+    private int _renderRetries;
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
@@ -902,14 +907,17 @@ public sealed class MemoryService : IDisposable
             {
                 foreach (var result in Binder.RenderAll(_options, Config, _prompts))
                     _log.Notify(LevelOf(result), result.Message);
+                _renderRetries = 0;
             }
-            catch (IOException)
+            catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && _renderRetries < RenderRetryLimit)
             {
-                // The editor still holds a file; try again once it settles.
+                // The editor or another client still holds a file, which Windows refuses to replace; try again once it settles.
+                _renderRetries++;
                 _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
             {
+                _renderRetries = 0;
                 _log.Notify(LogLevel.Warning, Messages.RenderFailed, e.Message);
             }
         }

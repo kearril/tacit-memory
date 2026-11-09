@@ -98,8 +98,11 @@ public sealed class Tacit(TacitOptions options)
     /// <exception cref="TacitException">No binding has that name.</exception>
     public BindingResult Disconnect(string client) => Binder.Disconnect(options, client);
 
-    /// <summary>Renders the current persona and <c>resident.md</c> into every bound context file, reading <c>bindings.json</c> afresh.</summary>
-    public IReadOnlyList<BlockRender> RenderBlocks()
+    /// <summary>
+    /// Renders the current persona and <c>resident.md</c> into every bound context file, reading <c>bindings.json</c> afresh.
+    /// Internal: the service renders on its own; a test that renders beside a running service races it.
+    /// </summary>
+    internal IReadOnlyList<BlockRender> RenderBlocks()
     {
         var config = LoadConfig();
         return Binder.RenderAll(options, config, config.Prompts);
