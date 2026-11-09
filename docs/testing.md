@@ -11,7 +11,7 @@
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote` 与整理改名前的旧配置节按未知键报错；中英模板的 `url` 与密钥变量名。
+     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`，以及项目简报上限 `limits.brief`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote` 与整理改名前的旧配置节按未知键报错；中英模板的 `url` 与密钥变量名。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含项目列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
@@ -36,6 +36,7 @@
      - `DuplicatePageTests`：新建细节页时的重复页判断与放行。
      - `CredentialTests`：凭据检测与 `confirm_no_secret`，含小节与页头写入，删除小节不需确认。
      - `RecallTests`：全文检索与索引同步：中文切分、筛选、结果呈现，索引重建与跳过非 UTF-8 页面；未知参数的拒绝（查询与读页两路，未知参数排在 query/page 问题之前）；小节标题后的最后修改日期（只有变化的小节更新）；使用统计不影响检索排序。
+     - `ProjectBriefTests`：项目简报（`recall` 只给 `project`）：分组与顺序（有效决定、已知坑、工作、实体、未分类），同日按使用次数排序，推翻记录与「已推翻」一行，未决事项，项目约定只取项目作用域，五段的先后，最近 3 条活动，最近一次周汇总（只取该项目活动所在周中最近一个有汇总的周），`from`、`to` 限定页面与活动，空项目返回 `No relevant memory.`，与 `kind` 同给被拒绝，每个列出的页计一次使用统计，页目录按最旧优先截断并注明省略条数，其余部分超长时按上限截断末尾。
      - `VectorTests`：向量检索、嵌入模型不可用时的回退与补齐、模型或向量长度变化后的重建。
      - `ReindexTests`：`reindex` 的结果：重建前后同一查询的结果一致、每个单元都有向量；重建后判断缓存清空，整理重新调用决策模型；嵌入模型不可用时只重建全文并注明向量待补；嵌入模型未配置时只重建全文并注明未配置；非 UTF-8 文件列入结果；重建后小节日期取文件最近一次提交、未提交的文件取当天；开始、结束与结果写入日志。
      - `UsageStatsTests`：使用统计的计数规则（整页读取每个小节各加一、检索计入所显示的单元、页面级命中只计标题与别名单元）、最近返回日期随时钟前移、从未返回的页无计数与日期、`reindex` 清零。
