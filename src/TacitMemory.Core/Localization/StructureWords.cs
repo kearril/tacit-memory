@@ -13,6 +13,7 @@ internal static class StructureWords
     public static readonly Localized Candidates = new("候选", "Candidates");
     public static readonly Localized RejectionList = new("拒绝列表", "Rejection list");
     public static readonly Localized Mainline = new("近期主线", "Mainline");
+    public static readonly Localized Summary = new("汇总", "Summary");
     public static readonly Localized BelongsTo = new("归属：", "Belongs to: ");
     public static readonly Localized Quote = new("原话", "quote");
     public static readonly Localized Instead = new("改为", "instead");
