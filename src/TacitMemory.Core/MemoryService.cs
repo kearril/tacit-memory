@@ -60,6 +60,10 @@ public sealed class MemoryService : IDisposable
     private const int RenderRetryLimit = 5;
 
     private int _renderRetries;
+
+    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    private int _promptsRetries;
+
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
@@ -879,17 +883,22 @@ public sealed class MemoryService : IDisposable
                     _prompts = prompts;
                     ClearInstructionsLocked();
                 }
+                _promptsRetries = 0;
                 // The resident blocks show resident.md: render them with the new text, as a persona change does.
                 if (residentChanged)
                     _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
-            catch (Exception e) when (e is IOException or ArgumentException)
+            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < RenderRetryLimit))
             {
-                // The editor still holds a file, or the folder is busy; try again once it settles.
+                // The editor still holds a file, or the folder is busy; try again once it settles. Windows refuses a
+                // replacement it cannot make with UnauthorizedAccessException, which the render path retries the same way.
+                if (e is UnauthorizedAccessException)
+                    _promptsRetries++;
                 _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
             }
             catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
             {
+                _promptsRetries = 0;
                 _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, e.Message);
             }
         }

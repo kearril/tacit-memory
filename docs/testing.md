@@ -31,7 +31,7 @@
      - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除；新节的内容与顺序（领域索引、主线、近几周、项目，位于全局四节之后）、领域索引行与条目不进入常驻区块、领域行数上限（`limits.domains`）、近几周的选取（最近 3 个有内容的已完成周，有汇总时显示汇总，否则确定性地显示计数与项目）、空节不出现、`resident.md` 为新节给出的引导语；主线、活动记录、项目目录变化后重新渲染；经 `TestHome.Clock` 跨过本地午夜后重新渲染。
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
      - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含三个模型的密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
-     - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新。
+     - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新；SKILL.md 被占用而替换被拒时，提示词的改动在占用结束后仍会应用。
      - `PageTests`：细节页的新建与读取、按短码修改小节与页头、`section` 误填短码的拒绝（含 `hash` 同填、大写或带空白的短码、同名小节按名字改写、不属于本页的短码样值照常新建）、`dates`、串行写入、页面标识校验、未知参数的拒绝（点名、与 op 问题一并列出、下一步、不写文件）。
      - `DuplicatePageTests`：新建细节页时的重复页判断与放行。
      - `CredentialTests`：凭据检测与 `confirm_no_secret`，含小节与页头写入，删除小节不需确认。

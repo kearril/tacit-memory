@@ -147,6 +147,23 @@ public sealed class MemorySkillTests : IDisposable
     }
 
     [Fact]
+    public async Task A_skill_prompt_change_met_by_a_reader_of_the_skill_file_is_applied_after_the_reader_lets_go()
+    {
+        Directory.CreateDirectory(Prompts);
+        File.WriteAllText(SkillPrompt, "- 旧的约定\n");
+        using var service = Open();
+
+        // The reload's replacement of SKILL.md is refused while this reader holds it, as an editor's would be.
+        using (new FileStream(SkillFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            File.WriteAllText(SkillPrompt, "- 新的写法约定\n");
+            await Task.Delay(TimeSpan.FromSeconds(1));
+        }
+
+        await Eventually(() => File.ReadAllText(SkillFile).Contains("- 新的写法约定", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Editing_the_skill_prompt_while_running_regenerates_the_skill()
     {
         using var service = Open();
