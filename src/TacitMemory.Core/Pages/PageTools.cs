@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
+using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Tools;
 
@@ -32,7 +33,8 @@ internal sealed class PageTools(
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
-    public ToolResult Read(RecallRequest request)
+    /// <summary>Reads a whole page. The index follows the file first, so the section dates are current, and each section counts as returned.</summary>
+    public ToolResult Read(RecallRequest request, MemoryIndex index)
     {
         if (string.IsNullOrWhiteSpace(request.Page))
             return ToolText.Refuse("Missing parameter page.", "Call recall again with page set to a page ID such as my-app/db-upgrade.");
@@ -40,7 +42,11 @@ internal sealed class PageTools(
             return ToolText.Refuse(problem, "Call recall again with a valid page ID.");
 
         var (document, refusal) = Load(id);
-        return refusal ?? ToolText.Ok(Format(id, document!));
+        if (refusal is not null)
+            return refusal;
+        index.SyncPage(id);
+        index.RecordPageRead(id);
+        return ToolText.Ok(Format(id, document!, index.SectionChanges(id)));
     }
 
     public async Task<ToolResult> WriteAsync(WritePageRequest request, CancellationToken cancellationToken)
@@ -419,7 +425,7 @@ internal sealed class PageTools(
     }
 
     /// <summary>A page as the agent reads it: header facts, then every section with its short code.</summary>
-    public static string Format(PageId id, PageDocument document)
+    public static string Format(PageId id, PageDocument document, IReadOnlyDictionary<string, DateOnly> changed)
     {
         var header = document.Header;
         var text = new StringBuilder();
@@ -434,7 +440,7 @@ internal sealed class PageTools(
             text.Append($"Related: {string.Join(", ", header.Related)}\n");
         text.Append("Short codes in brackets identify sections for write_page.\n");
         foreach (var section in document.Sections)
-            text.Append($"\n## {section.Name} [{section.Code}]\n{section.Body}\n");
+            text.Append($"\n## {section.Name} [{section.Code}]{SectionDates.Note(changed, section.Name)}\n{section.Body}\n");
         return text.ToString();
     }
 
