@@ -4,7 +4,7 @@
 
 ## 1. 三个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的唯一例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
@@ -20,7 +20,7 @@
      - `ConsolidationConflictTests`：互相冲突的画像条目：只判断上次整理后新增或改写的条目（含未提交的修改）、跨节、同一对只报一次、确定与拿不准两档标明档位、无其他条目时不提问、决策模型不可用时的降级。
      - `ConsolidationDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同项目没有其他页时不提问；删除的页不参与；没有 `consolidate:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
      - `ConsolidationBudgetTests`：整理限时（到点照常返回并注明未检查数量、在途调用不取消且跑完写入缓存、未发出的判断不再发出；到点后仍有缓存答案的类别照常列出，前面类别耗尽预算不影响后面类别；可确认候选的判断被截断时附"自行对照画像"的提醒）、工作池的并发上限、模型冷却后排队的提问不再发出，以及冷却结束后再次提问。
-     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、缺少或无效的页面类型（不受整理基准限制）、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead、遗留与推翻记录）；各项修正后消失，每类 20 项上限。
+     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、缺少或无效的页面类型（不受整理基准限制）、混用结构词（仅提示；小节标题、归属行、原话与拒绝标记、列表项中的改为与 instead、遗留与推翻记录）；汇总节的格式问题（无法识别的行、不存在的周号或月份、写错文件的周或月；周号按 ISO 周的年份与周数计，跨年的周按周四所在月）；各项修正后消失，每类 20 项上限。
      - `ConsolidationReminderTests`：整理提示：天数门槛（含 `consolidation.remindAfterDays`）、可确认候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、整理提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否。
      - `BindingTests`：`connect` 与 `disconnect` 的门面规则：名称规范化与拒绝（逐例断言拒绝时不写任何文件）、同名异路径的拒绝、上下文文件的上一级目录与 skill 目录不存在时的拒绝、`~` 展开与绝对路径的记录、记录的四个字段、上下文文件的创建与删除（`createdContextFile`）、常驻区块的写入与逐字节恢复、`mcp.json` 的字节不变、缺失的名称与配置无效时的 `disconnect`；共用：两个名称共用 skill 目录与上下文文件时的单一常驻区块与三个链接、两种解绑顺序、`createdContextFile` 的继承、只共用上下文文件、Windows 上大小写不同的同一路径、一次渲染只返回一个结果、名称绑到其他路径时的拒绝。
      - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）；skill 目录被两个客户端共用时的复用报告，以及两种解绑顺序下链接的保留与拆除。
@@ -51,6 +51,7 @@
      - `RecentActivityTests`：`add_activity` 与 `replaces` 改写、`update_mainline`、添加后回复中的主线与近期活动；未知参数的拒绝与缺 op 时的参数列表。
      - `SameTopicTests`：近期活动的同主题判断与退回。
      - `RecallActivityTests`：检索近期活动：`kind` 筛选、过滤、主线不入索引、同步。
+     - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与项目筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步；ISO 周边界（经 `SummaryLines.WeekOf`）；已完成且有活动、但还没有汇总的周与月（经 `SummaryCalendar.Unsummarized`）。
      - `RecentSummaryInstructionTests`：服务端说明中的近期摘要：内容、排序、截断、窗口与刷新。
      - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并。
      - `PersonaReplaceDeleteTests`：画像 `replace` 与 `delete` 的定位、校验与回显。
@@ -64,7 +65,7 @@
 2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致。
+     - `McpHostTests`：服务端说明下发、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致。
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
@@ -103,7 +104,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ## 3. 本地化完整性
 
-两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是唯一直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。
+两种写法齐全由编译期保证（见 `docs/architecture.md` 第 3 节）。`TacitMemory.Core.Tests` 中的本地化测试检查编译器看不到的部分：每项两种写法都非空、格式占位符一致；结构词在两种语言之间互不重复；`init` 写出的每个标题都是该语言的结构词。这是直接读取 `internal` 类型的测试：文本表本身就是被检查的对象，没有公开契约可以替代。`SummaryTests` 中的 ISO 周边界与未汇总列表同样直接读取 `SummaryLines` 与 `SummaryCalendar`，因为这两个查询尚无公开入口；工单 11、12 把它们接入整理报告后，应改为经门面测试并删去这里的直接读取。
 
 ## 4. 提示词的验证
 

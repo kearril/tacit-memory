@@ -32,6 +32,24 @@ internal static class RecentFile
         var heading = $"## {day:yyyy-MM-dd}";
         var headingAt = lines.FindIndex(line => line.TrimEnd('\r') == heading);
         int at;
+        if (headingAt < 0 && SummaryLines.HeadingIndex(lines) is var summaryAt and >= 0)
+        {
+            // The new day goes above the summary section, which stays at the end of the file, with a blank line between.
+            var before = summaryAt;
+            while (before > 0 && lines[before - 1].Trim().Length == 0)
+                before--;
+            var block = new List<string>();
+            if (before > 0)
+                block.Add(cr);
+            block.Add(heading + cr);
+            at = before + block.Count;
+            block.AddRange(entry.Select(line => line + cr));
+            if (before == summaryAt)
+                block.Add(cr);
+            lines.InsertRange(before, block);
+            return (string.Concat(lines.Select(line => line + "\n")), at);
+        }
+
         if (headingAt < 0)
         {
             lines.Add(heading + cr);
@@ -60,12 +78,16 @@ internal static class RecentFile
     /// </summary>
     public static string CodeAt(string text, int line) => CodesByLine(text)[line];
 
-    /// <summary>The short code of every <c>- </c> line, keyed by the line's index in the file.</summary>
+    /// <summary>
+    /// The short code of every <c>- </c> line, keyed by the line's index in the file. Summary lines take no code.
+    /// </summary>
     private static Dictionary<int, string> CodesByLine(string text)
     {
-        var entries = text.Split('\n')
+        var lines = text.Split('\n');
+        var inSummary = SummaryLines.InSection(lines);
+        var entries = lines
             .Select((content, index) => (Body: content.TrimEnd('\r'), Index: index))
-            .Where(entry => entry.Body.StartsWith("- ", StringComparison.Ordinal))
+            .Where(entry => !inSummary[entry.Index] && entry.Body.StartsWith("- ", StringComparison.Ordinal))
             .ToList();
         var codes = ShortCode.For(entries.Select(entry => ShortCode.Normalize(entry.Body[2..])));
         return entries

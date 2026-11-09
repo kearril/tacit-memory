@@ -51,6 +51,53 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_client_on_the_2026_07_28_revision_runs_without_a_session()
+    {
+        await using var client = await ConnectAsync();
+
+        Assert.Equal("2026-07-28", client.NegotiatedProtocolVersion);
+        Assert.Null(client.SessionId);
+        Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", client.ServerInstructions);
+        Assert.Equal(["recall", "write_page", "write_persona", "write_recent"], (await client.ListToolsAsync()).Select(tool => tool.Name).Order());
+    }
+
+    [Theory]
+    [InlineData("2025-03-26")]
+    [InlineData("2025-06-18")]
+    [InlineData("2025-11-25")]
+    public async Task A_client_on_an_older_revision_still_connects_through_initialize_without_a_session(string version)
+    {
+        await using var client = await McpClient.CreateAsync(
+            new HttpClientTransport(new HttpClientTransportOptions { Endpoint = _host.Endpoint, TransportMode = HttpTransportMode.StreamableHttp }),
+            new McpClientOptions { ProtocolVersion = version });
+
+        Assert.Equal(version, client.NegotiatedProtocolVersion);
+        Assert.Null(client.SessionId);
+        Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", client.ServerInstructions);
+        var recalled = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "数据库" });
+        Assert.NotEqual(true, recalled.IsError);
+    }
+
+    [Fact]
+    public async Task A_raw_initialize_answer_carries_no_session_header()
+    {
+        using var http = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, _host.Endpoint)
+        {
+            Content = new StringContent(
+                """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"raw","version":"1"}}}""",
+                System.Text.Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        using var response = await http.SendAsync(request);
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.False(response.Headers.Contains("Mcp-Session-Id"));
+    }
+
+    [Fact]
     public async Task Recall_and_the_write_tools_are_listed_with_their_annotations()
     {
         await using var client = await ConnectAsync();
