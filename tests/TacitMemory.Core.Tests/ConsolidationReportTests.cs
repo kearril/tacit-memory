@@ -1,6 +1,6 @@
 namespace TacitMemory.Core.Tests;
 
-public sealed class CheckupReportTests : IDisposable
+public sealed class ConsolidationReportTests : IDisposable
 {
     private readonly TestHome _home = new();
 
@@ -47,7 +47,7 @@ public sealed class CheckupReportTests : IDisposable
     {
         using var service = Open();
 
-        var report = await service.CheckupReportAsync();
+        var report = await service.ConsolidationReportAsync();
 
         Assert.Contains(Memory, report);
         Assert.Contains($"git -C \"{Memory}\"", report);
@@ -58,7 +58,7 @@ public sealed class CheckupReportTests : IDisposable
     {
         using var service = Open();
 
-        var prompt = await service.CheckupReportAsync();
+        var prompt = await service.ConsolidationReportAsync();
 
         foreach (var title in new[]
         {
@@ -75,44 +75,44 @@ public sealed class CheckupReportTests : IDisposable
     }
 
     [Fact]
-    public async Task With_a_checkup_commit_the_latest_one_is_the_baseline_even_when_empty()
+    public async Task With_a_consolidation_commit_the_latest_one_is_the_baseline_even_when_empty()
     {
         using var service = Open();
-        Commit("checkup: first pass");
+        Commit("consolidate: first pass");
         var first = HeadHash();
         Commit("pages: create tacit-memory/db-upgrade");
-        Commit("checkup: second pass");
+        Commit("consolidate: second pass");
         var second = HeadHash();
 
-        var prompt = await service.CheckupReportAsync();
+        var prompt = await service.ConsolidationReportAsync();
 
         Assert.Contains(second, prompt);
         Assert.DoesNotContain(first, prompt);
     }
 
     [Fact]
-    public async Task Without_a_checkup_the_init_commit_is_the_baseline()
+    public async Task Without_a_consolidation_the_init_commit_is_the_baseline()
     {
         using var service = Open();
         var init = HeadHash();
         await service.WriteRecentAsync(new WriteRecentRequest { Op = "add_activity", Text = "做了一件事" });
 
-        var prompt = await service.CheckupReportAsync();
+        var prompt = await service.ConsolidationReportAsync();
 
         Assert.Contains(init, prompt);
     }
 
     [Fact]
-    public async Task With_neither_checkup_nor_init_the_repository_has_never_been_checked()
+    public async Task With_neither_consolidation_nor_init_the_repository_has_never_been_checked()
     {
         _home.InitReady();
         var root = HeadHash();
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup memory");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var prompt = await service.CheckupReportAsync();
+        var prompt = await service.ConsolidationReportAsync();
 
-        Assert.Contains("Last checkup: never", prompt);
+        Assert.Contains("Last consolidate: never", prompt);
         Assert.DoesNotContain(root, prompt);
     }
 
@@ -125,7 +125,7 @@ public sealed class CheckupReportTests : IDisposable
             + Candidate("两天的候选", "偏好", "2026-10-30", "2026-10-31")
             + "\n## 拒绝列表\n");
 
-        var section = Section(await service.CheckupReportAsync(), "Confirmable persona candidates");
+        var section = Section(await service.ConsolidationReportAsync(), "Confirmable persona candidates");
 
         Assert.Contains("两天的候选", section);
         Assert.Contains("「2026-10-31的话」", section);
@@ -139,11 +139,11 @@ public sealed class CheckupReportTests : IDisposable
         var committed = DateOnly.Parse(TestHome.Git(Memory, "log", "-1", "--format=%as", "--", "recent.md").Trim(), System.Globalization.CultureInfo.InvariantCulture);
 
         ClockOn(committed.AddDays(14));
-        var fresh = Section(await service.CheckupReportAsync(), "Stale mainline");
+        var fresh = Section(await service.ConsolidationReportAsync(), "Stale mainline");
         Assert.DoesNotContain(committed.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), fresh);
 
         ClockOn(committed.AddDays(15));
-        var stale = Section(await service.CheckupReportAsync(), "Stale mainline");
+        var stale = Section(await service.ConsolidationReportAsync(), "Stale mainline");
         Assert.Contains(committed.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), stale);
     }
 
@@ -155,7 +155,7 @@ public sealed class CheckupReportTests : IDisposable
             + string.Concat(Enumerable.Range(1, 21).Select(number =>
                 Candidate($"habit-{number:00}", "偏好", "2026-10-30", "2026-10-31"))));
 
-        var section = Section(await service.CheckupReportAsync(), "Confirmable persona candidates");
+        var section = Section(await service.ConsolidationReportAsync(), "Confirmable persona candidates");
 
         Assert.Contains("habit-20", section);
         Assert.DoesNotContain("habit-21", section);
@@ -170,7 +170,7 @@ public sealed class CheckupReportTests : IDisposable
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.CheckupReportAsync(cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ConsolidationReportAsync(cancelled.Token));
 
         Assert.Equal(before, TestHome.Git(Memory, "status", "--porcelain"));
     }

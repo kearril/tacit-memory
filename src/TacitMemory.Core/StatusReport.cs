@@ -21,10 +21,10 @@ public sealed record StatusReport
     /// <summary>Each client binding and whether its files are still in place.</summary>
     public BindingsStatus? Bindings { get; init; }
 
-    /// <summary>When the last checkup was, and how many days ago.</summary>
-    public CheckupStatus? Checkup { get; init; }
+    /// <summary>When the last consolidation was, and how many days ago.</summary>
+    public ConsolidationStatus? Consolidation { get; init; }
 
-    /// <summary>The counts a checkup would raise: confirmable candidates, format problems, a stale mainline.</summary>
+    /// <summary>The counts a consolidation would raise: confirmable candidates, format problems, a stale mainline.</summary>
     public PendingStatus? Pending { get; init; }
 
     /// <summary>The latest local backup and the cloud backup record.</summary>
@@ -39,7 +39,7 @@ public sealed record StatusReport
     /// <summary>The columns the report carries, in the order the CLI lists them. Not part of the reply: it is derived from the columns above.</summary>
     [JsonIgnore]
     public IReadOnlyList<IStatusColumn> Columns =>
-        new IStatusColumn?[] { Config, Service, Models, Bindings, Checkup, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
+        new IStatusColumn?[] { Config, Service, Models, Bindings, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
 }
 
 /// <summary>How a line of a status column stands. The CLI colours it: ok green, attention yellow, problem red.</summary>
@@ -159,9 +159,9 @@ public enum BindingProblem
     SkillLinkNotTacit,
 }
 
-/// <param name="LastCheckupDay">The day of the last checkup, or of the init commit standing in for it; <c>null</c> when there is none, or the history cannot be read.</param>
-/// <param name="DaysSince">Days from that day to today; <c>null</c> together with <paramref name="LastCheckupDay"/>.</param>
-public sealed record CheckupStatus(string Title, IReadOnlyList<string> Lines, DateOnly? LastCheckupDay, int? DaysSince) : IStatusColumn;
+/// <param name="LastConsolidationDay">The day of the last consolidation, or of the init commit standing in for it; <c>null</c> when there is none, or the history cannot be read.</param>
+/// <param name="DaysSince">Days from that day to today; <c>null</c> together with <paramref name="LastConsolidationDay"/>.</param>
+public sealed record ConsolidationStatus(string Title, IReadOnlyList<string> Lines, DateOnly? LastConsolidationDay, int? DaysSince) : IStatusColumn;
 
 /// <param name="Confirmable">Candidates that can be confirmed; <c>null</c> when <c>candidates.md</c> is not valid UTF-8 or the history cannot be read.</param>
 /// <param name="FormatProblems">Format and rule problems; <c>null</c> when the history cannot be read.</param>

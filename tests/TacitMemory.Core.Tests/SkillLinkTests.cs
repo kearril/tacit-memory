@@ -31,7 +31,7 @@ public sealed class SkillLinkTests : IDisposable
     }
 
     /// <summary>Every skill connect links into the client's skill folder.</summary>
-    private static readonly string[] Names = ["tacit-memory", "tacit-remember", "tacit-checkup"];
+    private static readonly string[] Names = ["tacit-memory", "tacit-remember", "tacit-consolidate"];
 
     public static TheoryData<string> SkillNames => new(Names);
 

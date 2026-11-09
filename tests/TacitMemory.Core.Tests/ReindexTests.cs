@@ -62,21 +62,21 @@ public sealed class ReindexTests : IDisposable
     }
 
     [Fact]
-    public async Task The_rebuild_empties_the_judgment_cache_so_the_next_checkup_asks_the_decision_model_again()
+    public async Task The_rebuild_empties_the_judgment_cache_so_the_next_consolidation_asks_the_decision_model_again()
     {
         Write("回答尽量简短");
         PickPersonaEntry();
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
         var asked = _models.DecisionCalls;
-        Assert.True(asked > 0, "The first checkup should have asked the decision model.");
+        Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
 
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
         Assert.Equal(asked, _models.DecisionCalls);
 
         await Service.ReindexAsync().WaitAsync(Guard);
-        await Service.CheckupReportAsync().WaitAsync(Guard);
+        await Service.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.JudgmentCompletion.WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > asked);

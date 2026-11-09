@@ -17,7 +17,7 @@ public sealed record TacitConfig
     /// <summary>Distinct days a persona candidate must appear on before it can be confirmed.</summary>
     public required int CandidateMinDays { get; init; }
 
-    public required CheckupConfig Checkup { get; init; }
+    public required ConsolidationConfig Consolidation { get; init; }
 
     public required DecisionThresholds Decision { get; init; }
 
@@ -63,7 +63,7 @@ public sealed record PersonaLimits(int RedLines, int WorkingRules, int Preferenc
 
 public sealed record PageLimits(int TitleLength, int AliasLength, int MinAliases);
 
-public sealed record CheckupConfig(int RemindAfterDays, int MainlineStaleDays, int BudgetSeconds, int MaxConcurrency);
+public sealed record ConsolidationConfig(int RemindAfterDays, int MainlineStaleDays, int BudgetSeconds, int MaxConcurrency);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
 public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameTopic, Threshold? RuleConflict);

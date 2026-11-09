@@ -11,7 +11,7 @@ internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 
 /// <summary>
 /// Before a page is created, asks whether a page of the same project already records the same matter: the nearest
-/// pages by embedding, plus "none of these", go to the decision model as a choice question. The checkup asks the same
+/// pages by embedding, plus "none of these", go to the decision model as a choice question. The consolidation asks the same
 /// question about changed pages, so the question and its options are built by the members shared below.
 /// </summary>
 internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)

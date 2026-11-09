@@ -32,7 +32,7 @@ public sealed class UsageErrorTests : IDisposable
         { ["restore", "--from", "x.zip", "--remote"], "--remote" },
         { ["show", "tools", "--default"], "--default" },
         { ["show", "remember", "--default"], "--default" },
-        { ["show", "checkup", "--default"], "--default" },
+        { ["show", "consolidate", "--default"], "--default" },
         { ["show", "--default"], "--default" },
         { ["probe", "bogus"], "bogus" },
         { ["PROBE", "BOGUS"], "BOGUS" },

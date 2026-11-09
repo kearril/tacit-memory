@@ -1,6 +1,6 @@
 using TacitMemory.Core.Decisions;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>One unordered pair two items were found in: the first item and the second as they were first found, and the tier.</summary>
 internal sealed record PairFinding<T>(T First, T Second, Tier Tier);

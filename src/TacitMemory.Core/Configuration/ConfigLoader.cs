@@ -41,7 +41,7 @@ internal static class ConfigLoader
         var language = LanguageCodes.Parse(languageText) ?? fallbackLanguage;
 
         var reader = new ConfigReader(language);
-        reader.OnlyKnown(root, "", "server", "memory", "language", "models", "limits", "candidates", "checkup", "decision", "retrieval", "backup");
+        reader.OnlyKnown(root, "", "server", "memory", "language", "models", "limits", "candidates", "consolidation", "decision", "retrieval", "backup");
         if (reader.Text(root, "", "language") is { } code && LanguageCodes.Parse(code) is null)
             reader.Error("language", Messages.ConfigExpectedLanguage, code);
 
@@ -58,7 +58,7 @@ internal static class ConfigLoader
         var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
         var candidateMinDays = ReadCandidates(reader, root);
-        var checkup = ReadCheckup(reader, root);
+        var consolidation = ReadConsolidation(reader, root);
         var decision = ReadDecision(reader, root);
         var retrieval = ReadRetrieval(reader, root);
         var backup = ReadBackup(reader, root, options.Secrets);
@@ -82,7 +82,7 @@ internal static class ConfigLoader
             Models = models,
             Limits = limits,
             CandidateMinDays = candidateMinDays,
-            Checkup = checkup,
+            Consolidation = consolidation,
             Decision = decision,
             Retrieval = retrieval,
             Backup = backup,
@@ -239,15 +239,15 @@ internal static class ConfigLoader
         return Count(reader, candidates, "candidates", "minDays", 2);
     }
 
-    private static CheckupConfig ReadCheckup(ConfigReader reader, YamlMappingNode root)
+    private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)
     {
-        var checkup = reader.Mapping(root, "", "checkup");
-        reader.OnlyKnown(checkup, "checkup", "remindAfterDays", "mainlineStaleDays", "budgetSeconds", "maxConcurrency");
-        return new CheckupConfig(
-            Count(reader, checkup, "checkup", "remindAfterDays", 7),
-            Count(reader, checkup, "checkup", "mainlineStaleDays", 14),
-            Count(reader, checkup, "checkup", "budgetSeconds", 20),
-            Count(reader, checkup, "checkup", "maxConcurrency", 5));
+        var consolidation = reader.Mapping(root, "", "consolidation");
+        reader.OnlyKnown(consolidation, "consolidation", "remindAfterDays", "mainlineStaleDays", "budgetSeconds", "maxConcurrency");
+        return new ConsolidationConfig(
+            Count(reader, consolidation, "consolidation", "remindAfterDays", 7),
+            Count(reader, consolidation, "consolidation", "mainlineStaleDays", 14),
+            Count(reader, consolidation, "consolidation", "budgetSeconds", 20),
+            Count(reader, consolidation, "consolidation", "maxConcurrency", 5));
     }
 
     private static DecisionThresholds ReadDecision(ConfigReader reader, YamlMappingNode root)

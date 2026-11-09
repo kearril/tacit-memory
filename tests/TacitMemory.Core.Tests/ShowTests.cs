@@ -243,7 +243,7 @@ public sealed class ShowTests : IDisposable
         var tools = new[]
         {
             new ToolDescription("recall", "Search the memory.", [new ParameterDescription("query", "string", "What to look for.")]),
-            new ToolDescription("checkup", "Report on the memory.", []),
+            new ToolDescription("consolidation", "Report on the memory.", []),
         };
 
         var result = _home.Tacit().ShowTools(_home.Tacit().LoadConfig(), tools);
@@ -251,6 +251,6 @@ public sealed class ShowTests : IDisposable
         Assert.Contains("2", result.Report.Split('\n')[0]);
         Assert.Contains("## recall\nSearch the memory.", result.Report);
         Assert.Contains("- query (string): What to look for.", result.Report);
-        Assert.True(result.Report.IndexOf("## recall", StringComparison.Ordinal) < result.Report.IndexOf("## checkup", StringComparison.Ordinal));
+        Assert.True(result.Report.IndexOf("## recall", StringComparison.Ordinal) < result.Report.IndexOf("## consolidation", StringComparison.Ordinal));
     }
 }

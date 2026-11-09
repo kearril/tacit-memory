@@ -12,9 +12,9 @@
 | 服务端说明 | 主会话 | 会话开始，始终可见 | 客户端连接时由常驻服务下发 |
 | 工具说明 | 主会话 | 客户端可能只先显示名称与首句，用到时才读全文；`recall` 标注为首轮即加载 | 随工具列表下发 |
 | 工具回复 | 主会话 | 调用之后 | 每次调用现场生成 |
-| 记忆指令（`tacit-remember`、`tacit-checkup` skill） | 主会话 | 用户触发 skill 时，正文作为用户消息送达，并附上用户写在命令后的文字；`tacit-checkup` 的报告由 Agent 读取资源 `tacit://checkup-report` 取得 | 正文由代码生成，写入 `TACIT_HOME/skills/`，内容不变不写文件；报告在读取时现场生成 |
+| 记忆指令（`tacit-remember`、`tacit-consolidate` skill） | 主会话 | 用户触发 skill 时，正文作为用户消息送达，并附上用户写在命令后的文字；`tacit-consolidate` 的报告由 Agent 读取资源 `tacit://consolidation-report` 取得 | 正文由代码生成，写入 `TACIT_HOME/skills/`，内容不变不写文件；报告在读取时现场生成 |
 | 记忆 skill | 主会话 | 会话开始只看到名称与描述，Agent 读取时才看到正文 | 服务启动、`prompts/` 变化、`connect` 与门面的 `GenerateSkills` 时生成（三个 skill 一并生成），内容不变不写文件 |
-| 判断问题 | 决策模型 | 写入前；体检时 | 每次判断现场生成，不进入主会话 |
+| 判断问题 | 决策模型 | 写入前；整理时 | 每次判断现场生成，不进入主会话 |
 
 ## 2. 职责分类与放置原则
 
@@ -61,7 +61,7 @@
 
 ## 4. 服务端说明
 
-按下发顺序：开场、核心规则、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、体检提示。开场、核心规则、通用规则、语言规范与值得记标准是固定部分，计入固定部分的长度上限。
+按下发顺序：开场、核心规则、通用规则、语言规范、值得记标准、近期摘要、状态提示、已有项目、整理提示。开场、核心规则、通用规则、语言规范与值得记标准是固定部分，计入固定部分的长度上限。
 
 核心规则的来源是 `prompts/instructions.md`：用户放置该文件时整份替换核心规则，缺失时使用内置默认。内置默认即"运用记忆""何时检索""写页面""写活动与主线""写画像"五段原文，代码中以 `ServerInstructionText.DefaultInstructions` 保存；下文各小节描述的是这五段的内容。其中 HTML 注释的下发规则见 `docs/reference/configuration.md`「提示词文档」。
 
@@ -105,7 +105,7 @@
 
 | 条目 | 要 Agent 做什么 | 兜底 |
 | :--- | :--- | :--- |
-| 提交候选 | 用户表达的习惯、偏好或协作规则，即使是顺带说的，也用 `propose` 提交为候选 | 同一偏好判断；候选需经体检确认 |
+| 提交候选 | 用户表达的习惯、偏好或协作规则，即使是顺带说的，也用 `propose` 提交为候选 | 同一偏好判断；候选需经整理确认 |
 | 直接写入的权限 | 只有用户明确要求才 `add`；红线只由用户提出 | `propose` 拒绝红线；`add` 只有画像冲突判断 |
 | 矛盾时 | 用户的话与画像条目矛盾时照用户的做，不提交候选，先问是否更新，同意后才 `replace` | `add` 与 `replace` 都有画像冲突判断（`replace` 排除被替换的条目） |
 
@@ -128,11 +128,11 @@
 
 `prompts/rules.md` 两节的条目原样写入，决定什么值得记、什么不记。它是用户直接维护的策略，缺失时按记忆语言重新生成。
 
-### 近期摘要、状态提示、已有项目、体检提示（动态数据）
+### 近期摘要、状态提示、已有项目、整理提示（动态数据）
 
 内容与生成规则见 `docs/design.md` 第 8 节。近期摘要让 Agent 不检索也知道用户最近在忙什么；状态提示让 Agent 知道检索与判断可能变弱；已有项目让 Agent 写 `project` 时沿用已有的名字。
 
-体检提示的职责：距上次体检已久，或有可确认的候选时，提醒 Agent 在合适的时机建议用户运行 `tacit-checkup` skill。它不替用户决定，也不自行开始体检；Agent 可以用其中的天数与计数说明为什么现在值得体检，而不是把这些数字当作记忆内容复述。它是下发的最后一段，体检提交后的下一个会话中消失（仍有可确认的候选时除外）。
+整理提示的职责：距上次整理已久，或有可确认的候选时，提醒 Agent 在合适的时机建议用户运行 `tacit-consolidate` skill。它不替用户决定，也不自行开始整理；Agent 可以用其中的天数与计数说明为什么现在值得整理，而不是把这些数字当作记忆内容复述。它是下发的最后一段，整理提交后的下一个会话中消失（仍有可确认的候选时除外）。
 
 ## 5. 工具说明（契约为主）
 
@@ -160,7 +160,7 @@
 
 ## 7. 记忆指令 skill
 
-两个记忆指令是两个 skill：`tacit-remember` 与 `tacit-checkup`，成品写入 `TACIT_HOME/skills/`。正文为英文，由代码生成，没有 `prompts/` 下的覆盖或追加文件。frontmatter 含 `name`、一句话 `description` 与 `disable-model-invocation: true`（只由用户触发，Agent 不自行调用），正文之前是标明由 TacitMemory 生成的 HTML 注释。两个正文都写明：用户随命令附的文字是本次运行的重点或附加要求，须遵从。
+两个记忆指令是两个 skill：`tacit-remember` 与 `tacit-consolidate`，成品写入 `TACIT_HOME/skills/`。正文为英文，由代码生成，没有 `prompts/` 下的覆盖或追加文件。frontmatter 含 `name`、一句话 `description` 与 `disable-model-invocation: true`（只由用户触发，Agent 不自行调用），正文之前是标明由 TacitMemory 生成的 HTML 注释。两个正文都写明：用户随命令附的文字是本次运行的重点或附加要求，须遵从。
 
 `tacit-remember` 让主会话立即把本会话写进记忆：
 
@@ -175,16 +175,16 @@
 
 不附带当天的活动或主线，代价是第 3、4 步遇到短码时多一次往返。正文只取决于代码，不读记忆仓库。
 
-### tacit-checkup
+### tacit-consolidate
 
-`tacit-checkup` 让主会话依据体检报告整理记忆仓库，无参数。正文由四部分组成，各部分的职责如下：
+`tacit-consolidate` 让主会话依据整理报告整理记忆仓库，无参数。正文由四部分组成，各部分的职责如下：
 
 | 部分 | 要主会话做什么 | 类别 |
 | :--- | :--- | :--- |
-| 开场 | 现在开始体检；先读取资源 `tacit://checkup-report`，读不到则停下请用户运行 `tacit serve`；记忆仓库的绝对路径；用绝对路径改文件，并在该目录中执行 git | 契约（路径、资源名）与策略 |
-| 步骤 | 步骤的顺序，以及哪些直接处理、哪些逐项问用户：机械问题与待清理的候选直接处理；可确认的候选逐条问，给出确认、拒绝、暂缓的写法；重复页、冲突条目与超限的节逐项问；主线与画像审视；最后以 `checkup:` 提交 | 策略，含权限边界：合并页面、改写条目与改动画像，都要在用户同意之后 |
+| 开场 | 现在开始整理；先读取资源 `tacit://consolidation-report`，读不到则停下请用户运行 `tacit serve`；记忆仓库的绝对路径；用绝对路径改文件，并在该目录中执行 git | 契约（路径、资源名）与策略 |
+| 步骤 | 步骤的顺序，以及哪些直接处理、哪些逐项问用户：机械问题与待清理的候选直接处理；可确认的候选逐条问，给出确认、拒绝、暂缓的写法；重复页、冲突条目与超限的节逐项问；主线与画像审视；最后以 `consolidate:` 提交 | 策略，含权限边界：合并页面、改写条目与改动画像，都要在用户同意之后 |
 | 结构词对照表与示例 | 按记忆语言列出结构词，并给出候选块与拒绝列表条目的写法（日期用 `YYYY-MM-DD` 占位），使主会话直接改文件时服务能认出 | 契约（格式） |
-| 体检报告 | 不在正文中，由资源返回：此刻的事实，即今天的日期、记忆仓库路径、上次体检的基准提交，以及六类问题；每类有英文标题，每类最多列 20 项 | 动态数据（经资源读取） |
+| 整理报告 | 不在正文中，由资源返回：此刻的事实，即今天的日期、记忆仓库路径、上次整理的基准提交，以及六类问题；每类有英文标题，每类最多列 20 项 | 动态数据（经资源读取） |
 
 步骤引用报告的类别标题，因此标题由代码统一定义，正文与报告共用这一份定义；步骤与报告的文字都是英文，被引用的记忆内容保持原文。服务不在报告中给出做法，做法只在步骤中。
 
@@ -246,7 +246,7 @@
 | 画像怎么被运用（外壳与四节引导语） | `prompts/resident.md`（整份替换内置默认） | 下一个会话 |
 | 怎么写：个人的写法约定 | `prompts/skill.md`（接在记忆 skill 末尾） | 下一次读取 skill |
 | 怎么写：系统部分的写法 | `src/TacitMemory.Core/Skills/MemorySkill.cs`（英文） | 服务重启或 `prompts/` 变化后 |
-| 记忆指令的写法（`tacit-remember`、`tacit-checkup` 正文） | `src/TacitMemory.Core/Skills/RememberSkill.cs`、`CheckupSkill.cs`（英文）；用户不可替换 | 服务重启或 `prompts/` 变化后，随 skill 一并生成 |
+| 记忆指令的写法（`tacit-remember`、`tacit-consolidate` 正文） | `src/TacitMemory.Core/Skills/RememberSkill.cs`、`ConsolidationSkill.cs`（英文）；用户不可替换 | 服务重启或 `prompts/` 变化后，随 skill 一并生成 |
 | 调用格式、参数、短码、长度与条数上限 | `src/TacitMemory.Mcp/MemoryTools.cs` 中的工具说明；其中的上限占位由 `ToolCatalog` 按配置填入 | 工具列表下发时 |
 | 必填参数与各参数的取值（schema 的 `required`、`enum`） | `src/TacitMemory.Mcp/MemoryTools.cs` 的参数标注；取值来自 `src/TacitMemory.Core/ToolValues.cs` | 工具列表下发时 |
 | 拒绝回复的内容与"下一步" | 对应的 `ToolText.Refuse` 调用处 | 调用时 |
@@ -262,8 +262,8 @@
 | `skill` | `tacit-memory` skill 的完整成品；`--default` 只输出系统部分 | 代码，以及 `prompts/skill.md` |
 | `tools` | 各工具与参数的说明，由 CLI 经 `TacitMemory.Mcp` 读取，上限取自已严格加载的配置 | 代码与 `config.yaml` 的 `limits` |
 | `remember` | `tacit-remember` skill 的完整成品 | 代码 |
-| `checkup` | `tacit-checkup` skill 的完整成品（不含体检报告，报告由资源提供） | 代码与记忆语言 |
+| `consolidation` | `tacit-consolidate` skill 的完整成品（不含整理报告，报告由资源提供） | 代码与记忆语言 |
 
-- `--default`（用于 `instructions`、`resident`、`skill`）只输出内置默认文本，可以直接保存为覆盖文件的起点，例如 `tacit show instructions --default > <TACIT_HOME>/prompts/instructions.md`。`remember`、`checkup` 与 `tools` 没有内置默认文本，不接受 `--default`。
+- `--default`（用于 `instructions`、`resident`、`skill`）只输出内置默认文本，可以直接保存为覆盖文件的起点，例如 `tacit show instructions --default > <TACIT_HOME>/prompts/instructions.md`。`remember`、`consolidation` 与 `tools` 没有内置默认文本，不接受 `--default`。
 - 输出是此刻的内容，不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）；运行中的服务还会加入这些状态提示。
 - 标签随记忆语言切换，正文原样输出。

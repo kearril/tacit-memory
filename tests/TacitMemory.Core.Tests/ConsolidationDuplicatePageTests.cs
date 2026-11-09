@@ -1,11 +1,11 @@
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// The checkup's suspected duplicate pages through the facade: only the pages changed since the last checkup are judged,
+/// The consolidation's suspected duplicate pages through the facade: only the pages changed since the last consolidation are judged,
 /// each against the nearest pages of its project, as a new page is judged live. A sure match and an unsure one are
 /// listed with their tiers, a rejection is not, and a pair is listed once.
 /// </summary>
-public sealed class CheckupDuplicatePageTests : IDisposable
+public sealed class ConsolidationDuplicatePageTests : IDisposable
 {
     /// <summary>A bound on each await: a wait for a timer the test never moves fails here instead of hanging.</summary>
     private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
@@ -28,7 +28,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     private MemoryService? _service;
     private int _callsAtCheckpoint;
 
-    public CheckupDuplicatePageTests()
+    public ConsolidationDuplicatePageTests()
     {
         _models.Choose = Answered;
     }
@@ -45,7 +45,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
 
     private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-    /// <summary>The decision requests made since the last checkup commit; the live writes before it are not counted.</summary>
+    /// <summary>The decision requests made since the last consolidation commit; the live writes before it are not counted.</summary>
     private int AskedSinceCheckpoint => _models.DecisionCalls - _callsAtCheckpoint;
 
     private void Configure(string extra = "") => _home.InitReady(extra, _models);
@@ -69,7 +69,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     }
 
     /// <summary>
-    /// Records a checkup commit, which is what the next checkup counts changes from. Like the checkup, it commits every
+    /// Records a consolidation commit, which is what the next consolidation counts changes from. Like the consolidation, it commits every
     /// change made so far, so the pages edited by hand become part of the baseline.
     /// </summary>
     private void CheckpointCommit(string message)
@@ -100,7 +100,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         });
     }
 
-    private async Task<string> Checkup() => await Service.CheckupReportAsync().WaitAsync(Guard);
+    private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
     /// <summary>The text of the duplicate pages category: from its heading to the next heading, or to the end.</summary>
     private static string SectionOf(string text)
@@ -126,14 +126,14 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     }
 
     [Fact]
-    public async Task Only_pages_changed_since_the_last_checkup_are_judged_including_uncommitted_edits()
+    public async Task Only_pages_changed_since_the_last_consolidation_are_judged_including_uncommitted_edits()
     {
         await CreateDbPgAndDeploy();
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Answer(Deploy, Db, 0.95);
 
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(1, AskedSinceCheckpoint);
         var findings = FindingsOf(report);
@@ -143,23 +143,23 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     }
 
     [Fact]
-    public async Task A_page_the_checkup_has_seen_is_not_reported_again_until_it_changes()
+    public async Task A_page_the_consolidation_has_seen_is_not_reported_again_until_it_changes()
     {
         await CreateDbPgAndDeploy();
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Answer(Deploy, Db, 0.95);
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
-        Assert.Single(FindingsOf(await Checkup()));
-        CheckpointCommit("checkup: second pass");
+        Assert.Single(FindingsOf(await Consolidation()));
+        CheckpointCommit("consolidate: second pass");
 
-        var unchanged = await Checkup();
+        var unchanged = await Consolidation();
 
         Assert.Empty(FindingsOf(unchanged));
         Assert.Contains("None.", SectionOf(unchanged));
         Assert.Equal(0, AskedSinceCheckpoint);
 
         Edit("tacit-memory/deploy", "部署后先看日志再重启。", "部署后先看日志，再看指标。");
-        var changedAgain = FindingsOf(await Checkup());
+        var changedAgain = FindingsOf(await Consolidation());
         Assert.Single(changedAgain);
         Assert.Contains("tacit-memory/deploy", changedAgain[0]);
     }
@@ -173,7 +173,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         Edit("tacit-memory/db-upgrade", "升级后中文搜索没有结果。", "升级后中文搜索没有结果，扩展丢失。");
         Edit("tacit-memory/pg-search", "PGroonga 没装。", "PGroonga 没有随升级重装。");
 
-        var findings = FindingsOf(await Checkup());
+        var findings = FindingsOf(await Consolidation());
 
         Assert.Single(findings);
         Assert.Contains("tacit-memory/db-upgrade", findings[0]);
@@ -188,7 +188,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         await Create("tacit-memory/pg-search", Pg);
         await Create("tacit-memory/deploy", Deploy, body: "部署后检查健康状况。");
         await Create("tacit-memory/rollback", Other);
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Answer(Db, Pg, 0.95);
         Answer(Deploy, Other, 0.6);
         Answer(Other, Db, 0.1);
@@ -196,7 +196,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
         Edit("tacit-memory/rollback", "升级后中文搜索没有结果。", "回滚前先备份。");
 
-        var findings = FindingsOf(await Checkup());
+        var findings = FindingsOf(await Consolidation());
 
         Assert.Equal(2, findings.Length);
         var sure = Assert.Single(findings, line => line.Contains("tacit-memory/db-upgrade", StringComparison.Ordinal));
@@ -214,11 +214,11 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         Configure();
         await Create("other-app/db-upgrade", Db);
         await Create("tacit-memory/pg-search", Pg);
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Answer(Pg, Db, 0.95);
         Edit("tacit-memory/pg-search", "升级后中文搜索没有结果。", "升级后中文搜索没有结果，扩展丢失。");
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(0, AskedSinceCheckpoint);
         Assert.Contains("None.", SectionOf(report));
@@ -228,13 +228,13 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     public async Task A_deleted_page_is_not_judged_and_is_not_offered_as_a_neighbour()
     {
         await CreateDbPgAndDeploy();
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Answer(Deploy, Db, 0.95);
         File.Delete(PageFile("tacit-memory/db-upgrade"));
         File.Delete(PageFile("tacit-memory/pg-search"));
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(0, AskedSinceCheckpoint);
         Assert.Empty(FindingsOf(report));
@@ -244,11 +244,11 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     public async Task A_rejected_pair_is_not_listed()
     {
         await CreateDbPgAndDeploy();
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Answer(Deploy, Db, 0.1);
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(1, AskedSinceCheckpoint);
         Assert.Empty(FindingsOf(report));
@@ -256,7 +256,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_a_checkup_or_init_commit_every_page_counts_as_changed()
+    public async Task Without_a_consolidation_or_init_commit_every_page_counts_as_changed()
     {
         Configure();
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup memory");
@@ -264,7 +264,7 @@ public sealed class CheckupDuplicatePageTests : IDisposable
         await Create("tacit-memory/pg-search", Pg);
         Answer(Db, Pg, 0.95);
 
-        var findings = FindingsOf(await Checkup());
+        var findings = FindingsOf(await Consolidation());
 
         Assert.Single(findings);
         Assert.Contains("tacit-memory/db-upgrade", findings[0]);
@@ -275,11 +275,11 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     public async Task Without_the_decision_model_the_changed_pages_are_not_checked()
     {
         await CreateDbPgAndDeploy();
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
         _models.DecisionDown = true;
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Contains("Not checked", SectionOf(report));
         Assert.Empty(FindingsOf(report));
@@ -289,11 +289,11 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     public async Task Without_the_embedding_model_the_changed_pages_are_not_checked_and_no_decision_is_asked()
     {
         await CreateDbPgAndDeploy();
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Edit("tacit-memory/deploy", "部署后检查健康状况。", "部署后先看日志再重启。");
         _models.EmbeddingDown = true;
 
-        var report = await Checkup();
+        var report = await Consolidation();
 
         Assert.Equal(0, AskedSinceCheckpoint);
         Assert.Contains("Not checked", SectionOf(report));
@@ -303,14 +303,14 @@ public sealed class CheckupDuplicatePageTests : IDisposable
     [Fact]
     public async Task When_the_budget_runs_out_the_unanswered_pages_are_counted_as_not_checked()
     {
-        Configure($"checkup:\n  budgetSeconds: {Budget.TotalSeconds}\n");
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
         await Create("tacit-memory/db-upgrade", Db);
         await Create("tacit-memory/pg-search", Pg);
-        CheckpointCommit("checkup: first pass");
+        CheckpointCommit("consolidate: first pass");
         Edit("tacit-memory/db-upgrade", "升级后中文搜索没有结果。", "升级后中文搜索没有结果，扩展丢失。");
         _models.HoldDecisions();
 
-        var report = Service.CheckupReportAsync().WaitAsync(Guard);
+        var report = Service.ConsolidationReportAsync().WaitAsync(Guard);
         await _home.Clock.NextTimerAsync(Budget).WaitAsync(Guard);
         await _models.DecisionRequestsReached(_callsAtCheckpoint + 1).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);

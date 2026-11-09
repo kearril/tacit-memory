@@ -1,6 +1,6 @@
 # TacitMemory MCP 接口参考
 
-本文档列出常驻服务对 Agent 暴露的接口：端点、MCP 机制、工具的参数与返回，以及资源。各操作背后的规则见 `docs/design.md`（写入见第 6 节，检索见第 7 节，服务端说明见第 8 节，体检见第 9 节）；工具说明等发给模型的文字负责什么见 `docs/prompts.md`，其原文以代码为准，用 `tacit show tools` 查看。
+本文档列出常驻服务对 Agent 暴露的接口：端点、MCP 机制、工具的参数与返回，以及资源。各操作背后的规则见 `docs/design.md`（写入见第 6 节，检索见第 7 节，服务端说明见第 8 节，整理见第 9 节）；工具说明等发给模型的文字负责什么见 `docs/prompts.md`，其原文以代码为准，用 `tacit show tools` 查看。
 
 ## 1. 端点
 
@@ -58,6 +58,6 @@
 
 | URI | 名称 | 类型 | 内容 |
 | :--- | :--- | :--- | :--- |
-| `tacit://checkup-report` | `checkup-report` | `text/markdown` | 读取时现场生成的体检报告（`MemoryService.CheckupReportAsync`），内容见 `docs/design.md` 第 9 节 |
+| `tacit://consolidation-report` | `consolidation-report` | `text/markdown` | 读取时现场生成的整理报告（`MemoryService.ConsolidationReportAsync`），内容见 `docs/design.md` 第 9 节 |
 
-资源描述写明只在运行 `tacit-checkup` skill 时读取。
+资源描述写明只在运行 `tacit-consolidate` skill 时读取。

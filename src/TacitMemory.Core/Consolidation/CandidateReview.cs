@@ -4,7 +4,7 @@ using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>One candidate of <c>candidates.md</c>, the number of days it appeared on, and its outcome of the same-preference judgment.</summary>
 internal sealed record CandidateJudgment(PersonaCandidate Candidate, int Days, JudgmentOutcome<PreferenceMatch> Outcome);
@@ -45,7 +45,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     /// as the budget allows; it yields <c>null</c> when <c>candidates.md</c> is not valid UTF-8.
     /// </summary>
     public static async Task<AwaitAnswers<CandidateReview?>> StartAsync(
-        CheckupContext context, CheckupServices services, JudgmentSession judgments, CancellationToken cancellationToken)
+        ConsolidationContext context, ConsolidationServices services, JudgmentSession judgments, CancellationToken cancellationToken)
     {
         var config = context.Config;
         var candidates = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Candidates));
@@ -75,7 +75,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     /// there are none, and the question is not prepared when the embedding model is not reachable.
     /// </summary>
     private static async Task<PreparedChoice<PreferenceMatch>> PrepareAsync(
-        MemoryLanguage language, CheckupServices services, PersonaCandidate candidate, CancellationToken cancellationToken)
+        MemoryLanguage language, ConsolidationServices services, PersonaCandidate candidate, CancellationToken cancellationToken)
     {
         var vector = await services.Embedding.EmbedAsync([candidate.Text], cancellationToken);
         if (vector is null)

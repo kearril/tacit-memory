@@ -162,15 +162,23 @@ public sealed class McpHostTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_checkup_report_is_listed_as_a_resource_and_reads_back_the_memory_path_and_the_report()
+    public async Task The_old_checkup_report_uri_is_not_a_resource()
+    {
+        await using var client = await ConnectAsync();
+
+        await Assert.ThrowsAnyAsync<ModelContextProtocol.McpException>(() => client.ReadResourceAsync("tacit://checkup-report").AsTask());
+    }
+
+    [Fact]
+    public async Task The_consolidation_report_is_listed_as_a_resource_and_reads_back_the_memory_path_and_the_report()
     {
         await using var client = await ConnectAsync();
 
         var resource = Assert.Single(await client.ListResourcesAsync());
-        Assert.Equal("tacit://checkup-report", resource.Uri);
-        Assert.Contains("tacit-checkup", resource.Description, StringComparison.Ordinal);
+        Assert.Equal("tacit://consolidation-report", resource.Uri);
+        Assert.Contains("tacit-consolidate", resource.Description, StringComparison.Ordinal);
 
-        var result = await client.ReadResourceAsync("tacit://checkup-report");
+        var result = await client.ReadResourceAsync("tacit://consolidation-report");
         var text = string.Concat(result.Contents.OfType<ModelContextProtocol.Protocol.TextResourceContents>().Select(contents => contents.Text));
         Assert.Contains(_home.DefaultMemory, text);
         foreach (var title in new[]

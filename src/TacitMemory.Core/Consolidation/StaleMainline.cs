@@ -2,26 +2,26 @@ using System.Globalization;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Recent;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The mainline in <c>recent.md</c> when its last commit is more than <c>checkup.mainlineStaleDays</c> days ago. A
+/// The mainline in <c>recent.md</c> when its last commit is more than <c>consolidation.mainlineStaleDays</c> days ago. A
 /// file that was never committed is not stale.
 /// </summary>
 internal static class StaleMainline
 {
-    public static async Task<CheckupSection> ProduceAsync(CheckupContext context, CancellationToken cancellationToken)
+    public static async Task<ConsolidationSection> ProduceAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
         var committed = await LastCommitDayAsync(context.Git, cancellationToken);
         if (committed is not { } day)
-            return new CheckupSection(CheckupTitles.StaleMainline, []);
+            return new ConsolidationSection(ConsolidationTitles.StaleMainline, []);
 
-        var staleAfter = context.Config.Checkup.MainlineStaleDays;
+        var staleAfter = context.Config.Consolidation.MainlineStaleDays;
         var days = context.Today.DayNumber - day.DayNumber;
         if (days <= staleAfter)
-            return new CheckupSection(CheckupTitles.StaleMainline, []);
+            return new ConsolidationSection(ConsolidationTitles.StaleMainline, []);
 
-        return new CheckupSection(CheckupTitles.StaleMainline,
+        return new ConsolidationSection(ConsolidationTitles.StaleMainline,
         [
             $"- {MainlineSection.RelativePath} was last committed on {day:yyyy-MM-dd}, {days} days ago (stale after {staleAfter} days). Rewrite the mainline from the last month of activities.",
         ]);

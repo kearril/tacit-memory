@@ -18,7 +18,7 @@ public sealed record GeneratedSkill(string Name, string Path, bool Written);
 internal static class SkillSet
 {
     /// <summary>Every generated skill, by name; also the names of the client links.</summary>
-    public static readonly IReadOnlyList<string> Names = [MemorySkill.Name, RememberSkill.Name, CheckupSkill.Name];
+    public static readonly IReadOnlyList<string> Names = [MemorySkill.Name, RememberSkill.Name, ConsolidationSkill.Name];
 
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
@@ -32,13 +32,13 @@ internal static class SkillSet
     /// <summary>
     /// Writes every skill, leaving each file alone when it already holds exactly the text it would get.
     /// <paramref name="userConventions"/> is the text of <c>prompts/skill.md</c>, which only the memory skill carries; the
-    /// checkup command writes its structure words in <paramref name="language"/>.
+    /// consolidation command writes its structure words in <paramref name="language"/>.
     /// </summary>
     public static SkillResult Write(string tacitHome, MemoryLanguage language, string? userConventions) =>
         new([
             WriteOne(tacitHome, MemorySkill.Name, MemorySkill.Compose(userConventions)),
             WriteOne(tacitHome, RememberSkill.Name, RememberSkill.Compose()),
-            WriteOne(tacitHome, CheckupSkill.Name, CheckupSkill.Compose(language)),
+            WriteOne(tacitHome, ConsolidationSkill.Name, ConsolidationSkill.Compose(language)),
         ]);
 
     private static GeneratedSkill WriteOne(string tacitHome, string name, string text)

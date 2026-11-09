@@ -10,7 +10,7 @@
 ~/.tacit/
 ├── config.yaml                    # 配置
 ├── prompts/                       # 可编辑的提示词文档
-├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-checkup，请勿手改
+├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-consolidate，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见第 3 节）
@@ -22,7 +22,7 @@
 绑定所给的两个路径会被改动（只改 TacitMemory 自己的部分）：
 
 - 上下文文件（`connect --context`；omp 为 `~/.omp/agent/AGENTS.md`）：起止标记之间的常驻区块；
-- skill 目录（`connect --skills`；omp 为 `~/.omp/agent/skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-checkup`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
+- skill 目录（`connect --skills`；omp 为 `~/.omp/agent/skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-consolidate`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
 
 ## 2. 备份与恢复
 
@@ -60,7 +60,7 @@
 
 派生索引（`memory/.cache/`）损坏或换了嵌入模型时执行 `tacit reindex`（需服务运行）。嵌入模型名或向量维度变化时服务也会自动丢弃旧向量并补齐，`reindex` 用于需要立即全量重建的情况。
 
-换了决策模型后，也建议执行一次 `tacit reindex`。体检的判断缓存不随模型变化而失效（缓存键不含模型名，见 `docs/design.md` 第 9 节），内容没变的提问会沿用旧模型的答案；`reindex` 会清空判断缓存，之后的体检全部改问新模型。对话中实时写入的判断不读缓存，不受影响。
+换了决策模型后，也建议执行一次 `tacit reindex`。整理的判断缓存不随模型变化而失效（缓存键不含模型名，见 `docs/design.md` 第 9 节），内容没变的提问会沿用旧模型的答案；`reindex` 会清空判断缓存，之后的整理全部改问新模型。对话中实时写入的判断不读缓存，不受影响。
 
 ## 5. 排障
 

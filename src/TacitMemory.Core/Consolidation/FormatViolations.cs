@@ -4,7 +4,7 @@ using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
 
-namespace TacitMemory.Core.Checkup;
+namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The "Format and rule violations" category. Every memory file is read again each time the report is built, so a
@@ -30,7 +30,7 @@ internal static class FormatViolations
 
     private static readonly Regex InsteadWord = new(@"\binstead\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    public static CheckupSection Produce(CheckupContext context)
+    public static ConsolidationSection Produce(ConsolidationContext context)
     {
         var findings = new List<string>();
         foreach (var relative in MemoryFiles(context.Config.MemoryPath))
@@ -39,7 +39,7 @@ internal static class FormatViolations
             findings.AddRange(issues.Select(issue => (issue with { File = relative }).ToFinding()));
         }
 
-        return new CheckupSection(CheckupTitles.FormatViolations, findings);
+        return new ConsolidationSection(ConsolidationTitles.FormatViolations, findings);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ internal static class FormatViolations
     }
 
     /// <summary>The issues of one file, with an empty <see cref="FormatIssue.File"/>.</summary>
-    private static List<FormatIssue> FileIssues(CheckupContext context, string relative)
+    private static List<FormatIssue> FileIssues(ConsolidationContext context, string relative)
     {
         var read = TextFile.Read(Path.Combine(context.Config.MemoryPath, relative));
         if (read is not { } text)

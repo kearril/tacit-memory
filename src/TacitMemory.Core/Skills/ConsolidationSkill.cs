@@ -1,23 +1,23 @@
 using System.Text;
-using TacitMemory.Core.Checkup;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Skills;
 
 /// <summary>
-/// The <c>tacit-checkup</c> memory command: the opening, the steps, and the structure words of the memory language with
+/// The <c>tacit-consolidate</c> memory command: the opening, the steps, and the structure words of the memory language with
 /// examples of a candidate block and a rejection list entry. The facts of the moment (the repository's path, today's
-/// date, the baseline and the report) are not here: the agent reads them from the checkup report resource.
+/// date, the baseline and the report) are not here: the agent reads them from the consolidation report resource.
 /// </summary>
-internal static class CheckupSkill
+internal static class ConsolidationSkill
 {
-    public const string Name = "tacit-checkup";
+    public const string Name = "tacit-consolidate";
 
-    /// <summary>The checkup report resource the skill sends the agent to read first.</summary>
-    public const string ReportUri = "tacit://checkup-report";
+    /// <summary>The consolidation report resource the skill sends the agent to read first.</summary>
+    public const string ReportUri = "tacit://consolidation-report";
 
     private const string Description =
-        "Run a checkup of the TacitMemory memory: fix format problems, settle candidates, duplicates and conflicts with the user, and commit.";
+        "Run a consolidation of the TacitMemory memory: fix format problems, settle candidates, duplicates and conflicts with the user, and commit.";
 
     /// <summary>Stands for the repository's absolute path in the steps, and for the date in the examples.</summary>
     private const string Repository = "<repository>";
@@ -52,29 +52,29 @@ internal static class CheckupSkill
     {
         var quote = StructureWords.Quote.In(language);
         var text = new StringBuilder();
-        text.Append("# Memory checkup\n\n");
-        text.Append("Start the TacitMemory checkup now.\n").Append(CommandSkill.UserText).Append("\n\n");
+        text.Append("# Memory consolidation\n\n");
+        text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText).Append("\n\n");
         text.Append("First read the resource ").Append(ReportUri).Append(" from the MCP server named tacit. It is computed when read: ")
-            .Append("the memory repository's absolute path, today's date, the last checkup's commit, and the report's six categories. ")
+            .Append("the memory repository's absolute path, today's date, the last consolidation's commit, and the report's six categories. ")
             .Append("If it cannot be read, stop and ask the user to start the TacitMemory service with tacit serve; do not check the memory from what you remember.\n");
         text.Append("Edit the repository's files by the absolute path the report gives, and run git in that directory (git -C \"")
             .Append(Repository).Append("\" ...), whatever the current directory is. Below, ").Append(Repository).Append(" stands for that path.\n\n");
 
         text.Append("## Steps\n");
-        text.Append("1. Fix the items under \"").Append(CheckupTitles.FormatViolations).Append("\" that say they are fixed directly, without asking the user. Items that only give a hint need no change.\n");
-        text.Append("2. Delete every item under \"").Append(CheckupTitles.RedundantCandidates).Append("\" directly, without asking: the persona or the rejection list already holds the same preference.\n");
-        text.Append("3. For each item under \"").Append(CheckupTitles.ConfirmableCandidates).Append("\", ask the user one at a time, and accept \"confirm\", \"reject\" or \"defer\":\n");
+        text.Append("1. Fix the items under \"").Append(ConsolidationTitles.FormatViolations).Append("\" that say they are fixed directly, without asking the user. Items that only give a hint need no change.\n");
+        text.Append("2. Delete every item under \"").Append(ConsolidationTitles.RedundantCandidates).Append("\" directly, without asking: the persona or the rejection list already holds the same preference.\n");
+        text.Append("3. For each item under \"").Append(ConsolidationTitles.ConfirmableCandidates).Append("\", ask the user one at a time, and accept \"confirm\", \"reject\" or \"defer\":\n");
         text.Append("   - confirm: move the candidate into its persona section as an entry, its text as written, and below it an indented comment line `<!-- ")
             .Append(Date).Append(' ').Append(quote).Append("「quote」 -->` with today's date and the quote; then delete the candidate from candidates.md;\n");
         text.Append("   - reject: move the candidate into the rejection list in candidates.md, and add an occurrence line marked as rejected, dated today;\n");
-        text.Append("   - defer: leave the candidate exactly as it is; it is reported again at the next checkup.\n");
-        text.Append("4. For each item under \"").Append(CheckupTitles.DuplicatePages).Append("\", \"").Append(CheckupTitles.ConflictingEntries)
+        text.Append("   - defer: leave the candidate exactly as it is; it is reported again at the next consolidation.\n");
+        text.Append("4. For each item under \"").Append(ConsolidationTitles.DuplicatePages).Append("\", \"").Append(ConsolidationTitles.ConflictingEntries)
             .Append("\", and each section over its limit, ask the user one at a time. Merge pages or rewrite entries only after the user agrees.\n");
         text.Append("5. If the mainline is stale, or over its limit, rewrite the mainline in recent.md from the activities of the last month.\n");
         text.Append("6. Review the whole persona for duplicate entries and entries worded almost alike. Propose each merge to the user, and apply it only after the user confirms.\n");
-        text.Append("7. Commit in the memory repository with a message that starts with `checkup:`: `git -C \"").Append(Repository)
-            .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"checkup: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")
-            .Append(Repository).Append("\" commit --allow-empty -m \"checkup: no changes\"`.\n\n");
+        text.Append("7. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
+            .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")
+            .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"`.\n\n");
 
         text.Append("## Structure words\n");
         text.Append("The memory language is ").Append(language == MemoryLanguage.Zh ? "Chinese" : "English")

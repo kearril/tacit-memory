@@ -108,7 +108,7 @@ internal sealed class MemoryTools(MemoryService service)
     [Description("""
         Change the user's persona: one line in one of four sections, rendered into the resident context from the next session.
         op=add: needs persona_section, text and source; the entry is appended to the end of that section.
-        op=propose: needs persona_section, text and source; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a checkup. Never propose a red line: only the user sets one. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
+        op=propose: needs persona_section, text and source; the entry is recorded as a candidate in candidates.md, not in the persona, and is confirmed later at a consolidation. Never propose a red line: only the user sets one. A preference already a candidate is merged into it; one on the rejection list or already in the persona is not recorded, and the reply says so.
         op=replace: needs hash, text and source; rewrites the entry with that short code in place, in its section.
         op=delete: needs hash only; removes the entry with that short code.
         A missing or stale hash is refused with the whole persona and every entry's short code; take the code from there.
