@@ -50,6 +50,7 @@ internal sealed class ModelDouble : IDisposable
     private TaskCompletionSource? _embeddingHold;
     private int _decisionsInFlight;
     private int _peakDecisionsInFlight;
+    private int _abandonedRequests;
 
     public ModelDouble()
         : this(shared: false)
@@ -63,6 +64,22 @@ internal sealed class ModelDouble : IDisposable
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
         _app = builder.Build();
+        _app.Use(async (context, next) =>
+        {
+            // A request the client gave up on before the double answered: its connection failed or closed mid-request.
+            var answered = new[] { false };
+            context.Response.OnCompleted(() =>
+            {
+                Volatile.Write(ref answered[0], true);
+                return Task.CompletedTask;
+            });
+            using var abandoned = context.RequestAborted.Register(() =>
+            {
+                if (!Volatile.Read(ref answered[0]))
+                    Interlocked.Increment(ref _abandonedRequests);
+            });
+            await next(context);
+        });
         _app.MapPost("/v1/embeddings", EmbeddingsAsync);
         _app.MapPost("/v1/rerank", (HttpRequest request) => RerankAsync(request, cloudflare: false));
         _app.MapPost("/v1/systemone", (HttpRequest request) => DecideAsync(request, cloudflare: false));
@@ -128,6 +145,12 @@ internal sealed class ModelDouble : IDisposable
         (_, options) => options.Keys.ToDictionary(key => key, key => key == options.Keys.Last() ? 1.0 : 0.0);
 
     public int DecisionCalls => _decisionRequests.Count;
+
+    /// <summary>
+    /// Requests the client gave up on before the double answered: its connection failed or closed mid-request. A test
+    /// that advances the clock asserts this is 0, so a dropped connection fails it by name instead of by a second call.
+    /// </summary>
+    public int AbandonedRequests => Volatile.Read(ref _abandonedRequests);
 
     /// <summary>The most decision requests that were being answered at the same time.</summary>
     public int PeakDecisionConcurrency

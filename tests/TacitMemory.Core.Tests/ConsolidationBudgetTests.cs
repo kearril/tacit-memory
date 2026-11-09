@@ -142,6 +142,9 @@ public sealed class ConsolidationBudgetTests : IDisposable
         _models.ReleaseDecisions();
         await Service.JudgmentCompletion.WaitAsync(Guard);
 
+        // A connection the client dropped would be retried on the frozen clock, and Elapse would fire that retry too:
+        // the test then names the dropped connection instead of reporting a second call.
+        Assert.Equal(0, _models.AbandonedRequests);
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("not checked yet", Section(text, Removal));
     }
