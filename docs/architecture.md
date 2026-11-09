@@ -140,7 +140,7 @@ flowchart LR
 
 | 用途 | 选用 | 状态 |
 | :--- | :--- | :--- |
-| HTTP MCP 服务 | `ModelContextProtocol.AspNetCore` | 已引入 |
+| HTTP MCP 服务 | `ModelContextProtocol.AspNetCore` 2.4.0（不引入 Tasks、Apps、Skills 等扩展包）；无状态模式下，`2026-07-28` 修订的客户端（经 `server/discover`）与 `2025-03-26`～`2025-11-25` 的客户端（经 `initialize`）都不建立会话，响应不带 `Mcp-Session-Id` | 已引入 |
 | YAML（页头、配置） | `YamlDotNet`（表示模型）；`config.yaml` 由 Core 逐项读取，不接入框架配置系统 | 已引入 |
 | CLI | `ConsoleAppFramework` | 已引入 |
 | 输出美化 | `Spectre.Console`（MIT），只在 CLI 程序集中使用，供终端中的 `status`、`restore` 预览、`connect` 端点与等待转圈排版；输出为 UTF-8，CJK 字符按双宽计算 | 已引入 |
