@@ -552,7 +552,7 @@ type: incident
 ### 备份与恢复
 
 - 所有备份（自动、手动、保险与云端）的打包方式相同，zip 内容为：记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/` 目录（含 `rules.md`、`instructions.md`、`resident.md` 与 `skill.md`）、`bindings.json` 与清单（`manifest.json`：生成时间、tacit 版本、`kind`、记忆仓库 HEAD 的提交号与提交说明、文件列表）。生成的记忆 skill（`skills/`）不进入备份。配置中含明文密钥时备份时提示。
-- 自动备份（`backups/auto-YYYY-MM-DD.zip`）：每天第一次写入后生成一份，只清理 `auto-*`，保留最近 `backup.keep` 份（默认 7；`0` 只关闭自动备份）。
+- 自动备份（`backups/auto-YYYY-MM-DD.zip`）：每天第一次写入后生成一份，在写入队列中打包（作为写入槽的后台任务，打包期间的写入排队等待），只清理 `auto-*`，保留最近 `backup.keep` 份（默认 7；`0` 只关闭自动备份）。
 - 手动备份（`backups/manual-YYYY-MM-DD-HHmmss.zip`）：`tacit backup` 立即生成，在写入队列中打包，拿到某次写入之后的完整状态；`--to <目录>` 写到指定目录（不存在则创建）。不计入 `backup.keep`，永不自动清理。
 - 保险备份（`backups/pre-restore-YYYY-MM-DD-HHmmss.zip`）：恢复前自动生成，不清理、不上传。
 - 时间戳为本地时间；同一秒内重名时拒绝，不覆盖已有文件。

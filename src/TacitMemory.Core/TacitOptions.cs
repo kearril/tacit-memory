@@ -28,6 +28,12 @@ public sealed record TacitOptions
     internal DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
 
     /// <summary>
+    /// Test seam: awaited by the automatic backup once it is packing, before it writes the archive. Null outside tests, and
+    /// never part of the public contract.
+    /// </summary>
+    internal Func<Task>? BeforeBackupPack { get; init; }
+
+    /// <summary>
     /// Options for this machine: <c>TACIT_HOME</c> from the environment variable of that name, otherwise
     /// <c>~/.tacit</c>, and the secret environment variables that are set.
     /// </summary>

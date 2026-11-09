@@ -104,7 +104,7 @@ public sealed class MemoryService : IDisposable
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
         _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
-        _backup = new AutomaticBackup(options, config, _log);
+        _backup = new AutomaticBackup(options, config, _log, _gate);
         _manual = new ManualBackup(options, config, _log);
         _remote = new CloudBackup(options, config, _log);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
@@ -442,8 +442,10 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
+        // An automatic backup takes the write slot, which this operation holds alone, so it is waited for before the gate.
+        await Settled(_backup.Completion);
         using var hold = await _gate.MaintenanceAsync(cancellationToken);
-        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion), Settled(_backup.Completion));
+        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion));
         _log.Record(LogLevel.Information, LogMessages.MaintenanceStarted, name);
         var started = Stopwatch.GetTimestamp();
         try

@@ -4,7 +4,7 @@
 
 ## 1. 三个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。让自动备份停在打包阶段时，测试在 `TacitOptions` 上设置 internal 钩子 `BeforeBackupPack`（打包前等待），见 `BackupRaceTests`。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
@@ -48,6 +48,7 @@
      - `ProbeTests`：`tacit probe` 经门面：通用协议与 Cloudflare 的成功、4xx 带响应体且截断到 500 字符、5xx 只调用一次不重试、格式不对与 Cloudflare `success` 为假、超时（20 秒，经 `TestHome.Clock`）、网络错误、未配置不发请求、请求体只含内置文本、失败的探测不使服务中的模型进入冷却、回显的密钥被替换。
      - `UnconfiguredModelTests`（经门面）：三个模型都不配置或只配置部分时服务照常启动，写入、画像候选与检索照常，返回中不附模型说明；未配置的模型不发请求、不进入冷却，服务端说明只列冷却中的模型；整理对依赖未配置模型的类别标为"未检查（未配置）"且不提问；`tacit status` 的模型项为未配置；去掉嵌入模型后向量保留，加回同一模型名不重新嵌入，换模型名则丢弃并补齐；启动日志一行列出未配置的角色且不含地址与密钥。
      - `BackupTests`：每日自动备份的生成、保留、关闭、明文密钥提示（配置中写了任一模型的明文 `apiKey` 或 WebDAV 明文密码即提示，环境变量覆盖时仍提示）与失败处理。
+     - `BackupRaceTests`：自动备份在写入槽中打包：打包期间到达的写入排队等待，不与之争用文件。
      - `ManualBackupTests`：手动备份的位置与文件名（本地时间）、内容与清单（`kind`、`memoryHeadSubject`）、写入队列中排在其前的写入、不被自动清理、`--to` 创建目录、同秒重名拒绝且不覆盖、`keep: 0` 时照常、明文密钥提示、相对目录被拒。
      - `RestoreTests`：恢复的预览（备份信息与将被替换的内容，`--include-config` 时三项替换）、旧清单（无 `kind`、`memoryHeadSubject`）、无清单拒绝；清单与内容不符、条目位置越界（`..`、绝对路径、未列出的文件）各自拒绝且什么都不改、不生成保险备份；仅恢复记忆仓库；`--include-config` 替换配置与提示词并删除多余的提示词文件；`bindings.json` 永不恢复；恢复前先生成保险备份并记录日志；恢复后的检索、服务端说明与常驻区块反映备份内容；恢复回来的 `memory.path` 不同时的提示；换入失败时回滚（记忆仓库回到恢复前内容）；恢复期间到达的写入落在恢复后的仓库中；恢复回来的 `config.yaml` 不能加载（如含旧版 `apiKeyEnv`）时恢复照常完成、结果附错误说明，预览同样提示；恢复结束后记忆仓库内没有残留的 `.tacit-*` 暂存目录；`path` 与 `remote` 的来源校验、`remote` 只能预览的规则由门面拒绝。
      - `RemoteBackupTests`：云端备份经 `WebDavDouble`：PUT `.part` 后 MOVE 覆盖（`Overwrite: T`，基本认证头）；第二次上传替换远端内容；父目录缺失时 MKCOL 后重试一次；MOVE 不支持（405）时报错、远端旧文件不变、`.part` 被删；上传中途断开时远端旧文件不变；认证与连接失败的阶段；错误与日志不含密码；`remote.json` 的记录与 `status` 的云端行（不访问网络）；未配置时的提示；目录被拒；无用户名时不发认证；配置中的明文密码提示；本地 `backups/` 中不留副本。
