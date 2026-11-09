@@ -69,7 +69,7 @@ _Avoid_: 笔记、卡片、事件页、文档
 _Avoid_: 段落、分块、chunk
 
 **页面类型**（Page type）：
-细节页页头中的 `type`，取 `incident`（排错）、`decision`（决定）、`entity`（实体）、`work`（工作记录）四种之一。新建时必须给出，`update_header` 可改。`work` 页的「遗留」小节（英文 Leftovers）与 `decision` 页的「推翻记录」小节（英文 Overturned）是服务识别的两个约定小节。
+细节页页头中的 `type`，取 `incident`（排错）、`decision`（决定）、`entity`（实体）、`work`（工作单元）四种之一。新建时必须给出，`update_header` 可改。`work` 页的「遗留」小节（英文 Leftovers）与 `decision` 页的「推翻记录」小节（英文 Overturned）是服务识别的两个约定小节。
 _Avoid_: 分类、标签、种类
 
 **页头**（Header）：
@@ -196,7 +196,10 @@ _Avoid_: 待审区、建议、候选偏好
 
 **出现记录**（Occurrence）：
 画像候选下的一行，记下某一天用户的原话；整理时可据此看出现过几天，但出现天数不再作为确认门槛。
-_Avoid_: 证据、记录项、引用
+_Avoid_: 记录项、引用
+
+**画像证据**（Persona evidence）：
+整理报告 B 部分的一类：全部画像候选，附作用域、归属、出现记录与原话，供判断是否提升为画像；不受上次整理的基准限制。
 
 **拒绝列表**（Rejection list）：
 用户拒绝过的画像候选；相近的候选不再提议。
