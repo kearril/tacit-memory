@@ -239,6 +239,22 @@ public sealed class FormatViolationTests : IDisposable
         Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/lesson-mixed.md"));
     }
 
+    [Theory]
+    [InlineData("领域", "Domain")]
+    [InlineData("项目", "Project")]
+    [InlineData("触发", "Trigger")]
+    [InlineData("作用域：", "Scope:")]
+    public async Task Mixed_headings_of_the_persona_structure_words_are_a_hint(string zh, string en)
+    {
+        using var service = Open();
+        WriteFile("pages/tacit-memory/heading-mixed.md", Page(body: $"## {zh}\n- 内容\n\n## {en}\n- content\n"));
+
+        var section = Section(await service.ConsolidationReportAsync(), Category);
+
+        AssertListed(section, "pages/tacit-memory/heading-mixed.md", "line 11");
+        Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/heading-mixed.md"));
+    }
+
     [Fact]
     public async Task Structure_words_in_both_languages_are_a_hint_and_disappear_once_one_language_is_used()
     {
