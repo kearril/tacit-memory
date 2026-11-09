@@ -181,6 +181,7 @@ public sealed class MemorySkillTests : IDisposable
         await service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/skill-backup",
             Title = "技能备份",
             Aliases = ["技能备份别名一", "技能备份别名二"],

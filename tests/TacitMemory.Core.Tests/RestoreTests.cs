@@ -58,6 +58,7 @@ public sealed class RestoreTests : IDisposable
     private static WritePageRequest Create(string page, string title, string body) => new()
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = [$"{title}别名一", $"{title}别名二"],

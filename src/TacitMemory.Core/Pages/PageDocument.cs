@@ -4,12 +4,16 @@ using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Pages;
 
-/// <summary>The YAML header of a page. Dates are written by the service; the rest by the agent.</summary>
+/// <summary>
+/// The YAML header of a page. Dates are written by the service; the rest by the agent. <see cref="Type"/> is null on a
+/// page that has none, and may hold a value outside the page types on a page written by hand.
+/// </summary>
 internal sealed record PageHeader(
-    string Title, IReadOnlyList<string> Aliases, DateOnly? First, DateOnly? Last, IReadOnlyList<string> Related);
+    string Title, IReadOnlyList<string> Aliases, DateOnly? First, DateOnly? Last, IReadOnlyList<string> Related, string? Type);
 
 /// <summary>A <c>##</c> section: lines <see cref="HeadingLine"/> up to, not including, <see cref="EndLine"/>.</summary>
 internal sealed record PageSection(string Name, string Body, string Code, int HeadingLine, int EndLine);
@@ -81,6 +85,11 @@ internal sealed partial class PageDocument
                 problems.Add(Fix(aliases, "alias count", $"The page has {Header.Aliases.Count} aliases; at least {limits.MinAliases} are needed."));
             foreach (var alias in Header.Aliases.Where(alias => Length(alias) > limits.AliasLength))
                 problems.Add(Fix(aliases, "alias length", $"Alias \"{alias}\" is {Length(alias)} characters; the limit is {limits.AliasLength}."));
+
+            if (!HasHeaderKey("type"))
+                problems.Add(Fix("YAML header", "page type", $"The page has no type; it must be one of: {PageTypeList}."));
+            else if (!IsPageType(Header.Type))
+                problems.Add(Fix(LocationOf("type"), "page type", $"Type \"{Header.Type}\" is not one of: {PageTypeList}."));
         }
 
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -101,6 +110,20 @@ internal sealed partial class PageDocument
 
     /// <summary>Whether header key <paramref name="key"/> is present.</summary>
     public bool HasHeaderKey(string key) => LocationOf(key) != "YAML header";
+
+    /// <summary>The page types, comma-separated, as the refusals and the format problems list them.</summary>
+    public static string PageTypeList => string.Join(", ", ToolValues.PageTypes.All);
+
+    /// <summary>Whether <paramref name="type"/> is one of the page types, spelled exactly.</summary>
+    public static bool IsPageType(string? type) => type is not null && ToolValues.PageTypes.All.Contains(type, StringComparer.Ordinal);
+
+    /// <summary>The "Leftovers" section (遗留), which a work page lists its open items under; null when it has none.</summary>
+    public PageSection? Leftovers => SectionNamed(StructureWords.Leftovers);
+
+    /// <summary>The "Overturned" section (推翻记录), which a decision page names the page that replaced it under; null when it has none.</summary>
+    public PageSection? Overturned => SectionNamed(StructureWords.Overturned);
+
+    private PageSection? SectionNamed(Localized word) => Sections.FirstOrDefault(section => word.Matches(section.Name));
 
     private static FormatIssue Fix(string location, string kind, string description) =>
         new("", location, kind, description, FormatHandling.FixDirectly);
@@ -137,7 +160,7 @@ internal sealed partial class PageDocument
         }
 
         var sections = ReadSections(lines, headerEnd);
-        return new PageDocument(lines, newline, hasBom, header ?? new PageHeader(fallbackTitle, [], null, null, []),
+        return new PageDocument(lines, newline, hasBom, header ?? new PageHeader(fallbackTitle, [], null, null, [], null),
             header is null, headerEnd, sections, endsWithNewline);
     }
 
@@ -160,6 +183,8 @@ internal sealed partial class PageDocument
             lines.AddRange(DatesBlock(first, last));
         if (RelatedBlock(header.Related) is { } related)
             lines.AddRange(related);
+        if (header.Type is { } type)
+            lines.AddRange(TypeBlock(type));
         lines.Add(Fence);
         return string.Concat(lines.Select(line => line + "\n"));
     }
@@ -173,6 +198,9 @@ internal sealed partial class PageDocument
     /// <summary>The header line for <c>dates</c>.</summary>
     public static IReadOnlyList<string> DatesBlock(DateOnly first, DateOnly last) =>
         [$"dates: {{ first: {Day(first)}, last: {Day(last)} }}"];
+
+    /// <summary>The header line for <c>type</c>.</summary>
+    public static IReadOnlyList<string> TypeBlock(string type) => ["type: " + Scalar(type, inFlow: false)];
 
     /// <summary>The header line for <c>related</c>; null when there is nothing to relate, so the key is dropped.</summary>
     public static IReadOnlyList<string>? RelatedBlock(IReadOnlyList<string> related) =>
@@ -296,7 +324,8 @@ internal sealed partial class PageDocument
             List(root, "aliases"),
             dates is null ? null : Date(dates, "first"),
             dates is null ? null : Date(dates, "last"),
-            List(root, "related"));
+            List(root, "related"),
+            ScalarOf(root, "type"));
     }
 
     /// <summary>Indices of the lines from <paramref name="start"/> that are neither a code fence nor inside one.</summary>

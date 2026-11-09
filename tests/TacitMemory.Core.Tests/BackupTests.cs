@@ -32,6 +32,7 @@ public sealed class BackupTests : IDisposable
     private static WritePageRequest Create(string page) => new()
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = "数据库升级后扩展丢失",
         Aliases = ["全文检索插件失效", "升级后搜索不到中文"],

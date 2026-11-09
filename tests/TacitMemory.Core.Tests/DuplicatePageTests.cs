@@ -26,6 +26,7 @@ public sealed class DuplicatePageTests : IDisposable
     private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = [title + "的坑", title + "问题"],
@@ -111,6 +112,7 @@ public sealed class DuplicatePageTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/db-upgrade",
             Title = "数据库升级后扩展丢失",
             Aliases = ["数据库升级后扩展丢失的坑", "数据库升级后扩展丢失问题"],

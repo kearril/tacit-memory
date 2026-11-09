@@ -198,6 +198,7 @@ public sealed class RecallTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/deploy",
             Title = "部署脚本超时",
             Aliases = ["发布卡住", "上线超时"],
@@ -207,6 +208,17 @@ public sealed class RecallTests : IDisposable
         var result = await Recall("拉取镜像超时");
 
         Assert.Contains("tacit-memory/deploy", result.Text);
+    }
+
+    [Fact]
+    public async Task A_page_without_a_type_is_found_like_any_other()
+    {
+        Hand("tacit-memory", "untyped", "数据库升级后扩展丢失", "## 现象\n升级 PostgreSQL 后中文搜索没有结果。");
+
+        var result = await Recall("上次数据库升级以后中文搜索没有结果");
+
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains("tacit-memory/untyped", result.Text);
     }
 
     [Fact]

@@ -75,6 +75,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         var page = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -124,6 +125,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         var page = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -228,6 +230,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -260,6 +263,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],
@@ -284,6 +288,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份方式", "备份问题"],

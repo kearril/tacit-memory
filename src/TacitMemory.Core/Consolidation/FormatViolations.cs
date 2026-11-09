@@ -22,6 +22,8 @@ internal static class FormatViolations
         StructureWords.Candidates,
         StructureWords.RejectionList,
         StructureWords.Mainline,
+        StructureWords.Leftovers,
+        StructureWords.Overturned,
         StructureWords.Summary,
     ];
 

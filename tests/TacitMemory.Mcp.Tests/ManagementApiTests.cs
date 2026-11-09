@@ -191,6 +191,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var written = await _service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = "tacit-memory/backup",
             Title = "备份",
             Aliases = ["备份的坑", "备份问题"],

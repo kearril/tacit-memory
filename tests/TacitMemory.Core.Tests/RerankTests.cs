@@ -25,6 +25,7 @@ public sealed class RerankTests : IDisposable
         var result = await Service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
+            Type = ToolValues.PageTypes.Work,
             Page = page,
             Title = title,
             Aliases = [title + "别名", title + "又名"],

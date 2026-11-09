@@ -35,6 +35,7 @@ public sealed class MaintenanceTests : IDisposable
     private Task<ToolResult> CreatePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
     {
         Op = "create",
+        Type = ToolValues.PageTypes.Work,
         Page = page,
         Title = title,
         Aliases = [title + "的坑", title + "问题"],

@@ -50,6 +50,9 @@ public sealed record WritePageRequest
 
     public string? Title { get; init; }
 
+    /// <summary>The page's type: one of <see cref="ToolValues.PageTypes"/>. Required by <c>create</c>; <c>update_header</c> may change it.</summary>
+    public string? Type { get; init; }
+
     public IReadOnlyList<string>? Aliases { get; init; }
 
     public IReadOnlyList<PageSectionInput>? Sections { get; init; }
