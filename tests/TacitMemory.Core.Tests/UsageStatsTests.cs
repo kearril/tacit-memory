@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
@@ -80,6 +82,25 @@ public sealed class UsageStatsTests : IDisposable
         var usage = Usage("tacit-memory/backup");
         Assert.Equal(2, usage.Count);
         Assert.Equal(TestHome.Today.AddDays(2), usage.LastReturned);
+    }
+
+    [Fact]
+    public async Task Editing_a_section_keeps_the_counts_of_every_section_of_the_page()
+    {
+        Hand("backup", "备份", "## 要点\n每日备份到 zip\n\n## 恢复\n从 zip 恢复\n");
+        var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
+        Assert.Equal(2, Usage("tacit-memory/backup").Count);
+        var code = Regex.Match(read.Text, @"## 恢复 \[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
+
+        var edit = await Service.WritePageAsync(new WritePageRequest
+        {
+            Op = "upsert_section", Page = "tacit-memory/backup", Section = "恢复", Body = "从 zip 恢复，先停服务。", Hash = code,
+        }).WaitAsync(Guard);
+        Assert.False(edit.IsError, edit.Text);
+
+        var usage = Usage("tacit-memory/backup");
+        Assert.Equal(2, usage.Count);
+        Assert.Equal(TestHome.Today, usage.LastReturned);
     }
 
     [Fact]
