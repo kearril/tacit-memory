@@ -16,7 +16,7 @@ internal static class ResidentBlock
     private const string BeginMarker = "<!-- tacit:begin managed by TacitMemory; edit memory via tacit, not here -->";
 
     private const string DefaultShell = """
-        Background on the user from earlier sessions. It may be dated: the user's current words and project instructions come first; when they differ, follow the user and ask in one sentence whether to update memory. Apply it the way a colleague who knows the user would: silently, mentioning an entry only when it bears on the task.
+        Background on the user from earlier sessions. It may be dated: project instructions come first; when the user says otherwise, follow them and ask in one sentence whether to update memory. Apply it the way a colleague who knows the user would: silently, mentioning an entry only when it bears on the task.
         """;
 
     /// <summary>The built-in <c>resident.md</c>: the shell and the guidance used when the user has no file.</summary>
