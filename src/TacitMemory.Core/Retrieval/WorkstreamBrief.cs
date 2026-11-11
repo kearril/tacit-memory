@@ -4,11 +4,13 @@ using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The workstream brief: what <c>recall</c> returns for a workstream alone. It gathers the workstream's conventions (its workstream-scope
+/// The workstream brief: what <c>recall</c> returns for a workstream alone. It opens with the workstream's background and recent
+/// line when it is established, then gathers the workstream's conventions (its workstream-scope
 /// persona entries), its open items (the leftovers of its work pages), a page index grouped by type, its last three
 /// activities and the latest weekly summary of a week it had activity in. The text is capped at <c>limits.brief</c>; only the
 /// page index is shortened, oldest entry first, and the omission is said. It reads files and counts a return for each page it
@@ -31,7 +33,9 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     {
         var pages = PageEntries(workstream, from, to);
         var activities = ActivitiesOf(workstream, from, to);
-        if (pages.Count == 0 && activities.Count == 0)
+        // An established workstream has its background to say even when it has no pages or activities yet.
+        var established = WorkstreamFile.Established(config.MemoryPath).FirstOrDefault(entry => entry.Name == workstream);
+        if (pages.Count == 0 && activities.Count == 0 && established is null)
             return RecallTool.NoMemory;
 
         // Overturned decisions are identifiers only: they are never listed as entries, so truncation does not touch them.
@@ -42,7 +46,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
         var recent = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).Take(ListedActivities).ToList();
         var summary = LatestWeekSummary(activities);
 
-        var parts = new Parts(workstream, conventions, openItems, entries, overturned, recent, summary);
+        var parts = new Parts(workstream, established?.Background, established?.Recent, conventions, openItems, entries, overturned, recent, summary);
         var limit = config.Limits.Brief;
         var shown = new HashSet<Entry>(entries);
         var omitted = 0;
@@ -72,6 +76,8 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     /// <summary>Everything the brief lists, gathered before any of it is shortened.</summary>
     private sealed record Parts(
         string Workstream,
+        string? Background,
+        string? Recent,
         IReadOnlyList<string> Conventions,
         IReadOnlyList<OpenItem> OpenItems,
         IReadOnlyList<Entry> Entries,
@@ -189,7 +195,12 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     /// <summary>The brief as text. The page index keeps only the entries in <paramref name="shown"/>; <paramref name="omitted"/> says how many were left out.</summary>
     private static string Render(Parts parts, HashSet<Entry> shown, int omitted, int limit)
     {
-        var blocks = new List<string> { $"Workstream brief: {parts.Workstream}" };
+        var header = $"Workstream brief: {parts.Workstream}";
+        if (parts.Background is not null)
+            header += "\nBackground: " + parts.Background;
+        if (parts.Recent is not null)
+            header += "\nRecent: " + parts.Recent;
+        var blocks = new List<string> { header };
         if (parts.Conventions.Count > 0)
             blocks.Add(Block("Conventions:", parts.Conventions));
 

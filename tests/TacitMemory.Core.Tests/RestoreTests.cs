@@ -322,8 +322,10 @@ public sealed class RestoreTests : IDisposable
     public async Task After_the_restore_recall_and_the_resident_block_reflect_the_backup()
     {
         _home.Bind();
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n");
         await _service.WritePageAsync(Create("old-workstream/old-page", "旧版本记录", "旧版本内容"));
         var backup = await _service.BackupAsync(BackupTarget.Local);
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n### new-workstream\n背景：新的主线。\n");
         await _service.WritePageAsync(Create("new-workstream/new-page", "新版本记录", "新版本内容"));
         // The service renders the resident block itself, after its debounce; no second renderer may run beside it.
         await Eventually(() => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));

@@ -56,7 +56,7 @@ internal static class ConsolidationSkill
         ("Quote of the user's own words", StructureWords.Quote),
         ("Rejected mark on an occurrence line", StructureWords.Rejected),
         ("\"Instead\" in a red line", StructureWords.Instead),
-        ("Mainline section (recent.md)", StructureWords.Mainline),
+        ("Workstream section (workstreams.md)", StructureWords.Workstream),
         ("Summary section (month file)", StructureWords.Summary),
         ("Leftovers section (work page)", StructureWords.Leftovers),
         ("Overturned section (decision page)", StructureWords.Overturned),
@@ -89,7 +89,7 @@ internal static class ConsolidationSkill
             .Append("\": write one summary line per listed period into the `## ").Append(summary).Append("` section of the month file the report names: ")
             .Append("a week as `- ").Append(Week).Append("：<one line>`, a month as `- ").Append(Month).Append("：<one line>`. ")
             .Append("Write each line from the activities the report gives, and add nothing they do not say.\n");
-        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": rewrite the mainline in recent.md from the summarized weeks it lists and the current mainline.\n");
+        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": rewrite the mainline in workstreams.md from the summarized weeks it lists and the current mainline.\n");
         text.Append("   Change nothing else in this step: no persona entry, scope block or page changes here.\n");
         text.Append("2. Read what Part \"").Append(ConsolidationTitles.ProposalPart).Append("\" needs: the pages, persona entries and material its items name. Change nothing in this step.\n");
         text.Append("3. Draft every proposal and send them to the user in one numbered list. Cover each item under \"").Append(ConsolidationTitles.ProposalPart).Append("\":\n");

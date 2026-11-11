@@ -124,6 +124,4 @@ public sealed record ResidentDocument(
     string? Preferences,
     string? Profile,
     string? SituationalRules,
-    string? Mainline,
-    string? RecentWeeks,
     string? Workstreams);

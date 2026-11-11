@@ -3,6 +3,7 @@ using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core.Consolidation;
 
@@ -21,7 +22,6 @@ internal static class FormatViolations
         StructureWords.Profile,
         StructureWords.Candidates,
         StructureWords.RejectionList,
-        StructureWords.Mainline,
         StructureWords.Leftovers,
         StructureWords.Overturned,
         StructureWords.Summary,
@@ -63,7 +63,7 @@ internal static class FormatViolations
         var files = new List<string>();
         AddFiles(files, memoryPath, "pages", SearchOption.AllDirectories);
         AddFiles(files, memoryPath, RecentFile.Folder, SearchOption.TopDirectoryOnly);
-        foreach (var file in new[] { PersonaFiles.Persona, PersonaFiles.Candidates, MainlineSection.RelativePath })
+        foreach (var file in new[] { PersonaFiles.Persona, PersonaFiles.Candidates, WorkstreamFile.RelativePath })
             if (File.Exists(Path.Combine(memoryPath, file)))
                 files.Add(file);
         return files.Order(StringComparer.Ordinal);
@@ -92,6 +92,8 @@ internal static class FormatViolations
             issues.AddRange(PersonaFormatCheck.Check(text.Text, context.Config));
         if (relative == PersonaFiles.Candidates)
             issues.AddRange(CandidatesFormatCheck.Check(text.Text));
+        if (relative == WorkstreamFile.RelativePath)
+            issues.AddRange(WorkstreamFile.Parse(text.Text).Problems);
         if (relative.StartsWith(RecentFile.Folder + "/", StringComparison.Ordinal))
             issues.AddRange(RecentFormatCheck.Check(text.Text, relative));
         return issues;

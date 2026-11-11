@@ -2,6 +2,7 @@ using System.Globalization;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core.Consolidation;
 
@@ -51,7 +52,7 @@ internal static class SummaryMaterial
         return new ConsolidationSection(ConsolidationTitles.MonthsToSummarize, findings);
     }
 
-    /// <summary>The latest weekly summaries, newest first, and the mainline as recent.md holds it now.</summary>
+    /// <summary>The latest weekly summaries, newest first, and the established workstreams as workstreams.md holds them now.</summary>
     public static ConsolidationSection Mainline(ConsolidationContext context)
     {
         var memory = context.Config.MemoryPath;
@@ -67,14 +68,14 @@ internal static class SummaryMaterial
         else
             lines.AddRange(latest.Select(summary => $"- {summary.Text}"));
 
-        var items = MainlineSection.ReadItems(memory);
+        var items = WorkstreamFile.Established(memory).Select(entry => $"{entry.Name}：{entry.Background}").ToList();
         if (items.Count == 0)
         {
             lines.Add("The mainline is empty; write it from the weekly summaries above.");
         }
         else
         {
-            lines.Add("Mainline in recent.md:");
+            lines.Add("Mainline in workstreams.md:");
             lines.AddRange(items.Select(item => $"- {item}"));
         }
 

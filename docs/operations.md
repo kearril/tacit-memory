@@ -16,7 +16,7 @@
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见第 3 节）
 └── memory/                        # 记忆仓库（Git），memory.path 可改
-    ├── persona.md、candidates.md、recent.md、recent/、pages/
+    ├── persona.md、candidates.md、workstreams.md、recent/、pages/
     └── .cache/                    # 派生索引，可删除，由文件重建
 ```
 

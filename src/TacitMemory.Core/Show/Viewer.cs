@@ -115,7 +115,7 @@ internal static class Viewer
     private static async Task<ShowResult> Instructions(TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
     {
         var language = config.Language;
-        var recent = RecentSummary.Read(config.MemoryPath, options.Today, language);
+        var recent = RecentSummary.Read(config.MemoryPath, options.Today);
         // The service's text without its runtime status, cut to the same limits, with the consolidation reminder as it would be sent now.
         var consolidation = await ConsolidationReminder.RenderAsync(config, options.Today, cancellationToken);
         var set = ServerInstructionText.Assemble(language, config.Prompts, [], [], recent, consolidation);

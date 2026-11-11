@@ -14,8 +14,6 @@ internal enum ResidentPart
     Preferences,
     Profile,
     SituationalRules,
-    Mainline,
-    RecentWeeks,
     Workstreams,
 }
 
@@ -35,14 +33,8 @@ internal static class ResidentFile
     /// <summary>The heading of the domain index section in <c>resident.md</c>.</summary>
     public const string SituationalRulesName = "situational_rules";
 
-    /// <summary>The heading of the mainline section in <c>resident.md</c>.</summary>
-    public const string MainlineName = "mainline";
-
-    /// <summary>The heading of the recent weeks section in <c>resident.md</c>.</summary>
-    public const string RecentWeeksName = "recent_weeks";
-
-    /// <summary>The heading of the workstreams section in <c>resident.md</c>; it keeps the name the file has always used.</summary>
-    public const string WorkstreamsName = "projects";
+    /// <summary>The heading of the workstreams section in <c>resident.md</c>.</summary>
+    public const string WorkstreamsName = "workstreams";
 
     /// <summary>The sections in block order. Everything that names a section takes its name and title from here.</summary>
     public static readonly ResidentSection[] Sections =
@@ -52,8 +44,6 @@ internal static class ResidentFile
         new(ToolValues.PersonaSections.Preferences, ResidentPart.Preferences, "Preferences"),
         new(ToolValues.PersonaSections.Profile, ResidentPart.Profile, "Profile"),
         new(SituationalRulesName, ResidentPart.SituationalRules, "Situational rules"),
-        new(MainlineName, ResidentPart.Mainline, "Mainline"),
-        new(RecentWeeksName, ResidentPart.RecentWeeks, "Recent weeks"),
         new(WorkstreamsName, ResidentPart.Workstreams, "Workstreams"),
     ];
 
@@ -103,8 +93,6 @@ internal static class ResidentFile
             Guidance(sections, ResidentPart.Preferences),
             Guidance(sections, ResidentPart.Profile),
             Guidance(sections, ResidentPart.SituationalRules),
-            Guidance(sections, ResidentPart.Mainline),
-            Guidance(sections, ResidentPart.RecentWeeks),
             Guidance(sections, ResidentPart.Workstreams));
     }
 
@@ -138,8 +126,6 @@ internal static class ResidentFile
         ResidentPart.Preferences => document.Preferences,
         ResidentPart.Profile => document.Profile,
         ResidentPart.SituationalRules => document.SituationalRules,
-        ResidentPart.Mainline => document.Mainline,
-        ResidentPart.RecentWeeks => document.RecentWeeks,
         ResidentPart.Workstreams => document.Workstreams,
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };

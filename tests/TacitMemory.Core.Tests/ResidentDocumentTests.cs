@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Tests;
 
@@ -286,7 +288,7 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.NotNull(service);
     }
 
-    private string RecentMd => Path.Combine(_home.DefaultMemory, "recent.md");
+    private string WorkstreamsMd => Path.Combine(_home.DefaultMemory, "workstreams.md");
 
     private string Pages => Path.Combine(_home.DefaultMemory, "pages");
 
@@ -337,37 +339,89 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public void The_block_lists_the_domain_index_mainline_recent_weeks_and_workstreams_after_the_global_sections()
+    public void The_block_lists_the_domain_index_and_the_workstreams_after_the_global_sections()
     {
         WriteScopedPersona();
-        File.WriteAllText(RecentMd, "## 近期主线\n- 主线一\n");
-        WriteMonth("2026-10", "## 2026-10-20\n- [alpha] 周二的事\n## 2026-10-21\n- 没有项目的事\n");
-        Directory.CreateDirectory(Path.Combine(Pages, "alpha"));
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在收敛。\n");
+        WriteMonth("2026-11", "## 2026-11-02\n- [alpha] 今天的事\n");
 
         _home.Bind();
 
         AssertInOrder(Agents(),
             "- f1\n\n## Situational rules\n",
             "- network-proxy：改代理、分流或测速时（1 条）\n",
-            "## Mainline\n- 主线一\n",
-            "## Recent weeks\n",
-            "- 2026-W43：2 条活动，涉及主线 alpha，其他 1 条\n",
-            "## Workstreams\nalpha\n</user_memory>");
+            "## Workstreams\n- alpha：一号主线。 近况：在收敛。\n",
+            "</user_memory>");
+        Assert.DoesNotContain("## Mainline", Agents());
+        Assert.DoesNotContain("## Recent weeks", Agents());
     }
 
     [Fact]
-    public void Scoped_entries_stay_out_of_the_block_and_a_domain_shows_only_its_index_row()
+    public void Active_workstreams_come_first_newest_activity_first_and_quiet_ones_follow_by_name()
     {
-        WriteScopedPersona();
+        WriteFullPersona();
+        File.WriteAllText(WorkstreamsMd, """
+            ## 主线
+            ### gamma
+            背景：三号。
+            近况：静止的近况。
+            ### alpha
+            背景：一号。
+            近况：较早的近况。
+            ### beta
+            背景：二号。
+            近况：最新的近况。
+            ### delta
+            背景：四号。
+
+            """.ReplaceLineEndings("\n"));
+        WriteMonth("2026-11", "## 2026-11-01\n- [alpha] 较早的事\n## 2026-11-02\n- [beta] 最新的事\n");
 
         _home.Bind();
-        var text = Agents();
 
-        Assert.Contains("- network-proxy：改代理、分流或测速时（1 条）", text);
-        Assert.DoesNotContain("域内规则XYZ", text);
-        Assert.DoesNotContain("项目规则QRS", text);
-        Assert.DoesNotContain("## 领域", text);
-        Assert.DoesNotContain("## 主线", text);
+        AssertInOrder(Agents(),
+            "## Workstreams\n",
+            "- beta：二号。 近况：最新的近况。\n",
+            "- alpha：一号。 近况：较早的近况。\n",
+            "- delta：四号。\n",
+            "- gamma：三号。\n");
+    }
+
+    [Fact]
+    public void A_quiet_workstream_shows_only_its_name_and_background()
+    {
+        WriteFullPersona();
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在收敛。\n");
+
+        _home.Bind();
+
+        Assert.Contains("## Workstreams\n- alpha：一号主线。\n", Agents());
+        Assert.DoesNotContain("在收敛", Agents());
+    }
+
+    [Fact]
+    public void A_workstream_without_a_background_line_or_with_a_bad_name_stays_out_of_the_block()
+    {
+        WriteFullPersona();
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### nobg\n近况：没有背景。\n### Bad-Name\n背景：名字不合规。\n");
+
+        _home.Bind();
+
+        Assert.DoesNotContain("## Workstreams", Agents());
+    }
+
+    [Fact]
+    public void Workstreams_that_only_appear_as_directories_or_activity_labels_stay_out_of_the_block()
+    {
+        WriteFullPersona();
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n");
+        Directory.CreateDirectory(Path.Combine(Pages, "zeta"));
+        WriteMonth("2026-11", "## 2026-11-02\n- [zeta] 未成立的事\n");
+
+        _home.Bind();
+
+        Assert.Contains("## Workstreams\n- alpha：一号主线。\n", Agents());
+        Assert.DoesNotContain("zeta", Agents());
     }
 
     [Fact]
@@ -400,34 +454,35 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public void A_week_with_a_summary_line_shows_the_summary_instead_of_the_counts()
+    public void A_workstream_leaves_the_active_part_when_the_28_day_window_passes_it()
     {
-        WriteMonth("2026-10", "## 2026-10-20\n- [alpha] 周二的事\n## 2026-10-21\n- 没有项目的事\n\n## 汇总\n- 2026-W43：这一周主要在做排错\n");
         WriteFullPersona();
-
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在做。\n");
+        WriteMonth("2026-10", "## 2026-10-06\n- [alpha] 窗口的第一天\n");
         _home.Bind();
-        var text = Agents();
+        Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
 
-        Assert.Contains("- 2026-W43：这一周主要在做排错\n", text);
-        Assert.DoesNotContain("2 条活动", text);
+        // 2026-11-02 counts back 28 days to 2026-10-06; the next day the window starts on 2026-10-07.
+        _home.Clock.Advance(TimeSpan.FromDays(1));
+        _home.Bind();
+
+        Assert.Contains("## Workstreams\n- alpha：一号主线。\n", Agents());
+        Assert.DoesNotContain("在做", Agents());
     }
 
     [Fact]
-    public void The_recent_weeks_are_the_three_latest_completed_weeks_that_have_anything_in_them()
+    public void Scoped_entries_stay_out_of_the_block_and_a_domain_shows_only_its_index_row()
     {
-        // W43, W41, W40 and W38 hold activities; W42 holds none and is skipped, so W38 is the fourth week with content.
-        WriteMonth("2026-10", "## 2026-10-20\n- 第四十三周\n## 2026-10-06\n- 第四十一周\n");
-        WriteMonth("2026-09", "## 2026-09-29\n- 第四十周\n## 2026-09-15\n- 第三十八周\n");
-        WriteFullPersona();
+        WriteScopedPersona();
 
         _home.Bind();
         var text = Agents();
 
-        Assert.Contains("- 2026-W43：1 条活动，其他 1 条\n", text);
-        Assert.Contains("- 2026-W41：1 条活动，其他 1 条\n", text);
-        Assert.Contains("- 2026-W40：1 条活动，其他 1 条\n", text);
-        Assert.DoesNotContain("2026-W38", text);
-        Assert.DoesNotContain("2026-W42", text);
+        Assert.Contains("- network-proxy：改代理、分流或测速时（1 条）", text);
+        Assert.DoesNotContain("域内规则XYZ", text);
+        Assert.DoesNotContain("项目规则QRS", text);
+        Assert.DoesNotContain("## 领域", text);
+        Assert.DoesNotContain("## 主线", text);
     }
 
     [Fact]
@@ -447,57 +502,41 @@ public sealed class ResidentDocumentTests : IDisposable
     [Fact]
     public void Resident_md_gives_guidance_for_the_new_sections_and_it_is_shown_above_their_data()
     {
-        File.WriteAllText(ResidentMd, "SHELL\n\n## situational_rules\nRULES-GUIDE\n\n## projects\nWORKSTREAMS-GUIDE\n");
+        File.WriteAllText(ResidentMd, "SHELL\n\n## situational_rules\nRULES-GUIDE\n\n## workstreams\nWORKSTREAMS-GUIDE\n");
         WriteScopedPersona();
-        Directory.CreateDirectory(Path.Combine(Pages, "alpha"));
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n");
 
         _home.Bind();
         var text = Agents();
 
-        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\nalpha\n</user_memory>");
+        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha：一号主线。\n</user_memory>");
     }
 
     [Fact]
-    public async Task Editing_the_mainline_or_the_activity_log_rerenders_the_block()
+    public void Resident_md_naming_a_removed_section_is_refused_and_the_name_is_given()
     {
+        File.WriteAllText(ResidentMd, "SHELL-OK\n\n## mainline\nX\n");
         WriteFullPersona();
-        _home.Bind();
-        using var service = Open();
 
-        File.WriteAllText(RecentMd, "## 近期主线\n- 新的主线\n");
-        await Eventually(() => Agents().Contains("## Mainline\n- 新的主线\n", StringComparison.Ordinal));
+        var refused = Assert.Throws<TacitException>(() => ResidentFile.Load(ResidentMd, MemoryLanguage.Zh));
 
-        WriteMonth("2026-10", "## 2026-10-20\n- 第四十三周的事\n");
-        await Eventually(() => Agents().Contains("- 2026-W43：1 条活动，其他 1 条", StringComparison.Ordinal));
-        Assert.NotNull(service);
+        Assert.Contains("mainline", refused.Message);
     }
 
     [Fact]
-    public async Task A_new_workstream_directory_appears_in_the_block()
+    public async Task Editing_the_workstreams_or_the_activity_log_rerenders_the_block()
     {
         WriteFullPersona();
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：说明。\n近况：在做。\n");
         _home.Bind();
         using var service = Open();
-        Assert.DoesNotContain("## Workstreams", Agents());
+        Assert.Contains("## Workstreams\n- fresh：说明。\n", Agents());
 
-        Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
+        WriteMonth("2026-11", "## 2026-11-02\n- [fresh] 今天的事\n");
+        await Eventually(() => Agents().Contains("- fresh：说明。 近况：在做。\n", StringComparison.Ordinal));
 
-        await Eventually(() => Agents().Contains("## Workstreams\ndb-migration\n", StringComparison.Ordinal));
-        Assert.NotNull(service);
-    }
-
-    [Fact]
-    public async Task Removing_the_whole_pages_directory_drops_the_workstreams_section()
-    {
-        WriteFullPersona();
-        Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
-        _home.Bind();
-        using var service = Open();
-        Assert.Contains("## Workstreams\ndb-migration\n", Agents());
-
-        Directory.Delete(Pages, recursive: true);
-
-        await Eventually(() => !Agents().Contains("## Workstreams", StringComparison.Ordinal));
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：改过的说明。\n");
+        await Eventually(() => Agents().Contains("- fresh：改过的说明。\n", StringComparison.Ordinal));
         Assert.NotNull(service);
     }
 
@@ -505,17 +544,17 @@ public sealed class ResidentDocumentTests : IDisposable
     public async Task The_block_is_rendered_again_when_the_local_date_changes()
     {
         WriteFullPersona();
-        WriteMonth("2026-10", "## 2026-10-26\n- 周一的事\n");
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在做。\n");
+        WriteMonth("2026-10", "## 2026-10-06\n- [alpha] 窗口的第一天\n");
         _home.Bind();
         using var service = Open();
-        // 2026-W44 ends on 2026-11-01, inside the seven-day window until 2026-11-09.
-        Assert.DoesNotContain("2026-W44", Agents());
+        Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
 
         // Let the vector fill of the service's start finish first: Elapse would otherwise fire the timeout of a call still in flight.
         await service.VectorCompletion;
-        _home.Clock.Elapse(TimeSpan.FromDays(7));
+        _home.Clock.Elapse(TimeSpan.FromDays(1));
 
-        await Eventually(() => Agents().Contains("- 2026-W44：1 条活动，其他 1 条", StringComparison.Ordinal));
+        await Eventually(() => Agents().Contains("## Workstreams\n- alpha：一号主线。\n", StringComparison.Ordinal));
         Assert.NotNull(service);
     }
 

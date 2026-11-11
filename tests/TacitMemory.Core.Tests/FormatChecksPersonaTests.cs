@@ -176,6 +176,53 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     [Fact]
+    public async Task A_workstream_entry_without_a_background_line_is_a_format_problem_fixed_by_hand()
+    {
+        using var service = Open();
+        Write("workstreams.md", "## 主线\n### alpha\n近况：没有背景。\n");
+
+        var problems = await Violations(service);
+
+        Assert.Contains("workstreams.md", problems);
+        Assert.Contains("Missing background", problems);
+        Assert.Contains("Fix directly.", problems);
+    }
+
+    [Fact]
+    public async Task A_workstream_name_that_is_not_valid_duplicate_or_a_line_no_entry_reads_is_reported()
+    {
+        using var service = Open();
+        Write("workstreams.md", "## 主线\n随便写的一行\n### Bad-Name\n背景：不合规。\n### dup\n背景：一。\n### dup\n背景：二。\n");
+
+        var problems = await Violations(service);
+
+        Assert.Contains("Unrecognized line", problems);
+        Assert.Contains("Workstream name", problems);
+        Assert.Contains("Duplicate workstream", problems);
+    }
+
+    [Fact]
+    public async Task Fixing_a_workstream_format_problem_makes_it_disappear()
+    {
+        using var service = Open();
+        Write("workstreams.md", "## 主线\n### alpha\n近况：没有背景。\n");
+        Assert.Contains("Missing background", await Violations(service));
+
+        Write("workstreams.md", "## 主线\n### alpha\n背景：有背景了。\n");
+
+        Assert.DoesNotContain("workstreams.md", await Violations(service));
+    }
+
+    [Fact]
+    public async Task The_number_of_workstreams_is_not_limited()
+    {
+        using var service = Open();
+        Write("workstreams.md", "## 主线\n" + string.Concat(Enumerable.Range(1, 12).Select(i => $"### w{i}\n背景：第{i}条。\n")));
+
+        Assert.DoesNotContain("workstreams.md", await Violations(service));
+    }
+
+    [Fact]
     public async Task Fixing_a_violation_by_hand_makes_it_disappear_from_the_next_report()
     {
         using var service = Open();

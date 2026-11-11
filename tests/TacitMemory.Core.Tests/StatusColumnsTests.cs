@@ -377,7 +377,7 @@ public sealed class StatusColumnsTests : IDisposable
     {
         File.WriteAllText(PersonaMd, "## 红线\n- 不要删库\n\n## 偏好\n- 沟通：先要结论\n");
         File.WriteAllText(CandidatesMd, TwoDayCandidate.ReplaceLineEndings("\n"));
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent.md"), "## 近期主线\n- 一条主线\n");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "workstreams.md"), "## 主线\n### alpha\n背景：有背景的主线。\n");
         // One candidate is below the default threshold of five, so the reminder is brought by the candidate count alone.
         File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "consolidation:\n  remindCandidates: 1\n");
         var service = Service;

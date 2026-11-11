@@ -148,7 +148,7 @@ public sealed class RecallActivityTests : IDisposable
     [Fact]
     public async Task The_mainline_is_not_an_activity()
     {
-        File.WriteAllText(Path.Combine(Memory, "recent.md"), "- 部署失败 主线内容\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "- 部署失败 主线内容\n");
 
         var result = await Recall("部署失败", kind: "activities");
 

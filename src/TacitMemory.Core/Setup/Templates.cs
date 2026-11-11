@@ -31,7 +31,7 @@ internal static class Templates
     public static string Candidates(MemoryLanguage language) =>
         Sections(language, StructureWords.Candidates, StructureWords.RejectionList);
 
-    public static string Recent(MemoryLanguage language) => Sections(language, StructureWords.Mainline);
+    public static string Workstreams(MemoryLanguage language) => Sections(language, StructureWords.Workstream);
 
     public const string MemoryGitignore = ".cache/\n";
 

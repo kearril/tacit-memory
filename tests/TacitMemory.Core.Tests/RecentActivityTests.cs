@@ -413,11 +413,11 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Adding_an_activity_leaves_the_mainline_file_alone()
     {
-        File.WriteAllText(Path.Combine(Memory, "recent.md"), "## 近期主线\n- 主线一\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### alpha\n背景：一号主线。\n");
 
         await _service.WriteRecentAsync(Add("一件事"));
 
-        Assert.Equal("## 近期主线\n- 主线一\n", File.ReadAllText(Path.Combine(Memory, "recent.md")));
+        Assert.Equal("## 主线\n### alpha\n背景：一号主线。\n", File.ReadAllText(Path.Combine(Memory, "workstreams.md")));
     }
 
     [Fact]
