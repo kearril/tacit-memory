@@ -123,14 +123,13 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public async Task The_resident_block_shows_the_guidance_of_the_index_mainline_weeks_and_workstreams_sections()
+    public async Task The_resident_block_shows_the_guidance_of_the_index_and_workstreams_sections_only()
     {
         var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
 
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "situational_rules").Text));
-        Assert.Equal("", Part(result, "projects").Text);
-        Assert.Equal("", Part(result, "mainline").Text);
-        Assert.Equal("", Part(result, "recent_weeks").Text);
+        Assert.Equal("", Part(result, "workstreams").Text);
+        Assert.DoesNotContain(result.Parts, part => part.Key is "mainline" or "recent_weeks" or "projects");
     }
 
     [Fact]

@@ -27,8 +27,6 @@ internal static class ResidentBlock
         "Tastes to weigh against the task.",
         null,
         "Each line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.",
-        null,
-        null,
         null);
 
     /// <summary>
@@ -83,8 +81,6 @@ internal static class ResidentBlock
     private static IReadOnlyList<string> LinesOf(ResidentContent content, ResidentPart part) => part switch
     {
         ResidentPart.SituationalRules => content.SituationalRules,
-        ResidentPart.Mainline => content.Mainline,
-        ResidentPart.RecentWeeks => content.RecentWeeks,
         ResidentPart.Workstreams => content.Workstreams,
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };

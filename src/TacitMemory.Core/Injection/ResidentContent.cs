@@ -1,6 +1,7 @@
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core.Injection;
 
@@ -9,55 +10,79 @@ namespace TacitMemory.Core.Injection;
 /// the lines the block prints, already formatted, in order; an empty list means the section is left out.
 /// </summary>
 /// <param name="Persona">The parsed <c>persona.md</c>: the global sections are printed, the scope blocks only through their index rows.</param>
-/// <param name="SituationalRules">One row per domain, up to the domain limit: its label, its trigger and its entry count.</param>
-/// <param name="Mainline">The mainline items.</param>
-/// <param name="RecentWeeks">The latest completed weeks that hold anything, newest first.</param>
-/// <param name="Workstreams">The workstream names on one line; empty when there are none.</param>
+/// <param name="SituationalRules">One row per domain: its label, its trigger and its entry count.</param>
+/// <param name="Workstreams">One row per established workstream: active ones with their recent line, quiet ones without it.</param>
 internal sealed record ResidentContent(
     PersonaDocument Persona,
     IReadOnlyList<string> SituationalRules,
-    IReadOnlyList<string> Mainline,
-    IReadOnlyList<string> RecentWeeks,
     IReadOnlyList<string> Workstreams)
 {
-    /// <summary>Reads the persona's domains, the mainline, the recent weeks and the workstream list.</summary>
+    /// <summary>A workstream is active when it has an activity in the last this many days, counting today.</summary>
+    public const int ActiveDays = 28;
+
+    /// <summary>Reads the persona's domains and the established workstreams as they stand on <paramref name="today"/>.</summary>
     public static ResidentContent Read(TacitConfig config, DateOnly today, PersonaDocument persona)
     {
         var language = config.Language;
-        var recent = RecentSummary.Read(config.MemoryPath, today, language);
         var domains = persona.Blocks
             .Where(block => block.Scope.Kind == PersonaScopeKind.Domain)
-            .Take(config.Limits.Domains)
             .Select(block => DomainRow(block, language))
             .ToList();
-        var mainline = MainlineSection.ReadItems(config.MemoryPath).Select(item => "- " + item).ToList();
-        var workstreams = WorkstreamNames(config.MemoryPath, recent.WorkstreamLabels);
-
-        return new ResidentContent(
-            persona,
-            domains,
-            mainline,
-            recent.RecentWeeks,
-            workstreams.Count == 0 ? [] : [string.Join(", ", workstreams)]);
+        return new ResidentContent(persona, domains, WorkstreamRows(config, today));
     }
 
     /// <summary>
-    /// The workstream names: the directories under <c>pages/</c> that do not start with an underscore or a dot, together with
-    /// every workstream label in the activity log; sorted by name, each once.
+    /// The workstream rows: the established workstreams, the active ones first, newest activity first, then the quiet ones by
+    /// name. An active row shows the background and the recent line; a quiet row shows only the background.
     /// </summary>
-    public static IReadOnlyList<string> WorkstreamNames(string memoryPath, IEnumerable<string> activityWorkstreams)
+    public static IReadOnlyList<string> WorkstreamRows(TacitConfig config, DateOnly today)
     {
-        var pages = Path.Combine(memoryPath, "pages");
-        IEnumerable<string> directories = Directory.Exists(pages)
-            ? Directory.EnumerateDirectories(pages).Select(Path.GetFileName).OfType<string>()
-            : Enumerable.Empty<string>();
-        return directories
-            .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
-            .Concat(activityWorkstreams)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
+        var established = WorkstreamFile.Established(config.MemoryPath);
+        if (established.Count == 0)
+            return [];
+
+        var latest = LatestActivityDays(config.MemoryPath);
+        var windowStart = today.AddDays(1 - ActiveDays);
+        var active = established
+            .Where(entry => latest.TryGetValue(entry.Name, out var day) && day >= windowStart && day <= today)
+            .OrderByDescending(entry => latest[entry.Name])
+            .ThenBy(entry => entry.Name, StringComparer.Ordinal)
+            .ToList();
+        var quiet = established
+            .Where(entry => !active.Contains(entry))
+            .OrderBy(entry => entry.Name, StringComparer.Ordinal)
+            .ToList();
+
+        var language = config.Language;
+        return active.Select(entry => ActiveRow(entry, language))
+            .Concat(quiet.Select(entry => ResidentMessages.WorkstreamRow.Format(language, entry.Name, entry.Background)))
             .ToList();
     }
+
+    /// <summary>The newest activity day of each workstream label in the activity log.</summary>
+    private static Dictionary<string, DateOnly> LatestActivityDays(string memoryPath)
+    {
+        var latest = new Dictionary<string, DateOnly>(StringComparer.Ordinal);
+        foreach (var (_, file) in RecentFile.MonthFiles(memoryPath))
+        {
+            if (TextFile.Read(file) is not { } read)
+                continue;
+            foreach (var activity in RecentFile.Activities(read.Text))
+            {
+                if (activity.Workstream is not { } name)
+                    continue;
+                if (!latest.TryGetValue(name, out var day) || activity.Day > day)
+                    latest[name] = activity.Day;
+            }
+        }
+
+        return latest;
+    }
+
+    private static string ActiveRow(WorkstreamEntry entry, MemoryLanguage language) =>
+        entry.Recent is null
+            ? ResidentMessages.WorkstreamRow.Format(language, entry.Name, entry.Background)
+            : ResidentMessages.WorkstreamRowWithRecent.Format(language, entry.Name, entry.Background, entry.Recent);
 
     /// <summary>A domain's index row: its label, its trigger and its entry count, across its four sections.</summary>
     private static string DomainRow(PersonaBlock block, MemoryLanguage language)

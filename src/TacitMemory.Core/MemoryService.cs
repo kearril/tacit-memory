@@ -16,6 +16,7 @@ using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Workstreams;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Status;
 using TacitMemory.Core.Maintenance;
@@ -163,7 +164,7 @@ public sealed class MemoryService : IDisposable
                 prompts = _prompts;
             }
 
-            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today, Config.Language);
+            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
             var consolidation = await ConsolidationReminder.RenderAsync(Config, _options.Today, cancellationToken);
             var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, consolidation).Text;
 
@@ -780,7 +781,7 @@ public sealed class MemoryService : IDisposable
     /// mainline, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
     /// </summary>
     private static bool AffectsResident(string relative) =>
-        relative == MainlineSection.RelativePath
+        relative == WorkstreamFile.RelativePath
         || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
         || relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0);
 
@@ -809,7 +810,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
     private static bool AffectsInstructions(string relative) =>
-        relative is PersonaFiles.Persona or PersonaFiles.Candidates or MainlineSection.RelativePath
+        relative is PersonaFiles.Persona or PersonaFiles.Candidates or WorkstreamFile.RelativePath
         || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
         || relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal)
         || IsGitHistory(relative);

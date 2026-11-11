@@ -262,6 +262,56 @@ public sealed class WorkstreamBriefTests : IDisposable
     }
 
     [Fact]
+    public async Task An_established_workstream_brief_opens_with_its_background_and_recent_lines()
+    {
+        Setup();
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### my-app\n背景：一个应用。\n近况：在收尾。\n");
+        await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
+
+        var result = await Brief("my-app");
+
+        Assert.StartsWith("Workstream brief: my-app\nBackground: 一个应用。\nRecent: 在收尾。\n", result.Text);
+    }
+
+    [Fact]
+    public async Task An_established_workstream_without_recent_gets_only_the_background_line()
+    {
+        Setup();
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### my-app\n背景：一个应用。\n");
+        await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
+
+        var result = await Brief("my-app");
+
+        Assert.StartsWith("Workstream brief: my-app\nBackground: 一个应用。\n\n", result.Text);
+        Assert.DoesNotContain("Recent:", result.Text);
+    }
+
+    [Fact]
+    public async Task A_name_that_is_not_established_gets_its_brief_without_background_or_recent()
+    {
+        Setup();
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### other\n背景：别的。\n");
+        await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
+
+        var result = await Brief("my-app");
+
+        Assert.StartsWith("Workstream brief: my-app\n", result.Text);
+        Assert.DoesNotContain("Background:", result.Text);
+        Assert.Contains("采用 PGroonga", result.Text);
+    }
+
+    [Fact]
+    public async Task An_established_workstream_with_no_pages_or_activities_still_gets_its_background()
+    {
+        Setup();
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### my-app\n背景：一个应用。\n");
+
+        var result = await Brief("my-app");
+
+        Assert.StartsWith("Workstream brief: my-app\nBackground: 一个应用。", result.Text);
+    }
+
+    [Fact]
     public async Task Combining_the_workstream_brief_with_kind_is_refused_with_a_next_step()
     {
         Setup();

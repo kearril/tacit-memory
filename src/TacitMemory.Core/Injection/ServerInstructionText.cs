@@ -30,7 +30,7 @@ internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, stri
 /// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
 /// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part and the consolidation
 /// reminder are short and always whole. The activities of the last seven days are cut to fit <see cref="TotalLimit"/>:
-/// the oldest go first. The mainline, the recent weeks and the workstreams are in the resident block, not here.
+/// the oldest go first. The workstreams are in the resident block, not here.
 /// </summary>
 internal static class ServerInstructionText
 {

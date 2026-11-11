@@ -33,7 +33,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     private void Ready(string extraConfig = "")
     {
         _home.InitReady(extraConfig, _models);
-        File.WriteAllText(Path.Combine(Memory, "recent.md"), "## 近期主线\n- 一条主线\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### alpha\n背景：有背景的主线。\n");
     }
 
     private MemoryService Open() => _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
@@ -170,7 +170,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     public async Task An_empty_mainline_brings_the_reminder_with_the_mainline_line()
     {
         Ready();
-        File.WriteAllText(Path.Combine(Memory, "recent.md"), "## 近期主线\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n");
         CommitOn(InitDay, "consolidate: pass");
         using var service = Open();
 

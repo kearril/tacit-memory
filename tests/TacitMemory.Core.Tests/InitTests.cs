@@ -20,12 +20,12 @@ public sealed class InitTests : IDisposable
         Assert.Equal(".cache/\n", File.ReadAllText(Path.Combine(memory, ".gitignore")));
         Assert.Equal("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n", File.ReadAllText(Path.Combine(memory, "persona.md")));
         Assert.Equal("## 候选\n\n## 拒绝列表\n", File.ReadAllText(Path.Combine(memory, "candidates.md")));
-        Assert.Equal("## 近期主线\n", File.ReadAllText(Path.Combine(memory, "recent.md")));
+        Assert.Equal("## 主线\n", File.ReadAllText(Path.Combine(memory, "workstreams.md")));
         Assert.Contains("itemLength: 200", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
 
         Assert.Equal("tacit <tacit@localhost>|init: create memory repo\n", TestHome.Git(memory, "log", "--format=%an <%ae>|%s"));
         var committed = TestHome.Git(memory, "ls-files").Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal([".gitignore", "candidates.md", "pages/.gitkeep", "persona.md", "recent.md", "recent/.gitkeep"], committed.Order());
+        Assert.Equal([".gitignore", "candidates.md", "pages/.gitkeep", "persona.md", "recent/.gitkeep", "workstreams.md"], committed.Order());
         Assert.Equal("", TestHome.Git(memory, "status", "--porcelain"));
     }
 
@@ -52,14 +52,14 @@ public sealed class InitTests : IDisposable
         var persona = Path.Combine(_home.DefaultMemory, "persona.md");
         File.WriteAllText(config, "language: zh\n");
         File.WriteAllText(persona, "## 偏好\n- 沟通：先要结论\n");
-        File.Delete(Path.Combine(_home.DefaultMemory, "recent.md"));
+        File.Delete(Path.Combine(_home.DefaultMemory, "workstreams.md"));
 
         var result = await _home.Tacit().InitAsync(new InitRequest());
 
         Assert.False(result.RepositoryCreated);
         Assert.Equal("language: zh\n", File.ReadAllText(config));
         Assert.Equal("## 偏好\n- 沟通：先要结论\n", File.ReadAllText(persona));
-        Assert.Equal([Path.Combine(_home.DefaultMemory, "recent.md")], result.Created);
+        Assert.Equal([Path.Combine(_home.DefaultMemory, "workstreams.md")], result.Created);
         Assert.Contains(config, result.Existing);
         Assert.Contains(persona, result.Existing);
         Assert.Single(TestHome.Git(_home.DefaultMemory, "log", "--format=%s").Split('\n', StringSplitOptions.RemoveEmptyEntries));

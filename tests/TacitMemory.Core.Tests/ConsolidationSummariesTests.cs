@@ -25,7 +25,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "recent", month + ".md"), text.ReplaceLineEndings("\n"));
     }
 
-    private void Mainline(string text) => File.WriteAllText(Path.Combine(Memory, "recent.md"), text.ReplaceLineEndings("\n"));
+    private void Mainline(string text) => File.WriteAllText(Path.Combine(Memory, "workstreams.md"), text.ReplaceLineEndings("\n"));
 
     /// <summary>Moves the test clock to 10:00 UTC on <paramref name="day"/>.</summary>
     private void ClockOn(DateOnly day)
@@ -186,7 +186,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         using var service = Open();
         Month("2026-10",
             "## 汇总\n- 2026-W40：第一周\n- 2026-W41：第二周\n- 2026-W42：第三周\n- 2026-W43：第四周\n- 2026-W44：第五周\n");
-        Mainline("## 近期主线\n- 主线一\n- 主线二\n");
+        Mainline("## 主线\n### alpha\n背景：一号主线。\n### beta\n背景：二号主线。\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
         var section = Section(await Report(service), "Mainline material");
@@ -194,8 +194,8 @@ public sealed class ConsolidationSummariesTests : IDisposable
         Assert.Contains("2026-W44：第五周", section);
         Assert.Contains("2026-W41：第二周", section);
         Assert.DoesNotContain("2026-W40：第一周", section);
-        Assert.Contains("主线一", section);
-        Assert.Contains("主线二", section);
+        Assert.Contains("alpha", section);
+        Assert.Contains("beta", section);
         Assert.DoesNotContain("The mainline is empty", section);
     }
 
@@ -204,7 +204,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     {
         using var service = Open();
         Month("2026-10", "## 汇总\n- 2026-W44：第五周\n");
-        Mainline("## 近期主线\n");
+        Mainline("## 主线\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
         var section = Section(await Report(service), "Mainline material");
