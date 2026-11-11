@@ -160,15 +160,15 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (PersonaScope.TryParse(text, out var scope))
             return (scope, null);
         return (PersonaScope.Global, ToolText.Refuse(
-            $"Parameter scope {ToolText.Quote(text)} is not a scope: it must be global, project:<name> or domain:<label>, "
+            $"Parameter scope {ToolText.Quote(text)} is not a scope: it must be global, workstream:<name> or domain:<label>, "
             + "and the name uses only lowercase letters, digits, '.', '_' and '-'.",
-            $"Call write_persona again with op={op} and scope set to global, project:<name> or domain:<label>."));
+            $"Call write_persona again with op={op} and scope set to global, workstream:<name> or domain:<label>."));
     }
 
     /// <summary>
     /// The refusal a write into <paramref name="scope"/> gets from the limits it falls under, or from the trigger a new domain
     /// needs; null when it may go ahead. Global sections and a domain's entries are capped, and a new domain counts against the
-    /// domain limit. A project has no limit.
+    /// domain limit. A workstream has no limit.
     /// </summary>
     private ToolResult? LimitRefusal(PersonaDocument persona, PersonaScope scope, string trigger, PersonaSection kind)
     {
@@ -188,7 +188,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
                 + string.Join("\n", entries.Select(item => Listed(item, codes[item.Line]))));
         }
 
-        if (scope.Kind == PersonaScopeKind.Project)
+        if (scope.Kind == PersonaScopeKind.Workstream)
             return null;
 
         if (persona.BlockOf(scope) is { } block)
@@ -233,12 +233,12 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
                 + $"one line of at most {triggerLimit} characters.");
     }
 
-    /// <summary>The reply for an entry added to a domain or a project: where it went, the domain's count, and the trigger of a new domain.</summary>
+    /// <summary>The reply for an entry added to a domain or a workstream: where it went, the domain's count, and the trigger of a new domain.</summary>
     private string AddedToScopeReply(PersonaDocument persona, PersonaScope scope, PersonaSection kind, string code, string? createdTrigger)
     {
         var name = PersonaDocument.HeadingOf(kind).En;
-        if (scope.Kind == PersonaScopeKind.Project)
-            return $"Added to the {name} section of project {scope.Name} as [{code}].";
+        if (scope.Kind == PersonaScopeKind.Workstream)
+            return $"Added to the {name} section of workstream {scope.Name} as [{code}].";
 
         var count = (persona.BlockOf(scope)?.Entries.Count ?? 0) + 1;
         var created = createdTrigger is null ? "" : $" The domain was created with trigger: {createdTrigger}";
@@ -605,17 +605,17 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         return null;
     }
 
-    /// <summary>" of domain x" or " of project x" for a scoped entry; empty for a global one.</summary>
+    /// <summary>" of domain x" or " of workstream x" for a scoped entry; empty for a global one.</summary>
     private static string ScopePhrase(PersonaScope scope) => scope.Kind switch
     {
         PersonaScopeKind.Domain => $" of domain {scope.Name}",
-        PersonaScopeKind.Project => $" of project {scope.Name}",
+        PersonaScopeKind.Workstream => $" of workstream {scope.Name}",
         _ => "",
     };
 
     /// <summary>
     /// The count a reply states for the section or domain an entry is in, after <paramref name="delta"/> entries are added or
-    /// removed. Empty for a project, which has no limit.
+    /// removed. Empty for a workstream, which has no limit.
     /// </summary>
     private string CountNote(PersonaDocument persona, PersonaScope scope, PersonaSection kind, int delta)
     {

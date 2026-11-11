@@ -12,15 +12,15 @@ namespace TacitMemory.Core.Injection;
 /// <param name="SituationalRules">One row per domain, up to the domain limit: its label, its trigger and its entry count.</param>
 /// <param name="Mainline">The mainline items.</param>
 /// <param name="RecentWeeks">The latest completed weeks that hold anything, newest first.</param>
-/// <param name="Projects">The project names on one line; empty when there are none.</param>
+/// <param name="Workstreams">The workstream names on one line; empty when there are none.</param>
 internal sealed record ResidentContent(
     PersonaDocument Persona,
     IReadOnlyList<string> SituationalRules,
     IReadOnlyList<string> Mainline,
     IReadOnlyList<string> RecentWeeks,
-    IReadOnlyList<string> Projects)
+    IReadOnlyList<string> Workstreams)
 {
-    /// <summary>Reads the persona's domains, the mainline, the recent weeks and the project list.</summary>
+    /// <summary>Reads the persona's domains, the mainline, the recent weeks and the workstream list.</summary>
     public static ResidentContent Read(TacitConfig config, DateOnly today, PersonaDocument persona)
     {
         var language = config.Language;
@@ -31,21 +31,21 @@ internal sealed record ResidentContent(
             .Select(block => DomainRow(block, language))
             .ToList();
         var mainline = MainlineSection.ReadItems(config.MemoryPath).Select(item => "- " + item).ToList();
-        var projects = ProjectNames(config.MemoryPath, recent.ProjectLabels);
+        var workstreams = WorkstreamNames(config.MemoryPath, recent.WorkstreamLabels);
 
         return new ResidentContent(
             persona,
             domains,
             mainline,
             recent.RecentWeeks,
-            projects.Count == 0 ? [] : [string.Join(", ", projects)]);
+            workstreams.Count == 0 ? [] : [string.Join(", ", workstreams)]);
     }
 
     /// <summary>
-    /// The project names: the directories under <c>pages/</c> that do not start with an underscore or a dot, together with
-    /// every project label in the activity log; sorted by name, each once.
+    /// The workstream names: the directories under <c>pages/</c> that do not start with an underscore or a dot, together with
+    /// every workstream label in the activity log; sorted by name, each once.
     /// </summary>
-    public static IReadOnlyList<string> ProjectNames(string memoryPath, IEnumerable<string> activityProjects)
+    public static IReadOnlyList<string> WorkstreamNames(string memoryPath, IEnumerable<string> activityWorkstreams)
     {
         var pages = Path.Combine(memoryPath, "pages");
         IEnumerable<string> directories = Directory.Exists(pages)
@@ -53,7 +53,7 @@ internal sealed record ResidentContent(
             : Enumerable.Empty<string>();
         return directories
             .Where(name => !name.StartsWith('_') && !name.StartsWith('.'))
-            .Concat(activityProjects)
+            .Concat(activityWorkstreams)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();

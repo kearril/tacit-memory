@@ -13,15 +13,15 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "recall", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [McpMeta("anthropic/alwaysLoad", true)]
     [Description("""
-        Search the user's memory, or read one detail page in full. Give query to search, page to read one page, only project for that project's brief (its conventions, open items, pages and recent activity), or kind=persona / kind=rules alone.
+        Search the user's memory, or read one detail page in full. Give query to search, page to read one page, only workstream for that workstream's brief (its conventions, open items, pages and recent activity), or kind=persona / kind=rules alone.
         Results come per page with the matching sections in full and a short code for each section.
         kind=persona returns the whole persona, and kind=rules returns the rules of one domain (or of every domain), each entry with its short code. Neither searches: give kind alone, and domain only with rules.
         """)]
     public async Task<CallToolResult> Recall(
         RequestContext<CallToolRequestParams> request,
         [Description("What to look for, in natural language and in the memory language; names, terms and file names as written.")] string? query = null,
-        [Description("Page ID to read in full: <project>/<slug>, for example my-app/db-upgrade.")] string? page = null,
-        [Description("Search only this project.")] string? project = null,
+        [Description("Page ID to read in full: <workstream>/<slug>, for example my-app/db-upgrade.")] string? page = null,
+        [Description("Search only this workstream.")] string? workstream = null,
         [Description("Earliest date, YYYY-MM-DD; convert phrases like \"last week\" into dates.")] string? from = null,
         [Description("Latest date, YYYY-MM-DD.")] string? to = null,
         [AllowedValues(ToolValues.RecallKinds.Pages, ToolValues.RecallKinds.Activities, ToolValues.RecallKinds.Rules, ToolValues.RecallKinds.Persona)]
@@ -29,7 +29,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("With kind=rules only: the domain label whose rules to return, as the persona names it; omitted, the rules of every domain are returned.")] string? domain = null,
         CancellationToken cancellationToken = default) =>
         Reply(await service.RecallAsync(
-            new RecallRequest { Query = query, Page = page, Project = project, From = from, To = to, Kind = kind, Domain = domain, UnknownParameters = UnknownArguments.Of(request) },
+            new RecallRequest { Query = query, Page = page, Workstream = workstream, From = from, To = to, Kind = kind, Domain = domain, UnknownParameters = UnknownArguments.Of(request) },
             cancellationToken));
 
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
@@ -51,7 +51,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Required, AllowedValues(ToolValues.WritePageOps.Create, ToolValues.WritePageOps.UpsertSection, ToolValues.WritePageOps.DeleteSection, ToolValues.WritePageOps.UpdateHeader)]
         [Description("Operation: create, upsert_section, delete_section or update_header.")] string? op = null,
         [Required]
-        [Description("Page ID: <project>/<slug>. project is the code repository's name in lowercase, or _topics for a subject that belongs to no project; slug is lowercase words joined by hyphens.")] string? page = null,
+        [Description("Page ID: <workstream>/<slug>. workstream is the name of a continuing matter in lowercase, which need not be a code repository, or _topics for a subject that belongs to no workstream; slug is lowercase words joined by hyphens.")] string? page = null,
         [Description("Page title, one line.")] string? title = null,
         [AllowedValues(ToolValues.PageTypes.Incident, ToolValues.PageTypes.Decision, ToolValues.PageTypes.Entity, ToolValues.PageTypes.Work)]
         [Description("The page's type, one of the four described above; required by create.")] string? type = null,
@@ -84,7 +84,7 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
         Record an activity: one line in the activity log.
-        text is required: one line of at most {itemLength} characters that does not start with '['; project and source are optional.
+        text is required: one line of at most {itemLength} characters that does not start with '['; workstream and source are optional.
         With replaces (a short code of today's activity), rewrites that activity in place instead of adding one; source then replaces its comment only if given.
         The mainline is not written here: the tacit-consolidate skill maintains it.
         Record where a credential is kept, never its value.
@@ -92,8 +92,8 @@ internal sealed class MemoryTools(MemoryService service)
     public async Task<CallToolResult> WriteRecent(
         RequestContext<CallToolRequestParams> request,
         [Required]
-        [Description("The activity in one line, in the memory language; without a [project] prefix, which the project parameter adds.")] string? text = null,
-        [Description("The project the activity belongs to: the code repository's name in lowercase, for example my-app.")] string? project = null,
+        [Description("The activity in one line, in the memory language; without a [workstream] prefix, which the workstream parameter adds.")] string? text = null,
+        [Description("The workstream the activity belongs to: the name of a continuing matter in lowercase, which need not be a code repository, for example my-app.")] string? workstream = null,
         [Description("The user's own words behind the activity, one line; kept as a comment under the entry.")] string? source = null,
         [Description("The short code of an activity from today to rewrite with this text, from a refusal's list or from recall. Only today's activities match.")] string? replaces = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
@@ -101,7 +101,7 @@ internal sealed class MemoryTools(MemoryService service)
         Reply(await service.WriteRecentAsync(new WriteRecentRequest
         {
             Text = text,
-            Project = project,
+            Workstream = workstream,
             Source = source,
             Replaces = replaces,
             ConfirmNoSecret = confirm_no_secret,
@@ -116,7 +116,7 @@ internal sealed class MemoryTools(MemoryService service)
         op=replace: needs hash, text and source.
         op=delete: needs hash only.
         hash is the entry's short code, from recall kind=persona.
-        scope: global (the default), project:<name> or domain:<label>; names use lowercase letters, digits, '.', '_' and '-'. Reuse an existing domain label exactly.
+        scope: global (the default), workstream:<name> or domain:<label>; names use lowercase letters, digits, '.', '_' and '-'. Reuse an existing domain label exactly.
         trigger: one line saying when a new domain applies, at most {triggerLength} characters; ignored for an existing domain.
         A domain holds at most {domainEntries} entries and the persona at most {domains} domains.
         persona_section is red_lines, working_rules, preferences or profile. Sentence form of text: red_lines "Don't <behaviour>; instead <alternative>"; working_rules "<situation> → <action>"; preferences "<dimension>: <description>"; profile "<field>: <fact>".
@@ -132,7 +132,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
         [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,
         [Description("Short code of the entry to replace or delete, from recall kind=persona or an earlier reply; required by both. Finds an entry in any scope. Not used by add or propose.")] string? hash = null,
-        [Description("Scope of the entry: global (the default), project:<name> or domain:<label>. Used by add and propose.")] string? scope = null,
+        [Description("Scope of the entry: global (the default), workstream:<name> or domain:<label>. Used by add and propose.")] string? scope = null,
         [Description("Trigger of a new domain: one line saying when the domain applies. Used by add only; required when add creates the domain, ignored for an existing one.")] string? trigger = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>

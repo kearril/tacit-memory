@@ -115,7 +115,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task The_project_list_is_not_in_the_instructions_even_when_projects_exist()
+    public async Task The_workstream_list_is_not_in_the_instructions_even_when_workstreams_exist()
     {
         Directory.CreateDirectory(Path.Combine(Memory, "pages", "zeta"));
         WriteMonth("## 2026-11-02\n- [zeta] 今天的事\n");
@@ -123,7 +123,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         var instructions = await Open().ServerInstructionsAsync();
 
         Assert.Contains("- 2026-11-02 [zeta] 今天的事", instructions);
-        Assert.DoesNotContain("## Projects", instructions);
+        Assert.DoesNotContain("## Workstreams", instructions);
     }
 
     [Fact]

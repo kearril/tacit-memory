@@ -19,10 +19,10 @@ internal static class ResidentMessages
     /// <summary>A domain index row for a domain whose block has no trigger line.</summary>
     public static readonly Localized DomainRowWithoutTrigger = new("- {0}（{1}）", "- {0} ({1})");
 
-    /// <summary>The project names of a week, after the activity count.</summary>
-    public static readonly Localized WeekProjects = new("，涉及项目 {0}", ", projects {0}");
+    /// <summary>The workstream names of a week, after the activity count.</summary>
+    public static readonly Localized WeekWorkstreams = new("，涉及主线 {0}", ", workstreams {0}");
 
-    /// <summary>The activities of a week that have no project label, after the project names.</summary>
+    /// <summary>The activities of a week that have no workstream label, after the workstream names.</summary>
     public static readonly Localized WeekOther = new("，其他 {0} 条", ", other {0}");
 
     /// <summary>Joins names in a list.</summary>

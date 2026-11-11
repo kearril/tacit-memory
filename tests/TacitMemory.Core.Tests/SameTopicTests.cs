@@ -25,10 +25,10 @@ public sealed class SameTopicTests : IDisposable
 
     private string MonthFile => Path.Combine(_home.DefaultMemory, "recent", "2026-11.md");
 
-    private static WriteRecentRequest Add(string text, string? project = null, string? replaces = null) => new()
+    private static WriteRecentRequest Add(string text, string? workstream = null, string? replaces = null) => new()
     {
         Text = text,
-        Project = project,
+        Workstream = workstream,
         Replaces = replaces,
     };
 
@@ -45,7 +45,7 @@ public sealed class SameTopicTests : IDisposable
         option => option.Key != options.Keys.Last() && option.Value.Contains(text, StringComparison.Ordinal) ? probability : 0.0);
 
     /// <summary>Writes an activity and returns the state and the options the decision model was asked with.</summary>
-    private async Task<(string State, IReadOnlyDictionary<string, string> Options)> AskedFor(string text, string? project = null)
+    private async Task<(string State, IReadOnlyDictionary<string, string> Options)> AskedFor(string text, string? workstream = null)
     {
         string? state = null;
         IReadOnlyDictionary<string, string>? options = null;
@@ -55,7 +55,7 @@ public sealed class SameTopicTests : IDisposable
             options = offered;
             return offered.Keys.ToDictionary(key => key, key => key == offered.Keys.Last() ? 1.0 : 0.0);
         };
-        await Service.WriteRecentAsync(Add(text, project));
+        await Service.WriteRecentAsync(Add(text, workstream));
         return (state ?? throw new InvalidOperationException("The decision model was not asked."),
             options ?? throw new InvalidOperationException("The decision model was not asked."));
     }
@@ -137,11 +137,11 @@ public sealed class SameTopicTests : IDisposable
     }
 
     [Fact]
-    public async Task Every_project_of_today_is_offered_and_none_comes_last()
+    public async Task Every_workstream_of_today_is_offered_and_none_comes_last()
     {
-        await Service.WriteRecentAsync(Add("先查了索引", project: "alpha"));
+        await Service.WriteRecentAsync(Add("先查了索引", workstream: "alpha"));
 
-        var (_, options) = await AskedFor("另一件事", project: "beta");
+        var (_, options) = await AskedFor("另一件事", workstream: "beta");
 
         Assert.Equal(2, options.Count);
         Assert.Contains("[alpha] 先查了索引", options.Values);
@@ -149,11 +149,11 @@ public sealed class SameTopicTests : IDisposable
     }
 
     [Fact]
-    public async Task The_state_is_the_new_entry_with_its_project_label()
+    public async Task The_state_is_the_new_entry_with_its_workstream_label()
     {
         await Service.WriteRecentAsync(Add("先查了索引"));
 
-        var (state, _) = await AskedFor("另一件事", project: "beta");
+        var (state, _) = await AskedFor("另一件事", workstream: "beta");
 
         Assert.Equal("[beta] 另一件事", state);
     }

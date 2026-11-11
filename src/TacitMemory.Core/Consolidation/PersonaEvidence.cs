@@ -37,8 +37,8 @@ internal static class PersonaEvidence
 
         foreach (var (activity, comment) in await NewActivitiesAsync(context, cancellationToken))
         {
-            var project = activity.Project ?? "none";
-            entries.Add((activity.Day, 1, $"- {activity.Day:yyyy-MM-dd} activity [{activity.Code}] project {project}: {comment}"));
+            var workstream = activity.Workstream ?? "none";
+            entries.Add((activity.Day, 1, $"- {activity.Day:yyyy-MM-dd} activity [{activity.Code}] workstream {workstream}: {comment}"));
         }
 
         var lines = entries

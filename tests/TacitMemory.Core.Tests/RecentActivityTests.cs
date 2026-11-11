@@ -30,11 +30,11 @@ public sealed partial class RecentActivityTests : IDisposable
     // Secret-shaped samples are assembled at run time so no scanner mistakes this file for a leak.
     private static readonly string OpenAiKey = "sk-" + "proj-Abc123def456GHI789jkl012MNO345";
 
-    private static WriteRecentRequest Add(string text, string? project = null, string? source = null,
+    private static WriteRecentRequest Add(string text, string? workstream = null, string? source = null,
         bool? confirmNoSecret = null) => new()
         {
             Text = text,
-            Project = project,
+            Workstream = workstream,
             Source = source,
             ConfirmNoSecret = confirmNoSecret,
         };
@@ -108,21 +108,21 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_is_written_as_a_bracketed_prefix_in_lowercase()
+    public async Task Workstream_is_written_as_a_bracketed_prefix_in_lowercase()
     {
-        var result = await _service.WriteRecentAsync(Add("决定先不做同主题判断", project: "Tacit-Memory"));
+        var result = await _service.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "Tacit-Memory"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("## 2026-11-02\n- [tacit-memory] 决定先不做同主题判断\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
-    public async Task A_project_without_a_detail_page_is_accepted()
+    public async Task A_workstream_without_a_detail_page_is_accepted()
     {
-        var result = await _service.WriteRecentAsync(Add("第一条", project: "brand-new.project"));
+        var result = await _service.WriteRecentAsync(Add("第一条", workstream: "brand-new.workstream"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("- [brand-new.project] 第一条", File.ReadAllText(MonthFile));
+        Assert.Contains("- [brand-new.workstream] 第一条", File.ReadAllText(MonthFile));
     }
 
     [Theory]
@@ -130,9 +130,9 @@ public sealed partial class RecentActivityTests : IDisposable
     [InlineData(".hidden")]
     [InlineData("_topics")]
     [InlineData("_private")]
-    public async Task A_project_outside_the_naming_rule_is_refused_and_nothing_is_written(string project)
+    public async Task A_workstream_outside_the_naming_rule_is_refused_and_nothing_is_written(string workstream)
     {
-        var result = await _service.WriteRecentAsync(Add("一件事", project: project));
+        var result = await _service.WriteRecentAsync(Add("一件事", workstream: workstream));
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:", result.Text);
@@ -152,11 +152,11 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task The_length_limit_counts_the_text_only_not_the_project_label_or_the_source()
+    public async Task The_length_limit_counts_the_text_only_not_the_workstream_label_or_the_source()
     {
         var text = new string('字', 200);
 
-        var result = await _service.WriteRecentAsync(Add(text, project: "tacit-memory", source: new string('源', 150)));
+        var result = await _service.WriteRecentAsync(Add(text, workstream: "tacit-memory", source: new string('源', 150)));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"- [tacit-memory] {text}", File.ReadAllText(MonthFile));
@@ -186,13 +186,13 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Text_starting_with_a_bracket_is_refused_and_the_next_step_names_project()
+    public async Task Text_starting_with_a_bracket_is_refused_and_the_next_step_names_workstream()
     {
         var result = await _service.WriteRecentAsync(Add("[tacit-memory] 已经标注过了"));
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:", result.Text);
-        Assert.Contains("Next step: Call write_recent again with the project parameter instead of a [project] prefix in text.", result.Text);
+        Assert.Contains("Next step: Call write_recent again with the workstream parameter instead of a [workstream] prefix in text.", result.Text);
         Assert.False(File.Exists(MonthFile));
     }
 
@@ -206,9 +206,9 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task The_reply_carries_the_short_code_of_the_text_with_its_project_label()
+    public async Task The_reply_carries_the_short_code_of_the_text_with_its_workstream_label()
     {
-        var result = await _service.WriteRecentAsync(Add("决定先不做同主题判断", project: "tacit-memory"));
+        var result = await _service.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "tacit-memory"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(ShortOf("[tacit-memory] 决定先不做同主题判断"), CodeOf(result));
@@ -265,14 +265,14 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Replaces_rewrites_the_activity_in_place_and_keeps_its_source()
     {
-        await _service.WriteRecentAsync(Add("先做的事", project: "tacit-memory", source: "原话一"));
+        await _service.WriteRecentAsync(Add("先做的事", workstream: "tacit-memory", source: "原话一"));
         await _service.WriteRecentAsync(Add("第二件事"));
         var first = await _service.WriteRecentAsync(Add("第三件事"));
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "改写后的先做的事",
-            Project = "tacit-memory",
+            Workstream = "tacit-memory",
             Replaces = ShortOf("[tacit-memory] 先做的事"),
         });
 
@@ -309,14 +309,14 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Replaces_takes_the_project_label_from_the_new_call()
+    public async Task Replaces_takes_the_workstream_label_from_the_new_call()
     {
-        var added = await _service.WriteRecentAsync(Add("同一件事", project: "old-one"));
+        var added = await _service.WriteRecentAsync(Add("同一件事", workstream: "old-one"));
 
         var result = await _service.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "同一件事",
-            Project = "new-one",
+            Workstream = "new-one",
             Replaces = CodeOf(added),
         });
 
@@ -415,7 +415,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_reply_is_one_line_with_the_short_code_of_the_new_activity()
     {
-        var result = await _service.WriteRecentAsync(Add("一件事", project: "tacit-memory"));
+        var result = await _service.WriteRecentAsync(Add("一件事", workstream: "tacit-memory"));
 
         Assert.False(result.IsError, result.Text);
         // The first line is the reply; the embedding note that a test without a model gets follows it.
@@ -455,7 +455,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.True(result.IsError);
         Assert.StartsWith(
             "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\n"
-            + "Next step: Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret. "
+            + "Next step: Call write_recent again with only these parameters: text, workstream, source, replaces, confirm_no_secret. "
             + "The mainline is maintained by the tacit-consolidate skill.",
             result.Text);
         Assert.False(File.Exists(MonthFile));
@@ -468,10 +468,21 @@ public sealed partial class RecentActivityTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.StartsWith(
-            "Refused: Unknown parameter content.\nNext step: Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret.",
+            "Refused: Unknown parameter content.\nNext step: Call write_recent again with only these parameters: text, workstream, source, replaces, confirm_no_secret.",
             result.Text);
         Assert.False(File.Exists(MonthFile));
         Assert.Empty(Git("status", "--porcelain").Trim());
+    }
+
+    [Fact]
+    public async Task A_project_parameter_is_refused_by_name_and_the_next_step_names_workstream()
+    {
+        var result = await _service.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["project"] });
+
+        Assert.StartsWith(
+            "Refused: Unknown parameter project.\nNext step: Call write_recent again with only these parameters: text, workstream, source, replaces, confirm_no_secret.",
+            result.Text);
+        Assert.False(File.Exists(MonthFile));
     }
 
     [Fact]

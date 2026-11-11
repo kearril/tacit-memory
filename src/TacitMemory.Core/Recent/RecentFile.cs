@@ -98,13 +98,13 @@ internal static class RecentFile
     /// <summary>One activity: a <c>- </c> line under a <c>## yyyy-MM-dd</c> heading.</summary>
     /// <param name="Line">The line's index in the file.</param>
     /// <param name="Day">The day of the heading the line sits under.</param>
-    /// <param name="Project">The project label, or <c>null</c> when the line has none.</param>
+    /// <param name="Workstream">The workstream label, or <c>null</c> when the line has none.</param>
     /// <param name="Body">The activity text without the label.</param>
     /// <param name="Code">The activity's short code, as <see cref="CodeAt"/> gives it.</param>
-    public sealed record Activity(int Line, DateOnly Day, string? Project, string Body, string Code)
+    public sealed record Activity(int Line, DateOnly Day, string? Workstream, string Body, string Code)
     {
-        /// <summary>The activity's text with its project label in front, as the log shows it.</summary>
-        public string Labeled => Label(Project) + Body;
+        /// <summary>The activity's text with its workstream label in front, as the log shows it.</summary>
+        public string Labeled => Label(Workstream) + Body;
     }
 
     /// <summary>
@@ -130,9 +130,9 @@ internal static class RecentFile
 
             if (day is not { } date || !line.StartsWith("- ", StringComparison.Ordinal))
                 continue;
-            var (project, body) = SplitLabel(line[2..]);
+            var (workstream, body) = SplitLabel(line[2..]);
             if (body.Length > 0)
-                result.Add(new Activity(index, date, project, body, codes[index]));
+                result.Add(new Activity(index, date, workstream, body, codes[index]));
         }
 
         return result;
@@ -141,8 +141,8 @@ internal static class RecentFile
     /// <summary>Whether a file name is a month file of the activity log: <c>yyyy-MM.md</c>.</summary>
     public static bool IsMonthFileName(string name) => Regex.IsMatch(name, @"^[0-9]{4}-[0-9]{2}\.md$");
 
-    /// <summary>The <c>[project] </c> label in front of an activity's text, or nothing when it has no project.</summary>
-    public static string Label(string? project) => project is null ? "" : $"[{project}] ";
+    /// <summary>The <c>[workstream] </c> label in front of an activity's text, or nothing when it has no workstream.</summary>
+    public static string Label(string? workstream) => workstream is null ? "" : $"[{workstream}] ";
 
     /// <summary>
     /// The month files of the activity log under <c>recent/</c>, as the relative and full path of each, in name order.
@@ -161,11 +161,11 @@ internal static class RecentFile
             .ToList();
     }
 
-    /// <summary>Splits a leading <c>[project] </c> label off an activity's text, when the label is a project name.</summary>
-    private static (string? Project, string Body) SplitLabel(string content)
+    /// <summary>Splits a leading <c>[workstream] </c> label off an activity's text, when the label is a workstream name.</summary>
+    private static (string? Workstream, string Body) SplitLabel(string content)
     {
         var close = content.IndexOf("] ", StringComparison.Ordinal);
-        if (content.StartsWith('[') && close > 1 && PageId.IsProjectName(content[1..close]))
+        if (content.StartsWith('[') && close > 1 && PageId.IsWorkstreamName(content[1..close]))
             return (content[1..close], content[(close + 2)..].Trim());
         return (null, content.Trim());
     }

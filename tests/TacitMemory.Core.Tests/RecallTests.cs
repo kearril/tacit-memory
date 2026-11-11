@@ -18,20 +18,20 @@ public sealed class RecallTests : IDisposable
 
     private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-    private string PagePath(string project, string slug) => Path.Combine(_home.DefaultMemory, "pages", project, slug + ".md");
+    private string PagePath(string workstream, string slug) => Path.Combine(_home.DefaultMemory, "pages", workstream, slug + ".md");
 
     /// <summary>Writes a page file by hand, as the user would.</summary>
-    private void Hand(string project, string slug, string title, string body, string dates = "{ first: 2026-10-01, last: 2026-10-05 }", string aliases = "[别名一, 别名二]")
+    private void Hand(string workstream, string slug, string title, string body, string dates = "{ first: 2026-10-01, last: 2026-10-05 }", string aliases = "[别名一, 别名二]")
     {
-        var path = PagePath(project, slug);
+        var path = PagePath(workstream, slug);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, $"---\ntitle: {title}\naliases: {aliases}\ndates: {dates}\n---\n\n{body.ReplaceLineEndings("\n")}\n");
     }
 
-    private Task<ToolResult> Recall(string query, string? project = null, string? from = null, string? to = null, string? kind = null) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Project = project, From = from, To = to, Kind = kind });
+    private Task<ToolResult> Recall(string query, string? workstream = null, string? from = null, string? to = null, string? kind = null) =>
+        Service.RecallAsync(new RecallRequest { Query = query, Workstream = workstream, From = from, To = to, Kind = kind });
 
-    private void DbUpgrade(string project = "tacit-memory") => Hand(project, "db-upgrade", "数据库升级后扩展丢失", """
+    private void DbUpgrade(string workstream = "tacit-memory") => Hand(workstream, "db-upgrade", "数据库升级后扩展丢失", """
         ## 现象
         升级 PostgreSQL 后中文搜索没有结果。
 
@@ -156,12 +156,12 @@ public sealed class RecallTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_limits_the_search_to_that_project()
+    public async Task Workstream_limits_the_search_to_that_workstream()
     {
         DbUpgrade("tacit-memory");
         DbUpgrade("my-app");
 
-        var result = await Recall("数据库升级", project: "My-App");
+        var result = await Recall("数据库升级", workstream: "My-App");
 
         Assert.Contains("my-app/db-upgrade", result.Text);
         Assert.DoesNotContain("tacit-memory/db-upgrade", result.Text);
@@ -229,8 +229,16 @@ public sealed class RecallTests : IDisposable
         var query = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["limit"] });
         var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["top_k"] });
 
-        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, project, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.", query.Text);
+        Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, workstream, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.", query.Text);
         Assert.StartsWith("Refused: Unknown parameter top_k.\nNext step: ", read.Text);
+    }
+
+    [Fact]
+    public async Task A_project_parameter_is_refused_by_name_and_the_next_step_names_workstream()
+    {
+        var result = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["project"] });
+
+        Assert.StartsWith("Refused: Unknown parameter project.\nNext step: Call recall again with only these parameters: query, page, workstream, ", result.Text);
     }
 
     [Fact]

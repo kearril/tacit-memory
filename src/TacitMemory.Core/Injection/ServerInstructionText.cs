@@ -21,7 +21,7 @@ internal enum InstructionPart
 internal sealed record InstructionText(InstructionPart Part, string Text);
 
 /// <summary>
-/// The server instructions as parts: the fixed parts, the recent summary with the project list, and the whole text the
+/// The server instructions as parts: the fixed parts, the recent summary with the workstream list, and the whole text the
 /// agent receives.
 /// </summary>
 internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Consolidation, string Text);
@@ -30,7 +30,7 @@ internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, stri
 /// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
 /// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part and the consolidation
 /// reminder are short and always whole. The activities of the last seven days are cut to fit <see cref="TotalLimit"/>:
-/// the oldest go first. The mainline, the recent weeks and the projects are in the resident block, not here.
+/// the oldest go first. The mainline, the recent weeks and the workstreams are in the resident block, not here.
 /// </summary>
 internal static class ServerInstructionText
 {
@@ -52,8 +52,8 @@ internal static class ServerInstructionText
         - Raise old events only after the user does. When the user describes their situation, link recent context in half a sentence.
 
         ## Recall
-        - At the start of work on a project, call `recall` with only `project`.
-        - Call `recall` when the user refers to the past, or names a person, project or term your context lacks. When it finds nothing, say you don't remember.
+        - At the start of work on a workstream, call `recall` with only `workstream`.
+        - Call `recall` when the user refers to the past, or names a person, workstream or term your context lacks. When it finds nothing, say you don't remember.
 
         ## Write
         - When something worth recording happens, `recall` first, then update the page that covers the matter or create one.
@@ -161,7 +161,7 @@ internal static class ServerInstructionText
     }
 
     /// <summary>
-    /// The activities of the last seven days, one per line with their dates and projects, inside <c>recent_activity</c>
+    /// The activities of the last seven days, one per line with their dates and workstreams, inside <c>recent_activity</c>
     /// tags so the agent reads them as data; empty when there are none.
     /// </summary>
     private static string ActivityBlock(IReadOnlyList<RecentFile.Activity> activities)

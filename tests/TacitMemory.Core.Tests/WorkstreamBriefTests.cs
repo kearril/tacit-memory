@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// The project brief: <c>recall</c> with only <c>project</c> returns the project's conventions, open items, page index,
+/// The workstream brief: <c>recall</c> with only <c>workstream</c> returns the workstream's conventions, open items, page index,
 /// recent activities and latest weekly summary, in that order, within <c>limits.brief</c>.
 /// </summary>
-public sealed class ProjectBriefTests : IDisposable
+public sealed class WorkstreamBriefTests : IDisposable
 {
     private readonly TestHome _home = new();
     private MemoryService? _service;
@@ -45,18 +45,18 @@ public sealed class ProjectBriefTests : IDisposable
         });
 
     /// <summary>Writes a page file by hand, without a type, as a page written before types existed.</summary>
-    private void HandWrittenUntypedPage(string project, string slug, string title)
+    private void HandWrittenUntypedPage(string workstream, string slug, string title)
     {
-        var path = Path.Combine(Memory, "pages", project, slug + ".md");
+        var path = Path.Combine(Memory, "pages", workstream, slug + ".md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, $"---\ntitle: {title}\naliases: [别名一, 别名二]\ndates: {{ first: 2026-10-01, last: 2026-10-05 }}\n---\n\n## 现象\n旧页的内容。\n");
     }
 
-    private Task<ToolResult> Brief(string project, string? from = null, string? to = null) =>
-        Service.RecallAsync(new RecallRequest { Project = project, From = from, To = to });
+    private Task<ToolResult> Brief(string workstream, string? from = null, string? to = null) =>
+        Service.RecallAsync(new RecallRequest { Workstream = workstream, From = from, To = to });
 
-    private Task<ToolResult> Activity(string text, string? project = null, string? source = null) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Project = project, Source = source });
+    private Task<ToolResult> Activity(string text, string? workstream = null, string? source = null) =>
+        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream, Source = source });
 
     private void MonthFile(string month, string text)
     {
@@ -72,7 +72,7 @@ public sealed class ProjectBriefTests : IDisposable
     }
 
     [Fact]
-    public async Task A_project_brief_groups_pages_by_type_in_order_newest_first_with_identifier_title_aliases_and_date()
+    public async Task A_workstream_brief_groups_pages_by_type_in_order_newest_first_with_identifier_title_aliases_and_date()
     {
         Setup();
         await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
@@ -88,10 +88,10 @@ public sealed class ProjectBriefTests : IDisposable
         var result = await Brief("my-app");
 
         Assert.False(result.IsError, result.Text);
-        Assert.StartsWith("Project brief: my-app", result.Text);
+        Assert.StartsWith("Workstream brief: my-app", result.Text);
         Assert.True(Position(result.Text, "Decisions") < Position(result.Text, "Known pitfalls"));
-        Assert.True(Position(result.Text, "Known pitfalls") < Position(result.Text, "Work"));
-        Assert.True(Position(result.Text, "Work") < Position(result.Text, "Entities"));
+        Assert.True(Position(result.Text, "Known pitfalls") < Position(result.Text, "\nWork:"));
+        Assert.True(Position(result.Text, "\nWork:") < Position(result.Text, "Entities"));
         Assert.True(Position(result.Text, "Entities") < Position(result.Text, "Untyped"));
         Assert.True(Position(result.Text, "- my-app/replace-sqlite") < Position(result.Text, "- my-app/use-pgroonga"));
         Assert.Contains("- my-app/replace-sqlite: 改用 SQLite 向量表 (aliases: 别名一, 别名二) (last changed 2026-11-05)", result.Text);
@@ -146,25 +146,25 @@ public sealed class ProjectBriefTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_conventions_are_the_project_scope_persona_entries_only()
+    public async Task Workstream_conventions_are_the_workstream_scope_persona_entries_only()
     {
         Setup();
         await CreatePage("my-app/ci", ToolValues.PageTypes.Entity, "CI 流水线", ("入口", "见 ~/infra/ci.md。"));
         await Service.WritePersonaAsync(new WritePersonaRequest
         {
-            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "project:my-app",
+            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "发版前先跑全量测试 → 避免漏测", Source = "发版前必须跑全量",
         });
         await Service.WritePersonaAsync(new WritePersonaRequest
         {
-            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "project:other-app",
-            Text = "other project rule → elsewhere", Source = "别的项目",
+            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:other-app",
+            Text = "other workstream rule → elsewhere", Source = "别的项目",
         });
 
         var result = await Brief("my-app");
 
         Assert.True(Position(result.Text, "发版前先跑全量测试") > Position(result.Text, "my-app"));
-        Assert.DoesNotContain("other project rule", result.Text);
+        Assert.DoesNotContain("other workstream rule", result.Text);
     }
 
     [Fact]
@@ -173,16 +173,16 @@ public sealed class ProjectBriefTests : IDisposable
         Setup();
         await Service.WritePersonaAsync(new WritePersonaRequest
         {
-            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "project:my-app",
+            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "约定甲 → 做法甲", Source = "原话",
         });
         await CreatePage("my-app/release-0-9", ToolValues.PageTypes.Work, "发版 0.9", ("记录", "发版过程。"), ("遗留", "- 未决乙"));
-        await Activity("最近的活动丙", project: "my-app");
+        await Activity("最近的活动丙", workstream: "my-app");
         MonthFile("2026-11", "## 2026-11-02\n- [my-app] 最近的活动丙\n\n## 汇总\n- 2026-W45：本周小结丁\n");
 
         var result = await Brief("my-app");
 
-        var name = Position(result.Text, "Project brief: my-app");
+        var name = Position(result.Text, "Workstream brief: my-app");
         var conventions = Position(result.Text, "约定甲");
         var open = Position(result.Text, "未决乙");
         var pages = Position(result.Text, "- my-app/release-0-9: 发版 0.9");
@@ -192,19 +192,19 @@ public sealed class ProjectBriefTests : IDisposable
     }
 
     [Fact]
-    public async Task The_last_three_activities_of_the_project_are_listed_newest_first_and_not_those_of_other_projects()
+    public async Task The_last_three_activities_of_the_workstream_are_listed_newest_first_and_not_those_of_other_workstreams()
     {
         Setup();
-        await Activity("活动一", project: "my-app");
+        await Activity("活动一", workstream: "my-app");
         GoTo("2026-11-03");
-        await Activity("活动二", project: "my-app");
+        await Activity("活动二", workstream: "my-app");
         GoTo("2026-11-04");
-        await Activity("活动三", project: "my-app");
-        await Activity("别的项目的活动", project: "other-app");
+        await Activity("活动三", workstream: "my-app");
+        await Activity("别的项目的活动", workstream: "other-app");
         await Activity("没有项目的活动");
         GoTo("2026-11-05");
-        await Activity("活动四", project: "my-app");
-        await Activity("活动五", project: "my-app");
+        await Activity("活动四", workstream: "my-app");
+        await Activity("活动五", workstream: "my-app");
 
         var result = await Brief("my-app");
 
@@ -218,7 +218,7 @@ public sealed class ProjectBriefTests : IDisposable
     }
 
     [Fact]
-    public async Task The_latest_weekly_summary_is_that_of_the_latest_week_with_a_summary_in_which_the_project_has_activity()
+    public async Task The_latest_weekly_summary_is_that_of_the_latest_week_with_a_summary_in_which_the_workstream_has_activity()
     {
         Setup();
         MonthFile("2026-10", "## 2026-10-28\n- [my-app] 十月末的活动\n\n## 汇总\n- 2026-W44：第四十四周小结甲\n");
@@ -235,11 +235,11 @@ public sealed class ProjectBriefTests : IDisposable
     {
         Setup();
         await CreatePage("my-app/early-page", ToolValues.PageTypes.Decision, "早期页", ("背景", "早期。"));
-        await Activity("早期活动", project: "my-app");
+        await Activity("早期活动", workstream: "my-app");
         GoTo("2026-11-05");
         await CreatePage("my-app/recent-page", ToolValues.PageTypes.Decision, "近期页", ("背景", "近期。"));
         GoTo("2026-11-06");
-        await Activity("近期活动", project: "my-app");
+        await Activity("近期活动", workstream: "my-app");
 
         var result = await Brief("my-app", from: "2026-11-04", to: "2026-11-06");
 
@@ -250,7 +250,7 @@ public sealed class ProjectBriefTests : IDisposable
     }
 
     [Fact]
-    public async Task A_project_with_no_pages_and_no_activities_says_so_plainly()
+    public async Task A_workstream_with_no_pages_and_no_activities_says_so_plainly()
     {
         Setup();
         await CreatePage("other-app/unrelated", ToolValues.PageTypes.Decision, "别的项目", ("背景", "别的。"));
@@ -262,18 +262,18 @@ public sealed class ProjectBriefTests : IDisposable
     }
 
     [Fact]
-    public async Task Combining_the_project_brief_with_kind_is_refused_with_a_next_step()
+    public async Task Combining_the_workstream_brief_with_kind_is_refused_with_a_next_step()
     {
         Setup();
         await CreatePage("my-app/ci", ToolValues.PageTypes.Entity, "CI 流水线", ("入口", "见 ~/infra/ci.md。"));
 
-        var result = await Service.RecallAsync(new RecallRequest { Project = "my-app", Kind = ToolValues.RecallKinds.Pages });
+        var result = await Service.RecallAsync(new RecallRequest { Workstream = "my-app", Kind = ToolValues.RecallKinds.Pages });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: ", result.Text);
         Assert.Contains("kind", result.Text);
         Assert.Contains("Next step: ", result.Text);
-        Assert.DoesNotContain("Project brief", result.Text);
+        Assert.DoesNotContain("Workstream brief", result.Text);
     }
 
     [Fact]
@@ -303,10 +303,10 @@ public sealed class ProjectBriefTests : IDisposable
                 GoTo(TestHome.Today.AddDays(i).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
             await CreatePage($"my-app/choice-{i}", ToolValues.PageTypes.Decision, titles[i], ("背景", "理由。"));
         }
-        await Activity("一条保留的活动", project: "my-app");
+        await Activity("一条保留的活动", workstream: "my-app");
         await Service.WritePersonaAsync(new WritePersonaRequest
         {
-            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "project:my-app",
+            Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "一条保留的约定 → 做法", Source = "原话",
         });
 
@@ -329,16 +329,16 @@ public sealed class ProjectBriefTests : IDisposable
     {
         Setup("limits: { brief: 300 }\n");
         var filler = new string('长', 120);
-        await Activity($"活动甲{filler}", project: "my-app");
+        await Activity($"活动甲{filler}", workstream: "my-app");
         GoTo("2026-11-03");
-        await Activity($"活动乙{filler}", project: "my-app");
+        await Activity($"活动乙{filler}", workstream: "my-app");
         GoTo("2026-11-04");
-        await Activity($"活动丙{filler}", project: "my-app");
+        await Activity($"活动丙{filler}", workstream: "my-app");
 
         var result = await Brief("my-app");
 
         Assert.False(result.IsError, result.Text);
-        Assert.StartsWith("Project brief: my-app", result.Text);
+        Assert.StartsWith("Workstream brief: my-app", result.Text);
         Assert.True(result.Text.Length <= 300, $"{result.Text.Length} characters");
         Assert.Contains("limits.brief", result.Text);
     }

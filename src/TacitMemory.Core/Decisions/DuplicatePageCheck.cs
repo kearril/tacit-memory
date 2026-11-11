@@ -10,7 +10,7 @@ namespace TacitMemory.Core.Decisions;
 internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 
 /// <summary>
-/// Before a page is created, asks whether a page of the same project already records the same matter: the nearest
+/// Before a page is created, asks whether a page of the same workstream already records the same matter: the nearest
 /// pages by embedding, plus "none of these", go to the decision model as a choice question. The consolidation asks the same
 /// question about changed pages, so the question and its options are built by the members shared below.
 /// </summary>
@@ -29,7 +29,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
 
     /// <summary>The question's instructions, the same for a new page and for a changed one.</summary>
     public const string Instructions =
-        "The state is a new page for a personal memory. Each option is an existing page of the same project. "
+        "The state is a new page for a personal memory. Each option is an existing page of the same workstream. "
         + "Choose the option that describes exactly the same issue, bug, decision or subject as the new page. "
         + "If the options only share a product area or component but describe a different matter, choose the none option.";
 
@@ -44,7 +44,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
 
     public async Task<DuplicateCheck> RunAsync(PageId id, PageHeader header, IReadOnlyList<PageSectionInput> sections, CancellationToken cancellationToken)
     {
-        if (!index.HasOtherPagesInProject(id))
+        if (!index.HasOtherPagesInWorkstream(id))
             return new DuplicateCheck(null, null);
 
         var vector = await embedding.EmbedAsync([string.Join('\n', [header.Title, .. header.Aliases])], cancellationToken);
@@ -86,11 +86,11 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
     }
 
     /// <summary>
-    /// The nearest pages of the same project as <paramref name="id"/> by <paramref name="vector"/>: at most
+    /// The nearest pages of the same workstream as <paramref name="id"/> by <paramref name="vector"/>: at most
     /// <see cref="OtherOptions"/>, never the page itself, nearest first.
     /// </summary>
     public static IReadOnlyList<PageId> Nearest(MemoryIndex index, PageId id, float[] vector) =>
-        index.SearchVector(vector, new IndexFilter(id.Project, null, null), int.MaxValue)
+        index.SearchVector(vector, new IndexFilter(id.Workstream, null, null), int.MaxValue)
             .Select(hit => hit.Source)
             .Where(page => page != id.ToString())
             .Distinct()

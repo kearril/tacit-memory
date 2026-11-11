@@ -2,7 +2,7 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// The consolidation's suspected duplicate pages through the facade: only the pages changed since the last consolidation are judged,
-/// each against the nearest pages of its project, as a new page is judged live. A sure match and an unsure one are
+/// each against the nearest pages of its workstream, as a new page is judged live. A sure match and an unsure one are
 /// listed with their tiers, a rejection is not, and a pair is listed once.
 /// </summary>
 public sealed class ConsolidationDuplicatePageTests : IDisposable
@@ -117,7 +117,7 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
     private static string[] FindingsOf(string text) =>
         SectionOf(text).Split('\n').Where(line => line.StartsWith("- ", StringComparison.Ordinal)).ToArray();
 
-    /// <summary>Three pages of one project: two on the same matter, one on another.</summary>
+    /// <summary>Three pages of one workstream: two on the same matter, one on another.</summary>
     private async Task CreateDbPgAndDeploy()
     {
         Configure();
@@ -210,7 +210,7 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
     }
 
     [Fact]
-    public async Task A_changed_page_with_no_other_page_in_its_project_is_not_asked_about_pages_of_other_projects()
+    public async Task A_changed_page_with_no_other_page_in_its_workstream_is_not_asked_about_pages_of_other_workstreams()
     {
         Configure();
         await Create("other-app/db-upgrade", Db);

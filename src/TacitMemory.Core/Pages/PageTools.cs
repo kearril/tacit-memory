@@ -64,7 +64,11 @@ internal sealed class PageTools(
             nextStep = $"Call write_page again with only the parameters for op {request.Op}: page, {string.Join(", ", taken)}.";
         }
         if (problems.Count > 0)
+        {
+            if (request.UnknownParameters?.Contains("project") == true)
+                nextStep += " The workstream is the first part of the page ID, as in workstream/slug.";
             return ToolText.Refuse(problems, nextStep);
+        }
 
         if (string.IsNullOrWhiteSpace(request.Page))
             return ToolText.Refuse("Missing parameter page.", "Call write_page again with page set to a page ID such as my-app/db-upgrade.");
@@ -466,7 +470,7 @@ internal sealed class PageTools(
     private static string SectionList(PageDocument document) =>
         string.Join('\n', document.Sections.Select(section => $"- {section.Name} [{section.Code}]"));
 
-    private string PathOf(PageId id) => Path.Combine(config.MemoryPath, "pages", id.Project, id.Slug + ".md");
+    private string PathOf(PageId id) => Path.Combine(config.MemoryPath, "pages", id.Workstream, id.Slug + ".md");
 
     private static int Length(string text) => new StringInfo(text).LengthInTextElements;
 }

@@ -299,7 +299,7 @@ public sealed class ResidentDocumentTests : IDisposable
     private void Configure(string extraConfig) =>
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (ModelDouble.Quiet.ModelsYaml(decisionKey: "test-key") + extraConfig).ReplaceLineEndings("\n"));
 
-    /// <summary>The global four sections, a domain with one entry, and a project block with one entry.</summary>
+    /// <summary>The global four sections, a domain with one entry, and a workstream block with one entry.</summary>
     private void WriteScopedPersona() => File.WriteAllText(PersonaMd, """
         ## 红线
         - r1
@@ -318,7 +318,7 @@ public sealed class ResidentDocumentTests : IDisposable
         ### 协作规则
         - 域内规则XYZ
 
-        ## 项目：alpha
+        ## 主线：alpha
         ### 协作规则
         - 项目规则QRS
 
@@ -337,7 +337,7 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public void The_block_lists_the_domain_index_mainline_recent_weeks_and_projects_after_the_global_sections()
+    public void The_block_lists_the_domain_index_mainline_recent_weeks_and_workstreams_after_the_global_sections()
     {
         WriteScopedPersona();
         File.WriteAllText(RecentMd, "## 近期主线\n- 主线一\n");
@@ -351,8 +351,8 @@ public sealed class ResidentDocumentTests : IDisposable
             "- network-proxy：改代理、分流或测速时（1 条）\n",
             "## Mainline\n- 主线一\n",
             "## Recent weeks\n",
-            "- 2026-W43：2 条活动，涉及项目 alpha，其他 1 条\n",
-            "## Projects\nalpha\n</user_memory>");
+            "- 2026-W43：2 条活动，涉及主线 alpha，其他 1 条\n",
+            "## Workstreams\nalpha\n</user_memory>");
     }
 
     [Fact]
@@ -367,7 +367,7 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.DoesNotContain("域内规则XYZ", text);
         Assert.DoesNotContain("项目规则QRS", text);
         Assert.DoesNotContain("## 领域", text);
-        Assert.DoesNotContain("## 项目", text);
+        Assert.DoesNotContain("## 主线", text);
     }
 
     [Fact]
@@ -442,20 +442,20 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.DoesNotContain("## Situational rules", text);
         Assert.DoesNotContain("## Mainline", text);
         Assert.DoesNotContain("## Recent weeks", text);
-        Assert.DoesNotContain("## Projects", text);
+        Assert.DoesNotContain("## Workstreams", text);
     }
 
     [Fact]
     public void Resident_md_gives_guidance_for_the_new_sections_and_it_is_shown_above_their_data()
     {
-        File.WriteAllText(ResidentMd, "SHELL\n\n## situational_rules\nRULES-GUIDE\n\n## projects\nPROJECTS-GUIDE\n");
+        File.WriteAllText(ResidentMd, "SHELL\n\n## situational_rules\nRULES-GUIDE\n\n## projects\nWORKSTREAMS-GUIDE\n");
         WriteScopedPersona();
         Directory.CreateDirectory(Path.Combine(Pages, "alpha"));
 
         _home.Bind();
         var text = Agents();
 
-        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Projects\nPROJECTS-GUIDE\nalpha\n</user_memory>");
+        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\nalpha\n</user_memory>");
     }
 
     [Fact]
@@ -474,31 +474,31 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public async Task A_new_project_directory_appears_in_the_block()
+    public async Task A_new_workstream_directory_appears_in_the_block()
     {
         WriteFullPersona();
         _home.Bind();
         using var service = Open();
-        Assert.DoesNotContain("## Projects", Agents());
+        Assert.DoesNotContain("## Workstreams", Agents());
 
         Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
 
-        await Eventually(() => Agents().Contains("## Projects\ndb-migration\n", StringComparison.Ordinal));
+        await Eventually(() => Agents().Contains("## Workstreams\ndb-migration\n", StringComparison.Ordinal));
         Assert.NotNull(service);
     }
 
     [Fact]
-    public async Task Removing_the_whole_pages_directory_drops_the_projects_section()
+    public async Task Removing_the_whole_pages_directory_drops_the_workstreams_section()
     {
         WriteFullPersona();
         Directory.CreateDirectory(Path.Combine(Pages, "db-migration"));
         _home.Bind();
         using var service = Open();
-        Assert.Contains("## Projects\ndb-migration\n", Agents());
+        Assert.Contains("## Workstreams\ndb-migration\n", Agents());
 
         Directory.Delete(Pages, recursive: true);
 
-        await Eventually(() => !Agents().Contains("## Projects", StringComparison.Ordinal));
+        await Eventually(() => !Agents().Contains("## Workstreams", StringComparison.Ordinal));
         Assert.NotNull(service);
     }
 

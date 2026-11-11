@@ -56,7 +56,7 @@ internal static class CandidatesFormatCheck
                 {
                     if (!PersonaScope.TryParse(scopeText, out _))
                         issues.Add(new FormatIssue("", $"line {index + 1}", "Invalid scope",
-                            $"\"{scopeText}\" is not a scope: it must be global, project:<name> or domain:<label>, and the name uses only "
+                            $"\"{scopeText}\" is not a scope: it must be global, workstream:<name> or domain:<label>, and the name uses only "
                             + "lowercase letters, digits, '.', '_' and '-'. Without a valid scope the candidate is read as global.", FormatHandling.FixDirectly));
                 }
                 else if (!IsBelongsLine(line) && CandidatesDocument.OccurrenceOf(line) is null)

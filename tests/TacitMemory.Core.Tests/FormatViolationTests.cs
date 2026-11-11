@@ -241,7 +241,7 @@ public sealed class FormatViolationTests : IDisposable
 
     [Theory]
     [InlineData("领域", "Domain")]
-    [InlineData("项目", "Project")]
+    [InlineData("主线", "Workstream")]
     [InlineData("触发", "Trigger")]
     [InlineData("作用域：", "Scope:")]
     public async Task Mixed_headings_of_the_persona_structure_words_are_a_hint(string zh, string en)

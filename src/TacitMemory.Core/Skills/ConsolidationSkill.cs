@@ -47,7 +47,7 @@ internal static class ConsolidationSkill
         ("Preferences section (persona.md)", StructureWords.Preferences),
         ("Profile section (persona.md)", StructureWords.Profile),
         ("Domain heading (persona.md scope block)", StructureWords.Domain),
-        ("Project heading (persona.md scope block)", StructureWords.Project),
+        ("Workstream heading (persona.md scope block)", StructureWords.Workstream),
         ("Trigger line of a scope block", StructureWords.Trigger),
         ("Candidates section (candidates.md)", StructureWords.Candidates),
         ("Rejection list section (candidates.md)", StructureWords.RejectionList),
@@ -94,14 +94,14 @@ internal static class ConsolidationSkill
         text.Append("2. Read what Part \"").Append(ConsolidationTitles.ProposalPart).Append("\" needs: the pages, persona entries and material its items name. Change nothing in this step.\n");
         text.Append("3. Draft every proposal and send them to the user in one numbered list. Cover each item under \"").Append(ConsolidationTitles.ProposalPart).Append("\":\n");
         text.Append("   - \"").Append(ConsolidationTitles.PersonaEvidence).Append("\": each candidate becomes a persona proposal that names its section and its scope. ")
-            .Append("Give a preference the global scope only when it holds in at least two different situations (the generalization test); otherwise propose a domain scope with a trigger line, or a project scope.\n");
+            .Append("Give a preference the global scope only when it holds in at least two different situations (the generalization test); otherwise propose a domain scope with a trigger line, or a workstream scope.\n");
         text.Append("   - \"").Append(ConsolidationTitles.IncidentLessons).Append("\": propose a domain rule where a lesson or a preference belongs to one domain.\n");
         text.Append("   - \"").Append(ConsolidationTitles.ChangedPages).Append("\" and \"").Append(ConsolidationTitles.DuplicatePages)
             .Append("\": propose a type for each page without one, a split for an entity page, a pointer in place of text that restates the environment, and a merge of duplicate pages.\n");
         text.Append("   - \"").Append(ConsolidationTitles.ConflictingEntries).Append("\" and \"").Append(ConsolidationTitles.SectionsOverLimit)
             .Append("\": propose the move, rewrite or merge that resolves each.\n");
         text.Append("   Give each item a number, what would change, and its evidence (a short code, a quote or a page identifier). ")
-            .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to project scope`. An item the reply does not mention is deferred.\n");
+            .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to workstream scope`. An item the reply does not mention is deferred.\n");
         text.Append("4. Carry out the reply item by item. Changes to persona entries, scope blocks and pages happen only after the user confirms the item:\n");
         text.Append("   - confirm: write the item as proposed. A persona entry goes into its section or scope block, with an indented line below it `<!-- ")
             .Append(Date).Append(' ').Append(quote).Append("「…」 -->` holding today's date and the user's words; a candidate is then deleted from candidates.md. A page change is applied.\n");

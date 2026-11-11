@@ -6,7 +6,7 @@ namespace TacitMemory.Core.Persona;
 /// <summary>
 /// Writes entries into <c>persona.md</c> line by line, so every other byte stays as the user left it. Sections are found
 /// by their headings in any language; a missing heading is restored in the standard order. Scope blocks follow the global
-/// sections: domains first, then projects, each by name.
+/// sections: domains first, then workstreams, each by name.
 /// </summary>
 internal static class PersonaFile
 {

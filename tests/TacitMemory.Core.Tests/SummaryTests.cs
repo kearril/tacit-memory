@@ -35,11 +35,11 @@ public sealed class SummaryTests : IDisposable
         File.WriteAllText(MonthFile(month), text.ReplaceLineEndings("\n"));
     }
 
-    private Task<ToolResult> Recall(string query, string? kind = null, string? project = null, string? from = null, string? to = null) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Project = project, From = from, To = to });
+    private Task<ToolResult> Recall(string query, string? kind = null, string? workstream = null, string? from = null, string? to = null) =>
+        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Workstream = workstream, From = from, To = to });
 
-    private Task<ToolResult> Write(string text, string? project = null) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Project = project });
+    private Task<ToolResult> Write(string text, string? workstream = null) =>
+        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream });
 
     [Fact]
     public async Task A_week_summary_is_recalled_as_an_activity_and_labelled_as_a_summary_of_its_week()
@@ -66,12 +66,12 @@ public sealed class SummaryTests : IDisposable
     }
 
     [Fact]
-    public async Task Summaries_are_left_out_of_pages_projects_and_dates_outside_their_period()
+    public async Task Summaries_are_left_out_of_pages_workstreams_and_dates_outside_their_period()
     {
         Month("## 汇总\n- 2026-W45：本周整理了画像\n");
 
         var pages = await Recall("画像", kind: "pages");
-        var labelled = await Recall("画像", kind: "activities", project: "tacit-memory");
+        var labelled = await Recall("画像", kind: "activities", workstream: "tacit-memory");
         var outside = await Recall("画像", kind: "activities", from: "2026-10-01", to: "2026-10-31");
         var inside = await Recall("画像", kind: "activities", from: "2026-11-08", to: "2026-11-08");
 

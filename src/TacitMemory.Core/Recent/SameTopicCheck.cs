@@ -26,8 +26,8 @@ internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision
         + "Each option is an earlier activity note from the same day. "
         + "Choose the option if it is about the same thing as the new note: the same matter, even if phrased differently, "
         + "or a later step, result or follow-up of that matter on the same day. "
-        + "Project tags in square brackets do not decide this; ignore them. "
-        + "Different problems or tasks are different things, even within the same project. "
+        + "Workstream tags in square brackets do not decide this; ignore them. "
+        + "Different problems or tasks are different things, even within the same workstream. "
         + "If no option is the same thing, choose the none option. "
         + "Answer with the option key only.";
 

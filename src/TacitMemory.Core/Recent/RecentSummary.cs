@@ -5,14 +5,14 @@ namespace TacitMemory.Core.Recent;
 
 /// <summary>
 /// What the injected text says about recent activity, read from the memory repository: the activities of the last seven
-/// days (newest first, at most seven), the project labels of every activity, and the lines of the recent weeks, which the
+/// days (newest first, at most seven), the workstream labels of every activity, and the lines of the recent weeks, which the
 /// resident block shows.
 /// </summary>
 /// <param name="Week">The activities of the last seven days, newest first.</param>
-/// <param name="ProjectLabels">The project labels of every activity, distinct, in file order.</param>
+/// <param name="WorkstreamLabels">The workstream labels of every activity, distinct, in file order.</param>
 /// <param name="RecentWeeks">The lines of the latest completed weeks that have anything in them, newest first; each is <c>- 2026-W43：…</c>.</param>
 internal sealed record RecentSummary(
-    IReadOnlyList<RecentFile.Activity> Week, IReadOnlyList<string> ProjectLabels, IReadOnlyList<string> RecentWeeks)
+    IReadOnlyList<RecentFile.Activity> Week, IReadOnlyList<string> WorkstreamLabels, IReadOnlyList<string> RecentWeeks)
 {
     /// <summary>How many days back, counting today, the summary covers.</summary>
     public const int WindowDays = 7;
@@ -44,7 +44,7 @@ internal sealed record RecentSummary(
             .OrderByDescending(activity => activity.Day)
             .Take(ListedActivities)
             .ToList();
-        var labels = activities.Select(activity => activity.Project).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        var labels = activities.Select(activity => activity.Workstream).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
         var weeks = WeekLines(activities, summaries, start, language);
 
         return new RecentSummary(week, labels, weeks);
@@ -53,7 +53,7 @@ internal sealed record RecentSummary(
     /// <summary>
     /// The lines of the latest completed weeks that hold an activity or a summary. A week is completed once its Sunday is
     /// before <paramref name="windowStart"/>. A week with a summary line shows the summary; otherwise it shows its activity
-    /// count, the projects its activities name, and how many of them have no project.
+    /// count, the workstreams its activities name, and how many of them have no workstream.
     /// </summary>
     private static List<string> WeekLines(
         IReadOnlyList<RecentFile.Activity> activities, IReadOnlyList<Summary> summaries, DateOnly windowStart, MemoryLanguage language)
@@ -76,10 +76,10 @@ internal sealed record RecentSummary(
             }
 
             var covered = activities.Where(activity => activity.Day >= week.First && activity.Day <= week.Last).ToList();
-            var projects = covered.Select(activity => activity.Project).OfType<string>().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
-            var other = covered.Count(activity => activity.Project is null);
+            var workstreams = covered.Select(activity => activity.Workstream).OfType<string>().Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            var other = covered.Count(activity => activity.Workstream is null);
             var text = ResidentMessages.Activities(language, covered.Count)
-                + (projects.Count == 0 ? "" : ResidentMessages.WeekProjects.Format(language, string.Join(ResidentMessages.NameSeparator.In(language), projects)))
+                + (workstreams.Count == 0 ? "" : ResidentMessages.WeekWorkstreams.Format(language, string.Join(ResidentMessages.NameSeparator.In(language), workstreams)))
                 + (other == 0 ? "" : ResidentMessages.WeekOther.Format(language, other));
             lines.Add($"- {week.Label}：{text}");
         }

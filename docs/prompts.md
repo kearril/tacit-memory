@@ -26,7 +26,7 @@
 | 判断问题 | 发给决策模型的选择题，与阈值一起测定 | 四项判断的问题文字 |
 | 策略 | 主会话何时检索、何时写、写什么、如何对待记忆 | 记忆规则、常驻区块外壳与引导语、记忆指令的步骤 |
 | 由配置填入 | 内容来自 `config.yaml` 或 `prompts/rules.md` | 语言规范中的记忆语言、值得记标准 |
-| 动态数据 | 来自记忆仓库或运行状态，每次现场生成 | 最近 7 天的活动、状态提示、画像条目、领域索引、主线、近几周的汇总、已有项目 |
+| 动态数据 | 来自记忆仓库或运行状态，每次现场生成 | 最近 7 天的活动、状态提示、画像条目、领域索引、主线、近几周的汇总、已有主线 |
 
 判定一段文字属于契约还是策略，依次问两个问题：
 
@@ -41,16 +41,16 @@
 
 ## 3. 常驻区块
 
-常驻区块承载画像（全局四节）、领域索引、主线、近几周的汇总与已有项目，并声明自身是可能过时的记忆（理由见 `GLOSSARY.md` 的"常驻区块"）。
+常驻区块承载画像（全局四节）、领域索引、主线、近几周的汇总与已有主线，并声明自身是可能过时的记忆（理由见 `GLOSSARY.md` 的"常驻区块"）。
 
 | 部分 | 要 Agent 做什么 | 类别 |
 | :--- | :--- | :--- |
 | 起止标记与 `<user_memory>` 标签 | — （服务据此定位并改写区块；服务端说明的开场引用这个标签） | 契约 |
-| 外壳第一段 | 把画像当作背景而非配置；它可能有缺漏或过时；项目指令与用户当前的话优先；用户说法不同时照用户的做，并用一句话问是否更新记忆 | 策略：定位与优先级 |
+| 外壳第一段 | 把画像当作背景而非配置；它可能有缺漏或过时；主线指令与用户当前的话优先；用户说法不同时照用户的做，并用一句话问是否更新记忆 | 策略：定位与优先级 |
 | 外壳第二段 | 静默地运用画像，像了解用户的同事那样；只在与任务相关时提起具体条目，不引用来源 | 策略：分寸 |
 | 四节引导语 | 红线分量最重，除非用户在本次对话中解除，因红线拒绝时说明理由；偏好是描述不是命令，需结合任务权衡。协作规则与档案没有引导语 | 策略：各节的权重 |
 | 领域索引的引导语（`situational_rules`） | 任务命中某一行的触发描述时，先按该领域取规则再行动 | 策略：何时取规则 |
-| 节标题与数据 | — | 节标题为契约（英文）；条目、领域索引行、主线、近几周的汇总与项目名为动态数据（记忆语言，去掉原话注释） |
+| 节标题与数据 | — | 节标题为契约（英文）；条目、领域索引行、主线、近几周的汇总与主线名为动态数据（记忆语言，去掉原话注释） |
 
 来源是 `TACIT_HOME/prompts/resident.md`。用户放置该文件时，外壳两段与各节引导语整份由它替换；缺失时使用内置默认，即上表中的文字（协作规则、档案与其余生成节默认没有引导语）。起止标记、`<user_memory>` 标签、节标题与数据仍由服务生成，不在该文件中。
 
@@ -82,8 +82,8 @@
 
 | 条目 | 要 Agent 做什么 | 兜底 |
 | :--- | :--- | :--- |
-| 检索时机 | 用户提到过去的事，或提到上下文中没有的人名、项目名、术语时调用 `recall` | 无；不照做时细节页这一层不会被用到 |
-| 项目预取 | 开始处理某个项目前，只给 `project` 调用一次 `recall`，读项目简报 | 无 |
+| 检索时机 | 用户提到过去的事，或提到上下文中没有的人名、主线名、术语时调用 `recall` | 无；不照做时细节页这一层不会被用到 |
+| 主线预取 | 开始处理某个主线前，只给 `workstream` 调用一次 `recall`，读主线简报 | 无 |
 | 不编造 | 检索不到就说不记得 | 无 |
 
 ### 写（策略，含权限边界）
@@ -97,7 +97,7 @@
 | 习惯用 `propose` | 贯穿会话观察到的习惯、偏好或协作规则，用 `propose` 提交为候选 | 同一偏好判断；候选留作整理的证据 |
 | 红线与改写 | 红线只由用户提出；改写或删除画像条目须经用户同意 | `propose` 拒绝红线；`replace` 与 `add` 都有画像冲突判断 |
 
-活动怎么写（写什么、属于项目时设 `project`）见记忆 skill。主线不在这里写，由整理负责。
+活动怎么写（写什么、属于主线时设 `workstream`）见记忆 skill。主线不在这里写，由整理负责。
 
 "红线与改写"一行是权限边界，内置默认中以独占一行的英文 HTML 注释标明（"Permission boundary, do not remove"），注释不下发。
 
@@ -119,7 +119,7 @@
 
 ### 最近 7 天的活动、状态提示、整理提示（动态数据）
 
-内容与生成规则见 `docs/design.md` 第 8 节。最近 7 天的活动让 Agent 不检索也知道用户最近在忙什么，标签包住它，让 Agent 把它当作数据而非指令；状态提示让 Agent 知道检索与判断可能变弱。已有项目与近几周的汇总移到了常驻区块（第 3 节），Agent 写 `project` 时沿用已有的名字。
+内容与生成规则见 `docs/design.md` 第 8 节。最近 7 天的活动让 Agent 不检索也知道用户最近在忙什么，标签包住它，让 Agent 把它当作数据而非指令；状态提示让 Agent 知道检索与判断可能变弱。已有主线与近几周的汇总移到了常驻区块（第 3 节），Agent 写 `workstream` 时沿用已有的名字。
 
 整理提示的职责：距上次整理已久、有待汇总的周、候选较多或主线为空时，提醒 Agent 在合适的时机建议用户运行 `tacit-consolidate` skill。它不替用户决定，也不自行开始整理；Agent 可以用其中的天数与计数说明为什么现在值得整理，而不是把这些数字当作记忆内容复述。它是下发的最后一段，整理提交后的下一个会话中消失（仍有任一触发条件时除外）。
 
@@ -127,7 +127,7 @@
 
 | 工具 | 说明包含 |
 | :--- | :--- |
-| `recall` | 用途（检索、读整页、读整份画像与领域规则，或只给 `project` 取项目简报，简报含约定、未决事项、页目录与近期活动）；`query`、`page`、只给 `project`、只给 `kind`（`persona` 或 `rules`）四种调用各取其一；结果按页返回并附小节短码，画像与规则的条目附短码；各参数的写法（记忆语言、日期格式、`kind` 取值、`domain` 标签） |
+| `recall` | 用途（检索、读整页、读整份画像与领域规则，或只给 `workstream` 取主线简报，简报含约定、未决事项、页目录与近期活动）；`query`、`page`、只给 `workstream`、只给 `kind`（`persona` 或 `rules`）四种调用各取其一；结果按页返回并附小节短码，画像与规则的条目附短码；各参数的写法（记忆语言、日期格式、`kind` 取值、`domain` 标签） |
 | `write_page` | 一件事一页、按小节组织；各 `op` 的必填参数；替换与删除小节需要 `recall` 给出的短码；`type` 的四个取值；页面标识、别名、小节正文的格式；凭据的写法 |
 | `write_recent` | 一条活动一行；`text` 必填及长度；`replaces` 改写当天活动；主线由整理维护；凭据的写法（写明存在哪里） |
 | `write_persona` | 各 `op` 的必填参数；`scope` 与新领域的 `trigger`；四节的句式；长度与条数上限；凭据的写法；`propose` 不接受红线 |
@@ -141,7 +141,7 @@
 - 成功时返回 Markdown 风格的纯文本，例如检索结果、写入后的短码与条数。
 - 拒绝时标记为错误，分三段：`Refused`（原因，多条时逐行列出）、`Next step`（主会话可直接执行的动作）、`Related`（执行下一步所需的内容，例如当天的活动及其短码，或超限时该范围内的条目；画像短码的拒绝不附整份画像，下一步指向 `recall kind=persona`）。
 - 细节页 `upsert_section`、`delete_section` 的 `section` 填了本页某小节的短码（且本页没有同名小节）时，拒绝并返回英文：`Parameter section "<短码>" is the short code of section <小节标题>, not a section name.`；下一步：`Call write_page op=upsert_section again with section set to the name <小节标题> and hash set to the short code <短码>.`（删除时为 `op=delete_section`），`Related` 附该小节的标题、短码与正文。
-- 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_persona` 同形，不列 `page`）；`write_recent` 没有 `op`，传入已删除的 `op`、`items`、`hash` 时，下一步为 `Call write_recent again with only these parameters: text, project, source, replaces, confirm_no_secret. The mainline is maintained by the tacit-consolidate skill.`；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, project, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.`
+- 未知参数（参数名不在工具 schema 中）：每个一条 `Unknown parameter <名>.`，排在拒绝的最前。`op` 有效时下一步为 `Call write_page again with only the parameters for op <op>: page, <该 op 的参数>.`（`write_persona` 同形，不列 `page`）；`write_recent` 没有 `op`，传入已删除的 `op`、`items`、`hash` 时，下一步为 `Call write_recent again with only these parameters: text, workstream, source, replaces, confirm_no_secret. The mainline is maintained by the tacit-consolidate skill.`；`op` 缺失或无效时为 `Call write_page again with op set to one of: <取值>; its parameters are: <全部参数>.`；`recall` 为 `Call recall again with only these parameters: query, page, workstream, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.`
 - 同主题退回、候选并入、提议命中拒绝列表或画像都是正常结果，不标记错误，同样给出下一步该怎么做。
 - 辅助模型不可用而跳过某项判断时，在回复末尾以 `Note:` 注明；模型未配置时不注明，因为这不是故障，只是没有该功能。
 
@@ -182,8 +182,8 @@
 
 | 判断 | 问题要决策模型分辨的 |
 | :--- | :--- |
-| 重复页 | 新页与同项目的某个已有页是否描述同一个问题、缺陷、决定或主题；只是同一产品区域或组件不算 |
-| 同主题 | 新活动与当天某条已有活动是否是同一件事，包括它当天的推进、结果或后续；项目标注不作为依据，同一项目里的不同任务不算 |
+| 重复页 | 新页与同主线的某个已有页是否描述同一个问题、缺陷、决定或主题；只是同一产品区域或组件不算 |
+| 同主题 | 新活动与当天某条已有活动是否是同一件事，包括它当天的推进、结果或后续；主线标注不作为依据，同一主线里的不同任务不算 |
 | 画像冲突 | 新条目与某条已有画像条目（跨四节）是否冲突、重复或取代；相关但可以同时成立的不算 |
 | 同一偏好 | 新提议与某个候选、拒绝列表项或画像条目是否是同一偏好或规则；同一话题下要求不同的、相反的偏好都不算 |
 

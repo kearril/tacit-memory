@@ -120,7 +120,7 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Theory]
-    [InlineData("db-upgrade", "must be <project>/<slug>")]
+    [InlineData("db-upgrade", "must be <workstream>/<slug>")]
     [InlineData("tacit-memory/DB_Upgrade", "for example db-upgrade")]
     [InlineData("_private/db-upgrade", "must not start with '.' or '_'")]
     [InlineData(".hidden/db-upgrade", "must not start with '.' or '_'")]
@@ -133,7 +133,7 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_names_are_lowercased_and_topics_are_a_project()
+    public async Task Workstream_names_are_lowercased_and_topics_are_a_workstream()
     {
         Assert.False((await _service.WritePageAsync(Create("Tacit-Memory/db-upgrade"))).IsError);
         Assert.False((await _service.WritePageAsync(Create("_topics/pgroonga"))).IsError);
@@ -222,6 +222,12 @@ public sealed partial class PageTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
+        Assert.Equal(before, PageText(page));
+
+        var renamed = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["project"] });
+
+        Assert.StartsWith("Refused: Unknown parameter project.\nNext step: ", renamed.Text);
+        Assert.Contains("The workstream is the first part of the page ID, as in workstream/slug.", renamed.Text);
         Assert.Equal(before, PageText(page));
         Assert.Equal(commits, Git("rev-list", "--count", "HEAD").Trim());
         Assert.Empty(Git("status", "--porcelain").Trim());
