@@ -93,7 +93,7 @@ public sealed class HelpAndOutputTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("At least 3.", result.Stdout);
-        Assert.DoesNotContain("characters", result.Stdout);
+        Assert.DoesNotMatch(@"\d+ characters", result.Stdout);
         Assert.Empty(result.Stderr);
     }
 

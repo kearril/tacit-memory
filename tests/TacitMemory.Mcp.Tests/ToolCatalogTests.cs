@@ -16,11 +16,12 @@ public sealed class ToolCatalogTests
 
         foreach (var name in new[] { "write_recent", "write_persona" })
         {
-            Assert.DoesNotContain("characters", tools[name].Description);
-            Assert.DoesNotContain("at most", tools[name].Description);
-            Assert.DoesNotContain("entries", tools[name].Description);
+            Assert.DoesNotMatch(@"\d+ characters", tools[name].Description);
+            Assert.DoesNotMatch(@"at most \d+", tools[name].Description);
+            Assert.DoesNotMatch(@"\d+ entries", tools[name].Description);
         }
-        Assert.DoesNotContain(tools.Values.SelectMany(tool => tool.Parameters), parameter => parameter.Description.Contains("characters"));
+        foreach (var parameter in tools.Values.SelectMany(tool => tool.Parameters))
+            Assert.DoesNotMatch(@"\d+ characters", parameter.Description);
         Assert.DoesNotContain('{', tools["write_persona"].Description);
     }
 

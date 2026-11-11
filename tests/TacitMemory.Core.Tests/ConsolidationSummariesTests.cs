@@ -2,7 +2,7 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// The consolidation's material for the summaries, through the facade: the completed ISO weeks and calendar months that lack a
-/// summary line, and the mainline material (the established workstreams with activity since the last consolidation). Dates are
+/// summary line, and the workstream material (the established workstreams with activity since the last consolidation). Dates are
 /// the test clock's; each test moves it to the day it needs.
 /// </summary>
 public sealed class ConsolidationSummariesTests : IDisposable
@@ -189,7 +189,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     }
 
     [Fact]
-    public async Task The_mainline_material_lists_only_workstreams_with_activity_since_the_last_consolidation_with_their_entries_and_activities()
+    public async Task The_workstream_material_lists_only_workstreams_with_activity_since_the_last_consolidation_with_their_entries_and_activities()
     {
         _home.InitReady();
         Workstreams("## 主线\n### alpha\n背景：一号主线。\n近况：正在收敛。\n### beta\n背景：二号主线。\n### gamma\n背景：三号主线，没有新活动。\n");
@@ -199,7 +199,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         ClockOn(new DateOnly(2026, 11, 9));
 
-        var section = Section(await Report(service), "Mainline material");
+        var section = Section(await Report(service), "Workstream material");
 
         Assert.Contains("alpha", section);
         Assert.Contains("一号主线。", section);
@@ -218,7 +218,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     [InlineData("consolidation")]
     [InlineData("init")]
     [InlineData("none")]
-    public async Task The_mainline_material_takes_the_activities_since_the_baseline_whichever_kind_of_baseline_it_is(string baseline)
+    public async Task The_workstream_material_takes_the_activities_since_the_baseline_whichever_kind_of_baseline_it_is(string baseline)
     {
         _home.InitReady();
         Workstreams("## 主线\n### alpha\n背景：一号主线。\n");
@@ -236,7 +236,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         ClockOn(new DateOnly(2026, 11, 9));
 
-        var section = Section(await Report(service), "Mainline material");
+        var section = Section(await Report(service), "Workstream material");
 
         Assert.Contains("之后的活动", section);
         if (baseline == "consolidation")
@@ -246,14 +246,14 @@ public sealed class ConsolidationSummariesTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_an_established_workstream_the_mainline_material_says_so_in_one_line()
+    public async Task Without_an_established_workstream_the_workstream_material_says_so_in_one_line()
     {
         using var service = Open();
         Workstreams("## 主线\n");
         Month("2026-10", "## 汇总\n- 2026-W44：第五周\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
-        var section = Section(await Report(service), "Mainline material");
+        var section = Section(await Report(service), "Workstream material");
 
         Assert.Contains("No workstream is established", section);
         Assert.DoesNotContain("2026-W44", section);
@@ -266,7 +266,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         Workstreams("## 主线\n### alpha\n背景：没有新活动的主线。\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await Report(service), "Mainline material");
+        var section = Section(await Report(service), "Workstream material");
 
         Assert.DoesNotContain("alpha", section);
         Assert.Contains("None.", section);

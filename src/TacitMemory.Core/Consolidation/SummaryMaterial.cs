@@ -8,7 +8,7 @@ namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The material of the summary categories in part A: the completed ISO weeks and calendar months that have activities but no
-/// summary line yet, and the mainline material. Everything is read from the memory repository as it is now and nothing is
+/// summary line yet, and the workstream material. Everything is read from the memory repository as it is now and nothing is
 /// written: the agent writes the summaries and the workstream entries itself.
 /// </summary>
 internal static class SummaryMaterial
@@ -54,13 +54,13 @@ internal static class SummaryMaterial
     /// current entry and those activities, oldest first. A workstream without new activity is not listed. With no established
     /// workstream the section says so in one line.
     /// </summary>
-    public static async Task<ConsolidationSection> MainlineAsync(ConsolidationContext context, CancellationToken cancellationToken)
+    public static async Task<ConsolidationSection> WorkstreamAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
         var established = WorkstreamFile.Established(context.Config.MemoryPath);
         if (established.Count == 0)
-            return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, ["No workstream is established in workstreams.md."]);
+            return new ConsolidationSection(ConsolidationTitles.WorkstreamMaterial, ["No workstream is established in workstreams.md."]);
 
-        var fresh = (await PersonaEvidence.NewActivitiesAsync(context, cancellationToken))
+        var fresh = (await context.NewActivitiesAsync(cancellationToken))
             .Select(item => item.Activity)
             .Where(activity => activity.Workstream is not null)
             .ToList();
@@ -86,7 +86,7 @@ internal static class SummaryMaterial
             findings.Add(string.Join('\n', lines));
         }
 
-        return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, findings);
+        return new ConsolidationSection(ConsolidationTitles.WorkstreamMaterial, findings);
     }
 
     /// <summary>

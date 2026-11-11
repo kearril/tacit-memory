@@ -177,7 +177,7 @@ public sealed class McpHostTests : IAsyncLifetime
         foreach (var tool in served.Values)
         {
             var description = tool.ProtocolTool.Description ?? "";
-            Assert.DoesNotContain("characters", description);
+            Assert.DoesNotMatch(@"\d+ characters", description);
             Assert.DoesNotContain("by default", description);
             Assert.DoesNotContain('{', description);
         }
@@ -240,7 +240,7 @@ public sealed class McpHostTests : IAsyncLifetime
             "### Persona candidates to remove\n",
             "### Weeks to summarize\n",
             "### Months to summarize\n",
-            "### Mainline material\n",
+            "### Workstream material\n",
             "## B. For proposals\n",
             "### Persona evidence\n",
             "### Incident lessons\n",
@@ -354,7 +354,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.StartsWith(
             "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\nNext step: ",
             Text(refused));
-        Assert.Contains("The mainline is maintained by the tacit-consolidate skill.", Text(refused));
+        Assert.Contains("The workstream list is maintained by the tacit-consolidate skill.", Text(refused));
     }
 
     [Fact]

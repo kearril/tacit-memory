@@ -110,7 +110,7 @@ public sealed partial class PageTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:\n", result.Text);
-        Assert.DoesNotContain("the limit is", result.Text);
+        Assert.DoesNotMatch(@"the limit is \d+", result.Text);
         Assert.Contains("at least 2 distinct aliases", result.Text);
         Assert.Contains("\"现象\" is used more than once", result.Text);
         Assert.Contains("page tacit-memory/missing does not exist", result.Text);

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
-using System.Globalization;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
@@ -607,6 +606,4 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
     /// <summary>An entry of one of the four sections, in its scope, found by its short code.</summary>
     private sealed record FoundEntry(PersonaScope Scope, PersonaSection Kind, PersonaItem Item, string Code);
-
-    internal static int Length(string text) => new StringInfo(text).LengthInTextElements;
 }

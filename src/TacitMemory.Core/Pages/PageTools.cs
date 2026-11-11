@@ -470,5 +470,4 @@ internal sealed class PageTools(
 
     private string PathOf(PageId id) => Path.Combine(config.MemoryPath, "pages", id.Workstream, id.Slug + ".md");
 
-    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
 }

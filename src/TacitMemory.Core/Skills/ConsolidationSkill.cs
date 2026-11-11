@@ -84,7 +84,8 @@ internal static class ConsolidationSkill
         text.Append("# Memory consolidation\n\n");
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText)
             .Append(" For example, \"only summaries\" runs the summary part of step 1 and no proposals. \"only workstreams\", or \"only workstream home-server\" ")
-            .Append("for one named workstream, runs just the mainline material of step 1 and the workstream proposal material of step 3, with the workstream changes of step 4 and nothing else.\n\n");
+            .Append("for one named workstream, runs just the workstream material of step 1 and the workstream proposal material of step 3, with the workstream changes of step 4. ")
+            .Append("The pass still ends with the `consolidate:` commit of step 6.\n\n");
         text.Append("First read the resource ").Append(ReportUri).Append(" from the MCP server named tacit. It is computed when read and gives ")
             .Append("the memory repository's absolute path, today's date, the baseline commit, the budget and the report's categories. ")
             .Append("If it cannot be read, stop and ask the user to start the TacitMemory service with `tacit serve`; do not check the memory from what you remember.\n");
@@ -99,7 +100,7 @@ internal static class ConsolidationSkill
             .Append("\": write one summary line per listed period into the `## ").Append(summary).Append("` section of the month file the report names: ")
             .Append("a week as `- ").Append(Week).Append("：<one line>`, a month as `- ").Append(Month).Append("：<one line>`. ")
             .Append("Write each line from the activities the report gives, and add nothing they do not say.\n");
-        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": for each workstream the report lists, write only its recent line in workstreams.md (adding one when the entry has none), ")
+        text.Append("   - \"").Append(ConsolidationTitles.WorkstreamMaterial).Append("\": for each workstream the report lists, write only its recent line in workstreams.md (adding one when the entry has none), ")
             .Append("from the activities the report gives, and leave its background line unchanged. The background line says what the workstream is. ")
             .Append("The recent line is a high-level summary of its recent phase and direction: where it stands and where it is going. It is never a list of what was done. ")
             .Append("A workstream the report does not list stays as it is.\n");

@@ -352,7 +352,6 @@ public sealed class ResidentDocumentTests : IDisposable
             "- network-proxy：改代理、分流或测速时（1 条）\n",
             "- alpha：一号主线。 近况：在收敛。\n",
             "</user_memory>");
-        Assert.DoesNotContain("## Mainline", Agents());
         Assert.DoesNotContain("## Recent weeks", Agents());
     }
 
@@ -470,6 +469,25 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
+    public void A_future_dated_activity_does_not_make_a_workstream_quiet_while_it_has_activity_inside_the_window()
+    {
+        WriteFullPersona();
+        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在做。\n### beta\n背景：二号主线。\n近况：最近在做。\n");
+        WriteMonth("2026-10", "## 2026-10-20\n- [alpha] 窗口内的事\n");
+        WriteMonth("2026-11", "## 2026-11-01\n- [beta] 较新的事\n## 2026-11-20\n- [alpha] 日期写错的未来活动\n");
+
+        _home.Bind();
+        var text = Agents();
+
+        // Today is 2026-11-02: alpha has an activity inside the window, and its newest day not after today is 2026-10-20,
+        // so beta, whose newest day is 2026-11-01, comes first.
+        Assert.Contains("- alpha：一号主线。 近况：在做。\n", text);
+        AssertInOrder(text,
+            "- beta：二号主线。 近况：最近在做。\n",
+            "- alpha：一号主线。 近况：在做。\n");
+    }
+
+    [Fact]
     public void Scoped_entries_stay_out_of_the_block_and_a_domain_shows_only_its_index_row()
     {
         WriteScopedPersona();
@@ -493,7 +511,6 @@ public sealed class ResidentDocumentTests : IDisposable
         var text = Agents();
 
         Assert.DoesNotContain("## Situational rules", text);
-        Assert.DoesNotContain("## Mainline", text);
         Assert.DoesNotContain("## Recent weeks", text);
         Assert.DoesNotContain("## Workstreams", text);
     }
@@ -514,12 +531,12 @@ public sealed class ResidentDocumentTests : IDisposable
     [Fact]
     public void Resident_md_naming_a_removed_section_is_refused_and_the_name_is_given()
     {
-        File.WriteAllText(ResidentMd, "SHELL-OK\n\n## mainline\nX\n");
+        File.WriteAllText(ResidentMd, "SHELL-OK\n\n## projects\nX\n");
         WriteFullPersona();
 
         var refused = Assert.Throws<TacitException>(() => ResidentFile.Load(ResidentMd, MemoryLanguage.Zh));
 
-        Assert.Contains("mainline", refused.Message);
+        Assert.Contains("projects", refused.Message);
     }
 
     [Fact]

@@ -193,7 +193,8 @@ public sealed partial class RecallPersonaTests : IDisposable
         var backup = result.Text.IndexOf("Domain backup,", StringComparison.Ordinal);
         var proxy = result.Text.IndexOf("Domain network-proxy,", StringComparison.Ordinal);
         Assert.True(backup >= 0 && proxy > backup, result.Text);
-        Assert.DoesNotContain("Workstream", result.Text);
+        Assert.DoesNotContain("发版", result.Text);
+        Assert.DoesNotContain("游戏内导出", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);
     }
 

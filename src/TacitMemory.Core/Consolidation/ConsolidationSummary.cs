@@ -15,7 +15,7 @@ namespace TacitMemory.Core.Consolidation;
 /// <param name="CandidatesReadable">Whether <c>candidates.md</c> is valid UTF-8; the candidate count is zero otherwise.</param>
 /// <param name="Candidates">The candidates in <c>candidates.md</c>; zero when the file is not readable.</param>
 /// <param name="Problems">Format and rule problems.</param>
-/// <param name="MainlineEmpty">Whether no workstream is established.</param>
+/// <param name="WorkstreamEmpty">Whether no workstream is established.</param>
 /// <param name="UnsummarizedWeeks">Completed ISO weeks that have activities and no summary line yet.</param>
 internal sealed record ConsolidationSummary(
     ConsolidationBaseline Baseline,
@@ -23,7 +23,7 @@ internal sealed record ConsolidationSummary(
     bool CandidatesReadable,
     int Candidates,
     int Problems,
-    bool MainlineEmpty,
+    bool WorkstreamEmpty,
     int UnsummarizedWeeks)
 {
     /// <summary>
@@ -41,10 +41,10 @@ internal sealed record ConsolidationSummary(
         var candidates = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Candidates));
         var candidateCount = candidates is { } read ? CandidatesDocument.Parse(read.Text).Candidates.Count : 0;
         var problems = FormatViolations.Issues(context).Count;
-        var mainlineEmpty = WorkstreamFile.Established(config.MemoryPath).Count == 0;
+        var workstreamEmpty = WorkstreamFile.Established(config.MemoryPath).Count == 0;
         var unsummarizedWeeks = SummaryCalendar.Unsummarized(config.MemoryPath, today).Count(period => period.Kind == SummaryKind.Week);
 
         var days = baseline.Commit is { } commit ? today.DayNumber - commit.Day.DayNumber : (int?)null;
-        return new ConsolidationSummary(baseline, days, candidates is not null, candidateCount, problems, mainlineEmpty, unsummarizedWeeks);
+        return new ConsolidationSummary(baseline, days, candidates is not null, candidateCount, problems, workstreamEmpty, unsummarizedWeeks);
     }
 }

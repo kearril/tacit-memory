@@ -22,15 +22,15 @@ internal static class LengthHints
         {
             foreach (var entry in persona.KnownEntries())
             {
-                var length = PersonaTools.Length(entry.Item.Text);
+                var length = TextLength.Of(entry.Item.Text);
                 if (length > itemLimit)
                     findings.Add($"- {PersonaFiles.Persona}, line {entry.Item.Line + 1}: {length} characters (hint length {itemLimit}); propose a shorter wording.");
             }
         }
 
-        foreach (var (activity, _) in await PersonaEvidence.NewActivitiesAsync(context, cancellationToken))
+        foreach (var (activity, _) in await context.NewActivitiesAsync(cancellationToken))
         {
-            var length = PersonaTools.Length(activity.Body);
+            var length = TextLength.Of(activity.Body);
             if (length > itemLimit)
                 findings.Add($"- {RecentFile.RelativePath(activity.Day)}, line {activity.Line + 1}: {length} characters (hint length {itemLimit}); propose a shorter wording.");
         }

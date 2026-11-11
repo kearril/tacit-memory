@@ -388,10 +388,10 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Equal(1, pending.Candidates);
         Assert.Equal(StatusLevel.Attention, pending.LineLevels()[0]);
         Assert.True(pending.FormatProblems > 0);
-        Assert.False(pending.MainlineEmpty);
+        Assert.False(pending.WorkstreamEmpty);
         Assert.Contains($"- Persona candidates: {pending.Candidates}.", reminder);
         Assert.Contains($"- Format and rule problems: {pending.FormatProblems}.", reminder);
-        Assert.Contains("- Mainline: not empty.", reminder);
+        Assert.Contains("- Workstream: not empty.", reminder);
     }
 
     [Fact]
@@ -449,7 +449,7 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.Null(report.Consolidation!.DaysSince);
         Assert.Contains("无法读取记忆仓库的历史", Assert.Single(report.Consolidation.Lines));
         Assert.Null(report.Pending!.Candidates);
-        Assert.Null(report.Pending.MainlineEmpty);
+        Assert.Null(report.Pending.WorkstreamEmpty);
         Assert.Contains("无法统计待处理问题", Assert.Single(report.Pending.Lines));
         Assert.NotNull(report.Bindings);
         Assert.NotNull(report.Backups);
