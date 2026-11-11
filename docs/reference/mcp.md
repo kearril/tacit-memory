@@ -46,7 +46,7 @@
 ### 参数校验
 
 - 参数结构扁平，由服务按 `op` 校验。
-- `replace`、`delete` 缺短码或短码与任何画像条目都不符时，不按缺参数处理，而是拒绝并给出下一步：用 `recall kind=persona` 取短码，拒绝回复不附画像内容；`delete` 不接受 `text`、`source`、`confirm_no_secret`，`replace` 不接受 `persona_section`。
+- `replace`、`delete` 缺短码或短码与任何画像条目都不符时拒绝，原因写明缺少 `hash` 或该短码不对应任何条目，并给出下一步：用 `recall kind=persona` 取短码，拒绝回复不附画像内容；`delete` 不接受 `text`、`source`、`confirm_no_secret`，`replace` 不接受 `persona_section`。
 - 参数名不在工具 schema 中的（未知参数）一律拒绝，每个未知参数一条 `Unknown parameter <名>.`，排在最前；同一次调用中缺 `op`、`op` 无效、放错 `op` 的已知参数一并列出，只拒绝一次。判断不看值：键在、名字不在 schema 中即为未知，值为 `null` 或空串也算；已知参数值为 `null` 仍按放错 `op` 的规则视为未给出。下一步：`op` 有效时列出该 op 的参数（`write_page` 另列 `page`）；`op` 缺失或无效时列出 `op` 的取值与工具的全部参数；`recall` 列出全部参数；`write_recent` 没有 `op`，下一步列出它的全部参数，并加一句 "The workstream list is maintained by the tacit-consolidate skill."（`op`、`items`、`hash` 即属此类）。拒绝不写文件、不提交，经调用记录路径记入日志，日志不含参数值。
 
 ### 返回与拒绝
