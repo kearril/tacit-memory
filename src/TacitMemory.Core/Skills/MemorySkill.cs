@@ -99,8 +99,8 @@ internal static class MemorySkill
         The workstream is the `workstream` argument of `write_recent`, not part of the text. In each pair below, Bad lists the steps; Good states the same event as one conclusion with its reason. The examples are invented.
 
         <pair language="zh">
-        Bad: 今天把 SearXNG 的 compose 文件改成新的端口映射，Valkey 的 maxmemory 从 256mb 调到 64mb，重启后测了 /search 接口，更新了 infra 文档里的端口表。
-        Good: 决定 Valkey 缓存只留 64mb 上限，检索接口重启后验证正常。
+        Bad: 今天把导出脚本拆成读取和写入两个文件，日期解析换成标准库，补了 6 个测试，改了 README 里的用法示例，删掉两个没用的参数。
+        Good: 导出脚本改为按月分文件输出，因为单个文件过大时表格软件打不开。
         </pair>
 
         <pair language="en">
