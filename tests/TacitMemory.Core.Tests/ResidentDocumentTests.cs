@@ -350,7 +350,7 @@ public sealed class ResidentDocumentTests : IDisposable
         AssertInOrder(Agents(),
             "- f1\n\n## Situational rules\n",
             "- network-proxy：改代理、分流或测速时（1 条）\n",
-            "## Workstreams\n- alpha：一号主线。 近况：在收敛。\n",
+            "- alpha：一号主线。 近况：在收敛。\n",
             "</user_memory>");
         Assert.DoesNotContain("## Mainline", Agents());
         Assert.DoesNotContain("## Recent weeks", Agents());
@@ -380,7 +380,6 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
 
         AssertInOrder(Agents(),
-            "## Workstreams\n",
             "- beta：二号。 近况：最新的近况。\n",
             "- alpha：一号。 近况：较早的近况。\n",
             "- delta：四号。\n",
@@ -395,7 +394,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         _home.Bind();
 
-        Assert.Contains("## Workstreams\n- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha：一号主线。\n", Agents());
         Assert.DoesNotContain("在收敛", Agents());
     }
 
@@ -420,7 +419,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         _home.Bind();
 
-        Assert.Contains("## Workstreams\n- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha：一号主线。\n", Agents());
         Assert.DoesNotContain("zeta", Agents());
     }
 
@@ -466,7 +465,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Clock.Advance(TimeSpan.FromDays(1));
         _home.Bind();
 
-        Assert.Contains("## Workstreams\n- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha：一号主线。\n", Agents());
         Assert.DoesNotContain("在做", Agents());
     }
 
@@ -530,7 +529,7 @@ public sealed class ResidentDocumentTests : IDisposable
         File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：说明。\n近况：在做。\n");
         _home.Bind();
         using var service = Open();
-        Assert.Contains("## Workstreams\n- fresh：说明。\n", Agents());
+        Assert.Contains("- fresh：说明。\n", Agents());
 
         WriteMonth("2026-11", "## 2026-11-02\n- [fresh] 今天的事\n");
         await Eventually(() => Agents().Contains("- fresh：说明。 近况：在做。\n", StringComparison.Ordinal));
@@ -554,7 +553,7 @@ public sealed class ResidentDocumentTests : IDisposable
         await service.VectorCompletion;
         _home.Clock.Elapse(TimeSpan.FromDays(1));
 
-        await Eventually(() => Agents().Contains("## Workstreams\n- alpha：一号主线。\n", StringComparison.Ordinal));
+        await Eventually(() => Agents().Contains("- alpha：一号主线。\n", StringComparison.Ordinal));
         Assert.NotNull(service);
     }
 

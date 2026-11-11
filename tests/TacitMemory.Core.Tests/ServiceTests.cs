@@ -78,7 +78,7 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public void Criteria_that_push_the_fixed_part_past_2500_characters_stop_the_service_and_say_by_how_much()
+    public void Criteria_that_push_the_fixed_part_past_3000_characters_stop_the_service_and_say_by_how_much()
     {
         var item = new string('长', 200);
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {item}\n", 10)) + "## 不记\n- 日常闲聊\n");
@@ -228,7 +228,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         var before = await service.ServerInstructionsAsync();
 
-        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 1300) + "\n");
+        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 2000) + "\n");
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
 
         await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));

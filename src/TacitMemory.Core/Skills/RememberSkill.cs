@@ -21,7 +21,7 @@ internal static class RememberSkill
         ## Steps
         1. Go through this session against the "Worth recording" rules.
         2. Pages: `recall` first. Update the page that covers the matter with write_page upsert_section, using the hash recall shows; create one with its type only when no existing page fits.
-        3. One activity with write_recent: what the user did and concluded, with its workstream when it belongs to one. If this session already wrote an activity, rewrite it with `replaces`, using its short code from the earlier reply.
+        3. Activities with write_recent: one for each workstream this session advanced, with its workstream set, each a single conclusion and its reason. A matter that fits no workstream gets no label. If this session already wrote an activity for a workstream, rewrite it with `replaces`, using its short code from the earlier reply.
         4. Persona: for each correction or stated rule, ask the user once whether to keep it as a lasting rule, then `add` after they agree. A habit you observed goes in with `op=propose`. If something contradicts a persona entry, ask the user first.
         5. List what you wrote, one line each: pages by page ID, activities and persona entries by short code, candidates by their text.
         """;
