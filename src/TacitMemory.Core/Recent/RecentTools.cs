@@ -19,7 +19,7 @@ namespace TacitMemory.Core.Recent;
 internal sealed class RecentTools(TacitOptions options, TacitConfig config, ServiceLog log, IDecisionModel decision)
 {
     /// <summary>Every parameter <c>write_recent</c> takes, listed when an unknown one is refused.</summary>
-    private const string Parameters = "text, project, source, replaces, confirm_no_secret";
+    private const string Parameters = "text, workstream, source, replaces, confirm_no_secret";
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
     private readonly SameTopicCheck _sameTopic = new(config, decision);
@@ -42,8 +42,8 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         var text = request.Text.Trim();
         if (text.StartsWith('['))
             return ToolText.Refuse(
-                "Text must not start with '['; the project label comes from the project parameter.",
-                "Call write_recent again with the project parameter instead of a [project] prefix in text.");
+                "Text must not start with '['; the workstream label comes from the workstream parameter.",
+                "Call write_recent again with the workstream parameter instead of a [workstream] prefix in text.");
 
         var problems = new List<string>();
         var limit = config.Limits.ItemLength;
@@ -52,12 +52,12 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         if (Length(text) > limit)
             problems.Add($"{Length(text)} characters; the limit is {limit}");
 
-        string? project = null;
-        if (request.Project is not null)
+        string? workstream = null;
+        if (request.Workstream is not null)
         {
-            project = request.Project.Trim().ToLowerInvariant();
-            if (!PageId.IsProjectName(project))
-                problems.Add($"Project {ToolText.Quote(request.Project)} may only use a-z, 0-9, '.', '_' and '-', must not start with '.' or '_', for example {PageId.Suggest(project)}.");
+            workstream = request.Workstream.Trim().ToLowerInvariant();
+            if (!PageId.IsWorkstreamName(workstream))
+                problems.Add($"Workstream {ToolText.Quote(request.Workstream)} may only use a-z, 0-9, '.', '_' and '-', must not start with '.' or '_', for example {PageId.Suggest(workstream)}.");
         }
 
         var source = string.IsNullOrWhiteSpace(request.Source) ? null : request.Source.Trim();
@@ -91,7 +91,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
                 $"Save {relative} as UTF-8, then call write_recent again.");
         var (existing, hasBom) = read.Value;
 
-        var label = RecentFile.Label(project);
+        var label = RecentFile.Label(workstream);
         var entryLine = $"- {label}{text}";
         var sourceLine = source is null ? null : $"  <!-- {StructureWords.Quote.In(config.Language)}「{source}」 -->";
 

@@ -70,14 +70,14 @@ flowchart LR
 | 细节页写入 | `write_page` 的四个操作（`create`、`upsert_section`、`delete_section`、`update_header`）：参数按 `op` 校验，凭据检测，小节以短码定位，只改写本次文件并提交，写入后同步该页的索引 | 已实现 |
 | Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由整理报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
 | 画像读取 | `recall` 的 `kind=persona` 与 `rules`：`PersonaReading` 渲染整份画像或领域规则，每条附短码，原话注释不输出；不经派生索引、不计使用统计。行为见 `docs/design.md` 第 7 节 | 已实现 |
-| 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、项目与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存整理判断的概率，键为提问内容的哈希，三档在读取时按阈值计算；小节保存内容哈希与最后变化日期，单元保存返回次数与最近返回日期（使用统计，见 `docs/design.md` 第 7 节） | 已实现 |
-| 项目简报 | `Retrieval/ProjectBrief`：`recall` 只给 `project` 时由 `RecallTool` 交给它。读取该项目的页面文件、项目作用域的画像与月文件，组装项目名、项目约定、未决事项、页目录（按类型分组）、最近 3 条活动与最近一次周汇总；超出 `limits.brief` 时截断页目录；经索引同步页面并计入使用统计，不经全文与向量检索。行为见 `docs/design.md` 第 7 节 | 已实现 |
+| 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、主线与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存整理判断的概率，键为提问内容的哈希，三档在读取时按阈值计算；小节保存内容哈希与最后变化日期，单元保存返回次数与最近返回日期（使用统计，见 `docs/design.md` 第 7 节） | 已实现 |
+| 主线简报 | `Retrieval/WorkstreamBrief`：`recall` 只给 `workstream` 时由 `RecallTool` 交给它。读取该主线的页面文件、主线作用域的画像与月文件，组装主线名、主线约定、未决事项、页目录（按类型分组）、最近 3 条活动与最近一次周汇总；超出 `limits.brief` 时截断页目录；经索引同步页面并计入使用统计，不经全文与向量检索。行为见 `docs/design.md` 第 7 节 | 已实现 |
 | 汇总 | `Recent/Summary`、`SummaryCalendar`、`SummaryMaterial`：汇总行的解析与写法（周按 ISO 周、月按自然月）、已结束且未汇总的周期的判定，以及整理报告中的汇总材料。服务不写汇总，汇总由整理时的主会话直接编辑活动记录文件；汇总节不参与活动的短码与同主题判断 | 已实现 |
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
 | 决策模型接口 | 只含选择题（返回各选项概率）；System One 协议的实现 `SystemOneDecisionModel`，请求发往配置的完整 URL（TypeSafe 的原生决策接口即其一个服务），密钥取自 `models.decision.apiKey` 或环境变量 `TACIT_DECISION_API_KEY`（环境变量优先），没有密钥时不带认证头；`provider: cloudflare` 时请求体相同，只在读取响应时先取 `result` | 已实现 |
 | 辅助模型客户端 | 以 `HttpClient` 调用三个模型，三者共用 `ModelClient` 的请求内重试与冷却（数值与判定规则见 `docs/design.md` 第 4 节）；每个模型的请求由 `ModelRequest` 构造：发往配置的完整 URL，有密钥时带 `Authorization: Bearer`，没有则不带认证头；提供方分派只在构造请求与读取响应两处（`RerankerModel` 的 Cloudflare 格式与 `SystemOneDecisionModel` 的 `result` 信封，信封类型为 `CloudflareEnvelope`，`success` 不为真或无 `result` 即格式不对）。未配置的模型（`Configured` 为假）的调用直接返回"无结果"，不发请求、不影响健康状态；未配置与不可用的判定集中在 `AuxiliaryModels`（`Statuses` 给出 `Unconfigured`、`Unavailable` 与可用三种）；状态提示只按冷却判定 | 已实现 |
 | 探测 | `ModelProbe`：`tacit probe` 的一次性请求（规则见 `docs/design.md` 第 4 节「探测」）；每个模型的 `ProbeAsync` 复用其请求构建与响应读取，内置英文探测文本在 `ProbeInputs`。`ProbeLines` 按记忆语言把结果排成报告行，文字在 `Localization/ProbeMessages`。门面 `ProbeAsync` 接收严格加载的配置、角色与是否点名，返回 `ProbeReport`（结果与报告行），不打印；门面 `LoadConfigFile` 只校验 `config.yaml`，不要求记忆仓库。CLI 只打印报告行并按结果定退出码 | 已实现 |
-| 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、最近 7 天活动、状态提示、整理提示），执行长度上限与截断顺序；`ResidentContent` 读取常驻区块的领域索引、主线、近几周汇总与项目列表；生成三个 skill（`Skills/SkillSet`：`tacit-memory` 由 `MemorySkill` 生成并接 `skill.md`；`tacit-remember` 与 `tacit-consolidate` 共用 `CommandSkill` 的外壳，正文分别来自 `RememberSkill`、`ConsolidationSkill`；内容不变不写） | 已实现 |
+| 注入渲染 | 常驻区块渲染与标记校验；按段落组装服务端说明（开场、核心规则（`instructions.md` 或内置默认）、通用规则、语言规范、值得记标准、最近 7 天活动、状态提示、整理提示），执行长度上限与截断顺序；`ResidentContent` 读取常驻区块的领域索引、主线、近几周汇总与主线列表；生成三个 skill（`Skills/SkillSet`：`tacit-memory` 由 `MemorySkill` 生成并接 `skill.md`；`tacit-remember` 与 `tacit-consolidate` 共用 `CommandSkill` 的外壳，正文分别来自 `RememberSkill`、`ConsolidationSkill`；内容不变不写） | 已实现 |
 | 客户端绑定 | 通用绑定：`connect` 与 `disconnect` 的门面、客户端名称规范化与 `~` 展开、路径比较（规范化后的完整路径，Windows 上不区分大小写，不解析联接与软链接）、常驻区块与三个 skill 链接的建立与拆除（`Clients/SkillLink`：Windows 用目录联接，其他平台用软链接；删除时只删指向 tacit 的链接本身）、`bindings.json` 读写（`Clients/BindingStore`）；共用的上下文文件与 skill 目录由 `Clients/SharedPaths` 判断引用者，渲染按路径去重；不读写任何客户端的 MCP 配置 | 已实现 |
 | 整理报告 | 现场计算报告（`Consolidation/`），由 `ConsolidationResource` 作为资源 `tacit://consolidation-report` 的正文返回：前面加上今天的日期、记忆仓库绝对路径与 `git -C` 用法。报告内容包括上次整理基准（最近的 `consolidate:` 提交，否则 `init:`，都没有则从未整理）；疑似重复的页与互相冲突的画像条目经判断工作池与限时会话取得答案（`JudgmentPool`、`JudgmentSession`）；违反格式或规则（`FormatViolations`，生成报告时重新解析全部记忆文件）；待清理的画像候选；待汇总的周与月和主线材料（`SummaryMaterial`，读取活动记录的汇总行与 `recent.md` 的主线）；超限的节。报告分 A、B 两部分，各类的计算方式、限时与缓存规则见 `docs/design.md` 第 9 节。`ConsolidationReport` 按两部分组装各类，无内容的类别写 `None.`；整理提示（`ConsolidationReminder`）复用其中不调模型的部分 | 已实现 |
 | 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致；只有辅助模型栏例外，离线时只列未配置的模型（`StatusReporter.OfflineAsync`）。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次整理与待处理问题复用 `ConsolidationSummary`，与整理提示同一入口，不调模型；最近本地备份取 `auto-`、`manual-`、`pre-restore-` 三种前缀中写入时间最新者，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
@@ -99,17 +99,17 @@ flowchart LR
 4. 按行修改 Markdown 文件；
 5. 用 `git` 只提交本次写入的文件；
 6. 同步受影响的索引条目（写入后立即同步，随后的文件监听事件因哈希相同而跳过）；
-7. 画像、主线、汇总或项目集合变化时重新渲染常驻区块；当天首次写入后触发自动备份。
+7. 画像、主线、汇总或主线集合变化时重新渲染常驻区块；当天首次写入后触发自动备份。
 
 调用 `git` 一律加 `-c core.quotepath=off` 并以 UTF-8 读取输出，避免中文路径被转义或乱码。
 
 ### 检索
 
-1. 按单元自身的项目与日期筛选（普通 SQL）；单元挂在来源下，项目与日期逐单元保存；画像与候选的单元由筛选排除。
+1. 按单元自身的主线与日期筛选（普通 SQL）；单元挂在来源下，主线与日期逐单元保存；画像与候选的单元由筛选排除。
 2. 全文：FTS5（unicode61）。中文切分由 `IndexText` 在写入与查询前完成，匹配规则见 `docs/design.md` 第 7 节；按 BM25 排序。
 3. 向量：`vec0`（余弦距离），单元与筛选规则同全文；缺向量的单元按批补齐：启动与监听同步后在后台进行，每次写入后与模型恢复后的第一次检索时则在本次调用中完成。
 4. 两路各取候选，RRF 合并后交 reranker，按阈值过滤并截取（数量见 `docs/design.md` 第 7 节）。
-5. 项目简报（`Retrieval/ProjectBrief`）：`recall` 只给 `project` 时由 `RecallTool` 交给它。它直接读取该项目的页面文件、项目作用域的画像与月文件，经索引同步页面并计入使用统计，不经全文与向量检索。
+5. 主线简报（`Retrieval/WorkstreamBrief`）：`recall` 只给 `workstream` 时由 `RecallTool` 交给它。它直接读取该主线的页面文件、主线作用域的画像与月文件，经索引同步页面并计入使用统计，不经全文与向量检索。
 
 ### 整理
 
@@ -160,4 +160,4 @@ flowchart LR
 | 日志 | `Serilog`（`Serilog.Sinks.File` 写文件，`Serilog.Extensions.Logging` 接入 `Microsoft.Extensions.Logging`）；Core 只引用 `Microsoft.Extensions.Logging.Abstractions` | 已引入 |
 | 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、GET、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，请求本身不重试（父目录缺失时的 MKCOL 与重传规则见 `docs/design.md` 第 12 节） | 已实现 |
 
-依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各项目文件为准；尚未引入的依赖在引入时锁定版本。
+依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各主线文件为准；尚未引入的依赖在引入时锁定版本。

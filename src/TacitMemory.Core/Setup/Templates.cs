@@ -102,7 +102,7 @@ internal static class Templates
           domains: 10                 # 领域最多个数
           domainEntries: 10           # 每个领域最多条数
           triggerLength: 60           # 领域的触发描述最多字数
-          brief: 3000                 # 项目简报最多字数，超出时只截短页目录
+          brief: 3000                 # 主线简报最多字数，超出时只截短页目录
 
         consolidation:
           remindAfterDays: 7          # 距上次整理多少天后提示
@@ -172,7 +172,7 @@ internal static class Templates
           domains: 10                 # max number of domains
           domainEntries: 10           # max entries per domain
           triggerLength: 60           # max characters in a domain's trigger
-          brief: 3000                 # max characters in a project brief; only its page index is shortened
+          brief: 3000                 # max characters in a workstream brief; only its page index is shortened
 
         consolidation:
           remindAfterDays: 7          # days after the last consolidation before reminding

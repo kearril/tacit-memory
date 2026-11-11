@@ -18,23 +18,23 @@ namespace TacitMemory.Core.Index;
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
 /// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>week</c> or <c>month</c> for a summary; <c>null</c> for the title and aliases and for activities.</param>
 /// <param name="Text">The indexed text of the unit: a section's name and body, the title and aliases, or an activity's body.</param>
-/// <param name="Project">The unit's project; empty when an activity has no project label.</param>
+/// <param name="Workstream">The unit's workstream; empty when an activity has no workstream label.</param>
 /// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
 /// <param name="Code">An activity's short code; <c>null</c> for pages.</param>
-internal sealed record IndexHit(long Id, string Source, string Kind, string? Section, string Text, string Project, string? Date, string? Code);
+internal sealed record IndexHit(long Id, string Source, string Kind, string? Section, string Text, string Workstream, string? Date, string? Code);
 
 /// <summary>A judgment unit a judgment compares a new text with: its kind, the persona section it belongs to, and its text.</summary>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
 /// <param name="Section">The persona section the unit belongs to; <c>null</c> when the stored name is none of the four.</param>
 /// <param name="Text">The unit's text, as the judgment compares it.</param>
-/// <param name="Scope">The scope the unit's entry is in: global, or the project or domain of its block.</param>
+/// <param name="Scope">The scope the unit's entry is in: global, or the workstream or domain of its block.</param>
 internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string Text, PersonaScope Scope);
 
 /// <summary>
 /// Filters applied before matching; dates are inclusive and compared with each unit's own first and last dates.
 /// <paramref name="Activities"/> keeps only activities (<c>true</c>) or only pages (<c>false</c>); <c>null</c> keeps both.
 /// </summary>
-internal sealed record IndexFilter(string? Project, DateOnly? From, DateOnly? To, bool? Activities = null);
+internal sealed record IndexFilter(string? Workstream, DateOnly? From, DateOnly? To, bool? Activities = null);
 
 /// <summary>A unit that has no vector yet, with the text to embed.</summary>
 internal sealed record PendingUnit(long Id, string Text);
@@ -90,18 +90,18 @@ internal static class UnitKinds
 /// The derived index of memory sources in <c>.cache/index.db</c>. A source is an indexed file: a detail page, a month
 /// file of the activity log, or one of the two persona files. One row per source with its file hash; one unit per
 /// section and one for the title and aliases of a page, one per dated line and one per summary line of a month file, and one per entry of
-/// <c>persona.md</c> or candidate of <c>candidates.md</c>, each carrying its kind, project and dates. Persona units
+/// <c>persona.md</c> or candidate of <c>candidates.md</c>, each carrying its kind, workstream and dates. Persona units
 /// serve judgments only. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "8";
+    private const string SchemaVersion = "9";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
-        (@project IS NULL OR u.project = @project)
+        (@workstream IS NULL OR u.workstream = @workstream)
         AND (@from IS NULL OR (u.last IS NOT NULL AND u.last >= @from))
         AND (@to IS NULL OR (u.first IS NOT NULL AND u.first <= @to))
         AND (@activities IS NULL OR (u.kind IN ('{UnitKinds.Activity}', '{UnitKinds.Summary}')) = @activities)
@@ -112,7 +112,7 @@ internal sealed class MemoryIndex : IDisposable
     private static readonly string[] JudgmentKinds = [UnitKinds.PersonaEntry, UnitKinds.Candidate, UnitKinds.RejectedCandidate];
 
     /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
-    private const string HitColumns = "u.id AS Id, u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.project AS Project, u.first AS Date, u.code AS Code";
+    private const string HitColumns = "u.id AS Id, u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.workstream AS Workstream, u.first AS Date, u.code AS Code";
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
@@ -245,13 +245,13 @@ internal sealed class MemoryIndex : IDisposable
         }
     }
 
-    /// <summary>Whether the index has any page in the same project as <paramref name="except"/> other than <paramref name="except"/> itself.</summary>
-    public bool HasOtherPagesInProject(PageId except)
+    /// <summary>Whether the index has any page in the same workstream as <paramref name="except"/> other than <paramref name="except"/> itself.</summary>
+    public bool HasOtherPagesInWorkstream(PageId except)
     {
         lock (_gate)
             return _connection.ExecuteScalar<long>(
-                "SELECT count(*) FROM sources s WHERE s.kind = @kind AND s.id <> @id AND EXISTS (SELECT 1 FROM units u WHERE u.source_id = s.id AND u.project = @project)",
-                new { kind = SourceKinds.Page, project = except.Project, id = except.ToString() }) > 0;
+                "SELECT count(*) FROM sources s WHERE s.kind = @kind AND s.id <> @id AND EXISTS (SELECT 1 FROM units u WHERE u.source_id = s.id AND u.workstream = @workstream)",
+                new { kind = SourceKinds.Page, workstream = except.Workstream, id = except.ToString() }) > 0;
     }
 
     /// <summary>The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first.</summary>
@@ -477,7 +477,7 @@ internal sealed class MemoryIndex : IDisposable
     }
 
     /// <summary>
-    /// Counts one return for each listed page, as a project brief does: the count lands on the page's title and aliases unit,
+    /// Counts one return for each listed page, as a workstream brief does: the count lands on the page's title and aliases unit,
     /// so each page adds one whatever its size.
     /// </summary>
     public void RecordPagesListed(IReadOnlyCollection<PageId> pages)
@@ -536,7 +536,7 @@ internal sealed class MemoryIndex : IDisposable
     private static object Parameters(IndexFilter filter, int limit, object extra)
     {
         var parameters = new DynamicParameters(extra);
-        parameters.Add("project", filter.Project);
+        parameters.Add("workstream", filter.Workstream);
         parameters.Add("from", filter.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         parameters.Add("to", filter.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         parameters.Add("activities", filter.Activities);
@@ -581,7 +581,7 @@ internal sealed class MemoryIndex : IDisposable
             "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
             new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
             transaction);
-        var scope = new UnitScope(id.Project, DateText(header.First), DateText(header.Last));
+        var scope = new UnitScope(id.Workstream, DateText(header.First), DateText(header.Last));
         AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction, carried: carried);
         for (var i = 0; i < document.Sections.Count; i++)
         {
@@ -665,7 +665,7 @@ internal sealed class MemoryIndex : IDisposable
         foreach (var activity in RecentFile.Activities(read.Text))
         {
             var day = DateText(activity.Day);
-            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Project ?? "", day, day), transaction, activity.Code, carried: carried);
+            AddUnit(relativePath, UnitKinds.Activity, null, activity.Line, activity.Labeled, new UnitScope(activity.Workstream ?? "", day, day), transaction, activity.Code, carried: carried);
         }
 
         foreach (var summary in SummaryLines.All(read.Text))
@@ -743,8 +743,8 @@ internal sealed class MemoryIndex : IDisposable
     /// <summary>One unit of a persona file: its kind, the persona section it belongs to, its text, and the scope it is in.</summary>
     private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text, PersonaScope Scope);
 
-    /// <summary>The project and dates every unit of a source carries.</summary>
-    private sealed record UnitScope(string Project, string? First, string? Last);
+    /// <summary>The workstream and dates every unit of a source carries.</summary>
+    private sealed record UnitScope(string Workstream, string? First, string? Last);
 
     /// <param name="hash">A section's content hash; the other kinds of unit have none.</param>
     /// <param name="changed">A section's last changed date as yyyy-MM-dd; the other kinds of unit have none.</param>
@@ -760,11 +760,11 @@ internal sealed class MemoryIndex : IDisposable
     {
         var usage = carried is not null && carried.Remove(UsageKey(kind, section, code, scope.First, scope.Last), out var state) ? state : null;
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (source_id, kind, section, ordinal, project, first, last, raw, code, hash, changed, scope, returns, returned) "
-            + "VALUES (@source, @kind, @section, @ordinal, @project, @first, @last, @raw, @code, @hash, @changed, @judgmentScope, @returns, @returned) RETURNING id",
+            "INSERT INTO units (source_id, kind, section, ordinal, workstream, first, last, raw, code, hash, changed, scope, returns, returned) "
+            + "VALUES (@source, @kind, @section, @ordinal, @workstream, @first, @last, @raw, @code, @hash, @changed, @judgmentScope, @returns, @returned) RETURNING id",
             new
             {
-                source, kind, section, ordinal, project = scope.Project, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope,
+                source, kind, section, ordinal, workstream = scope.Workstream, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope,
                 returns = usage?.Returns ?? 0,
                 returned = usage?.Returned,
             },
@@ -809,7 +809,7 @@ internal sealed class MemoryIndex : IDisposable
     private void SetMeta(string key, string value) =>
         _connection.Execute("INSERT INTO meta (key, value) VALUES (@key, @value) ON CONFLICT (key) DO UPDATE SET value = excluded.value", new { key, value });
 
-    /// <summary>Page files named as page IDs: <c>pages/&lt;project&gt;/&lt;slug&gt;.md</c>. Other files are not pages.</summary>
+    /// <summary>Page files named as page IDs: <c>pages/&lt;workstream&gt;/&lt;slug&gt;.md</c>. Other files are not pages.</summary>
     private IEnumerable<(PageId Id, string FullPath)> PageFiles()
     {
         var pages = Path.Combine(_memoryPath, "pages");
@@ -855,7 +855,7 @@ internal sealed class MemoryIndex : IDisposable
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
-            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, project TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
+            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, workstream TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
             CREATE TABLE judgment_cache (cache_key TEXT PRIMARY KEY, probabilities TEXT NOT NULL, written TEXT NOT NULL);

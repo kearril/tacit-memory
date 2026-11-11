@@ -164,7 +164,7 @@ public sealed class CommandSkillTests : IDisposable
         Assert.Contains("only after the user confirms", text, StringComparison.Ordinal);
         Assert.Contains("one numbered list", text, StringComparison.Ordinal);
         Assert.Contains("1 2 4 confirm", text, StringComparison.Ordinal);
-        Assert.Contains("change to project scope", text, StringComparison.Ordinal);
+        Assert.Contains("change to workstream scope", text, StringComparison.Ordinal);
         Assert.Contains("generalization", text, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -190,7 +190,7 @@ public sealed class CommandSkillTests : IDisposable
         Assert.Contains("改为", chinese, StringComparison.Ordinal);
         Assert.Contains("归属：偏好", chinese, StringComparison.Ordinal);
         Assert.Contains("拒绝 原话「", chinese, StringComparison.Ordinal);
-        foreach (var word in new[] { "作用域：", "领域", "项目", "触发", "遗留", "推翻记录", "教训", "汇总" })
+        foreach (var word in new[] { "作用域：", "领域", "主线", "触发", "遗留", "推翻记录", "教训", "汇总" })
             Assert.Contains(word, chinese, StringComparison.Ordinal);
         Assert.Contains("## 领域：network-proxy", chinese, StringComparison.Ordinal);
         Assert.Contains("作用域：domain:network-proxy", chinese, StringComparison.Ordinal);
@@ -205,7 +205,7 @@ public sealed class CommandSkillTests : IDisposable
         Assert.Contains("instead", english, StringComparison.Ordinal);
         Assert.Contains("Belongs to: Preferences", english, StringComparison.Ordinal);
         Assert.Contains("rejected quote「", english, StringComparison.Ordinal);
-        foreach (var word in new[] { "Scope: ", "Domain", "Project", "Trigger", "Leftovers", "Overturned", "Lesson", "Summary" })
+        foreach (var word in new[] { "Scope: ", "Domain", "Workstream", "Trigger", "Leftovers", "Overturned", "Lesson", "Summary" })
             Assert.Contains(word, english, StringComparison.Ordinal);
         Assert.Contains("## Domain: network-proxy", english, StringComparison.Ordinal);
         Assert.Contains("Scope: domain:network-proxy", english, StringComparison.Ordinal);

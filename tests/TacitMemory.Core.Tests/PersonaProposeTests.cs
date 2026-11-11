@@ -293,7 +293,7 @@ public sealed partial class PersonaProposeTests : IDisposable
 
     [Theory]
     [InlineData("domain:network-proxy")]
-    [InlineData("project:my-app")]
+    [InlineData("workstream:my-app")]
     public async Task A_scoped_proposal_writes_its_scope_line_after_the_section_line(string scope)
     {
         WriteCandidates("## 候选\n\n## 拒绝列表\n");

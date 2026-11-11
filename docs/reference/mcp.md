@@ -24,22 +24,22 @@
 
 | 工具 | `op` | 必填参数 |
 | :--- | :--- | :--- |
-| `recall` | — | `query` 或 `page`（`kind` 为 `persona`、`rules` 时都不需要），或只给 `project`（返回项目简报）；可选 `project`、`from`、`to`、`kind`、`domain` |
+| `recall` | — | `query` 或 `page`（`kind` 为 `persona`、`rules` 时都不需要），或只给 `workstream`（返回主线简报）；可选 `workstream`、`from`、`to`、`kind`、`domain` |
 | `write_page` | `create` | `page`、`title`、`aliases`、`sections`；可选 `related` |
 | | `upsert_section` | `page`、`section`、`body`；替换时加 `hash` |
 | | `delete_section` | `page`、`section`、`hash` |
 | | `update_header` | `page`；`title`、`type`、`add_aliases`、`related` 至少一项 |
-| `write_recent` | — | `text`；可选 `project`、`source`、`replaces`、`confirm_no_secret` |
+| `write_recent` | — | `text`；可选 `workstream`、`source`、`replaces`、`confirm_no_secret` |
 | `write_persona` | `add` | `persona_section`、`text`、`source`；可选 `scope`、`trigger`、`confirm_no_secret` |
 | | `replace` | `hash`、`text`、`source`；可选 `confirm_no_secret` |
 | | `delete` | `hash` |
 | | `propose` | `persona_section`、`text`、`source`；可选 `scope` |
 
-- `recall` 各参数的含义见 `docs/design.md` 第 7 节。`kind` 取 `pages`、`activities`、`rules` 或 `persona`；`domain` 仅与 `rules` 搭配。`persona` 与 `rules` 返回的每条都附短码，供 `write_persona` 的 `replace` 与 `delete` 使用。只给 `project` 时返回项目简报，内容与截断规则同见第 7 节；此时 `kind` 与 `domain` 不可同给（参数错误），`from`、`to` 可与之合用。
+- `recall` 各参数的含义见 `docs/design.md` 第 7 节。`kind` 取 `pages`、`activities`、`rules` 或 `persona`；`domain` 仅与 `rules` 搭配。`persona` 与 `rules` 返回的每条都附短码，供 `write_persona` 的 `replace` 与 `delete` 使用。只给 `workstream` 时返回主线简报，内容与截断规则同见第 7 节；此时 `kind` 与 `domain` 不可同给（参数错误），`from`、`to` 可与之合用。
 - `write_page` 的 `type` 取值为 `incident`、`decision`、`entity`、`work`，各自的用途写在工具说明中；`create` 必填，`update_header` 可改。
 - `recall` 以 `page` 读整页时，页头信息含一行 `Type: <类型>`；页面没有类型（旧页）时不显示该行。
 - `persona_section` 取值为 `red_lines`、`working_rules`、`preferences`、`profile`；`write_page` 的 `section` 为小节名。写入凭据检测未通过时（`write_page`、`write_recent`、`write_persona`），可加 `confirm_no_secret` 重新提交。`write_recent` 只写活动，没有 `op`；近期主线不经它写入，见 `docs/design.md` 第 6 节。
-- `write_persona` 的 `scope` 取 `global`（缺省）、`project:<名>` 或 `domain:<标签>`，`add` 与 `propose` 使用（`propose` 的候选块写入作用域行）；`trigger` 为新领域的触发描述（一行），仅 `add` 使用，新建领域时必填，已有领域时忽略。`replace` 与 `delete` 凭短码定位任一作用域中的条目，`replace` 保持原作用域。
+- `write_persona` 的 `scope` 取 `global`（缺省）、`workstream:<名>` 或 `domain:<标签>`，`add` 与 `propose` 使用（`propose` 的候选块写入作用域行）；`trigger` 为新领域的触发描述（一行），仅 `add` 使用，新建领域时必填，已有领域时忽略。`replace` 与 `delete` 凭短码定位任一作用域中的条目，`replace` 保持原作用域。
 - 长度与条数上限取自 `config.yaml` 的 `limits`（见 `docs/reference/configuration.md`），工具说明中的数字随配置填入。
 - 标注：`recall` 只读、幂等、不访问外部世界，并请求客户端首轮即加载；三个写入工具非只读、有破坏性、非幂等、不访问外部世界。
 

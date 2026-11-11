@@ -36,7 +36,7 @@ internal sealed record PersonaItem(string Text, IReadOnlyList<string> Continuati
 internal sealed record PersonaPart(PersonaSection? Kind, string? Heading, IReadOnlyList<PersonaItem> Items);
 
 /// <summary>
-/// A scope block of <c>persona.md</c>: a domain or a project, its <c>## </c> heading and, for a domain, its trigger line.
+/// A scope block of <c>persona.md</c>: a domain or a workstream, its <c>## </c> heading and, for a domain, its trigger line.
 /// <see cref="Parts"/> are its <c>### </c> sections, then any items before the first of them (with a <c>null</c> heading).
 /// <see cref="Trigger"/> is <c>null</c> when there is no trigger line, and empty when the line is blank.
 /// </summary>
@@ -61,7 +61,7 @@ internal sealed record ScopedEntry(PersonaScope Scope, PersonaSection Kind, Pers
 
 /// <summary>
 /// <c>persona.md</c> parsed leniently: global sections are found by <c>## </c> headings in any language, scope blocks by
-/// <c>## 领域：</c>, <c>## 项目：</c> (or their English forms), and items by top-level <c>- </c> lines with their indented
+/// <c>## 领域：</c>, <c>## 主线：</c> (or their English forms), and items by top-level <c>- </c> lines with their indented
 /// continuation lines. Nothing the user wrote is dropped: unknown sections, off-format lines and text before the first
 /// heading are kept as they are.
 /// </summary>

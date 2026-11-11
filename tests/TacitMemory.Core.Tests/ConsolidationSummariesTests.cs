@@ -50,7 +50,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     private async Task<string> Report(MemoryService service) => await service.ConsolidationReportAsync();
 
     [Fact]
-    public async Task A_completed_week_without_a_summary_lists_all_its_activities_grouped_by_project_with_the_month_to_write_in()
+    public async Task A_completed_week_without_a_summary_lists_all_its_activities_grouped_by_workstream_with_the_month_to_write_in()
     {
         using var service = Open();
         // Week 2026-W44 runs from Monday 10-26 to Sunday 11-01; its Thursday is 10-29, so its summary goes into the October file.
@@ -89,7 +89,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     }
 
     [Fact]
-    public async Task Activities_without_a_project_are_grouped_under_other_and_not_under_any_project()
+    public async Task Activities_without_a_workstream_are_grouped_under_other_and_not_under_any_workstream()
     {
         using var service = Open();
         Month("2026-11", "## 2026-11-03\n- 没有项目的活动\n");

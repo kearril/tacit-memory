@@ -6,7 +6,7 @@ namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The "Suspected duplicate pages" category. Each page changed since the last consolidation is judged as a new page is judged
-/// live: its nearest pages of the same project are the options, and the decision model answers the same question. A sure
+/// live: its nearest pages of the same workstream are the options, and the decision model answers the same question. A sure
 /// match and an unsure one are listed once per unordered pair, with their tiers; a rejection is not listed.
 /// </summary>
 internal static class DuplicatePages
@@ -61,12 +61,12 @@ internal static class DuplicatePages
 
     /// <summary>
     /// The question about a changed page, built as the live check builds it for a new page. Nothing is asked when the
-    /// project has no other page, and the question is not prepared when the embedding model is not reachable.
+    /// workstream has no other page, and the question is not prepared when the embedding model is not reachable.
     /// </summary>
     private static async Task<PreparedChoice<PageId>> PrepareAsync(TacitConfig config, ConsolidationServices services, PageId page, CancellationToken cancellationToken)
     {
         var memory = config.MemoryPath;
-        if (PageDocument.TryLoad(memory, page) is not { } document || !services.Index.HasOtherPagesInProject(page))
+        if (PageDocument.TryLoad(memory, page) is not { } document || !services.Index.HasOtherPagesInWorkstream(page))
             return new PreparedChoice<PageId>(null, null);
 
         var vector = await services.Embedding.EmbedAsync([string.Join('\n', [document.Header.Title, .. document.Header.Aliases])], cancellationToken);

@@ -454,15 +454,26 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
+    public async Task A_project_scope_is_refused_and_the_next_step_gives_the_workstream_form()
+    {
+        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "project:alpha"));
+
+        Assert.True(result.IsError);
+        Assert.False(result.Written);
+        Assert.Contains("Next step:", result.Text);
+        Assert.Contains("workstream:<name>", result.Text);
+    }
+
+    [Fact]
     public async Task Scope_blocks_follow_the_global_sections_with_domains_first_and_each_kind_sorted_by_name()
     {
-        WritePersona("## 红线\n\n## 偏好\n- 沟通：先要结论\n\n## 领域：zeta\n触发：收尾时\n### 偏好\n- 收尾：先列清单\n\n## 项目：my-app\n### 偏好\n- 发布：先打标签\n");
+        WritePersona("## 红线\n\n## 偏好\n- 沟通：先要结论\n\n## 领域：zeta\n触发：收尾时\n### 偏好\n- 收尾：先列清单\n\n## 主线：my-app\n### 偏好\n- 发布：先打标签\n");
 
         Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "project:alpha"))).IsError);
+        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "workstream:alpha"))).IsError);
 
         var text = File.ReadAllText(PersonaMd);
-        var headings = new[] { "\n## 偏好", "\n## 领域：alpha", "\n## 领域：zeta", "\n## 项目：alpha", "\n## 项目：my-app" };
+        var headings = new[] { "\n## 偏好", "\n## 领域：alpha", "\n## 领域：zeta", "\n## 主线：alpha", "\n## 主线：my-app" };
         var positions = headings.Select(heading => text.IndexOf(heading, StringComparison.Ordinal)).ToArray();
         Assert.All(positions, position => Assert.True(position >= 0, text));
         Assert.Equal(positions.Order().ToArray(), positions);
@@ -500,18 +511,18 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
-    public async Task A_project_block_needs_no_trigger_and_holds_its_entries_under_the_project_heading()
+    public async Task A_workstream_block_needs_no_trigger_and_holds_its_entries_under_the_workstream_heading()
     {
         WritePersona("## 偏好\n- 沟通：先要结论\n");
 
-        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "project:my-app"));
+        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:my-app"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 偏好\n- 沟通：先要结论\n\n## 项目：my-app\n### 协作规则\n- 发版 → 先问我\n"
+            "## 偏好\n- 沟通：先要结论\n\n## 主线：my-app\n### 协作规则\n- 发版 → 先问我\n"
             + $"  <!-- {Today} 原话「发版前问我」 -->\n",
             File.ReadAllText(PersonaMd));
-        Assert.Contains("project my-app", result.Text);
+        Assert.Contains("workstream my-app", result.Text);
     }
 
     [Fact]
@@ -552,15 +563,15 @@ public sealed partial class PersonaAddTests : IDisposable
     [InlineData("area:network")]
     [InlineData("domain:Network")]
     [InlineData("domain:")]
-    [InlineData("project:.hidden")]
+    [InlineData("workstream:.hidden")]
     [InlineData("domain")]
-    public async Task A_scope_that_is_not_global_a_project_or_a_domain_with_a_valid_name_is_refused(string scope)
+    public async Task A_scope_that_is_not_global_a_workstream_or_a_domain_with_a_valid_name_is_refused(string scope)
     {
         var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), scope, "改代理时"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
-        Assert.Contains("global, project:<name> or domain:<label>", result.Text);
+        Assert.Contains("global, workstream:<name> or domain:<label>", result.Text);
         Assert.Contains("Next step:", result.Text);
     }
 

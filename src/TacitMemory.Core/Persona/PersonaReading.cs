@@ -9,7 +9,7 @@ namespace TacitMemory.Core.Persona;
 internal static class PersonaReading
 {
     /// <summary>
-    /// The whole persona: the four global sections, then each domain by label, then each project by name. Null when the persona
+    /// The whole persona: the four global sections, then each domain by label, then each workstream by name. Null when the persona
     /// holds no entry at all.
     /// </summary>
     public static string? Whole(PersonaDocument persona, LimitsConfig limits)
@@ -46,7 +46,7 @@ internal static class PersonaReading
     }
 
     /// <summary>
-    /// One scope block. A domain's heading carries its count, its limit and its trigger; a project's carries its count only. Each
+    /// One scope block. A domain's heading carries its count, its limit and its trigger; a workstream's carries its count only. Each
     /// of the four sections that has entries follows under its own name, in the order of the sections.
     /// </summary>
     private static string Block(PersonaBlock block, LimitsConfig limits, IReadOnlyDictionary<int, string> codes)
@@ -54,7 +54,7 @@ internal static class PersonaReading
         var count = block.Entries.Count;
         var heading = block.Scope.Kind == PersonaScopeKind.Domain
             ? $"Domain {block.Scope.Name}, {count} of {limits.DomainEntries} entries. Trigger: {TriggerText(block.Trigger)}"
-            : $"Project {block.Scope.Name}, {count} {(count == 1 ? "entry" : "entries")}:";
+            : $"Workstream {block.Scope.Name}, {count} {(count == 1 ? "entry" : "entries")}:";
 
         var text = new StringBuilder(heading);
         foreach (var kind in Enum.GetValues<PersonaSection>())

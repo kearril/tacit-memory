@@ -26,7 +26,7 @@ internal static class FormatViolations
         StructureWords.Overturned,
         StructureWords.Summary,
         StructureWords.Domain,
-        StructureWords.Project,
+        StructureWords.Workstream,
         StructureWords.Trigger,
         StructureWords.Scope,
         StructureWords.Lesson,

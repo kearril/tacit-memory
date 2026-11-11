@@ -13,7 +13,7 @@ namespace TacitMemory.Cli.Tests;
 
 /// <summary>
 /// The CLI seam: runs <see cref="CommandLine.RunAsync"/> in process with a throwaway home, captured stdout and stderr,
-/// a scripted stdin, the three terminal flags and the NO_COLOR setting. Every test class in this project joins <see cref="CliCollection"/>,
+/// a scripted stdin, the three terminal flags and the NO_COLOR setting. Every test class in this workstream joins <see cref="CliCollection"/>,
 /// because the framework keeps its help and error writers in static state.
 /// </summary>
 internal sealed class CliHarness : IDisposable

@@ -49,7 +49,7 @@ internal static class ChangedPages
     private static IEnumerable<string> Lines(string output) =>
         output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(path => path.Replace('\\', '/'));
 
-    /// <summary>The page a path names, when the path is exactly <c>pages/&lt;project&gt;/&lt;slug&gt;.md</c>.</summary>
+    /// <summary>The page a path names, when the path is exactly <c>pages/&lt;workstream&gt;/&lt;slug&gt;.md</c>.</summary>
     private static bool TryPageOf(string relative, out PageId id)
     {
         var parts = relative.Split('/');

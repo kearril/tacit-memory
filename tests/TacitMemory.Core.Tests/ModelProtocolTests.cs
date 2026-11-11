@@ -62,7 +62,7 @@ public sealed class ModelProtocolTests : IDisposable
         await Service.RecallAsync(new RecallRequest { Query = "部署" });
     }
 
-    /// <summary>Writes a second page in the same project, which makes the decision model judge whether it repeats the first.</summary>
+    /// <summary>Writes a second page in the same workstream, which makes the decision model judge whether it repeats the first.</summary>
     private async Task WriteSimilarPage()
     {
         await CreatePage("ops/deploy-again", "部署流程的问题", "部署后中文搜索没有结果。");

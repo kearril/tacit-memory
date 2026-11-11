@@ -86,7 +86,7 @@ public sealed class LogTests : IDisposable
         await Service.WriteRecentAsync(new WriteRecentRequest
         {
             Text = ActivityMarker,
-            Project = "my-app",
+            Workstream = "my-app",
             Replaces = "abc123",
         });
         await Service.WritePersonaAsync(new WritePersonaRequest

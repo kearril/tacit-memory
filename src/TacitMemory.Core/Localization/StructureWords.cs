@@ -24,7 +24,7 @@ internal static class StructureWords
     public static readonly Localized Leftovers = new("遗留", "Leftovers");
     public static readonly Localized Overturned = new("推翻记录", "Overturned");
     public static readonly Localized Domain = new("领域", "Domain");
-    public static readonly Localized Project = new("项目", "Project");
+    public static readonly Localized Workstream = new("主线", "Workstream");
     public static readonly Localized Trigger = new("触发", "Trigger");
     public static readonly Localized Lesson = new("教训", "Lesson");
 }

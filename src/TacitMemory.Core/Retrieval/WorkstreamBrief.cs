@@ -8,13 +8,13 @@ using TacitMemory.Core.Recent;
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The project brief: what <c>recall</c> returns for a project alone. It gathers the project's conventions (its project-scope
+/// The workstream brief: what <c>recall</c> returns for a workstream alone. It gathers the workstream's conventions (its workstream-scope
 /// persona entries), its open items (the leftovers of its work pages), a page index grouped by type, its last three
 /// activities and the latest weekly summary of a week it had activity in. The text is capped at <c>limits.brief</c>; only the
 /// page index is shortened, oldest entry first, and the omission is said. It reads files and counts a return for each page it
 /// lists; it never changes a file.
 /// </summary>
-internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
+internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
 {
     /// <summary>How many activities the brief lists, newest first.</summary>
     private const int ListedActivities = 3;
@@ -26,23 +26,23 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
     private const string EntitiesHeading = "Entities";
     private const string UntypedHeading = "Untyped";
 
-    /// <summary>The brief for <paramref name="project"/>, or <see cref="RecallTool.NoMemory"/> when it has no pages and no activities.</summary>
-    public string Compose(string project, DateOnly? from, DateOnly? to)
+    /// <summary>The brief for <paramref name="workstream"/>, or <see cref="RecallTool.NoMemory"/> when it has no pages and no activities.</summary>
+    public string Compose(string workstream, DateOnly? from, DateOnly? to)
     {
-        var pages = PageEntries(project, from, to);
-        var activities = ActivitiesOf(project, from, to);
+        var pages = PageEntries(workstream, from, to);
+        var activities = ActivitiesOf(workstream, from, to);
         if (pages.Count == 0 && activities.Count == 0)
             return RecallTool.NoMemory;
 
         // Overturned decisions are identifiers only: they are never listed as entries, so truncation does not touch them.
         var entries = pages.Where(entry => !IsOverturned(entry)).ToList();
         var overturned = pages.Where(IsOverturned).Select(entry => entry.Id).ToList();
-        var conventions = Conventions(project);
+        var conventions = Conventions(workstream);
         var openItems = OpenItems(pages);
         var recent = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).Take(ListedActivities).ToList();
         var summary = LatestWeekSummary(activities);
 
-        var parts = new Parts(project, conventions, openItems, entries, overturned, recent, summary);
+        var parts = new Parts(workstream, conventions, openItems, entries, overturned, recent, summary);
         var limit = config.Limits.Brief;
         var shown = new HashSet<Entry>(entries);
         var omitted = 0;
@@ -63,7 +63,7 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
         return text;
     }
 
-    /// <summary>A page of the project as the brief sees it: its identifier, its document, its last changed date and its use count.</summary>
+    /// <summary>A page of the workstream as the brief sees it: its identifier, its document, its last changed date and its use count.</summary>
     private sealed record Entry(PageId Id, PageDocument Document, DateOnly? Changed, long Uses);
 
     /// <summary>An open item: a work page and the non-blank lines of its leftovers.</summary>
@@ -71,7 +71,7 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
 
     /// <summary>Everything the brief lists, gathered before any of it is shortened.</summary>
     private sealed record Parts(
-        string Project,
+        string Workstream,
         IReadOnlyList<string> Conventions,
         IReadOnlyList<OpenItem> OpenItems,
         IReadOnlyList<Entry> Entries,
@@ -80,12 +80,12 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
         string? Summary);
 
     /// <summary>
-    /// The project's pages within the date range, newest first: by the latest date among their sections, then by how often
+    /// The workstream's pages within the date range, newest first: by the latest date among their sections, then by how often
     /// they were returned, then by identifier.
     /// </summary>
-    private List<Entry> PageEntries(string project, DateOnly? from, DateOnly? to)
+    private List<Entry> PageEntries(string workstream, DateOnly? from, DateOnly? to)
     {
-        var folder = Path.Combine(config.MemoryPath, "pages", project);
+        var folder = Path.Combine(config.MemoryPath, "pages", workstream);
         if (!Directory.Exists(folder))
             return [];
 
@@ -93,7 +93,7 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
         var entries = new List<Entry>();
         foreach (var file in Directory.EnumerateFiles(folder, "*.md", SearchOption.TopDirectoryOnly))
         {
-            if (!PageId.TryParse($"{project}/{Path.GetFileNameWithoutExtension(file)}", out var id, out _))
+            if (!PageId.TryParse($"{workstream}/{Path.GetFileNameWithoutExtension(file)}", out var id, out _))
                 continue;
             if (PageDocument.TryLoad(config.MemoryPath, id) is not { } document || !InRange(document.Header, from, to))
                 continue;
@@ -116,8 +116,8 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
         (from is null || (header.Last is { } last && last >= from))
         && (to is null || (header.First is { } first && first <= to));
 
-    /// <summary>The project's activities in the date range, in file order.</summary>
-    private List<RecentFile.Activity> ActivitiesOf(string project, DateOnly? from, DateOnly? to)
+    /// <summary>The workstream's activities in the date range, in file order.</summary>
+    private List<RecentFile.Activity> ActivitiesOf(string workstream, DateOnly? from, DateOnly? to)
     {
         var result = new List<RecentFile.Activity>();
         foreach (var (_, file) in RecentFile.MonthFiles(config.MemoryPath))
@@ -125,7 +125,7 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
             if (TextFile.Read(file) is not { } read)
                 continue;
             result.AddRange(RecentFile.Activities(read.Text).Where(activity =>
-                activity.Project == project
+                activity.Workstream == workstream
                 && (from is null || activity.Day >= from)
                 && (to is null || activity.Day <= to)));
         }
@@ -133,11 +133,11 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
         return result;
     }
 
-    /// <summary>The project-scope persona entries, each with its non-comment continuation lines.</summary>
-    private IReadOnlyList<string> Conventions(string project)
+    /// <summary>The workstream-scope persona entries, each with its non-comment continuation lines.</summary>
+    private IReadOnlyList<string> Conventions(string workstream)
     {
         var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
-        if (persona?.BlockOf(new PersonaScope(PersonaScopeKind.Project, project)) is not { } block)
+        if (persona?.BlockOf(new PersonaScope(PersonaScopeKind.Workstream, workstream)) is not { } block)
             return [];
 
         return block.Entries
@@ -167,7 +167,7 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
         _ => UntypedHeading,
     };
 
-    /// <summary>The latest week summary of a week in which the project had activity; null when none has one.</summary>
+    /// <summary>The latest week summary of a week in which the workstream had activity; null when none has one.</summary>
     private string? LatestWeekSummary(IReadOnlyList<RecentFile.Activity> activities)
     {
         var weeks = activities.Select(activity => SummaryLines.WeekOf(activity.Day).Label).ToHashSet(StringComparer.Ordinal);
@@ -189,7 +189,7 @@ internal sealed class ProjectBrief(TacitConfig config, MemoryIndex index)
     /// <summary>The brief as text. The page index keeps only the entries in <paramref name="shown"/>; <paramref name="omitted"/> says how many were left out.</summary>
     private static string Render(Parts parts, HashSet<Entry> shown, int omitted, int limit)
     {
-        var blocks = new List<string> { $"Project brief: {parts.Project}" };
+        var blocks = new List<string> { $"Workstream brief: {parts.Workstream}" };
         if (parts.Conventions.Count > 0)
             blocks.Add(Block("Conventions:", parts.Conventions));
 

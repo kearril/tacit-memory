@@ -11,24 +11,24 @@
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`，以及项目简报上限 `limits.brief`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote`、`candidates` 节与已删除的 `checkup` 节按未知键报错；中英模板的 `url` 与密钥变量名。
+     - `ConfigTests`：配置的默认值（含画像四节的默认值与领域上限 `limits.domains`、`limits.domainEntries`、`limits.triggerLength`，以及主线简报上限 `limits.brief`）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；已删除的 `apiKeyEnv`、`backup.remote`、`candidates` 节与已删除的 `checkup` 节按未知键报错；中英模板的 `url` 与密钥变量名。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
-     - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含项目列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
+     - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含主线列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
      - `ConsolidationReportTests`：整理报告（资源正文）：绝对路径与 `git -C` 用法、A、B 两部分及其类别的顺序与标题、无内容写 None.、限时的说明（头部）、上次整理的三种基准（`consolidate:`、`init:`、都没有）、缺少页面类型的格式问题不受基准限制、每类 20 项上限与剩余数量、取消；B 部分的画像证据（全部候选附作用域、归属与原话，原话注释只取基准以来新增的活动并按日期排列）、教训（只取基准以来变化的 `incident` 页）、变化过的页（路径、类型、缺失时的 `untyped`、大小、小节日期与使用次数，不附正文，未变的页不出现，变化后出现）、只有 1 条的领域。
      - `ConsolidationCandidateTests`：候选清理的三档（确定列为待清理并写明画像短码或拒绝列表条目，拿不准附提示且仍可确认，否定两者都不列）、选项只取画像与拒绝列表、无可比对时不提问、决策与嵌入模型不可用时的降级、阈值改变、判断缓存（内容不变不再调用、改阈值分档改变而不调用、重建索引后重新调用）。
      - `ConsolidationConflictTests`：互相冲突的画像条目：只判断上次整理后新增或改写的条目（含未提交的修改）、跨节、同一对只报一次、确定与拿不准两档标明档位、无其他条目时不提问、决策模型不可用时的降级。
-     - `ConsolidationDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同项目没有其他页时不提问；删除的页不参与；没有 `consolidate:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
+     - `ConsolidationDuplicatePageTests`：疑似重复的页：只判断变过的页（含未提交的修改），未变的页对不再报；同一无序页对只报一次；确定与拿不准两档标明档位，否定不收；同主线没有其他页时不提问；删除的页不参与；没有 `consolidate:` 与 `init:` 提交时全部页都算变过；决策与嵌入模型不可用时的降级；限时到点的未检查数量。
      - `ConsolidationBudgetTests`：整理限时（到点照常返回并注明未检查数量、在途调用不取消且跑完写入缓存、未发出的判断不再发出；到点后仍有缓存答案的类别照常列出，前面类别耗尽预算不影响后面类别；候选的判断被截断时附"自行对照画像"的提醒）、工作池的并发上限、模型冷却后排队的提问不再发出，以及冷却结束后再次提问；推进限时的用例断言替身未收到被客户端中断的连接（`ModelDouble.AbandonedRequests` 为 0），避免断线的重试被计时器误触发后表现为多一次调用。
-     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题（含领域、项目、触发、作用域与教训，两种语言各一例）、归属行、原话与拒绝标记、列表项中的改为与 instead）；汇总节的格式问题（无法识别的行、不存在的周号或月份、写错文件的周或月；周号按 ISO 周的年份与周数计，跨年的周按周四所在月）；各项修正后消失，每类 20 项上限。
+     - `FormatViolationTests`：整理报告的"违反格式或规则"：细节页的 YAML 头、标题与别名长度、相关页、文件名、小节重名、非 UTF-8 文件、混用结构词（仅提示；小节标题（含领域、主线、触发、作用域与教训，两种语言各一例）、归属行、原话与拒绝标记、列表项中的改为与 instead）；汇总节的格式问题（无法识别的行、不存在的周号或月份、写错文件的周或月；周号按 ISO 周的年份与周数计，跨年的周按周四所在月）；各项修正后消失，每类 20 项上限。
      - `ConsolidationReminderTests`：整理提示：天数门槛（含 `consolidation.remindAfterDays`）、候选即出现、只有格式问题不出现、候选在运行中写入后的下一次取用出现、整理提交（含空提交）后消失、生成时不调用模型、仓库不可读时省略且服务不中断、`tacit show instructions` 含提示与否；四个触发条件各自独立生效（天数、未汇总的周、候选达到 `consolidation.remindCandidates`、主线为空），低于阈值的候选数不出现，只有格式问题不出现。
      - `BindingTests`：`connect` 与 `disconnect` 的门面规则：名称规范化与拒绝（逐例断言拒绝时不写任何文件）、同名异路径的拒绝、上下文文件的上一级目录与 skill 目录不存在时的拒绝、`~` 展开与绝对路径的记录、记录的四个字段、上下文文件的创建与删除（`createdContextFile`）、常驻区块的写入与逐字节恢复、`mcp.json` 的字节不变、缺失的名称与配置无效时的 `disconnect`；共用：两个名称共用 skill 目录与上下文文件时的单一常驻区块与三个链接、两种解绑顺序、`createdContextFile` 的继承、只共用上下文文件、Windows 上大小写不同的同一路径、一次渲染只返回一个结果、名称绑到其他路径时的拒绝。
      - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）；skill 目录被两个客户端共用时的复用报告，以及两种解绑顺序下链接的保留与拆除。
-     - `ServiceTests`：服务端说明的组成（不含项目列表）、语言部分、状态提示，以及启动与运行中的绑定渲染（共用的上下文文件只渲染一次）。
+     - `ServiceTests`：服务端说明的组成（不含主线列表）、语言部分、状态提示，以及启动与运行中的绑定渲染（共用的上下文文件只渲染一次）。
      - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用，服务栏含 MCP 端点），三个辅助模型的可用、冷却中（含剩余秒数，冷却结束后回到可用）与未配置（与可用、冷却中并列），日志位置，配置有误时的错误键路径与服务栏，宽松读取的端口与语言（`server.port` 可读而其他键有错、文件不存在、YAML 无法解析三种情况）；离线报告不含依赖服务的列，其辅助模型栏只列未配置的模型。
      - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；共用路径的问题只出现一次、挂在第一个引用它的绑定上，`SharedWith` 列出共用的其他绑定；上次整理的三种基准（初始提交、整理提交、从未整理），改名前的旧前缀提交不作为基准；待处理计数（含待汇总的周）与整理提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源栏列出三个模型的密钥与 WebDAV 密码的来源（环境变量、配置文件或"未设置"，"未设置"不算错误、不上色，不显示值），未配置的模型即使设了环境变量也只写"未配置，不需要密钥"；服务运行与未运行时共用的栏内容一致；离线辅助模型栏只列未配置的模型，三个都已配置时省略，在线与离线中"未配置"的写法一致；客户端栏：无记录时一行说明，有记录时每个客户端一行（名称、版本、日期、协议版本、扩展，无扩展写"无"），服务未运行时同样显示。
      - `ClientRecordTests`：客户端能力记录的核心行为：首次见到写文件并记一条日志；同一天重复既不写文件也不记日志；能力或扩展变化再记一条；跨天只更新日期；名称与版本为键；声明的文字去掉控制字符；服务重启后记录仍在；文件无法写入时记警告且调用照常返回；备份不含该文件。
-     - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除；新节的内容与顺序（领域索引、主线、近几周、项目，位于全局四节之后）、领域索引行与条目不进入常驻区块、领域行数上限（`limits.domains`）、近几周的选取（最近 3 个有内容的已完成周，有汇总时显示汇总，否则确定性地显示计数与项目）、空节不出现、`resident.md` 为新节给出的引导语；主线、活动记录、项目目录变化后重新渲染；经 `TestHome.Clock` 跨过本地午夜后重新渲染。
+     - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝、运行中修改与删除；新节的内容与顺序（领域索引、主线、近几周、主线，位于全局四节之后）、领域索引行与条目不进入常驻区块、领域行数上限（`limits.domains`）、近几周的选取（最近 3 个有内容的已完成周，有汇总时显示汇总，否则确定性地显示计数与主线）、空节不出现、`resident.md` 为新节给出的引导语；主线、活动记录、主线目录变化后重新渲染；经 `TestHome.Clock` 跨过本地午夜后重新渲染。
      - `PromptDocumentTests`：`prompts/` 下的 `rules.md` 与 `instructions.md`：核心规则的替换、通用规则、HTML 注释的处理、备份包含 `prompts/`。
      - `LogTests`：写入的日志事件：三个写入工具与 `recall` 的事件含页面标识或短码、不含正文、原话与查询文本；决策模型最终失败的冷却警告；任何事件都不含三个模型的密钥；启动事件；通知同时显示并记录，自动备份事件。`CapturingLoggerFactory` 保存全部事件供搜索。
      - `MemorySkillTests`：记忆 skill 成品的生成、frontmatter、`skill.md` 的校验与运行中更新；SKILL.md 被占用而替换被拒时，提示词的改动在占用结束后仍会应用。
@@ -36,8 +36,8 @@
      - `DuplicatePageTests`：新建细节页时的重复页判断与放行。
      - `CredentialTests`：凭据检测与 `confirm_no_secret`，含小节与页头写入，删除小节不需确认。
      - `RecallTests`：全文检索与索引同步：中文切分、筛选、结果呈现，索引重建与跳过非 UTF-8 页面；未知参数的拒绝（查询与读页两路，未知参数排在 query/page 问题之前）；小节标题后的最后修改日期（只有变化的小节更新）；使用统计不影响检索排序。
-     - `RecallPersonaTests`：`recall` 的 `kind=persona` 与 `kind=rules`：整份画像的输出顺序（全局四节、领域块按标签、项目块按名称）、触发描述与条数、原话注释不输出、短码可用于 `replace` 与 `delete`、忽略 `query`、空画像与无领域时返回 `No relevant memory.`、未知领域的拒绝并列出已有标签、`domain` 只与 `rules` 搭配，以及与 `page`、`project`、`from`、`to` 同时出现的拒绝。
-     - `ProjectBriefTests`：项目简报（`recall` 只给 `project`）：分组与顺序（有效决定、已知坑、工作、实体、未分类），同日按使用次数排序，推翻记录与「已推翻」一行，未决事项，项目约定只取项目作用域，五段的先后，最近 3 条活动，最近一次周汇总（只取该项目活动所在周中最近一个有汇总的周），`from`、`to` 限定页面与活动，空项目返回 `No relevant memory.`，与 `kind` 同给被拒绝，每个列出的页计一次使用统计，页目录按最旧优先截断并注明省略
+     - `RecallPersonaTests`：`recall` 的 `kind=persona` 与 `kind=rules`：整份画像的输出顺序（全局四节、领域块按标签、主线块按名称）、触发描述与条数、原话注释不输出、短码可用于 `replace` 与 `delete`、忽略 `query`、空画像与无领域时返回 `No relevant memory.`、未知领域的拒绝并列出已有标签、`domain` 只与 `rules` 搭配，以及与 `page`、`workstream`、`from`、`to` 同时出现的拒绝。
+     - `WorkstreamBriefTests`：主线简报（`recall` 只给 `workstream`）：分组与顺序（有效决定、已知坑、工作、实体、未分类），同日按使用次数排序，推翻记录与「已推翻」一行，未决事项，主线约定只取主线作用域，五段的先后，最近 3 条活动，最近一次周汇总（只取该主线活动所在周中最近一个有汇总的周），`from`、`to` 限定页面与活动，空主线返回 `No relevant memory.`，与 `kind` 同给被拒绝，每个列出的页计一次使用统计，页目录按最旧优先截断并注明省略
      - `VectorTests`：向量检索、嵌入模型不可用时的回退与补齐、模型或向量长度变化后的重建。
      - `ReindexTests`：`reindex` 的结果：重建前后同一查询的结果一致、每个单元都有向量；重建后判断缓存清空，整理重新调用决策模型；嵌入模型不可用时只重建全文并注明向量待补；嵌入模型未配置时只重建全文并注明未配置；非 UTF-8 文件列入结果；重建后小节日期取文件最近一次提交、未提交的文件取当天；开始、结束与结果写入日志。
      - `UsageStatsTests`：使用统计的计数规则（整页读取每个小节各加一、检索计入所显示的单元、页面级命中只计标题与别名单元）、最近返回日期随时钟前移、从未返回的页无计数与日期、编辑小节后计数保留、新增活动不改变同月其他活动的计数、`reindex` 清零。
@@ -56,10 +56,10 @@
      - `RecentActivityTests`：新增活动与 `replaces` 改写、回复只有一行（附新短码）、写入不改动 `recent.md`；已删除的 `op`、`items`、`hash` 与其他未知参数按名拒绝，下一步指向 `tacit-consolidate`。
      - `SameTopicTests`：近期活动的同主题判断与退回。
      - `RecallActivityTests`：检索近期活动：`kind` 筛选、过滤、主线不入索引、同步。
-     - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与项目筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步。
-     - `ConsolidationSummariesTests`：整理报告中的汇总材料：已结束、有活动但没有汇总行的周（跨月的周只列一次且汇总写入周四所在月的文件、只有部分天数的周、没有项目的活动归为"其他"、跨年的 ISO 周、进行中的周与已汇总的周不列）与月（附写入该月文件的周汇总）；主线材料取最近 4 个周汇总与主线，主线为空时写明一行。只经门面读取报告，不直接读取 `SummaryLines` 或 `SummaryCalendar`。
+     - `SummaryTests`：周汇总与月汇总：检索命中并标注是汇总及其周或月、跨年的周按 ISO 日期筛选、不进入页面与主线筛选、不进入同主题判断、写入新活动不破坏汇总节（字节不变，新日期标题位于汇总节之前）、手改后经写入同步。
+     - `ConsolidationSummariesTests`：整理报告中的汇总材料：已结束、有活动但没有汇总行的周（跨月的周只列一次且汇总写入周四所在月的文件、只有部分天数的周、没有主线的活动归为"其他"、跨年的 ISO 周、进行中的周与已汇总的周不列）与月（附写入该月文件的周汇总）；主线材料取最近 4 个周汇总与主线，主线为空时写明一行。只经门面读取报告，不直接读取 `SummaryLines` 或 `SummaryCalendar`。
      - `RecentSummaryInstructionTests`：服务端说明中的最近 7 天活动：`<recent_activity>` 标签包裹、不含短码与主线、排序、七条上限、截断（先截最早的活动，固定部分保持完整）、窗口随日期前移、手改活动记录后的刷新。
-     - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并；作用域：领域与项目块的创建与放置（全局四节之后，领域在前、项目在后，各自按名称排序）、块内节的补回、新领域缺少或超长、多行的触发描述被拒、`scope` 格式不合规被拒、领域个数与领域条数上限（条目不计入全局上限）、跨作用域的短码后缀。
+     - `PersonaAddTests`：画像 `add` 的校验、节标题补回、凭据、备份与常驻区块更新；未知参数的拒绝、缺 op 时的参数列表与 op 问题合并；作用域：领域与主线块的创建与放置（全局四节之后，领域在前、主线在后，各自按名称排序）、块内节的补回、新领域缺少或超长、多行的触发描述被拒、`scope` 格式不合规被拒、领域个数与领域条数上限（条目不计入全局上限）、跨作用域的短码后缀。
      - `PersonaReplaceDeleteTests`：画像 `replace` 与 `delete` 的定位、校验与回显；按短码跨作用域定位，`replace` 保持原作用域，删除领域条目后块保留标题；拒绝时的短码不附整份画像，下一步指向 `recall kind=persona`。
      - `PersonaConflictTests`：画像写入时的规则冲突判断，以及决策模型或嵌入模型不可用时的降级；作用域：全局条目只与全局条目比较，领域条目与全局条目及同领域条目比较，`replace` 保持原作用域，冲突拒绝时指出所在领域。
      - `PersonaProposeTests`：候选 `propose` 的写入、校验与标题补回；作用域行（中英两套）的写入与不合规的拒绝，`trigger` 不适用，英文记忆的写法。
@@ -71,7 +71,7 @@
 2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
    - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发（含 `<recent_activity>`，不含项目列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
+     - `McpHostTests`：服务端说明下发（含 `<recent_activity>`，不含主线列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告六类标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`itemLength`、`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 100 与 "by default"），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端能力记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力变化后再记一条；服务重启后记录仍在。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
@@ -82,7 +82,7 @@
 3. **`tests/TacitMemory.Cli.Tests`：CLI 接缝**
    - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道（参数解析、用法检查、执行与退出码）。`CliHarness` 注入 `TestHome` 的 `TacitOptions`（临时用户主目录与临时 `TACIT_HOME`）、捕获 stdout 与 stderr 的写入器、可编排的 stdin，以及 stdout、stderr、stdin 三个终端标志与 `NO_COLOR` 设置；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
    - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `McpHost`，与 `McpHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
-   - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
+   - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该主线的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
    - 测试类索引：
      - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺子命令或子命令未知、`connect` 缺 `--client`、`--context` 或 `--skills`、名称不合规、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 的 `--from` 与 `--remote` 不恰好一个、`show tools` 等不接受的 `--default`、`probe` 的未知子目标与多余参数）；空路径选项（`restore --from ""`、`backup --to` 为空白、`init --memory ""`）为一行说明的用法错误；用法错误先于配置检查；枚举取值不区分大小写，命令词与子命令也不区分大小写。
      - `ConfigRefusalTests`：配置无法加载（`endpoint` 键，即未知键，导致 3 且说明含键路径；残留的 `candidates` 节同样导致 3 并点名键路径）时 `connect`、`status`、`backup`、`reindex`、`show`（含 `show tools`）为 3；缺少模型密钥与省略整个 `models` 段都不再导致配置无法加载，`connect` 为 0；`disconnect` 与 `show … --default` 照常为 0。
@@ -104,7 +104,7 @@
 
 Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reranker-base`）与 `CloudflareDecisionUrl`（`/ai/run/clef-flash`）按 Cloudflare 的形状应答，计数与记录同样计入 `RerankRequests` 与 `DecisionRequests`，分数与概率仍由 `Score` 与 `Choose` 指定。请求体含 `contexts` 时答 `{result: {response: [{id, score}]}, success, errors, messages}`，请求体含 `questions` 时答 `{result: {model, answers}, success, errors, messages}`。`CloudflareReportsFailure = true` 时两条路由都答 `success: false` 且无 `result`。`ModelsYaml` 另有 `embeddingCloudflare`、`rerankerCloudflare`、`decisionCloudflare` 三个参数，为真时写出 `provider: cloudflare` 并把对应模型的 `url` 指向上述 Cloudflare 路由。
 
-`WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Mcp.Tests` 两个项目都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
+`WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Mcp.Tests` 两个主线都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
 
 重试的等待是 `TestHome.Clock` 上的计时器：每次尝试的超时与每段退避各创建一个，`Advance` 只向前拨动时间，`Elapse` 拨动并触发到期的计时器，`NextTimerAsync(时长)` 等待客户端创建该时长的计时器并认领它。按时长匹配而不按序号匹配，因为写入会触发后台的向量补齐，它也会创建计时器。模型失败后的冷却期同样用 `TestHome.Clock` 的 `Advance` 跨过。
 

@@ -122,7 +122,7 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void The_project_brief_limit_is_read_from_the_limits_section()
+    public void The_workstream_brief_limit_is_read_from_the_limits_section()
     {
         WriteConfig(Models + "limits: { brief: 1200 }\n");
 

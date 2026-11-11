@@ -22,7 +22,7 @@ public sealed class ServiceTests : IDisposable
     private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
-    public async Task Server_instructions_hold_the_memory_rules_and_language_norms_but_no_projects()
+    public async Task Server_instructions_hold_the_memory_rules_and_language_norms_but_no_workstreams()
     {
         Directory.CreateDirectory(Path.Combine(Pages, "tacit-memory"));
         Directory.CreateDirectory(Path.Combine(Pages, "my-app"));
@@ -35,7 +35,7 @@ public sealed class ServiceTests : IDisposable
         Assert.Contains("## Using memory", instructions);
         Assert.Contains("## Write\n", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
-        Assert.DoesNotContain("## Projects", instructions);
+        Assert.DoesNotContain("## Workstreams", instructions);
         Assert.DoesNotContain("my-app", instructions);
         Assert.DoesNotContain("_topics", instructions);
         Assert.Contains("## Recall", instructions);
@@ -141,11 +141,11 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_projects_the_projects_part_is_left_out()
+    public async Task Without_workstreams_the_workstreams_part_is_left_out()
     {
         using var service = Open();
 
-        Assert.DoesNotContain("## Projects", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("## Workstreams", await service.ServerInstructionsAsync());
     }
 
     [Fact]

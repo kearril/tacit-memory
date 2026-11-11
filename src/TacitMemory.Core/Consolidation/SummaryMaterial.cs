@@ -12,13 +12,13 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class SummaryMaterial
 {
-    /// <summary>The group of the activities that have no project label, in the memory language.</summary>
+    /// <summary>The group of the activities that have no workstream label, in the memory language.</summary>
     private static readonly Localized OtherGroup = new("其他", "Other");
 
     /// <summary>How many of the latest weekly summaries the mainline material shows.</summary>
     private const int MainlineWeeks = 4;
 
-    /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by project.</summary>
+    /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by workstream.</summary>
     public static ConsolidationSection Weeks(ConsolidationContext context) =>
         new(ConsolidationTitles.WeeksToSummarize,
             SummaryCalendar.Unsummarized(context.Config.MemoryPath, context.Today)
@@ -83,8 +83,8 @@ internal static class SummaryMaterial
     }
 
     /// <summary>
-    /// One week as a finding: its label and dates, the month file its summary goes into, and its activities grouped by project,
-    /// the projects in name order and the activities that have none last. Each activity is its text as the log holds it.
+    /// One week as a finding: its label and dates, the month file its summary goes into, and its activities grouped by workstream,
+    /// the workstreams in name order and the activities that have none last. Each activity is its text as the log holds it.
     /// </summary>
     private static string WeekFinding(MemoryLanguage language, UnsummarizedPeriod period)
     {
@@ -93,7 +93,7 @@ internal static class SummaryMaterial
             $"- {period.Label} ({Day(period.First)} to {Day(period.Last)}): write its summary line in {RecentFile.RelativePath(SummaryLines.FileMonthOfWeek(period.First))}. Activities ({period.Activities.Count}):",
         };
         var groups = period.Activities
-            .GroupBy(activity => activity.Project)
+            .GroupBy(activity => activity.Workstream)
             .OrderBy(group => group.Key is null ? 1 : 0)
             .ThenBy(group => group.Key, StringComparer.Ordinal);
         foreach (var group in groups)

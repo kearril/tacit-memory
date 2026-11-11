@@ -123,7 +123,7 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public async Task The_resident_block_shows_the_guidance_of_the_index_mainline_weeks_and_projects_sections()
+    public async Task The_resident_block_shows_the_guidance_of_the_index_mainline_weeks_and_workstreams_sections()
     {
         var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
 
@@ -134,7 +134,7 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public async Task The_instructions_show_the_recent_activity_part_and_no_project_list()
+    public async Task The_instructions_show_the_recent_activity_part_and_no_workstream_list()
     {
         Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md"), "## 2026-11-02\n- [tacit-memory] 今天的事\n");
@@ -143,7 +143,7 @@ public sealed class ShowTests : IDisposable
         var result = await _home.Tacit().ShowAsync(ShowTarget.Instructions);
 
         Assert.StartsWith("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] 今天的事\n</recent_activity>", Part(result, "recent").Text);
-        Assert.DoesNotContain("## Projects", result.Report);
+        Assert.DoesNotContain("## Workstreams", result.Report);
     }
 
     [Fact]

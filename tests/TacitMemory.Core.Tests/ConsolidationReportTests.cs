@@ -213,14 +213,14 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         _home.InitReady();
         File.WriteAllText(Path.Combine(Memory, "candidates.md"),
-            "## 候选\n\n### 回答尽量简短\n归属：偏好\n作用域：project:tacit-memory\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n");
+            "## 候选\n\n### 回答尽量简短\n归属：偏好\n作用域：workstream:tacit-memory\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n");
         CommitAll("consolidate: earlier pass");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Persona evidence");
 
         Assert.Contains("回答尽量简短", section);
-        Assert.Contains("project:tacit-memory", section);
+        Assert.Contains("workstream:tacit-memory", section);
         Assert.Contains("偏好", section);
         Assert.Contains("2026-10-30", section);
         Assert.Contains("别写那么长", section);
@@ -228,7 +228,7 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task Quote_annotations_are_listed_only_when_their_activity_is_new_since_the_baseline_by_date_with_code_and_project()
+    public async Task Quote_annotations_are_listed_only_when_their_activity_is_new_since_the_baseline_by_date_with_code_and_workstream()
     {
         _home.InitReady();
         WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- 原话「旧原话」 -->\n");
@@ -316,7 +316,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.DoesNotContain("domain:network-proxy", section);
     }
 
-    /// <summary>Writes one page of the project tacit-memory, dated 2026-10-30; its type is written unless <paramref name="type"/> is null.</summary>
+    /// <summary>Writes one page of the workstream tacit-memory, dated 2026-10-30; its type is written unless <paramref name="type"/> is null.</summary>
     private void WritePage(string slug, string title, string body, string? type = "incident", string related = "[]")
     {
         var header = $"---\ntitle: {title}\naliases: [{title}, {title}别名]\ndates: {{ first: 2026-10-30, last: 2026-10-30 }}\n"
