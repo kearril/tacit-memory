@@ -90,9 +90,23 @@ internal static class MemorySkill
         </example>
 
         ## Activities
-        - An activity says what the person did or concluded, in a sentence or two. Describe the result and the thinking, not the files that changed.
-        - Set the workstream when the activity belongs to one, using the name the workstream already has.
+        - An activity is one conclusion with one reason or decision, in a single sentence. Put the details in the detail page and leave them out of the activity.
+        - Describe the result and the thinking, not the files that changed or the steps taken.
+        - One activity belongs to one workstream. Set the workstream to a name listed in `<user_memory>`, spelled exactly as listed. When no listed name fits, leave the workstream out: never invent a name.
+        - A matter that fits no workstream gets a topic page (a page with no workstream), not a label on the activity.
         - To revise an activity already written for the same matter, write the revised sentence with replaces set to that activity's short code. Only today's activities can be revised; an earlier day's or an expired code is refused.
+
+        The workstream is the `workstream` argument of `write_recent`, not part of the text. In each pair below, Bad lists the steps; Good states the same event as one conclusion with its reason. The examples are invented.
+
+        <pair language="zh">
+        Bad: 今天把 SearXNG 的 compose 文件改成新的端口映射，Valkey 的 maxmemory 从 256mb 调到 64mb，重启后测了 /search 接口，更新了 infra 文档里的端口表。
+        Good: 决定 Valkey 缓存只留 64mb 上限，检索接口重启后验证正常。
+        </pair>
+
+        <pair language="en">
+        Bad: Today I moved the sync job into its own module, renamed three helper methods, added retry logic with a five-second backoff, and updated the README.
+        Good: Sync retries moved into their own module; the job now fails fast after three attempts instead of hanging.
+        </pair>
 
         ## Persona
         The persona has four sections, and every entry sits in a scope. Each entry is one line in the memory language; the examples below are in English.

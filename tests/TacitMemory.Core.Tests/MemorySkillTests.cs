@@ -61,6 +61,22 @@ public sealed class MemorySkillTests : IDisposable
     }
 
     [Fact]
+    public void The_skill_gives_a_bad_and_a_good_activity_pair_for_each_memory_language()
+    {
+        using var service = Open();
+
+        var text = File.ReadAllText(SkillFile);
+
+        foreach (var language in new[] { "zh", "en" })
+        {
+            Assert.Equal(1, Count(text, $"<pair language=\"{language}\">"));
+        }
+        Assert.Equal(2, Count(text, "</pair>"));
+        Assert.Equal(2, Count(text, "\nBad: "));
+        Assert.Equal(2, Count(text, "\nGood: "));
+    }
+
+    [Fact]
     public void Without_a_skill_prompt_the_skill_has_no_user_conventions_section()
     {
         using var service = Open();

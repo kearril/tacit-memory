@@ -30,14 +30,14 @@ public sealed class ShowTests : IDisposable
         Assert.Equal(ShowSource.UserFile, criteria.Source);
         Assert.Equal(Path.Combine(Prompts, "rules.md"), criteria.Path);
 
-        Assert.Equal(2500, result.Fixed!.Limit);
+        Assert.Equal(3000, result.Fixed!.Limit);
         Assert.Equal(4000, result.Whole!.Limit);
         Assert.True(result.Fixed.Length <= result.Fixed.Limit);
         // The built-in fixed part keeps a margin under its limit, so a user's rules.md has room to grow.
-        Assert.True(result.Fixed.Length <= 1800, $"the built-in fixed part is {result.Fixed.Length} characters");
+        Assert.True(result.Fixed.Length <= 2500, $"the built-in fixed part is {result.Fixed.Length} characters");
         Assert.True(result.Whole.Length >= result.Fixed.Length && result.Whole.Length <= result.Whole.Limit);
         var heading = result.Report.Split('\n')[0];
-        Assert.Contains($"{result.Fixed!.Length}/2500", heading);
+        Assert.Contains($"{result.Fixed!.Length}/3000", heading);
         Assert.Contains($"{result.Whole!.Length}/4000", heading);
     }
 
@@ -95,6 +95,19 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
+    public async Task The_built_in_core_rules_keep_the_three_rule_sections_in_order()
+    {
+        var defaults = await _home.Tacit().ShowAsync(ShowTarget.Instructions, useDefault: true);
+
+        var usingMemory = defaults.Report.IndexOf("## Using memory", StringComparison.Ordinal);
+        var recall = defaults.Report.IndexOf("## Recall", StringComparison.Ordinal);
+        var write = defaults.Report.IndexOf("## Write", StringComparison.Ordinal);
+        Assert.True(0 <= usingMemory && usingMemory < recall && recall < write, "the three rule sections appear in order");
+        Assert.Contains("`workstream`", defaults.Report, StringComparison.Ordinal);
+        Assert.Contains("`replaces`", defaults.Report, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Saving_the_default_instructions_as_the_file_gives_the_same_core_rules()
     {
         var home = _home.Tacit();
@@ -128,7 +141,7 @@ public sealed class ShowTests : IDisposable
         var result = await _home.Tacit().ShowAsync(ShowTarget.Resident);
 
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "situational_rules").Text));
-        Assert.Equal("", Part(result, "workstreams").Text);
+        Assert.False(string.IsNullOrWhiteSpace(Part(result, "workstreams").Text));
         Assert.DoesNotContain(result.Parts, part => part.Key is "mainline" or "recent_weeks" or "projects");
     }
 
@@ -256,7 +269,7 @@ public sealed class ShowTests : IDisposable
         var result = await english.Tacit("en-US").ShowAsync(ShowTarget.Instructions);
 
         var heading = result.Report.Split('\n')[0];
-        Assert.Contains($"{result.Fixed!.Length}/2500", heading);
+        Assert.Contains($"{result.Fixed!.Length}/3000", heading);
         Assert.Contains($"{result.Whole!.Length}/4000", heading);
         Assert.DoesNotContain(result.Report, IsCjk);
         Assert.Contains((await _home.Tacit().ShowAsync(ShowTarget.Instructions)).Report, IsCjk);
