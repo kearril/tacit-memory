@@ -76,6 +76,7 @@ public sealed class ConsolidationReportTests : IDisposable
             "### Months to summarize\n",
             "### Mainline material\n",
             "## B. For proposals\n",
+            "### Workstream proposal material\n",
             "### Persona evidence\n",
             "### Incident lessons\n",
             "### Changed pages\n",
@@ -100,6 +101,77 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.Contains("None.", Section(report, "Suspected duplicate pages"));
         Assert.Contains("None.", Section(report, "Domain hygiene"));
         Assert.Contains("None.", Section(report, "Length hints"));
+        Assert.Contains("None.", Section(report, "Workstream proposal material"));
+    }
+
+    [Fact]
+    public async Task Unestablished_names_from_page_folders_and_activity_labels_are_listed_with_their_page_and_activity_counts()
+    {
+        _home.InitReady();
+        Workstreams("## 主线\n### alpha\n背景：已成立的主线。\n");
+        WritePage("a1", "甲", "## 现象\n- 内容\n", workstream: "alpha");
+        WritePage("n1", "乙", "## 现象\n- 内容\n", workstream: "newone");
+        WritePage("n2", "丙", "## 现象\n- 内容\n", workstream: "newone");
+        WriteMonth("2026-11", "## 2026-11-03\n- [newone] 新名字的活动\n- [newone] 另一件事\n- [labelonly] 只在活动里出现\n- [alpha] 已成立的活动\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+
+        Assert.Contains("newone (unestablished): pages 2, activities 2", section);
+        Assert.Contains("labelonly (unestablished): pages 0, activities 1", section);
+        Assert.DoesNotContain("alpha", section);
+    }
+
+    [Fact]
+    public async Task Topic_pages_sharing_a_prefix_of_three_or_more_are_listed_with_the_longest_shared_prefix_of_the_group()
+    {
+        _home.InitReady();
+        foreach (var slug in new[] { "mac-mini", "mac-mini-proxy", "mac-mini-proxy-scope" })
+            WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
+        foreach (var slug in new[] { "cloud-a-x", "cloud-a-y", "cloud-b" })
+            WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
+        foreach (var slug in new[] { "pgroonga", "pgroonga-x" })
+            WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+
+        Assert.Contains("prefix mac-mini: _topics/mac-mini, _topics/mac-mini-proxy, _topics/mac-mini-proxy-scope", section);
+        Assert.Contains("prefix cloud: _topics/cloud-a-x, _topics/cloud-a-y, _topics/cloud-b", section);
+        Assert.DoesNotContain("pgroonga", section);
+    }
+
+    [Fact]
+    public async Task Activities_without_a_workstream_since_the_baseline_are_listed_and_older_ones_are_not()
+    {
+        _home.InitReady();
+        WriteMonth("2026-10", "## 2026-10-20\n- 旧的无标签活动\n");
+        CommitAll("consolidate: earlier pass");
+        WriteMonth("2026-11", "## 2026-11-03\n- 新的无标签活动\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+
+        Assert.Contains("新的无标签活动", section);
+        Assert.DoesNotContain("旧的无标签活动", section);
+    }
+
+    [Fact]
+    public async Task A_name_merged_into_another_workstream_is_no_longer_listed_once_the_consolidation_commit_follows_its_activities()
+    {
+        _home.InitReady();
+        WritePage("a1", "甲", "## 现象\n- 内容\n", workstream: "oldname");
+        WriteMonth("2026-11", "## 2026-11-03\n- [oldname] 旧标签的活动\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        Assert.Contains("oldname (unestablished)", Section(await service.ConsolidationReportAsync(), "Workstream proposal material"));
+
+        Directory.Move(Path.Combine(Memory, "pages", "oldname"), Path.Combine(Memory, "pages", "target"));
+        Workstreams("## 主线\n### target\n背景：合并后的主线。\n");
+        CommitAll("consolidate: merge oldname into target");
+
+        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+
+        Assert.DoesNotContain("oldname", section);
     }
 
     [Fact]
@@ -390,13 +462,19 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.DoesNotContain("domain:network-proxy", section);
     }
 
-    /// <summary>Writes one page of the workstream tacit-memory, dated 2026-10-30; its type is written unless <paramref name="type"/> is null.</summary>
-    private void WritePage(string slug, string title, string body, string? type = "incident", string related = "[]")
+    /// <summary>Writes the workstreams file, replacing any earlier text.</summary>
+    private void Workstreams(string text) => File.WriteAllText(Path.Combine(Memory, "workstreams.md"), text.ReplaceLineEndings("\n"));
+
+    /// <summary>
+    /// Writes one page of the workstream tacit-memory unless <paramref name="workstream"/> names another, dated 2026-10-30; its type
+    /// is written unless <paramref name="type"/> is null.
+    /// </summary>
+    private void WritePage(string slug, string title, string body, string? type = "incident", string related = "[]", string workstream = "tacit-memory")
     {
         var header = $"---\ntitle: {title}\naliases: [{title}, {title}别名]\ndates: {{ first: 2026-10-30, last: 2026-10-30 }}\n"
             + (type is null ? "" : $"type: {type}\n")
             + $"related: {related}\n---\n\n";
-        var path = Path.Combine(Memory, "pages", "tacit-memory", slug + ".md");
+        var path = Path.Combine(Memory, "pages", workstream, slug + ".md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, (header + body).ReplaceLineEndings("\n"));
     }

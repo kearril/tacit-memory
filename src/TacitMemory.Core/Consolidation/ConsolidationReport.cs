@@ -59,16 +59,19 @@ internal sealed record ConsolidationReport(
         var (lessons, changed) = ChangedPageFindings.Produce(context, services, await ChangedPages.ReadAsync(context, cancellationToken));
         var evidence = await PersonaEvidence.ProduceAsync(context, review, cancellationToken);
         var issues = FormatViolations.Issues(context);
+        var mainline = await SummaryMaterial.MainlineAsync(context, cancellationToken);
+        var workstreams = await WorkstreamProposals.ProduceAsync(context, cancellationToken);
         var automatic = new[]
         {
             FormatViolations.Automatic(issues),
             RedundantCandidates.Produce(config, review),
             SummaryMaterial.Weeks(context),
             SummaryMaterial.Months(context),
-            SummaryMaterial.Mainline(context),
+            mainline,
         };
         var proposals = new[]
         {
+            workstreams,
             evidence,
             lessons,
             changed,

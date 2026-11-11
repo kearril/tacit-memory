@@ -149,9 +149,41 @@ public sealed class CommandSkillTests : IDisposable
             .Select(field => (string)field.GetValue(null)!)
             .ToList();
 
-        Assert.Equal(14, titles.Count);
+        Assert.Equal(15, titles.Count);
         foreach (var title in titles)
             Assert.Contains(title, text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_rewrites_only_the_recent_line_of_a_workstream_and_shows_an_entry_in_each_language()
+    {
+        _home.Tacit().GenerateSkills();
+        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
+        Assert.Contains("leave its background line unchanged", chinese, StringComparison.Ordinal);
+        Assert.Contains("Background line of a workstream", chinese, StringComparison.Ordinal);
+        Assert.Contains("Recent line of a workstream", chinese, StringComparison.Ordinal);
+        Assert.Contains("## 主线\n### home-server\n背景：家里的常驻服务器，跑代理分流和自用服务。\n近况：", chinese, StringComparison.Ordinal);
+        Assert.DoesNotContain("summarized weeks it lists", chinese, StringComparison.Ordinal);
+
+        using var home = new TestHome();
+        home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
+        home.Tacit().GenerateSkills();
+        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
+        Assert.Contains("leave its background line unchanged", english, StringComparison.Ordinal);
+        Assert.Contains("## Workstream\n### home-server\nBackground: ", english, StringComparison.Ordinal);
+        Assert.Contains("\nRecent: ", english, StringComparison.Ordinal);
+        Assert.DoesNotContain("## 主线", english, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_gives_an_only_workstreams_example_for_the_user_s_added_text()
+    {
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.Contains("\"only workstreams\"", text, StringComparison.Ordinal);
+        Assert.Contains("Workstream proposal material", text, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -27,7 +27,7 @@ namespace TacitMemory.Core;
 /// <summary>
 /// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
 /// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
-/// <c>persona.md</c>, the mainline, the activity log or a workstream folder changes and again at each local midnight,
+/// <c>persona.md</c>, <c>workstreams.md</c>, the activity log or a workstream folder changes and again at each local midnight,
 /// syncs the index when page, activity or persona files change, and a watcher that reloads the prompt
 /// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
 /// </summary>
@@ -141,7 +141,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// The server instructions, generated on first use and kept until something they are built from may have changed: a
-    /// prompt document, the persona or its candidates, a page or activity file, the mainline (which the consolidation
+    /// prompt document, the persona or its candidates, a page or activity file, <c>workstreams.md</c> (which the consolidation
     /// reminder reads), the memory repository's commits, or the status (unavailable models, skipped files, the date).
     /// Builds run one at a time.
     /// </summary>
@@ -778,7 +778,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
-    /// mainline, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
+    /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
     /// </summary>
     private static bool AffectsResident(string relative) =>
         relative == WorkstreamFile.RelativePath
