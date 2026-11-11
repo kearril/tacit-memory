@@ -32,5 +32,9 @@ internal static class ConsolidationTitles
 
     public const string ConflictingEntries = "Conflicting persona entries";
 
-    public const string SectionsOverLimit = "Over-limit sections and domain hygiene";
+    /// <summary>One line per domain of the persona that holds exactly one entry.</summary>
+    public const string DomainHygiene = "Domain hygiene";
+
+    /// <summary>The items and the resident block longer than the hint lengths in the config; hints only, nothing is refused.</summary>
+    public const string LengthHints = "Length hints";
 }

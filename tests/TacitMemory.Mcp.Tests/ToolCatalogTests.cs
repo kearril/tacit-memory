@@ -5,22 +5,23 @@ namespace TacitMemory.Mcp.Tests;
 
 public sealed class ToolCatalogTests
 {
-    private static readonly LimitsConfig DefaultLimits = Limits(itemLength: 200, minAliases: 2);
+    private static readonly LimitsConfig DefaultLimits = Limits(minAliases: 2);
 
-    private static LimitsConfig Limits(int itemLength, int minAliases) =>
-        new(new PersonaLimits(5, 15, 10, 10), itemLength, 5, new PageLimits(50, 30, minAliases), 10, 10, 60, 3000);
+    private static LimitsConfig Limits(int minAliases) => new(3000, new PageLimits(minAliases));
 
     [Fact]
-    public void The_write_persona_description_states_the_configured_domain_limits()
+    public void The_write_tool_descriptions_state_no_removed_limit_number()
     {
-        var limits = DefaultLimits with { TriggerLength = 25, DomainEntries = 4, Domains = 3 };
+        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
 
-        var description = ToolCatalog.Describe(limits).ToDictionary(tool => tool.Name)["write_persona"].Description;
-
-        Assert.Contains("at most 25 characters", description);
-        Assert.Contains("at most 4 entries", description);
-        Assert.Contains("at most 3 domains", description);
-        Assert.DoesNotContain('{', description);
+        foreach (var name in new[] { "write_recent", "write_persona" })
+        {
+            Assert.DoesNotContain("characters", tools[name].Description);
+            Assert.DoesNotContain("at most", tools[name].Description);
+            Assert.DoesNotContain("entries", tools[name].Description);
+        }
+        Assert.DoesNotContain(tools.Values.SelectMany(tool => tool.Parameters), parameter => parameter.Description.Contains("characters"));
+        Assert.DoesNotContain('{', tools["write_persona"].Description);
     }
 
     [Fact]
@@ -61,29 +62,24 @@ public sealed class ToolCatalogTests
     }
 
     [Fact]
-    public void The_configured_limits_fill_the_descriptions_that_name_them()
+    public void The_configured_minimum_of_aliases_fills_the_description_that_names_it()
     {
-        var tools = ToolCatalog.Describe(Limits(itemLength: 150, minAliases: 3)).ToDictionary(tool => tool.Name);
+        var tools = ToolCatalog.Describe(Limits(minAliases: 3)).ToDictionary(tool => tool.Name);
 
         Assert.Contains("At least 3.", Parameter(tools["write_page"], "aliases"));
-        Assert.Contains("at most 150 characters", tools["write_recent"].Description);
-        Assert.Contains("(150 characters)", tools["write_persona"].Description);
         foreach (var tool in tools.Values)
         {
-            Assert.DoesNotContain("100 characters", tool.Description);
             Assert.DoesNotContain("by default", tool.Description);
             Assert.DoesNotContain('{', tool.Description);
         }
     }
 
     [Fact]
-    public void The_default_limits_fill_the_same_descriptions()
+    public void The_default_minimum_of_aliases_fills_the_same_description()
     {
         var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
 
         Assert.Contains("At least 2.", Parameter(tools["write_page"], "aliases"));
-        Assert.Contains("at most 200 characters", tools["write_recent"].Description);
-        Assert.Contains("(200 characters)", tools["write_persona"].Description);
     }
 
     private static string Parameter(ToolDescription tool, string name) =>

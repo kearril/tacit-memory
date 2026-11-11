@@ -77,7 +77,6 @@ internal static class SummaryMaterial
             lines.Add("Mainline in recent.md:");
             lines.AddRange(items.Select(item => $"- {item}"));
         }
-        lines.Add($"Limit: {context.Config.Limits.Mainline} items.");
 
         return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, [string.Join('\n', lines)]);
     }

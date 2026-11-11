@@ -74,17 +74,16 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task Only_the_seven_newest_activities_of_the_last_seven_days_are_listed()
+    public async Task Every_activity_of_the_last_seven_days_is_listed_newest_first()
     {
         var lines = Enumerable.Range(1, 9).Select(i => $"## 2026-11-02\n- 第{i}件事\n");
         WriteMonth("## 2026-10-20\n- 太早的事\n" + string.Concat(lines));
 
         var instructions = await Open().ServerInstructionsAsync();
 
+        Assert.Equal(9, instructions.Split('\n').Count(line => line.StartsWith("- 2026-11-02 第", StringComparison.Ordinal)));
         Assert.Contains("- 2026-11-02 第9件事", instructions);
-        Assert.Equal(7, instructions.Split('\n').Count(line => line.StartsWith("- 2026-11-02 第", StringComparison.Ordinal)));
-        Assert.Contains("- 2026-11-02 第3件事", instructions);
-        Assert.DoesNotContain("第2件事", instructions);
+        Assert.Contains("- 2026-11-02 第2件事", instructions);
         Assert.DoesNotContain("太早的事", instructions);
     }
 

@@ -371,9 +371,8 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public void Domain_rows_stop_at_the_domain_limit()
+    public void Every_domain_gets_an_index_row_however_many_there_are()
     {
-        Configure("limits: { domains: 2 }\n");
         File.WriteAllText(PersonaMd, """
             ## 领域：dom-a
             触发：A时
@@ -397,7 +396,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         Assert.Contains("- dom-a：A时（1 条）", text);
         Assert.Contains("- dom-b：B时（1 条）", text);
-        Assert.DoesNotContain("dom-c", text);
+        Assert.Contains("- dom-c：C时（1 条）", text);
     }
 
     [Fact]

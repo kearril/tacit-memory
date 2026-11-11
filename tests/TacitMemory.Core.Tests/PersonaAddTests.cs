@@ -82,7 +82,7 @@ public sealed partial class PersonaAddTests : IDisposable
             + $"- 不要自行发布版本；改为先请用户确认\n  <!-- {Today} 原话「发布前必须问我」 -->\n\n## 协作规则\n\n## 偏好\n\n## 档案\n",
             File.ReadAllText(PersonaMd));
         Assert.Equal(ShortOf("不要自行发布版本；改为先请用户确认"), CodeOf(result));
-        Assert.Contains("2 of 5", result.Text);
+        Assert.Contains("The section now has 2 entries.", result.Text);
         Assert.Equal($"persona: add {ShortOf("不要自行发布版本；改为先请用户确认")}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("persona.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
         Assert.Equal("A  notes.txt", Git("status", "--porcelain").TrimEnd());
@@ -168,43 +168,39 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
-    public async Task Text_longer_than_the_item_limit_is_refused_and_the_limit_is_read_from_config()
+    public async Task Text_of_any_length_is_accepted_when_it_is_one_line()
     {
-        var tooLong = "偏好：" + new string('x', 200);
+        var lengthy = "偏好：" + new string('x', 2000);
 
-        var refused = await _service.WritePersonaAsync(Add("preferences", tooLong));
+        var result = await _service.WritePersonaAsync(Add("preferences", lengthy));
 
-        Assert.True(refused.IsError);
-        Assert.Contains("200", refused.Text);
-        Assert.False(File.Exists(PersonaMd) && File.ReadAllText(PersonaMd).Contains("xxxx"));
-
-        using var home = new TestHome();
-        home.InitReady("limits:\n  itemLength: 210\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-
-        Assert.False((await service.WritePersonaAsync(Add("preferences", tooLong))).IsError);
+        Assert.False(result.IsError, result.Text);
+        Assert.True(result.Written);
+        Assert.Contains(new string('x', 2000), File.ReadAllText(PersonaMd));
     }
 
     [Fact]
-    public async Task A_section_already_at_its_limit_refuses_add_and_lists_its_entries_with_short_codes()
+    public async Task A_section_takes_entries_past_any_count_without_refusal()
     {
-        var red = Enumerable.Range(1, 5).Select(i => $"不要做{i}；改为做{i}").ToList();
+        var red = Enumerable.Range(1, 7).Select(i => $"不要做{i}；改为做{i}").ToList();
         WritePersona("## 红线\n" + string.Concat(red.Select(line => $"- {line}\n")) + "\n## 协作规则\n\n## 偏好\n\n## 档案\n");
-        var before = File.ReadAllText(PersonaMd);
 
-        var result = await _service.WritePersonaAsync(Add("red_lines", "不要做六；改为做六"));
+        var result = await _service.WritePersonaAsync(Add("red_lines", "不要做八；改为做八"));
 
-        Assert.True(result.IsError);
-        Assert.False(result.Written);
-        Assert.StartsWith("Refused:", result.Text);
-        Assert.Contains("Next step:", result.Text);
-        Assert.Contains("replace", result.Text);
-        Assert.Contains("delete", result.Text);
-        foreach (var line in red)
-            Assert.Contains($"[{ShortOf(line)}]", result.Text);
-        Assert.Equal(before, File.ReadAllText(PersonaMd));
+        Assert.False(result.IsError, result.Text);
+        Assert.True(result.Written);
+        Assert.Contains("The section now has 8 entries.", result.Text);
+    }
 
-        Assert.False((await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论"))).IsError);
+    [Fact]
+    public async Task A_new_domain_is_created_however_many_domains_the_persona_holds()
+    {
+        for (var i = 1; i <= 11; i++)
+            Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", $"测速{i}：只看持续测速", "只看持续"), $"domain:area{i}", "改代理时"))).IsError);
+
+        var persona = File.ReadAllText(PersonaMd);
+        for (var i = 1; i <= 11; i++)
+            Assert.Contains($"## 领域：area{i}", persona);
     }
 
     [Fact]
@@ -541,22 +537,16 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
-    public async Task A_trigger_must_be_one_line_within_the_trigger_limit()
+    public async Task A_trigger_must_be_one_line_and_has_no_length_limit()
     {
-        using var home = new TestHome();
-        home.InitReady("limits:\n  triggerLength: 6\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         var request = InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy");
 
-        var tooLong = await service.WritePersonaAsync(request with { Trigger = "改代理、分流或测速时" });
-        var twoLines = await service.WritePersonaAsync(request with { Trigger = "改代理\n测速" });
-        var fits = await service.WritePersonaAsync(request with { Trigger = "改代理时" });
+        var twoLines = await _service.WritePersonaAsync(request with { Trigger = "改代理\n测速" });
+        var lengthy = await _service.WritePersonaAsync(request with { Trigger = new string('改', 300) + "时" });
 
-        Assert.True(tooLong.IsError);
-        Assert.Contains("limit is 6", tooLong.Text);
         Assert.True(twoLines.IsError);
         Assert.Contains("one line", twoLines.Text);
-        Assert.False(fits.IsError, fits.Text);
+        Assert.False(lengthy.IsError, lengthy.Text);
     }
 
     [Theory]
@@ -576,52 +566,24 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Fact]
-    public async Task The_domain_limit_refuses_a_new_domain_and_lists_the_domains_that_exist()
+    public async Task A_domain_takes_entries_past_any_count_and_reports_its_count()
     {
-        using var home = new TestHome();
-        home.InitReady("limits:\n  domains: 1\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"))).IsError);
 
-        var refused = await service.WritePersonaAsync(InScope(Add("preferences", "写作：先给结论"), "domain:writing", "写文章时"));
-        var existing = await service.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"));
+        var third = await _service.WritePersonaAsync(InScope(Add("red_lines", "不要单次下结论；改为看持续数据"), "domain:network-proxy"));
 
-        Assert.True(refused.IsError);
-        Assert.False(refused.Written);
-        Assert.Contains("limit is 1", refused.Text);
-        Assert.Contains("Domain network-proxy", refused.Text);
-        Assert.False(existing.IsError, existing.Text);
+        Assert.False(third.IsError, third.Text);
+        Assert.Contains("The domain has 3 entries.", third.Text);
     }
 
     [Fact]
-    public async Task The_domain_entry_limit_refuses_an_add_and_lists_the_domain_entries_with_their_codes()
+    public async Task Global_sections_take_entries_past_any_count()
     {
-        using var home = new TestHome();
-        home.InitReady("limits:\n  domainEntries: 2\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
-        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"))).IsError);
+        for (var i = 1; i <= 12; i++)
+            Assert.False((await _service.WritePersonaAsync(Add("preferences", $"节奏{i}：短句优先"))).IsError);
 
-        var refused = await service.WritePersonaAsync(InScope(Add("red_lines", "不要单次下结论；改为看持续数据"), "domain:network-proxy"));
-
-        Assert.True(refused.IsError);
-        Assert.False(refused.Written);
-        Assert.Contains("limit is 2", refused.Text);
-        Assert.Contains($"[{ShortOf("测速：只看持续测速")}]", refused.Text);
-        Assert.Contains("Next step:", refused.Text);
-        Assert.Contains("replace", refused.Text);
-    }
-
-    [Fact]
-    public async Task Domain_entries_do_not_count_against_the_global_section_limit()
-    {
-        using var home = new TestHome();
-        home.InitReady("limits:\n  persona:\n    preferences: 1\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        Assert.False((await service.WritePersonaAsync(Add("preferences", "沟通：先要结论"))).IsError);
-
-        Assert.False((await service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
-        Assert.True((await service.WritePersonaAsync(Add("preferences", "节奏：短句优先"))).IsError);
+        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
     }
 
     [Fact]

@@ -168,21 +168,30 @@ public sealed partial class PersonaProposeTests : IDisposable
         var before = File.ReadAllText(CandidatesMd);
 
         var rule = await _service.WritePersonaAsync(Propose("working_rules", "需求不清时先追问"));
-        var tooLong = await _service.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 200)));
         var multiLine = await _service.WritePersonaAsync(Propose("preferences", "沟通：\n先要结论"));
         var multiLineSource = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "第一行\n第二行"));
         var commentEnd = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "原话 --> 不对"));
 
         Assert.True(rule.IsError);
         Assert.Contains("→", rule.Text);
-        Assert.True(tooLong.IsError);
-        Assert.Contains("200", tooLong.Text);
         Assert.True(multiLine.IsError);
         Assert.True(multiLineSource.IsError);
         Assert.True(commentEnd.IsError);
         Assert.Contains("-->", commentEnd.Text);
-        Assert.All(new[] { rule, tooLong, multiLine, multiLineSource, commentEnd }, result => Assert.False(result.Written));
+        Assert.All(new[] { rule, multiLine, multiLineSource, commentEnd }, result => Assert.False(result.Written));
         Assert.Equal(before, File.ReadAllText(CandidatesMd));
+    }
+
+    [Fact]
+    public async Task A_proposal_of_any_length_is_recorded_as_a_candidate()
+    {
+        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+
+        var result = await _service.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 2000)));
+
+        Assert.False(result.IsError, result.Text);
+        Assert.True(result.Written);
+        Assert.Contains(new string('x', 2000), File.ReadAllText(CandidatesMd));
     }
 
     [Fact]

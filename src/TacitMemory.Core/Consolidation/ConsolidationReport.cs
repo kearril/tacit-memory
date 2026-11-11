@@ -59,7 +59,6 @@ internal sealed record ConsolidationReport(
         var (lessons, changed) = ChangedPageFindings.Produce(context, services, await ChangedPages.ReadAsync(context, cancellationToken));
         var evidence = await PersonaEvidence.ProduceAsync(context, review, cancellationToken);
         var issues = FormatViolations.Issues(context);
-        var overLimit = FormatViolations.OverLimit(issues);
         var automatic = new[]
         {
             FormatViolations.Automatic(issues),
@@ -75,7 +74,8 @@ internal sealed record ConsolidationReport(
             changed,
             duplicateSection,
             conflictSection,
-            new ConsolidationSection(ConsolidationTitles.SectionsOverLimit, [.. overLimit.Findings, .. DomainHygiene.Findings(config)]),
+            new ConsolidationSection(ConsolidationTitles.DomainHygiene, DomainHygiene.Findings(config)),
+            new ConsolidationSection(ConsolidationTitles.LengthHints, await LengthHints.FindingsAsync(context, cancellationToken)),
         };
         return new ConsolidationReport(context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, automatic, proposals);
     }

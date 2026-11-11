@@ -152,37 +152,14 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task The_length_limit_counts_the_text_only_not_the_workstream_label_or_the_source()
+    public async Task Text_of_any_length_is_accepted_and_written_in_full()
     {
-        var text = new string('字', 200);
+        var text = new string('字', 1500);
 
         var result = await _service.WriteRecentAsync(Add(text, workstream: "tacit-memory", source: new string('源', 150)));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"- [tacit-memory] {text}", File.ReadAllText(MonthFile));
-    }
-
-    [Fact]
-    public async Task Text_over_the_limit_is_refused_and_the_limit_is_named()
-    {
-        var result = await _service.WriteRecentAsync(Add(new string('字', 201)));
-
-        Assert.True(result.IsError);
-        Assert.Contains("201 characters; the limit is 200", result.Text);
-        Assert.False(File.Exists(MonthFile));
-    }
-
-    [Fact]
-    public async Task The_configured_item_length_replaces_the_default_limit()
-    {
-        using var home = new TestHome();
-        home.InitReady("limits:\n  itemLength: 10\n");
-        using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-
-        var result = await service.WriteRecentAsync(Add(new string('字', 11)));
-
-        Assert.True(result.IsError);
-        Assert.Contains("11 characters; the limit is 10", result.Text);
     }
 
     [Fact]

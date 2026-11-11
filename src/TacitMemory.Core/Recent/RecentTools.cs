@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
-using System.Globalization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Injection;
@@ -46,11 +45,8 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
                 "Call write_recent again with the workstream parameter instead of a [workstream] prefix in text.");
 
         var problems = new List<string>();
-        var limit = config.Limits.ItemLength;
         if (text.Contains('\n') || text.Contains('\r'))
             problems.Add("Text must be one line.");
-        if (Length(text) > limit)
-            problems.Add($"{Length(text)} characters; the limit is {limit}");
 
         string? workstream = null;
         if (request.Workstream is not null)
@@ -166,6 +162,4 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
             return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
         }
     }
-
-    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
 }

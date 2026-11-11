@@ -28,15 +28,8 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(18888, config.Port);
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(MemoryLanguage.Zh, config.Language);
-        Assert.Equal(new PersonaLimits(5, 15, 10, 10), config.Limits.Persona);
-        Assert.Equal(200, config.Limits.ItemLength);
-        Assert.Equal(5, config.Limits.Mainline);
-        Assert.Equal(new PageLimits(50, 30, 2), config.Limits.Page);
-        Assert.Equal(10, config.Limits.Domains);
-        Assert.Equal(10, config.Limits.DomainEntries);
-        Assert.Equal(60, config.Limits.TriggerLength);
-        Assert.Equal(3000, config.Limits.Brief);
-        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5), config.Consolidation);
+        Assert.Equal(new LimitsConfig(3000, new PageLimits(2)), config.Limits);
+        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5, 200, 6000), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
@@ -53,7 +46,7 @@ public sealed class ConfigTests : IDisposable
         var config = _home.Tacit().LoadConfig();
 
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
-        Assert.Equal(new PersonaLimits(5, 15, 10, 10), config.Limits.Persona);
+        Assert.Equal(3000, config.Limits.Brief);
         Assert.Null(config.Models.Embedding);
         Assert.Null(config.Models.Reranker);
         Assert.Null(config.Models.Decision);
@@ -89,7 +82,8 @@ public sealed class ConfigTests : IDisposable
             server: { port: 19999 }
             memory: { path: '~/notes/memory' }
             language: en
-            limits: { persona: { redLines: 3 }, itemLength: 80 }
+            limits: { brief: 1500, page: { minAliases: 3 } }
+            consolidation: { hintItemLength: 120, hintResidentLength: 4000 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { minRerankScore: 0.3 }
             backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw } }
@@ -101,24 +95,31 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(19999, config.Port);
         Assert.Equal(Path.Combine(_home.UserHome, "notes", "memory"), config.MemoryPath);
         Assert.Equal(MemoryLanguage.En, config.Language);
-        Assert.Equal(new PersonaLimits(3, 15, 10, 10), config.Limits.Persona);
-        Assert.Equal(80, config.Limits.ItemLength);
+        Assert.Equal(new LimitsConfig(1500, new PageLimits(3)), config.Limits);
+        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5, 120, 4000), config.Consolidation);
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
         Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, WrittenInConfig: true))), config.Backup);
     }
 
-    [Fact]
-    public void The_domain_limits_are_read_from_the_limits_section()
+    [Theory]
+    [InlineData("limits: { persona: { redLines: 3 } }", "limits.persona")]
+    [InlineData("limits: { itemLength: 80 }", "limits.itemLength")]
+    [InlineData("limits: { mainline: 5 }", "limits.mainline")]
+    [InlineData("limits: { domains: 3 }", "limits.domains")]
+    [InlineData("limits: { domainEntries: 4 }", "limits.domainEntries")]
+    [InlineData("limits: { triggerLength: 20 }", "limits.triggerLength")]
+    [InlineData("limits: { page: { titleLength: 50 } }", "limits.page.titleLength")]
+    [InlineData("limits: { page: { aliasLength: 30 } }", "limits.page.aliasLength")]
+    public void A_removed_limit_is_an_unknown_setting_named_with_its_key_path(string yaml, string keyPath)
     {
-        WriteConfig(Models + "limits: { domains: 3, domainEntries: 4, triggerLength: 20 }\n");
+        WriteConfig(Models + yaml + "\n");
 
-        var config = _home.Tacit().LoadConfig();
+        var error = LoadFails();
 
-        Assert.Equal(3, config.Limits.Domains);
-        Assert.Equal(4, config.Limits.DomainEntries);
-        Assert.Equal(20, config.Limits.TriggerLength);
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains(keyPath, error.Message);
     }
 
     [Fact]
@@ -129,6 +130,20 @@ public sealed class ConfigTests : IDisposable
         var config = _home.Tacit().LoadConfig();
 
         Assert.Equal(1200, config.Limits.Brief);
+    }
+
+    [Theory]
+    [InlineData("hintItemLength: 0", "consolidation.hintItemLength")]
+    [InlineData("hintItemLength: 1.5", "consolidation.hintItemLength")]
+    [InlineData("hintResidentLength: nine", "consolidation.hintResidentLength")]
+    public void A_consolidation_hint_length_that_is_not_a_positive_whole_number_is_refused(string setting, string keyPath)
+    {
+        WriteConfig(Models + $"consolidation: {{ {setting} }}\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains(keyPath, error.Message);
     }
 
     [Theory]
@@ -618,7 +633,7 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new ConsolidationConfig(7, 5, 2, 3), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(7, 5, 2, 3, 200, 6000), config.Consolidation);
     }
 
     [Theory]

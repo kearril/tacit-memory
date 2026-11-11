@@ -5,7 +5,7 @@ namespace TacitMemory.Core.Recent;
 
 /// <summary>
 /// What the injected text says about recent activity, read from the memory repository: the activities of the last seven
-/// days (newest first, at most seven), the workstream labels of every activity, and the lines of the recent weeks, which the
+/// days (newest first, all of them), the workstream labels of every activity, and the lines of the recent weeks, which the
 /// resident block shows.
 /// </summary>
 /// <param name="Week">The activities of the last seven days, newest first.</param>
@@ -16,9 +16,6 @@ internal sealed record RecentSummary(
 {
     /// <summary>How many days back, counting today, the summary covers.</summary>
     public const int WindowDays = 7;
-
-    /// <summary>How many activities the summary lists at most.</summary>
-    public const int ListedActivities = 7;
 
     /// <summary>How many completed weeks the resident block lists at most.</summary>
     public const int ListedWeeks = 3;
@@ -42,7 +39,6 @@ internal sealed record RecentSummary(
             .Where(activity => activity.Day >= start && activity.Day <= today)
             .Reverse()
             .OrderByDescending(activity => activity.Day)
-            .Take(ListedActivities)
             .ToList();
         var labels = activities.Select(activity => activity.Workstream).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
         var weeks = WeekLines(activities, summaries, start, language);
