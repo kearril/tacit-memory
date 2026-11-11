@@ -59,7 +59,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task Recent_activities_appear_in_a_recent_activity_block_without_short_codes_and_the_mainline_stays_out()
+    public async Task Recent_activities_appear_in_a_recent_activity_block_without_short_codes_and_the_workstream_stays_out()
     {
         Directory.CreateDirectory(Memory);
         File.WriteAllText(RecentPath, "## 主线\n### alpha\n背景：一号主线。\n### beta\n背景：二号主线。\n");
@@ -105,7 +105,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task The_recent_block_is_omitted_when_there_is_no_mainline_and_no_activity()
+    public async Task The_recent_block_is_omitted_when_there_is_no_workstream_and_no_activity()
     {
         var instructions = await Open().ServerInstructionsAsync();
 
@@ -130,7 +130,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     {
         var padding = new string('长', 400);
         WriteMonth(string.Concat(Enumerable.Range(1, 7).Select(i => $"## 2026-11-02\n- {i}{padding}\n")));
-        // A non-empty mainline keeps the consolidation reminder out, so the activities are the last part.
+        // A non-empty workstream keeps the consolidation reminder out, so the activities are the last part.
         File.WriteAllText(RecentPath, "## 主线\n### alpha\n背景：一号主线。\n");
 
         var instructions = await Open().ServerInstructionsAsync();

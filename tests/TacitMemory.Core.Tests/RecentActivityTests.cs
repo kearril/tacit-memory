@@ -411,7 +411,7 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Adding_an_activity_leaves_the_mainline_file_alone()
+    public async Task Adding_an_activity_leaves_the_workstream_file_alone()
     {
         File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### alpha\n背景：一号主线。\n");
 
@@ -433,7 +433,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.StartsWith(
             "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\n"
             + "Next step: Call write_recent again with only these parameters: text, workstream, source, replaces, confirm_no_secret. "
-            + "The mainline is maintained by the tacit-consolidate skill.",
+            + "The workstream list is maintained by the tacit-consolidate skill.",
             result.Text);
         Assert.False(File.Exists(MonthFile));
     }

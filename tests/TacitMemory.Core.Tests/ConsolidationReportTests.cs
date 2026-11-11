@@ -74,7 +74,7 @@ public sealed class ConsolidationReportTests : IDisposable
             "### Persona candidates to remove\n",
             "### Weeks to summarize\n",
             "### Months to summarize\n",
-            "### Mainline material\n",
+            "### Workstream material\n",
             "## B. For proposals\n",
             "### Workstream proposal material\n",
             "### Persona evidence\n",
@@ -175,6 +175,28 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
+    public async Task A_page_folder_emptied_by_moving_its_pages_out_is_not_listed_as_an_unestablished_name()
+    {
+        _home.InitReady();
+        WritePage("a1", "甲", "## 现象\n- 内容\n", workstream: "emptied");
+        WritePage("a2", "乙", "## 现象\n- 内容\n", workstream: "emptied");
+        WritePage("n1", "丙", "## 现象\n- 内容\n", workstream: "stillhere");
+        var stash = Path.Combine(Memory, "stash");
+        Directory.CreateDirectory(stash);
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(Memory, "pages", "emptied"), "*.md").ToList())
+            File.Move(file, Path.Combine(stash, Path.GetFileName(file)));
+        Assert.True(Directory.Exists(Path.Combine(Memory, "pages", "emptied")));
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(Memory, "pages", "emptied")));
+
+        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+
+        Assert.Contains("stillhere (unestablished): pages 1, activities 0", section);
+        Assert.DoesNotContain("emptied", section);
+    }
+
+    [Fact]
     public async Task No_category_puts_a_section_over_its_limit_to_the_user()
     {
         _home.InitReady();
@@ -183,8 +205,7 @@ public sealed class ConsolidationReportTests : IDisposable
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         var report = await service.ConsolidationReportAsync();
 
-        Assert.DoesNotContain("over limit", report);
-        Assert.DoesNotContain("Over-limit", report);
+        Assert.Contains("None.", Section(report, "Length hints"));
     }
 
     [Fact]

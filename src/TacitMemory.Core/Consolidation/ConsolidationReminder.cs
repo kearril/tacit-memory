@@ -3,7 +3,7 @@ namespace TacitMemory.Core.Consolidation;
 /// <summary>
 /// The consolidation reminder the server instructions end with. When one of its four triggers is set off it says how long ago the
 /// last consolidation was, how many weeks wait for a summary, how many candidates there are, how many format problems
-/// there are and whether the mainline is empty. Every count comes from <see cref="ConsolidationSummary"/>, which asks no model,
+/// there are and whether the workstream is empty. Every count comes from <see cref="ConsolidationSummary"/>, which asks no model,
 /// so building the reminder never calls one.
 /// </summary>
 internal static class ConsolidationReminder
@@ -11,7 +11,7 @@ internal static class ConsolidationReminder
     /// <summary>
     /// The reminder text, or null when none is due. Each trigger brings it on its own: the last consolidation is at least
     /// <c>consolidation.remindAfterDays</c> days old (or there is no baseline commit), a completed week waits for its summary,
-    /// the candidates reach <c>consolidation.remindCandidates</c>, or the mainline is empty. Format problems alone
+    /// the candidates reach <c>consolidation.remindCandidates</c>, or the workstream is empty. Format problems alone
     /// never bring it.
     /// </summary>
     /// <remarks>
@@ -25,7 +25,7 @@ internal static class ConsolidationReminder
             var due = summary.DaysSince is null || summary.DaysSince >= config.Consolidation.RemindAfterDays
                 || summary.UnsummarizedWeeks > 0
                 || (summary.Candidates > 0 && summary.Candidates >= config.Consolidation.RemindCandidates)
-                || summary.MainlineEmpty;
+                || summary.WorkstreamEmpty;
             if (!due)
                 return null;
 
@@ -50,7 +50,7 @@ internal static class ConsolidationReminder
             $"- Weeks to summarize: {summary.UnsummarizedWeeks}.",
             $"- Persona candidates: {summary.Candidates}.",
             $"- Format and rule problems: {summary.Problems}.",
-            summary.MainlineEmpty ? "- Mainline: empty." : "- Mainline: not empty.",
+            summary.WorkstreamEmpty ? "- Workstream: empty." : "- Workstream: not empty.",
             "The user can run the tacit-consolidate skill to start a consolidation; suggest it when the moment fits, and do not start one unasked.",
         ]);
 

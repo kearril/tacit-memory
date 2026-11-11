@@ -41,7 +41,7 @@ internal sealed record ResidentContent(
         if (established.Count == 0)
             return [];
 
-        var latest = LatestActivityDays(config.MemoryPath);
+        var latest = LatestActivityDays(config.MemoryPath, today);
         var windowStart = today.AddDays(1 - ActiveDays);
         var active = established
             .Where(entry => latest.TryGetValue(entry.Name, out var day) && day >= windowStart && day <= today)
@@ -59,8 +59,11 @@ internal sealed record ResidentContent(
             .ToList();
     }
 
-    /// <summary>The newest activity day of each workstream label in the activity log.</summary>
-    private static Dictionary<string, DateOnly> LatestActivityDays(string memoryPath)
+    /// <summary>
+    /// The newest activity day not after <paramref name="today"/> of each workstream label in the activity log. A day after
+    /// today is left out, so a mistyped future date neither hides the real activity nor moves the workstream up the order.
+    /// </summary>
+    private static Dictionary<string, DateOnly> LatestActivityDays(string memoryPath, DateOnly today)
     {
         var latest = new Dictionary<string, DateOnly>(StringComparer.Ordinal);
         foreach (var (_, file) in RecentFile.MonthFiles(memoryPath))
@@ -69,7 +72,7 @@ internal sealed record ResidentContent(
                 continue;
             foreach (var activity in RecentFile.Activities(read.Text))
             {
-                if (activity.Workstream is not { } name)
+                if (activity.Workstream is not { } name || activity.Day > today)
                     continue;
                 if (!latest.TryGetValue(name, out var day) || activity.Day > day)
                     latest[name] = activity.Day;

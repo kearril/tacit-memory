@@ -81,7 +81,7 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_remember_skill_has_five_steps_and_leaves_the_mainline_to_consolidation()
+    public void The_remember_skill_has_five_steps_and_leaves_the_workstream_to_consolidation()
     {
         _home.Tacit().GenerateSkills();
 
@@ -89,7 +89,7 @@ public sealed class CommandSkillTests : IDisposable
 
         Assert.Contains("\n5. List what you wrote, one line each", text, StringComparison.Ordinal);
         Assert.DoesNotContain("\n6. ", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("mainline", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("workstreams.md", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -184,6 +184,18 @@ public sealed class CommandSkillTests : IDisposable
 
         Assert.Contains("\"only workstreams\"", text, StringComparison.Ordinal);
         Assert.Contains("Workstream proposal material", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_only_workstreams_example_still_goes_on_to_the_consolidation_commit()
+    {
+        _home.Tacit().GenerateSkills();
+
+        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.Contains("\"only workstreams\"", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("and nothing else", text, StringComparison.Ordinal);
+        Assert.Contains("still ends with the `consolidate:` commit of step 6", text, StringComparison.Ordinal);
     }
 
     [Fact]

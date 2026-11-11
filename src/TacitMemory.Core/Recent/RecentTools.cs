@@ -12,7 +12,7 @@ namespace TacitMemory.Core.Recent;
 
 /// <summary>
 /// The recent activity side of the memory tools: the <c>write_recent</c> tool, which only adds or rewrites activities.
-/// The mainline is maintained by the consolidation, which edits <c>workstreams.md</c> directly. Callers serialize writes; this
+/// The workstream list is maintained by the consolidation, which edits <c>workstreams.md</c> directly. Callers serialize writes; this
 /// class assumes it runs one write at a time.
 /// </summary>
 internal sealed class RecentTools(TacitOptions options, TacitConfig config, ServiceLog log, IDecisionModel decision)
@@ -29,7 +29,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         if (problems.Count > 0)
             return ToolText.Refuse(
                 problems,
-                $"Call write_recent again with only these parameters: {Parameters}. The mainline is maintained by the tacit-consolidate skill.");
+                $"Call write_recent again with only these parameters: {Parameters}. The workstream list is maintained by the tacit-consolidate skill.");
 
         return await AddActivityAsync(request, cancellationToken);
     }

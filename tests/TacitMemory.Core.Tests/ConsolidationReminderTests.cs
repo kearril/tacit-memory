@@ -29,7 +29,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     private DateOnly InitDay => DateOnly.ParseExact(
         TestHome.Git(Memory, "log", "-1", "--format=%as").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    /// <summary>A ready memory with a non-empty mainline, so only the triggers a test sets off bring the reminder.</summary>
+    /// <summary>A ready memory with a non-empty workstream, so only the triggers a test sets off bring the reminder.</summary>
     private void Ready(string extraConfig = "")
     {
         _home.InitReady(extraConfig, _models);
@@ -167,7 +167,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     }
 
     [Fact]
-    public async Task An_empty_mainline_brings_the_reminder_with_the_mainline_line()
+    public async Task An_empty_workstream_brings_the_reminder_with_the_workstream_line()
     {
         Ready();
         File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n");
@@ -177,7 +177,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         var instructions = await service.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
-        Assert.Contains("- Mainline: empty.", instructions);
+        Assert.Contains("- Workstream: empty.", instructions);
     }
 
     [Fact]

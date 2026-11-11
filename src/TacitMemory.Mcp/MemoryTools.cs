@@ -21,7 +21,7 @@ internal sealed class MemoryTools(MemoryService service)
         RequestContext<CallToolRequestParams> request,
         [Description("What to look for, in natural language and in the memory language; names, terms and file names as written.")] string? query = null,
         [Description("Page ID to read in full: <workstream>/<slug>, for example my-app/db-upgrade.")] string? page = null,
-        [Description("Search only this workstream.")] string? workstream = null,
+        [Description("Search only this workstream: the name of a continuing matter in lowercase, which need not be a code repository.")] string? workstream = null,
         [Description("Earliest date, YYYY-MM-DD; convert phrases like \"last week\" into dates.")] string? from = null,
         [Description("Latest date, YYYY-MM-DD.")] string? to = null,
         [AllowedValues(ToolValues.RecallKinds.Pages, ToolValues.RecallKinds.Activities, ToolValues.RecallKinds.Rules, ToolValues.RecallKinds.Persona)]
@@ -86,7 +86,7 @@ internal sealed class MemoryTools(MemoryService service)
         Record an activity: one line in the activity log.
         text is required: one line that does not start with '['; workstream and source are optional.
         With replaces (a short code of today's activity), rewrites that activity in place instead of adding one; source then replaces its comment only if given.
-        The mainline is not written here: the tacit-consolidate skill maintains it.
+        Workstreams are not written here: the tacit-consolidate skill maintains it.
         Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WriteRecent(

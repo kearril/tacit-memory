@@ -142,7 +142,7 @@ public sealed class ShowTests : IDisposable
 
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "situational_rules").Text));
         Assert.False(string.IsNullOrWhiteSpace(Part(result, "workstreams").Text));
-        Assert.DoesNotContain(result.Parts, part => part.Key is "mainline" or "recent_weeks" or "projects");
+        Assert.DoesNotContain(result.Parts, part => part.Key is "recent_weeks" or "projects");
     }
 
     [Fact]

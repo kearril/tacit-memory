@@ -20,7 +20,7 @@ internal static class ConsolidationTitles
 
     public const string MonthsToSummarize = "Months to summarize";
 
-    public const string MainlineMaterial = "Mainline material";
+    public const string WorkstreamMaterial = "Workstream material";
 
     /// <summary>Part B: the unestablished workstream names, the topic pages sharing a prefix and the unlabeled activities.</summary>
     public const string WorkstreamProposals = "Workstream proposal material";

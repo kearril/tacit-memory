@@ -123,8 +123,6 @@ internal sealed partial class PageDocument
     private static FormatIssue Fix(string location, string kind, string description) =>
         new("", location, kind, description, FormatHandling.FixDirectly);
 
-    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
-
     /// <summary>Reads and parses <paramref name="id"/> from <paramref name="memoryPath"/>, or <c>null</c> when missing or not UTF-8.</summary>
     public static PageDocument? TryLoad(string memoryPath, PageId id)
     {

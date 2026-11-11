@@ -20,7 +20,7 @@ internal static class WorkstreamProposals
     {
         var memory = context.Config.MemoryPath;
         var written = WorkstreamFile.Read(memory).Names.ToHashSet(StringComparer.Ordinal);
-        var fresh = (await PersonaEvidence.NewActivitiesAsync(context, cancellationToken)).Select(item => item.Activity).ToList();
+        var fresh = (await context.NewActivitiesAsync(cancellationToken)).Select(item => item.Activity).ToList();
         var pages = PageFolderCounts(memory);
         var activities = fresh
             .Where(activity => activity.Workstream is not null)
@@ -39,7 +39,10 @@ internal static class WorkstreamProposals
         return new ConsolidationSection(ConsolidationTitles.WorkstreamProposals, findings);
     }
 
-    /// <summary>The number of pages in each workstream folder under <c>pages/</c>, the topics folder and invalid names left out.</summary>
+    /// <summary>
+    /// The number of pages in each workstream folder under <c>pages/</c>. The topics folder, invalid names and folders that hold
+    /// no page files are left out.
+    /// </summary>
     private static Dictionary<string, int> PageFolderCounts(string memory)
     {
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -52,7 +55,9 @@ internal static class WorkstreamProposals
             var name = Path.GetFileName(directory);
             if (name == PageId.Topics || !PageId.IsWorkstreamName(name))
                 continue;
-            counts[name] = Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly).Count();
+            var pageCount = Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly).Count();
+            if (pageCount > 0)
+                counts[name] = pageCount;
         }
 
         return counts;
