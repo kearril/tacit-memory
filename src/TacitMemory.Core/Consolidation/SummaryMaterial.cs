@@ -9,15 +9,12 @@ namespace TacitMemory.Core.Consolidation;
 /// <summary>
 /// The material of the summary categories in part A: the completed ISO weeks and calendar months that have activities but no
 /// summary line yet, and the mainline material. Everything is read from the memory repository as it is now and nothing is
-/// written: the agent writes the summaries and the mainline itself.
+/// written: the agent writes the summaries and the workstream entries itself.
 /// </summary>
 internal static class SummaryMaterial
 {
     /// <summary>The group of the activities that have no workstream label, in the memory language.</summary>
     private static readonly Localized OtherGroup = new("其他", "Other");
-
-    /// <summary>How many of the latest weekly summaries the mainline material shows.</summary>
-    private const int MainlineWeeks = 4;
 
     /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by workstream.</summary>
     public static ConsolidationSection Weeks(ConsolidationContext context) =>
@@ -52,34 +49,44 @@ internal static class SummaryMaterial
         return new ConsolidationSection(ConsolidationTitles.MonthsToSummarize, findings);
     }
 
-    /// <summary>The latest weekly summaries, newest first, and the established workstreams as workstreams.md holds them now.</summary>
-    public static ConsolidationSection Mainline(ConsolidationContext context)
+    /// <summary>
+    /// The established workstreams that have activities since the baseline, the in-progress week included, each with its
+    /// current entry and those activities, oldest first. A workstream without new activity is not listed. With no established
+    /// workstream the section says so in one line.
+    /// </summary>
+    public static async Task<ConsolidationSection> MainlineAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
-        var memory = context.Config.MemoryPath;
-        var latest = ReadSummaries(memory)
-            .Where(summary => summary.Kind == SummaryKind.Week)
-            .OrderByDescending(summary => summary.First)
-            .Take(MainlineWeeks)
+        var established = WorkstreamFile.Established(context.Config.MemoryPath);
+        if (established.Count == 0)
+            return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, ["No workstream is established in workstreams.md."]);
+
+        var fresh = (await PersonaEvidence.NewActivitiesAsync(context, cancellationToken))
+            .Select(item => item.Activity)
+            .Where(activity => activity.Workstream is not null)
             .ToList();
-
-        var lines = new List<string> { "Latest weekly summaries, newest first:" };
-        if (latest.Count == 0)
-            lines.Add("- None yet.");
-        else
-            lines.AddRange(latest.Select(summary => $"- {summary.Text}"));
-
-        var items = WorkstreamFile.Established(memory).Select(entry => $"{entry.Name}：{entry.Background}").ToList();
-        if (items.Count == 0)
+        var findings = new List<string>();
+        foreach (var entry in established)
         {
-            lines.Add("The mainline is empty; write it from the weekly summaries above.");
-        }
-        else
-        {
-            lines.Add("Mainline in workstreams.md:");
-            lines.AddRange(items.Select(item => $"- {item}"));
+            var activities = fresh
+                .Where(activity => activity.Workstream == entry.Name)
+                .OrderBy(activity => activity.Day)
+                .ThenBy(activity => activity.Line)
+                .ToList();
+            if (activities.Count == 0)
+                continue;
+
+            var lines = new List<string>
+            {
+                $"- {entry.Name}",
+                $"  - background: {entry.Background}",
+                $"  - recent: {entry.Recent ?? "none yet"}",
+                "  - activities since the last consolidation:",
+            };
+            lines.AddRange(activities.Select(activity => $"    - {Day(activity.Day)} {activity.Body}"));
+            findings.Add(string.Join('\n', lines));
         }
 
-        return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, [string.Join('\n', lines)]);
+        return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, findings);
     }
 
     /// <summary>

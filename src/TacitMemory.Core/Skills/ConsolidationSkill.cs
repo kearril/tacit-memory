@@ -6,7 +6,7 @@ namespace TacitMemory.Core.Skills;
 
 /// <summary>
 /// The <c>tacit-consolidate</c> memory command: the opening, the six steps, the structure words of the memory language, and
-/// examples of a scope block, a candidate block, a rejection list entry and summary lines. The facts of the moment (the
+/// examples of a scope block, a candidate block, a rejection list entry, a workstream entry and summary lines. The facts of the moment (the
 /// repository's path, today's date, the baseline and the report) are not here: the agent reads them from the consolidation
 /// report resource. The report's category titles come from <see cref="ConsolidationTitles"/>, the definition the report uses.
 /// </summary>
@@ -39,6 +39,13 @@ internal static class ConsolidationSkill
     private static readonly Localized ExampleComparison = new("性能比较", "Performance comparisons");
     private static readonly Localized ExampleTrigger = new("改代理、分流或测速时", "When changing the proxy, routing or speed tests");
 
+    /// <summary>The workstream example: its name, its background line and its recent line, which states the phase, not the list of work done.</summary>
+    private const string ExampleWorkstream = "home-server";
+    private static readonly Localized ExampleBackground = new(
+        "家里的常驻服务器，跑代理分流和自用服务。", "The home server that runs proxy routing and self-hosted services.");
+    private static readonly Localized ExampleRecent = new(
+        "服务栈搭完后在收敛，砍掉不常用的。", "The service stack is set up and is being trimmed: rarely used services are being removed.");
+
     /// <summary>The structure words the files use, by the role each plays.</summary>
     private static readonly (string Role, Localized Word)[] Words =
     [
@@ -57,6 +64,8 @@ internal static class ConsolidationSkill
         ("Rejected mark on an occurrence line", StructureWords.Rejected),
         ("\"Instead\" in a red line", StructureWords.Instead),
         ("Workstream section (workstreams.md)", StructureWords.Workstream),
+        ("Background line of a workstream (workstreams.md)", StructureWords.Background),
+        ("Recent line of a workstream (workstreams.md)", StructureWords.Recent),
         ("Summary section (month file)", StructureWords.Summary),
         ("Leftovers section (work page)", StructureWords.Leftovers),
         ("Overturned section (decision page)", StructureWords.Overturned),
@@ -74,7 +83,8 @@ internal static class ConsolidationSkill
         var text = new StringBuilder();
         text.Append("# Memory consolidation\n\n");
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText)
-            .Append(" For example, \"only summaries\" runs the summary part of step 1 and no proposals.\n\n");
+            .Append(" For example, \"only summaries\" runs the summary part of step 1 and no proposals. \"only workstreams\", or \"only workstream home-server\" ")
+            .Append("for one named workstream, runs just the mainline material of step 1 and the workstream proposal material of step 3, with the workstream changes of step 4 and nothing else.\n\n");
         text.Append("First read the resource ").Append(ReportUri).Append(" from the MCP server named tacit. It is computed when read and gives ")
             .Append("the memory repository's absolute path, today's date, the baseline commit, the budget and the report's categories. ")
             .Append("If it cannot be read, stop and ask the user to start the TacitMemory service with `tacit serve`; do not check the memory from what you remember.\n");
@@ -89,7 +99,10 @@ internal static class ConsolidationSkill
             .Append("\": write one summary line per listed period into the `## ").Append(summary).Append("` section of the month file the report names: ")
             .Append("a week as `- ").Append(Week).Append("：<one line>`, a month as `- ").Append(Month).Append("：<one line>`. ")
             .Append("Write each line from the activities the report gives, and add nothing they do not say.\n");
-        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": rewrite the mainline in workstreams.md from the summarized weeks it lists and the current mainline.\n");
+        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": for each workstream the report lists, write only its recent line in workstreams.md (adding one when the entry has none), ")
+            .Append("from the activities the report gives, and leave its background line unchanged. The background line says what the workstream is. ")
+            .Append("The recent line is a high-level summary of its recent phase and direction: where it stands and where it is going. It is never a list of what was done. ")
+            .Append("A workstream the report does not list stays as it is.\n");
         text.Append("   Change nothing else in this step: no persona entry, scope block or page changes here.\n");
         text.Append("2. Read what Part \"").Append(ConsolidationTitles.ProposalPart).Append("\" needs: the pages, persona entries and material its items name. Change nothing in this step.\n");
         text.Append("3. Draft every proposal and send them to the user in one numbered list. Cover each item under \"").Append(ConsolidationTitles.ProposalPart).Append("\":\n");
@@ -102,6 +115,10 @@ internal static class ConsolidationSkill
             .Append("\": propose the move, rewrite or merge that resolves each.\n");
         text.Append("   - \"").Append(ConsolidationTitles.LengthHints)
             .Append("\": propose a shorter wording for each item the report lists, keeping its meaning and its source; the user confirms before it is written.\n");
+        text.Append("   - \"").Append(ConsolidationTitles.WorkstreamProposals)
+            .Append("\": draft one proposal per workstream change: a new workstream (its name, a background line, a recent line, and the detail pages it takes into its folder), ")
+            .Append("an unestablished name merged into an existing workstream or its label dropped, a split of a workstream, or a merge of two. ")
+            .Append("Each proposal names the pages it moves. Topic pages under a listed prefix may form a new workstream when they belong together; otherwise they stay in topics.\n");
         text.Append("   Give each item a number, what would change, and its evidence (a short code, a quote or a page identifier). ")
             .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to workstream scope`. An item the reply does not mention is deferred.\n");
         text.Append("4. Carry out the reply item by item. Changes to persona entries, scope blocks and pages happen only after the user confirms the item:\n");
@@ -110,7 +127,10 @@ internal static class ConsolidationSkill
         text.Append("   - reject: for a candidate, move it into the rejection list, with its scope line if it has one, and add an occurrence line marked as rejected, dated today. For any other item, leave it unchanged.\n");
         text.Append("   - change: apply the version the user gave, and treat it as confirmed.\n");
         text.Append("   - defer, or no reply: leave the item exactly as it is. A candidate stays in candidates.md and comes back at the next consolidation; any other item comes back only when it changes again.\n");
-        text.Append("5. Show the user the summaries you wrote and the new mainline.\n");
+        text.Append("   - a confirmed workstream item is carried out by editing the entries in workstreams.md (add, remove or change one), moving the detail pages into their new folder and fixing the related lines of other pages that name them. ")
+            .Append("For a merge, also move the entries of the merged workstream's scope block in persona.md into the target's block and set their scope to the target. ")
+            .Append("Leave the labels of past activities as they are.\n");
+        text.Append("5. Show the user the summaries you wrote and the workstream entries you changed.\n");
         text.Append("6. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
             .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")
             .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"`.\n\n");
@@ -151,6 +171,14 @@ internal static class ConsolidationSkill
         text.Append(StructureWords.BelongsTo.In(language)).Append(StructureWords.Preferences.In(language)).Append('\n');
         text.Append("- ").Append(Date).Append(' ').Append(StructureWords.Rejected.In(language)).Append(' ')
             .Append(quote).Append('「').Append(ExampleQuote.In(language)).Append("」\n");
+        text.Append("```\n\n");
+
+        text.Append("Example of a workstream entry in workstreams.md. The background line says what the workstream is; the recent line says where it stands and where it is going:\n");
+        text.Append("```\n");
+        text.Append("## ").Append(StructureWords.Workstream.In(language)).Append('\n');
+        text.Append("### ").Append(ExampleWorkstream).Append('\n');
+        text.Append(StructureWords.Background.In(language)).Append(colon).Append(ExampleBackground.In(language)).Append('\n');
+        text.Append(StructureWords.Recent.In(language)).Append(colon).Append(ExampleRecent.In(language)).Append('\n');
         text.Append("```\n\n");
 
         text.Append("Example of summary lines at the end of a month file:\n");
