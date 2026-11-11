@@ -56,7 +56,7 @@ internal static class FormatViolations
 
     /// <summary>
     /// The memory files the service reads, relative to the repository with forward slashes, in ordinal order: the detail
-    /// pages, the persona, the candidates, the mainline and the month files of the activity log.
+    /// pages, the persona, the candidates, the workstreams file and the month files of the activity log.
     /// </summary>
     private static IEnumerable<string> MemoryFiles(string memoryPath)
     {

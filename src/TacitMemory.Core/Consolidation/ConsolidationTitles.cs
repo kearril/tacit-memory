@@ -22,6 +22,9 @@ internal static class ConsolidationTitles
 
     public const string MainlineMaterial = "Mainline material";
 
+    /// <summary>Part B: the unestablished workstream names, the topic pages sharing a prefix and the unlabeled activities.</summary>
+    public const string WorkstreamProposals = "Workstream proposal material";
+
     public const string PersonaEvidence = "Persona evidence";
 
     public const string IncidentLessons = "Incident lessons";

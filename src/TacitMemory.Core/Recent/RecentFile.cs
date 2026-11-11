@@ -146,7 +146,7 @@ internal static class RecentFile
 
     /// <summary>
     /// The month files of the activity log under <c>recent/</c>, as the relative and full path of each, in name order.
-    /// The mainline file is not one. Empty when the folder is missing.
+    /// The workstreams file is not one. Empty when the folder is missing.
     /// </summary>
     public static List<(string RelativePath, string FullPath)> MonthFiles(string memoryPath)
     {

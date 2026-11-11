@@ -11,8 +11,11 @@ namespace TacitMemory.Core.Workstreams;
 /// <param name="Recent">The summary of its recent phase, or <c>null</c> when the file gives none.</param>
 internal sealed record WorkstreamEntry(string Name, string Background, string? Recent);
 
-/// <summary>The result of reading <c>workstreams.md</c>: the established workstreams, and the format problems of the file.</summary>
-internal sealed record WorkstreamParse(IReadOnlyList<WorkstreamEntry> Entries, IReadOnlyList<FormatIssue> Problems);
+/// <summary>
+/// The result of reading <c>workstreams.md</c>: the established workstreams, the format problems of the file, and every name
+/// the file writes under a workstream heading, established or not, in file order.
+/// </summary>
+internal sealed record WorkstreamParse(IReadOnlyList<WorkstreamEntry> Entries, IReadOnlyList<FormatIssue> Problems, IReadOnlyList<string> Names);
 
 /// <summary>
 /// <c>workstreams.md</c>, the file that decides which workstreams are established. Under one <c>## 主线</c> heading (or
@@ -26,9 +29,12 @@ internal static class WorkstreamFile
     /// <summary>The file, relative to the memory repository, that lists the established workstreams.</summary>
     public const string RelativePath = "workstreams.md";
 
+    /// <summary>The file as the repository holds it now; an empty parse when the file is missing.</summary>
+    public static WorkstreamParse Read(string memoryPath) =>
+        Parse(TextFile.Read(Path.Combine(memoryPath, RelativePath))?.Text ?? "");
+
     /// <summary>The established workstreams in file order; empty when the file is missing.</summary>
-    public static IReadOnlyList<WorkstreamEntry> Established(string memoryPath) =>
-        Parse(TextFile.Read(Path.Combine(memoryPath, RelativePath))?.Text ?? "").Entries;
+    public static IReadOnlyList<WorkstreamEntry> Established(string memoryPath) => Read(memoryPath).Entries;
 
     /// <summary>
     /// Reads the file text. An entry is established when its name is valid, appears once in the file, and has a
@@ -97,7 +103,7 @@ internal static class WorkstreamFile
                 established.Add(new WorkstreamEntry(entry.Name, entry.Background!, string.IsNullOrWhiteSpace(entry.Recent) ? null : entry.Recent));
         }
 
-        return new WorkstreamParse(established, problems);
+        return new WorkstreamParse(established, problems, entries.Select(entry => entry.Name).ToList());
     }
 
     private static bool IsSectionHeading(string heading) =>
