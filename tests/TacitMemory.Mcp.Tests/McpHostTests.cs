@@ -242,6 +242,7 @@ public sealed class McpHostTests : IAsyncLifetime
             "### Months to summarize\n",
             "### Workstream material\n",
             "## B. For proposals\n",
+            "### Workstream proposal material\n",
             "### Persona evidence\n",
             "### Incident lessons\n",
             "### Changed pages\n",
