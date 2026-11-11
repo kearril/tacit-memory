@@ -209,12 +209,12 @@ internal static class StatusReporter
                     ? ManagementApiMessages.PendingCandidates.Format(language, count)
                     : ManagementApiMessages.PendingCandidatesUnknown.In(language),
                 ManagementApiMessages.PendingFormatProblems.Format(language, summary.Problems),
-                summary.MainlineEmpty ? ManagementApiMessages.PendingMainlineEmpty.In(language) : ManagementApiMessages.PendingMainlineSet.In(language),
+                summary.WorkstreamEmpty ? ManagementApiMessages.PendingWorkstreamEmpty.In(language) : ManagementApiMessages.PendingWorkstreamSet.In(language),
                 ManagementApiMessages.PendingWeeks.Format(language, summary.UnsummarizedWeeks),
             ],
             candidates,
             summary.Problems,
-            summary.MainlineEmpty,
+            summary.WorkstreamEmpty,
             summary.UnsummarizedWeeks);
     }
 

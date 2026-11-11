@@ -4,16 +4,16 @@ using System.Text.RegularExpressions;
 namespace TacitMemory.Core.Pages;
 
 /// <summary>
-/// A page ID, <c>&lt;project&gt;/&lt;slug&gt;</c>: the page lives at <c>pages/&lt;project&gt;/&lt;slug&gt;.md</c>.
-/// The project is lowercased; <c>_topics</c> is the only project starting with an underscore.
+/// A page ID, <c>&lt;workstream&gt;/&lt;slug&gt;</c>: the page lives at <c>pages/&lt;workstream&gt;/&lt;slug&gt;.md</c>.
+/// The workstream is lowercased; <c>_topics</c> is the only workstream starting with an underscore.
 /// </summary>
-internal sealed partial record PageId(string Project, string Slug)
+internal sealed partial record PageId(string Workstream, string Slug)
 {
     public const string Topics = "_topics";
 
-    public string RelativePath => $"pages/{Project}/{Slug}.md";
+    public string RelativePath => $"pages/{Workstream}/{Slug}.md";
 
-    public override string ToString() => $"{Project}/{Slug}";
+    public override string ToString() => $"{Workstream}/{Slug}";
 
     /// <summary>Parses <paramref name="raw"/>, or explains in English what is wrong with it.</summary>
     public static bool TryParse(string raw, out PageId id, out string problem)
@@ -22,15 +22,15 @@ internal sealed partial record PageId(string Project, string Slug)
         var parts = raw.Trim().Split('/');
         if (parts.Length != 2)
         {
-            problem = $"Page ID \"{raw}\" must be <project>/<slug>, for example my-app/db-upgrade or {Topics}/pgroonga.";
+            problem = $"Page ID \"{raw}\" must be <workstream>/<slug>, for example my-app/db-upgrade or {Topics}/pgroonga.";
             return false;
         }
 
-        var project = parts[0].ToLowerInvariant();
+        var workstream = parts[0].ToLowerInvariant();
         var slug = parts[1];
-        if (project != Topics && !ProjectPattern().IsMatch(project))
+        if (workstream != Topics && !WorkstreamPattern().IsMatch(workstream))
         {
-            problem = $"Project \"{parts[0]}\" may only use a-z, 0-9, '.', '_' and '-', must not start with '.' or '_' (except {Topics}), for example {Suggest(parts[0])}.";
+            problem = $"Workstream \"{parts[0]}\" may only use a-z, 0-9, '.', '_' and '-', must not start with '.' or '_' (except {Topics}), for example {Suggest(parts[0])}.";
             return false;
         }
 
@@ -40,7 +40,7 @@ internal sealed partial record PageId(string Project, string Slug)
             return false;
         }
 
-        id = new PageId(project, slug);
+        id = new PageId(workstream, slug);
         problem = "";
         return true;
     }
@@ -56,10 +56,10 @@ internal sealed partial record PageId(string Project, string Slug)
     }
 
     [GeneratedRegex("^[a-z0-9][a-z0-9._-]*$")]
-    private static partial Regex ProjectPattern();
+    private static partial Regex WorkstreamPattern();
 
-    /// <summary>Whether <paramref name="project"/> follows the project naming rule: lowercase, not starting with '.' or '_'.</summary>
-    internal static bool IsProjectName(string project) => ProjectPattern().IsMatch(project);
+    /// <summary>Whether <paramref name="workstream"/> follows the workstream naming rule: lowercase, not starting with '.' or '_'.</summary>
+    internal static bool IsWorkstreamName(string workstream) => WorkstreamPattern().IsMatch(workstream);
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$")]
     private static partial Regex SlugPattern();

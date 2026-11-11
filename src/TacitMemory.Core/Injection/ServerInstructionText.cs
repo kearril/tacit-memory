@@ -21,7 +21,7 @@ internal enum InstructionPart
 internal sealed record InstructionText(InstructionPart Part, string Text);
 
 /// <summary>
-/// The server instructions as parts: the fixed parts, the recent summary with the project list, and the whole text the
+/// The server instructions as parts: the fixed parts, the recent summary with the workstream list, and the whole text the
 /// agent receives.
 /// </summary>
 internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, string FixedText, string Recent, string Consolidation, string Text);
@@ -30,16 +30,16 @@ internal sealed record InstructionSet(IReadOnlyList<InstructionText> Fixed, stri
 /// The server instructions, assembled from parts. Fixed parts (opening, core rules, general rules, language norms,
 /// recording criteria) are never cut and must fit <see cref="FixedLimit"/>; the status part and the consolidation
 /// reminder are short and always whole. The activities of the last seven days are cut to fit <see cref="TotalLimit"/>:
-/// the oldest go first. The mainline, the recent weeks and the projects are in the resident block, not here.
+/// the oldest go first. The workstreams are in the resident block, not here.
 /// </summary>
 internal static class ServerInstructionText
 {
     public const int TotalLimit = 4000;
 
-    public const int FixedLimit = 2500;
+    public const int FixedLimit = 3000;
 
     private const string Opening = """
-        TacitMemory is the user's personal memory across sessions. The user's persona is already in your context inside <user_memory>; recent activity is listed in <recent_activity> below; details live in pages you reach with `recall`.
+        TacitMemory is the user's personal memory across sessions. The user's persona and workstreams are already in your context inside <user_memory>; recent activity is listed in <recent_activity> below; details live in pages you reach with `recall`.
         """;
 
     /// <summary>
@@ -49,15 +49,19 @@ internal static class ServerInstructionText
     public static readonly string DefaultInstructions = """
         ## Using memory
         - Mark what you infer from the persona as inference; state as remembered only what memory holds.
-        - Raise old events only after the user does. When the user describes their situation, link recent context in half a sentence.
+        - Connect what the user says to what memory holds about their workstreams, decisions and incidents, and say so when the connection changes your answer. The same applies to chat and to work.
+        - Leave out memory the current topic does not touch.
+        - Say whether a point is remembered or inferred, and give the date of anything old.
+        - Activities are newer than the workstream lines; when they disagree, follow the activities.
+        - When the user describes their situation, link recent context in half a sentence.
 
         ## Recall
-        - At the start of work on a project, call `recall` with only `project`.
-        - Call `recall` when the user refers to the past, or names a person, project or term your context lacks. When it finds nothing, say you don't remember.
+        - When the topic moves into a workstream listed in `<user_memory>`, call `recall` with only `workstream` set to its name before you answer. Do this once per workstream per session.
+        - Call `recall` when the user refers to the past, or names a person, workstream or term your context lacks. When it finds nothing, say you don't remember.
 
         ## Write
         - When something worth recording happens, `recall` first, then update the page that covers the matter or create one.
-        - When a main matter reaches a conclusion, write one activity; later progress rewrites it with `replaces`.
+        - When a matter in a workstream reaches a conclusion, write one activity with that workstream set. Write at most one activity per workstream per session; later progress in the session rewrites it with `replaces`.
         - When the user corrects you or states how they want something done, ask once whether to keep it as a lasting rule, since the persona loads into every session; `write_persona op=add` after they agree. A habit you observe across the session goes in with `op=propose`.
         <!-- Permission boundary, do not remove -->
         - Red lines come only from the user. Change or remove a persona entry after the user agrees.
@@ -161,7 +165,7 @@ internal static class ServerInstructionText
     }
 
     /// <summary>
-    /// The activities of the last seven days, one per line with their dates and projects, inside <c>recent_activity</c>
+    /// The activities of the last seven days, one per line with their dates and workstreams, inside <c>recent_activity</c>
     /// tags so the agent reads them as data; empty when there are none.
     /// </summary>
     private static string ActivityBlock(IReadOnlyList<RecentFile.Activity> activities)

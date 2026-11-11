@@ -2,11 +2,19 @@ using System.Text;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>What the categories read without a model: the config, today's date, the repository's git and the baseline.</summary>
-internal sealed record ConsolidationContext(TacitConfig Config, DateOnly Today, GitCli Git, ConsolidationBaseline Baseline);
+internal sealed record ConsolidationContext(TacitConfig Config, DateOnly Today, GitCli Git, ConsolidationBaseline Baseline)
+{
+    private Task<IReadOnlyList<(RecentFile.Activity Activity, string? Comment)>>? _newActivities;
+
+    /// <summary>The activities added since the baseline, read once and shared by every category of the report.</summary>
+    public Task<IReadOnlyList<(RecentFile.Activity Activity, string? Comment)>> NewActivitiesAsync(CancellationToken cancellationToken) =>
+        _newActivities ??= NewActivities.ReadAsync(this, cancellationToken);
+}
 
 /// <summary>What the categories that ask a model need: the index, the embedding model, the vector store and the judgment pool.</summary>
 internal sealed record ConsolidationServices(MemoryIndex Index, EmbeddingModel Embedding, VectorSync Vectors, JudgmentPool Judgments);
@@ -59,23 +67,26 @@ internal sealed record ConsolidationReport(
         var (lessons, changed) = ChangedPageFindings.Produce(context, services, await ChangedPages.ReadAsync(context, cancellationToken));
         var evidence = await PersonaEvidence.ProduceAsync(context, review, cancellationToken);
         var issues = FormatViolations.Issues(context);
-        var overLimit = FormatViolations.OverLimit(issues);
+        var workstream = await SummaryMaterial.WorkstreamAsync(context, cancellationToken);
+        var workstreams = await WorkstreamProposals.ProduceAsync(context, cancellationToken);
         var automatic = new[]
         {
             FormatViolations.Automatic(issues),
             RedundantCandidates.Produce(config, review),
             SummaryMaterial.Weeks(context),
             SummaryMaterial.Months(context),
-            SummaryMaterial.Mainline(context),
+            workstream,
         };
         var proposals = new[]
         {
+            workstreams,
             evidence,
             lessons,
             changed,
             duplicateSection,
             conflictSection,
-            new ConsolidationSection(ConsolidationTitles.SectionsOverLimit, [.. overLimit.Findings, .. DomainHygiene.Findings(config)]),
+            new ConsolidationSection(ConsolidationTitles.DomainHygiene, DomainHygiene.Findings(config)),
+            new ConsolidationSection(ConsolidationTitles.LengthHints, await LengthHints.FindingsAsync(context, cancellationToken)),
         };
         return new ConsolidationReport(context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, automatic, proposals);
     }

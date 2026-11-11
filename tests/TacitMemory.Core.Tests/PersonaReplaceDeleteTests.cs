@@ -441,16 +441,16 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     }
 
     [Fact]
-    public async Task Delete_finds_an_entry_in_a_project_block_and_the_block_keeps_its_heading()
+    public async Task Delete_finds_an_entry_in_a_workstream_block_and_the_block_keeps_its_heading()
     {
-        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 项目：my-app\n### 协作规则\n- 发版 → 先问我\n  <!-- 2026-10-25 原话「发版前问我」 -->\n");
+        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 主线：my-app\n### 协作规则\n- 发版 → 先问我\n  <!-- 2026-10-25 原话「发版前问我」 -->\n");
         var code = ShortOf("发版 → 先问我");
 
         var result = await _service.WritePersonaAsync(Delete(code));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 偏好\n- 沟通：先要结论\n\n## 项目：my-app\n### 协作规则\n", File.ReadAllText(PersonaMd));
-        Assert.Contains("of project my-app", result.Text);
+        Assert.Equal("## 偏好\n- 沟通：先要结论\n\n## 主线：my-app\n### 协作规则\n", File.ReadAllText(PersonaMd));
+        Assert.Contains("of workstream my-app", result.Text);
     }
 
     [Fact]

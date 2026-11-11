@@ -85,7 +85,7 @@ public sealed class DuplicatePageTests : IDisposable
     }
 
     [Fact]
-    public async Task Only_pages_of_the_same_project_are_offered_and_a_lone_page_skips_the_question()
+    public async Task Only_pages_of_the_same_workstream_are_offered_and_a_lone_page_skips_the_question()
     {
         await Create("other-app/db-upgrade", "数据库升级后扩展丢失");
 

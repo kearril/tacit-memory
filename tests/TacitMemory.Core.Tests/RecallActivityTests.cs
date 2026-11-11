@@ -38,16 +38,16 @@ public sealed class RecallActivityTests : IDisposable
         File.WriteAllText(MonthFile(month), text.ReplaceLineEndings("\n"));
     }
 
-    private static WriteRecentRequest Activity(string text, string? project = null) => new()
+    private static WriteRecentRequest Activity(string text, string? workstream = null) => new()
     {
         Text = text,
-        Project = project,
+        Workstream = workstream,
     };
 
-    private Task<ToolResult> Write(string text, string? project = null) => Service.WriteRecentAsync(Activity(text, project));
+    private Task<ToolResult> Write(string text, string? workstream = null) => Service.WriteRecentAsync(Activity(text, workstream));
 
-    private Task<ToolResult> Recall(string query, string? kind = null, string? project = null, string? from = null, string? to = null) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Project = project, From = from, To = to });
+    private Task<ToolResult> Recall(string query, string? kind = null, string? workstream = null, string? from = null, string? to = null) =>
+        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Workstream = workstream, From = from, To = to });
 
     private Task WritePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
     {
@@ -81,14 +81,14 @@ public sealed class RecallActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Activities_are_recalled_by_kind_with_their_date_project_body_and_short_code()
+    public async Task Activities_are_recalled_by_kind_with_their_date_workstream_body_and_short_code()
     {
-        var added = await Write("想清楚了画像里缺的是人的倾向", project: "tacit-memory");
+        var added = await Write("想清楚了画像里缺的是人的倾向", workstream: "tacit-memory");
 
         var result = await Recall("画像", kind: "activities");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains($"[1] activity 2026-11-02 [{CodeOf(added)}], project tacit-memory", result.Text);
+        Assert.Contains($"[1] activity 2026-11-02 [{CodeOf(added)}], workstream tacit-memory", result.Text);
         Assert.Contains("想清楚了画像里缺的是人的倾向", result.Text);
     }
 
@@ -96,7 +96,7 @@ public sealed class RecallActivityTests : IDisposable
     public async Task Without_a_kind_pages_and_activities_are_recalled_together()
     {
         await WritePage("tacit-memory/db-upgrade", "数据库升级后扩展丢失", "PGroonga 扩展没有随升级重装。");
-        await Write("数据库升级后中文搜索又没有结果", project: "tacit-memory");
+        await Write("数据库升级后中文搜索又没有结果", workstream: "tacit-memory");
 
         var result = await Recall("数据库升级");
 
@@ -110,7 +110,7 @@ public sealed class RecallActivityTests : IDisposable
     public async Task Kind_pages_leaves_out_activities_and_kind_activities_leaves_out_pages()
     {
         await WritePage("tacit-memory/db-upgrade", "数据库升级后扩展丢失", "PGroonga 扩展没有随升级重装。");
-        await Write("数据库升级后中文搜索又没有结果", project: "tacit-memory");
+        await Write("数据库升级后中文搜索又没有结果", workstream: "tacit-memory");
 
         var pages = await Recall("数据库升级", kind: "pages");
         var activities = await Recall("数据库升级", kind: "activities");
@@ -135,20 +135,20 @@ public sealed class RecallActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_keeps_only_the_activities_labelled_with_that_project()
+    public async Task Workstream_keeps_only_the_activities_labelled_with_that_workstream()
     {
         Month("## 2026-11-02\n- [tacit-memory] 部署失败的根因在缓存\n- 部署失败另一个没有标签的活动\n");
 
-        var result = await Recall("部署失败", kind: "activities", project: "tacit-memory");
+        var result = await Recall("部署失败", kind: "activities", workstream: "tacit-memory");
 
         Assert.Contains("部署失败的根因在缓存", result.Text);
         Assert.DoesNotContain("没有标签的活动", result.Text);
     }
 
     [Fact]
-    public async Task The_mainline_is_not_an_activity()
+    public async Task The_workstream_is_not_an_activity()
     {
-        File.WriteAllText(Path.Combine(Memory, "recent.md"), "- 部署失败 主线内容\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "- 部署失败 主线内容\n");
 
         var result = await Recall("部署失败", kind: "activities");
 
@@ -229,9 +229,9 @@ public sealed class RecallActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task An_activity_is_found_by_its_project_label_alone()
+    public async Task An_activity_is_found_by_its_workstream_label_alone()
     {
-        await Write("差旅报销单补交了", project: "tacit-memory");
+        await Write("差旅报销单补交了", workstream: "tacit-memory");
 
         var result = await Recall("tacit-memory", kind: "activities");
 

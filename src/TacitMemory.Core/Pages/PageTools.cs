@@ -64,7 +64,11 @@ internal sealed class PageTools(
             nextStep = $"Call write_page again with only the parameters for op {request.Op}: page, {string.Join(", ", taken)}.";
         }
         if (problems.Count > 0)
+        {
+            if (request.UnknownParameters?.Contains("project") == true)
+                nextStep += " The workstream is the first part of the page ID, as in workstream/slug.";
             return ToolText.Refuse(problems, nextStep);
+        }
 
         if (string.IsNullOrWhiteSpace(request.Page))
             return ToolText.Refuse("Missing parameter page.", "Call write_page again with page set to a page ID such as my-app/db-upgrade.");
@@ -337,8 +341,8 @@ internal sealed class PageTools(
 
     private void CheckAliasLines(IEnumerable<string> aliases, List<string> problems)
     {
-        foreach (var alias in aliases.Where(alias => alias.Contains('\n') || Length(alias) > config.Limits.Page.AliasLength))
-            problems.Add($"Alias {ToolText.Quote(alias)} must be one line of at most {config.Limits.Page.AliasLength} characters.");
+        foreach (var alias in aliases.Where(alias => alias.Contains('\n')))
+            problems.Add($"Alias {ToolText.Quote(alias)} must be one line.");
     }
 
     private List<string> CheckAddedAliases(IReadOnlyList<string> raw, List<string> problems)
@@ -363,8 +367,6 @@ internal sealed class PageTools(
             problems.Add("Missing parameter title.");
         else if (title.Contains('\n'))
             problems.Add("The title must be a single line.");
-        else if (Length(title) > config.Limits.Page.TitleLength)
-            problems.Add($"The title has {Length(title)} characters; the limit is {config.Limits.Page.TitleLength}.");
     }
 
     private List<string> CheckAliases(IReadOnlyList<string> raw, List<string> problems)
@@ -466,7 +468,6 @@ internal sealed class PageTools(
     private static string SectionList(PageDocument document) =>
         string.Join('\n', document.Sections.Select(section => $"- {section.Name} [{section.Code}]"));
 
-    private string PathOf(PageId id) => Path.Combine(config.MemoryPath, "pages", id.Project, id.Slug + ".md");
+    private string PathOf(PageId id) => Path.Combine(config.MemoryPath, "pages", id.Workstream, id.Slug + ".md");
 
-    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
 }

@@ -322,21 +322,23 @@ public sealed class RestoreTests : IDisposable
     public async Task After_the_restore_recall_and_the_resident_block_reflect_the_backup()
     {
         _home.Bind();
-        await _service.WritePageAsync(Create("old-project/old-page", "旧版本记录", "旧版本内容"));
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n");
+        await _service.WritePageAsync(Create("old-workstream/old-page", "旧版本记录", "旧版本内容"));
         var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("new-project/new-page", "新版本记录", "新版本内容"));
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n### new-workstream\n背景：新的主线。\n");
+        await _service.WritePageAsync(Create("new-workstream/new-page", "新版本记录", "新版本内容"));
         // The service renders the resident block itself, after its debounce; no second renderer may run beside it.
-        await Eventually(() => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-project", StringComparison.Ordinal));
+        await Eventually(() => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
 
         await _service.RestoreAsync(backup.Location, config: false);
 
         var found = await _service.RecallAsync(new RecallRequest { Query = "旧版本记录" });
-        Assert.Contains("old-project/old-page", found.Text, StringComparison.Ordinal);
+        Assert.Contains("old-workstream/old-page", found.Text, StringComparison.Ordinal);
         var missing = await _service.RecallAsync(new RecallRequest { Query = "新版本记录" });
-        Assert.DoesNotContain("new-project/new-page", missing.Text, StringComparison.Ordinal);
-        await Eventually(() => !File.ReadAllText(AgentsMd).Contains("new-project", StringComparison.Ordinal));
+        Assert.DoesNotContain("new-workstream/new-page", missing.Text, StringComparison.Ordinal);
+        await Eventually(() => !File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
         var block = File.ReadAllText(AgentsMd);
-        Assert.Contains("old-project", block, StringComparison.Ordinal);
+        Assert.Contains("old-workstream", block, StringComparison.Ordinal);
     }
 
     [Fact]

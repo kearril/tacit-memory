@@ -6,7 +6,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed class PromptDocumentTests : IDisposable
 {
-    private const int FixedLimit = 2500;
+    private const int FixedLimit = 3000;
 
     private readonly TestHome _home = new();
     private readonly ConcurrentQueue<string> _notices = new();

@@ -3,9 +3,7 @@ using TacitMemory.Core.Persona;
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The deterministic domain checks listed under "Over-limit sections and domain hygiene" that are not format problems: a domain
-/// with only one entry. The domains over <c>limits.domainEntries</c> and over <c>limits.domains</c> are format problems, which
-/// the over-limit findings already list.
+/// The deterministic domain checks listed under "Domain hygiene" that are not format problems: a domain with only one entry.
 /// </summary>
 internal static class DomainHygiene
 {

@@ -51,7 +51,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
         Assert.Contains("tacit-memory", instructions);
         Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] MCP 接缝测试活动\n</recent_activity>", instructions);
-        Assert.DoesNotContain("## Projects", instructions);
+        Assert.DoesNotContain("## Workstreams", instructions);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.False(recent.Annotations?.IdempotentHint);
         Assert.False(recent.Annotations?.OpenWorldHint);
         Assert.Equal(
-            ["confirm_no_secret", "project", "replaces", "source", "text"],
+            ["confirm_no_secret", "replaces", "source", "text", "workstream"],
             recent.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         var persona = tools["write_persona"].ProtocolTool;
         Assert.False(persona.Annotations?.ReadOnlyHint);
@@ -154,7 +154,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.Equal(["incident", "decision", "entity", "work"], Values(tools["write_page"].ProtocolTool, "type"));
         Assert.Equal(["pages", "activities", "rules", "persona"], Values(tools["recall"].ProtocolTool, "kind"));
         Assert.Equal(
-            ["domain", "from", "kind", "page", "project", "query", "to"],
+            ["domain", "from", "kind", "page", "query", "to", "workstream"],
             tools["recall"].ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).Order());
         Assert.False(tools["write_page"].ProtocolTool.InputSchema.GetProperty("properties").GetProperty("page").TryGetProperty("enum", out _));
     }
@@ -165,7 +165,7 @@ public sealed class McpHostTests : IAsyncLifetime
         // The limits are read once at start, so the service is restarted on the config the test writes.
         await _host.DisposeAsync();
         _service.Dispose();
-        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { itemLength: 150, page: { minAliases: 3 } }\n");
+        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { page: { minAliases: 3 } }\n");
         _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
 
@@ -174,12 +174,10 @@ public sealed class McpHostTests : IAsyncLifetime
         var catalog = ToolCatalog.Describe(_service.Config.Limits).ToDictionary(tool => tool.Name);
 
         Assert.Contains("At least 3.", Parameter(served["write_page"].ProtocolTool, "aliases"));
-        Assert.Contains("at most 150 characters", served["write_recent"].ProtocolTool.Description);
-        Assert.Contains("(150 characters)", served["write_persona"].ProtocolTool.Description);
         foreach (var tool in served.Values)
         {
             var description = tool.ProtocolTool.Description ?? "";
-            Assert.DoesNotContain("100 characters", description);
+            Assert.DoesNotMatch(@"\d+ characters", description);
             Assert.DoesNotContain("by default", description);
             Assert.DoesNotContain('{', description);
         }
@@ -242,14 +240,15 @@ public sealed class McpHostTests : IAsyncLifetime
             "### Persona candidates to remove\n",
             "### Weeks to summarize\n",
             "### Months to summarize\n",
-            "### Mainline material\n",
+            "### Workstream material\n",
             "## B. For proposals\n",
             "### Persona evidence\n",
             "### Incident lessons\n",
             "### Changed pages\n",
             "### Suspected duplicate pages\n",
             "### Conflicting persona entries\n",
-            "### Over-limit sections and domain hygiene\n",
+            "### Domain hygiene\n",
+            "### Length hints\n",
         };
         foreach (var heading in headings)
             Assert.Contains(heading, text);
@@ -285,7 +284,7 @@ public sealed class McpHostTests : IAsyncLifetime
         var written = await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
             ["text"] = "想清楚了画像里缺的是人的倾向",
-            ["project"] = "tacit-memory",
+            ["workstream"] = "tacit-memory",
         });
 
         Assert.NotEqual(true, written.IsError);
@@ -328,7 +327,7 @@ public sealed class McpHostTests : IAsyncLifetime
         await client.CallToolAsync("write_recent", new Dictionary<string, object?>
         {
             ["text"] = "想清楚了画像里缺的是人的倾向",
-            ["project"] = "tacit-memory",
+            ["workstream"] = "tacit-memory",
         });
 
         var read = await client.CallToolAsync("recall", new Dictionary<string, object?> { ["query"] = "画像", ["kind"] = "activities" });
@@ -355,7 +354,7 @@ public sealed class McpHostTests : IAsyncLifetime
         Assert.StartsWith(
             "Refused:\n- Unknown parameter op.\n- Unknown parameter items.\n- Unknown parameter hash.\nNext step: ",
             Text(refused));
-        Assert.Contains("The mainline is maintained by the tacit-consolidate skill.", Text(refused));
+        Assert.Contains("The workstream list is maintained by the tacit-consolidate skill.", Text(refused));
     }
 
     [Fact]

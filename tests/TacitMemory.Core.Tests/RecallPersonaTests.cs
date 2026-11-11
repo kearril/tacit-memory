@@ -29,7 +29,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\] 沟通：先要结论")]
     private static partial Regex CommunicationCode();
 
-    /// <summary>A persona with all four global sections, two domains and two projects, written out of their sorted order.</summary>
+    /// <summary>A persona with all four global sections, two domains and two workstreams, written out of their sorted order.</summary>
     private const string Fixture = """
         ## 红线
         - 不要删库；改为先备份
@@ -52,7 +52,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         - 性能/节点比较 → 不拿单次测速当日常结论
           <!-- 2026-11-06 原话「别拿单次测速下结论」 -->
 
-        ## 项目：tacit-memory
+        ## 主线：tacit-memory
         ### 协作规则
         - 发版 → 先跑全量测试
 
@@ -61,7 +61,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         ### 偏好
         - 频率：每天一次
 
-        ## 项目：my-app
+        ## 主线：my-app
         ### 偏好
         - 游戏内导出：先验收再发版
 
@@ -75,7 +75,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Rules, Domain = domain });
 
     [Fact]
-    public async Task Persona_lists_the_global_sections_then_domains_then_projects_each_sorted_with_short_codes()
+    public async Task Persona_lists_the_global_sections_then_domains_then_workstreams_each_sorted_with_short_codes()
     {
         WritePersona(Fixture);
 
@@ -84,14 +84,14 @@ public sealed partial class RecallPersonaTests : IDisposable
         Assert.False(result.IsError, result.Text);
         var order = new[]
         {
-            "Red lines, 1 of 5 entries:",
-            "Working rules, 1 of 15 entries:",
-            "Preferences, 1 of 10 entries:",
-            "Profile, 1 of 10 entries:",
-            "Domain backup, 1 of 10 entries. Trigger: 改备份策略时",
-            "Domain network-proxy, 1 of 10 entries. Trigger: 改代理、分流或测速时",
-            "Project my-app, 1 entry:",
-            "Project tacit-memory, 1 entry:",
+            "Red lines, 1 entry:",
+            "Working rules, 1 entry:",
+            "Preferences, 1 entry:",
+            "Profile, 1 entry:",
+            "Domain backup, 1 entry. Trigger: 改备份策略时",
+            "Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时",
+            "Workstream my-app, 1 entry:",
+            "Workstream tacit-memory, 1 entry:",
         };
         var positions = order.Select(text => result.Text.IndexOf(text, StringComparison.Ordinal)).ToList();
         Assert.All(positions, position => Assert.True(position >= 0, result.Text));
@@ -175,7 +175,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         var result = await Rules("network-proxy");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("Domain network-proxy, 1 of 10 entries. Trigger: 改代理、分流或测速时", result.Text);
+        Assert.Contains("Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时", result.Text);
         Assert.Matches(@"- \[[0-9a-f]{6}\] 性能/节点比较 → 不拿单次测速当日常结论", result.Text);
         Assert.DoesNotContain("Domain backup", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);
@@ -193,7 +193,8 @@ public sealed partial class RecallPersonaTests : IDisposable
         var backup = result.Text.IndexOf("Domain backup,", StringComparison.Ordinal);
         var proxy = result.Text.IndexOf("Domain network-proxy,", StringComparison.Ordinal);
         Assert.True(backup >= 0 && proxy > backup, result.Text);
-        Assert.DoesNotContain("Project", result.Text);
+        Assert.DoesNotContain("发版", result.Text);
+        Assert.DoesNotContain("游戏内导出", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);
     }
 
@@ -213,7 +214,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     [Fact]
     public async Task Rules_say_no_relevant_memory_when_the_persona_has_no_domain()
     {
-        WritePersona("## 红线\n- 不要删库；改为先备份\n\n## 项目：tacit-memory\n### 协作规则\n- 发版 → 先跑全量测试\n");
+        WritePersona("## 红线\n- 不要删库；改为先备份\n\n## 主线：tacit-memory\n### 协作规则\n- 发版 → 先跑全量测试\n");
 
         var result = await Rules();
 
@@ -244,11 +245,11 @@ public sealed partial class RecallPersonaTests : IDisposable
     [InlineData("persona", null, null, "2026-10-31", null)]
     [InlineData("persona", null, null, null, "tacit-memory")]
     [InlineData("rules", null, "2026-10-01", null, "backup")]
-    public async Task Persona_and_rules_refuse_the_parameters_that_do_not_apply(string kind, string? page, string? from, string? to, string? project)
+    public async Task Persona_and_rules_refuse_the_parameters_that_do_not_apply(string kind, string? page, string? from, string? to, string? workstream)
     {
         WritePersona(Fixture);
 
-        var result = await Service.RecallAsync(new RecallRequest { Kind = kind, Page = page, From = from, To = to, Project = project, Domain = "backup" });
+        var result = await Service.RecallAsync(new RecallRequest { Kind = kind, Page = page, From = from, To = to, Workstream = workstream, Domain = "backup" });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:", result.Text);

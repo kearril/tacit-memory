@@ -54,18 +54,17 @@ public enum ModelProvider
     Cloudflare,
 }
 
-/// <param name="Domains">Domains the persona may hold; a new domain beyond it is refused.</param>
-/// <param name="DomainEntries">Entries a domain may hold in all four sections together.</param>
-/// <param name="TriggerLength">Characters a domain's trigger may have.</param>
-/// <param name="Brief">Characters a project brief may have; only its page index is shortened to fit.</param>
-public sealed record LimitsConfig(PersonaLimits Persona, int ItemLength, int Mainline, PageLimits Page, int Domains, int DomainEntries, int TriggerLength, int Brief);
+/// <param name="Brief">Characters a workstream brief may have; only its page index is shortened to fit.</param>
+/// <param name="Page">The limits of detail pages.</param>
+public sealed record LimitsConfig(int Brief, PageLimits Page);
 
-public sealed record PersonaLimits(int RedLines, int WorkingRules, int Preferences, int Profile);
-
-public sealed record PageLimits(int TitleLength, int AliasLength, int MinAliases);
+/// <param name="MinAliases">Fewest aliases a detail page must have.</param>
+public sealed record PageLimits(int MinAliases);
 
 /// <param name="RemindCandidates">Candidates at which the consolidation reminder is due.</param>
-public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates);
+/// <param name="HintItemLength">Characters above which a persona item or an activity gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
+/// <param name="HintResidentLength">Characters above which the resident block gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
+public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates, int HintItemLength, int HintResidentLength);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
 public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameTopic, Threshold? RuleConflict);
@@ -125,6 +124,4 @@ public sealed record ResidentDocument(
     string? Preferences,
     string? Profile,
     string? SituationalRules,
-    string? Mainline,
-    string? RecentWeeks,
-    string? Projects);
+    string? Workstreams);

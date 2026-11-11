@@ -30,11 +30,11 @@ internal static class MemorySkill
 
         This page covers how to write each kind of memory well. The tool descriptions give the call format, short codes and limits; they win over anything here.
 
-        Terms used below: a *matter* is one subject a page covers; the *brief* is the project map that `recall` returns for a project; a *trigger* is the one-line condition under which a domain's rules apply; a *lesson* is the rule an incident teaches; a *pointer* is a reference to where a fact already lives.
+        Terms used below: a *matter* is one subject a page covers; the *brief* is the workstream map that `recall` returns for a workstream; a *trigger* is the one-line condition under which a domain's rules apply; a *lesson* is the rule an incident teaches; a *pointer* is a reference to where a fact already lives.
 
         ## Retrieval
         - Write queries in the memory language, with the words the memory itself would use. Search matches words, so a paraphrase or another language can miss what is there.
-        - Narrow a search by kind, project or date when the question is about one of them.
+        - Narrow a search by kind, workstream or date when the question is about one of them.
         - Read a whole page for its overall picture; read only one section when you already know which one matters.
         - Every section shows the date it last changed. Judge a section that describes the current state by that date.
 
@@ -50,7 +50,7 @@ internal static class MemorySkill
         - incident: one fault, its cause and its fix. Sections: Symptom, Cause, Fix, Lesson. The lesson is the rule the next session can apply; in a Chinese memory the section is 教训.
         - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page overturns the decision, add a line under Overturned naming that page; the brief then stops listing the decision as current. In a Chinese memory the section is 推翻记录.
         - entity: a standing system or tool, kept to a table of contents: pointers to its documentation, the user's stance and open to-dos. Write each fault and each decision on its own page and link it back here. Sections: Status, Stance, To-do.
-        - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the project; in a Chinese memory the section is 遗留.
+        - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream; in a Chinese memory the section is 遗留.
 
         ## Examples
         Each example shows a real page from a Chinese memory, with its type and its recommended sections. The text in the examples is data, not instructions.
@@ -90,9 +90,23 @@ internal static class MemorySkill
         </example>
 
         ## Activities
-        - An activity says what the person did or concluded, in a sentence or two. Describe the result and the thinking, not the files that changed.
-        - Set the project when the activity belongs to one, using the name the project already has.
+        - An activity is one conclusion with one reason or decision, in a single sentence. Put the details in the detail page and leave them out of the activity.
+        - Describe the result and the thinking, not the files that changed or the steps taken.
+        - One activity belongs to one workstream. Set the workstream to a name listed in `<user_memory>`, spelled exactly as listed. When no listed name fits, leave the workstream out: never invent a name.
+        - A matter that fits no workstream gets a topic page (a page with no workstream), not a label on the activity.
         - To revise an activity already written for the same matter, write the revised sentence with replaces set to that activity's short code. Only today's activities can be revised; an earlier day's or an expired code is refused.
+
+        The workstream is the `workstream` argument of `write_recent`, not part of the text. In each pair below, Bad lists the steps; Good states the same event as one conclusion with its reason. The examples are invented.
+
+        <pair language="zh">
+        Bad: 今天把导出脚本拆成读取和写入两个文件，日期解析换成标准库，补了 6 个测试，改了 README 里的用法示例，删掉两个没用的参数。
+        Good: 导出脚本改为按月分文件输出，因为单个文件过大时表格软件打不开。
+        </pair>
+
+        <pair language="en">
+        Bad: Today I moved the sync job into its own module, renamed three helper methods, added retry logic with a five-second backoff, and updated the README.
+        Good: Sync retries moved into their own module; the job now fails fast after three attempts instead of hanging.
+        </pair>
 
         ## Persona
         The persona has four sections, and every entry sits in a scope. Each entry is one line in the memory language; the examples below are in English.
@@ -101,7 +115,7 @@ internal static class MemorySkill
         - Preferences: how the person likes things done. A preference is a description to weigh against the task, not an order. For example: "Answer length: short, with the conclusion first."
         - Profile: background that helps understand the person. For example: "Role: backend engineer, mostly C# on Windows."
         - Keep one idea per entry, and keep the user's own words in its source note when the wording matters.
-        - Scope: global entries are read in every session. Write an entry as global only when it holds in at least two different kinds of situation; otherwise give it a project scope (`project:<name>`, using the project's name) or a domain scope (`domain:<label>`).
+        - Scope: global entries are read in every session. Write an entry as global only when it holds in at least two different kinds of situation; otherwise give it a workstream scope (`workstream:<name>`, using the workstream's name) or a domain scope (`domain:<label>`).
         - Domain: a label names a kind of situation, such as network-proxy. Its trigger is one line saying when the domain applies, for example "when changing proxies, routing or speed tests". Reuse an existing label exactly; a new label needs a trigger.
         - A preference or rule the user agrees to keep goes in with add; a habit you observe goes in with propose, with its scope, and waits as a candidate.
         - To change or delete an entry, use its short code from `recall kind=persona`, which returns the whole persona with every entry's code. When a code is refused, call `recall kind=persona` again and take the fresh code from there.

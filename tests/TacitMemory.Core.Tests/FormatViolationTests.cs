@@ -80,33 +80,24 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     [Fact]
-    public async Task A_title_over_fifty_characters_is_listed_and_disappears_once_shortened()
+    public async Task A_long_title_and_a_long_alias_are_not_listed_because_pages_have_no_length_limit()
     {
         using var service = Open();
-        WriteFile("pages/tacit-memory/long.md", Page(title: new string('长', 51)));
+        WriteFile("pages/tacit-memory/long.md", Page(title: new string('长', 300), aliases: $"[数据库升级, {new string('a', 300)}]"));
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/long.md", "line 2");
-
-        WriteFile("pages/tacit-memory/long.md", Page(title: new string('长', 50)));
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/long.md");
+        Assert.DoesNotContain("pages/tacit-memory/long.md", Section(await service.ConsolidationReportAsync(), Category));
     }
 
     [Fact]
-    public async Task A_page_with_fewer_than_two_aliases_or_a_long_alias_is_listed_and_disappears_once_fixed()
+    public async Task A_page_with_fewer_than_two_aliases_is_listed_and_disappears_once_fixed()
     {
         using var service = Open();
         WriteFile("pages/tacit-memory/one-alias.md", Page(aliases: "[只有一个]"));
-        WriteFile("pages/tacit-memory/long-alias.md", Page(aliases: $"[数据库升级, {new string('a', 31)}]"));
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
-        AssertListed(section, "pages/tacit-memory/one-alias.md", "line 3");
-        AssertListed(section, "pages/tacit-memory/long-alias.md", "line 3");
+        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/one-alias.md", "line 3");
 
         WriteFile("pages/tacit-memory/one-alias.md", Page(aliases: "[只有一个, db upgrade]"));
-        WriteFile("pages/tacit-memory/long-alias.md", Page(aliases: "[数据库升级, db upgrade]"));
-        section = Section(await service.ConsolidationReportAsync(), Category);
-        AssertNotListed(section, "pages/tacit-memory/one-alias.md");
-        AssertNotListed(section, "pages/tacit-memory/long-alias.md");
+        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/one-alias.md");
     }
 
     [Fact]
@@ -183,11 +174,11 @@ public sealed class FormatViolationTests : IDisposable
     public async Task A_misnamed_page_file_still_gets_its_content_checks()
     {
         using var service = Open();
-        WriteFile("pages/tacit-memory/Bad_Name.md", Page(title: new string('长', 51)));
+        WriteFile("pages/tacit-memory/Bad_Name.md", Page(aliases: "[只有一个]"));
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
         AssertListed(section, "pages/tacit-memory/Bad_Name.md", "file name");
-        AssertListed(section, "pages/tacit-memory/Bad_Name.md", "line 2");
+        AssertListed(section, "pages/tacit-memory/Bad_Name.md", "line 3");
     }
 
     [Fact]
@@ -241,7 +232,7 @@ public sealed class FormatViolationTests : IDisposable
 
     [Theory]
     [InlineData("领域", "Domain")]
-    [InlineData("项目", "Project")]
+    [InlineData("主线", "Workstream")]
     [InlineData("触发", "Trigger")]
     [InlineData("作用域：", "Scope:")]
     public async Task Mixed_headings_of_the_persona_structure_words_are_a_hint(string zh, string en)
@@ -294,11 +285,11 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
         foreach (var number in Enumerable.Range(1, 21))
-            WriteFile($"pages/tacit-memory/long-{number:00}.md", Page(title: new string('长', 51)));
+            WriteFile($"pages/tacit-memory/long-{number:00}.md", Page(aliases: "[只有一个]"));
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
-        AssertListed(section, "pages/tacit-memory/long-20.md", "line 2");
+        AssertListed(section, "pages/tacit-memory/long-20.md", "line 3");
         AssertNotListed(section, "pages/tacit-memory/long-21.md");
         Assert.Contains("1 more not listed", section);
     }

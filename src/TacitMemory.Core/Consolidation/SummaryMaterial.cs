@@ -2,23 +2,21 @@ using System.Globalization;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The material of the summary categories in part A: the completed ISO weeks and calendar months that have activities but no
-/// summary line yet, and the mainline material. Everything is read from the memory repository as it is now and nothing is
-/// written: the agent writes the summaries and the mainline itself.
+/// summary line yet, and the workstream material. Everything is read from the memory repository as it is now and nothing is
+/// written: the agent writes the summaries and the workstream entries itself.
 /// </summary>
 internal static class SummaryMaterial
 {
-    /// <summary>The group of the activities that have no project label, in the memory language.</summary>
+    /// <summary>The group of the activities that have no workstream label, in the memory language.</summary>
     private static readonly Localized OtherGroup = new("其他", "Other");
 
-    /// <summary>How many of the latest weekly summaries the mainline material shows.</summary>
-    private const int MainlineWeeks = 4;
-
-    /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by project.</summary>
+    /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by workstream.</summary>
     public static ConsolidationSection Weeks(ConsolidationContext context) =>
         new(ConsolidationTitles.WeeksToSummarize,
             SummaryCalendar.Unsummarized(context.Config.MemoryPath, context.Today)
@@ -51,40 +49,49 @@ internal static class SummaryMaterial
         return new ConsolidationSection(ConsolidationTitles.MonthsToSummarize, findings);
     }
 
-    /// <summary>The latest weekly summaries, newest first, and the mainline as recent.md holds it now.</summary>
-    public static ConsolidationSection Mainline(ConsolidationContext context)
+    /// <summary>
+    /// The established workstreams that have activities since the baseline, the in-progress week included, each with its
+    /// current entry and those activities, oldest first. A workstream without new activity is not listed. With no established
+    /// workstream the section says so in one line.
+    /// </summary>
+    public static async Task<ConsolidationSection> WorkstreamAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
-        var memory = context.Config.MemoryPath;
-        var latest = ReadSummaries(memory)
-            .Where(summary => summary.Kind == SummaryKind.Week)
-            .OrderByDescending(summary => summary.First)
-            .Take(MainlineWeeks)
+        var established = WorkstreamFile.Established(context.Config.MemoryPath);
+        if (established.Count == 0)
+            return new ConsolidationSection(ConsolidationTitles.WorkstreamMaterial, ["No workstream is established in workstreams.md."]);
+
+        var fresh = (await context.NewActivitiesAsync(cancellationToken))
+            .Select(item => item.Activity)
+            .Where(activity => activity.Workstream is not null)
             .ToList();
-
-        var lines = new List<string> { "Latest weekly summaries, newest first:" };
-        if (latest.Count == 0)
-            lines.Add("- None yet.");
-        else
-            lines.AddRange(latest.Select(summary => $"- {summary.Text}"));
-
-        var items = MainlineSection.ReadItems(memory);
-        if (items.Count == 0)
+        var findings = new List<string>();
+        foreach (var entry in established)
         {
-            lines.Add("The mainline is empty; write it from the weekly summaries above.");
-        }
-        else
-        {
-            lines.Add("Mainline in recent.md:");
-            lines.AddRange(items.Select(item => $"- {item}"));
-        }
-        lines.Add($"Limit: {context.Config.Limits.Mainline} items.");
+            var activities = fresh
+                .Where(activity => activity.Workstream == entry.Name)
+                .OrderBy(activity => activity.Day)
+                .ThenBy(activity => activity.Line)
+                .ToList();
+            if (activities.Count == 0)
+                continue;
 
-        return new ConsolidationSection(ConsolidationTitles.MainlineMaterial, [string.Join('\n', lines)]);
+            var lines = new List<string>
+            {
+                $"- {entry.Name}",
+                $"  - background: {entry.Background}",
+                $"  - recent: {entry.Recent ?? "none yet"}",
+                "  - activities since the last consolidation:",
+            };
+            lines.AddRange(activities.Select(activity => $"    - {Day(activity.Day)} {activity.Body}"));
+            findings.Add(string.Join('\n', lines));
+        }
+
+        return new ConsolidationSection(ConsolidationTitles.WorkstreamMaterial, findings);
     }
 
     /// <summary>
-    /// One week as a finding: its label and dates, the month file its summary goes into, and its activities grouped by project,
-    /// the projects in name order and the activities that have none last. Each activity is its text as the log holds it.
+    /// One week as a finding: its label and dates, the month file its summary goes into, and its activities grouped by workstream,
+    /// the workstreams in name order and the activities that have none last. Each activity is its text as the log holds it.
     /// </summary>
     private static string WeekFinding(MemoryLanguage language, UnsummarizedPeriod period)
     {
@@ -93,7 +100,7 @@ internal static class SummaryMaterial
             $"- {period.Label} ({Day(period.First)} to {Day(period.Last)}): write its summary line in {RecentFile.RelativePath(SummaryLines.FileMonthOfWeek(period.First))}. Activities ({period.Activities.Count}):",
         };
         var groups = period.Activities
-            .GroupBy(activity => activity.Project)
+            .GroupBy(activity => activity.Workstream)
             .OrderBy(group => group.Key is null ? 1 : 0)
             .ThenBy(group => group.Key, StringComparer.Ordinal);
         foreach (var group in groups)

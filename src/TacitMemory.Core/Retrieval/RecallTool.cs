@@ -10,13 +10,13 @@ using TacitMemory.Core.Tools;
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The <c>recall</c> tool: reads one page by ID, reads the persona or its domain rules, returns a project's brief when given only a
-/// project, or searches pages and activities by full text and by vector, merges the two with reciprocal rank fusion, reranks the
+/// The <c>recall</c> tool: reads one page by ID, reads the persona or its domain rules, returns a workstream's brief when given only a
+/// workstream, or searches pages and activities by full text and by vector, merges the two with reciprocal rank fusion, reranks the
 /// merged units and returns the best sections, merged per page. The persona is never searched. It never changes a file.
 /// </summary>
 internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTools pages, EmbeddingModel embedding, RerankerModel reranker, VectorSync vectors)
 {
-    private readonly ProjectBrief _brief = new(config, index);
+    private readonly WorkstreamBrief _brief = new(config, index);
 
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
     public const string NoMemory = "No relevant memory.";
@@ -38,7 +38,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     private const int RrfK = 60;
 
     /// <summary>Every parameter <c>recall</c> takes, in the order the next step lists them.</summary>
-    private static readonly string[] Parameters = ["query", "page", "project", "from", "to", "kind", "domain"];
+    private static readonly string[] Parameters = ["query", "page", "workstream", "from", "to", "kind", "domain"];
 
     /// <summary>The next step when the call gave a parameter the schema does not declare.</summary>
     private static readonly string ParametersStep =
@@ -60,8 +60,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var kind = request.Kind?.Trim();
         if (kind is ToolValues.RecallKinds.Persona or ToolValues.RecallKinds.Rules)
             return ReadStructured(request, kind, unknown);
-        if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Project))
-            return ProjectBriefCall(request, unknown);
+        if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Workstream))
+            return WorkstreamBriefCall(request, unknown);
         if (hasPage && !hasQuery && !hasDomain)
             return unknown.Count == 0 ? pages.Read(request, index) : ToolText.Refuse(unknown, ParametersStep);
 
@@ -85,9 +85,9 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             return ToolText.Refuse(problems, nextStep);
         }
 
-        var project = string.IsNullOrWhiteSpace(request.Project) ? null : request.Project.Trim().ToLowerInvariant();
+        var workstream = string.IsNullOrWhiteSpace(request.Workstream) ? null : request.Workstream.Trim().ToLowerInvariant();
         var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
-        var filter = new IndexFilter(project, from, to, activities);
+        var filter = new IndexFilter(workstream, from, to, activities);
         var candidates = config.Retrieval.Candidates;
         var fullText = index.Search(request.Query!, filter, candidates);
 
@@ -113,7 +113,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
 
     /// <summary>
     /// <c>kind=persona</c> and <c>kind=rules</c>: they read the persona directly, so they take neither a page nor a date or
-    /// project filter; <c>query</c> is ignored. <c>domain</c> goes only with <c>rules</c>.
+    /// workstream filter; <c>query</c> is ignored. <c>domain</c> goes only with <c>rules</c>.
     /// </summary>
     private ToolResult ReadStructured(RecallRequest request, string kind, List<string> unknown)
     {
@@ -123,8 +123,8 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             problems.Add($"Parameter page cannot be combined with kind={kind}.");
         if (domain is not null && kind == ToolValues.RecallKinds.Persona)
             problems.Add("Parameter domain applies only to kind=rules.");
-        if (!string.IsNullOrWhiteSpace(request.Project))
-            problems.Add($"Parameter project does not apply to kind={kind}.");
+        if (!string.IsNullOrWhiteSpace(request.Workstream))
+            problems.Add($"Parameter workstream does not apply to kind={kind}.");
         if (!string.IsNullOrWhiteSpace(request.From))
             problems.Add($"Parameter from does not apply to kind={kind}.");
         if (!string.IsNullOrWhiteSpace(request.To))
@@ -140,7 +140,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     {
         if (PersonaDocument.Read(PersonaPath) is not { } persona)
             return NotUtf8();
-        return ToolText.Ok(PersonaReading.Whole(persona, config.Limits) ?? NoMemory);
+        return ToolText.Ok(PersonaReading.Whole(persona) ?? NoMemory);
     }
 
     /// <summary>
@@ -174,7 +174,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             domains = [chosen];
         }
 
-        return ToolText.Ok(PersonaReading.Domains(persona, domains, config.Limits) ?? NoMemory);
+        return ToolText.Ok(PersonaReading.Domains(persona, domains) ?? NoMemory);
     }
 
     private string PersonaPath => Path.Combine(config.MemoryPath, PersonaFiles.Persona);
@@ -184,32 +184,32 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         $"Save {PersonaFiles.Persona} as UTF-8, then call recall again with the same kind.");
 
     /// <summary>
-    /// <c>recall</c> with only <c>project</c>: the project's brief. It takes <c>from</c> and <c>to</c> as its date range, and
+    /// <c>recall</c> with only <c>workstream</c>: the workstream's brief. It takes <c>from</c> and <c>to</c> as its date range, and
     /// refuses <c>kind</c>, which has no meaning for a brief.
     /// </summary>
-    private ToolResult ProjectBriefCall(RecallRequest request, List<string> unknown)
+    private ToolResult WorkstreamBriefCall(RecallRequest request, List<string> unknown)
     {
         var problems = new List<string>(unknown);
         var from = Date(request.From, "from", problems);
         var to = Date(request.To, "to", problems);
         if (from > to)
             problems.Add("from is later than to.");
-        var raw = request.Project!.Trim();
-        var project = raw.ToLowerInvariant();
-        if (project != PageId.Topics && !PageId.IsProjectName(project))
-            problems.Add($"Project {ToolText.Quote(raw)} may only use a-z, 0-9, '.', '_' and '-', and must not start with '.' or '_' (except {PageId.Topics}).");
+        var raw = request.Workstream!.Trim();
+        var workstream = raw.ToLowerInvariant();
+        if (workstream != PageId.Topics && !PageId.IsWorkstreamName(workstream))
+            problems.Add($"Workstream {ToolText.Quote(raw)} may only use a-z, 0-9, '.', '_' and '-', and must not start with '.' or '_' (except {PageId.Topics}).");
         if (!string.IsNullOrWhiteSpace(request.Kind))
-            problems.Add("kind does not apply to a project brief.");
+            problems.Add("kind does not apply to a workstream brief.");
         if (!string.IsNullOrWhiteSpace(request.Domain))
             problems.Add("Parameter domain applies only to kind=rules.");
         if (problems.Count > 0)
         {
             var nextStep = unknown.Count > 0 ? ParametersStep
-                : "Call recall again with project alone for the project brief, or with query and kind to search the project.";
+                : "Call recall again with workstream alone for the workstream brief, or with query and kind to search the workstream.";
             return ToolText.Refuse(problems, nextStep);
         }
 
-        return ToolText.Ok(_brief.Compose(project, from, to));
+        return ToolText.Ok(_brief.Compose(workstream, from, to));
     }
 
     /// <summary>Reciprocal rank fusion: each list adds 1 / (k + rank) to a unit's score.</summary>
@@ -267,7 +267,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             {
                 returned.AddRange(result);
                 shownResults++;
-                var label = sample.Project.Length > 0 ? $", project {sample.Project}" : "";
+                var label = sample.Workstream.Length > 0 ? $", workstream {sample.Workstream}" : "";
                 text.Append(CultureInfo.InvariantCulture, $"\n[{shownResults}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
                 continue;
             }

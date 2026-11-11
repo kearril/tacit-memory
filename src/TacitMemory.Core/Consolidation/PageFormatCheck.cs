@@ -17,7 +17,7 @@ internal static class PageFormatCheck
         var issues = new List<FormatIssue>();
         if (!named)
             issues.Add(new FormatIssue("", "file name", "file name",
-                $"A page file must be named pages/<project>/<slug>.md; the service does not read {relative} as a page.",
+                $"A page file must be named pages/<workstream>/<slug>.md; the service does not read {relative} as a page.",
                 FormatHandling.FixDirectly));
 
         var document = PageDocument.Parse(text, hasBom: false, slug);
@@ -31,7 +31,7 @@ internal static class PageFormatCheck
         return issues;
     }
 
-    /// <summary>The page ID that a path names, when the path is exactly <c>pages/&lt;project&gt;/&lt;slug&gt;.md</c>.</summary>
+    /// <summary>The page ID that a path names, when the path is exactly <c>pages/&lt;workstream&gt;/&lt;slug&gt;.md</c>.</summary>
     private static bool TryPageIdOf(string relative, out PageId id)
     {
         var parts = relative.Split('/');

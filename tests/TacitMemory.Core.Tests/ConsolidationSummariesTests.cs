@@ -2,7 +2,8 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// The consolidation's material for the summaries, through the facade: the completed ISO weeks and calendar months that lack a
-/// summary line, the latest weekly summaries and the mainline. Dates are the test clock's; each test moves it to the day it needs.
+/// summary line, and the workstream material (the established workstreams with activity since the last consolidation). Dates are
+/// the test clock's; each test moves it to the day it needs.
 /// </summary>
 public sealed class ConsolidationSummariesTests : IDisposable
 {
@@ -25,7 +26,14 @@ public sealed class ConsolidationSummariesTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "recent", month + ".md"), text.ReplaceLineEndings("\n"));
     }
 
-    private void Mainline(string text) => File.WriteAllText(Path.Combine(Memory, "recent.md"), text.ReplaceLineEndings("\n"));
+    private void Workstreams(string text) => File.WriteAllText(Path.Combine(Memory, "workstreams.md"), text.ReplaceLineEndings("\n"));
+
+    /// <summary>Stages every change of the memory repository and commits it, so the files written so far are in the baseline.</summary>
+    private void CommitAll(string message)
+    {
+        TestHome.Git(Memory, "add", "-A");
+        TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--allow-empty", "-m", message);
+    }
 
     /// <summary>Moves the test clock to 10:00 UTC on <paramref name="day"/>.</summary>
     private void ClockOn(DateOnly day)
@@ -50,7 +58,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     private async Task<string> Report(MemoryService service) => await service.ConsolidationReportAsync();
 
     [Fact]
-    public async Task A_completed_week_without_a_summary_lists_all_its_activities_grouped_by_project_with_the_month_to_write_in()
+    public async Task A_completed_week_without_a_summary_lists_all_its_activities_grouped_by_workstream_with_the_month_to_write_in()
     {
         using var service = Open();
         // Week 2026-W44 runs from Monday 10-26 to Sunday 11-01; its Thursday is 10-29, so its summary goes into the October file.
@@ -89,7 +97,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     }
 
     [Fact]
-    public async Task Activities_without_a_project_are_grouped_under_other_and_not_under_any_project()
+    public async Task Activities_without_a_workstream_are_grouped_under_other_and_not_under_any_workstream()
     {
         using var service = Open();
         Month("2026-11", "## 2026-11-03\n- 没有项目的活动\n");
@@ -181,36 +189,87 @@ public sealed class ConsolidationSummariesTests : IDisposable
     }
 
     [Fact]
-    public async Task The_mainline_material_gives_the_latest_four_weekly_summaries_and_the_mainline_items()
+    public async Task The_workstream_material_lists_only_workstreams_with_activity_since_the_last_consolidation_with_their_entries_and_activities()
     {
-        using var service = Open();
-        Month("2026-10",
-            "## 汇总\n- 2026-W40：第一周\n- 2026-W41：第二周\n- 2026-W42：第三周\n- 2026-W43：第四周\n- 2026-W44：第五周\n");
-        Mainline("## 近期主线\n- 主线一\n- 主线二\n");
+        _home.InitReady();
+        Workstreams("## 主线\n### alpha\n背景：一号主线。\n近况：正在收敛。\n### beta\n背景：二号主线。\n### gamma\n背景：三号主线，没有新活动。\n");
+        Month("2026-10", "## 2026-10-20\n- [alpha] 整理之前的活动\n");
+        CommitAll("consolidate: earlier pass");
+        Month("2026-11", "## 2026-11-09\n- [alpha] 本周的新活动\n- [beta] 贝塔的新活动\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         ClockOn(new DateOnly(2026, 11, 9));
 
-        var section = Section(await Report(service), "Mainline material");
+        var section = Section(await Report(service), "Workstream material");
 
-        Assert.Contains("2026-W44：第五周", section);
-        Assert.Contains("2026-W41：第二周", section);
-        Assert.DoesNotContain("2026-W40：第一周", section);
-        Assert.Contains("主线一", section);
-        Assert.Contains("主线二", section);
-        Assert.DoesNotContain("The mainline is empty", section);
+        Assert.Contains("alpha", section);
+        Assert.Contains("一号主线。", section);
+        Assert.Contains("正在收敛。", section);
+        Assert.Contains("本周的新活动", section);
+        Assert.Contains("beta", section);
+        Assert.Contains("二号主线。", section);
+        Assert.Contains("贝塔的新活动", section);
+        Assert.DoesNotContain("gamma", section);
+        Assert.DoesNotContain("三号主线", section);
+        Assert.DoesNotContain("整理之前的活动", section);
+        Assert.DoesNotContain("Latest weekly", section);
+    }
+
+    [Theory]
+    [InlineData("consolidation")]
+    [InlineData("init")]
+    [InlineData("none")]
+    public async Task The_workstream_material_takes_the_activities_since_the_baseline_whichever_kind_of_baseline_it_is(string baseline)
+    {
+        _home.InitReady();
+        Workstreams("## 主线\n### alpha\n背景：一号主线。\n");
+        if (baseline == "consolidation")
+        {
+            Month("2026-11", "## 2026-11-02\n- [alpha] 整理之前的活动\n");
+            CommitAll("consolidate: earlier pass");
+        }
+        else if (baseline == "none")
+        {
+            TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup memory");
+        }
+
+        Month("2026-11", "## 2026-11-02\n- [alpha] 整理之前的活动\n\n## 2026-11-09\n- [alpha] 之后的活动\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        ClockOn(new DateOnly(2026, 11, 9));
+
+        var section = Section(await Report(service), "Workstream material");
+
+        Assert.Contains("之后的活动", section);
+        if (baseline == "consolidation")
+            Assert.DoesNotContain("整理之前的活动", section);
+        else
+            Assert.Contains("整理之前的活动", section);
     }
 
     [Fact]
-    public async Task An_empty_mainline_is_said_in_one_line_next_to_the_weekly_summaries()
+    public async Task Without_an_established_workstream_the_workstream_material_says_so_in_one_line()
     {
         using var service = Open();
+        Workstreams("## 主线\n");
         Month("2026-10", "## 汇总\n- 2026-W44：第五周\n");
-        Mainline("## 近期主线\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
-        var section = Section(await Report(service), "Mainline material");
+        var section = Section(await Report(service), "Workstream material");
 
-        Assert.Contains("2026-W44：第五周", section);
-        Assert.Contains("The mainline is empty", section);
+        Assert.Contains("No workstream is established", section);
+        Assert.DoesNotContain("2026-W44", section);
+    }
+
+    [Fact]
+    public async Task An_established_workstream_without_activity_since_the_baseline_is_not_listed()
+    {
+        _home.InitReady();
+        Workstreams("## 主线\n### alpha\n背景：没有新活动的主线。\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await Report(service), "Workstream material");
+
+        Assert.DoesNotContain("alpha", section);
+        Assert.Contains("None.", section);
     }
 
     private static int CountOf(string text, string part)

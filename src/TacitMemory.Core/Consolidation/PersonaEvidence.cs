@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
@@ -13,10 +12,6 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class PersonaEvidence
 {
-    /// <summary>A source comment under an activity: its inner text is the quote mark and the quote, in either language.</summary>
-    private static readonly Regex SourceComment = new(
-        @"^\s*<!--\s*(?<inner>(?:原话|quote)「.*」)\s*-->\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
     /// <summary>The category from the candidate review, which is null when <c>candidates.md</c> is not valid UTF-8.</summary>
     public static async Task<ConsolidationSection> ProduceAsync(ConsolidationContext context, CandidateReview? review, CancellationToken cancellationToken)
     {
@@ -35,10 +30,12 @@ internal static class PersonaEvidence
             entries.Add((first, 0, text));
         }
 
-        foreach (var (activity, comment) in await NewActivitiesAsync(context, cancellationToken))
+        foreach (var (activity, comment) in await context.NewActivitiesAsync(cancellationToken))
         {
-            var project = activity.Project ?? "none";
-            entries.Add((activity.Day, 1, $"- {activity.Day:yyyy-MM-dd} activity [{activity.Code}] project {project}: {comment}"));
+            if (comment is null)
+                continue;
+            var workstream = activity.Workstream ?? "none";
+            entries.Add((activity.Day, 1, $"- {activity.Day:yyyy-MM-dd} activity [{activity.Code}] workstream {workstream}: {comment}"));
         }
 
         var lines = entries
@@ -48,35 +45,5 @@ internal static class PersonaEvidence
             .Select(entry => entry.Text)
             .ToList();
         return new ConsolidationSection(ConsolidationTitles.PersonaEvidence, lines);
-    }
-
-    /// <summary>
-    /// The activities with a source comment that are not in the baseline's month file, each with its comment's inner text. An
-    /// activity is new when its short code is missing from the file as the baseline commit has it; without a baseline, every
-    /// activity is new.
-    /// </summary>
-    private static async Task<List<(RecentFile.Activity Activity, string Comment)>> NewActivitiesAsync(ConsolidationContext context, CancellationToken cancellationToken)
-    {
-        var result = new List<(RecentFile.Activity, string)>();
-        foreach (var (relative, full) in RecentFile.MonthFiles(context.Config.MemoryPath))
-        {
-            if (TextFile.Read(full) is not { } read)
-                continue;
-            var before = context.Baseline.Commit is { } commit ? await context.Git.ShowAsync(commit.Hash, relative, cancellationToken) : null;
-            var known = before is null
-                ? new HashSet<string>(StringComparer.Ordinal)
-                : RecentFile.Activities(before).Select(activity => activity.Code).ToHashSet(StringComparer.Ordinal);
-
-            var lines = read.Text.Split('\n');
-            foreach (var activity in RecentFile.Activities(read.Text))
-            {
-                if (known.Contains(activity.Code) || activity.Line + 1 >= lines.Length)
-                    continue;
-                if (SourceComment.Match(lines[activity.Line + 1].TrimEnd('\r')) is { Success: true } match)
-                    result.Add((activity, match.Groups["inner"].Value));
-            }
-        }
-
-        return result;
     }
 }

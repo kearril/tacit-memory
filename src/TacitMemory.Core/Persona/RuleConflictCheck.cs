@@ -99,7 +99,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
 
     /// <summary>
     /// The scopes a new entry is judged against: the global entries, and the entries of its own scope. The index is asked
-    /// for these scopes only, so entries of other domains and projects are never offered.
+    /// for these scopes only, so entries of other domains and workstreams are never offered.
     /// </summary>
     internal static IReadOnlyList<PersonaScope> ScopesJudged(PersonaScope scope) => scope.IsGlobal ? [PersonaScope.Global] : [PersonaScope.Global, scope];
 

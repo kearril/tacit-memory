@@ -15,11 +15,11 @@ public sealed record RecallRequest
     /// <summary>What to look for, in natural language.</summary>
     public string? Query { get; init; }
 
-    /// <summary>Page ID to read in full: <c>&lt;project&gt;/&lt;slug&gt;</c>.</summary>
+    /// <summary>Page ID to read in full: <c>&lt;workstream&gt;/&lt;slug&gt;</c>.</summary>
     public string? Page { get; init; }
 
-    /// <summary>Search only this project.</summary>
-    public string? Project { get; init; }
+    /// <summary>Search only this workstream.</summary>
+    public string? Workstream { get; init; }
 
     /// <summary>Earliest date, <c>YYYY-MM-DD</c>, inclusive.</summary>
     public string? From { get; init; }
@@ -51,7 +51,7 @@ public sealed record WritePageRequest
 {
     public string? Op { get; init; }
 
-    /// <summary>Page ID: <c>&lt;project&gt;/&lt;slug&gt;</c>.</summary>
+    /// <summary>Page ID: <c>&lt;workstream&gt;/&lt;slug&gt;</c>.</summary>
     public string? Page { get; init; }
 
     public string? Title { get; init; }
@@ -96,11 +96,11 @@ public sealed record WritePageRequest
 /// </summary>
 public sealed record WriteRecentRequest
 {
-    /// <summary>The activity's text: one line, without the project label.</summary>
+    /// <summary>The activity's text: one line, without the workstream label.</summary>
     public string? Text { get; init; }
 
-    /// <summary>The project the activity belongs to; lowercased before it is checked.</summary>
-    public string? Project { get; init; }
+    /// <summary>The workstream the activity belongs to; lowercased before it is checked.</summary>
+    public string? Workstream { get; init; }
 
     /// <summary>The user's own words behind the activity, kept as a comment under the entry.</summary>
     public string? Source { get; init; }
@@ -141,7 +141,7 @@ public sealed record WritePersonaRequest
     public string? Hash { get; init; }
 
     /// <summary>
-    /// The scope the entry goes into: <c>global</c> when omitted, <c>project:&lt;name&gt;</c> or <c>domain:&lt;label&gt;</c>.
+    /// The scope the entry goes into: <c>global</c> when omitted, <c>workstream:&lt;name&gt;</c> or <c>domain:&lt;label&gt;</c>.
     /// Used by add and propose.
     /// </summary>
     public string? Scope { get; init; }

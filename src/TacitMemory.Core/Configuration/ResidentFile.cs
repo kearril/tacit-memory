@@ -14,9 +14,7 @@ internal enum ResidentPart
     Preferences,
     Profile,
     SituationalRules,
-    Mainline,
-    RecentWeeks,
-    Projects,
+    Workstreams,
 }
 
 /// <summary>One section of the resident block: its heading in <c>resident.md</c>, the part it is, and its title in the block.</summary>
@@ -35,14 +33,8 @@ internal static class ResidentFile
     /// <summary>The heading of the domain index section in <c>resident.md</c>.</summary>
     public const string SituationalRulesName = "situational_rules";
 
-    /// <summary>The heading of the mainline section in <c>resident.md</c>.</summary>
-    public const string MainlineName = "mainline";
-
-    /// <summary>The heading of the recent weeks section in <c>resident.md</c>.</summary>
-    public const string RecentWeeksName = "recent_weeks";
-
-    /// <summary>The heading of the projects section in <c>resident.md</c>.</summary>
-    public const string ProjectsName = "projects";
+    /// <summary>The heading of the workstreams section in <c>resident.md</c>.</summary>
+    public const string WorkstreamsName = "workstreams";
 
     /// <summary>The sections in block order. Everything that names a section takes its name and title from here.</summary>
     public static readonly ResidentSection[] Sections =
@@ -52,9 +44,7 @@ internal static class ResidentFile
         new(ToolValues.PersonaSections.Preferences, ResidentPart.Preferences, "Preferences"),
         new(ToolValues.PersonaSections.Profile, ResidentPart.Profile, "Profile"),
         new(SituationalRulesName, ResidentPart.SituationalRules, "Situational rules"),
-        new(MainlineName, ResidentPart.Mainline, "Mainline"),
-        new(RecentWeeksName, ResidentPart.RecentWeeks, "Recent weeks"),
-        new(ProjectsName, ResidentPart.Projects, "Projects"),
+        new(WorkstreamsName, ResidentPart.Workstreams, "Workstreams"),
     ];
 
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
@@ -103,9 +93,7 @@ internal static class ResidentFile
             Guidance(sections, ResidentPart.Preferences),
             Guidance(sections, ResidentPart.Profile),
             Guidance(sections, ResidentPart.SituationalRules),
-            Guidance(sections, ResidentPart.Mainline),
-            Guidance(sections, ResidentPart.RecentWeeks),
-            Guidance(sections, ResidentPart.Projects));
+            Guidance(sections, ResidentPart.Workstreams));
     }
 
     /// <summary>The file's length as the limit counts it: trailing blank lines included, line breaks as LF.</summary>
@@ -138,9 +126,7 @@ internal static class ResidentFile
         ResidentPart.Preferences => document.Preferences,
         ResidentPart.Profile => document.Profile,
         ResidentPart.SituationalRules => document.SituationalRules,
-        ResidentPart.Mainline => document.Mainline,
-        ResidentPart.RecentWeeks => document.RecentWeeks,
-        ResidentPart.Projects => document.Projects,
+        ResidentPart.Workstreams => document.Workstreams,
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };
 

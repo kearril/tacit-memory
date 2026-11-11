@@ -22,7 +22,7 @@ public sealed class ServiceTests : IDisposable
     private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
-    public async Task Server_instructions_hold_the_memory_rules_and_language_norms_but_no_projects()
+    public async Task Server_instructions_hold_the_memory_rules_and_language_norms_but_no_workstreams()
     {
         Directory.CreateDirectory(Path.Combine(Pages, "tacit-memory"));
         Directory.CreateDirectory(Path.Combine(Pages, "my-app"));
@@ -35,7 +35,7 @@ public sealed class ServiceTests : IDisposable
         Assert.Contains("## Using memory", instructions);
         Assert.Contains("## Write\n", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
-        Assert.DoesNotContain("## Projects", instructions);
+        Assert.DoesNotContain("## Workstreams", instructions);
         Assert.DoesNotContain("my-app", instructions);
         Assert.DoesNotContain("_topics", instructions);
         Assert.Contains("## Recall", instructions);
@@ -78,7 +78,7 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public void Criteria_that_push_the_fixed_part_past_2500_characters_stop_the_service_and_say_by_how_much()
+    public void Criteria_that_push_the_fixed_part_past_3000_characters_stop_the_service_and_say_by_how_much()
     {
         var item = new string('长', 200);
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {item}\n", 10)) + "## 不记\n- 日常闲聊\n");
@@ -141,11 +141,11 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Without_projects_the_projects_part_is_left_out()
+    public async Task Without_workstreams_the_workstreams_part_is_left_out()
     {
         using var service = Open();
 
-        Assert.DoesNotContain("## Projects", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("## Workstreams", await service.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         var before = await service.ServerInstructionsAsync();
 
-        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 1300) + "\n");
+        File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 2000) + "\n");
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
 
         await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));

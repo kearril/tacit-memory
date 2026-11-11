@@ -27,9 +27,7 @@ internal static class ResidentBlock
         "Tastes to weigh against the task.",
         null,
         "Each line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.",
-        null,
-        null,
-        null);
+        "Each line gives a workstream's background first, then its recent progress. Only consolidation updates the recent progress, so it may lag behind the activities; the activities win.");
 
     /// <summary>
     /// The block's lines, LF-joined, without a trailing line break. <paramref name="content"/> holds what the block shows beyond
@@ -83,9 +81,7 @@ internal static class ResidentBlock
     private static IReadOnlyList<string> LinesOf(ResidentContent content, ResidentPart part) => part switch
     {
         ResidentPart.SituationalRules => content.SituationalRules,
-        ResidentPart.Mainline => content.Mainline,
-        ResidentPart.RecentWeeks => content.RecentWeeks,
-        ResidentPart.Projects => content.Projects,
+        ResidentPart.Workstreams => content.Workstreams,
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };
 

@@ -110,7 +110,7 @@ public sealed partial class PageTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:\n", result.Text);
-        Assert.Contains("51 characters; the limit is 50", result.Text);
+        Assert.DoesNotMatch(@"the limit is \d+", result.Text);
         Assert.Contains("at least 2 distinct aliases", result.Text);
         Assert.Contains("\"现象\" is used more than once", result.Text);
         Assert.Contains("page tacit-memory/missing does not exist", result.Text);
@@ -120,7 +120,7 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Theory]
-    [InlineData("db-upgrade", "must be <project>/<slug>")]
+    [InlineData("db-upgrade", "must be <workstream>/<slug>")]
     [InlineData("tacit-memory/DB_Upgrade", "for example db-upgrade")]
     [InlineData("_private/db-upgrade", "must not start with '.' or '_'")]
     [InlineData(".hidden/db-upgrade", "must not start with '.' or '_'")]
@@ -133,7 +133,7 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_names_are_lowercased_and_topics_are_a_project()
+    public async Task Workstream_names_are_lowercased_and_topics_are_a_workstream()
     {
         Assert.False((await _service.WritePageAsync(Create("Tacit-Memory/db-upgrade"))).IsError);
         Assert.False((await _service.WritePageAsync(Create("_topics/pgroonga"))).IsError);
@@ -222,6 +222,12 @@ public sealed partial class PageTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
+        Assert.Equal(before, PageText(page));
+
+        var renamed = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["project"] });
+
+        Assert.StartsWith("Refused: Unknown parameter project.\nNext step: ", renamed.Text);
+        Assert.Contains("The workstream is the first part of the page ID, as in workstream/slug.", renamed.Text);
         Assert.Equal(before, PageText(page));
         Assert.Equal(commits, Git("rev-list", "--count", "HEAD").Trim());
         Assert.Empty(Git("status", "--porcelain").Trim());
@@ -595,18 +601,16 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
-    public async Task Header_values_meet_the_same_limits_as_create()
+    public async Task Long_titles_and_aliases_are_accepted_in_the_header_as_in_create()
     {
         const string page = "tacit-memory/db-upgrade";
         await _service.WritePageAsync(Create(page));
-        var before = PageText(page);
 
-        var result = await _service.WritePageAsync(Header(page, title: new string('长', 51), addAliases: [new string('a', 31)]));
+        var result = await _service.WritePageAsync(Header(page, title: new string('长', 300), addAliases: [new string('a', 300)]));
 
-        Assert.True(result.IsError);
-        Assert.Contains("51 characters; the limit is 50", result.Text);
-        Assert.Contains("at most 30 characters", result.Text);
-        Assert.Equal(before, PageText(page));
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains(new string('长', 300), PageText(page));
+        Assert.Contains(new string('a', 300), PageText(page));
     }
 
     [Fact]

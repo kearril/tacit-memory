@@ -77,14 +77,9 @@ internal sealed partial class PageDocument
         }
         else
         {
-            if (HasHeaderKey("title") && Length(Header.Title) > limits.TitleLength)
-                problems.Add(Fix(LocationOf("title"), "title length", $"The title is {Length(Header.Title)} characters; the limit is {limits.TitleLength}."));
-
             var aliases = LocationOf("aliases");
             if (Header.Aliases.Count < limits.MinAliases)
                 problems.Add(Fix(aliases, "alias count", $"The page has {Header.Aliases.Count} aliases; at least {limits.MinAliases} are needed."));
-            foreach (var alias in Header.Aliases.Where(alias => Length(alias) > limits.AliasLength))
-                problems.Add(Fix(aliases, "alias length", $"Alias \"{alias}\" is {Length(alias)} characters; the limit is {limits.AliasLength}."));
 
             if (!HasHeaderKey("type"))
                 problems.Add(Fix("YAML header", "page type", $"The page has no type; it must be one of: {PageTypeList}."));
@@ -127,8 +122,6 @@ internal sealed partial class PageDocument
 
     private static FormatIssue Fix(string location, string kind, string description) =>
         new("", location, kind, description, FormatHandling.FixDirectly);
-
-    private static int Length(string text) => new StringInfo(text).LengthInTextElements;
 
     /// <summary>Reads and parses <paramref name="id"/> from <paramref name="memoryPath"/>, or <c>null</c> when missing or not UTF-8.</summary>
     public static PageDocument? TryLoad(string memoryPath, PageId id)

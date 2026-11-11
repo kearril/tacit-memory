@@ -20,7 +20,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
     private string MonthFile => Path.Combine(Memory, "recent", "2026-11.md");
 
-    private string RecentPath => Path.Combine(Memory, "recent.md");
+    private string RecentPath => Path.Combine(Memory, "workstreams.md");
 
     private MemoryService Open()
     {
@@ -59,32 +59,31 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task Recent_activities_appear_in_a_recent_activity_block_without_short_codes_and_the_mainline_stays_out()
+    public async Task Recent_activities_appear_in_a_recent_activity_block_without_short_codes_and_the_workstream_stays_out()
     {
         Directory.CreateDirectory(Memory);
-        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n- 主线二\n");
+        File.WriteAllText(RecentPath, "## 主线\n### alpha\n背景：一号主线。\n### beta\n背景：二号主线。\n");
         WriteMonth("## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- [tacit-memory] 今天的事\n");
 
         var instructions = await Open().ServerInstructionsAsync();
 
         Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] 今天的事\n- 2026-11-01 昨天的事\n</recent_activity>", instructions);
-        Assert.DoesNotContain("主线一", instructions);
+        Assert.DoesNotContain("alpha", instructions);
         Assert.DoesNotContain("\n## Recent\n", instructions);
         Assert.DoesNotMatch(ShortCode(), instructions);
     }
 
     [Fact]
-    public async Task Only_the_seven_newest_activities_of_the_last_seven_days_are_listed()
+    public async Task Every_activity_of_the_last_seven_days_is_listed_newest_first()
     {
         var lines = Enumerable.Range(1, 9).Select(i => $"## 2026-11-02\n- 第{i}件事\n");
         WriteMonth("## 2026-10-20\n- 太早的事\n" + string.Concat(lines));
 
         var instructions = await Open().ServerInstructionsAsync();
 
+        Assert.Equal(9, instructions.Split('\n').Count(line => line.StartsWith("- 2026-11-02 第", StringComparison.Ordinal)));
         Assert.Contains("- 2026-11-02 第9件事", instructions);
-        Assert.Equal(7, instructions.Split('\n').Count(line => line.StartsWith("- 2026-11-02 第", StringComparison.Ordinal)));
-        Assert.Contains("- 2026-11-02 第3件事", instructions);
-        Assert.DoesNotContain("第2件事", instructions);
+        Assert.Contains("- 2026-11-02 第2件事", instructions);
         Assert.DoesNotContain("太早的事", instructions);
     }
 
@@ -106,7 +105,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task The_recent_block_is_omitted_when_there_is_no_mainline_and_no_activity()
+    public async Task The_recent_block_is_omitted_when_there_is_no_workstream_and_no_activity()
     {
         var instructions = await Open().ServerInstructionsAsync();
 
@@ -115,7 +114,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     }
 
     [Fact]
-    public async Task The_project_list_is_not_in_the_instructions_even_when_projects_exist()
+    public async Task The_workstream_list_is_not_in_the_instructions_even_when_workstreams_exist()
     {
         Directory.CreateDirectory(Path.Combine(Memory, "pages", "zeta"));
         WriteMonth("## 2026-11-02\n- [zeta] 今天的事\n");
@@ -123,7 +122,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         var instructions = await Open().ServerInstructionsAsync();
 
         Assert.Contains("- 2026-11-02 [zeta] 今天的事", instructions);
-        Assert.DoesNotContain("## Projects", instructions);
+        Assert.DoesNotContain("## Workstreams", instructions);
     }
 
     [Fact]
@@ -131,8 +130,8 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     {
         var padding = new string('长', 400);
         WriteMonth(string.Concat(Enumerable.Range(1, 7).Select(i => $"## 2026-11-02\n- {i}{padding}\n")));
-        // A non-empty mainline keeps the consolidation reminder out, so the activities are the last part.
-        File.WriteAllText(RecentPath, "## 近期主线\n- 主线一\n");
+        // A non-empty workstream keeps the consolidation reminder out, so the activities are the last part.
+        File.WriteAllText(RecentPath, "## 主线\n### alpha\n背景：一号主线。\n");
 
         var instructions = await Open().ServerInstructionsAsync();
 
