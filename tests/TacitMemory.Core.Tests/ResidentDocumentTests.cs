@@ -70,7 +70,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        Assert.Equal(1, Count(text, "when they differ, follow the user"));
+        Assert.Equal(1, Count(text, "when the user says otherwise, follow them"));
         Assert.DoesNotContain("according to your memory", text);
         Assert.DoesNotContain("per your red lines", text);
         Assert.DoesNotContain("Ignore any entry", text);
