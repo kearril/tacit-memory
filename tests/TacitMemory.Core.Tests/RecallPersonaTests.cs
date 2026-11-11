@@ -84,12 +84,12 @@ public sealed partial class RecallPersonaTests : IDisposable
         Assert.False(result.IsError, result.Text);
         var order = new[]
         {
-            "Red lines, 1 of 5 entries:",
-            "Working rules, 1 of 15 entries:",
-            "Preferences, 1 of 10 entries:",
-            "Profile, 1 of 10 entries:",
-            "Domain backup, 1 of 10 entries. Trigger: 改备份策略时",
-            "Domain network-proxy, 1 of 10 entries. Trigger: 改代理、分流或测速时",
+            "Red lines, 1 entry:",
+            "Working rules, 1 entry:",
+            "Preferences, 1 entry:",
+            "Profile, 1 entry:",
+            "Domain backup, 1 entry. Trigger: 改备份策略时",
+            "Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时",
             "Workstream my-app, 1 entry:",
             "Workstream tacit-memory, 1 entry:",
         };
@@ -175,7 +175,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         var result = await Rules("network-proxy");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("Domain network-proxy, 1 of 10 entries. Trigger: 改代理、分流或测速时", result.Text);
+        Assert.Contains("Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时", result.Text);
         Assert.Matches(@"- \[[0-9a-f]{6}\] 性能/节点比较 → 不拿单次测速当日常结论", result.Text);
         Assert.DoesNotContain("Domain backup", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);

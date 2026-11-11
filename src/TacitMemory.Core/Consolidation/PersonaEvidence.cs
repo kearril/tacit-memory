@@ -37,6 +37,8 @@ internal static class PersonaEvidence
 
         foreach (var (activity, comment) in await NewActivitiesAsync(context, cancellationToken))
         {
+            if (comment is null)
+                continue;
             var workstream = activity.Workstream ?? "none";
             entries.Add((activity.Day, 1, $"- {activity.Day:yyyy-MM-dd} activity [{activity.Code}] workstream {workstream}: {comment}"));
         }
@@ -51,13 +53,13 @@ internal static class PersonaEvidence
     }
 
     /// <summary>
-    /// The activities with a source comment that are not in the baseline's month file, each with its comment's inner text. An
-    /// activity is new when its short code is missing from the file as the baseline commit has it; without a baseline, every
-    /// activity is new.
+    /// The activities that are not in the baseline's month file, each with the inner text of its source comment, or null when it
+    /// has none. An activity is new when its short code is missing from the file as the baseline commit has it; without a
+    /// baseline, every activity is new.
     /// </summary>
-    private static async Task<List<(RecentFile.Activity Activity, string Comment)>> NewActivitiesAsync(ConsolidationContext context, CancellationToken cancellationToken)
+    internal static async Task<List<(RecentFile.Activity Activity, string? Comment)>> NewActivitiesAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
-        var result = new List<(RecentFile.Activity, string)>();
+        var result = new List<(RecentFile.Activity, string?)>();
         foreach (var (relative, full) in RecentFile.MonthFiles(context.Config.MemoryPath))
         {
             if (TextFile.Read(full) is not { } read)
@@ -70,10 +72,10 @@ internal static class PersonaEvidence
             var lines = read.Text.Split('\n');
             foreach (var activity in RecentFile.Activities(read.Text))
             {
-                if (known.Contains(activity.Code) || activity.Line + 1 >= lines.Length)
+                if (known.Contains(activity.Code))
                     continue;
-                if (SourceComment.Match(lines[activity.Line + 1].TrimEnd('\r')) is { Success: true } match)
-                    result.Add((activity, match.Groups["inner"].Value));
+                var match = activity.Line + 1 < lines.Length ? SourceComment.Match(lines[activity.Line + 1].TrimEnd('\r')) : null;
+                result.Add((activity, match is { Success: true } ? match.Groups["inner"].Value : null));
             }
         }
 

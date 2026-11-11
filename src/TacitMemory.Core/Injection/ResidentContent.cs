@@ -9,7 +9,7 @@ namespace TacitMemory.Core.Injection;
 /// the lines the block prints, already formatted, in order; an empty list means the section is left out.
 /// </summary>
 /// <param name="Persona">The parsed <c>persona.md</c>: the global sections are printed, the scope blocks only through their index rows.</param>
-/// <param name="SituationalRules">One row per domain, up to the domain limit: its label, its trigger and its entry count.</param>
+/// <param name="SituationalRules">One row per domain: its label, its trigger and its entry count.</param>
 /// <param name="Mainline">The mainline items.</param>
 /// <param name="RecentWeeks">The latest completed weeks that hold anything, newest first.</param>
 /// <param name="Workstreams">The workstream names on one line; empty when there are none.</param>
@@ -27,7 +27,6 @@ internal sealed record ResidentContent(
         var recent = RecentSummary.Read(config.MemoryPath, today, language);
         var domains = persona.Blocks
             .Where(block => block.Scope.Kind == PersonaScopeKind.Domain)
-            .Take(config.Limits.Domains)
             .Select(block => DomainRow(block, language))
             .ToList();
         var mainline = MainlineSection.ReadItems(config.MemoryPath).Select(item => "- " + item).ToList();

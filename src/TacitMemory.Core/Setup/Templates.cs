@@ -88,20 +88,8 @@ internal static class Templates
         #     apiKey: ''                # 可省略，改设环境变量 TACIT_DECISION_API_KEY（两处都有时以环境变量为准）
 
         limits:
-          persona:                    # 画像各节的条数上限
-            redLines: 5
-            workingRules: 15
-            preferences: 10
-            profile: 10
-          itemLength: 200             # 每条最多字数，不含来源注释
-          mainline: 5                 # 近期主线最多条数
           page:
-            titleLength: 50           # 细节页标题最多字数
-            aliasLength: 30           # 每个别名最多字数
-            minAliases: 2             # 别名最少个数
-          domains: 10                 # 领域最多个数
-          domainEntries: 10           # 每个领域最多条数
-          triggerLength: 60           # 领域的触发描述最多字数
+            minAliases: 2             # 细节页别名最少个数
           brief: 3000                 # 主线简报最多字数，超出时只截短页目录
 
         consolidation:
@@ -109,6 +97,8 @@ internal static class Templates
           remindCandidates: 5         # 候选达到多少个时提示
           budgetSeconds: 20           # 一次整理最多等模型多少秒，到点照常出报告
           maxConcurrency: 5           # 一次整理同时进行的模型判断数
+          hintItemLength: 200         # 画像条目或活动超过多少字时，整理报告提示改短（只提示，不拒绝写入）
+          hintResidentLength: 6000    # 常驻区块超过多少字时，整理报告提示（只提示，不拒绝写入）
 
         # 各判断的上下阈值，默认值内置；需要时取消注释并修改。
         # decision:
@@ -158,20 +148,8 @@ internal static class Templates
         #     apiKey: ''                # may be left out: set the environment variable TACIT_DECISION_API_KEY instead (the variable wins if both are set)
 
         limits:
-          persona:                    # item limits of the persona sections
-            redLines: 5
-            workingRules: 15
-            preferences: 10
-            profile: 10
-          itemLength: 200             # max characters per item, source comment excluded
-          mainline: 5                 # max mainline items
           page:
-            titleLength: 50           # max characters in a page title
-            aliasLength: 30           # max characters per alias
-            minAliases: 2             # min number of aliases
-          domains: 10                 # max number of domains
-          domainEntries: 10           # max entries per domain
-          triggerLength: 60           # max characters in a domain's trigger
+            minAliases: 2             # fewest aliases a detail page has
           brief: 3000                 # max characters in a workstream brief; only its page index is shortened
 
         consolidation:
@@ -179,6 +157,8 @@ internal static class Templates
           remindCandidates: 5         # candidates at which to remind
           budgetSeconds: 20           # seconds one consolidation waits for the models before it reports what it has
           maxConcurrency: 5           # model judgments one consolidation runs at once
+          hintItemLength: 200         # characters above which the consolidation report hints at shortening a persona entry or activity; never refuses a write
+          hintResidentLength: 6000    # characters above which the consolidation report hints at the resident block's length; never refuses a write
 
         # Upper and lower thresholds of each judgment; built-in defaults. Uncomment to change.
         # decision:
