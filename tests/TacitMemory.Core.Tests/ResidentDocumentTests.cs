@@ -425,7 +425,7 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public void Every_domain_is_listed_in_the_index()
+    public void Every_domain_gets_an_index_row_however_many_there_are()
     {
         File.WriteAllText(PersonaMd, """
             ## 领域：dom-a

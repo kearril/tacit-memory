@@ -110,7 +110,7 @@ public sealed partial class PageTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:\n", result.Text);
-        Assert.Contains("51 characters; the limit is 50", result.Text);
+        Assert.DoesNotContain("the limit is", result.Text);
         Assert.Contains("at least 2 distinct aliases", result.Text);
         Assert.Contains("\"现象\" is used more than once", result.Text);
         Assert.Contains("page tacit-memory/missing does not exist", result.Text);
@@ -601,18 +601,16 @@ public sealed partial class PageTests : IDisposable
     }
 
     [Fact]
-    public async Task Header_values_meet_the_same_limits_as_create()
+    public async Task Long_titles_and_aliases_are_accepted_in_the_header_as_in_create()
     {
         const string page = "tacit-memory/db-upgrade";
         await _service.WritePageAsync(Create(page));
-        var before = PageText(page);
 
-        var result = await _service.WritePageAsync(Header(page, title: new string('长', 51), addAliases: [new string('a', 31)]));
+        var result = await _service.WritePageAsync(Header(page, title: new string('长', 300), addAliases: [new string('a', 300)]));
 
-        Assert.True(result.IsError);
-        Assert.Contains("51 characters; the limit is 50", result.Text);
-        Assert.Contains("at most 30 characters", result.Text);
-        Assert.Equal(before, PageText(page));
+        Assert.False(result.IsError, result.Text);
+        Assert.Contains(new string('长', 300), PageText(page));
+        Assert.Contains(new string('a', 300), PageText(page));
     }
 
     [Fact]

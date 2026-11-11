@@ -140,7 +140,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
     {
         if (PersonaDocument.Read(PersonaPath) is not { } persona)
             return NotUtf8();
-        return ToolText.Ok(PersonaReading.Whole(persona, config.Limits) ?? NoMemory);
+        return ToolText.Ok(PersonaReading.Whole(persona) ?? NoMemory);
     }
 
     /// <summary>
@@ -174,7 +174,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             domains = [chosen];
         }
 
-        return ToolText.Ok(PersonaReading.Domains(persona, domains, config.Limits) ?? NoMemory);
+        return ToolText.Ok(PersonaReading.Domains(persona, domains) ?? NoMemory);
     }
 
     private string PersonaPath => Path.Combine(config.MemoryPath, PersonaFiles.Persona);

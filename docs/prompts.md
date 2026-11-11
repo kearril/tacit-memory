@@ -134,7 +134,7 @@
 
 `write_persona` 的使用条件（何时 `add`、`propose`、`replace`、`delete`）不在工具说明中，只由服务端说明"写"与 `tacit-remember` 第 4 步负责，见第 9 节。
 
-上限数字由 `config.yaml` 的 `limits` 填入，工具说明中以占位写出的有：`write_page` 的 `aliases` 最少个数（`limits.page.minAliases`）、`write_recent` 的活动长度上限、`write_persona` 的条目长度上限（`limits.itemLength`）与 `write_persona` 的 `scope` 说明中的领域触发描述长度、领域条数与领域个数上限（`limits.triggerLength`、`limits.domainEntries`、`limits.domains`）；改配置后需重启服务。
+工具说明中唯一的上限数字由 `config.yaml` 的 `limits.page.minAliases` 填入，即 `write_page` 的 `aliases` 最少个数；写入的长度与条数不设上限，说明中不出现上限数字。改配置后需重启服务。
 
 ## 6. 工具回复（契约）
 

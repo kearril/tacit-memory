@@ -149,7 +149,7 @@ public sealed class CommandSkillTests : IDisposable
             .Select(field => (string)field.GetValue(null)!)
             .ToList();
 
-        Assert.Equal(13, titles.Count);
+        Assert.Equal(14, titles.Count);
         foreach (var title in titles)
             Assert.Contains(title, text, StringComparison.Ordinal);
     }

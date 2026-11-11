@@ -46,6 +46,19 @@ public sealed class ConfigRefusalTests : IDisposable
         Assert.Contains("candidates", result.Stdout + result.Stderr);
     }
 
+    [Theory]
+    [MemberData(nameof(CommandsThatLoadTheConfig))]
+    public async Task A_config_still_holding_a_removed_limit_exits_3_and_names_its_key_path(string[] args)
+    {
+        _cli.InitReady();
+        File.AppendAllText(_cli.ConfigPath, "limits: { itemLength: 200 }\n");
+
+        var result = await _cli.RunAsync(args);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("limits.itemLength", result.Stdout + result.Stderr);
+    }
+
     [Fact]
     public async Task Connect_exits_3_when_the_config_does_not_load()
     {

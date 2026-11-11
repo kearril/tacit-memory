@@ -165,7 +165,7 @@ public sealed class McpHostTests : IAsyncLifetime
         // The limits are read once at start, so the service is restarted on the config the test writes.
         await _host.DisposeAsync();
         _service.Dispose();
-        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { itemLength: 150, page: { minAliases: 3 } }\n");
+        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { page: { minAliases: 3 } }\n");
         _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
 
@@ -174,12 +174,10 @@ public sealed class McpHostTests : IAsyncLifetime
         var catalog = ToolCatalog.Describe(_service.Config.Limits).ToDictionary(tool => tool.Name);
 
         Assert.Contains("At least 3.", Parameter(served["write_page"].ProtocolTool, "aliases"));
-        Assert.Contains("at most 150 characters", served["write_recent"].ProtocolTool.Description);
-        Assert.Contains("(150 characters)", served["write_persona"].ProtocolTool.Description);
         foreach (var tool in served.Values)
         {
             var description = tool.ProtocolTool.Description ?? "";
-            Assert.DoesNotContain("100 characters", description);
+            Assert.DoesNotContain("characters", description);
             Assert.DoesNotContain("by default", description);
             Assert.DoesNotContain('{', description);
         }
@@ -249,7 +247,8 @@ public sealed class McpHostTests : IAsyncLifetime
             "### Changed pages\n",
             "### Suspected duplicate pages\n",
             "### Conflicting persona entries\n",
-            "### Over-limit sections and domain hygiene\n",
+            "### Domain hygiene\n",
+            "### Length hints\n",
         };
         foreach (var heading in headings)
             Assert.Contains(heading, text);

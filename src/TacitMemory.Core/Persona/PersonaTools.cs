@@ -52,13 +52,13 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
     private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
-    /// <summary>The four sections as an agent names them, and the limit the config sets for each.</summary>
-    private readonly (PersonaSection Kind, string Name, int Limit)[] Sections =
+    /// <summary>The four sections as an agent names them.</summary>
+    private readonly (PersonaSection Kind, string Name)[] Sections =
     [
-        (PersonaSection.RedLines, ToolValues.PersonaSections.RedLines, config.Limits.Persona.RedLines),
-        (PersonaSection.WorkingRules, ToolValues.PersonaSections.WorkingRules, config.Limits.Persona.WorkingRules),
-        (PersonaSection.Preferences, ToolValues.PersonaSections.Preferences, config.Limits.Persona.Preferences),
-        (PersonaSection.Profile, ToolValues.PersonaSections.Profile, config.Limits.Persona.Profile),
+        (PersonaSection.RedLines, ToolValues.PersonaSections.RedLines),
+        (PersonaSection.WorkingRules, ToolValues.PersonaSections.WorkingRules),
+        (PersonaSection.Preferences, ToolValues.PersonaSections.Preferences),
+        (PersonaSection.Profile, ToolValues.PersonaSections.Profile),
     ];
 
     private string SectionNames => string.Join(", ", Sections.Select(section => section.Name));
@@ -124,8 +124,8 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
         var persona = PersonaDocument.Parse(existing);
         var name = PersonaDocument.HeadingOf(sectionKind).En;
-        if (LimitRefusal(persona, scope, trigger, sectionKind) is { } limited)
-            return limited;
+        if (TriggerRefusal(persona, scope, trigger) is { } untriggered)
+            return untriggered;
 
         var judgment = await conflicts.RunAsync(text, sectionKind, scope, persona, null, cancellationToken);
         if (judgment.Conflict is { } conflict)
@@ -145,7 +145,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         TextFile.Write(path, after, hasBom);
         var subject = dirty ? $"persona: add {code} (with user edits)" : $"persona: add {code}";
         var reply = scope.IsGlobal
-            ? WithNote($"Added to the {name} section as [{code}]. The section now has {persona.Entries(sectionKind).Count + 1} of {LimitOf(sectionKind)} entries.", judgment.Note)
+            ? WithNote($"Added to the {name} section as [{code}]. The section now has {persona.Entries(sectionKind).Count + 1} entries.", judgment.Note)
             : WithNote(AddedToScopeReply(persona, scope, sectionKind, code, createdTrigger), judgment.Note);
         return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
     }
@@ -166,71 +166,26 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     }
 
     /// <summary>
-    /// The refusal a write into <paramref name="scope"/> gets from the limits it falls under, or from the trigger a new domain
-    /// needs; null when it may go ahead. Global sections and a domain's entries are capped, and a new domain counts against the
-    /// domain limit. A workstream has no limit.
+    /// The refusal for a new domain without a one-line trigger; null when the write may go ahead. A domain that already
+    /// exists keeps its trigger, and a workstream has none. Nothing is capped: sections, domains and their entries take any count.
     /// </summary>
-    private ToolResult? LimitRefusal(PersonaDocument persona, PersonaScope scope, string trigger, PersonaSection kind)
+    private static ToolResult? TriggerRefusal(PersonaDocument persona, PersonaScope scope, string trigger)
     {
-        if (scope.IsGlobal)
-        {
-            var entries = persona.Entries(kind);
-            var max = LimitOf(kind);
-            if (entries.Count < max)
-                return null;
-            var codes = persona.CodesByLine();
-            var name = PersonaDocument.HeadingOf(kind).En;
-            return ToolText.Refuse(
-                $"The {name} section already has {entries.Count} entries; the limit is {max}.",
-                "Ask the user which entry to replace or delete. With their agreement, call write_persona again with op=replace "
-                + "or op=delete and that entry's short code first; then add again.",
-                $"{name}, {entries.Count} of {max} entries:\n"
-                + string.Join("\n", entries.Select(item => Listed(item, codes[item.Line]))));
-        }
-
-        if (scope.Kind == PersonaScopeKind.Workstream)
+        if (scope.Kind != PersonaScopeKind.Domain || persona.BlockOf(scope) is not null)
             return null;
 
-        if (persona.BlockOf(scope) is { } block)
-        {
-            var max = config.Limits.DomainEntries;
-            if (block.Entries.Count < max)
-                return null;
-            var codes = persona.CodesByLine();
-            return ToolText.Refuse(
-                $"The domain {scope.Name} already has {block.Entries.Count} entries; the limit is {max}.",
-                "Ask the user which entry of this domain to replace or delete. With their agreement, call write_persona again with "
-                + "op=replace or op=delete and that entry's short code first; then add again.",
-                $"Domain {scope.Name}, {block.Entries.Count} of {max} entries:\n"
-                + string.Join("\n", block.Entries.Select(item => Listed(item, codes[item.Line]))));
-        }
-
-        var domains = persona.Blocks.Where(item => item.Scope.Kind == PersonaScopeKind.Domain).ToList();
-        if (domains.Count >= config.Limits.Domains)
-            return ToolText.Refuse(
-                $"The persona already has {domains.Count} domains; the limit is {config.Limits.Domains}, so domain {scope.Name} is not created.",
-                "Ask the user whether to merge this into one of the domains listed below or to remove one. Then call write_persona "
-                + "again with op=add and scope set to an existing domain, and no trigger.",
-                string.Join("\n", domains.Select(domain => $"Domain {domain.Scope.Name}, {domain.Entries.Count} entries, trigger: {domain.Trigger ?? "none"}")));
-
-        var triggerLimit = config.Limits.TriggerLength;
         var reasons = new List<string>();
         if (trigger.Length == 0)
             reasons.Add($"Domain {scope.Name} is new, so it needs a trigger: one line saying when the domain applies.");
-        else
-        {
-            if (trigger.IndexOfAny(LineBreaks) >= 0)
-                reasons.Add("Trigger must be one line.");
-            if (Length(trigger) > triggerLimit)
-                reasons.Add($"Trigger has {Length(trigger)} characters; the limit is {triggerLimit}.");
-        }
+        else if (trigger.IndexOfAny(LineBreaks) >= 0)
+            reasons.Add("Trigger must be one line.");
 
         return reasons.Count == 0
             ? null
             : ToolText.Refuse(
                 reasons,
                 $"Call write_persona again with op=add, scope={scope}, the same persona_section, text and source, and trigger set to "
-                + $"one line of at most {triggerLimit} characters.");
+                + "one line saying when the domain applies.");
     }
 
     /// <summary>The reply for an entry added to a domain or a workstream: where it went, the domain's count, and the trigger of a new domain.</summary>
@@ -242,7 +197,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
         var count = (persona.BlockOf(scope)?.Entries.Count ?? 0) + 1;
         var created = createdTrigger is null ? "" : $" The domain was created with trigger: {createdTrigger}";
-        return $"Added to the {name} section of domain {scope.Name} as [{code}]. The domain has {count} of {config.Limits.DomainEntries} entries.{created}";
+        return $"Added to the {name} section of domain {scope.Name} as [{code}]. The domain has {count} entries.{created}";
     }
 
     /// <summary>
@@ -305,7 +260,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
     /// <summary>
     /// Deletes the entry the short code names, with its continuation lines and source comment, and returns its text.
-    /// The limit does not apply: a section over it can be taken down.
     /// </summary>
     private async Task<ToolResult> DeleteAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
@@ -491,9 +445,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         }
     }
 
-    /// <summary>The limit the config sets for a section.</summary>
-    private int LimitOf(PersonaSection kind) => Sections.Single(section => section.Kind == kind).Limit;
-
     /// <summary>The name an agent gives a section.</summary>
     private string SectionName(PersonaSection kind) => Sections.Single(section => section.Kind == kind).Name;
 
@@ -549,17 +500,14 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     }
 
     /// <summary>
-    /// The problems with an entry written into <paramref name="section"/>: one line each for text and source, the item
-    /// length limit, the sentence form of red lines and working rules, and the source comment's end marker.
+    /// The problems with an entry written into <paramref name="section"/>: one line each for text and source, the sentence
+    /// form of red lines and working rules, and the source comment's end marker.
     /// </summary>
     private List<string> EntryProblems(string text, string source, PersonaSection section)
     {
         var problems = new List<string>();
-        var limit = config.Limits.ItemLength;
         if (text.IndexOfAny(LineBreaks) >= 0)
             problems.Add("Text must be one line.");
-        if (Length(text) > limit)
-            problems.Add($"Text has {Length(text)} characters; the limit is {limit}.");
         if (section == PersonaSection.RedLines && !HasStructureWord(text, StructureWords.Instead))
             problems.Add(
                 "A red line must say what to do instead: name the alternative after \"instead\" (or \"改为\"), "
@@ -615,14 +563,14 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
     /// <summary>
     /// The count a reply states for the section or domain an entry is in, after <paramref name="delta"/> entries are added or
-    /// removed. Empty for a workstream, which has no limit.
+    /// removed. Empty for a workstream.
     /// </summary>
     private string CountNote(PersonaDocument persona, PersonaScope scope, PersonaSection kind, int delta)
     {
         if (scope.IsGlobal)
-            return $"The section has {persona.Entries(kind).Count + delta} of {LimitOf(kind)} entries.";
+            return $"The section has {persona.Entries(kind).Count + delta} entries.";
         if (scope.Kind == PersonaScopeKind.Domain)
-            return $"The domain has {(persona.BlockOf(scope)?.Entries.Count ?? 0) + delta} of {config.Limits.DomainEntries} entries.";
+            return $"The domain has {(persona.BlockOf(scope)?.Entries.Count ?? 0) + delta} entries.";
         return "";
     }
 

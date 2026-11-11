@@ -341,8 +341,8 @@ internal sealed class PageTools(
 
     private void CheckAliasLines(IEnumerable<string> aliases, List<string> problems)
     {
-        foreach (var alias in aliases.Where(alias => alias.Contains('\n') || Length(alias) > config.Limits.Page.AliasLength))
-            problems.Add($"Alias {ToolText.Quote(alias)} must be one line of at most {config.Limits.Page.AliasLength} characters.");
+        foreach (var alias in aliases.Where(alias => alias.Contains('\n')))
+            problems.Add($"Alias {ToolText.Quote(alias)} must be one line.");
     }
 
     private List<string> CheckAddedAliases(IReadOnlyList<string> raw, List<string> problems)
@@ -367,8 +367,6 @@ internal sealed class PageTools(
             problems.Add("Missing parameter title.");
         else if (title.Contains('\n'))
             problems.Add("The title must be a single line.");
-        else if (Length(title) > config.Limits.Page.TitleLength)
-            problems.Add($"The title has {Length(title)} characters; the limit is {config.Limits.Page.TitleLength}.");
     }
 
     private List<string> CheckAliases(IReadOnlyList<string> raw, List<string> problems)

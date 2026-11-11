@@ -81,21 +81,12 @@ public sealed class ConsolidationReportTests : IDisposable
             "### Changed pages\n",
             "### Suspected duplicate pages\n",
             "### Conflicting persona entries\n",
-            "### Over-limit sections and domain hygiene\n",
+            "### Domain hygiene\n",
+            "### Length hints\n",
         };
         var positions = headings.Select(heading => report.IndexOf(heading, StringComparison.Ordinal)).ToArray();
         Assert.All(positions, position => Assert.True(position >= 0));
         Assert.Equal(positions.Order().ToArray(), positions);
-    }
-
-    [Fact]
-    public async Task The_mainline_material_states_the_limit_the_rewrite_must_keep_to()
-    {
-        using var service = Open();
-
-        var report = await service.ConsolidationReportAsync();
-
-        Assert.Contains("Limit: 5 items.", Section(report, "Mainline material"));
     }
 
     [Fact]
@@ -107,7 +98,90 @@ public sealed class ConsolidationReportTests : IDisposable
 
         Assert.Contains("None.", Section(report, "Persona candidates to remove"));
         Assert.Contains("None.", Section(report, "Suspected duplicate pages"));
-        Assert.Contains("None.", Section(report, "Over-limit sections and domain hygiene"));
+        Assert.Contains("None.", Section(report, "Domain hygiene"));
+        Assert.Contains("None.", Section(report, "Length hints"));
+    }
+
+    [Fact]
+    public async Task No_category_puts_a_section_over_its_limit_to_the_user()
+    {
+        _home.InitReady();
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n" + string.Concat(Enumerable.Range(1, 15).Select(i => $"- 第{i}条\n")));
+
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+        var report = await service.ConsolidationReportAsync();
+
+        Assert.DoesNotContain("over limit", report);
+        Assert.DoesNotContain("Over-limit", report);
+    }
+
+    [Fact]
+    public async Task A_persona_entry_longer_than_the_hint_length_is_listed_with_its_place_and_length()
+    {
+        _home.InitReady("consolidation: { hintItemLength: 20 }\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- 短\n- " + new string('长', 30) + "\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+
+        Assert.Contains("persona.md", section);
+        Assert.Contains("line 3", section);
+        Assert.Contains("30 characters", section);
+        Assert.DoesNotContain("line 2", section);
+    }
+
+    [Fact]
+    public async Task An_entry_within_the_default_hint_length_is_not_listed()
+    {
+        _home.InitReady();
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- " + new string('长', 120) + "\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+
+        Assert.Contains("None.", section);
+    }
+
+    [Fact]
+    public async Task An_activity_since_the_baseline_longer_than_the_hint_length_is_listed_with_its_place_and_length()
+    {
+        _home.InitReady("consolidation: { hintItemLength: 20 }\n");
+        WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n");
+        CommitAll("consolidate: earlier pass");
+        WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n- 新的活动" + new string('长', 30) + "\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+
+        Assert.Contains("recent/2026-11.md", section);
+        Assert.Contains("line 3", section);
+        Assert.Contains("34 characters", section);
+        Assert.DoesNotContain("旧活动", section);
+    }
+
+    [Fact]
+    public async Task A_resident_block_longer_than_the_hint_length_gets_one_line_saying_so()
+    {
+        _home.InitReady("consolidation: { hintResidentLength: 100 }\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- " + new string('长', 120) + "\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+
+        Assert.Contains("resident block", section);
+        Assert.Contains("hint length of 100", section);
+    }
+
+    [Fact]
+    public async Task Raising_the_hint_length_removes_the_hint_and_nothing_is_refused()
+    {
+        _home.InitReady("consolidation: { hintItemLength: 500 }\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- " + new string('长', 300) + "\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+
+        Assert.Contains("None.", section);
     }
 
     [Fact]
@@ -310,7 +384,7 @@ public sealed class ConsolidationReportTests : IDisposable
             "## 红线\n- 不要删库\n\n## 领域：network-proxy\n触发：代理与分流相关的问题\n\n### 协作规则\n- 先看分流规则\n- 再看回退方案\n\n## 领域：lonely\n触发：只有一条的领域\n\n### 协作规则\n- 唯一的一条\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Over-limit sections and domain hygiene");
+        var section = Section(await service.ConsolidationReportAsync(), "Domain hygiene");
 
         Assert.Contains("domain:lonely", section);
         Assert.DoesNotContain("domain:network-proxy", section);

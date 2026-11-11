@@ -33,15 +33,9 @@ models:                       # 可选；省略的模型即未配置，省略整
   decision:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
 
 limits:
-  persona: { redLines: 5, workingRules: 15, preferences: 10, profile: 10 }
-  itemLength: 200
-  mainline: 5
-  domains: 10
-  domainEntries: 10
-  triggerLength: 60
   brief: 3000
-  page: { titleLength: 50, aliasLength: 30, minAliases: 2 }
-consolidation: { remindAfterDays: 7, remindCandidates: 5, budgetSeconds: 20, maxConcurrency: 5 }
+  page: { minAliases: 2 }
+consolidation: { remindAfterDays: 7, remindCandidates: 5, budgetSeconds: 20, maxConcurrency: 5, hintItemLength: 200, hintResidentLength: 6000 }
 decision:                     # 各判断的上下阈值
   samePreference: { certain: …, unlikely: … }
   samePage:       { certain: …, unlikely: … }
@@ -77,16 +71,14 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 ### `limits`
 
-- `limits.persona`：全局四节各自的条数上限，默认红线 5、协作规则 15、偏好 10、档案 10，只约束 `add`（见 `docs/design.md` 第 6 节「画像」）。
-- `limits.domains`：画像中领域的个数上限，默认 10，`add` 新建领域时检查。
-- `limits.domainEntries`：每个领域四节合计的条数上限，默认 10，只约束 `add`。
-- `limits.triggerLength`：领域触发描述的字符上限，默认 60。
-- `limits.brief`：主线简报的字符上限，默认 3000；超出时只截短页目录（见 `docs/design.md` 第 7 节）。
-- `limits.itemLength`：画像条目与活动正文的长度上限（字符），默认 200。
-- `limits.mainline`：近期主线的条数上限，默认 5。
-- `limits.page`：细节页标题与别名的长度上限，以及别名的最少个数。
+写入不设长度与条数上限（见 `docs/design.md` 第 6 节「写入规则」）；简洁靠提示词引导，过长的内容由整理报告提示，由用户决定是否精简。
 
-工具说明中的上限数字取自 `limits`，改配置后需重启服务。
+- `limits.brief`：主线简报的字符上限，默认 3000；超出时只截短页目录（见 `docs/design.md` 第 7 节）。
+- `limits.page.minAliases`：细节页别名的最少个数，默认 2，不足时拒绝写入。
+
+已删除的键 `limits.persona`、`limits.domains`、`limits.domainEntries`、`limits.triggerLength`、`limits.itemLength`、`limits.mainline`，以及 `limits.page` 中的 `titleLength` 与 `aliasLength`，出现时按未知键报错并点名键路径。
+
+工具说明中的别名最少个数取自 `limits.page.minAliases`，改配置后需重启服务。
 
 ### `consolidation`
 
@@ -94,6 +86,8 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 - `remindCandidates`（默认 5）：候选达到该个数时，服务端说明出现整理提示。
 - `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
 - `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
+- `hintItemLength`（默认 200）：画像条目或上次整理以来新增的活动超过该字符数时，整理报告的"篇幅提示"列出它的位置与长度。只提示，不拒绝写入。
+- `hintResidentLength`（默认 6000）：常驻区块总长超过该字符数时，整理报告的"篇幅提示"给出一行说明。只提示，不拒绝写入。
 
 已删除的键按未知键报错，并点名键路径：`mainlineStaleDays`，以及 `candidates`（含 `minDays`）与 `checkup` 两节。
 

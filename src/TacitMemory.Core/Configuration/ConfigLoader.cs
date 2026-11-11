@@ -209,40 +209,28 @@ internal static class ConfigLoader
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)
     {
         var limits = reader.Mapping(root, "", "limits");
-        reader.OnlyKnown(limits, "limits", "persona", "itemLength", "mainline", "page", "domains", "domainEntries", "triggerLength", "brief");
+        reader.OnlyKnown(limits, "limits", "page", "brief");
 
-        var persona = reader.Mapping(limits, "limits", "persona");
-        reader.OnlyKnown(persona, "limits.persona", "redLines", "workingRules", "preferences", "profile");
         var page = reader.Mapping(limits, "limits", "page");
-        reader.OnlyKnown(page, "limits.page", "titleLength", "aliasLength", "minAliases");
+        reader.OnlyKnown(page, "limits.page", "minAliases");
 
         return new LimitsConfig(
-            new PersonaLimits(
-                Count(reader, persona, "limits.persona", "redLines", 5),
-                Count(reader, persona, "limits.persona", "workingRules", 15),
-                Count(reader, persona, "limits.persona", "preferences", 10),
-                Count(reader, persona, "limits.persona", "profile", 10)),
-            Count(reader, limits, "limits", "itemLength", 200),
-            Count(reader, limits, "limits", "mainline", 5),
-            new PageLimits(
-                Count(reader, page, "limits.page", "titleLength", 50),
-                Count(reader, page, "limits.page", "aliasLength", 30),
-                Count(reader, page, "limits.page", "minAliases", 2)),
-            Count(reader, limits, "limits", "domains", 10),
-            Count(reader, limits, "limits", "domainEntries", 10),
-            Count(reader, limits, "limits", "triggerLength", 60),
-            Count(reader, limits, "limits", "brief", 3000));
+            Count(reader, limits, "limits", "brief", 3000),
+            new PageLimits(Count(reader, page, "limits.page", "minAliases", 2)));
     }
 
     private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)
     {
         var consolidation = reader.Mapping(root, "", "consolidation");
-        reader.OnlyKnown(consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency");
+        reader.OnlyKnown(
+            consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintItemLength", "hintResidentLength");
         return new ConsolidationConfig(
             Count(reader, consolidation, "consolidation", "remindAfterDays", 7),
             Count(reader, consolidation, "consolidation", "budgetSeconds", 20),
             Count(reader, consolidation, "consolidation", "maxConcurrency", 5),
-            Count(reader, consolidation, "consolidation", "remindCandidates", 5));
+            Count(reader, consolidation, "consolidation", "remindCandidates", 5),
+            Count(reader, consolidation, "consolidation", "hintItemLength", 200),
+            Count(reader, consolidation, "consolidation", "hintResidentLength", 6000));
     }
 
     private static DecisionThresholds ReadDecision(ConfigReader reader, YamlMappingNode root)

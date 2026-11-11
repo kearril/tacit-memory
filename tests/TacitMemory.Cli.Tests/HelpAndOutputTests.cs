@@ -85,16 +85,15 @@ public sealed class HelpAndOutputTests : IDisposable
     }
 
     [Fact]
-    public async Task Show_tools_prints_the_limits_from_the_config()
+    public async Task Show_tools_prints_the_configured_minimum_of_aliases_and_no_removed_limit()
     {
-        _cli.Home.InitReady(extraConfig: "limits: { itemLength: 150, page: { minAliases: 3 } }\n");
+        _cli.Home.InitReady(extraConfig: "limits: { page: { minAliases: 3 } }\n");
 
         var result = await _cli.RunAsync(["show", "tools"]);
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("At least 3.", result.Stdout);
-        Assert.Contains("at most 150 characters", result.Stdout);
-        Assert.DoesNotContain("100 characters", result.Stdout);
+        Assert.DoesNotContain("characters", result.Stdout);
         Assert.Empty(result.Stderr);
     }
 

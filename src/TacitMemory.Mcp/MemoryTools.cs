@@ -84,7 +84,7 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "write_recent", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
         Record an activity: one line in the activity log.
-        text is required: one line of at most {itemLength} characters that does not start with '['; workstream and source are optional.
+        text is required: one line that does not start with '['; workstream and source are optional.
         With replaces (a short code of today's activity), rewrites that activity in place instead of adding one; source then replaces its comment only if given.
         The mainline is not written here: the tacit-consolidate skill maintains it.
         Record where a credential is kept, never its value.
@@ -117,10 +117,9 @@ internal sealed class MemoryTools(MemoryService service)
         op=delete: needs hash only.
         hash is the entry's short code, from recall kind=persona.
         scope: global (the default), workstream:<name> or domain:<label>; names use lowercase letters, digits, '.', '_' and '-'. Reuse an existing domain label exactly.
-        trigger: one line saying when a new domain applies, at most {triggerLength} characters; ignored for an existing domain.
-        A domain holds at most {domainEntries} entries and the persona at most {domains} domains.
+        trigger: one line saying when a new domain applies; ignored for an existing domain.
         persona_section is red_lines, working_rules, preferences or profile. Sentence form of text: red_lines "Don't <behaviour>; instead <alternative>"; working_rules "<situation> → <action>"; preferences "<dimension>: <description>"; profile "<field>: <fact>".
-        text is one line within the entry length limit ({itemLength} characters), in the memory language; source is the user's own words behind it, one line.
+        text is one line, in the memory language; source is the user's own words behind it, one line.
         Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WritePersona(

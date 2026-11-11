@@ -51,10 +51,6 @@ internal static class FormatViolations
     public static ConsolidationSection Automatic(IReadOnlyList<FormatIssue> issues) =>
         new(ConsolidationTitles.FormatViolations, Findings(issues, handling => handling != FormatHandling.AskUser));
 
-    /// <summary>Part B: the problems the user decides, such as a section over its limit.</summary>
-    public static ConsolidationSection OverLimit(IReadOnlyList<FormatIssue> issues) =>
-        new(ConsolidationTitles.SectionsOverLimit, Findings(issues, handling => handling == FormatHandling.AskUser));
-
     private static List<string> Findings(IReadOnlyList<FormatIssue> issues, Func<FormatHandling, bool> include) =>
         issues.Where(issue => include(issue.Handling)).Select(issue => issue.ToFinding()).ToList();
 

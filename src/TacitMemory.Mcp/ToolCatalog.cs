@@ -33,16 +33,11 @@ public static class ToolCatalog
             .ToList();
 
     /// <summary>
-    /// Replaces the placeholders that name a configured limit with its value: <c>{itemLength}</c>, <c>{minAliases}</c>,
-    /// <c>{triggerLength}</c>, <c>{domainEntries}</c> and <c>{domains}</c>.
+    /// Replaces the placeholders that name a configured limit with its value: <c>{minAliases}</c>.
     /// The values are plain integers, so the same replacement is safe on the JSON text of a tool as well.
     /// </summary>
     internal static string Fill(string text, LimitsConfig limits) =>
-        text.Replace("{itemLength}", limits.ItemLength.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("{minAliases}", limits.Page.MinAliases.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("{triggerLength}", limits.TriggerLength.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("{domainEntries}", limits.DomainEntries.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("{domains}", limits.Domains.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        text.Replace("{minAliases}", limits.Page.MinAliases.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
     private static IEnumerable<(MethodInfo Method, McpServerToolAttribute Attribute)> MemberTools() =>
         typeof(MemoryTools)

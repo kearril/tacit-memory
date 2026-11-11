@@ -89,7 +89,7 @@ internal static class ConsolidationSkill
             .Append("\": write one summary line per listed period into the `## ").Append(summary).Append("` section of the month file the report names: ")
             .Append("a week as `- ").Append(Week).Append("：<one line>`, a month as `- ").Append(Month).Append("：<one line>`. ")
             .Append("Write each line from the activities the report gives, and add nothing they do not say.\n");
-        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": rewrite the mainline in workstreams.md from the summarized weeks it lists and the current mainline, within the limit the report gives.\n");
+        text.Append("   - \"").Append(ConsolidationTitles.MainlineMaterial).Append("\": rewrite the mainline in workstreams.md from the summarized weeks it lists and the current mainline.\n");
         text.Append("   Change nothing else in this step: no persona entry, scope block or page changes here.\n");
         text.Append("2. Read what Part \"").Append(ConsolidationTitles.ProposalPart).Append("\" needs: the pages, persona entries and material its items name. Change nothing in this step.\n");
         text.Append("3. Draft every proposal and send them to the user in one numbered list. Cover each item under \"").Append(ConsolidationTitles.ProposalPart).Append("\":\n");
@@ -98,8 +98,10 @@ internal static class ConsolidationSkill
         text.Append("   - \"").Append(ConsolidationTitles.IncidentLessons).Append("\": propose a domain rule where a lesson or a preference belongs to one domain.\n");
         text.Append("   - \"").Append(ConsolidationTitles.ChangedPages).Append("\" and \"").Append(ConsolidationTitles.DuplicatePages)
             .Append("\": propose a type for each page without one, a split for an entity page, a pointer in place of text that restates the environment, and a merge of duplicate pages.\n");
-        text.Append("   - \"").Append(ConsolidationTitles.ConflictingEntries).Append("\" and \"").Append(ConsolidationTitles.SectionsOverLimit)
+        text.Append("   - \"").Append(ConsolidationTitles.ConflictingEntries).Append("\" and \"").Append(ConsolidationTitles.DomainHygiene)
             .Append("\": propose the move, rewrite or merge that resolves each.\n");
+        text.Append("   - \"").Append(ConsolidationTitles.LengthHints)
+            .Append("\": propose a shorter wording for each item the report lists, keeping its meaning and its source; the user confirms before it is written.\n");
         text.Append("   Give each item a number, what would change, and its evidence (a short code, a quote or a page identifier). ")
             .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to workstream scope`. An item the reply does not mention is deferred.\n");
         text.Append("4. Carry out the reply item by item. Changes to persona entries, scope blocks and pages happen only after the user confirms the item:\n");
