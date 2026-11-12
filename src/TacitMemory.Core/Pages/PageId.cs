@@ -11,7 +11,10 @@ internal sealed partial record PageId(string Workstream, string Slug)
 {
     public const string Topics = "_topics";
 
-    public string RelativePath => $"pages/{Workstream}/{Slug}.md";
+    /// <summary>The folder, relative to the memory repository, that holds the detail pages.</summary>
+    public const string Folder = "pages";
+
+    public string RelativePath => $"{Folder}/{Workstream}/{Slug}.md";
 
     public override string ToString() => $"{Workstream}/{Slug}";
 

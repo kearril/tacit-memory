@@ -161,6 +161,22 @@ internal static class RecentFile
             .ToList();
     }
 
+    /// <summary>
+    /// Every activity of the activity log: the month files in name order, each in file order. A month file that cannot
+    /// be read as text is left out.
+    /// </summary>
+    public static List<Activity> AllActivities(string memoryPath)
+    {
+        var activities = new List<Activity>();
+        foreach (var (_, file) in MonthFiles(memoryPath))
+        {
+            if (TextFile.Read(file) is { } read)
+                activities.AddRange(Activities(read.Text));
+        }
+
+        return activities;
+    }
+
     /// <summary>Splits a leading <c>[workstream] </c> label off an activity's text, when the label is a workstream name.</summary>
     private static (string? Workstream, string Body) SplitLabel(string content)
     {

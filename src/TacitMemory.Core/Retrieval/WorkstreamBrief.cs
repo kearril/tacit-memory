@@ -91,7 +91,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     /// </summary>
     private List<Entry> PageEntries(string workstream, DateOnly? from, DateOnly? to)
     {
-        var folder = Path.Combine(config.MemoryPath, "pages", workstream);
+        var folder = Path.Combine(config.MemoryPath, PageId.Folder, workstream);
         if (!Directory.Exists(folder))
             return [];
 
@@ -125,18 +125,12 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     /// <summary>The workstream's activities in the date range, in file order.</summary>
     private List<RecentFile.Activity> ActivitiesOf(string workstream, DateOnly? from, DateOnly? to)
     {
-        var result = new List<RecentFile.Activity>();
-        foreach (var (_, file) in RecentFile.MonthFiles(config.MemoryPath))
-        {
-            if (TextFile.Read(file) is not { } read)
-                continue;
-            result.AddRange(RecentFile.Activities(read.Text).Where(activity =>
+        return RecentFile.AllActivities(config.MemoryPath)
+            .Where(activity =>
                 activity.Workstream == workstream
                 && (from is null || activity.Day >= from)
-                && (to is null || activity.Day <= to)));
-        }
-
-        return result;
+                && (to is null || activity.Day <= to))
+            .ToList();
     }
 
     /// <summary>The workstream-scope persona entries, each with its non-comment continuation lines.</summary>

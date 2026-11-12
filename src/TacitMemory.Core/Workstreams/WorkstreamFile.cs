@@ -1,4 +1,4 @@
-using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;

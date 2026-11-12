@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
 using TacitMemory.Core.Workstreams;
@@ -61,7 +63,7 @@ internal static class FormatViolations
     private static IEnumerable<string> MemoryFiles(string memoryPath)
     {
         var files = new List<string>();
-        AddFiles(files, memoryPath, "pages", SearchOption.AllDirectories);
+        AddFiles(files, memoryPath, PageId.Folder, SearchOption.AllDirectories);
         AddFiles(files, memoryPath, RecentFile.Folder, SearchOption.TopDirectoryOnly);
         foreach (var file in new[] { PersonaFiles.Persona, PersonaFiles.Candidates, WorkstreamFile.RelativePath })
             if (File.Exists(Path.Combine(memoryPath, file)))
@@ -86,7 +88,7 @@ internal static class FormatViolations
             return [new FormatIssue("", "file", "encoding", "The file is not valid UTF-8, so the service skips it. Re-save it as UTF-8 without changing its text.", FormatHandling.FixDirectly)];
 
         var issues = new List<FormatIssue>(MixedStructureWords(text.Text));
-        if (relative.StartsWith("pages/", StringComparison.Ordinal))
+        if (relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal))
             issues.AddRange(PageFormatCheck.Check(context.Config.MemoryPath, relative, text.Text, context.Config.Limits.Page));
         if (relative == PersonaFiles.Persona)
             issues.AddRange(PersonaFormatCheck.Check(text.Text, context.Config));

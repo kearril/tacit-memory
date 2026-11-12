@@ -812,7 +812,7 @@ internal sealed class MemoryIndex : IDisposable
     /// <summary>Page files named as page IDs: <c>pages/&lt;workstream&gt;/&lt;slug&gt;.md</c>. Other files are not pages.</summary>
     private IEnumerable<(PageId Id, string FullPath)> PageFiles()
     {
-        var pages = Path.Combine(_memoryPath, "pages");
+        var pages = Path.Combine(_memoryPath, PageId.Folder);
         if (!Directory.Exists(pages))
             yield break;
         foreach (var file in Directory.EnumerateFiles(pages, "*.md", SearchOption.AllDirectories))

@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
-using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Pages;

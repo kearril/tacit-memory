@@ -100,7 +100,7 @@ public sealed class MemoryService : IDisposable
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
         _index = new MemoryIndex(
             config.MemoryPath, config.Models.Embedding?.Model, config.Language,
-            () => options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays("pages"));
+            () => options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
         _index.SyncAll();
         _vectors = new VectorSync(_index, _models.Embedding);
         _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Consolidation.MaxConcurrency);
@@ -744,7 +744,7 @@ public sealed class MemoryService : IDisposable
                     ScheduleIndexSync();
                 if (AffectsInstructions(relative))
                     InvalidateInstructions();
-                if (relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                if (relative == PageId.Folder || relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
                     ScheduleIndexSync();
             }
         }
@@ -783,7 +783,7 @@ public sealed class MemoryService : IDisposable
     private static bool AffectsResident(string relative) =>
         relative == WorkstreamFile.RelativePath
         || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
-        || relative == "pages" || (relative.StartsWith("pages/", StringComparison.Ordinal) && relative.IndexOf('/', "pages/".Length) < 0);
+        || relative == PageId.Folder || (relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal) && relative.IndexOf('/', PageId.Folder.Length + 1) < 0);
 
     /// <summary>Arms the timer for the next local midnight.</summary>
     private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
@@ -812,7 +812,7 @@ public sealed class MemoryService : IDisposable
     private static bool AffectsInstructions(string relative) =>
         relative is PersonaFiles.Persona or PersonaFiles.Candidates or WorkstreamFile.RelativePath
         || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
-        || relative == "pages" || relative.StartsWith("pages/", StringComparison.Ordinal)
+        || relative == PageId.Folder || relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal)
         || IsGitHistory(relative);
 
     /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>

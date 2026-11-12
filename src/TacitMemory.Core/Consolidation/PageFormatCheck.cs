@@ -1,3 +1,4 @@
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Pages;
 
 namespace TacitMemory.Core.Consolidation;
