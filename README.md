@@ -41,7 +41,13 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit connect --client <名称> --context <上下文文件> --skills <skill 目录>
    ```
 
-   `--client` 是给这个客户端起的名称，`--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录。绑定会写入常驻区块并建立三个 skill 链接，最后打印 MCP 端点。tacit 不改写任何客户端的 MCP 配置，需要在客户端的 MCP 配置中自行加入这个 HTTP 端点，地址形如 `http://127.0.0.1:<端口>/mcp`；配置的位置与写法取决于客户端。
+   例如客户端的上下文文件是 `~/.my-agent/AGENTS.md`、skill 目录是 `~/.my-agent/skills` 时：
+
+   ```powershell
+   tacit connect --client my-agent --context ~/.my-agent/AGENTS.md --skills ~/.my-agent/skills
+   ```
+
+   `--client` 是给这个客户端起的名称（小写字母、数字与连字符，最多 32 个字符），`--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录；这两个路径在哪里，见你的客户端的文档。绑定会写入常驻区块并建立三个 skill 链接，然后打印 MCP 端点、传输方式与建议的服务名。tacit 不改写任何客户端的 MCP 配置，需要按打印的内容在客户端的 MCP 配置中自行加入这个 HTTP 端点，地址形如 `http://127.0.0.1:<端口>/mcp`；配置的位置与写法取决于客户端。
 
 4. **启动服务**（前台运行，建议单独开一个终端）
 

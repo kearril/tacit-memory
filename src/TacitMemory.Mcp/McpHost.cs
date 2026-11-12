@@ -57,8 +57,8 @@ public sealed class McpHost : IAsyncDisposable
             // The tools are built with the limits this service loaded at start, so the descriptions name the values it enforces.
             .WithTools(ToolCatalog.Tools(new MemoryTools(service), service.Config.Limits))
             .WithResources<MemoryResources>()
-            // TacitMemory offers no prompts, but omp asks for the list regardless of the advertised capabilities and
-            // drops the server when that request fails, so the list must always answer, with nothing in it.
+            // TacitMemory offers no prompts, but some clients ask for the list regardless of the advertised capabilities and
+            // drop the server when that request fails, so the list must always answer, with nothing in it.
             .WithListPromptsHandler((_, _) => ValueTask.FromResult(new ListPromptsResult()))
             .WithGetPromptHandler((request, _) =>
                 throw new McpProtocolException($"Unknown prompt '{request.Params?.Name}'.", McpErrorCode.InvalidParams));
