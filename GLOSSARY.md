@@ -228,6 +228,18 @@ _Avoid_: 后端、守护进程、server
 常驻服务在 `/api` 下提供的本机 HTTP 接口，供 `tacit` 命令（及将来的 Web UI）调用，例如 `GET /api/status`；与 `/mcp` 同在 `127.0.0.1` 上，并以 Origin、Host 与 POST 的 Content-Type 三道防护拒绝外部网页、DNS 重绑定与非 JSON 的 POST 请求。
 _Avoid_: 运维接口、控制面板、admin
 
+**Web 界面**（Web UI）：
+常驻服务托管的网页，供用户在浏览器中查看状态报告与日志、修改配置与提示词文档、管理绑定并执行备份、恢复与重建索引；它只调用管理 API，语言即记忆语言。
+_Avoid_: 控制面板、后台、admin、前端（指产品时）
+
+**访问密码**（Access password）：
+从本机以外的设备打开 Web 界面时须输入的唯一一个密码；没有用户名与账号。本机上的访问不需要它。
+_Avoid_: 登录密码、口令、管理员密码、token
+
+**绑定预设**（Binding preset）：
+Web 界面中为常见客户端预填的一组上下文文件与 skill 目录路径；选中后仍按普通的绑定提交，常驻服务不区分绑定是否来自预设。
+_Avoid_: 客户端预设、客户端模板、适配
+
 **维护操作**（Maintenance operation）：
 独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md` 第 12 节「服务运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
 _Avoid_: 运维操作、独占操作、锁定操作
