@@ -310,11 +310,11 @@ _Avoid_: 诊断、lint 结果
 _Avoid_: 重复候选、过期候选
 
 **客户端**（Client）：
-读取上下文文件与 skill 目录、并经 MCP 连接常驻服务的程序，例如 omp、Claude Code。TacitMemory 不区分客户端种类，只以绑定时用户给出的名称（客户端名称）指代它。
+读取上下文文件与 skill 目录、并经 MCP 连接常驻服务的程序。TacitMemory 不区分客户端种类，只以绑定时用户给出的名称（客户端名称）指代它。
 _Avoid_: harness、宿主、IDE、Agent（指程序时）
 
 **上下文文件**（Context file）：
-客户端在每个会话开始时读入的全局说明文件，例如 omp 的 `~/.omp/agent/AGENTS.md`；常驻区块写在其中。
+客户端在每个会话开始时读入的全局说明文件；常驻区块写在其中。
 _Avoid_: 配置文件、提示词文件
 
 **skill 目录**（Skills folder）：

@@ -39,7 +39,7 @@
 ### `tacit connect`
 
 ```powershell
-tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.omp/agent/skills
+tacit connect --client <名称> --context <上下文文件> --skills <skill 目录>
 ```
 
 - `--client`：客户端的名称，只是标签：小写字母、数字与连字符，最多 32 个字符，大小写不同视为同一名称。
@@ -50,19 +50,19 @@ tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.omp/agen
 - 成功后写入常驻区块，在 skill 目录中建立三个 skill 链接（`tacit-memory`、`tacit-remember`、`tacit-consolidate`），最后打印 MCP 端点（见 `docs/reference/mcp.md` 第 1 节）。检查顺序、拒绝条件与链接形式见 `docs/design.md` 第 12 节「客户端绑定」。
 - 同名同路径重复执行是安全的：补齐缺失的链接，常驻区块按当前画像重写。升级后用同样的参数重新执行，即可补上新增的 skill 链接。
 
-**共用**：两个客户端若读取同一个 skill 目录，可以都绑定到它，例如共用 `~/.agents/skills`：
+**共用**：两个客户端若读取同一个 skill 目录，可以都绑定到它：
 
 ```powershell
-tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.agents/skills
-tacit connect --client claude --context ~/.claude/CLAUDE.md --skills ~/.agents/skills
+tacit connect --client <名称一> --context <上下文文件一> --skills <共用的 skill 目录>
+tacit connect --client <名称二> --context <上下文文件二> --skills <共用的 skill 目录>
 ```
 
-第二条命令会报告「skill 目录 … 已由 omp 使用」，复用已有的三个链接，不重复建立。两个客户端也可以共用同一个上下文文件（例如都读 `~/.agents/AGENTS.md`），文件中只有一个常驻区块。路径按完整路径比较，Windows 上忽略大小写；tacit 不解析目录联接与软链接，经两个不同入口指向同一目录会被当作两处。
+第二条命令会报告「skill 目录 … 已由 <名称一> 使用」，复用已有的三个链接，不重复建立。两个客户端也可以共用同一个上下文文件（`--context` 给同一个路径），文件中只有一个常驻区块。路径按完整路径比较，Windows 上忽略大小写；tacit 不解析目录联接与软链接，经两个不同入口指向同一目录会被当作两处。
 
 ### `tacit disconnect`
 
 ```powershell
-tacit disconnect --client omp
+tacit disconnect --client <名称>
 ```
 
 - 只需名称，路径取自绑定记录。
