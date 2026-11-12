@@ -155,6 +155,47 @@ public sealed class ClientRecordTests : IDisposable
 
         using var document = JsonDocument.Parse(File.ReadAllText(StateFile));
         Assert.Equal(1, document.RootElement.GetProperty("clients").GetArrayLength());
+        // The name stays as first recorded, and the second sighting is not a new client.
+        Assert.Equal("probe-client", Record().GetProperty("name").GetString());
+        Assert.Single(_logs.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("probe-client", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void The_logged_event_carries_the_version_the_client_declared()
+    {
+        Service.RecordClient(Observed(version: "9.8.7"));
+
+        Assert.Contains("9.8.7", Assert.Single(_logs.Entries, entry => entry.Message.Contains(Client, StringComparison.Ordinal)).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_record_read_from_the_file_after_a_restart_still_grows()
+    {
+        Service.RecordClient(Observed(extensions: ["io.example/tasks"]));
+        RestartService();
+
+        Service.RecordClient(Observed(extensions: ["io.example/apps"]));
+
+        Assert.Equal(["io.example/apps", "io.example/tasks"], Record().GetProperty("extensions").EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal(2, EventsFor(Client));
+    }
+
+    [Fact]
+    public async Task A_file_with_missing_fields_nulls_and_unsorted_values_is_read_without_failing()
+    {
+        File.WriteAllText(StateFile, """
+            {"clients":[null,{"name":"probe-client","lastSeen":"2026-11-02","extensions":["io.example/tasks",null,"io.example/apps","io.example/tasks"]}]}
+            """);
+
+        var tacit = _home.Tacit();
+        var report = await tacit.OfflineStatus(tacit.LoadConfig());
+        var item = Assert.Single(Assert.IsType<ClientsStatus>(report.Clients).Items);
+        Assert.Equal(["io.example/apps", "io.example/tasks"], item.Extensions);
+        Assert.Empty(item.Capabilities);
+
+        // The running service reads the same file and adds to it.
+        Service.RecordClient(Observed(capabilities: ["roots"], extensions: []));
+        Assert.Equal(["roots"], Record().GetProperty("capabilities").EnumerateArray().Select(value => value.GetString()));
     }
 
     [Fact]

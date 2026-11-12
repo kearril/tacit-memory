@@ -7,8 +7,10 @@ namespace TacitMemory.Core.ClientRecords;
 
 /// <summary>
 /// The client capability record in <c>clients.json</c> under the home directory: one record per client name, with the day and
-/// protocol revision of its last request and everything it has declared. It is runtime state, not memory. It has its own lock, so it never waits for a memory write, and a file that cannot
-/// be written is logged as a warning and never fails the request that saw the client. Nothing here calls a model or the network.
+/// protocol revision of its last request and everything it has declared. It is runtime state, not memory. It has its own
+/// lock, so it never waits for a memory write, and a file that cannot be written is logged as a warning and never fails the
+/// request that saw the client. The file is read once, when the first client is seen; after that the service writes what
+/// it holds, so a change made to the file while the service runs is overwritten. Nothing here calls a model or the network.
 /// </summary>
 internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceLog log)
 {
@@ -66,7 +68,7 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
             if (changed)
                 log.Record(
                     LogLevel.Information, LogMessages.ClientRecorded,
-                    name, version, protocol, Joined(capabilities), Joined(extensions));
+                    current.Name, version, protocol, Joined(capabilities), Joined(extensions));
         }
     }
 
@@ -92,7 +94,9 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
         if (!File.Exists(path))
             return [];
         var file = JsonSerializer.Deserialize<ClientRecordFile>(File.ReadAllText(path), Json);
+        // A file edited by hand can hold null where a record or a value belongs; those are left out, not failed on.
         return (file?.Clients ?? [])
+            .Where(client => client is not null)
             .Select(client => client with
             {
                 Name = Plain(client.Name ?? ""),
@@ -156,7 +160,7 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
     }
 
     private static List<string> Plain(IEnumerable<string> values) =>
-        values.Select(Plain).Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        values.Where(value => value is not null).Select(Plain).Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
 
     private static string Joined(IEnumerable<string> values)
     {

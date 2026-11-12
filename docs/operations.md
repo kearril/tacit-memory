@@ -12,7 +12,7 @@
 ├── prompts/                       # 可编辑的提示词文档
 ├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-consolidate，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
-├── clients.json                   # 连接过服务的客户端能力记录（按名称一条，能力与扩展为历次声明的并集；删除即重置；运行状态，不进入备份）
+├── clients.json                   # 连接过服务的客户端能力记录（按名称一条，能力与扩展为历次声明的并集；停止服务后删除即重置；运行状态，不进入备份）
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见第 3 节）
 └── memory/                        # 记忆仓库（Git），memory.path 可改
