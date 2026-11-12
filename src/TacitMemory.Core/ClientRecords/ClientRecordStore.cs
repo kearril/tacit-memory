@@ -6,8 +6,8 @@ using TacitMemory.Core.Logging;
 namespace TacitMemory.Core.ClientRecords;
 
 /// <summary>
-/// The client capability record in <c>clients.json</c> under the home directory: the newest sighting of each client name and
-/// version. It is runtime state, not memory. It has its own lock, so it never waits for a memory write, and a file that cannot
+/// The client capability record in <c>clients.json</c> under the home directory: one record per client name, with the day and
+/// protocol revision of its last request and everything it has declared. It is runtime state, not memory. It has its own lock, so it never waits for a memory write, and a file that cannot
 /// be written is logged as a warning and never fails the request that saw the client. Nothing here calls a model or the network.
 /// </summary>
 internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceLog log)
@@ -26,9 +26,11 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
     public static string PathFor(TacitOptions options) => Path.Combine(options.TacitHome, FileName);
 
     /// <summary>
-    /// Records a sighting. The file is written, and one event logged, when the client is new or its protocol revision,
-    /// capabilities or extensions changed. A client seen again on another day only has its date written. Otherwise nothing is
-    /// written and nothing is logged.
+    /// Records a sighting. A client is known by its name alone: sessions of one client declare different versions,
+    /// capabilities and extensions, so the record keeps everything the name has declared so far and never takes any of it
+    /// away. The file is written, and one event logged, when the client is new, its protocol revision changed, or a
+    /// sighting declared something not yet recorded. A client seen again on another day only has its date written.
+    /// Otherwise nothing is written and nothing is logged.
     /// </summary>
     public void Observe(ClientObservation observation)
     {
@@ -37,24 +39,24 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
             return;
         var version = Plain(observation.Version);
         var protocol = Plain(observation.ProtocolVersion);
-        var capabilities = Plain(observation.Capabilities);
-        var extensions = Plain(observation.Extensions);
 
         lock (_gate)
         {
             var clients = _clients ??= ParseOrEmpty();
             var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
-            var index = clients.FindIndex(client => string.Equals(client.Name, name, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(client.Version, version, StringComparison.OrdinalIgnoreCase));
+            var index = clients.FindIndex(client => string.Equals(client.Name, name, StringComparison.OrdinalIgnoreCase));
             var previous = index >= 0 ? clients[index] : null;
+            var capabilities = Union(previous?.Capabilities, Plain(observation.Capabilities));
+            var extensions = Union(previous?.Extensions, Plain(observation.Extensions));
             var changed = previous is null
                 || previous.ProtocolVersion != protocol
-                || !previous.Capabilities.SequenceEqual(capabilities, StringComparer.Ordinal)
-                || !previous.Extensions.SequenceEqual(extensions, StringComparer.Ordinal);
+                || previous.Capabilities.Count != capabilities.Count
+                || previous.Extensions.Count != extensions.Count;
             if (!changed && previous!.LastSeen == today)
                 return;
 
-            var current = new ClientStatus(name, version, today, protocol, capabilities, extensions);
+            // The name stays as first recorded, so a sighting that differs only in case does not rewrite it.
+            var current = new ClientStatus(previous?.Name ?? name, today, protocol, capabilities, extensions);
             if (index >= 0)
                 clients[index] = current;
             else
@@ -84,7 +86,7 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
         }
     }
 
-    /// <summary>The file's clients, with the same cleaning as a sighting. A missing file is an empty record.</summary>
+    /// <summary>The file's clients, with the same cleaning and order as a sighting. A missing file is an empty record.</summary>
     private static List<ClientStatus> ParseFile(string path)
     {
         if (!File.Exists(path))
@@ -93,15 +95,18 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
         return (file?.Clients ?? [])
             .Select(client => client with
             {
-                Name = Plain(client.Name),
-                Version = Plain(client.Version),
-                ProtocolVersion = Plain(client.ProtocolVersion),
-                Capabilities = Plain(client.Capabilities),
-                Extensions = Plain(client.Extensions),
+                Name = Plain(client.Name ?? ""),
+                ProtocolVersion = Plain(client.ProtocolVersion ?? ""),
+                Capabilities = Union(null, Plain(client.Capabilities ?? [])),
+                Extensions = Union(null, Plain(client.Extensions ?? [])),
             })
             .Where(client => client.Name.Length > 0)
             .ToList();
     }
+
+    /// <summary>What was recorded together with what a sighting declared, each value once, in ordinal order.</summary>
+    private static List<string> Union(IReadOnlyList<string>? recorded, IReadOnlyList<string> declared) =>
+        (recorded ?? []).Concat(declared).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
 
     /// <summary>The file's clients for a sighting to add to. A file that cannot be read is logged and starts the record empty.</summary>
     private List<ClientStatus> ParseOrEmpty()

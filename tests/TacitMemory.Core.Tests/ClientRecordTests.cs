@@ -6,8 +6,9 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// The client capability record: what the service keeps of each client that connects, in <c>clients.json</c> under the home
-/// directory. Written only when a client is new, changed, or seen on another day; logged only when new or changed; kept
-/// across restarts; left out of every backup.
+/// directory, one record per client name holding everything that name has declared. Written only when a client is new,
+/// declared something new, or was seen on another day; logged only in the first two cases; kept across restarts; left out
+/// of every backup.
 /// </summary>
 public sealed class ClientRecordTests : IDisposable
 {
@@ -57,7 +58,7 @@ public sealed class ClientRecordTests : IDisposable
 
         var record = Record();
         Assert.Equal(Client, record.GetProperty("name").GetString());
-        Assert.Equal("1.2.3", record.GetProperty("version").GetString());
+        Assert.False(record.TryGetProperty("version", out _));
         Assert.Equal("2026-07-28", record.GetProperty("protocolVersion").GetString());
         Assert.Equal(TestHome.Today.ToString("yyyy-MM-dd"), record.GetProperty("lastSeen").GetString());
         Assert.Equal(["sampling"], record.GetProperty("capabilities").EnumerateArray().Select(item => item.GetString()));
@@ -79,24 +80,48 @@ public sealed class ClientRecordTests : IDisposable
     }
 
     [Fact]
-    public void A_changed_capability_logs_one_more_event_and_replaces_the_record()
+    public void A_capability_not_yet_recorded_logs_one_more_event_and_joins_the_recorded_ones()
     {
         Service.RecordClient(Observed(capabilities: ["sampling"]));
 
-        Service.RecordClient(Observed(capabilities: ["sampling", "elicitation"]));
+        Service.RecordClient(Observed(capabilities: ["elicitation"]));
 
         Assert.Equal(2, EventsFor(Client));
-        Assert.Equal(["sampling", "elicitation"], Record().GetProperty("capabilities").EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal(["elicitation", "sampling"], Record().GetProperty("capabilities").EnumerateArray().Select(item => item.GetString()));
     }
 
     [Fact]
-    public void A_changed_extension_logs_one_more_event()
+    public void An_extension_not_yet_recorded_logs_one_more_event_and_joins_the_recorded_ones()
     {
         Service.RecordClient(Observed(extensions: ["io.example/tasks"]));
 
-        Service.RecordClient(Observed(extensions: []));
+        Service.RecordClient(Observed(extensions: ["io.example/apps"]));
 
         Assert.Equal(2, EventsFor(Client));
+        Assert.Equal(["io.example/apps", "io.example/tasks"], Record().GetProperty("extensions").EnumerateArray().Select(item => item.GetString()));
+    }
+
+    [Fact]
+    public void A_sighting_that_declares_less_keeps_what_is_recorded_and_logs_nothing()
+    {
+        Service.RecordClient(Observed(capabilities: ["sampling", "roots"], extensions: ["io.example/tasks"]));
+        var before = File.ReadAllBytes(StateFile);
+
+        Service.RecordClient(Observed(capabilities: [], extensions: []));
+
+        Assert.Equal(1, EventsFor(Client));
+        Assert.Equal(before, File.ReadAllBytes(StateFile));
+    }
+
+    [Fact]
+    public void A_changed_protocol_revision_logs_one_more_event_and_replaces_the_recorded_one()
+    {
+        Service.RecordClient(Observed(protocol: "2025-11-25"));
+
+        Service.RecordClient(Observed(protocol: "2026-07-28"));
+
+        Assert.Equal(2, EventsFor(Client));
+        Assert.Equal("2026-07-28", Record().GetProperty("protocolVersion").GetString());
     }
 
     [Fact]
@@ -112,14 +137,24 @@ public sealed class ClientRecordTests : IDisposable
     }
 
     [Fact]
-    public void Name_and_version_together_are_the_key_so_each_version_is_its_own_record()
+    public void The_name_alone_is_the_key_so_every_version_of_a_client_shares_one_record()
     {
         Service.RecordClient(Observed(version: "1.0.0"));
         Service.RecordClient(Observed(version: "2.0.0"));
 
         using var document = JsonDocument.Parse(File.ReadAllText(StateFile));
-        Assert.Equal(2, document.RootElement.GetProperty("clients").GetArrayLength());
-        Assert.Equal(2, EventsFor(Client));
+        Assert.Equal(1, document.RootElement.GetProperty("clients").GetArrayLength());
+        Assert.Equal(1, EventsFor(Client));
+    }
+
+    [Fact]
+    public void A_name_that_differs_only_in_case_is_the_same_client()
+    {
+        Service.RecordClient(Observed(name: "probe-client"));
+        Service.RecordClient(Observed(name: "Probe-Client"));
+
+        using var document = JsonDocument.Parse(File.ReadAllText(StateFile));
+        Assert.Equal(1, document.RootElement.GetProperty("clients").GetArrayLength());
     }
 
     [Fact]

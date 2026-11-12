@@ -151,13 +151,17 @@ internal static class StatusReporter
         var lines = items.Select(client => ManagementApiMessages.ClientLine.Format(
             language,
             client.Name,
-            client.Version,
             client.LastSeen.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             client.ProtocolVersion,
-            client.Extensions.Count == 0 ? ManagementApiMessages.ClientNoExtensions.In(language) : string.Join(", ", client.Extensions)))
+            Declared(client.Capabilities, language),
+            Declared(client.Extensions, language)))
             .ToList();
         return new ClientsStatus(title, lines, items);
     }
+
+    /// <summary>What a client declared, joined; the word for none when it declared nothing.</summary>
+    private static string Declared(IReadOnlyList<string> values, MemoryLanguage language) =>
+        values.Count == 0 ? ManagementApiMessages.ClientNothingDeclared.In(language) : string.Join(", ", values);
 
     /// <summary>The consolidation summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
     private static async Task<(ConsolidationSummary? Summary, string? Unreadable)> ReadConsolidationAsync(

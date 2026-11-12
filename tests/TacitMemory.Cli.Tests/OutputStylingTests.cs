@@ -234,13 +234,13 @@ public sealed class ClientsColumnCliTests : IDisposable
         // A file that a client's own text has put control characters into: the report must still print plain words.
         File.WriteAllText(
             Path.Combine(_cli.Home.TacitHome, "clients.json"),
-            "{\"clients\":[{\"name\":\"probe\\u001b[31m-client\",\"version\":\"1.2.3\",\"lastSeen\":\"2026-11-02\",\"protocolVersion\":\"2026-07-28\",\"capabilities\":[],\"extensions\":[\"io.example/tasks\"]}]}");
+            "{\"clients\":[{\"name\":\"probe\\u001b[31m-client\",\"lastSeen\":\"2026-11-02\",\"protocolVersion\":\"2026-07-28\",\"capabilities\":[],\"extensions\":[\"io.example/tasks\"]}]}");
 
         var result = await _cli.RunAsync(["status"]);
 
         Assert.Equal(4, result.ExitCode);
         Assert.Contains("客户端" + Environment.NewLine, result.Stdout);
-        Assert.True(result.Stdout.Contains("  probe[31m-client 1.2.3：最近连接 2026-11-02，协议 2026-07-28，扩展：io.example/tasks", StringComparison.Ordinal), result.Stdout);
+        Assert.True(result.Stdout.Contains("  probe[31m-client：最近连接 2026-11-02，协议 2026-07-28，能力：无，扩展：io.example/tasks", StringComparison.Ordinal), result.Stdout);
         Assert.DoesNotContain(OutputWords.Escape, result.Stdout);
     }
 

@@ -28,9 +28,9 @@ internal static class ManagementApiMessages
     public static readonly Localized ClientsNone = new("尚未有客户端连接过服务。", "No client has connected to the service yet.");
     public static readonly Localized ClientsUnreadable = new("无法读取客户端能力记录：{0}", "The client record cannot be read: {0}");
     public static readonly Localized ClientLine = new(
-        "{0} {1}：最近连接 {2}，协议 {3}，扩展：{4}",
-        "{0} {1}: last connected {2}, protocol {3}, extensions: {4}");
-    public static readonly Localized ClientNoExtensions = new("无", "none");
+        "{0}：最近连接 {1}，协议 {2}，能力：{3}，扩展：{4}",
+        "{0}: last connected {1}, protocol {2}, capabilities: {3}, extensions: {4}");
+    public static readonly Localized ClientNothingDeclared = new("无", "none");
 
     public static readonly Localized LogsTitle = new("日志", "Logs");
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
