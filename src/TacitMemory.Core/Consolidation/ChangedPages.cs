@@ -9,9 +9,6 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class ChangedPages
 {
-    /// <summary>The folder of the detail pages, relative to the repository.</summary>
-    private const string Folder = "pages";
-
     /// <summary>The changed pages, in ordinal order of their paths.</summary>
     public static async Task<IReadOnlyList<PageId>> ReadAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {
@@ -33,14 +30,14 @@ internal static class ChangedPages
     /// </summary>
     private static async Task<IEnumerable<string>> ChangedSinceAsync(GitCli git, string commit, CancellationToken cancellationToken)
     {
-        var tracked = await git.RunAsync(cancellationToken, "diff", "--name-only", "--no-renames", "--relative", commit, "--", Folder);
-        var untracked = await git.RunAsync(cancellationToken, "ls-files", "--others", "--exclude-standard", "--", Folder);
+        var tracked = await git.RunAsync(cancellationToken, "diff", "--name-only", "--no-renames", "--relative", commit, "--", PageId.Folder);
+        var untracked = await git.RunAsync(cancellationToken, "ls-files", "--others", "--exclude-standard", "--", PageId.Folder);
         return Lines(tracked).Concat(Lines(untracked));
     }
 
     private static IEnumerable<string> AllPageFiles(string memory)
     {
-        var folder = Path.Combine(memory, Folder);
+        var folder = Path.Combine(memory, PageId.Folder);
         return Directory.Exists(folder)
             ? Directory.EnumerateFiles(folder, "*.md", SearchOption.AllDirectories).Select(file => Path.GetRelativePath(memory, file).Replace('\\', '/'))
             : [];
@@ -55,7 +52,7 @@ internal static class ChangedPages
         var parts = relative.Split('/');
         id = null!;
         return parts.Length == 3
-            && parts[0] == Folder
+            && parts[0] == PageId.Folder
             && PageId.TryParse($"{parts[1]}/{Path.GetFileNameWithoutExtension(parts[2])}", out id, out _)
             && id.RelativePath == relative;
     }

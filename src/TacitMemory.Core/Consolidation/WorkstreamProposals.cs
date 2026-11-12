@@ -46,7 +46,7 @@ internal static class WorkstreamProposals
     private static Dictionary<string, int> PageFolderCounts(string memory)
     {
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        var folder = Path.Combine(memory, "pages");
+        var folder = Path.Combine(memory, PageId.Folder);
         if (!Directory.Exists(folder))
             return counts;
 
@@ -70,7 +70,7 @@ internal static class WorkstreamProposals
     private static List<string> PrefixGroups(string memory)
     {
         var lines = new List<string>();
-        var folder = Path.Combine(memory, "pages", PageId.Topics);
+        var folder = Path.Combine(memory, PageId.Folder, PageId.Topics);
         if (!Directory.Exists(folder))
             return lines;
 

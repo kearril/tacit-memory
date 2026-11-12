@@ -625,7 +625,7 @@ public sealed class StatusColumnsTests : IDisposable
     }
 
     [Fact]
-    public async Task Clients_lists_each_recorded_client_with_its_version_date_protocol_and_extensions_while_the_service_is_stopped()
+    public async Task Clients_lists_each_recorded_client_with_its_date_protocol_capabilities_and_extensions_while_the_service_is_stopped()
     {
         Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2026-07-28", ["sampling"], ["io.example/tasks", "io.example/apps"]));
         _service!.Dispose();
@@ -634,24 +634,37 @@ public sealed class StatusColumnsTests : IDisposable
         var clients = (await OfflineReport()).Clients!;
 
         var line = Assert.Single(clients.Lines);
-        Assert.Contains("probe-client 1.2.3", line, StringComparison.Ordinal);
+        Assert.StartsWith("probe-client：", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("1.2.3", line, StringComparison.Ordinal);
         Assert.Contains(TestHome.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), line, StringComparison.Ordinal);
         Assert.Contains("2026-07-28", line, StringComparison.Ordinal);
-        Assert.Contains("io.example/tasks, io.example/apps", line, StringComparison.Ordinal);
+        Assert.Contains("能力：sampling，扩展：io.example/apps, io.example/tasks", line, StringComparison.Ordinal);
         var item = Assert.Single(clients.Items);
         Assert.Equal("probe-client", item.Name);
-        Assert.Equal("1.2.3", item.Version);
         Assert.Equal("2026-07-28", item.ProtocolVersion);
-        Assert.Equal(["io.example/tasks", "io.example/apps"], item.Extensions);
+        Assert.Equal(["sampling"], item.Capabilities);
+        Assert.Equal(["io.example/apps", "io.example/tasks"], item.Extensions);
     }
 
     [Fact]
-    public async Task A_client_that_declares_no_extension_is_shown_as_none()
+    public async Task One_client_seen_in_several_versions_is_one_line_with_everything_it_declared()
     {
-        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2025-11-25", ["roots"], []));
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2026-07-28", ["roots"], ["io.example/tasks"]));
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.4", "2026-07-28", ["elicitation"], ["io.example/apps"]));
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.4", "2026-07-28", [], []));
 
         var line = Assert.Single((await OfflineReport()).Clients!.Lines);
 
-        Assert.EndsWith("扩展：无", line, StringComparison.Ordinal);
+        Assert.EndsWith("能力：elicitation, roots，扩展：io.example/apps, io.example/tasks", line, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_client_that_declares_nothing_is_shown_as_none_for_both()
+    {
+        Service.RecordClient(new ClientObservation("probe-client", "1.2.3", "2025-11-25", [], []));
+
+        var line = Assert.Single((await OfflineReport()).Clients!.Lines);
+
+        Assert.EndsWith("能力：无，扩展：无", line, StringComparison.Ordinal);
     }
 }

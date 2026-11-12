@@ -10,7 +10,7 @@ internal static class MemorySkill
     public const string Name = "tacit-memory";
 
     /// <summary>
-    /// Omp shows about the first 100 characters of a description and may compress it to 160, so the moments to read
+    /// A client may show only about the first 100 characters of a description, or compress it to 160, so the moments to read
     /// the skill come first.
     /// </summary>
     private const string Description =

@@ -66,17 +66,12 @@ internal sealed record ResidentContent(
     private static Dictionary<string, DateOnly> LatestActivityDays(string memoryPath, DateOnly today)
     {
         var latest = new Dictionary<string, DateOnly>(StringComparer.Ordinal);
-        foreach (var (_, file) in RecentFile.MonthFiles(memoryPath))
+        foreach (var activity in RecentFile.AllActivities(memoryPath))
         {
-            if (TextFile.Read(file) is not { } read)
+            if (activity.Workstream is not { } name || activity.Day > today)
                 continue;
-            foreach (var activity in RecentFile.Activities(read.Text))
-            {
-                if (activity.Workstream is not { } name || activity.Day > today)
-                    continue;
-                if (!latest.TryGetValue(name, out var day) || activity.Day > day)
-                    latest[name] = activity.Day;
-            }
+            if (!latest.TryGetValue(name, out var day) || activity.Day > day)
+                latest[name] = activity.Day;
         }
 
         return latest;

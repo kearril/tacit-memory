@@ -301,7 +301,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_client_that_connects_is_listed_in_status_with_its_name_version_protocol_and_extensions()
+    public async Task A_client_that_connects_is_listed_in_status_with_its_name_protocol_capabilities_and_extensions()
     {
         await using var client = await ConnectAsync(Declared("2026-07-28"));
         await client.ListToolsAsync();
@@ -309,7 +309,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var text = await StatusText();
         var recorded = Assert.Single(JsonSerializer.Deserialize<StatusReport>(text, ManagementApiJson.Options)!.Clients!.Items);
         Assert.Equal("probe-client", recorded.Name);
-        Assert.Equal("1.2.3", recorded.Version);
+        Assert.DoesNotContain("\"version\":\"1.2.3\"", text, StringComparison.Ordinal);
         Assert.Equal("2026-07-28", recorded.ProtocolVersion);
         Assert.Equal(["elicitation"], recorded.Capabilities);
         Assert.Equal(["io.example/tasks"], recorded.Extensions);
@@ -328,7 +328,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Connecting_again_logs_nothing_and_a_changed_capability_logs_one_more_event()
+    public async Task Connecting_again_logs_nothing_and_a_capability_not_yet_recorded_logs_one_more_event()
     {
         await using (var first = await ConnectAsync(Declared("2026-07-28")))
         {

@@ -210,13 +210,14 @@ public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, strin
 public sealed record ClientsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ClientStatus> Items) : IStatusColumn;
 
 /// <summary>
-/// One client as the service last saw it: the name and version it declared, the day of its last request, the protocol revision
-/// it used, and the capabilities and extensions it declared then. Shown as it was written, with control characters removed.
+/// One client as the service knows it, by the name it declared: the day of its last request, the protocol revision it used
+/// then, and every capability and extension it has declared so far. Shown as written, with control characters removed.
 /// </summary>
 /// <param name="LastSeen">The local day of the last request from this client, not the time of day.</param>
+/// <param name="Capabilities">Every capability any of its requests declared, in ordinal order.</param>
+/// <param name="Extensions">Every extension any of its requests declared, in ordinal order.</param>
 public sealed record ClientStatus(
     string Name,
-    string Version,
     DateOnly LastSeen,
     string ProtocolVersion,
     IReadOnlyList<string> Capabilities,

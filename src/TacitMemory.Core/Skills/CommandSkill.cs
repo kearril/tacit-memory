@@ -14,7 +14,7 @@ internal static class CommandSkill
     public const string UserText =
         "Any text the user sent with this command is the focus of this run or an extra requirement; follow it.";
 
-    /// <param name="description">One sentence for the client's command completion; omp shows about the first 100 characters.</param>
+    /// <param name="description">One sentence for the client's command completion; a client may show only about the first 100 characters.</param>
     public static string Compose(string name, string description, string body) =>
         $"---\nname: {name}\ndescription: \"{description}\"\ndisable-model-invocation: true\n---\n\n{Generated}\n\n{body.ReplaceLineEndings("\n")}\n";
 }

@@ -11,13 +11,13 @@
 | 建议的服务名 | `tacit` |
 | 鉴权 | 无；只监听 `127.0.0.1`，本机视为可信边界 |
 
-`tacit connect` 最后打印端点。tacit 不读写任何客户端的 MCP 配置，由用户在客户端中自行配置（omp 的写法见 `README.md`「快速开始」）；改了 `server.port` 也须自行更新客户端中的配置。服务未运行时记忆工具不可用，已写入的常驻区块仍然有效。
+`tacit connect` 最后打印端点。tacit 不读写任何客户端的 MCP 配置，由用户在客户端中自行配置（写法取决于客户端；通用说明见 `README.md`「快速开始」）；改了 `server.port` 也须自行更新客户端中的配置。服务未运行时记忆工具不可用，已写入的常驻区块仍然有效。
 
 ## 2. 机制
 
 常驻服务以无状态方式提供三种 MCP 机制：工具、资源与服务端说明（内容见 `docs/design.md` 第 8 节「服务端说明」）。
 
-- 不提供 prompt：`prompts/list` 恒答空列表，`prompts/get` 一律报错，因为 omp 不看能力声明、每次都请求 prompt 列表，请求失败就丢弃服务器。
+- 不提供 prompt：`prompts/list` 恒答空列表，`prompts/get` 一律报错，因为有的客户端不看能力声明、每次都请求 prompt 列表，请求失败就丢弃服务器。
 - 不使用资源模板、订阅与 `list_changed` 通知，也不使用 completions、elicitation、sampling、roots 与 logging。
 
 ## 3. 工具

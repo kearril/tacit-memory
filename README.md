@@ -38,14 +38,16 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 3. **绑定客户端**
 
    ```powershell
-   tacit connect --client omp --context ~/.omp/agent/AGENTS.md --skills ~/.omp/agent/skills
+   tacit connect --client <名称> --context <上下文文件> --skills <skill 目录>
    ```
 
-   `--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录。绑定会写入常驻区块并建立三个 skill 链接，最后打印 MCP 端点。tacit 不改写任何客户端的 MCP 配置，需要在 omp 中自行配置，例如在 `~/.omp/agent/mcp.json` 的 `mcpServers` 中加入：
+   例如客户端的上下文文件是 `~/.my-agent/AGENTS.md`、skill 目录是 `~/.my-agent/skills` 时：
 
-   ```json
-   "tacit": { "type": "http", "url": "http://127.0.0.1:18888/mcp" }
+   ```powershell
+   tacit connect --client my-agent --context ~/.my-agent/AGENTS.md --skills ~/.my-agent/skills
    ```
+
+   `--client` 是给这个客户端起的名称（小写字母、数字与连字符，最多 32 个字符），`--context` 是客户端在每个会话开始时读入的上下文文件，`--skills` 是它扫描 skill 的目录；这两个路径在哪里，见你的客户端的文档。绑定会写入常驻区块并建立三个 skill 链接，然后打印 MCP 端点、传输方式与建议的服务名。tacit 不改写任何客户端的 MCP 配置，需要按打印的内容在客户端的 MCP 配置中自行加入这个 HTTP 端点，地址形如 `http://127.0.0.1:<端口>/mcp`；配置的位置与写法取决于客户端。
 
 4. **启动服务**（前台运行，建议单独开一个终端）
 
@@ -62,15 +64,15 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit show resident
    ```
 
-   然后开一个新的 omp 会话。绑定与提示词的修改在新会话中生效。
+   然后开一个新的会话。绑定与提示词的修改在新会话中生效。
 
 ## 日常使用
 
-- 会话开始时，omp 会读到常驻区块（画像、领域索引与主线）与服务端说明（含最近 7 天的活动）。Agent 在对话中按记忆规则自行检索与写入，无需手动操作。记忆工具需要 `tacit serve` 运行。
+- 会话开始时，客户端会读到常驻区块（画像、领域索引与主线）与服务端说明（含最近 7 天的活动）。Agent 在对话中按记忆规则自行检索与写入，无需手动操作。记忆工具需要 `tacit serve` 运行。
 - 开始处理某个主线时，Agent 会先调用 `recall` 只给 `workstream` 读取该主线的主线简报：主线约定、未决事项、按类型分组的页目录、最近的活动与最近一次周汇总。也可以手动让它这样做，例如"先看一下 my-app 的主线简报"。
-- 想让 Agent 立即把本次会话写进记忆（例如压缩上下文或退出前），在 omp 中输入 `/skill:tacit-remember 附加要求`；附加要求可省略，写了就作为本次的重点或额外要求。`/skill:tacit-remember` 也可以写在句中触发。
-- 定期在 omp 中输入 `/skill:tacit-consolidate`（附加要求可省略）开始整理。整理分两步：Agent 先直接处理格式问题、待清理的候选、待汇总的周与月，并重写主线的近况；然后把需要你拍板的事项（主线提案、画像提案、领域规则、页面重组、冲突条目、领域卫生、篇幅提示）编成一张编号清单，你用一次回复决定（如"1 2 确认，3 拒绝，4 改成主线作用域"）。最后在记忆仓库中以 `consolidate:` 提交。到了该整理的时候，新会话的服务端说明会提示。
-- 两个记忆指令是 omp 的 skill，用 `/skill:` 触发需要 omp 开启 `skills.enableSkillCommands`（默认已开启）。升级后请用同样的参数重新执行 `tacit connect`，补上新增的 skill 链接。
+- 想让 Agent 立即把本次会话写进记忆（例如压缩上下文或退出前），按客户端触发 skill 的方式触发 `tacit-remember`，并可附上附加要求；附加要求可省略，写了就作为本次的重点或额外要求。
+- 定期按客户端触发 skill 的方式触发 `tacit-consolidate`（附加要求可省略）开始整理。整理分两步：Agent 先直接处理格式问题、待清理的候选、待汇总的周与月，并重写主线的近况；然后把需要你拍板的事项（主线提案、画像提案、领域规则、页面重组、冲突条目、领域卫生、篇幅提示）编成一张编号清单，你用一次回复决定（如"1 2 确认，3 拒绝，4 改成主线作用域"）。最后在记忆仓库中以 `consolidate:` 提交。到了该整理的时候，新会话的服务端说明会提示。
+- 两个记忆指令是 skill，触发方式取决于客户端。升级后请用同样的参数重新执行 `tacit connect`，补上新增的 skill 链接。
 - 记忆仓库中的 Markdown 可直接编辑，服务会监听变化并同步索引。服务写入某个文件时，会连同该文件中未提交的手动修改一并提交；其余手动修改请在仓库中自行 `git commit`。
 - 想调整 Agent 收到的规则与常驻区块的措辞，编辑 `~/.tacit/prompts/` 下的提示词文档，见 [`docs/reference/configuration.md`](docs/reference/configuration.md)「提示词文档」。
 

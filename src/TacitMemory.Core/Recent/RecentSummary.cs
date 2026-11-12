@@ -1,5 +1,3 @@
-using TacitMemory.Core.Injection;
-
 namespace TacitMemory.Core.Recent;
 
 /// <summary>
@@ -15,15 +13,8 @@ internal sealed record RecentSummary(IReadOnlyList<RecentFile.Activity> Week)
     /// <summary>Reads every activity month file under <c>recent/</c> and keeps the activities of the window.</summary>
     public static RecentSummary Read(string memoryPath, DateOnly today)
     {
-        var activities = new List<RecentFile.Activity>();
-        foreach (var (_, file) in RecentFile.MonthFiles(memoryPath))
-        {
-            if (TextFile.Read(file) is { } read)
-                activities.AddRange(RecentFile.Activities(read.Text));
-        }
-
         var start = today.AddDays(1 - WindowDays);
-        var week = activities
+        var week = RecentFile.AllActivities(memoryPath)
             .Where(activity => activity.Day >= start && activity.Day <= today)
             .Reverse()
             .OrderByDescending(activity => activity.Day)

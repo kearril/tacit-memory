@@ -12,7 +12,7 @@
 ├── prompts/                       # 可编辑的提示词文档
 ├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-consolidate，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
-├── clients.json                   # 连接过服务的客户端能力记录（运行状态，不进入备份）
+├── clients.json                   # 连接过服务的客户端能力记录（按名称一条，能力与扩展为历次声明的并集；停止服务后删除即重置；运行状态，不进入备份）
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见第 3 节）
 └── memory/                        # 记忆仓库（Git），memory.path 可改
@@ -22,8 +22,8 @@
 
 绑定所给的两个路径会被改动（只改 TacitMemory 自己的部分）：
 
-- 上下文文件（`connect --context`；omp 为 `~/.omp/agent/AGENTS.md`）：起止标记之间的常驻区块；
-- skill 目录（`connect --skills`；omp 为 `~/.omp/agent/skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-consolidate`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
+- 上下文文件（`connect --context`）：起止标记之间的常驻区块；
+- skill 目录（`connect --skills`）下的 `tacit-memory`、`tacit-remember`、`tacit-consolidate`：指向 `TACIT_HOME/skills/` 下同名 skill 的三个链接。
 
 ## 2. 备份与恢复
 
@@ -54,7 +54,7 @@
 - 维护操作的开始、结束与失败（耗时）；索引重建的结果（文件、单元、向量、跳过的非 UTF-8 文件）与向量待补；
 - 自动、手动与保险备份的写入与失败，明文密钥提示；云端备份的上传、下载与失败，以及 `remote.json` 写入失败；
 - 恢复的开始、完成、回退与回退失败，以及临时目录未能删除；
-- 客户端能力记录的更新（首次见到某个客户端，或其协议版本、能力、扩展变化），以及 `clients.json` 无法写入或无法读取。
+- 客户端能力记录的更新（首次见到某个客户端，或其协议版本变化、能力与扩展的并集变大；日志一行仍带客户端自报的版本），以及 `clients.json` 无法写入或无法读取。
 
 不记录记忆正文、原话、查询文本、提示词内容、密钥与 WebDAV 密码。
 
@@ -77,5 +77,5 @@
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
 - **辅助模型连不上**：先运行 `tacit probe`，据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
 - **向量扩展无法加载**：启动时会校验 `vec0.dll` 的存在与哈希，不符即拒绝启动。确认它与 `tacit.exe` 位于同一目录，且未被替换。
-- **omp 中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
+- **客户端中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。

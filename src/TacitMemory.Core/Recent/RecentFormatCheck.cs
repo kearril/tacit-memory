@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.Formats;
 
 namespace TacitMemory.Core.Recent;
 
