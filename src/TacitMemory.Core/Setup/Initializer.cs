@@ -4,6 +4,7 @@ using TacitMemory.Core.Git;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
+using TacitMemory.Core.Recent;
 using TacitMemory.Core.Workstreams;
 using YamlDotNet.RepresentationModel;
 
@@ -64,7 +65,7 @@ internal static class Initializer
             Write(Path.Combine(memory, PersonaFiles.Persona), Templates.Persona(language)),
             Write(Path.Combine(memory, PersonaFiles.Candidates), Templates.Candidates(language)),
             Write(Path.Combine(memory, WorkstreamFile.RelativePath), Templates.Workstreams(language)),
-            Write(Path.Combine(memory, "recent", ".gitkeep"), ""),
+            Write(Path.Combine(memory, RecentFile.Folder, ".gitkeep"), ""),
             Write(Path.Combine(memory, PageId.Folder, ".gitkeep"), ""),
         }.Any(added => added);
         if (!isRepository)
