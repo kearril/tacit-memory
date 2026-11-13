@@ -137,6 +137,43 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
     }
 
     [Fact]
+    public async Task A_taken_loopback_port_refuses_to_start_beside_a_wildcard_server_host()
+    {
+        var port = FreePort();
+        using var taken = new TcpListener(IPAddress.Loopback, port);
+        taken.Start();
+        _home.InitReady("server:\n  host: 0.0.0.0\n", models: _models);
+        using var service = _home.Tacit().OpenService(_ => { }, _logs);
+        service.Access.SetPassword(Password, current: null, local: true);
+
+        var host = await ServiceHost.TryStartAsync(service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal);
+
+        Assert.Null(host);
+    }
+
+    [Fact]
+    public async Task An_extra_address_taken_after_it_was_probed_leaves_the_service_on_loopback_and_says_why()
+    {
+        var port = FreePort();
+        using var taken = new TcpListener(PeerClients.RemoteAddress, port);
+        taken.Start();
+        _home.InitReady("server:\n  host: 127.0.0.2\n", models: _models);
+        var service = _home.Tacit().OpenService(_ => { }, _logs);
+        _disposables.Add(service);
+        service.Access.SetPassword(Password, current: null, local: true);
+
+        // The probe finds the address free, as it would when the other program takes the port just after the probe.
+        var host = await ServiceHost.TryStartAsync(
+            service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal, probe: (_, _) => null)
+            ?? throw new InvalidOperationException($"Port {port} is in use on loopback too.");
+        _asyncDisposables.Add(host);
+
+        Assert.Equal(HttpStatusCode.OK, await StatusOf(port, IPAddress.Loopback));
+        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(host.Endpoint)).Service);
+        Assert.Equal($"额外监听失败：http://127.0.0.2:{port}/，端口 {port} 已被占用", column.Lines[^1]);
+    }
+
+    [Fact]
     public async Task A_loopback_server_host_is_the_same_as_none()
     {
         var (host, service) = await StartAsync("server:\n  host: 127.0.0.1\n");

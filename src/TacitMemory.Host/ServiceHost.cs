@@ -42,32 +42,91 @@ public sealed class ServiceHost : IAsyncDisposable
     /// nothing below warning.
     /// </summary>
     public static Task<ServiceHost?> TryStartAsync(MemoryService service, int port, ILoggerProvider logs, CancellationToken cancellationToken = default) =>
-        TryStartAsync(service, port, logs, IsLoopback, webRoot: null, cancellationToken);
+        TryStartAsync(service, port, logs, IsLoopback, webRoot: null, cancellationToken: cancellationToken);
 
     /// <summary>
     /// <see cref="TryStartAsync(MemoryService, int, ILoggerProvider, CancellationToken)"/> with the rule that says which peers
     /// are local, and the directory the web interface is read from. Tests narrow the rule, so a remote connection can be made
     /// from a loopback address, and they point the directory at a temporary one; neither is a setting. Without a directory the
-    /// web interface is read from <c>web</c> beside the executable.
+    /// web interface is read from <c>web</c> beside the executable. <paramref name="probe"/> binds an address the way the
+    /// server will; a test replaces it to reach a failure that comes after the probe.
     /// </summary>
     internal static async Task<ServiceHost?> TryStartAsync(
         MemoryService service, int port, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, string? webRoot = null,
-        CancellationToken cancellationToken = default)
+        Func<IPAddress, int, Exception?>? probe = null, CancellationToken cancellationToken = default)
     {
         service.CheckExtraListenerAllowed();
+        probe ??= Probe;
+        var directory = webRoot ?? Path.Combine(AppContext.BaseDirectory, "web");
         var extra = service.Config.ExtraAddress;
-        Exception? extraFailure = null;
-        if (extra is not null)
-        {
-            // Both listeners share one port, so a port 0 is picked here, before either is bound.
-            if (port == 0)
-                port = FreePort();
-            extraFailure = Probe(extra, port);
-        }
-        var listenOnExtra = extra is not null && extraFailure is null;
-        // 0.0.0.0 already covers loopback, and on most systems it cannot share a port with 127.0.0.1, so it stands alone.
-        var listenOnLoopback = !(listenOnExtra && extra!.Equals(IPAddress.Any));
+        // Both listeners share one port, so a port 0 is picked here, before either is bound.
+        if (extra is not null && port == 0)
+            port = FreePort();
+        // Loopback is always listened on, so its port must be free before anything is bound. A wildcard address does not show
+        // that: on Windows it binds even while another program holds 127.0.0.1 on the same port.
+        if (port != 0 && probe(IPAddress.Loopback, port) is SocketException { SocketErrorCode: SocketError.AddressAlreadyInUse })
+            return null;
 
+        Exception? extraFailure = extra is null ? null : probe(extra, port);
+        var listenOnExtra = extra is not null && extraFailure is null;
+        // Elsewhere 0.0.0.0 covers loopback and cannot share its port with 127.0.0.1, so it stands alone. Windows allows both.
+        var listenOnLoopback = !(listenOnExtra && extra!.Equals(IPAddress.Any) && !OperatingSystem.IsWindows());
+        ServiceHost host;
+        try
+        {
+            host = await StartOn(service, logs, isLocal, directory, port, listenOnLoopback, listenOnExtra ? extra : null, cancellationToken);
+        }
+        catch (IOException e) when (IsAddressInUse(e))
+        {
+            if (!listenOnExtra)
+                return null;
+            // The extra address was taken after it was probed. The service runs on loopback alone, and the status report says why.
+            extraFailure = e.InnerException?.InnerException ?? e;
+            try
+            {
+                host = await StartOn(service, logs, isLocal, directory, port, loopback: true, extra: null, cancellationToken);
+            }
+            catch (IOException again) when (IsAddressInUse(again))
+            {
+                return null;
+            }
+        }
+
+        if (extra is not null)
+            service.RecordExtraListener(extra, port, extraFailure);
+        return host;
+    }
+
+    /// <summary>
+    /// Builds the host and starts it on loopback, when <paramref name="loopback"/> is set, and on <paramref name="extra"/> when
+    /// it is not null. A taken address makes the start throw an <see cref="IOException"/> that <see cref="IsAddressInUse"/> names.
+    /// </summary>
+    private static async Task<ServiceHost> StartOn(
+        MemoryService service, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, string webRoot, int port,
+        bool loopback, IPAddress? extra, CancellationToken cancellationToken)
+    {
+        var app = Build(service, logs, isLocal, webRoot, port, loopback, extra);
+        try
+        {
+            await app.StartAsync(cancellationToken);
+        }
+        catch
+        {
+            await app.DisposeAsync();
+            throw;
+        }
+        var bound = new Uri(app.Urls.First()).Port;
+        return new ServiceHost(app, new Uri($"http://127.0.0.1:{bound}/mcp"));
+    }
+
+    /// <summary>Whether a start failed because an address was already in use.</summary>
+    private static bool IsAddressInUse(IOException e) => e.InnerException is AddressInUseException;
+
+    /// <summary>Builds the application with its endpoints, listening as <see cref="StartOn"/> says.</summary>
+    private static WebApplication Build(
+        MemoryService service, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, string webRoot, int port,
+        bool loopback, IPAddress? extra)
+    {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
         builder.Logging.AddProvider(logs);
@@ -75,10 +134,10 @@ public sealed class ServiceHost : IAsyncDisposable
         builder.Logging.AddFilter("Microsoft.Extensions.Hosting", LogLevel.None);
         builder.WebHost.ConfigureKestrel(kestrel =>
         {
-            if (listenOnLoopback)
+            if (loopback)
                 kestrel.Listen(IPAddress.Loopback, port);
-            if (listenOnExtra)
-                kestrel.Listen(extra!, port);
+            if (extra is not null)
+                kestrel.Listen(extra, port);
         });
         builder.Services.AddSingleton(service);
         ManagementApi.AddOpenApi(builder.Services);
@@ -124,22 +183,9 @@ public sealed class ServiceHost : IAsyncDisposable
             await next(context);
         });
         ManagementApi.Map(app, service, isLocal);
-        WebInterface.Map(app, service, webRoot ?? Path.Combine(AppContext.BaseDirectory, "web"));
+        WebInterface.Map(app, service, webRoot);
         app.MapMcp(McpPath);
-        try
-        {
-            await app.StartAsync(cancellationToken);
-        }
-        catch (IOException e) when (e.InnerException is AddressInUseException)
-        {
-            await app.DisposeAsync();
-            return null;
-        }
-
-        if (extra is not null)
-            service.RecordExtraListener(extra, port, extraFailure);
-        var bound = new Uri(app.Urls.First()).Port;
-        return new ServiceHost(app, new Uri($"http://127.0.0.1:{bound}/mcp"));
+        return app;
     }
 
     /// <summary>
@@ -151,6 +197,10 @@ public sealed class ServiceHost : IAsyncDisposable
         try
         {
             using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            // Off Windows a port left in TIME_WAIT by an earlier run is bound again, not reported as taken. On Windows the option
+            // would let the probe bind a port that another socket holds, so it is not set there.
+            if (!OperatingSystem.IsWindows())
+                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             socket.Bind(new IPEndPoint(address, port));
             return null;
         }
