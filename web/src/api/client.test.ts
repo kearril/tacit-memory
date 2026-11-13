@@ -90,14 +90,13 @@ describe("apiFetch", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it("gives an ApiError with a fallback message when the error body is not the service's JSON", async () => {
+  it("gives an ApiError with an empty message when the error body is not the service's JSON", async () => {
     answerWith(new Response("<html>bad gateway</html>", { status: 502, headers: { "Content-Type": "text/html" } }));
 
     const failure = await apiFetch("/api/status").catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(ApiError);
-    expect(failure).toMatchObject({ status: 502, error: "unexpected" });
-    expect((failure as ApiError).message).toBe("HTTP 502");
+    expect(failure).toMatchObject({ status: 502, error: "unexpected", message: "" });
   });
 
   it("resolves to undefined for an answer without a body", async () => {

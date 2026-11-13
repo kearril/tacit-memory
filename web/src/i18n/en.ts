@@ -12,6 +12,7 @@ export const en: Dictionary = {
   },
   notImplemented: "Not implemented yet",
   unreachable: "The memory service cannot be reached.",
+  unexpectedAnswer: "The memory service sent an answer that could not be read.",
   menuOpen: "Open menu",
   menuClose: "Close menu",
   logout: "Log out",

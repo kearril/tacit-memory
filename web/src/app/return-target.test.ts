@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { destinationAfterLogin, routerPathOf, safeReturnTarget, targetOf } from "./return-target";
+import { destinationAfterLogin, routerPathOf, safeReturnTarget, targetOf, UI_BASE } from "./return-target";
+
+describe("UI_BASE", () => {
+  it("is the base the interface is served under, which the return targets and the router both start from", () => {
+    expect(UI_BASE).toBe("/ui");
+    expect(targetOf({ pathname: "/settings", search: "", hash: "" })).toBe(`${UI_BASE}/settings`);
+    expect(routerPathOf(`${UI_BASE}/settings`)).toBe("/settings");
+  });
+});
 
 describe("safeReturnTarget", () => {
   it.each(["/ui/settings", "/ui/settings?tab=access", "/ui/logs#today", "/ui/"])("accepts the in-site path %s", (value) => {

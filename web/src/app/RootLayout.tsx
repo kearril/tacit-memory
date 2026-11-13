@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
-import { ApiError, onUnauthorized } from "../api/client";
+import { onUnauthorized } from "../api/client";
 import { getSession, SESSION_QUERY_KEY } from "../api/session";
-import { dictionaryFor } from "../i18n/messages";
+import { dictionaryFor, errorTextOf } from "../i18n/messages";
 import { destinationAfterLogin, targetOf } from "./return-target";
 import { SessionContext } from "./session-context";
 
@@ -43,12 +43,10 @@ export function RootLayout() {
   }, [session.data]);
 
   if (session.isError) {
-    const message =
-      session.error instanceof ApiError ? session.error.message : dictionaryFor(undefined).unreachable;
     return (
       <main className="flex min-h-dvh items-center justify-center p-md">
         <p role="alert" className="text-base text-danger">
-          {message}
+          {errorTextOf(session.error, dictionaryFor(undefined))}
         </p>
       </main>
     );

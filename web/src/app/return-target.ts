@@ -1,4 +1,7 @@
-/** The base the interface is served under. Routes inside the interface are written without it. */
+/**
+ * The base the interface is served under. Routes inside the interface are written without it. The Vite base in
+ * `vite.config.ts` is built from this value, and the router takes it as its basename, so the three never disagree.
+ */
 export const UI_BASE = "/ui";
 
 /** A router location, as react-router reports it: the path below the base, with its query and hash. */

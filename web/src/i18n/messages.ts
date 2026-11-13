@@ -1,3 +1,4 @@
+import { ApiError } from "../api/client";
 import type { components } from "../api/schema";
 import { en } from "./en";
 import { zh } from "./zh";
@@ -18,6 +19,7 @@ export interface Dictionary {
   };
   readonly notImplemented: string;
   readonly unreachable: string;
+  readonly unexpectedAnswer: string;
   readonly menuOpen: string;
   readonly menuClose: string;
   readonly logout: string;
@@ -63,4 +65,15 @@ export function dictionaryFor(language: MemoryLanguage | undefined): Dictionary 
     return dictionaries[language];
   }
   return navigator.language.toLowerCase().startsWith("zh") ? zh : en;
+}
+
+/**
+ * The text to show for a failed call: the service's explanation when it gave one, the unexpected-answer text when the
+ * answer had none, and the unreachable text when no answer came at all.
+ */
+export function errorTextOf(error: unknown, dictionary: Dictionary): string {
+  if (error instanceof ApiError) {
+    return error.message === "" ? dictionary.unexpectedAnswer : error.message;
+  }
+  return dictionary.unreachable;
 }

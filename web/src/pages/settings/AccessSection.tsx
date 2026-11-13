@@ -4,6 +4,7 @@ import { type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { ApiError } from "../../api/client";
 import { type AccessPasswordBody, clearAccessPassword, SESSION_QUERY_KEY, setAccessPassword } from "../../api/session";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
+import { errorTextOf } from "../../i18n/messages";
 import { Button } from "../../components/ui/button";
 import {
   AlertDialog,
@@ -56,7 +57,7 @@ export function AccessSection() {
       } else if (error instanceof ApiError && error.error === "PasswordWrong") {
         form.setError("current", { type: "server", message: error.message });
       } else {
-        setNotice({ tone: "error", message: messageOf(error, dictionary.unreachable) });
+        setNotice({ tone: "error", message: errorTextOf(error, dictionary) });
       }
     },
   });
@@ -67,7 +68,7 @@ export function AccessSection() {
       queryClient.setQueryData(SESSION_QUERY_KEY, status);
       setNotice({ tone: "success", message: dictionary.access.cleared });
     },
-    onError: (error) => setNotice({ tone: "error", message: messageOf(error, dictionary.unreachable) }),
+    onError: (error) => setNotice({ tone: "error", message: errorTextOf(error, dictionary) }),
   });
 
   const onSubmit = (values: PasswordValues) => {
@@ -157,10 +158,6 @@ export function AccessSection() {
 /** The body of a set or change: a remote connection must give the current password, a local one does not. */
 function bodyFor(values: PasswordValues, local: boolean): AccessPasswordBody {
   return local ? { password: values.password } : { password: values.password, current: values.current };
-}
-
-function messageOf(error: unknown, unreachable: string): string {
-  return error instanceof ApiError ? error.message : unreachable;
 }
 
 interface PasswordFieldProps {

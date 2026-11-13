@@ -187,7 +187,7 @@ flowchart LR
 | `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
 | `web/src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |
-| `web/src/app/router.tsx` | 路由以 `/ui` 为基准（Vite 的 `base` 为 `/ui/`）：登录页在外壳之外，其余五页在外壳之内；`*` 回到仪表盘 |
+| `web/src/app/router.tsx` | 路由以基准 `UI_BASE`（`web/src/app/return-target.ts`，即 `/ui`）为 basename，Vite 的 `base` 由同一个值构建（`web/vite.config.ts`）：登录页在外壳之外，其余五页在外壳之内；`*` 回到仪表盘 |
 | `web/src/pages/PlaceholderPage.tsx` | 尚未实现的页面，只显示名称与「尚未实现」 |
 
 脚本（在 `web/` 下用 `bun run` 执行）：`dev` 启动开发服务器；`build` 构建到 `web/dist/`；`typecheck`、`lint`、`test` 为三项检查；`check` 依次运行类型检查、ESLint、Vitest 与构建；`generate` 由快照生成类型。

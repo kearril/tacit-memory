@@ -4,9 +4,7 @@ import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
 import { AppShell } from "./AppShell";
 import { RootLayout } from "./RootLayout";
-
-// Routes are written from the /ui base, which is the Vite base without its trailing slash.
-const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { UI_BASE } from "./return-target";
 
 export const router = createBrowserRouter(
   [
@@ -30,5 +28,5 @@ export const router = createBrowserRouter(
       ],
     },
   ],
-  { basename },
+  { basename: UI_BASE },
 );

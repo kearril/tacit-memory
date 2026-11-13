@@ -9,7 +9,8 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { destinationAfterLogin } from "../../app/return-target";
 import { useDictionary } from "../../app/session-context";
-import { canSubmitLogin, initialLoginAttempt, loginAttemptReducer, type LoginAttemptEvent } from "./login-attempt";
+import { errorTextOf } from "../../i18n/messages";
+import { canSubmitLogin, initialLoginAttempt, loginAttemptReducer } from "./login-attempt";
 
 interface LoginValues {
   password: string;
@@ -33,7 +34,11 @@ export function LoginPage() {
       queryClient.setQueryData(SESSION_QUERY_KEY, status);
       navigate(destinationAfterLogin(location.state), { replace: true });
     },
-    onError: (error) => dispatch({ type: "failed", error: failureOf(error, dictionary.unreachable) }),
+    onError: (error) =>
+      dispatch({
+        type: "failed",
+        error: { status: error instanceof ApiError ? error.status : 0, message: errorTextOf(error, dictionary) },
+      }),
   });
 
   const passwordField = form.register("password", {
@@ -88,12 +93,4 @@ export function LoginPage() {
       </section>
     </main>
   );
-}
-
-/** The event for a failed login: the service's explanation as it is, or the unreachable text when no answer came. */
-function failureOf(error: unknown, unreachable: string): Extract<LoginAttemptEvent, { type: "failed" }>["error"] {
-  if (error instanceof ApiError) {
-    return { status: error.status, message: error.message };
-  }
-  return { status: 0, message: unreachable };
 }

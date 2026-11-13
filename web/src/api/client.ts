@@ -4,7 +4,8 @@ type ErrorBody = components["schemas"]["ApiError"];
 
 /**
  * A failed call to the management API. `error` is the service's TacitError name; `message` is the explanation in the memory
- * language, shown to the user as it is.
+ * language, shown to the user as it is. It is empty when the answer carried no explanation, and then the text to show
+ * comes from the dictionary (see `errorTextOf`).
  */
 export class ApiError extends Error {
   readonly status: number;
@@ -63,7 +64,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return (text.length === 0 ? undefined : JSON.parse(text)) as T;
 }
 
-/** The service's error body, or a body that says only the status when the answer is not the service's JSON. */
+/** The service's error body, or an empty explanation when the answer is not the service's JSON. */
 async function readErrorBody(response: Response): Promise<ErrorBody> {
   try {
     const parsed: unknown = JSON.parse(await response.text());
@@ -71,9 +72,9 @@ async function readErrorBody(response: Response): Promise<ErrorBody> {
       return parsed;
     }
   } catch {
-    // Not JSON: fall through to the status-only body.
+    // Not JSON: fall through to the body without an explanation.
   }
-  return { error: "unexpected", message: `HTTP ${response.status}` };
+  return { error: "unexpected", message: "" };
 }
 
 function isErrorBody(value: unknown): value is ErrorBody {
