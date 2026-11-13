@@ -45,11 +45,16 @@
     <Exec Command="bun run build" WorkingDirectory="$(TacitWebDir)" />
   </Target>
 
-  <Target Name="TacitWebCopy" AfterTargets="Publish" Condition="'$(TacitSkipWebBuild)' != 'true'">
-    <ItemGroup>
+  <!--
+    The web folder of the publish directory is removed first, so a file from an earlier publish never stays beside the
+    new build; a publish that skips the web interface therefore leaves no web folder at all.
+  -->
+  <Target Name="TacitWebCopy" AfterTargets="Publish">
+    <RemoveDir Directories="$(PublishDir)web" />
+    <ItemGroup Condition="'$(TacitSkipWebBuild)' != 'true'">
       <TacitWebFile Include="$(TacitWebDir)dist\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(TacitWebFile)" DestinationFiles="@(TacitWebFile->'$(PublishDir)web\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy Condition="'$(TacitSkipWebBuild)' != 'true'" SourceFiles="@(TacitWebFile)" DestinationFiles="@(TacitWebFile->'$(PublishDir)web\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
