@@ -152,3 +152,18 @@ dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTes
 Remove-Item Env:TACIT_UPDATE_OPENAPI
 dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTests"
 ```
+
+## 7. 前端检查
+
+前端检查在 `web/` 下用 Bun 运行，不需要运行中的服务，也不需要 `dotnet`。`dotnet build` 与 `dotnet test` 不要求 Bun，两者互不依赖。
+
+```powershell
+cd web
+bun run typecheck   # tsc --noEmit，含中英字典键一致的检查
+bun run lint        # ESLint
+bun run test        # Vitest
+bun run build       # Vite 构建到 web/dist/
+bun run check       # 以上四项依次运行
+```
+
+Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、401 信号的发出与退订、无正文或非 JSON 应答的处理。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。

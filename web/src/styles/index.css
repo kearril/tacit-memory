@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Only the tokens are offered as Tailwind's theme: the default palette, type scale, radii and shadows are dropped. */
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --font-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --spacing-*: initial;
+}
+
+@theme inline {
+  --color-canvas: var(--tk-color-canvas);
+  --color-surface: var(--tk-color-surface);
+  --color-surface-raised: var(--tk-color-surface-raised);
+  --color-line: var(--tk-color-line);
+  --color-ink: var(--tk-color-ink);
+  --color-ink-muted: var(--tk-color-ink-muted);
+  --color-accent: var(--tk-color-accent);
+  --color-on-accent: var(--tk-color-on-accent);
+  --color-success: var(--tk-color-success);
+  --color-warning: var(--tk-color-warning);
+  --color-danger: var(--tk-color-danger);
+  --color-info: var(--tk-color-info);
+
+  --font-sans: var(--tk-font-sans);
+  --font-mono: var(--tk-font-mono);
+
+  --text-xs: var(--tk-font-size-xs);
+  --text-sm: var(--tk-font-size-sm);
+  --text-base: var(--tk-font-size-base);
+  --text-lg: var(--tk-font-size-lg);
+  --text-xl: var(--tk-font-size-xl);
+
+  --spacing-xs: var(--tk-space-xs);
+  --spacing-sm: var(--tk-space-sm);
+  --spacing-md: var(--tk-space-md);
+  --spacing-lg: var(--tk-space-lg);
+  --spacing-xl: var(--tk-space-xl);
+
+  --radius-sm: var(--tk-radius-sm);
+  --radius-md: var(--tk-radius-md);
+  --radius-lg: var(--tk-radius-lg);
+  --radius-full: var(--tk-radius-full);
+
+  --shadow-raised: var(--tk-shadow-raised);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--tk-color-canvas);
+    color: var(--tk-color-ink);
+    font-family: var(--tk-font-sans);
+    font-size: var(--tk-font-size-base);
+    line-height: var(--tk-line-height-normal);
+  }
+}

@@ -156,6 +156,7 @@ flowchart LR
 | 索引驱动 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建索引文件） | 已引入 |
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），连同上游 LICENSE 存于仓库 `lib/sqlite-vec/`，构建时复制到输出目录；每次加载前校验代码中记录的 SHA-256，不符则拒绝启动；不使用 NuGet 上的第三方包 | 已引入 |
 | 查询与映射 | `Dapper` | 已引入 |
+| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；React Hook Form 与 Zod 已装，尚未使用。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
 | 嵌入 | `HttpClient`，按 OpenAI Embeddings 协议请求配置的完整 URL；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
 | reranker | `HttpClient` 类型化客户端，按 Cohere/Jina Rerank 协议请求配置的完整 URL | 已引入 |
 | 决策模型 | `HttpClient`，实现 System One 协议，请求配置的完整 URL | 已引入 |
@@ -164,3 +165,24 @@ flowchart LR
 | 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、GET、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，请求本身不重试（父目录缺失时的 MKCOL 与重传规则见 `docs/design.md` 第 12 节） | 已实现 |
 
 依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各主线文件为准；尚未引入的依赖在引入时锁定版本。
+
+## 7. 前端工程（`web/`）
+
+`web/` 是 Web 界面的前端工程。Bun 只用来安装依赖与运行脚本，打包由 Vite 完成，测试由 Vitest 完成。`web/node_modules` 与 `web/dist` 不进 Git；`web/bun.lock` 进 Git。
+
+| 路径 | 内容 |
+| :--- | :--- |
+| `web/openapi.json` | 管理 API 的 OpenAPI 快照，是前端类型的唯一来源（改动方式见 `docs/testing.md` 第 6 节） |
+| `src/api/schema.ts` | 由 `bun run generate` 从快照生成的类型，进 Git；生成不需要运行中的服务 |
+| `src/api/client.ts` | 接口调用层：包住 `fetch`，统一带上凭据，失败时抛出 `ApiError`（带服务返回的名称与说明），401 时先向 `onUnauthorized` 的订阅者发出信号。页面不直接调用 `fetch` |
+| `src/api/session.ts` | 按端点封装的调用，如 `GET /api/session` |
+| `src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
+| `src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
+| `src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、圆角与阴影，界面只能使用令牌 |
+| `src/app/router.tsx`、`src/pages/` | 路由以 `/ui` 为基准（Vite 的 `base` 为 `/ui/`）与各页面 |
+
+脚本（在 `web/` 下用 `bun run` 执行）：`dev` 启动开发服务器；`build` 构建到 `web/dist/`；`typecheck`、`lint`、`test` 为三项检查；`check` 依次运行类型检查、ESLint、Vitest 与构建；`generate` 由快照生成类型。
+
+**构建与托管。** `dotnet publish`（`Cli` 项目）时，`web/` 按锁文件安装依赖并构建，`web/dist/` 复制到发布目录的 `web/` 子目录；服务从可执行文件旁的 `web/` 托管它（见第 5 节）。`dotnet build` 与 `dotnet test` 不触发前端构建。
+
+**开发。** `bun run dev` 启动 Vite 开发服务器（默认 5173，有热更新）。`/api` 经代理转给 `127.0.0.1` 上运行中的常驻服务，端口取环境变量 `TACIT_SERVICE_PORT`，缺省为 18888。代理转发时去掉 `Origin` 头，并把 `Host` 改为目标地址，因为服务只接受回环主机名的本机请求。

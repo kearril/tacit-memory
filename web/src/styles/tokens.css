@@ -1,0 +1,105 @@
+/*
+ * Design tokens. The values here are PLACEHOLDERS: neutral numbers that let the interface be built and checked. The final
+ * visual design replaces them; the names and the categories stay. Components and pages refer to the tokens by name, and
+ * never write a colour, size, space, radius, duration or layer value of their own.
+ *
+ * Colours come in two sets. The light set is the default. The dark set applies when the system asks for dark, unless the
+ * page asks for light with data-theme="light", and when the page asks for dark with data-theme="dark".
+ */
+
+:root {
+  color-scheme: light;
+
+  --tk-color-canvas: oklch(98% 0 0);
+  --tk-color-surface: oklch(100% 0 0);
+  --tk-color-surface-raised: oklch(96% 0 0);
+  --tk-color-line: oklch(88% 0 0);
+  --tk-color-ink: oklch(22% 0 0);
+  --tk-color-ink-muted: oklch(48% 0 0);
+  --tk-color-accent: oklch(45% 0.12 250);
+  --tk-color-on-accent: oklch(100% 0 0);
+  --tk-color-success: oklch(50% 0.13 150);
+  --tk-color-warning: oklch(60% 0.14 75);
+  --tk-color-danger: oklch(52% 0.18 25);
+  --tk-color-info: oklch(50% 0.1 230);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --tk-color-canvas: oklch(18% 0 0);
+    --tk-color-surface: oklch(22% 0 0);
+    --tk-color-surface-raised: oklch(27% 0 0);
+    --tk-color-line: oklch(36% 0 0);
+    --tk-color-ink: oklch(94% 0 0);
+    --tk-color-ink-muted: oklch(70% 0 0);
+    --tk-color-accent: oklch(72% 0.12 250);
+    --tk-color-on-accent: oklch(18% 0 0);
+    --tk-color-success: oklch(74% 0.14 150);
+    --tk-color-warning: oklch(80% 0.14 75);
+    --tk-color-danger: oklch(72% 0.16 25);
+    --tk-color-info: oklch(74% 0.1 230);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --tk-color-canvas: oklch(18% 0 0);
+  --tk-color-surface: oklch(22% 0 0);
+  --tk-color-surface-raised: oklch(27% 0 0);
+  --tk-color-line: oklch(36% 0 0);
+  --tk-color-ink: oklch(94% 0 0);
+  --tk-color-ink-muted: oklch(70% 0 0);
+  --tk-color-accent: oklch(72% 0.12 250);
+  --tk-color-on-accent: oklch(18% 0 0);
+  --tk-color-success: oklch(74% 0.14 150);
+  --tk-color-warning: oklch(80% 0.14 75);
+  --tk-color-danger: oklch(72% 0.16 25);
+  --tk-color-info: oklch(74% 0.1 230);
+}
+
+:root {
+  /* Typography */
+  --tk-font-sans: ui-sans-serif, system-ui, sans-serif;
+  --tk-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --tk-font-size-xs: 0.75rem;
+  --tk-font-size-sm: 0.875rem;
+  --tk-font-size-base: 1rem;
+  --tk-font-size-lg: 1.25rem;
+  --tk-font-size-xl: 1.5rem;
+  --tk-line-height-tight: 1.25;
+  --tk-line-height-normal: 1.5;
+  --tk-font-weight-regular: 400;
+  --tk-font-weight-medium: 500;
+  --tk-font-weight-semibold: 600;
+
+  /* Spacing */
+  --tk-space-xs: 0.25rem;
+  --tk-space-sm: 0.5rem;
+  --tk-space-md: 1rem;
+  --tk-space-lg: 1.5rem;
+  --tk-space-xl: 2.5rem;
+
+  /* Shape */
+  --tk-radius-sm: 0.25rem;
+  --tk-radius-md: 0.5rem;
+  --tk-radius-lg: 0.75rem;
+  --tk-radius-full: 9999px;
+  --tk-border-thin: 1px;
+  --tk-border-thick: 2px;
+  --tk-shadow-raised: 0 1px 2px oklch(0% 0 0 / 0.08), 0 4px 12px oklch(0% 0 0 / 0.08);
+
+  /* Motion */
+  --tk-duration-fast: 120ms;
+  --tk-duration-base: 200ms;
+  --tk-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layering */
+  --tk-layer-base: 0;
+  --tk-layer-nav: 10;
+  --tk-layer-overlay: 20;
+  --tk-layer-dialog: 30;
+  --tk-layer-toast: 40;
+}
