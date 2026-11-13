@@ -91,15 +91,6 @@ export interface paths {
                         "application/json": components["schemas"]["SessionStatus"];
                     };
                 };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
                 /** @description Forbidden */
                 403: {
                     headers: {
@@ -170,6 +161,15 @@ export interface paths {
                         "application/json": components["schemas"]["ApiError"];
                     };
                 };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
                 /** @description Too Many Requests */
                 429: {
                     headers: {
@@ -208,15 +208,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["SessionStatus"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
                     };
                 };
                 /** @description Forbidden */
@@ -294,6 +285,15 @@ export interface paths {
                 };
                 /** @description Forbidden */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -844,7 +844,7 @@ export interface components {
             reportLines: components["schemas"]["PreviewLine"][];
             prompt: string;
             cancelled: string;
-            report?: null | string;
+            report: null | string;
         };
         /** @enum {unknown} */
         SecretSource: "environment" | "configFile" | null;

@@ -87,6 +87,38 @@ public sealed class OpenApiTests : IAsyncLifetime
         Assert.Equal("integer", header["schema"]?["type"]?.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData("/api/session", "post")]
+    [InlineData("/api/access-password", "put")]
+    public async Task The_endpoints_that_take_a_json_body_declare_415(string path, string method)
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        Assert.NotNull(document["paths"]?[path]?[method]?["responses"]?["415"]);
+    }
+
+    [Theory]
+    [InlineData("get")]
+    [InlineData("delete")]
+    public async Task The_session_endpoint_declares_no_401_for_reading_or_logging_out(string method)
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var responses = document["paths"]?["/api/session"]?[method]?["responses"];
+        Assert.NotNull(responses?["200"]);
+        Assert.Null(responses?["401"]);
+    }
+
+    [Fact]
+    public async Task The_restore_preview_declares_its_report_as_required()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var required = document["components"]?["schemas"]?["RestorePreview"]?["required"]?.AsArray()
+            .Select(name => name!.GetValue<string>()).ToArray();
+        Assert.Contains("report", required!);
+    }
+
     [Fact]
     public async Task The_document_matches_the_snapshot_in_the_web_folder()
     {

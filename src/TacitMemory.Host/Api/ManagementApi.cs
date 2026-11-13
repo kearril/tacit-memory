@@ -177,7 +177,7 @@ internal static class ManagementApi
         api.MapGet("/session", (HttpContext context) =>
             Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
             .Produces<SessionStatus>()
-            .ProducesErrors();
+            .ProducesSessionErrors();
         api.MapPost("/session", async (HttpContext context) =>
         {
             var body = await ReadBody<PasswordBody>(context, service);
@@ -187,7 +187,7 @@ internal static class ManagementApi
         })
             .Accepts<PasswordBody>("application/json")
             .Produces<SessionStatus>()
-            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status429TooManyRequests)
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status415UnsupportedMediaType, StatusCodes.Status429TooManyRequests)
             .AddOpenApiOperationTransformer(LoginLimitedResponse);
         api.MapDelete("/session", (HttpContext context) =>
         {
@@ -195,7 +195,7 @@ internal static class ManagementApi
             return Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), loggedIn: false));
         })
             .Produces<SessionStatus>()
-            .ProducesErrors();
+            .ProducesSessionErrors();
         api.MapPut("/access-password", async (HttpContext context) =>
         {
             var body = await ReadBody<AccessPasswordBody>(context, service);
@@ -208,7 +208,7 @@ internal static class ManagementApi
         })
             .Accepts<AccessPasswordBody>("application/json")
             .Produces<SessionStatus>()
-            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status429TooManyRequests)
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status415UnsupportedMediaType, StatusCodes.Status429TooManyRequests)
             .AddOpenApiOperationTransformer(LoginLimitedResponse);
         api.MapDelete("/access-password", (HttpContext context) =>
         {
@@ -250,12 +250,22 @@ internal static class ManagementApi
 
     /// <summary>
     /// Declares the error bodies of an endpoint. Every endpoint can be refused by the guards, refused to a connection from
-    /// another device with 401, and can fail in the environment, so 401, 403 and 500 are always declared; the statuses given
-    /// are the ones its own operation adds.
+    /// another device with 401, and can fail in the environment, so 401, 403 and 500 are declared; the statuses given are the
+    /// ones its own operation adds.
     /// </summary>
-    private static RouteHandlerBuilder ProducesErrors(this RouteHandlerBuilder builder, params int[] statuses)
+    private static RouteHandlerBuilder ProducesErrors(this RouteHandlerBuilder builder, params int[] statuses) =>
+        builder.ProducesErrorBodies(statuses.Append(StatusCodes.Status401Unauthorized));
+
+    /// <summary>
+    /// Declares the error bodies of the session endpoint's reading and logging out, which any connection may make, so no 401
+    /// is declared for them. The guards and a failure in the environment still are.
+    /// </summary>
+    private static RouteHandlerBuilder ProducesSessionErrors(this RouteHandlerBuilder builder) =>
+        builder.ProducesErrorBodies([]);
+
+    private static RouteHandlerBuilder ProducesErrorBodies(this RouteHandlerBuilder builder, IEnumerable<int> statuses)
     {
-        foreach (var status in statuses.Append(StatusCodes.Status401Unauthorized).Append(StatusCodes.Status403Forbidden).Append(StatusCodes.Status500InternalServerError))
+        foreach (var status in statuses.Append(StatusCodes.Status403Forbidden).Append(StatusCodes.Status500InternalServerError))
             builder.Produces<ApiError>(status);
         return builder;
     }
@@ -272,6 +282,12 @@ internal static class ManagementApi
             document.Info.Title = "TacitMemory management API";
             // A relative server keeps the snapshot the same on every port the service runs on.
             document.Servers = [new OpenApiServer { Url = "/" }];
+            // The preview's report is a computed property, which the generator leaves out of the required list; it is always written.
+            if (document.Components?.Schemas?.TryGetValue(nameof(RestorePreview), out var preview) == true && preview is OpenApiSchema previewSchema)
+            {
+                previewSchema.Required ??= new HashSet<string>();
+                previewSchema.Required.Add("report");
+            }
             return Task.CompletedTask;
         }));
     }
