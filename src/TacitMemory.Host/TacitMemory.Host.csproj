@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup>

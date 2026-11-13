@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`TacitMemory` 是一个跨客户端通用的个人记忆系统（.NET 10）。
+`TacitMemory` 是一个跨客户端通用的个人记忆系统（.NET 11）。
 
 ## 1. 追踪文档：何时读、何时改
 

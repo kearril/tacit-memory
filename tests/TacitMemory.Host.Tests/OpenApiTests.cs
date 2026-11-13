@@ -57,7 +57,7 @@ public sealed class OpenApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var document = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
-        Assert.Equal("3.1.1", document["openapi"]!.GetValue<string>());
+        Assert.Equal("3.1.2", document["openapi"]!.GetValue<string>());
         var status = document["paths"]!["/api/status"]!["get"]!["responses"]!["200"]!["content"]!["application/json"]!["schema"]!;
         Assert.Equal("#/components/schemas/StatusReport", status["$ref"]!.GetValue<string>());
     }

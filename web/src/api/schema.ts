@@ -808,7 +808,7 @@ export interface paths {
                             }[];
                             prompt: string;
                             cancelled: string;
-                            report?: null | string;
+                            report?: string;
                         } | {
                             safetyBackup: string;
                             memoryHead: string;
@@ -1105,7 +1105,7 @@ export interface components {
             reportLines: components["schemas"]["PreviewLine"][];
             prompt: string;
             cancelled: string;
-            report: null | string;
+            report: string;
         };
         /** @enum {unknown} */
         SecretSource: "environment" | "configFile" | null;

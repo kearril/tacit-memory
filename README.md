@@ -5,7 +5,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
 ## 前提
 
-- **.NET 10 SDK**：用于构建。
+- **.NET 11 SDK**：用于构建。
 - **Bun**：仅 `dotnet publish` 构建 Web 界面时需要，详见 [`docs/operations.md`](docs/operations.md) 第 6 节。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。

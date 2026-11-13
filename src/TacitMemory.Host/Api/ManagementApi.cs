@@ -294,19 +294,24 @@ internal static class ManagementApi
     public static void AddOpenApi(IServiceCollection services)
     {
         services.ConfigureHttpJsonOptions(options => ManagementApiJson.Apply(options.SerializerOptions));
-        services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+        services.AddOpenApi(options =>
         {
-            document.Info.Title = "TacitMemory management API";
-            // A relative server keeps the snapshot the same on every port the service runs on.
-            document.Servers = [new OpenApiServer { Url = "/" }];
-            // The preview's report is a computed property, which the generator leaves out of the required list; it is always written.
-            if (document.Components?.Schemas?.TryGetValue(nameof(RestorePreview), out var preview) == true && preview is OpenApiSchema previewSchema)
+            // The frontend's type generator reads OpenAPI 3.0 and 3.1 only.
+            options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
+            options.AddDocumentTransformer((document, _, _) =>
             {
-                previewSchema.Required ??= new HashSet<string>();
-                previewSchema.Required.Add("report");
-            }
-            return Task.CompletedTask;
-        }));
+                document.Info.Title = "TacitMemory management API";
+                // A relative server keeps the snapshot the same on every port the service runs on.
+                document.Servers = [new OpenApiServer { Url = "/" }];
+                // The preview's report is a computed property, which the generator leaves out of the required list; it is always written.
+                if (document.Components?.Schemas?.TryGetValue(nameof(RestorePreview), out var preview) == true && preview is OpenApiSchema previewSchema)
+                {
+                    previewSchema.Required ??= new HashSet<string>();
+                    previewSchema.Required.Add("report");
+                }
+                return Task.CompletedTask;
+            });
+        });
     }
 
     /// <summary>
@@ -333,7 +338,7 @@ internal static class ManagementApi
     {
         var preview = await context.GetOrCreateSchemaAsync(typeof(RestorePreview), null, cancellationToken);
         var result = await context.GetOrCreateSchemaAsync(typeof(RestoreResult), null, cancellationToken);
-        var media = operation.Responses![StatusCodes.Status200OK.ToString()].Content!["application/json"];
+        var media = (OpenApiMediaType)operation.Responses![StatusCodes.Status200OK.ToString()].Content!["application/json"];
         media.Schema = new OpenApiSchema { OneOf = [preview, result] };
     }
 
