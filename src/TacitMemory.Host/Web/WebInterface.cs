@@ -66,7 +66,7 @@ internal static class WebInterface
             var file = segments.Length == 0 ? null : FileWithin(root, segments);
             if (file is not null)
             {
-                await Serve(context, file, CacheControlFor(segments));
+                await Serve(context, file, CacheControlFor(root, file, segments));
                 return;
             }
             if (segments.Length > 0 && Path.HasExtension(segments[^1]))
@@ -92,9 +92,16 @@ internal static class WebInterface
         return File.Exists(full) ? full : null;
     }
 
-    /// <summary>The entry page is never cached; the hashed files under the assets folder are cached for good; other files revalidate.</summary>
-    private static string CacheControlFor(string[] segments) =>
-        segments.Length > 1 && segments[0] == HashedFolder ? LongLived : NoCache;
+    /// <summary>
+    /// The entry page is never cached, whether it was asked for by name or served as the fallback. The hashed files under the
+    /// assets folder are cached for good; other files revalidate. The folder's name is matched without regard to letter case.
+    /// </summary>
+    private static string CacheControlFor(string root, string file, string[] segments)
+    {
+        if (string.Equals(file, Path.Combine(root, EntryFile), StringComparison.OrdinalIgnoreCase))
+            return NoStore;
+        return segments.Length > 1 && string.Equals(segments[0], HashedFolder, StringComparison.OrdinalIgnoreCase) ? LongLived : NoCache;
+    }
 
     private static Task Serve(HttpContext context, string file, string cacheControl)
     {

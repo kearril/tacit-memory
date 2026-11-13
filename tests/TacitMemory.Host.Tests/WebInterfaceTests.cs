@@ -186,6 +186,35 @@ public sealed class WebInterfaceTests : IAsyncDisposable, IDisposable
     }
 
     [Fact]
+    public async Task The_entry_page_is_no_store_whether_it_is_asked_for_directly_or_as_a_fallback()
+    {
+        BuildWebDirectory();
+        var host = await StartAsync();
+        using var client = PeerClients.Local();
+
+        foreach (var path in new[] { "/ui/", "/ui", "/ui/index.html", "/ui/settings" })
+        {
+            using var response = await client.GetAsync(Url(host, path));
+            Assert.True(response.Headers.CacheControl?.NoStore == true, $"{path} must say no-store");
+        }
+    }
+
+    [Fact]
+    public async Task The_ui_prefix_and_the_assets_folder_match_whatever_their_letter_case()
+    {
+        BuildWebDirectory();
+        var host = await StartAsync();
+        using var client = PeerClients.Local();
+
+        using var entry = await client.GetAsync(Url(host, "/UI/"));
+        using var asset = await client.GetAsync(Url(host, "/Ui/ASSETS/app-4f3c2b.js"));
+
+        Assert.Equal(EntryPage, await entry.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, asset.StatusCode);
+        Assert.Equal(TimeSpan.FromDays(365), asset.Headers.CacheControl?.MaxAge);
+    }
+
+    [Fact]
     public async Task A_remote_connection_opens_the_web_interface_and_the_root_without_logging_in()
     {
         BuildWebDirectory();
