@@ -54,6 +54,9 @@ internal static class ManagementApiMessages
     public static readonly Localized ApiUnauthorized = new(
         "其他设备须先登录才能使用管理 API。",
         "Other devices must log in before they can use the management API.");
+    public static readonly Localized WebNotBuilt = new(
+        "Web 界面未构建",
+        "The web interface is not built");
     public static readonly Localized McpRemoteRefused = new(
         "MCP 端点只接受本机连接。",
         "The MCP endpoint only accepts connections from this machine.");

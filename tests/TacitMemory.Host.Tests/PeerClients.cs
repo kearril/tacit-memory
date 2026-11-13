@@ -16,15 +16,17 @@ internal static class PeerClients
     /// <summary>The narrowed locality: a connection is local only when its peer is <c>127.0.0.1</c>.</summary>
     public static bool OnlyLoopbackIsLocal(IPAddress? peer) => peer?.Equals(IPAddress.Loopback) ?? false;
 
-    /// <summary>A client from <c>127.0.0.1</c>: a local connection.</summary>
-    public static HttpClient Local() => new();
+    /// <summary>A client from <c>127.0.0.1</c>: a local connection. Redirects are followed unless the test asks otherwise.</summary>
+    public static HttpClient Local(bool followRedirects = true) =>
+        new(new SocketsHttpHandler { AllowAutoRedirect = followRedirects });
 
-    /// <summary>A client from <c>127.0.0.2</c>: a connection the narrowed host treats as remote.</summary>
     /// <summary>
-    /// A client from <c>127.0.0.2</c>. It keeps no cookies: a test sends exactly the cookie it names, so a session that is
-    /// refused or still valid is the one the test made, not one the client stored from an earlier reply.
+    /// A client from <c>127.0.0.2</c>: a connection the narrowed host treats as remote. It keeps no cookies: a test sends
+    /// exactly the cookie it names, so a session that is refused or still valid is the one the test made, not one the client
+    /// stored from an earlier reply.
     /// </summary>
-    public static HttpClient Remote() => new(new SocketsHttpHandler { UseCookies = false, ConnectCallback = ConnectFromRemoteAddress });
+    public static HttpClient Remote(bool followRedirects = true) =>
+        new(new SocketsHttpHandler { UseCookies = false, AllowAutoRedirect = followRedirects, ConnectCallback = ConnectFromRemoteAddress });
 
     private static async ValueTask<Stream> ConnectFromRemoteAddress(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
     {

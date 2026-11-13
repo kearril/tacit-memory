@@ -14,12 +14,13 @@ using ModelContextProtocol.Server;
 using TacitMemory.Core;
 using TacitMemory.Host.Api;
 using TacitMemory.Host.Mcp;
+using TacitMemory.Host.Web;
 
 namespace TacitMemory.Host;
 
 /// <summary>
-/// The memory service's HTTP endpoints: MCP at <c>/mcp</c> and the management API at <c>/api</c>, on 127.0.0.1 and, when
-/// <c>server.host</c> names one, on that address too. The peer address decides who is local: a connection from a loopback
+/// The memory service's HTTP endpoints: MCP at <c>/mcp</c>, the management API at <c>/api</c> and the web interface at
+/// <c>/ui</c> (with <c>/</c> redirected there), on 127.0.0.1 and, when <c>server.host</c> names one, on that address too. The peer address decides who is local: a connection from a loopback
 /// address is local, any other is remote; a remote connection reaches the API only with a session. Stateless.
 /// </summary>
 public sealed class ServiceHost : IAsyncDisposable
@@ -41,14 +42,17 @@ public sealed class ServiceHost : IAsyncDisposable
     /// nothing below warning.
     /// </summary>
     public static Task<ServiceHost?> TryStartAsync(MemoryService service, int port, ILoggerProvider logs, CancellationToken cancellationToken = default) =>
-        TryStartAsync(service, port, logs, IsLoopback, cancellationToken);
+        TryStartAsync(service, port, logs, IsLoopback, webRoot: null, cancellationToken);
 
     /// <summary>
     /// <see cref="TryStartAsync(MemoryService, int, ILoggerProvider, CancellationToken)"/> with the rule that says which peers
-    /// are local. Tests narrow the rule, so a remote connection can be made from a loopback address; the rule is not a setting.
+    /// are local, and the directory the web interface is read from. Tests narrow the rule, so a remote connection can be made
+    /// from a loopback address, and they point the directory at a temporary one; neither is a setting. Without a directory the
+    /// web interface is read from <c>web</c> beside the executable.
     /// </summary>
     internal static async Task<ServiceHost?> TryStartAsync(
-        MemoryService service, int port, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, CancellationToken cancellationToken = default)
+        MemoryService service, int port, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, string? webRoot = null,
+        CancellationToken cancellationToken = default)
     {
         service.CheckExtraListenerAllowed();
         var extra = service.Config.ExtraAddress;
@@ -104,6 +108,7 @@ public sealed class ServiceHost : IAsyncDisposable
 
         var app = builder.Build();
         ManagementApi.Map(app, service, isLocal);
+        WebInterface.Map(app, service, webRoot ?? Path.Combine(AppContext.BaseDirectory, "web"));
         // MCP is for this machine only: a connection from anywhere else is refused before the endpoint sees it.
         app.Use(async (context, next) =>
         {

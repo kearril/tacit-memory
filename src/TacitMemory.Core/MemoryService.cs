@@ -222,6 +222,9 @@ public sealed class MemoryService : IDisposable
     /// <summary>The extra listener <c>server.host</c> names, as the host bound it when the service started; <c>null</c> when none is named.</summary>
     public ExtraListenerStatus? ExtraListener => _extraListener;
 
+    /// <summary>The text the web interface answers with when its files were not built, in the memory language.</summary>
+    public string WebNotBuiltMessage() => ManagementApiMessages.WebNotBuilt.In(Config.Language);
+
     /// <summary>The line to show for a bound extra listener at <paramref name="address"/>, in the memory language.</summary>
     public string ExtraListeningMessage(Uri address) => ManagementApiMessages.ExtraListenerAddress.Format(Config.Language, address);
 
