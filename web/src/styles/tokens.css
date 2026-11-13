@@ -28,6 +28,9 @@
   --tk-color-shadow: rgb(100 116 139);
   --tk-color-heat-0: #eef1f6;
   --tk-mix-soft: 8%;
+  --tk-mix-heat-1: 22%;
+  --tk-mix-heat-2: 42%;
+  --tk-mix-heat-3: 68%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,9 +38,9 @@
     color-scheme: dark;
 
     --tk-color-canvas: #0f141c;
-    --tk-color-surface: #171e2a;
-    --tk-color-surface-raised: #1f2735;
-    --tk-color-line: #2b3546;
+    --tk-color-surface: #1a2231;
+    --tk-color-surface-raised: #222b3b;
+    --tk-color-line: #2f3a4d;
     --tk-color-ink: #e6e9ef;
     --tk-color-ink-muted: #9aa4b5;
     --tk-color-accent: #9d9ef8;
@@ -50,6 +53,9 @@
     --tk-color-shadow: rgb(0 0 0);
     --tk-color-heat-0: #222a38;
     --tk-mix-soft: 14%;
+  --tk-mix-heat-1: 35%;
+  --tk-mix-heat-2: 58%;
+  --tk-mix-heat-3: 80%;
   }
 }
 
@@ -57,9 +63,9 @@
   color-scheme: dark;
 
   --tk-color-canvas: #0f141c;
-  --tk-color-surface: #171e2a;
-  --tk-color-surface-raised: #1f2735;
-  --tk-color-line: #2b3546;
+  --tk-color-surface: #1a2231;
+  --tk-color-surface-raised: #222b3b;
+  --tk-color-line: #2f3a4d;
   --tk-color-ink: #e6e9ef;
   --tk-color-ink-muted: #9aa4b5;
   --tk-color-accent: #9d9ef8;
@@ -72,6 +78,9 @@
   --tk-color-shadow: rgb(0 0 0);
   --tk-color-heat-0: #222a38;
   --tk-mix-soft: 14%;
+  --tk-mix-heat-1: 35%;
+  --tk-mix-heat-2: 58%;
+  --tk-mix-heat-3: 80%;
 }
 
 :root {
@@ -82,16 +91,17 @@
   --tk-color-danger-soft: color-mix(in oklab, var(--tk-color-danger) var(--tk-mix-soft), var(--tk-color-surface));
   --tk-color-info-soft: color-mix(in oklab, var(--tk-color-info) var(--tk-mix-soft), var(--tk-color-surface));
 
-  /* Heatmap levels: level 0 is an empty cell; levels 1 to 4 are ever stronger shares of the accent over the surface */
-  --tk-color-heat-1: color-mix(in oklab, var(--tk-color-accent) 22%, var(--tk-color-surface));
-  --tk-color-heat-2: color-mix(in oklab, var(--tk-color-accent) 42%, var(--tk-color-surface));
-  --tk-color-heat-3: color-mix(in oklab, var(--tk-color-accent) 68%, var(--tk-color-surface));
+  /* Heatmap levels: level 0 is an empty cell; levels 1 to 4 are ever stronger shares of the accent over the surface. The
+     dark set takes larger shares, since a bright accent over a dark surface keeps the lower levels too close together. */
+  --tk-color-heat-1: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-1), var(--tk-color-surface));
+  --tk-color-heat-2: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-2), var(--tk-color-surface));
+  --tk-color-heat-3: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-3), var(--tk-color-surface));
   --tk-color-heat-4: var(--tk-color-accent);
 
   /* Typography. Inter is bundled with the interface; Chinese text falls back to the system's own sans-serif face. */
   --tk-font-sans: "Inter Variable", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
   --tk-font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  --tk-font-size-xs: 0.75rem;
+  --tk-font-size-xs: 0.8125rem;
   --tk-font-size-sm: 0.875rem;
   --tk-font-size-base: 1rem;
   --tk-font-size-lg: 1.125rem;
