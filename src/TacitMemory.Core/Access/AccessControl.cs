@@ -32,6 +32,9 @@ public sealed class AccessControl
     /// <summary>How long logins from an address wait after <see cref="FailuresAllowed"/> wrong passwords.</summary>
     internal static readonly TimeSpan LoginPause = TimeSpan.FromSeconds(60);
 
+    /// <summary>The most addresses whose wrong passwords are kept at once; the oldest are dropped beyond it.</summary>
+    internal const int MaximumTrackedAddresses = 1024;
+
     /// <summary>The name of the state file under <c>TACIT_HOME</c>.</summary>
     internal const string FileName = "access.json";
 
@@ -59,6 +62,16 @@ public sealed class AccessControl
             _log.Record(LogLevel.Warning, AccessMessages.StateDamaged, _path);
     }
 
+    /// <summary>The addresses whose wrong passwords are kept now.</summary>
+    internal int TrackedAddresses
+    {
+        get
+        {
+            lock (_gate)
+                return _failures.Count;
+        }
+    }
+
     /// <summary>Whether an access password is set. A missing or damaged state file means it is not.</summary>
     public bool PasswordSet => ReadState() is not null;
 
@@ -71,25 +84,12 @@ public sealed class AccessControl
     public SessionGrant Login(string password, IPAddress? peer)
     {
         var address = Address(peer);
-        lock (_gate)
-        {
-            var now = _options.Time.GetUtcNow();
-            if (_failures.TryGetValue(address, out var failures) && failures.PausedUntil is { } until && now < until)
-            {
-                var seconds = (int)Math.Ceiling((until - now).TotalSeconds);
-                throw new TacitException(TacitError.LoginLimited, AccessMessages.LoginLimited.Format(_config.Language, seconds));
-            }
-
-            var state = ReadState();
-            if (state is null || !Matches(password, state))
-            {
-                Count(address, now);
-                throw new TacitException(TacitError.PasswordWrong, AccessMessages.PasswordWrong.In(_config.Language));
-            }
-
-            _failures.Remove(address);
-            return Issue(state);
-        }
+        Reserve(address);
+        var state = ReadState();
+        if (state is null || !Matches(password, state))
+            throw WrongPassword();
+        Forget(address);
+        return Issue(state);
     }
 
     /// <summary>
@@ -100,22 +100,27 @@ public sealed class AccessControl
     /// <param name="password">The new password, with its spaces; at least <see cref="MinimumLength"/> characters.</param>
     /// <param name="current">The password in use now, given by a remote caller; ignored for a local one.</param>
     /// <param name="local">Whether the request comes from this machine.</param>
-    /// <exception cref="TacitException">The current password is missing or wrong, or the new one is too short.</exception>
-    public SessionGrant SetPassword(string password, string? current, bool local)
+    /// <param name="peer">The address the request comes from; a remote caller's wrong current passwords are counted against it.</param>
+    /// <exception cref="TacitException">The current password is missing or wrong, logins from the address are paused, or the new one is too short.</exception>
+    public SessionGrant SetPassword(string password, string? current, bool local, IPAddress? peer)
     {
-        lock (_gate)
+        if (!local)
         {
+            var address = Address(peer);
+            Reserve(address);
             var existing = ReadState();
-            if (!local && (existing is null || current is null || !Matches(current, existing)))
-                throw new TacitException(TacitError.PasswordWrong, AccessMessages.PasswordWrong.In(_config.Language));
-            if (password.EnumerateRunes().Count() < MinimumLength)
-                throw new TacitException(TacitError.PasswordTooShort, AccessMessages.PasswordTooShort.In(_config.Language));
-
-            var salt = RandomNumberGenerator.GetBytes(SaltBytes);
-            var state = new State(Hash(password, salt, Iterations), salt, Iterations, RandomNumberGenerator.GetBytes(KeyBytes));
-            Write(state);
-            return Issue(state);
+            if (existing is null || current is null || !Matches(current, existing))
+                throw WrongPassword();
+            Forget(address);
         }
+        if (password.EnumerateRunes().Count() < MinimumLength)
+            throw new TacitException(TacitError.PasswordTooShort, AccessMessages.PasswordTooShort.In(_config.Language));
+
+        var salt = RandomNumberGenerator.GetBytes(SaltBytes);
+        var state = new State(Hash(password, salt, Iterations), salt, Iterations, RandomNumberGenerator.GetBytes(KeyBytes));
+        lock (_gate)
+            Write(state);
+        return Issue(state);
     }
 
     /// <summary>
@@ -166,10 +171,62 @@ public sealed class AccessControl
         return new SessionGrant($"{expiry.ToString(CultureInfo.InvariantCulture)}.{Convert.ToHexString(Sign(state, expiry))}", expires);
     }
 
-    private void Count(string address, DateTimeOffset now)
+    /// <summary>
+    /// Refuses an attempt from a paused address; otherwise counts the attempt as a failure before its password is checked.
+    /// Counting first, under the lock, keeps attempts that run at the same time from all being checked before any is counted.
+    /// A correct password takes its count back with <see cref="Forget"/>.
+    /// </summary>
+    private void Reserve(string address)
     {
-        var count = (_failures.TryGetValue(address, out var failures) ? failures.Count : 0) + 1;
-        _failures[address] = count >= FailuresAllowed ? new Failures(0, now + LoginPause) : new Failures(count, null);
+        lock (_gate)
+        {
+            var now = _options.Time.GetUtcNow();
+            Prune(now);
+            if (_failures.TryGetValue(address, out var paused) && paused.PausedUntil is { } until)
+                throw LoginLimited(until - now);
+
+            var count = (_failures.TryGetValue(address, out var counted) ? counted.Count : 0) + 1;
+            _failures[address] = count >= FailuresAllowed
+                ? new Failures(0, now, now + LoginPause)
+                : new Failures(count, now, null);
+            Prune(now);
+        }
+    }
+
+    /// <summary>Takes back the count of an address whose password was right.</summary>
+    private void Forget(string address)
+    {
+        lock (_gate)
+        {
+            Prune(_options.Time.GetUtcNow());
+            _failures.Remove(address);
+        }
+    }
+
+    /// <summary>
+    /// Drops the entries no longer needed: those whose pause has ended, and those whose last failure is at least a pause old.
+    /// Then the oldest entries go while more than <see cref="MaximumTrackedAddresses"/> remain. Every write does this under the lock.
+    /// </summary>
+    private void Prune(DateTimeOffset now)
+    {
+        foreach (var (address, failures) in _failures.ToArray())
+        {
+            var expired = failures.PausedUntil is { } until ? now >= until : now - failures.LastFailure >= LoginPause;
+            if (expired)
+                _failures.Remove(address);
+        }
+        while (_failures.Count > MaximumTrackedAddresses)
+            _failures.Remove(_failures.MinBy(entry => entry.Value.LastFailure).Key);
+    }
+
+    private TacitException WrongPassword() =>
+        new(TacitError.PasswordWrong, AccessMessages.PasswordWrong.In(_config.Language));
+
+    /// <summary>The refusal of a login from a paused address; it says the whole seconds left, and carries them for <c>Retry-After</c>.</summary>
+    private TacitException LoginLimited(TimeSpan remaining)
+    {
+        var seconds = (int)Math.Ceiling(remaining.TotalSeconds);
+        return new TacitException(TacitError.LoginLimited, AccessMessages.LoginLimited.Format(_config.Language, seconds)) { RetryAfterSeconds = seconds };
     }
 
     private static bool Matches(string password, State state) =>
@@ -253,6 +310,8 @@ public sealed class AccessControl
     /// <summary>The decoded state: the password's hash and salt with their iterations, and the key that signs sessions.</summary>
     private sealed record State(byte[] Hash, byte[] Salt, int Iterations, byte[] Key);
 
-    /// <summary>The wrong passwords counted from one address, and until when its logins are paused, if they are.</summary>
-    private sealed record Failures(int Count, DateTimeOffset? PausedUntil);
+    /// <summary>
+    /// The wrong passwords counted from one address, when the last one was, and until when its logins are paused, if they are.
+    /// </summary>
+    private sealed record Failures(int Count, DateTimeOffset LastFailure, DateTimeOffset? PausedUntil);
 }

@@ -271,6 +271,42 @@ public sealed class AccessApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_paused_login_says_in_retry_after_how_many_seconds_are_left()
+    {
+        await SetPasswordLocally();
+        for (var i = 0; i < 5; i++)
+            await Remote(HttpMethod.Post, "/api/session", new { password = "wrong wrong" });
+
+        var paused = await Remote(HttpMethod.Post, "/api/session", Body);
+        Assert.Equal("60", RetryAfter(paused));
+
+        _home.Clock.Advance(TimeSpan.FromSeconds(20));
+        Assert.Equal("40", RetryAfter(await Remote(HttpMethod.Post, "/api/session", Body)));
+    }
+
+    [Fact]
+    public async Task A_remote_change_with_wrong_current_passwords_is_limited_like_a_login()
+    {
+        await SetPasswordLocally();
+        var cookie = await LoginFromRemote();
+        for (var i = 0; i < 5; i++)
+            Assert.Equal(HttpStatusCode.Unauthorized, (await Remote(HttpMethod.Put, "/api/access-password", new { password = Changed, current = "wrong wrong" }, cookie)).Status);
+
+        var paused = await Remote(HttpMethod.Put, "/api/access-password", new { password = Changed, current = Password }, cookie);
+        Assert.Equal((HttpStatusCode)429, paused.Status);
+        Assert.Equal(nameof(TacitError.LoginLimited), paused.Error.Error);
+        Assert.Equal("60", RetryAfter(paused));
+        Assert.Null(paused.SetCookieValue);
+
+        _home.Clock.Advance(TimeSpan.FromSeconds(60));
+        var resumed = await Remote(HttpMethod.Put, "/api/access-password", new { password = Changed, current = Password }, cookie);
+        Assert.Equal(HttpStatusCode.OK, resumed.Status);
+    }
+
+    private static string? RetryAfter(Reply reply) =>
+        reply.Headers.TryGetValues("Retry-After", out var values) ? values.Single() : null;
+
+    [Fact]
     public async Task A_pause_refuses_the_right_password_too_so_a_guess_gains_nothing()
     {
         await SetPasswordLocally();

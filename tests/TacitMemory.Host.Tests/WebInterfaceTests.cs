@@ -59,7 +59,7 @@ public sealed class WebInterfaceTests : IAsyncDisposable, IDisposable
         var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         _disposables.Add(service);
         if (extraConfig.Length > 0)
-            service.Access.SetPassword(Password, current: null, local: true);
+            service.Access.SetPassword(Password, current: null, local: true, IPAddress.Loopback);
         var host = await ServiceHost.TryStartAsync(
             service, port: 0, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal, webRoot: WebRoot)
             ?? throw new InvalidOperationException("Port 0 is never in use.");

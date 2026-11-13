@@ -116,4 +116,7 @@ public enum TacitError
 public sealed class TacitException(TacitError error, string message, Exception? inner = null) : Exception(message, inner)
 {
     public TacitError Error { get; } = error;
+
+    /// <summary>For a login pause: the whole seconds until logins from the address may be tried again.</summary>
+    public int? RetryAfterSeconds { get; init; }
 }

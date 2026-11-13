@@ -45,7 +45,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         var service = _home.Tacit().OpenService(_ => { }, _logs);
         _disposables.Add(service);
         if (extraConfig.Length > 0)
-            service.Access.SetPassword(Password, current: null, local: true);
+            service.Access.SetPassword(Password, current: null, local: true, IPAddress.Loopback);
         var host = await ServiceHost.TryStartAsync(service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal)
             ?? throw new InvalidOperationException($"Port {port} is in use.");
         _asyncDisposables.Add(host);
@@ -144,7 +144,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         taken.Start();
         _home.InitReady("server:\n  host: 0.0.0.0\n", models: _models);
         using var service = _home.Tacit().OpenService(_ => { }, _logs);
-        service.Access.SetPassword(Password, current: null, local: true);
+        service.Access.SetPassword(Password, current: null, local: true, IPAddress.Loopback);
 
         var host = await ServiceHost.TryStartAsync(service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal);
 
@@ -160,7 +160,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         _home.InitReady("server:\n  host: 127.0.0.2\n", models: _models);
         var service = _home.Tacit().OpenService(_ => { }, _logs);
         _disposables.Add(service);
-        service.Access.SetPassword(Password, current: null, local: true);
+        service.Access.SetPassword(Password, current: null, local: true, IPAddress.Loopback);
 
         // The probe finds the address free, as it would when the other program takes the port just after the probe.
         var host = await ServiceHost.TryStartAsync(
@@ -192,7 +192,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         taken.Start();
         _home.InitReady("server:\n  host: 127.0.0.2\n", models: _models);
         using var service = _home.Tacit().OpenService(_ => { }, _logs);
-        service.Access.SetPassword(Password, current: null, local: true);
+        service.Access.SetPassword(Password, current: null, local: true, IPAddress.Loopback);
 
         var host = await ServiceHost.TryStartAsync(service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal);
 

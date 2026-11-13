@@ -20,7 +20,7 @@ public sealed class AccessPasswordCommandTests : IDisposable
 
     /// <summary>Sets the access password in the state file, as the service's own API would from this machine.</summary>
     private void SetPassword() =>
-        _cli.Home.Tacit().OpenAccess(NullLoggerFactory.Instance).SetPassword(Password, current: null, local: true);
+        _cli.Home.Tacit().OpenAccess(NullLoggerFactory.Instance).SetPassword(Password, current: null, local: true, System.Net.IPAddress.Loopback);
 
     [Fact]
     public async Task Status_works_with_an_access_password_set_and_needs_no_credentials()

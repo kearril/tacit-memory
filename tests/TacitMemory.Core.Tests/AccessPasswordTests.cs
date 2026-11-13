@@ -13,6 +13,11 @@ public sealed class AccessPasswordTests : IDisposable
 {
     private const string Password = "correct horse";
     private static readonly IPAddress Peer = IPAddress.Parse("192.0.2.10");
+    private static readonly IPAddress OtherPeer = IPAddress.Parse("192.0.2.11");
+
+    /// <summary>A distinct address for each number, for the tests that fill the table.</summary>
+    private static IPAddress NumberedPeer(int number) =>
+        new(new byte[] { 10, (byte)(number >> 16), (byte)(number >> 8), (byte)number });
 
     private readonly TestHome _home = new();
     private readonly CapturingLoggerFactory _logs = new();
@@ -44,7 +49,7 @@ public sealed class AccessPasswordTests : IDisposable
     {
         var access = Access();
 
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         Assert.True(access.PasswordSet);
         Assert.NotNull(access.Login(Password, Peer));
@@ -57,10 +62,10 @@ public sealed class AccessPasswordTests : IDisposable
     {
         var access = Access();
 
-        RefusedWith(TacitError.PasswordTooShort, () => access.SetPassword("1234567", current: null, local: true));
+        RefusedWith(TacitError.PasswordTooShort, () => access.SetPassword("1234567", current: null, local: true, Peer));
         Assert.False(access.PasswordSet);
 
-        access.SetPassword("12345678", current: null, local: true);
+        access.SetPassword("12345678", current: null, local: true, Peer);
         Assert.True(access.PasswordSet);
     }
 
@@ -70,10 +75,10 @@ public sealed class AccessPasswordTests : IDisposable
         var access = Access();
 
         // Seven CJK characters plus one surrogate pair (one character, two UTF-16 units): eight characters.
-        access.SetPassword("一二三四五六七😀", current: null, local: true);
+        access.SetPassword("一二三四五六七😀", current: null, local: true, Peer);
 
         Assert.True(access.PasswordSet);
-        RefusedWith(TacitError.PasswordTooShort, () => Access().SetPassword("一二三四五六😀", current: null, local: true));
+        RefusedWith(TacitError.PasswordTooShort, () => Access().SetPassword("一二三四五六😀", current: null, local: true, Peer));
     }
 
     [Fact]
@@ -81,7 +86,7 @@ public sealed class AccessPasswordTests : IDisposable
     {
         var access = Access();
 
-        access.SetPassword(" spaced one ", current: null, local: true);
+        access.SetPassword(" spaced one ", current: null, local: true, Peer);
 
         Assert.NotNull(access.Login(" spaced one ", Peer));
         RefusedWith(TacitError.PasswordWrong, () => access.Login("spaced one", Peer));
@@ -91,26 +96,103 @@ public sealed class AccessPasswordTests : IDisposable
     public void A_local_change_needs_no_current_password_but_a_remote_one_must_give_it()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
-        access.SetPassword("second password", current: null, local: true);
+        access.SetPassword("second password", current: null, local: true, Peer);
         Assert.NotNull(access.Login("second password", Peer));
 
-        RefusedWith(TacitError.PasswordWrong, () => access.SetPassword("third password", current: null, local: false));
-        RefusedWith(TacitError.PasswordWrong, () => access.SetPassword("third password", current: "not it", local: false));
+        RefusedWith(TacitError.PasswordWrong, () => access.SetPassword("third password", current: null, local: false, Peer));
+        RefusedWith(TacitError.PasswordWrong, () => access.SetPassword("third password", current: "not it", local: false, Peer));
         Assert.NotNull(access.Login("second password", Peer));
 
-        access.SetPassword("third password", current: "second password", local: false);
+        access.SetPassword("third password", current: "second password", local: false, Peer);
         Assert.NotNull(access.Login("third password", Peer));
+    }
+
+    [Fact]
+    public void Wrong_current_passwords_from_a_remote_change_are_paused_like_wrong_logins()
+    {
+        var access = Access();
+        access.SetPassword(Password, current: null, local: true, Peer);
+
+        for (var i = 0; i < 5; i++)
+            RefusedWith(TacitError.PasswordWrong, () => access.SetPassword("second password", current: "wrong wrong", local: false, Peer));
+        RefusedWith(TacitError.LoginLimited, () => access.SetPassword("second password", current: Password, local: false, Peer));
+
+        _home.Clock.Advance(AccessControl.LoginPause);
+        var grant = access.SetPassword("second password", current: Password, local: false, Peer);
+        Assert.True(access.IsSession(grant.Value));
+    }
+
+    [Fact]
+    public void A_pause_that_has_ended_is_dropped_from_the_table_on_the_next_write()
+    {
+        var access = Access();
+        for (var i = 0; i < 5; i++)
+            RefusedWith(TacitError.PasswordWrong, () => access.Login("wrong wrong", Peer));
+        Assert.Equal(1, access.TrackedAddresses);
+
+        _home.Clock.Advance(AccessControl.LoginPause);
+        RefusedWith(TacitError.PasswordWrong, () => access.Login("wrong wrong", OtherPeer));
+
+        Assert.Equal(1, access.TrackedAddresses);
+    }
+
+    [Fact]
+    public void An_address_whose_last_failure_is_older_than_a_pause_is_dropped_on_the_next_write()
+    {
+        var access = Access();
+        RefusedWith(TacitError.PasswordWrong, () => access.Login("wrong wrong", Peer));
+
+        _home.Clock.Advance(AccessControl.LoginPause);
+        RefusedWith(TacitError.PasswordWrong, () => access.Login("wrong wrong", OtherPeer));
+
+        Assert.Equal(1, access.TrackedAddresses);
+    }
+
+    [Fact]
+    public void The_table_keeps_no_more_than_its_limit_of_addresses_and_drops_the_oldest()
+    {
+        var access = Access();
+        for (var i = 0; i < AccessControl.MaximumTrackedAddresses + 50; i++)
+        {
+            _home.Clock.Advance(TimeSpan.FromMilliseconds(1));
+            RefusedWith(TacitError.PasswordWrong, () => access.Login("wrong wrong", NumberedPeer(i)));
+        }
+
+        Assert.Equal(AccessControl.MaximumTrackedAddresses, access.TrackedAddresses);
+    }
+
+    [Fact]
+    public async Task Wrong_passwords_sent_at_the_same_time_from_one_address_are_counted_before_any_is_checked()
+    {
+        var access = Access();
+        access.SetPassword(Password, current: null, local: true, Peer);
+
+        var refusals = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() =>
+        {
+            try
+            {
+                access.Login("wrong wrong", Peer);
+                return (TacitError?)null;
+            }
+            catch (TacitException refusal)
+            {
+                return refusal.Error;
+            }
+        })));
+
+        Assert.Equal(5, refusals.Count(error => error == TacitError.PasswordWrong));
+        Assert.Equal(15, refusals.Count(error => error == TacitError.LoginLimited));
     }
 
     [Fact]
     public void A_remote_change_is_answered_with_a_new_session_that_works()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
-        var grant = access.SetPassword("second password", current: Password, local: false);
+        var grant = access.SetPassword("second password", current: Password, local: false, Peer);
 
         Assert.True(access.IsSession(grant.Value));
     }
@@ -119,11 +201,11 @@ public sealed class AccessPasswordTests : IDisposable
     public void Setting_or_changing_the_password_invalidates_every_earlier_session()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         var earlier = access.Login(Password, Peer);
         Assert.True(access.IsSession(earlier.Value));
 
-        access.SetPassword("second password", current: null, local: true);
+        access.SetPassword("second password", current: null, local: true, Peer);
 
         Assert.False(access.IsSession(earlier.Value));
     }
@@ -132,11 +214,11 @@ public sealed class AccessPasswordTests : IDisposable
     public void Clearing_and_setting_again_invalidates_the_sessions_of_the_first_password()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         var earlier = access.Login(Password, Peer);
 
         access.ClearPassword(local: true);
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         Assert.False(access.IsSession(earlier.Value));
         Assert.True(access.IsSession(access.Login(Password, Peer).Value));
@@ -146,7 +228,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void Clearing_returns_to_no_password_and_no_login_succeeds()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         access.ClearPassword(local: true);
 
@@ -159,7 +241,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void A_remote_connection_cannot_clear_the_password()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         RefusedWith(TacitError.PasswordClearRemoteRefused, () => access.ClearPassword(local: false));
 
@@ -171,7 +253,7 @@ public sealed class AccessPasswordTests : IDisposable
     {
         _home.InitReady("server:\n  host: 127.0.0.2\n");
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         RefusedWith(TacitError.PasswordClearRefused, () => access.ClearPassword(local: true));
 
@@ -183,7 +265,7 @@ public sealed class AccessPasswordTests : IDisposable
     {
         var access = Access();
 
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         var text = File.ReadAllText(StateFile);
         Assert.DoesNotContain(Password, text, StringComparison.Ordinal);
@@ -198,10 +280,10 @@ public sealed class AccessPasswordTests : IDisposable
     public void Two_sets_of_the_same_password_store_different_salts()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         var first = File.ReadAllText(StateFile);
 
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         Assert.NotEqual(first, File.ReadAllText(StateFile));
     }
@@ -210,7 +292,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void The_password_survives_a_new_instance_and_so_do_its_sessions()
     {
         var first = Access();
-        first.SetPassword(Password, current: null, local: true);
+        first.SetPassword(Password, current: null, local: true, Peer);
         var session = first.Login(Password, Peer);
 
         var restarted = Access();
@@ -223,7 +305,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void A_session_lasts_thirty_days_from_login_and_is_not_renewed_by_use()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         var session = access.Login(Password, Peer);
 
         _home.Clock.Advance(TimeSpan.FromDays(15));
@@ -238,7 +320,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void The_grant_states_its_expiry_thirty_days_after_login()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         var session = access.Login(Password, Peer);
 
@@ -249,7 +331,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void A_tampered_or_malformed_session_value_is_refused()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         var session = access.Login(Password, Peer).Value;
         var dot = session.IndexOf('.');
         var expiry = long.Parse(session[..dot]);
@@ -271,7 +353,7 @@ public sealed class AccessPasswordTests : IDisposable
     public void A_session_is_not_valid_when_no_password_is_set()
     {
         var access = Access();
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         var session = access.Login(Password, Peer).Value;
         access.ClearPassword(local: true);
 
@@ -305,7 +387,7 @@ public sealed class AccessPasswordTests : IDisposable
         File.WriteAllText(StateFile, "garbage");
         var access = Access();
 
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
 
         Assert.True(Access().PasswordSet);
         Assert.NotNull(Access().Login(Password, Peer));
@@ -314,7 +396,7 @@ public sealed class AccessPasswordTests : IDisposable
     [Fact]
     public async Task A_manual_backup_does_not_contain_the_state_file()
     {
-        Access().SetPassword(Password, current: null, local: true);
+        Access().SetPassword(Password, current: null, local: true, Peer);
         using var service = _home.Tacit().OpenService(_ => { }, _logs);
 
         var result = await service.BackupAsync(BackupTarget.Local);
@@ -333,7 +415,7 @@ public sealed class AccessPasswordTests : IDisposable
         Assert.Equal(TacitError.ConfigInvalid, refusal.Error);
         Assert.Contains("server.host", refusal.Message, StringComparison.Ordinal);
 
-        service.Access.SetPassword(Password, current: null, local: true);
+        service.Access.SetPassword(Password, current: null, local: true, Peer);
         service.CheckExtraListenerAllowed();
     }
 
@@ -351,7 +433,7 @@ public sealed class AccessPasswordTests : IDisposable
         var before = File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml"));
         var access = Access();
 
-        access.SetPassword(Password, current: null, local: true);
+        access.SetPassword(Password, current: null, local: true, Peer);
         access.ClearPassword(local: true);
 
         Assert.Equal(before, File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));

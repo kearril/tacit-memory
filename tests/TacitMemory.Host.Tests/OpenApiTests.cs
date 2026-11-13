@@ -75,6 +75,18 @@ public sealed class OpenApiTests : IAsyncLifetime
         Assert.Equal(nameof(TacitError.ApiOriginRefused), error.Error);
     }
 
+    [Theory]
+    [InlineData("/api/session", "post")]
+    [InlineData("/api/access-password", "put")]
+    public async Task The_login_limit_answer_declares_the_retry_after_header(string path, string method)
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var header = document["paths"]?[path]?[method]?["responses"]?["429"]?["headers"]?["Retry-After"];
+        Assert.NotNull(header);
+        Assert.Equal("integer", header["schema"]?["type"]?.GetValue<string>());
+    }
+
     [Fact]
     public async Task The_document_matches_the_snapshot_in_the_web_folder()
     {

@@ -173,6 +173,8 @@ export interface paths {
                 /** @description Too Many Requests */
                 429: {
                     headers: {
+                        /** @description Seconds until logins from this address may be tried again. */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content: {
@@ -293,6 +295,17 @@ export interface paths {
                 /** @description Forbidden */
                 403: {
                     headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        /** @description Seconds until logins from this address may be tried again. */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content: {

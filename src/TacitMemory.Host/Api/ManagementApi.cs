@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -150,6 +151,8 @@ internal static class ManagementApi
                         // Every failure is answered with the same body: a refused operation keeps its TacitError name and
                         // message; a file-system or unexpected failure gets one the service words in the memory language.
                         var failure = Failure(service, e);
+                        if (failure.RetryAfterSeconds is { } seconds)
+                            context.Response.Headers["Retry-After"] = seconds.ToString(CultureInfo.InvariantCulture);
                         await Json(new ApiError(failure.Error.ToString(), failure.Message), StatusOf(failure.Error)).ExecuteAsync(context);
                     }
                 }
@@ -184,7 +187,8 @@ internal static class ManagementApi
         })
             .Accepts<PasswordBody>("application/json")
             .Produces<SessionStatus>()
-            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status429TooManyRequests);
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status429TooManyRequests)
+            .AddOpenApiOperationTransformer(LoginLimitedResponse);
         api.MapDelete("/session", (HttpContext context) =>
         {
             context.Response.Cookies.Delete(SessionCookie, SessionCookieOptions(expires: null));
@@ -196,7 +200,7 @@ internal static class ManagementApi
         {
             var body = await ReadBody<AccessPasswordBody>(context, service);
             var local = isLocal(context.Connection.RemoteIpAddress);
-            var grant = service.Access.SetPassword(body.Password, body.Current, local);
+            var grant = service.Access.SetPassword(body.Password, body.Current, local, context.Connection.RemoteIpAddress);
             // Every earlier session ended with the old password; a remote caller that changed it is given the new session.
             if (!local)
                 SetCookie(context, grant);
@@ -204,7 +208,8 @@ internal static class ManagementApi
         })
             .Accepts<AccessPasswordBody>("application/json")
             .Produces<SessionStatus>()
-            .ProducesErrors(StatusCodes.Status400BadRequest);
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status429TooManyRequests)
+            .AddOpenApiOperationTransformer(LoginLimitedResponse);
         api.MapDelete("/access-password", (HttpContext context) =>
         {
             var local = isLocal(context.Connection.RemoteIpAddress);
@@ -269,6 +274,22 @@ internal static class ManagementApi
             document.Servers = [new OpenApiServer { Url = "/" }];
             return Task.CompletedTask;
         }));
+    }
+
+    /// <summary>
+    /// Declares the <c>Retry-After</c> header of a login-limit answer: the seconds left until logins from the address may be
+    /// tried again.
+    /// </summary>
+    private static Task LoginLimitedResponse(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        var response = (OpenApiResponse)operation.Responses![StatusCodes.Status429TooManyRequests.ToString()];
+        response.Headers ??= new Dictionary<string, IOpenApiHeader>();
+        response.Headers["Retry-After"] = new OpenApiHeader
+        {
+            Description = "Seconds until logins from this address may be tried again.",
+            Schema = new OpenApiSchema { Type = JsonSchemaType.Integer },
+        };
+        return Task.CompletedTask;
     }
 
     /// <summary>
