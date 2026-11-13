@@ -99,10 +99,10 @@
   transition-property: translate, scale, box-shadow, background-color, color, border-color;
   transition-duration: var(--tk-duration-base);
   transition-timing-function: var(--tk-ease-standard);
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled, [aria-disabled="true"]) {
     translate: 0 var(--tk-lift-hover);
   }
-  &:active:not(:disabled) {
+  &:active:not(:disabled, [aria-disabled="true"]) {
     translate: 0 0;
     scale: var(--tk-scale-pressed);
   }

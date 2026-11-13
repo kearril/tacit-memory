@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { onUnauthorized } from "../api/client";
 import { getSession, SESSION_QUERY_KEY } from "../api/session";
 import { Toaster } from "../components/ui/toaster";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { dictionaryFor, errorTextOf } from "../i18n/messages";
 import { destinationAfterLogin, targetOf } from "./return-target";
 import { SessionContext } from "./session-context";
@@ -71,9 +72,11 @@ export function RootLayout() {
 
   return (
     <SessionContext.Provider value={status}>
-      <Toaster closeLabel={dictionary.dismiss} viewportLabel={dictionary.notifications}>
-        <Outlet />
-      </Toaster>
+      <TooltipProvider>
+        <Toaster closeLabel={dictionary.dismiss} viewportLabel={dictionary.notifications}>
+          <Outlet />
+        </Toaster>
+      </TooltipProvider>
     </SessionContext.Provider>
   );
 }

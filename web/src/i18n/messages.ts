@@ -1,5 +1,7 @@
 import { ApiError } from "../api/client";
+import type { BindingProblem } from "../api/status";
 import type { components } from "../api/schema";
+import type { Duration } from "../pages/dashboard/duration";
 import { en } from "./en";
 import { zh } from "./zh";
 
@@ -63,6 +65,39 @@ export interface Dictionary {
     readonly cancel: string;
     readonly cleared: string;
     readonly clearFailed: string;
+    readonly clearBlocked: (address: string) => string;
+  };
+  readonly dashboard: {
+    readonly connectionLost: (time: string) => string;
+    readonly connectionLostNever: string;
+    readonly calm: string;
+    readonly pending: (count: number) => string;
+    readonly uptime: (duration: Duration) => string;
+    readonly consolidated: (days: number) => string;
+    readonly neverConsolidated: string;
+    readonly cards: {
+      readonly todos: string;
+      readonly models: string;
+      readonly backups: string;
+      readonly activity: string;
+      readonly index: string;
+      readonly service: string;
+      readonly clients: string;
+      readonly bindings: string;
+    };
+    readonly todos: {
+      readonly empty: string;
+      readonly modelUnconfigured: (model: string) => string;
+      readonly modelUnconfiguredDetail: string;
+      readonly noBindings: string;
+      readonly noBindingsDetail: string;
+      readonly bindingProblem: (client: string) => string;
+      readonly extraListenerFailed: (address: string) => string;
+      readonly cloudBackupFailed: string;
+      readonly cloudBackupFailedDetail: (time: string) => string;
+    };
+    readonly models: Readonly<Record<string, string>>;
+    readonly bindingProblems: Readonly<Record<BindingProblem, string>>;
   };
 }
 

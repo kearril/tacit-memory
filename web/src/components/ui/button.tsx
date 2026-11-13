@@ -5,7 +5,7 @@ import { Slot } from "radix-ui";
 
 // Structure and behaviour follow shadcn/ui. The colours, sizes and motion are the project's tokens (see styles/tokens.css).
 const buttonVariants = cva(
-  "lift inline-flex h-control shrink-0 cursor-pointer items-center justify-center gap-sm rounded-md text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-(--tk-opacity-disabled) [&_svg]:size-(--tk-font-size-base) [&_svg]:shrink-0",
+  "lift inline-flex h-control shrink-0 cursor-pointer items-center justify-center gap-sm rounded-md text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-(--tk-opacity-disabled) aria-disabled:cursor-not-allowed aria-disabled:opacity-(--tk-opacity-disabled) [&_svg]:size-(--tk-font-size-base) [&_svg]:shrink-0",
   {
     variants: {
       variant: {

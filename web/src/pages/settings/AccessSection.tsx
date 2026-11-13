@@ -3,6 +3,7 @@ import { Info, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
 import { useState } from "react";
 import { type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { ApiError } from "../../api/client";
+import { useStatus } from "../../api/status";
 import { type AccessPasswordBody, clearAccessPassword, SESSION_QUERY_KEY, setAccessPassword } from "../../api/session";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { errorTextOf } from "../../i18n/messages";
@@ -24,6 +25,7 @@ import {
 import { Label } from "../../components/ui/label";
 import { PasswordInput } from "../../components/ui/password-input";
 import { useToast } from "../../components/ui/toast-context";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 
 interface PasswordValues {
   password: string;
@@ -38,13 +40,17 @@ interface Failure {
 /**
  * The access section of the settings page: whether an access password is set, setting or changing it, and clearing it
  * from a local connection. The service's explanations for a refused field are shown beside that field; a success is shown
- * as a toast, and any other failure stays in the card as an alert.
+ * as a toast, and any other failure stays in the card as an alert. While an extra listener is configured the clear button
+ * is unavailable: hovering or focusing it explains why, and clicking it (the only way on a touch screen) shows the same
+ * explanation as an alert.
  */
 export function AccessSection() {
   const dictionary = useDictionary();
   const session = useSessionStatus();
   const queryClient = useQueryClient();
   const showToast = useToast();
+  // An extra listener keeps the password from being cleared; the button says so before the service has to refuse.
+  const blockingAddress = useStatus().data?.service?.extraListener?.address ?? null;
   const [failure, setFailure] = useState<Failure | null>(null);
   const form = useForm<PasswordValues>({ defaultValues: { password: "", current: "" } });
   const { errors } = form.formState;
@@ -130,7 +136,24 @@ export function AccessSection() {
                 ? dictionary.access.changePassword
                 : dictionary.access.setPassword}
           </Button>
-          {session.local && session.passwordSet ? (
+          {session.local && session.passwordSet && blockingAddress !== null ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-disabled="true"
+                  onClick={() =>
+                    setFailure({ title: dictionary.access.clearFailed, message: dictionary.access.clearBlocked(blockingAddress) })
+                  }
+                >
+                  {dictionary.access.clearPassword}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{dictionary.access.clearBlocked(blockingAddress)}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {session.local && session.passwordSet && blockingAddress === null ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="outline" disabled={clear.isPending}>
