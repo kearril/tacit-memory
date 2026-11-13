@@ -59,6 +59,55 @@
         }
       }
     },
+    "/api/activity": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/session": {
       "get": {
         "tags": [
@@ -811,6 +860,73 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ActivityDay": {
+        "required": [
+          "day",
+          "workstreams",
+          "unlabeled"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "workstreams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkstreamCount"
+            }
+          },
+          "unlabeled": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ActivityReport": {
+        "required": [
+          "from",
+          "to",
+          "days",
+          "consolidationDays",
+          "skippedFiles",
+          "historyUnreadable"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityDay"
+            }
+          },
+          "consolidationDays": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "skippedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "historyUnreadable": {
+            "type": "boolean"
           }
         }
       },
@@ -1715,6 +1831,22 @@
                 "$ref": "#/components/schemas/SecretsStatus"
               }
             ]
+          }
+        }
+      },
+      "WorkstreamCount": {
+        "required": [
+          "workstream",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "workstream": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       }

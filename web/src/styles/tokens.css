@@ -109,14 +109,19 @@
   --tk-space-lg: 1.5rem;
   --tk-space-xl: 2.5rem;
 
-  /* Sizes of controls (buttons, inputs), of the narrow content column (forms, dialogs), of the sidebar and of the page;
-     they sit with the spacing scale */
+  /* Sizes of controls (buttons, inputs), of the narrow content column (forms, dialogs), of the sidebar, of the page, the
+     smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; they sit with the spacing
+     scale */
   --tk-size-control: 2.5rem;
   --tk-size-content: 32rem;
   --tk-size-sidebar: 15rem;
   --tk-size-page: 70rem;
+  --tk-size-heat-cell: 1.125rem;
+  --tk-size-tile: 15rem;
+  --tk-size-icon-tile: 1.75rem;
 
   /* Shape */
+  --tk-radius-xs: 0.25rem;
   --tk-radius-sm: 0.5rem;
   --tk-radius-md: 1rem;
   --tk-radius-lg: 1.5rem;

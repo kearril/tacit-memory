@@ -174,6 +174,13 @@ internal static class ManagementApi
         })
             .Produces<StatusReport>()
             .ProducesErrors();
+        api.MapGet("/activity", async (HttpContext context) =>
+        {
+            var report = await service.ActivityAsync(context.RequestAborted);
+            return Json(report);
+        })
+            .Produces<ActivityReport>()
+            .ProducesErrors();
         api.MapGet("/session", (HttpContext context) =>
             Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
             .Produces<SessionStatus>()

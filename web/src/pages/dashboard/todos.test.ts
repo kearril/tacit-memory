@@ -46,15 +46,19 @@ describe("todosOf", () => {
     expect(todosOf(healthy())).toEqual([]);
   });
 
-  it("lists each unconfigured model on its own", () => {
+  it("lists the unconfigured models as one to-do that names them all, in the report's order", () => {
     const report = healthy();
     report.models!.items[0] = { role: "embedding", state: "unconfigured", coolingSeconds: null };
     report.models!.items[2] = { role: "decision", state: "unconfigured", coolingSeconds: null };
 
-    expect(todosOf(report)).toEqual([
-      { kind: "modelUnconfigured", role: "embedding" },
-      { kind: "modelUnconfigured", role: "decision" },
-    ]);
+    expect(todosOf(report)).toEqual([{ kind: "modelsUnconfigured", roles: ["embedding", "decision"] }]);
+  });
+
+  it("lists a single unconfigured model as well", () => {
+    const report = healthy();
+    report.models!.items[1] = { role: "reranker", state: "unconfigured", coolingSeconds: null };
+
+    expect(todosOf(report)).toEqual([{ kind: "modelsUnconfigured", roles: ["reranker"] }]);
   });
 
   it("does not list a cooling model", () => {
@@ -120,7 +124,7 @@ describe("todosOf", () => {
     report.models!.items[2] = { role: "decision", state: "unconfigured", coolingSeconds: null };
 
     expect(todosOf(report).map((todo) => todo.kind)).toEqual([
-      "modelUnconfigured",
+      "modelsUnconfigured",
       "noBindings",
       "extraListenerFailed",
       "cloudBackupFailed",
@@ -130,7 +134,7 @@ describe("todosOf", () => {
 
 describe("targetOf", () => {
   it("leads each kind to where it is fixed", () => {
-    expect(targetOf({ kind: "modelUnconfigured", role: "decision" })).toBe("/settings#models");
+    expect(targetOf({ kind: "modelsUnconfigured", roles: ["decision"] })).toBe("/settings#models");
     expect(targetOf({ kind: "noBindings" })).toBe("/settings#bindings");
     expect(targetOf({ kind: "bindingProblem", client: "claude", problem: "markersIncomplete" })).toBe("/settings#bindings");
     expect(targetOf({ kind: "extraListenerFailed", address: "x", reason: "y" })).toBe("/settings#general");

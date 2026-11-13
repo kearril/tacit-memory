@@ -87,8 +87,8 @@ export interface Dictionary {
     };
     readonly todos: {
       readonly empty: string;
-      readonly modelUnconfigured: (model: string) => string;
-      readonly modelUnconfiguredDetail: string;
+      readonly modelsUnconfigured: (models: readonly string[]) => string;
+      readonly modelsUnconfiguredDetail: (models: readonly string[]) => string;
       readonly noBindings: string;
       readonly noBindingsDetail: string;
       readonly bindingProblem: (client: string) => string;
@@ -98,6 +98,25 @@ export interface Dictionary {
     };
     readonly models: Readonly<Record<string, string>>;
     readonly bindingProblems: Readonly<Record<BindingProblem, string>>;
+    readonly activity: {
+      readonly window: string;
+      readonly weekdays: readonly string[];
+      readonly less: string;
+      readonly more: string;
+      readonly consolidated: string;
+      readonly cell: (date: string, total: number, consolidated: boolean) => string;
+      readonly activities: (count: number) => string;
+      readonly none: string;
+      readonly unlabeled: string;
+      readonly total: string;
+      readonly activeDays: string;
+      readonly longestStreak: string;
+      readonly topWorkstream: string;
+      readonly days: (count: number) => string;
+      readonly noWorkstream: string;
+      readonly skipped: (files: string) => string;
+      readonly historyUnreadable: string;
+    };
   };
 }
 

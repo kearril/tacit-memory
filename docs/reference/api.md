@@ -90,6 +90,7 @@
 | `GET /api/openapi.json` | OpenAPI 文档，描述本节各端点的请求、成功与错误响应（非本机连接须已登录） | 已实现 |
 | **状态与维护** | | |
 | `GET /api/status` | 状态报告 | 已实现 |
+| `GET /api/activity` | 近一年活动记录的每日条数（按主线与未归属）、整理日、读不了的月份文件 | 已实现 |
 | `POST /api/reindex` | 重建派生索引（维护操作） | 已实现 |
 | `POST /api/backup` | 手动备份或云端备份：`{target, to}` | 已实现 |
 | `POST /api/restore` | 预览或执行恢复：`{path, remote, config, preview}` | 已实现 |
@@ -113,6 +114,8 @@
 | `GET /api/logs/stream` | 实时推送新日志（Server-Sent Events） | 计划 |
 
 已实现端点的补充说明：
+
+- `GET /api/activity`：窗口为本周（周一开始，按服务的本地日期）及之前 52 周，截至今天，`from` 与 `to` 给出起止日期。`days` 只列出有活动的日子，每天给出各主线的条数（`workstreams`，按写下时的主线标注，多者在前）与未归属的条数（`unlabeled`）；日期标题下每条活动计一次，续行、来源注释与汇总节不计。`consolidationDays` 是窗口内有整理提交的日子，判定与状态报告的「上次整理」相同。某个月份文件不是有效 UTF-8 或读不了时跳过并列入 `skippedFiles`；记忆仓库的历史读不了时 `historyUnreadable` 为真、整理日为空。两者都不使请求失败。只读，不等待维护操作。
 
 - `POST /api/backup`：`target` 为 `local` 时 `to` 可给出主机上的绝对目录，省略则写到 `backups/`；`target` 为 `remote` 时执行云端备份。
 - `POST /api/restore`：`path` 与 `remote` 二选一。`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`config` 为真时一并恢复 `config.yaml` 与 `prompts/`。校验在核心中完成。

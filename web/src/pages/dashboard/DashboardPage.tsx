@@ -1,5 +1,4 @@
 import {
-  Activity,
   Archive,
   BellRing,
   ChevronRight,
@@ -20,17 +19,18 @@ import { Link, useLocation } from "react-router";
 import { type StatusReport, useStatus } from "../../api/status";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Badge } from "../../components/ui/badge";
-import { Card, CardTitle } from "../../components/ui/card";
+import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf } from "./duration";
+import { HeatmapCard } from "./HeatmapCard";
 import { targetOf, type Todo, todosOf } from "./todos";
 
 /**
- * The dashboard. On a wide screen it is a bento grid of twelve columns: the left eight hold what to look at (the status
- * sentence, then the memory activity spanning two rows), the right four what to act on (to-dos, models, backups), and a
- * last row of four small cards. On a narrower screen the cards stack in one column, in the order of the markup. The status
- * report is fetched every 30 seconds; when a fetch fails, the cards keep the last report and a notice says so.
+ * The dashboard. On a wide screen it is a bento grid of twelve columns: the overview (the status sentence and the to-dos)
+ * and the memory activity each across the whole width, then rows of three cards: models, backups, index and
+ * consolidation; service, clients, bindings. On a narrower screen the cards stack in one column in the order of the
+ * markup, which puts what to act on (the to-dos, models and backups) before the activity. The status report is fetched every 30 seconds; when a fetch fails, the
+ * cards keep the last report and a notice says so.
  */
 export function DashboardPage() {
   const dictionary = useDictionary();
@@ -61,42 +61,37 @@ export function DashboardPage() {
         status.isError ? null : <div aria-busy="true" className="min-h-dvh" />
       ) : (
         <div className="grid gap-lg xl:grid-cols-12">
-          <StatusCard report={report} todos={todosOf(report)} className="xl:col-span-8" />
-          <TodoCard todos={todosOf(report)} locale={locale} className="xl:col-span-4" />
-          <PlaceholderCard icon={Cpu} title={cards.models} className="xl:col-span-4 xl:col-start-9 xl:row-start-2" />
-          <PlaceholderCard
-            id="backups"
-            icon={Archive}
-            title={cards.backups}
-            className="xl:col-span-4 xl:col-start-9 xl:row-start-3"
-          />
-          <PlaceholderCard
-            icon={Activity}
-            title={cards.activity}
-            className="xl:col-span-8 xl:col-start-1 xl:row-span-2 xl:row-start-2"
-          />
-          <PlaceholderCard icon={DatabaseZap} title={cards.index} className="xl:col-span-3" />
-          <PlaceholderCard icon={Server} title={cards.service} className="xl:col-span-3" />
-          <PlaceholderCard icon={Users} title={cards.clients} className="xl:col-span-3" />
-          <PlaceholderCard icon={Plug} title={cards.bindings} className="xl:col-span-3" />
+          <OverviewCard report={report} locale={locale} className="xl:col-span-12" />
+          <PlaceholderCard icon={Cpu} title={cards.models} className="xl:col-span-4 xl:row-start-3" />
+          <PlaceholderCard id="backups" icon={Archive} title={cards.backups} className="xl:col-span-4 xl:row-start-3" />
+          <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
+          <PlaceholderCard icon={DatabaseZap} title={cards.index} className="xl:col-span-4" />
+          <PlaceholderCard icon={Server} title={cards.service} className="xl:col-span-4" />
+          <PlaceholderCard icon={Users} title={cards.clients} className="xl:col-span-4" />
+          <PlaceholderCard icon={Plug} title={cards.bindings} className="xl:col-span-4" />
         </div>
       )}
     </div>
   );
 }
 
-/** The one sentence of the overall state: all is well, with the uptime and the last consolidation, or how many to-dos. */
-function StatusCard({
+/**
+ * The overview across the top: the one sentence of the overall state on the left (all is well, with the uptime and the last
+ * consolidation, or how many things need the user), and the to-dos beside it as compact cards in a row that wraps, each a
+ * link to where it is fixed. On a narrow screen the to-dos go under the sentence.
+ */
+function OverviewCard({
   report,
-  todos,
+  locale,
   className,
 }: {
   readonly report: StatusReport;
-  readonly todos: readonly Todo[];
+  readonly locale: string;
   readonly className: string;
 }) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard;
+  const todos = todosOf(report);
   const calm = todos.length === 0;
   const Icon = calm ? CircleCheck : BellRing;
 
@@ -108,8 +103,8 @@ function StatusCard({
   ].filter((detail) => detail !== null);
 
   return (
-    <Card className={`content-center ${className}`}>
-      <div className="flex items-center gap-md">
+    <Card aria-labelledby="overview-title" className={`py-md lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center ${className}`}>
+      <div className="flex items-center gap-md lg:pr-lg">
         <span
           className={`grid size-(--tk-size-control) shrink-0 place-items-center rounded-md ${
             calm ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
@@ -118,67 +113,55 @@ function StatusCard({
           <Icon aria-hidden className="size-(--tk-font-size-lg)" />
         </span>
         <div className="grid gap-xs">
-          <p className="text-xl leading-(--tk-line-height-tight) font-semibold">
+          <h2 id="overview-title" className="text-lg leading-(--tk-line-height-tight) font-semibold whitespace-nowrap">
             {calm ? text.calm : text.pending(todos.length)}
-          </p>
-          <p className="text-sm text-ink-muted">{details.join(" · ")}</p>
+          </h2>
+          <p className="text-sm whitespace-nowrap text-ink-muted">{details.join(" · ")}</p>
         </div>
       </div>
+      {calm ? (
+        <p className="text-sm text-ink-muted lg:border-l-(length:--tk-border-thin) lg:border-line lg:pl-lg">
+          {text.todos.empty}
+        </p>
+      ) : (
+        <ul
+          aria-label={text.cards.todos}
+          className="grid grid-cols-[repeat(auto-fill,minmax(var(--tk-size-tile),1fr))] gap-sm lg:border-l-(length:--tk-border-thin) lg:border-line lg:pl-lg"
+        >
+          {todos.map((todo, index) => (
+            <li key={index} className="min-w-0">
+              <TodoItem todo={todo} locale={locale} />
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
 
-/** The to-do card: each thing that needs the user, as a link to where it is fixed, or a sentence that nothing does. */
-function TodoCard({
-  todos,
-  locale,
-  className,
-}: {
-  readonly todos: readonly Todo[];
-  readonly locale: string;
-  readonly className: string;
-}) {
+/** One to-do as a compact card that links to where it is fixed: its icon, what it is, and one line on what to do. */
+function TodoItem({ todo, locale }: { readonly todo: Todo; readonly locale: string }) {
   const dictionary = useDictionary();
+  const view = viewOf(todo, dictionary, locale);
   return (
-    <Card aria-labelledby="todos-title" className={className}>
-      <header className="flex items-center justify-between gap-sm">
-        <CardTitle id="todos-title">{dictionary.dashboard.cards.todos}</CardTitle>
-        {todos.length === 0 ? null : <Badge tone="warning">{todos.length}</Badge>}
-      </header>
-      {todos.length === 0 ? (
-        <p className="flex items-center gap-sm text-sm text-ink-muted">
-          <CircleCheck aria-hidden className="size-(--tk-font-size-base) text-success" />
-          {dictionary.dashboard.todos.empty}
-        </p>
-      ) : (
-        <ul className="-mx-sm grid gap-xs">
-          {todos.map((todo, index) => {
-            const view = viewOf(todo, dictionary, locale);
-            return (
-              <li key={index}>
-                <Link
-                  to={targetOf(todo)}
-                  className="flex items-center gap-sm rounded-md p-sm transition-colors outline-none hover:bg-surface-raised focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
-                >
-                  <span
-                    className={`grid size-(--tk-size-control) shrink-0 place-items-center rounded-sm ${
-                      view.failure ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning"
-                    }`}
-                  >
-                    <view.icon aria-hidden className="size-(--tk-font-size-base)" />
-                  </span>
-                  <span className="grid min-w-0 flex-1 leading-(--tk-line-height-tight)">
-                    <span className="text-sm font-medium">{view.title}</span>
-                    {view.detail === null ? null : <span className="text-xs text-ink-muted">{view.detail}</span>}
-                  </span>
-                  <ChevronRight aria-hidden className="size-(--tk-font-size-base) shrink-0 text-ink-muted" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
+    <Link
+      to={targetOf(todo)}
+      title={view.detail === null ? view.title : `${view.title}\n${view.detail}`}
+      className="lift flex items-center gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface px-sm py-xs shadow-pressed outline-none hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+    >
+      <span
+        className={`grid size-(--tk-size-icon-tile) shrink-0 place-items-center rounded-sm ${
+          view.failure ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning"
+        }`}
+      >
+        <view.icon aria-hidden className="size-(--tk-font-size-sm)" />
+      </span>
+      <span className="grid min-w-0 flex-1 leading-(--tk-line-height-tight)">
+        <span className="truncate text-sm font-medium">{view.title}</span>
+        {view.detail === null ? null : <span className="truncate text-xs text-ink-muted">{view.detail}</span>}
+      </span>
+      <ChevronRight aria-hidden className="size-(--tk-font-size-sm) shrink-0 text-ink-muted" />
+    </Link>
   );
 }
 
@@ -194,13 +177,15 @@ interface TodoView {
 function viewOf(todo: Todo, dictionary: Dictionary, locale: string): TodoView {
   const text = dictionary.dashboard.todos;
   switch (todo.kind) {
-    case "modelUnconfigured":
+    case "modelsUnconfigured": {
+      const names = todo.roles.map((role) => dictionary.dashboard.models[role] ?? role);
       return {
         icon: Cpu,
-        title: text.modelUnconfigured(dictionary.dashboard.models[todo.role] ?? todo.role),
-        detail: text.modelUnconfiguredDetail,
+        title: text.modelsUnconfigured(names),
+        detail: text.modelsUnconfiguredDetail(names),
         failure: false,
       };
+    }
     case "noBindings":
       return { icon: Link2Off, title: text.noBindings, detail: text.noBindingsDetail, failure: false };
     case "bindingProblem":

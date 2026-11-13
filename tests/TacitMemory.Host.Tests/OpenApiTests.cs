@@ -63,6 +63,17 @@ public sealed class OpenApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_document_describes_the_activity_report()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var responses = document["paths"]?["/api/activity"]?["get"]?["responses"];
+        var schema = responses?["200"]?["content"]?["application/json"]?["schema"];
+        Assert.Equal("#/components/schemas/ActivityReport", schema?["$ref"]?.GetValue<string>());
+        Assert.NotNull(responses?["401"]);
+    }
+
+    [Fact]
     public async Task The_document_is_refused_by_the_same_guards_as_the_other_endpoints()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, Url("/api/openapi.json"));

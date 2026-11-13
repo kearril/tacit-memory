@@ -276,6 +276,13 @@ public sealed class MemoryService : IDisposable
             _extraListener, cancellationToken);
     }
 
+    /// <summary>
+    /// The activity log's counts per day over the last 53 weeks, for the dashboard's heatmap, with the consolidation days in
+    /// that window. Reads files and the repository's history only, so it does not wait for a maintenance operation.
+    /// </summary>
+    public Task<ActivityReport> ActivityAsync(CancellationToken cancellationToken = default) =>
+        ActivityCounts.ReadAsync(Config, _options.Today, cancellationToken);
+
     /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
     public TacitException InvalidRequestBody(string? jsonPath)
     {

@@ -66,6 +66,7 @@
   --container-content: var(--tk-size-content);
   --container-page: var(--tk-size-page);
 
+  --radius-xs: var(--tk-radius-xs);
   --radius-sm: var(--tk-radius-sm);
   --radius-md: var(--tk-radius-md);
   --radius-lg: var(--tk-radius-lg);

@@ -66,6 +66,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityReport"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session": {
         parameters: {
             query?: never;
@@ -696,6 +758,23 @@ export interface components {
             password: string;
             current?: null | string;
         };
+        ActivityDay: {
+            /** Format: date */
+            day: string;
+            workstreams: components["schemas"]["WorkstreamCount"][];
+            /** Format: int32 */
+            unlabeled: number;
+        };
+        ActivityReport: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            days: components["schemas"]["ActivityDay"][];
+            consolidationDays: string[];
+            skippedFiles: string[];
+            historyUnreadable: boolean;
+        };
         ApiError: {
             error: string;
             message: string;
@@ -891,6 +970,11 @@ export interface components {
             backups?: null | components["schemas"]["BackupsStatus"];
             logs?: null | components["schemas"]["LogsStatus"];
             secrets?: null | components["schemas"]["SecretsStatus"];
+        };
+        WorkstreamCount: {
+            workstream: string;
+            /** Format: int32 */
+            count: number;
         };
     };
     responses: never;

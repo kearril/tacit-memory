@@ -81,8 +81,10 @@ export const en: Dictionary = {
     },
     todos: {
       empty: "Nothing needs you",
-      modelUnconfigured: (model) => `The ${model} is not configured`,
-      modelUnconfiguredDetail: "Fill it in under Models in the settings",
+      modelsUnconfigured: (models) =>
+        models.length === 1 ? `The ${models[0]} is not configured` : `${models.length} auxiliary models are not configured`,
+      modelsUnconfiguredDetail: (models) =>
+        models.length === 1 ? "Fill it in under Models in the settings" : models.join(", "),
       noBindings: "No client is bound yet",
       noBindingsDetail: "Clients cannot read the persona and rules yet",
       bindingProblem: (client) => `The ${client} binding has a problem`,
@@ -101,6 +103,26 @@ export const en: Dictionary = {
       contextFileUnreadable: "The context file cannot be read",
       markersIncomplete: "The resident block's markers are incomplete or repeated",
       skillLinkNotTacit: "The skill link is missing or does not point at tacit",
+    },
+    activity: {
+      window: "Last 12 months",
+      weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      less: "Less",
+      more: "More",
+      consolidated: "Consolidated",
+      cell: (date, total, consolidated) =>
+        `${date}: ${total === 1 ? "1 activity" : `${total} activities`}${consolidated ? ", consolidated" : ""}`,
+      activities: (count) => (count === 1 ? "1 activity" : `${count} activities`),
+      none: "No activity this day",
+      unlabeled: "No workstream",
+      total: "Activities",
+      activeDays: "Active days",
+      longestStreak: "Longest streak",
+      topWorkstream: "Busiest workstream",
+      days: (count) => (count === 1 ? "1 day" : `${count} days`),
+      noWorkstream: "None yet",
+      skipped: (files) => `These activity files cannot be read, so their days are missing from the heatmap: ${files}`,
+      historyUnreadable: "The memory repository's history cannot be read, so consolidation days are not marked.",
     },
   },
 };
