@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // The resident service the dev server forwards /api to. It listens on 127.0.0.1 at server.port, 18888 by default.
@@ -8,6 +9,12 @@ const servicePort = process.env.TACIT_SERVICE_PORT ?? "18888";
 export default defineConfig({
   base: "/ui/",
   plugins: [react(), tailwindcss()],
+  resolve: {
+    // Component sources written by shadcn/ui import from "@/".
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   server: {
     proxy: {
       "/api": {

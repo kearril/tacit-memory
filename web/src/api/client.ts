@@ -18,12 +18,16 @@ export class ApiError extends Error {
   }
 }
 
-type UnauthorizedListener = () => void;
+type UnauthorizedListener = (error: ApiError) => void;
+
+/** The error name the service gives when a call needs a session that is missing or no longer valid. */
+const SESSION_MISSING = "ApiUnauthorized";
 
 const unauthorizedListeners = new Set<UnauthorizedListener>();
 
 /**
- * Subscribes to the moment a call is answered 401: the session is missing or no longer valid. Returns the function that
+ * Subscribes to the moment a call is answered that the session is missing or no longer valid. Other 401 answers, such as
+ * a wrong current password, are answers to the request itself and are not signalled. Returns the function that
  * unsubscribes. What happens next (the login page) is decided by whoever subscribes.
  */
 export function onUnauthorized(listener: UnauthorizedListener): () => void {
@@ -35,8 +39,8 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
 
 /**
  * Calls the management API at `path` on the same origin. Every call carries the credentials, so the session cookie goes
- * with it. A failed answer throws an {@link ApiError}; a 401 also signals the subscribers of {@link onUnauthorized} first.
- * Pages call the API only through this function.
+ * with it. A failed answer throws an {@link ApiError}; when the session is missing, the subscribers of
+ * {@link onUnauthorized} are signalled first. Pages call the API only through this function.
  */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -47,9 +51,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   if (!response.ok) {
     const error = new ApiError(response.status, await readErrorBody(response));
-    if (response.status === 401) {
+    if (response.status === 401 && error.error === SESSION_MISSING) {
       for (const listener of unauthorizedListeners) {
-        listener();
+        listener(error);
       }
     }
     throw error;

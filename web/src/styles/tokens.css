@@ -22,6 +22,7 @@
   --tk-color-warning: oklch(60% 0.14 75);
   --tk-color-danger: oklch(52% 0.18 25);
   --tk-color-info: oklch(50% 0.1 230);
+  --tk-color-scrim: oklch(0% 0 0 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,6 +41,7 @@
     --tk-color-warning: oklch(80% 0.14 75);
     --tk-color-danger: oklch(72% 0.16 25);
     --tk-color-info: oklch(74% 0.1 230);
+    --tk-color-scrim: oklch(0% 0 0 / 0.6);
   }
 }
 
@@ -58,6 +60,7 @@
   --tk-color-warning: oklch(80% 0.14 75);
   --tk-color-danger: oklch(72% 0.16 25);
   --tk-color-info: oklch(74% 0.1 230);
+  --tk-color-scrim: oklch(0% 0 0 / 0.6);
 }
 
 :root {
@@ -81,6 +84,10 @@
   --tk-space-md: 1rem;
   --tk-space-lg: 1.5rem;
   --tk-space-xl: 2.5rem;
+
+  /* Sizes of controls (buttons, inputs) and of the content column; they sit with the spacing scale */
+  --tk-size-control: 2.5rem;
+  --tk-size-content: 40rem;
 
   /* Shape */
   --tk-radius-sm: 0.25rem;

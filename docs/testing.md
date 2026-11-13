@@ -166,4 +166,4 @@ bun run build       # Vite 构建到 web/dist/
 bun run check       # 以上四项依次运行
 ```
 
-Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、401 信号的发出与退订、无正文或非 JSON 应答的处理。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。
+Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。

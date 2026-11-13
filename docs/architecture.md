@@ -174,12 +174,20 @@ flowchart LR
 | :--- | :--- |
 | `web/openapi.json` | 管理 API 的 OpenAPI 快照，是前端类型的唯一来源（改动方式见 `docs/testing.md` 第 6 节） |
 | `src/api/schema.ts` | 由 `bun run generate` 从快照生成的类型，进 Git；生成不需要运行中的服务 |
-| `src/api/client.ts` | 接口调用层：包住 `fetch`，统一带上凭据，失败时抛出 `ApiError`（带服务返回的名称与说明），401 时先向 `onUnauthorized` 的订阅者发出信号。页面不直接调用 `fetch` |
-| `src/api/session.ts` | 按端点封装的调用，如 `GET /api/session` |
+| `src/api/client.ts` | 接口调用层：包住 `fetch`，统一带上凭据，失败时抛出 `ApiError`（带服务返回的名称与说明）。会话缺失（401，名称 `ApiUnauthorized`）时先向 `onUnauthorized` 的订阅者发出信号；其他 401（如当前密码不对）只抛出错误。页面不直接调用 `fetch` |
+| `src/api/session.ts` | 按端点封装的调用：会话的读取、登录、退出，访问密码的设置与清除；会话状态的查询键 `SESSION_QUERY_KEY` 在此定义 |
+| `src/app/RootLayout.tsx` | 每个页面的入口：先取会话状态，非本机且未登录则去登录页并记下原地址；收到会话缺失的信号也如此；把会话状态经 `SessionContext` 交给页面 |
+| `src/app/AppShell.tsx` | 外壳：五项导航（手机宽度下收起为可展开的菜单）与非本机连接的退出登录 |
+| `src/app/return-target.ts` | 登录后回跳地址的判断：只接受以 `/ui/` 开头的站内路径，并转为路由路径 |
+| `src/app/session-context.ts` | 会话状态的上下文与按记忆语言取字典的钩子 |
+| `src/pages/login/` | 登录页与其状态机（`login-attempt.ts`，429 时锁住提交直到密码被改动） |
+| `src/pages/settings/` | 设置页；本阶段只有「访问」一节（`AccessSection.tsx`） |
+| `src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、确认对话框），结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `components.json` |
 | `src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
-| `src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、圆角与阴影，界面只能使用令牌 |
-| `src/app/router.tsx`、`src/pages/` | 路由以 `/ui` 为基准（Vite 的 `base` 为 `/ui/`）与各页面 |
+| `src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |
+| `src/app/router.tsx` | 路由以 `/ui` 为基准（Vite 的 `base` 为 `/ui/`）：登录页在外壳之外，其余五页在外壳之内；`*` 回到仪表盘 |
+| `src/pages/PlaceholderPage.tsx` | 尚未实现的页面，只显示名称与「尚未实现」 |
 
 脚本（在 `web/` 下用 `bun run` 执行）：`dev` 启动开发服务器；`build` 构建到 `web/dist/`；`typecheck`、`lint`、`test` 为三项检查；`check` 依次运行类型检查、ESLint、Vitest 与构建；`generate` 由快照生成类型。
 

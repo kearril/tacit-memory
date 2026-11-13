@@ -49,7 +49,7 @@ describe("apiFetch", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it("signals every subscriber once when the answer is 401, and still throws the ApiError", async () => {
+  it("signals every subscriber once with the error when the session is missing, and still throws the ApiError", async () => {
     answerWith(json({ error: "ApiUnauthorized", message: "其他设备须先登录才能使用管理 API。" }, 401));
     const first = vi.fn();
     const second = vi.fn();
@@ -63,7 +63,20 @@ describe("apiFetch", () => {
     expect(failure).toBeInstanceOf(ApiError);
     expect(failure).toMatchObject({ status: 401, error: "ApiUnauthorized" });
     expect(first).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledWith(failure);
     expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not signal for a 401 that is a wrong password, which is an answer to the request and not a lost session", async () => {
+    answerWith(json({ error: "PasswordWrong", message: "访问密码不对。" }, 401));
+    const listener = vi.fn();
+    const unsubscribe = onUnauthorized(listener);
+
+    const failure = await apiFetch("/api/access-password", { method: "PUT", body: "{}" }).catch((e: unknown) => e);
+
+    unsubscribe();
+    expect(failure).toMatchObject({ status: 401, error: "PasswordWrong" });
+    expect(listener).not.toHaveBeenCalled();
   });
 
   it("stops signalling a subscriber once it has unsubscribed", async () => {
