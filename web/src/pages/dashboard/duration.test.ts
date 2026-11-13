@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockOf, durationOf, remainingOf } from "./duration";
+import { clockOf, durationOf, remainingOf, sizeOf } from "./duration";
 
 describe("durationOf", () => {
   it("splits seconds into whole days, hours and minutes", () => {
@@ -25,5 +25,13 @@ describe("clockOf", () => {
     expect(clockOf(5)).toBe("0:05");
     expect(clockOf(272)).toBe("4:32");
     expect(clockOf(3723)).toBe("1:02:03");
+  });
+});
+
+describe("sizeOf", () => {
+  it("takes the largest unit that keeps the number at one or more, with at most one decimal", () => {
+    expect(sizeOf(512, "en")).toBe("512 byte");
+    expect(sizeOf(1536, "en")).toBe("1.5 kB");
+    expect(sizeOf(3.44 * 1024 * 1024, "en")).toBe("3.4 MB");
   });
 });

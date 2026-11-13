@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using TacitMemory.Core.Backup;
 using TacitMemory.Core.ClientRecords;
 using TacitMemory.Core.Consolidation;
@@ -17,9 +16,6 @@ namespace TacitMemory.Core.Status;
 internal static class StatusReporter
 {
     /// <summary>A local backup file: the automatic one by day, the manual and pre-restore ones by second.</summary>
-    private static readonly Regex LocalBackupName = new(
-        @"^(?:auto-\d{4}-\d{2}-\d{2}|(?:manual|pre-restore)-\d{4}-\d{2}-\d{2}-\d{6})\.zip$", RegexOptions.CultureInvariant);
-
     /// <summary>The report of a running service: its endpoint, version and uptime, its models' states, and the shared columns.</summary>
     public static async Task<StatusReport> RunningAsync(
         TacitOptions options, TacitConfig config, Uri endpoint, string version, TimeSpan uptime, IReadOnlyList<ModelStatus> models,
@@ -249,22 +245,16 @@ internal static class StatusReporter
     {
         var language = config.Language;
         var title = BackupMessages.BackupsTitle.In(language);
-        var directory = Path.Combine(options.TacitHome, "backups");
-        var latest = Directory.Exists(directory)
-            ? Directory.EnumerateFiles(directory)
-                .Where(path => LocalBackupName.IsMatch(Path.GetFileName(path)))
-                .Select(path => new FileInfo(path))
-                .MaxBy(file => file.LastWriteTimeUtc)
-            : null;
+        var latest = LocalBackups.Read(options).FirstOrDefault();
         var local = latest is null
             ? BackupMessages.BackupNone.In(language)
-            : BackupMessages.BackupLatest.Format(language, latest.Name, new DateTimeOffset(latest.LastWriteTime).LocalDateTime);
+            : BackupMessages.BackupLatest.Format(language, latest.Name, latest.At.LocalDateTime);
         var (remote, lastRemote) = RemoteLine(options, config);
         return new BackupsStatus(
             title,
             [local, remote],
             latest?.Name,
-            latest is null ? null : new DateTimeOffset(latest.LastWriteTime),
+            latest?.At,
             lastRemote);
     }
 

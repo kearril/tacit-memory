@@ -94,7 +94,7 @@ export interface Dictionary {
       readonly cooling: string;
     };
     readonly index: {
-      readonly lastConsolidation: string;
+      readonly lastConsolidation: (date: string) => string;
       readonly never: string;
       readonly daysAgo: (days: number) => string;
       readonly candidates: string;
@@ -111,6 +111,43 @@ export interface Dictionary {
       readonly listening: string;
       readonly listenFailed: string;
       readonly noExtraListener: string;
+    };
+    readonly backups: {
+      readonly none: string;
+      readonly kinds: Readonly<Record<"auto" | "manual" | "preRestore", string>>;
+      readonly count: (count: number) => string;
+      readonly cloud: string;
+      readonly cloudNotConfigured: string;
+      readonly cloudNever: string;
+      readonly cloudSucceeded: string;
+      readonly cloudFailed: string;
+      readonly backUpNow: string;
+      readonly backUpCloud: string;
+      readonly backedUp: (name: string) => string;
+      readonly cloudBackedUp: string;
+      readonly failed: string;
+      readonly cloudFailedTitle: string;
+    };
+    readonly probe: {
+      readonly button: string;
+      readonly note: string;
+      readonly succeeded: (milliseconds: number) => string;
+      readonly failed: (reason: string, milliseconds: number) => string;
+      readonly skipped: string;
+      readonly httpStatus: (code: number) => string;
+      readonly wrongFormat: string;
+      readonly network: string;
+      readonly timeout: string;
+      readonly failedTitle: string;
+    };
+    readonly reindex: {
+      readonly button: string;
+      readonly title: string;
+      readonly body: string;
+      readonly confirm: string;
+      readonly cancel: string;
+      readonly done: (files: number, units: number) => string;
+      readonly failed: string;
     };
     readonly agents: {
       readonly bound: string;

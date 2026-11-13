@@ -181,6 +181,16 @@ internal static class ManagementApi
         })
             .Produces<ActivityReport>()
             .ProducesErrors();
+        api.MapGet("/backups", () => Json(service.Backups()))
+            .Produces<BackupList>()
+            .ProducesErrors();
+        api.MapPost("/probe", async (HttpContext context) =>
+        {
+            var report = await service.ProbeAsync(context.RequestAborted);
+            return Json(report);
+        })
+            .Produces<ProbeReport>()
+            .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
         api.MapGet("/session", (HttpContext context) =>
             Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
             .Produces<SessionStatus>()

@@ -1,5 +1,4 @@
 import {
-  Archive,
   BellRing,
   ChevronRight,
   CircleCheck,
@@ -19,7 +18,7 @@ import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf } from "./duration";
 import { HeatmapCard } from "./HeatmapCard";
-import { AgentsCard, IndexCard, ModelsCard, ServiceCard } from "./StatusCards";
+import { AgentsCard, BackupsCard, IndexCard, ModelsCard, ServiceCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";
 
 /**
@@ -37,7 +36,6 @@ export function DashboardPage() {
   useScrollToHash(report !== undefined);
 
   const locale = session.language === "zh" ? "zh-CN" : "en";
-  const cards = dictionary.dashboard.cards;
 
   return (
     <div className="grid gap-lg">
@@ -60,7 +58,7 @@ export function DashboardPage() {
         <div className="grid gap-lg xl:grid-cols-12">
           <OverviewCard report={report} locale={locale} className="xl:col-span-12" />
           <ModelsCard report={report} fetchedAt={status.dataUpdatedAt} className="xl:col-span-4 xl:row-start-3" />
-          <PlaceholderCard id="backups" icon={Archive} title={cards.backups} className="xl:col-span-4 xl:row-start-3" />
+          <BackupsCard locale={locale} className="xl:col-span-4 xl:row-start-3" />
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
           <IndexCard report={report} locale={locale} className="xl:col-span-4" />
           <ServiceCard report={report} className="xl:col-span-6" />
@@ -205,32 +203,6 @@ function viewOf(todo: Todo, dictionary: Dictionary, locale: string): TodoView {
         failure: true,
       };
   }
-}
-
-/** The place of a card that a later step of the dashboard fills: its icon and name in a dashed outline. */
-function PlaceholderCard({
-  id,
-  icon: Icon,
-  title,
-  className,
-}: {
-  readonly id?: string;
-  readonly icon: LucideIcon;
-  readonly title: string;
-  readonly className: string;
-}) {
-  const dictionary = useDictionary();
-  return (
-    <section
-      id={id}
-      aria-label={title}
-      className={`grid place-content-center justify-items-center gap-sm rounded-lg border-(length:--tk-border-thick) border-dashed border-line px-lg py-xl text-ink-muted ${className}`}
-    >
-      <Icon aria-hidden className="size-(--tk-font-size-xl)" />
-      <span className="text-sm font-medium">{title}</span>
-      <span className="text-xs">{dictionary.notImplemented}</span>
-    </section>
-  );
 }
 
 /**

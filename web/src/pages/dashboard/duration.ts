@@ -27,3 +27,20 @@ export function clockOf(seconds: number): string {
   const rest = String(whole % 60).padStart(2, "0");
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
+
+/** A size in bytes in the largest unit that keeps it at one or more, with at most one decimal: "512 B", "3.4 MB". */
+export function sizeOf(bytes: number, locale: string): string {
+  const units = ["byte", "kilobyte", "megabyte", "gigabyte"] as const;
+  let value = Math.max(0, bytes);
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: units[unit],
+    unitDisplay: "short",
+    maximumFractionDigits: unit === 0 ? 0 : 1,
+  }).format(value);
+}
