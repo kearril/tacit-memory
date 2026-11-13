@@ -51,9 +51,10 @@ import { BackupCard } from "./BackupCard";
 import { ConsolidationCard } from "./ConsolidationCard";
 import { GeneralCard } from "./GeneralCard";
 import { JudgmentCard } from "./JudgmentCard";
+import { ModelsCard } from "./ModelsCard";
 
 /** The sections that have a card so far, in the page's order. */
-const SECTIONS: readonly SectionId[] = ["general", "judgment", "consolidation", "backup", "access"];
+const SECTIONS: readonly SectionId[] = ["general", "models", "judgment", "consolidation", "backup", "access"];
 
 /**
  * The settings page: a row of section tabs that stays at the top, then the section cards in a bento grid, and a bar that
@@ -222,6 +223,7 @@ function SettingsEditor({
       )}
       <div className="grid gap-lg lg:grid-cols-2">
         <GeneralCard form={form} className="lg:col-span-2" />
+        <ModelsCard form={form} className="lg:col-span-2" />
         <JudgmentCard form={form} className="lg:col-span-2" />
         <ConsolidationCard form={form} />
         <BackupCard form={form} />

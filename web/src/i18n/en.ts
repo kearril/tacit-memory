@@ -96,6 +96,7 @@ export const en: Dictionary = {
     restartHelp: "Takes effect once tacit serve restarts.",
     pendingBadge: (running) => `Waits for a restart · running ${running}`,
     readOnlyNote: "The settings page cannot change this: edit it in config.yaml, and it takes effect when tacit serve restarts.",
+    required: "Required while enabled",
     restartTitle: "Some settings take effect after a restart",
     restartBody: "Your other changes are in effect. These are saved and take effect once tacit serve restarts:",
     restartLine: (running, saved) => `${running} → ${saved}`,
@@ -143,6 +144,20 @@ export const en: Dictionary = {
           help: "Once the resident blocks together are longer than this many characters, the report says so in one line. It only hints; nothing is refused.",
         },
       },
+    },
+    models: {
+      title: "Models",
+      summary: "The protocol, address, model name and API key of the three auxiliary models; a model not enabled is left out of the config.",
+      enable: (model) => `Enable ${model}`,
+      off: "Not enabled: saving removes this model from config.yaml; what is filled in below stays on the page.",
+      providers: { generic: "Generic protocol", cloudflare: "Cloudflare" },
+      fields: {
+        provider: { label: "Protocol", help: "Generic: OpenAI Embeddings for the embedding model, Cohere/Jina Rerank for the reranker, System One for the decision model; Cloudflare adapts to Workers AI." },
+        url: { label: "Address", help: "The address of the model service's API." },
+        model: { label: "Model name", help: "The model name sent to the service in each request." },
+        apiKey: { label: "API key", help: "The key for the model service; an environment variable wins over config.yaml." },
+      },
+      probeDirty: "There are unsaved changes; save them before probing",
     },
     backup: {
       title: "Backup",

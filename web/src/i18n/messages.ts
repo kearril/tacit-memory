@@ -102,6 +102,7 @@ export interface Dictionary {
     readonly restartHelp: string;
     readonly pendingBadge: (running: string) => string;
     readonly readOnlyNote: string;
+    readonly required: string;
     readonly restartTitle: string;
     readonly restartBody: string;
     readonly restartLine: (running: string, saved: string) => string;
@@ -131,6 +132,15 @@ export interface Dictionary {
       readonly title: string;
       readonly summary: string;
       readonly fields: Readonly<Record<(typeof CONSOLIDATION)[number], Explained>>;
+    };
+    readonly models: {
+      readonly title: string;
+      readonly summary: string;
+      readonly enable: (model: string) => string;
+      readonly off: string;
+      readonly providers: Readonly<Record<"generic" | "cloudflare", string>>;
+      readonly fields: Readonly<Record<"provider" | "url" | "model" | "apiKey", Explained>>;
+      readonly probeDirty: string;
     };
     readonly backup: {
       readonly title: string;

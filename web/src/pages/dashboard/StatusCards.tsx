@@ -21,7 +21,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups } from "../../api/backups";
-import { type ProbeResult, runProbe } from "../../api/probe";
+import { runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -45,7 +45,7 @@ import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentIcon, type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, durationOf, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, InfoRow } from "./parts";
+import { BusyIcon, CardActions, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 
 interface CardProps {
@@ -110,45 +110,6 @@ function FailureAlert({ failure }: { readonly failure: Failure | null }) {
       <AlertTitle>{failure.title}</AlertTitle>
       <AlertDescription>{failure.message}</AlertDescription>
     </Alert>
-  );
-}
-
-/**
- * The action bar at the bottom of a card that runs commands, under a divider. The cards of one row are as tall as the
- * tallest, so their bars line up; a short note can stand on the left of the buttons.
- */
-function CardActions({ note, children }: { readonly note?: string; readonly children: ReactNode }) {
-  return (
-    <footer className="mt-auto flex flex-wrap items-center justify-end gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-      {note === undefined ? null : <span className="mr-auto text-xs text-ink-muted">{note}</span>}
-      {children}
-    </footer>
-  );
-}
-
-/** What the last probe of one model found, on a small line under the model: success, a skip, or how it failed. */
-function ProbeLine({ result }: { readonly result: ProbeResult }) {
-  const dictionary = useDictionary();
-  const text = dictionary.dashboard.probe;
-  const milliseconds = result.elapsedMilliseconds ?? 0;
-  if (result.outcome === "succeeded") {
-    return <span className="text-xs text-success">{text.succeeded(milliseconds)}</span>;
-  }
-  if (result.outcome === "unconfigured") {
-    return <span className="text-xs text-ink-muted">{text.skipped}</span>;
-  }
-  const reason =
-    result.failure === "httpStatus" && result.statusCode !== null
-      ? text.httpStatus(result.statusCode)
-      : result.failure === "wrongFormat"
-        ? text.wrongFormat
-        : result.failure === "timeout"
-          ? text.timeout
-          : text.network;
-  return (
-    <span title={result.responseBody ?? undefined} className="truncate text-xs text-danger">
-      {text.failed(reason, milliseconds)}
-    </span>
   );
 }
 

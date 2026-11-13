@@ -3,8 +3,11 @@ import type { ConfigFile, ConfigProblem, ConfigView } from "../../api/config";
 /** The sections of the settings page, in the order of their cards. */
 export type SectionId = "general" | "models" | "bindings" | "judgment" | "consolidation" | "backup" | "access";
 
-/** What an input holds: a whole number, any number, or text. */
-export type FieldKind = "integer" | "number" | "text";
+/** What an input holds: a whole number, any number, text, one of fixed choices, or on and off (`ON` or empty). */
+export type FieldKind = "integer" | "number" | "text" | "choice" | "toggle";
+
+/** What a toggle's input holds while it is on. */
+export const ON = "on";
 
 /**
  * A setting the page edits: a value in `config.yaml` by its key path, the section whose card holds it, and what its input
@@ -15,10 +18,15 @@ export interface Field {
   readonly section: SectionId;
   readonly kind: FieldKind;
   readonly group?: string;
+  /** The toggle this field belongs to: while it is off, the field is kept on the page but left out of the config. */
+  readonly within?: string;
 }
 
 /** A value of `config.yaml`. */
 export type Value = number | string | null;
+
+/** The three auxiliary models. */
+export const MODELS = ["embedding", "reranker", "decision"] as const;
 
 /** The settings of the consolidation card, all whole numbers. */
 export const CONSOLIDATION = [
@@ -39,6 +47,15 @@ export const FIELDS: readonly Field[] = [
   { path: "server.host", section: "general", kind: "text" },
   { path: "limits.brief", section: "general", kind: "integer" },
   { path: "limits.page.minAliases", section: "general", kind: "integer" },
+  ...MODELS.flatMap((model) => {
+    const within = `models.${model}`;
+    return [
+      { path: within, section: "models" as const, kind: "toggle" as const },
+      { path: `${within}.provider`, section: "models" as const, kind: "choice" as const, within },
+      { path: `${within}.url`, section: "models" as const, kind: "text" as const, within },
+      { path: `${within}.model`, section: "models" as const, kind: "text" as const, within },
+    ];
+  }),
   { path: "retrieval.candidates", section: "judgment", kind: "integer" },
   { path: "retrieval.topK", section: "judgment", kind: "integer" },
   { path: "retrieval.minRerankScore", section: "judgment", kind: "number" },
@@ -81,7 +98,12 @@ export type Drafts = Readonly<Record<string, string>>;
 
 /** The inputs as the view gives them: the file's value, or the default where the file leaves the setting out. */
 export function draftsOf(view: ConfigView): Drafts {
-  return Object.fromEntries(FIELDS.map((field) => [field.path, textOf(effective(view, "file", field.path))]));
+  return Object.fromEntries(
+    FIELDS.map((field) => [
+      field.path,
+      field.kind === "toggle" ? (present(view.file, field.path) ? ON : "") : textOf(effective(view, "file", field.path)),
+    ]),
+  );
 }
 
 /** The drafts with the input at `path` changed to `text`. */
@@ -102,10 +124,10 @@ export function restoreDefault(view: ConfigView, drafts: Drafts, path: string): 
 export function changedPaths(view: ConfigView, drafts: Drafts, secrets: SecretEdits = {}): string[] {
   const original = draftsOf(view);
   return [
-    ...FIELDS.filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind)).map(
-      (field) => field.path,
-    ),
-    ...SECRETS.filter((secret) => secret.path in secrets).map((secret) => secret.path),
+    ...FIELDS.filter((field) => !isOff(drafts, field.path))
+      .filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind))
+      .map((field) => field.path),
+    ...SECRETS.filter((secret) => secret.path in secrets && !isOff(drafts, secret.path)).map((secret) => secret.path),
   ];
 }
 
@@ -130,7 +152,7 @@ export function bodyOf(
 ): { readonly config: ConfigFile; readonly secrets: SecretEdits; readonly invalid: string[] } {
   const invalid: string[] = [];
   const values = new Map<string, Value>();
-  for (const field of FIELDS) {
+  for (const field of FIELDS.filter((field) => field.kind !== "toggle" && !isOff(drafts, field.path))) {
     const value = parse(drafts[field.path] ?? "", field.kind);
     if (value === undefined) {
       invalid.push(field.path);
@@ -139,7 +161,7 @@ export function bodyOf(
   }
 
   let config: ConfigFile = structuredClone(view.file);
-  for (const field of FIELDS.filter((field) => field.group === undefined)) {
+  for (const field of FIELDS.filter((field) => field.group === undefined && values.has(field.path))) {
     const value = values.get(field.path) ?? null;
     config = setAt(config, field.path, value === valueAt(view.defaults, field.path) ? null : value);
   }
@@ -152,15 +174,19 @@ export function bodyOf(
       asDefault ? null : Object.fromEntries(pair.map((field) => [lastKey(field.path), values.get(field.path) ?? null])),
     );
   }
+  for (const toggle of FIELDS.filter((field) => field.kind === "toggle" && drafts[field.path] !== ON)) {
+    config = setAt(config, toggle.path, null);
+  }
   if (valueAt(config, "backup.webdav.url") === null && valueAt(config, "backup.webdav.username") === null) {
     config = setAt(config, "backup.webdav", null);
   }
+  const sent = Object.fromEntries(Object.entries(secrets).filter(([path]) => !isOff(drafts, path)));
   for (const secret of SECRETS) {
-    if (secrets[secret.path]?.trim() === "") {
+    if (sent[secret.path]?.trim() === "") {
       invalid.push(secret.path);
     }
   }
-  return { config, secrets, invalid };
+  return { config, secrets: sent, invalid };
 }
 
 /** A setting that waits for a restart, with the value the service runs and the one `config.yaml` holds. */
@@ -237,6 +263,25 @@ export function placeProblems(problems: readonly ConfigProblem[]): PlacedProblem
   return { byField, bySection, unplaced, first: first ?? null };
 }
 
+/** Whether the setting at `path` belongs to a toggle that is off, so it stays on the page but out of the config. */
+export function isOff(drafts: Drafts, path: string): boolean {
+  const toggle = FIELDS.find((field) => field.kind === "toggle" && path.startsWith(`${field.path}.`));
+  return toggle !== undefined && drafts[toggle.path] !== ON;
+}
+
+/** Whether the config holds anything (a mapping or a value) at `path`. */
+function present(file: ConfigFile, path: string): boolean {
+  let node: unknown = file;
+  for (const key of path.split(".")) {
+    if (typeof node !== "object" || node === null) {
+      return false;
+    }
+    const record = node as Record<string, unknown>;
+    node = record[keyIn(record, key)];
+  }
+  return node !== null && node !== undefined;
+}
+
 /** The fields at `path`: the one field, or both thresholds of a pair. */
 export function fieldsAt(path: string): readonly Field[] {
   return FIELDS.filter((field) => field.path === path || field.group === path);
@@ -306,7 +351,7 @@ function parse(text: string, kind: FieldKind): Value | undefined {
   if (trimmed === "") {
     return null;
   }
-  if (kind === "text") {
+  if (kind !== "integer" && kind !== "number") {
     return trimmed;
   }
   const value = Number(trimmed);
@@ -314,7 +359,8 @@ function parse(text: string, kind: FieldKind): Value | undefined {
 }
 
 function sameInput(a: string, b: string, kind: FieldKind): boolean {
-  const x = parse(a, kind === "text" ? "text" : "number");
-  const y = parse(b, kind === "text" ? "text" : "number");
+  const loose = kind === "integer" ? "number" : kind;
+  const x = parse(a, loose);
+  const y = parse(b, loose);
   return x === undefined || y === undefined ? a.trim() === b.trim() : x === y;
 }

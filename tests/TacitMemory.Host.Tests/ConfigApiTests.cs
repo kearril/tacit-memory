@@ -254,6 +254,34 @@ public sealed class ConfigApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_model_switched_off_leaves_the_file_and_the_running_service_without_it()
+    {
+        var view = await GetAsync();
+
+        using var response = await PutAsync(new ConfigSave(view.Hash, view.File with { Models = view.File.Models with { Reranker = null } }));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("reranker", File.ReadAllText(ConfigPath));
+        var after = await GetAsync();
+        Assert.Null(after.Running.Models.Reranker);
+        Assert.NotNull(after.Running.Models.Embedding);
+        var status = await _service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
+        Assert.Contains(status.Models!.Items, model => model.Role == "reranker" && model.State == ModelState.Unconfigured);
+    }
+
+    [Fact]
+    public async Task A_provider_that_is_not_known_is_refused_on_its_own_key()
+    {
+        var view = await GetAsync();
+        var config = view.File with { Models = view.File.Models with { Decision = view.File.Models.Decision! with { Provider = "openai" } } };
+
+        using var response = await PutAsync(new ConfigSave(view.Hash, config));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("models.decision.provider", Assert.Single((await Read<ApiError>(response)).Problems!).Path);
+    }
+
+    [Fact]
     public async Task Another_device_without_a_session_is_refused()
     {
         using var read = await _remote.GetAsync(Url);

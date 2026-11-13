@@ -94,6 +94,7 @@ export const zh: Dictionary = {
     restartHelp: "保存后要重启 tacit serve 才生效。",
     pendingBadge: (running) => `待重启 · 运行中 ${running}`,
     readOnlyNote: "设置页不能修改：在 config.yaml 中修改，重启 tacit serve 后生效。",
+    required: "启用时必填",
     restartTitle: "部分设置要重启后生效",
     restartBody: "其余改动已经生效。以下各项已保存，重启 tacit serve 后生效：",
     restartLine: (running, saved) => `${running} → ${saved}`,
@@ -130,6 +131,20 @@ export const zh: Dictionary = {
         hintItemLength: { label: "条目篇幅提示", help: "画像条目或新增活动超过该字符数时，整理报告的篇幅提示列出它。只提示，不拒绝写入。" },
         hintResidentLength: { label: "常驻区块篇幅提示", help: "常驻区块总长超过该字符数时，整理报告给出一行说明。只提示，不拒绝写入。" },
       },
+    },
+    models: {
+      title: "模型",
+      summary: "三个辅助模型的协议、地址、模型名与 API 密钥；不启用的模型不写入配置。",
+      enable: (model) => `启用${model}`,
+      off: "未启用：保存后从 config.yaml 中删除这个模型的配置，下面填的内容保留在页面上。",
+      providers: { generic: "通用协议", cloudflare: "Cloudflare" },
+      fields: {
+        provider: { label: "协议", help: "通用协议：嵌入模型为 OpenAI Embeddings，reranker 为 Cohere/Jina Rerank，决策模型为 System One；Cloudflare 为 Workers AI 的适配。" },
+        url: { label: "地址", help: "模型服务的接口地址。" },
+        model: { label: "模型名", help: "请求中传给服务的模型名。" },
+        apiKey: { label: "API 密钥", help: "调用模型服务的密钥；环境变量优先于 config.yaml。" },
+      },
+      probeDirty: "有未保存的改动，保存后才能探测",
     },
     backup: {
       title: "备份",

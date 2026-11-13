@@ -47,6 +47,7 @@ export function Setting({
   text,
   defaultText,
   wide = false,
+  required = false,
   children,
 }: {
   readonly form: SettingsForm;
@@ -56,14 +57,18 @@ export function Setting({
   readonly defaultText?: string;
   /** Whether the input takes the whole width, for an address rather than a number. */
   readonly wide?: boolean;
+  /** Whether the setting has no default to restore, so it must be filled in. */
+  readonly required?: boolean;
   readonly children?: React.ReactNode;
 }) {
   const dictionary = useDictionary();
   const id = inputIdOf(path);
   const key = form.view.keys.find((key) => key.path === path);
   const errors = form.problems.byField[path] ?? [];
-  const differs = differsFromDefault(form.view, form.drafts, path);
-  const notes = [defaultText ?? dictionary.settings.defaultValue(textOf(valueAt(form.view.defaults, path)))];
+  const differs = !required && differsFromDefault(form.view, form.drafts, path);
+  const notes = [
+    required ? dictionary.settings.required : (defaultText ?? dictionary.settings.defaultValue(textOf(valueAt(form.view.defaults, path)))),
+  ];
   if (key?.min != null && key.max != null) {
     notes.push(dictionary.settings.range(String(key.min), String(key.max)));
   }

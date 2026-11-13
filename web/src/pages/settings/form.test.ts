@@ -7,6 +7,7 @@ import {
   drifted,
   draftsOf,
   edit,
+  ON,
   pendingRestart,
   placeProblems,
   restoreDefault,
@@ -235,10 +236,11 @@ describe("text settings", () => {
 describe("secrets", () => {
   it("are sent only when changed, and count as changes whether rewritten or removed", () => {
     const secrets = { "backup.webdav.password": "s3cret", "models.decision.apiKey": null };
+    const modelled = withDecision();
 
-    expect(bodyOf(view(), draftsOf(view())).secrets).toEqual({});
-    expect(bodyOf(view(), draftsOf(view()), secrets).secrets).toEqual(secrets);
-    expect(changedPaths(view(), draftsOf(view()), secrets)).toEqual(["models.decision.apiKey", "backup.webdav.password"]);
+    expect(bodyOf(modelled, draftsOf(modelled)).secrets).toEqual({});
+    expect(bodyOf(modelled, draftsOf(modelled), secrets).secrets).toEqual(secrets);
+    expect(changedPaths(modelled, draftsOf(modelled), secrets)).toEqual(["models.decision.apiKey", "backup.webdav.password"]);
   });
 
   it("are not rewritten to nothing", () => {
@@ -260,5 +262,43 @@ describe("cloud backup", () => {
 
     drafts = edit(draftsOf(view()), "backup.webdav.url", "https://dav.example/other/");
     expect(bodyOf(view(), drafts).config.backup.webDav).toMatchObject({ url: "https://dav.example/other/", username: null });
+  });
+});
+
+/** A view whose file configures the decision model. */
+function withDecision(): ConfigView {
+  const base = view();
+  base.file.models = { ...base.file.models, decision: { provider: null, url: "http://127.0.0.1:9/judge", model: "judge", apiKey: null } };
+  return base;
+}
+
+describe("model toggles", () => {
+  it("leave a model switched off out of the config, and keep what was typed for it on the page", () => {
+    let drafts = edit(draftsOf(withDecision()), "models.decision.model", "judge-2");
+    drafts = edit(drafts, "models.decision", "");
+
+    const { config } = bodyOf(withDecision(), drafts);
+
+    expect(config.models.decision).toBeNull();
+    expect(drafts["models.decision.model"]).toBe("judge-2");
+    expect(changedPaths(withDecision(), drafts)).toEqual(["models.decision"]);
+    expect(drafts["models.decision"]).not.toBe(ON);
+  });
+
+  it("write a model switched on with what its inputs hold, the generic protocol as no provider", () => {
+    let drafts = edit(draftsOf(view()), "models.embedding", ON);
+    drafts = edit(drafts, "models.embedding.url", "https://api.example/v1/embeddings");
+    drafts = edit(drafts, "models.embedding.model", "embed-3");
+
+    const { config } = bodyOf(view(), drafts);
+
+    expect(config.models.embedding).toMatchObject({ provider: null, url: "https://api.example/v1/embeddings", model: "embed-3" });
+    expect(changedPaths(view(), drafts)).toEqual(["models.embedding", "models.embedding.url", "models.embedding.model"]);
+  });
+
+  it("leave out the secret of a model switched off", () => {
+    const drafts = edit(draftsOf(withDecision()), "models.decision", "");
+
+    expect(bodyOf(withDecision(), drafts, { "models.decision.apiKey": "k" }).secrets).toEqual({});
   });
 });
