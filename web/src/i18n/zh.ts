@@ -11,7 +11,6 @@ export const zh: Dictionary = {
     memory: "记忆",
   },
   notImplemented: "尚未实现",
-  loading: "正在加载…",
   unreachable: "无法连接到记忆服务。",
   menuOpen: "展开菜单",
   menuClose: "收起菜单",

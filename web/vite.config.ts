@@ -10,7 +10,7 @@ export default defineConfig({
   base: "/ui/",
   plugins: [react(), tailwindcss()],
   resolve: {
-    // Component sources written by shadcn/ui import from "@/".
+    // The shadcn/ui command line writes its imports with the "@/" alias, as components.json names it; the alias keeps them resolving.
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },

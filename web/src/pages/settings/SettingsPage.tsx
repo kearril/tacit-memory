@@ -1,7 +1,7 @@
 import { useDictionary } from "../../app/session-context";
 import { AccessSection } from "./AccessSection";
 
-/** The settings page. Only its access section exists in this stage; the rest of it is not implemented yet. */
+/** The settings page: one component per section, and the notice that closes it while some sections are not implemented. */
 export function SettingsPage() {
   const dictionary = useDictionary();
   return (

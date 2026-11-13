@@ -17,7 +17,6 @@ export interface Dictionary {
     readonly memory: string;
   };
   readonly notImplemented: string;
-  readonly loading: string;
   readonly unreachable: string;
   readonly menuOpen: string;
   readonly menuClose: string;

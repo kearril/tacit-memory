@@ -1,7 +1,7 @@
 import { useDictionary } from "../app/session-context";
 import type { Dictionary } from "../i18n/messages";
 
-/** A page whose content is not part of this stage: its name, and the sentence that says so. */
+/** A placeholder for a page whose content is not implemented: its name, and the sentence that says so. */
 export function PlaceholderPage({ section }: { readonly section: keyof Dictionary["nav"] }) {
   const dictionary = useDictionary();
   return (

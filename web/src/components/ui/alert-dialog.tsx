@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "./button";
 
 // Structure and behaviour follow shadcn/ui. The colours, sizes, layers and motion are the project's tokens (see
 // styles/tokens.css). The entrance motion of the component defaults is left out: the interface has no motion design yet.
