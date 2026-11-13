@@ -233,7 +233,8 @@ public sealed class ServiceHost : IAsyncDisposable
         path == "/" || path.StartsWithSegments("/ui", StringComparison.OrdinalIgnoreCase) || path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The peers the default rule counts as local: the whole IPv4 loopback range, IPv6 loopback and their IPv4-mapped forms.</summary>
-    private static bool IsLoopback(IPAddress? peer) => peer is not null && IPAddress.IsLoopback(peer);
+    internal static bool IsLoopback(IPAddress? peer) =>
+        peer is not null && IPAddress.IsLoopback(peer.IsIPv4MappedToIPv6 ? peer.MapToIPv4() : peer);
 
     /// <summary>
     /// The incoming filter that hands each client's declaration to the service. On the 2026-07-28 revision every request carries

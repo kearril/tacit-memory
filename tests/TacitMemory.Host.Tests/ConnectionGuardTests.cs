@@ -281,6 +281,22 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         Assert.Equal(nameof(TacitError.ApiContentTypeRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
+    [Theory]
+    [InlineData("127.0.0.1")]
+    [InlineData("127.0.0.5")]
+    [InlineData("::1")]
+    [InlineData("::ffff:127.0.0.1")]
+    [InlineData("::ffff:127.0.0.5")]
+    public void Every_loopback_address_in_any_form_is_local_by_the_default_rule(string address) =>
+        Assert.True(ServiceHost.IsLoopback(IPAddress.Parse(address)));
+
+    [Theory]
+    [InlineData("192.0.2.10")]
+    [InlineData("::ffff:192.0.2.10")]
+    [InlineData("2001:db8::1")]
+    public void Other_addresses_are_not_local_by_the_default_rule(string address) =>
+        Assert.False(ServiceHost.IsLoopback(IPAddress.Parse(address)));
+
     /// <summary>
     /// Sends one request line as it is written, from <paramref name="from"/>, and returns the status code of the answer.
     /// The client does not normalize the target, so a path such as <c>/ui/../api/status</c> reaches the server as it is.
