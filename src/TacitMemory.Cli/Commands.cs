@@ -3,8 +3,8 @@ using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core;
 using TacitMemory.Core.Show;
-using TacitMemory.Host.Api;
 using TacitMemory.Host;
+using TacitMemory.Host.Api;
 using TacitMemory.Host.Mcp;
 
 namespace TacitMemory.Cli;

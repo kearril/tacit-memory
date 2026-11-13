@@ -87,7 +87,7 @@ public enum TacitError
     /// <summary>The management API refused a POST or PUT whose Content-Type is not application/json.</summary>
     ApiContentTypeRefused,
 
-    /// <summary>The management API refused a connection from another device: it has no session to show yet.</summary>
+    /// <summary>The management API refused a connection from another device that has no valid session.</summary>
     ApiUnauthorized,
 
     /// <summary>The MCP endpoint refused a connection from another device; MCP is for this machine only.</summary>
@@ -105,7 +105,7 @@ public enum TacitError
     /// <summary>Too many wrong passwords came from this address; logins from it wait until the pause ends.</summary>
     LoginLimited,
 
-    /// <summary>The access password cannot be cleared while <c>server.host</c> names an address that is not loopback.</summary>
+    /// <summary>The access password cannot be cleared while <c>server.host</c> names an extra listening address.</summary>
     PasswordClearRefused,
 
     /// <summary>The access password can only be cleared from this machine.</summary>

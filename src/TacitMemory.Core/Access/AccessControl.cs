@@ -21,10 +21,10 @@ public sealed record SessionGrant(string Value, DateTimeOffset Expires);
 public sealed class AccessControl
 {
     /// <summary>The fewest characters an access password may have; counted as Unicode characters, not UTF-16 units.</summary>
-    public const int MinimumLength = 8;
+    internal const int MinimumLength = 8;
 
     /// <summary>How long a session lasts from the login that issued it. Sessions are not renewed by use.</summary>
-    public static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(30);
+    internal static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(30);
 
     /// <summary>The wrong passwords from one address that pause logins from it.</summary>
     internal const int FailuresAllowed = 5;

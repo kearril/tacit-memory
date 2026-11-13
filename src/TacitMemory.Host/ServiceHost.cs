@@ -20,8 +20,9 @@ namespace TacitMemory.Host;
 
 /// <summary>
 /// The memory service's HTTP endpoints: MCP at <c>/mcp</c>, the management API at <c>/api</c> and the web interface at
-/// <c>/ui</c> (with <c>/</c> redirected there), on 127.0.0.1 and, when <c>server.host</c> names one, on that address too. The peer address decides who is local: a connection from a loopback
-/// address is local, any other is remote; a remote connection reaches the API only with a session. Stateless.
+/// <c>/ui</c> (with <c>/</c> redirected there), on 127.0.0.1 and, when <c>server.host</c> names one, on that address too.
+/// The peer address decides who is local: a connection from a loopback address is local, any other is remote; a remote
+/// connection reaches the API only with a session. Stateless.
 /// </summary>
 public sealed class ServiceHost : IAsyncDisposable
 {

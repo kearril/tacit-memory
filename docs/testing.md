@@ -96,7 +96,7 @@
      - `HelpAndOutputTests`：`-h`、`--help`、`connect --help`、`probe --help`、裸命令与 `--version` 为 0；`connect` 只绑定临时用户主目录；`show … --default` 的 stdout 只有内置文本；`show tools` 的 stdout 含配置填入的别名最少个数，且不含字数与条数上限；总览的退出码表只出现一次，总览中出现 `probe`；命令与子命令的词不区分大小写；命令帮助不露出 `[Default` 与可空标记 `?>`。
      - `BindingCommandTests`：`connect` 缺任一选项为 2 且不写任何文件；成功时 stdout 含 MCP 端点 URL；名称不合规为 2；`disconnect` 只需 `--client`、路径取自记录；名称不存在为 1。
      - `RestoreConfirmationTests`：`restore` 的确认（stdin 非终端且无 `--yes` 为 2 且什么都不恢复；终端输入非 `y` 为 1；`--yes` 与 `-y` 为 0）；旧的 `--config` 为用法错误，`--include-config` 可用。
-     - `AccessPasswordCommandTests`：设了访问密码后 `status`、`reindex`、`backup`（备份不含 `access.json`）、`restore` 照常返回 0 且不带凭据；`serve` 在 `server.host` 为非回环地址而没有访问密码时退出 3 并说明键路径。
+     - `AccessPasswordCommandTests`：设了访问密码后 `status`、`reindex`、`backup`（备份不含 `access.json`）、`restore` 照常返回 0 且不带凭据；`serve` 在 `server.host` 为`127.0.0.1` 以外的地址而没有访问密码时退出 3 并说明键路径。
      - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0。；额外监听的地址行在启动提示中（回环地址之后）；额外地址绑定失败时给出警告且服务照常运行
      - `ProbeCommandTests`：`tacit probe` 的退出码 0（全部成功，含大小写不同的子目标）、1（失败；明确指定的模型未配置）、3（配置无效）；不带参数时跳过未配置的模型且为 0；服务未运行、记忆仓库未初始化时照常；输出不含密钥值；纯文本无控制字符；报告随记忆语言。
      - `OutputStylingTests`：不需要服务的 `status` 与 `connect`：stdout 不是终端，或设置了 `NO_COLOR` 时为纯文本、不含控制字符；终端中的美化与纯文本显示相同的文字（含辅助模型未配置的离线 `status`）；终端 stderr 下失败的等待仍为 4；`ClientsColumnCliTests`：`status` 的客户端栏在服务未运行（记录文件中的控制字符不出现在纯文本中）与运行时都显示。

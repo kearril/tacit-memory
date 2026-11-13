@@ -150,7 +150,7 @@ public sealed class MemoryService : IDisposable
     /// Refuses to start a service that listens beside loopback without an access password: <c>server.host</c> names an
     /// address that is not loopback, and no password is set. Called by the host before it binds anything.
     /// </summary>
-    /// <exception cref="TacitException">A <c>server.host</c> that is not loopback, with no access password set.</exception>
+    /// <exception cref="TacitException">A <c>server.host</c> that names an extra listening address, with no access password set.</exception>
     public void CheckExtraListenerAllowed()
     {
         if (Config.ExtraAddress is { } extra && !Access.PasswordSet)
