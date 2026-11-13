@@ -9,11 +9,11 @@ import {
   Network,
   Unlink,
 } from "lucide-react";
-import { useEffect } from "react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import { useActivity } from "../../api/activity";
 import { useBackups } from "../../api/backups";
 import { type StatusReport, useStatus } from "../../api/status";
+import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Card } from "../../components/ui/card";
@@ -213,20 +213,4 @@ function viewOf(todo: Todo, dictionary: Dictionary, locale: string): TodoView {
         failure: true,
       };
   }
-}
-
-/**
- * Scrolls to the element the location's hash names once the cards are there, so a to-do that leads to a card on this page
- * reaches it. With reduced motion asked for, it jumps instead of gliding.
- */
-function useScrollToHash(ready: boolean) {
-  const { hash } = useLocation();
-  useEffect(() => {
-    if (ready && hash !== "") {
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      document
-        .getElementById(decodeURIComponent(hash.slice(1)))
-        ?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
-    }
-  }, [ready, hash]);
 }

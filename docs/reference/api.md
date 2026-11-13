@@ -67,7 +67,7 @@
 | 400 | 请求不被接受：请求体无法读取、缺少必填成员、取值无效；访问密码少于 8 个字符（`PasswordTooShort`）；配置校验不通过（`ConfigRejected`） | 已实现 |
 | 401 | 其他设备的连接未登录或会话失效访问 `/api`（`ApiUnauthorized`）；访问密码不对（`PasswordWrong`）；修改密码时当前密码不对 | 已实现 |
 | 403 | 被请求防护拒绝；其他设备的连接访问 `/mcp`；其他设备的连接访问 `/`、`/ui`、`/api` 之外的路径（`RemotePathRefused`）；其他设备的连接清除访问密码 | 已实现 |
-| 404 | 请求的对象不存在：不是密钥的键路径（`SecretUnknown`） | 已实现 |
+| 404 | 请求的对象不存在：不是密钥的键路径（`SecretUnknown`）、没有该绑定（`BindingNotFound`） | 已实现 |
 | 409 | 记忆或配置不处于该操作接受的状态，用户可以修正；`server.host` 为 `127.0.0.1` 以外的地址时清除访问密码（`PasswordClearRefused`）；保存配置时 `config.yaml` 已在读取之后被改过（`ConfigChanged`） | 已实现 |
 | 415 | Content-Type 不是 `application/json` | 已实现 |
 | 429 | 登录或修改访问密码被限速（`LoginLimited`），带 `Retry-After` 头（剩余秒数） | 已实现 |
@@ -102,9 +102,9 @@
 | `GET /api/config/secrets/<键路径>` | 单个密钥当前生效的值 | 已实现 |
 | `POST /api/probe` | 按已保存的 `config.yaml` 探测三个辅助模型，规则同 `tacit probe` | 已实现 |
 | **绑定** | | |
-| `GET /api/bindings` | 绑定清单与各自的检查结果 | 计划 |
-| `POST /api/bindings` | 新增绑定：客户端名称、上下文文件、skill 目录 | 计划 |
-| `DELETE /api/bindings/<客户端名称>` | 解除绑定 | 计划 |
+| `GET /api/bindings` | 绑定清单与各自的检查结果 | 已实现 |
+| `POST /api/bindings` | 新增绑定：`{client, contextFile, skillsFolder}` | 已实现 |
+| `DELETE /api/bindings/<客户端名称>` | 解除绑定 | 已实现 |
 | **提示词文档** | | |
 | `GET /api/prompts` | 四份文档的当前内容、是否为内置默认、长度与上限 | 计划 |
 | `PUT /api/prompts/<文档名>` | 校验并保存 | 计划 |
@@ -123,5 +123,9 @@
 - `GET /api/config/secrets/<键路径>`：键路径为 `models.<模型>.apiKey` 或 `backup.webdav.password`，返回 `{value}`：环境变量的值，否则 `config.yaml` 中的值，都没有时为 `null`。不是密钥的键路径 404（`SecretUnknown`）。日志只记路径，不记值。
 - `PUT /api/config`：`hash` 取自 `GET` 的结果，与文件当前的哈希不符时 409（`ConfigChanged`），文件不动。`config` 为完整的配置，写出时只写与默认不同的项，键顺序固定，不带注释；其中的密钥被忽略。`secrets` 可省略，按键路径给出要改的密钥：字符串写入文件，`null` 从文件中删除；没给出的密钥沿用文件中原有的值。所属的模型或云端备份没有配置时，对应的密钥随之不写；不是密钥的键路径 400。校验与 `tacit serve` 读取配置相同，不通过时 400 并带 `problems`，文件不动。写出后作为维护操作重新加载，等待进行中的维护操作；需重启的项（`server.port`、`server.host`、`limits.page.minAliases`）保存后仍按原值运行。只读项（`memory.path`、`language`）与文件中的值不同时 400；`server.host` 为 `127.0.0.1` 以外的地址而没有访问密码时 400，问题落在 `server.host`。新配置打不开时把文件写回原样，服务按原配置继续运行，返回 500（`ReloadFailed`）。成功时返回新的哈希与 `restart`：文件中与运行中不同的需重启的项，每项给出键路径、运行中的值与文件中的值（`{path, running, saved}`，都是文字）。
 - `POST /api/probe`：每次重新读取 `config.yaml`，与运行中的服务所用的配置无关；未配置的模型记为跳过，不发请求。某个模型失败不使请求失败，结果逐个给出（`outcome`、`failure`、`statusCode`、响应体前 500 个字符、`elapsedMilliseconds`）；`config.yaml` 读不了时 409。不改变模型的健康状态，不等待维护操作。
+- `GET /api/bindings`：与状态报告的绑定栏相同（`title`、`lines`、`items`），`items` 逐个给出客户端名称、两个路径、问题（`problem`，正常时为 `null`）、有问题的 skill 链接与共用路径的其他绑定。不等待维护操作。
+- `POST /api/bindings`：规则同 `tacit connect`，路径开头的 `~` 由服务展开为主机上用户的主目录；被拒绝时不改动任何文件，`message` 与命令行给出的原因相同：客户端名称不合规则 400（`ClientNameInvalid`），目录不存在、名称已绑定到其他路径、skill 链接名被占用等 409。成功时返回 `{client, lines, mcp}`：`lines` 为做了什么的摘要，`mcp` 为要在客户端中注册的 MCP 服务（`url`、`transport`、`name`）。
+- `DELETE /api/bindings/<客户端名称>`：规则同 `tacit disconnect`，名称不区分大小写；没有该绑定时 404（`BindingNotFound`）。返回 `{client, lines, mcp: null}`。
+- 两者与服务渲染常驻块互斥，不等待维护操作。
 - `POST /api/backup`：`target` 为 `local` 时 `to` 可给出主机上的绝对目录，省略则写到 `backups/`；`target` 为 `remote` 时执行云端备份。
 - `POST /api/restore`：`path` 与 `remote` 二选一。`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`config` 为真时一并恢复 `config.yaml` 与 `prompts/`。校验在核心中完成。

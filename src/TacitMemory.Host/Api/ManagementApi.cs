@@ -215,6 +215,20 @@ internal static class ManagementApi
         api.MapGet("/config/secrets/{path}", (string path) => Json(service.Secret(path)))
             .Produces<SecretShown>()
             .ProducesErrors(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
+        api.MapGet("/bindings", () => Json(service.Bindings()))
+            .Produces<BindingsStatus>()
+            .ProducesErrors(StatusCodes.Status409Conflict);
+        api.MapPost("/bindings", async (HttpContext context) =>
+        {
+            var body = await ReadBody<ConnectRequest>(context, service);
+            return Json(service.Connect(body));
+        })
+            .Accepts<ConnectRequest>("application/json")
+            .Produces<BindingDone>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapDelete("/bindings/{client}", (string client) => Json(service.Disconnect(client)))
+            .Produces<BindingDone>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapGet("/session", (HttpContext context) =>
             Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
             .Produces<SessionStatus>()
@@ -470,10 +484,11 @@ internal static class ManagementApi
     {
         TacitError.GitFailed or TacitError.VectorExtensionInvalid or TacitError.CloudBackupFailed or TacitError.RestoreFailed
             or TacitError.ReloadFailed or TacitError.FileSystemFailed or TacitError.InternalFailure => StatusCodes.Status500InternalServerError,
-        TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected => StatusCodes.Status400BadRequest,
+        TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected
+            or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretUnknown => StatusCodes.Status404NotFound,
+        TacitError.SecretUnknown or TacitError.BindingNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

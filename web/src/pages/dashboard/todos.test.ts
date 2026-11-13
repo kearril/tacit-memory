@@ -134,10 +134,10 @@ describe("todosOf", () => {
 
 describe("targetOf", () => {
   it("leads each kind to where it is fixed", () => {
-    expect(targetOf({ kind: "modelsUnconfigured", roles: ["decision"] })).toBe("/settings#models");
-    expect(targetOf({ kind: "noBindings" })).toBe("/settings#bindings");
-    expect(targetOf({ kind: "bindingProblem", client: "claude", problem: "markersIncomplete" })).toBe("/settings#bindings");
-    expect(targetOf({ kind: "extraListenerFailed", address: "x", reason: "y" })).toBe("/settings#general");
+    expect(targetOf({ kind: "modelsUnconfigured", roles: ["decision"] })).toBe("/settings#settings-models");
+    expect(targetOf({ kind: "noBindings" })).toBe("/settings#settings-bindings");
+    expect(targetOf({ kind: "bindingProblem", client: "claude", problem: "markersIncomplete" })).toBe("/settings#settings-bindings");
+    expect(targetOf({ kind: "extraListenerFailed", address: "x", reason: "y" })).toBe("/settings#settings-general");
     expect(targetOf({ kind: "cloudBackupFailed", at: "x", error: null })).toBe("/dashboard#backups");
   });
 });

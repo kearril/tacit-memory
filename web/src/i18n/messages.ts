@@ -133,6 +133,30 @@ export interface Dictionary {
       readonly summary: string;
       readonly fields: Readonly<Record<(typeof CONSOLIDATION)[number], Explained>>;
     };
+    readonly bindings: {
+      readonly title: string;
+      readonly summary: string;
+      readonly empty: string;
+      readonly healthy: string;
+      readonly sharedWith: (names: string) => string;
+      readonly unbind: string;
+      readonly unbindTitle: (client: string) => string;
+      readonly unbindBody: string;
+      readonly unbound: (client: string) => string;
+      readonly unbindFailed: string;
+      readonly add: string;
+      readonly presets: string;
+      readonly pathsNote: string;
+      readonly fields: Readonly<Record<"client" | "contextFile" | "skillsFolder", Explained>>;
+      readonly bind: string;
+      readonly bindFailed: string;
+      readonly bound: (client: string) => string;
+      readonly mcpTitle: string;
+      readonly mcpNote: string;
+      readonly mcp: Readonly<Record<"url" | "transport" | "name", string>>;
+      readonly details: string;
+      readonly dismiss: string;
+    };
     readonly models: {
       readonly title: string;
       readonly summary: string;

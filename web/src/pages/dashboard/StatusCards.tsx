@@ -545,7 +545,7 @@ export function AgentsCard({ report, locale, className }: CardProps) {
             <div className="flex flex-wrap items-center justify-between gap-sm">
               <p className="text-sm text-ink-muted">{rows.length === 0 ? text.empty : text.noBindings}</p>
               <Button asChild variant="outline">
-                <Link to="/settings#bindings">
+                <Link to="/settings#settings-bindings">
                   <Link2 aria-hidden />
                   {text.addBinding}
                 </Link>

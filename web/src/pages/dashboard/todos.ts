@@ -49,12 +49,12 @@ export function todosOf(report: StatusReport): Todo[] {
 export function targetOf(todo: Todo): string {
   switch (todo.kind) {
     case "modelsUnconfigured":
-      return "/settings#models";
+      return "/settings#settings-models";
     case "noBindings":
     case "bindingProblem":
-      return "/settings#bindings";
+      return "/settings#settings-bindings";
     case "extraListenerFailed":
-      return "/settings#general";
+      return "/settings#settings-general";
     case "cloudBackupFailed":
       return "/dashboard#backups";
   }

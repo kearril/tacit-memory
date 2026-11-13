@@ -11,6 +11,7 @@ import {
   useConfig,
 } from "../../api/config";
 import { STATUS_QUERY_KEY } from "../../api/status";
+import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
@@ -48,13 +49,14 @@ import {
   type SectionId,
 } from "./form";
 import { BackupCard } from "./BackupCard";
+import { BindingsCard } from "./BindingsCard";
 import { ConsolidationCard } from "./ConsolidationCard";
 import { GeneralCard } from "./GeneralCard";
 import { JudgmentCard } from "./JudgmentCard";
 import { ModelsCard } from "./ModelsCard";
 
 /** The sections that have a card so far, in the page's order. */
-const SECTIONS: readonly SectionId[] = ["general", "models", "judgment", "consolidation", "backup", "access"];
+const SECTIONS: readonly SectionId[] = ["general", "models", "bindings", "judgment", "consolidation", "backup", "access"];
 
 /**
  * The settings page: a row of section tabs that stays at the top, then the section cards in a bento grid, and a bar that
@@ -66,6 +68,7 @@ export function SettingsPage() {
   const config = useConfig();
   // Kept here, above the editor, as a save gives the editor a new file and so starts it again.
   const [restart, setRestart] = useState<readonly RestartChange[]>([]);
+  useScrollToHash(config.data !== undefined, "start");
 
   return (
     <div className="grid gap-lg">
@@ -224,6 +227,7 @@ function SettingsEditor({
       <div className="grid gap-lg lg:grid-cols-2">
         <GeneralCard form={form} className="lg:col-span-2" />
         <ModelsCard form={form} className="lg:col-span-2" />
+        <BindingsCard className="lg:col-span-2" />
         <JudgmentCard form={form} className="lg:col-span-2" />
         <ConsolidationCard form={form} />
         <BackupCard form={form} />

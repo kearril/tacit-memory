@@ -413,6 +413,29 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public BackupList Backups() => LocalBackups.List(_options, Config);
 
+    /// <summary>The bindings and what is wrong with each, as the status report's bindings column has them.</summary>
+    /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
+    public BindingsStatus Bindings() => BindingChecks.Produce(_options, Config.Language);
+
+    /// <summary>
+    /// Binds a client by the rules of <c>tacit connect</c>; a refusal changes no file. Holds the render lock, so the service
+    /// does not render the resident blocks while the binding is written.
+    /// </summary>
+    /// <exception cref="TacitException">A refusal, with the reason <c>tacit connect</c> gives.</exception>
+    public BindingDone Connect(ConnectRequest request)
+    {
+        lock (_renderGate)
+            return BindingDone.From(ClientName.Normalize(request.Client), Binder.Connect(_options, request));
+    }
+
+    /// <summary>Unbinds a client by the rules of <c>tacit disconnect</c>, under the render lock as <see cref="Connect"/>.</summary>
+    /// <exception cref="TacitException">No binding has that name.</exception>
+    public BindingDone Disconnect(string client)
+    {
+        lock (_renderGate)
+            return BindingDone.From(ClientName.Normalize(client), Binder.Disconnect(_options, client));
+    }
+
     /// <summary>
     /// Probes the three auxiliary models as the saved <c>config.yaml</c> configures them, which is what <c>tacit probe</c>
     /// reads; the running service keeps the configuration it started with. An unconfigured model is reported and skipped.
