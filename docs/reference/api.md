@@ -12,7 +12,7 @@
 | 监听 | 总是监听 `127.0.0.1`；`server.host` 给出的一个额外地址也监听，与 `server.port` 同一端口；额外地址绑定失败时只在回环上运行（见 `docs/reference/configuration.md`） | 已实现 |
 | 请求与响应 | JSON，属性名为 camelCase，枚举为 camelCase 文本 | 已实现 |
 | 接口描述 | `GET /api/openapi.json`，OpenAPI 文档；字段以它为准，本文不重复；仓库中的快照是 `web/openapi.json` | 已实现 |
-| Web 界面 | `/ui` 下为静态文件，任何连接都不需登录：存在的文件原样返回；其他不带扩展名的路径返回入口页；带扩展名而找不到的路径 404；产物未构建时 `/ui` 下任何路径返回 404 与「Web 界面未构建」。`/` 重定向到 `/ui/`。入口页不缓存，`assets/` 下的文件长期缓存（见 `docs/architecture.md` 第 5 节） | 已实现 |
+| Web 界面 | `/ui` 下为静态文件，任何连接都不需登录：存在的文件原样返回；其他不带扩展名的路径返回入口页；带扩展名而找不到的路径 404；产物未构建时 `/ui` 下任何路径返回 404 与「Web 界面未构建」。`/` 重定向到 `/ui/`。入口页的缓存为 `no-store`，`assets/` 下的文件为 `immutable` 长期缓存，其余文件为 `no-cache` | 已实现 |
 
 同一个监听上还有 `/mcp`（见 `docs/reference/mcp.md`）与 `/ui`（见上表）。
 
@@ -65,7 +65,7 @@
 | :--- | :--- | :--- |
 | 200 | 成功 | 已实现 |
 | 400 | 请求不被接受：请求体无法读取、缺少必填成员、取值无效；访问密码少于 8 个字符（`PasswordTooShort`） | 已实现 |
-| 401 | 其他设备的连接未登录或会话失效访问 `/api`（`ApiUnauthorized`）；登录密码不对（`PasswordWrong`）；修改密码时当前密码不对 | 已实现 |
+| 401 | 其他设备的连接未登录或会话失效访问 `/api`（`ApiUnauthorized`）；访问密码不对（`PasswordWrong`）；修改密码时当前密码不对 | 已实现 |
 | 403 | 被请求防护拒绝；其他设备的连接访问 `/mcp`；其他设备的连接访问 `/`、`/ui`、`/api` 之外的路径（`RemotePathRefused`）；其他设备的连接清除访问密码 | 已实现 |
 | 409 | 记忆或配置不处于该操作接受的状态，用户可以修正；`server.host` 为`127.0.0.1` 以外的地址时清除访问密码（`PasswordClearRefused`） | 已实现 |
 | 415 | Content-Type 不是 `application/json` | 已实现 |

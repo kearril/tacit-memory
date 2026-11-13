@@ -13,7 +13,7 @@ flowchart LR
     Client[客户端] -->|HTTP MCP /mcp| Mcp
     User[用户] -->|tacit 命令| Cli
     Cli -->|管理 API /api| Admin
-    subgraph Host["tacit serve（ASP.NET Core，127.0.0.1）"]
+    subgraph Host["tacit serve（ASP.NET Core，127.0.0.1 与额外监听地址）"]
         Mcp[TacitMemory.Host<br>ServiceHost]
         Admin[管理 API]
     end
@@ -50,9 +50,9 @@ flowchart LR
 
 | 程序集 | 职责 | 依赖 |
 | :--- | :--- | :--- |
-| `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService` 与契约类型，其余为 `internal` | 无内部依赖 |
-| `TacitMemory.Host` | 承载 HTTP 入口的程序集，内部分 `Mcp/`（工具、资源、工具目录）、`Api/`（管理 API 及其防护）与 `Web/`（`/ui` 的静态文件与 `/` 的跳转）三块。入口 `ServiceHost` 在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://consolidation-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`），并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
-| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Host` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `ServiceHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
+| `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService`、访问控制 `AccessControl` 与契约类型，其余为 `internal` | 无内部依赖 |
+| `TacitMemory.Host` | 承载 HTTP 入口的程序集，内部分 `Mcp/`（工具、资源、工具目录）、`Api/`（管理 API 及其防护）与 `Web/`（`/ui` 的静态文件与 `/` 的跳转）三块。入口 `ServiceHost` 在 `127.0.0.1` 与 `server.host` 给出的额外地址上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://consolidation-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`）。按连接来源区分本机与其他设备的判断在 `ServiceHost`，管理 API 的防护、会话与访问密码的判定在 `ManagementApi`（规则见 `docs/reference/api.md` 第 2 节）；未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
+| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Host` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `ServiceHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Host` |
 
 `tacit probe` 经门面 `LoadConfigFile` 严格加载配置（不要求记忆仓库已初始化），再经门面 `ProbeAsync` 探测；门面返回的 `ProbeReport` 已含按记忆语言排好的报告行，CLI 原样打印，颜色由 `StyledOutput` 按终端规则施加，退出码由 `Commands` 按结果算出。它不经 `Commands` 的服务路径，不需要服务运行。
 
@@ -60,7 +60,8 @@ flowchart LR
 
 | 模块 | 职责 | 状态 |
 | :--- | :--- | :--- |
-| 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存与文件监听，整理报告的入口是 `MemoryService.ConsolidationReportAsync` | 已实现 |
+| 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存、文件监听与访问控制，整理报告的入口是 `MemoryService.ConsolidationReportAsync`；`OpenAccess` 返回独立的 `AccessControl`，不需要运行中的服务，供测试与不经常驻服务的调用方使用（常驻服务内的访问经 `MemoryService.Access`） | 已实现 |
+| 访问 | `Access/AccessControl`：访问密码与会话。`access.json`（PBKDF2-SHA256 的哈希与会话签名密钥，不属于配置，不进入备份）的读写与损坏时的处理；会话为 HMAC-SHA256 签名的 Cookie 值，服务端不存清单；按对端地址的登录限速，计数表有上限，PBKDF2 的计算在锁外，检查暂停、计算与计数之间不让并发请求绕过计数。规则见 `docs/reference/api.md` 第 2 节 | 已实现 |
 | 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
 | 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/reference/configuration.md`「提示词文档」）；校验服务端说明的固定部分长度（见 `docs/design.md` 第 8 节） | 已实现 |
 | 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
@@ -136,13 +137,13 @@ flowchart LR
 
 ## 5. 进程与传输
 
-- `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权；管理 API 另有 Origin、Host 与 POST 的 Content-Type 三道防护（规则见本节下文）。
+- `serve` 进程中的 ASP.NET Core 主机总是监听 `127.0.0.1:<port>`，`server.host` 给出的额外地址也监听同一端口。访问按连接来源区分；管理 API 的鉴权与请求防护的规则见 `docs/reference/api.md` 第 2 节，本文不重复。
 - MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。资源由 `MemoryResources` 声明，只有 `tacit://consolidation-report`，读取时转交 `MemoryService.ConsolidationReportAsync`。不声明 prompt：列表与取回请求分别由 `WithListPromptsHandler`（返回空列表）与 `WithGetPromptHandler`（报错）处理。有的客户端不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `ServiceHost` 不启动，由 CLI 报告。
 - 必填与取值由标注声明：`write_page` 的 `op` 与 `page`、`write_page` 的 `type`（取值为 `PageTypes`）、`write_persona` 的 `op`、`write_recent` 的 `text` 用 `[Required]`，取值用 `[AllowedValues]`（`op`、`write_persona` 的 `persona_section`、`recall` 的 `kind`）；SDK 把它们写入输入 schema 的 `required` 与 `enum`。取值只在 Core 的 `ToolValues` 中定义一次，Mcp 的标注与 Core 的 op 分派都引用它；参数类型仍可空，缺参的调用到达服务后由 Core 拒绝。
 - 未知参数：`MemoryTools` 的四个工具（`recall` 与三个写入工具）以 `RequestContext<CallToolRequestParams>` 取得原始调用；`UnknownArguments` 比对原始参数名与该工具 `ProtocolTool.InputSchema` 的属性名，得到未知参数名列表，经请求对象的 `UnknownParameters` 交给 Core。SDK 绑定参数时丢弃未知名，因此只能从原始调用读取。Mcp 不写拒绝文字，拒绝与下一步全部由 Core 给出。
-- Web 界面（`Web/WebInterface`）挂载于 `/ui`，读取可执行文件旁 `web/` 目录下的构建产物；`/` 重定向到 `/ui/`。任何连接都不需登录。规则：找不到文件的路径返回入口页 `index.html`（不缓存，`no-store`），带扩展名而找不到的路径 404；`assets/` 下的文件长期缓存（`immutable`），其余文件 `no-cache`。路径先逐段检查，含 `.`、`..`、路径分隔符或盘符的段直接 404，再把完整路径规范化后确认仍在目录之内。入口页不存在时（产物未构建）`/ui` 下任何路径返回 404 与「Web 界面未构建」（记忆语言），服务的其余部分照常。
-- 管理 API 挂载于 `/api`，将来的 Web UI 也走这里。已实现：`GET /api/status`（`tacit status`）、`POST /api/reindex`（`tacit reindex`）、`POST /api/backup`（`tacit backup`，本地目标与 `target` 为 `remote` 的云端目标）与 `POST /api/restore`（`tacit restore`）。`GET /api/openapi.json` 导出这些端点的 OpenAPI 文档，由框架自带的生成器（`Microsoft.AspNetCore.OpenApi`）按端点声明的请求与响应类型生成；`ManagementApi.AddOpenApi` 把 `ManagementApiJson` 的约定同时施加给框架的 JSON 选项，使文档中的枚举与数字与实际响应一致。仓库中的快照 `web/openapi.json` 是前端类型的契约来源，改动接口后须更新，见 `docs/testing.md` 第 6 节。恢复的请求为 `{path, remote, config, preview}`：`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`path` 与 `remote` 二选一，两者的校验在 Core 中完成。
-- 防护（`ManagementApi`）：带 `Origin` 头的请求返回 403；Host 不是 `127.0.0.1:<端口>` 或 `localhost:<端口>` 的请求返回 403（防 DNS 重绑定）；POST 的 Content-Type 不是 `application/json` 的返回 415。错误体为 `{"error": "<TacitError 名>", "message": "<本地化说明>"}`，JSON 为 camelCase。只作用于 `/api` 路径，`/mcp` 不受影响。
+- Web 界面（`Web/WebInterface`）挂载于 `/ui`，读取可执行文件旁 `web/` 目录下的构建产物；`/` 重定向到 `/ui/`。托管的规则（入口页回退、404、缓存与未构建时的回应）见 `docs/reference/api.md` 第 1 节，本文只写机制：路径先逐段检查，含 `.`、`..`、路径分隔符或盘符的段直接 404，再把完整路径规范化后确认仍在目录之内。
+- 管理 API 挂载于 `/api`，`tacit` 命令与 Web 界面都经它访问常驻服务；已实现的端点清单见 `docs/reference/api.md` 第 4 节。`GET /api/openapi.json` 导出全部端点的 OpenAPI 文档，由框架自带的生成器（`Microsoft.AspNetCore.OpenApi`）按端点声明的请求与响应类型生成；`ManagementApi.AddOpenApi` 把 `ManagementApiJson` 的约定同时施加给框架的 JSON 选项，使文档中的枚举与数字与实际响应一致。仓库中的快照 `web/openapi.json` 是前端类型的契约来源，改动接口后须更新，见 `docs/testing.md` 第 6 节。恢复的请求为 `{path, remote, config, preview}`：`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`path` 与 `remote` 二选一，两者的校验在 Core 中完成。
+- 防护与鉴权（`ManagementApi`）的规则只见 `docs/reference/api.md` 第 2 节与第 3 节（请求防护、按连接来源的鉴权、错误体的格式），本节不重复。
 
 ## 6. 外部依赖
 
@@ -156,7 +157,7 @@ flowchart LR
 | 索引驱动 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建索引文件） | 已引入 |
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），连同上游 LICENSE 存于仓库 `lib/sqlite-vec/`，构建时复制到输出目录；每次加载前校验代码中记录的 SHA-256，不符则拒绝启动；不使用 NuGet 上的第三方包 | 已引入 |
 | 查询与映射 | `Dapper` | 已引入 |
-| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；React Hook Form 与 Zod 已装，尚未使用。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
+| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；表单用 React Hook Form，组件用 `radix-ui`（无样式的交互原语）、`class-variance-authority`（组件变体）与 `cn`（合并类名）。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
 | 嵌入 | `HttpClient`，按 OpenAI Embeddings 协议请求配置的完整 URL；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
 | reranker | `HttpClient` 类型化客户端，按 Cohere/Jina Rerank 协议请求配置的完整 URL | 已引入 |
 | 决策模型 | `HttpClient`，实现 System One 协议，请求配置的完整 URL | 已引入 |
@@ -173,21 +174,21 @@ flowchart LR
 | 路径 | 内容 |
 | :--- | :--- |
 | `web/openapi.json` | 管理 API 的 OpenAPI 快照，是前端类型的唯一来源（改动方式见 `docs/testing.md` 第 6 节） |
-| `src/api/schema.ts` | 由 `bun run generate` 从快照生成的类型，进 Git；生成不需要运行中的服务 |
-| `src/api/client.ts` | 接口调用层：包住 `fetch`，统一带上凭据，失败时抛出 `ApiError`（带服务返回的名称与说明）。会话缺失（401，名称 `ApiUnauthorized`）时先向 `onUnauthorized` 的订阅者发出信号；其他 401（如当前密码不对）只抛出错误。页面不直接调用 `fetch` |
-| `src/api/session.ts` | 按端点封装的调用：会话的读取、登录、退出，访问密码的设置与清除；会话状态的查询键 `SESSION_QUERY_KEY` 在此定义 |
-| `src/app/RootLayout.tsx` | 每个页面的入口：先取会话状态，非本机且未登录则去登录页并记下原地址；收到会话缺失的信号也如此；把会话状态经 `SessionContext` 交给页面 |
-| `src/app/AppShell.tsx` | 外壳：五项导航（手机宽度下收起为可展开的菜单）与非本机连接的退出登录 |
-| `src/app/return-target.ts` | 登录后回跳地址的判断：只接受以 `/ui/` 开头的站内路径，并转为路由路径 |
-| `src/app/session-context.ts` | 会话状态的上下文与按记忆语言取字典的钩子 |
-| `src/pages/login/` | 登录页与其状态机（`login-attempt.ts`，429 时锁住提交直到密码被改动） |
-| `src/pages/settings/` | 设置页；本阶段只有「访问」一节（`AccessSection.tsx`） |
-| `src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、确认对话框），结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `components.json` |
-| `src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
-| `src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
-| `src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |
-| `src/app/router.tsx` | 路由以 `/ui` 为基准（Vite 的 `base` 为 `/ui/`）：登录页在外壳之外，其余五页在外壳之内；`*` 回到仪表盘 |
-| `src/pages/PlaceholderPage.tsx` | 尚未实现的页面，只显示名称与「尚未实现」 |
+| `web/src/api/schema.ts` | 由 `bun run generate` 从快照生成的类型，进 Git；生成不需要运行中的服务 |
+| `web/src/api/client.ts` | 接口调用层：包住 `fetch`，统一带上凭据，失败时抛出 `ApiError`（带服务返回的名称与说明）。会话缺失（401，名称 `ApiUnauthorized`）时先向 `onUnauthorized` 的订阅者发出信号；其他 401（如当前密码不对）只抛出错误。页面不直接调用 `fetch` |
+| `web/src/api/session.ts` | 按端点封装的调用：会话的读取、登录、退出，访问密码的设置与清除；会话状态的查询键 `SESSION_QUERY_KEY` 在此定义 |
+| `web/src/app/RootLayout.tsx` | 每个页面的入口：先取会话状态，非本机且未登录则去登录页并记下原地址；收到会话缺失的信号也如此；把会话状态经 `SessionContext` 交给页面 |
+| `web/src/app/AppShell.tsx` | 外壳：五项导航（手机宽度下收起为可展开的菜单）与非本机连接的退出登录 |
+| `web/src/app/return-target.ts` | 登录后回跳地址的判断：只接受以 `/ui/` 开头的站内路径，并转为路由路径 |
+| `web/src/app/session-context.ts` | 会话状态的上下文与按记忆语言取字典的钩子 |
+| `web/src/pages/login/` | 登录页与其状态机（`login-attempt.ts`，429 时锁住提交直到密码被改动） |
+| `web/src/pages/settings/` | 设置页与各节（如「访问」一节的 `AccessSection.tsx`），各节的功能见 `docs/web.md` 第 3 节 |
+| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、确认对话框），结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
+| `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
+| `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
+| `web/src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |
+| `web/src/app/router.tsx` | 路由以 `/ui` 为基准（Vite 的 `base` 为 `/ui/`）：登录页在外壳之外，其余五页在外壳之内；`*` 回到仪表盘 |
+| `web/src/pages/PlaceholderPage.tsx` | 尚未实现的页面，只显示名称与「尚未实现」 |
 
 脚本（在 `web/` 下用 `bun run` 执行）：`dev` 启动开发服务器；`build` 构建到 `web/dist/`；`typecheck`、`lint`、`test` 为三项检查；`check` 依次运行类型检查、ESLint、Vitest 与构建；`generate` 由快照生成类型。
 

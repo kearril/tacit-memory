@@ -225,7 +225,7 @@ _Avoid_: 存储、数据目录、store
 _Avoid_: 后端、守护进程、server
 
 **管理 API**（Management API）：
-常驻服务在 `/api` 下提供的 HTTP 接口，供 `tacit` 命令（及 Web 界面）调用，例如 `GET /api/status`；与 `/mcp` 同在服务的监听地址上。它先以三道防护拒绝外部网页与 DNS 重绑定（Origin 须与请求自身同源，本机连接的 Host 须为回环名，POST 与 PUT 的 Content-Type 须为 JSON），再按连接来源区分：本机连接免登录，其他设备的连接一律 401，直到会话功能提供登录。
+常驻服务在 `/api` 下提供的 HTTP 接口，供 `tacit` 命令（及 Web 界面）调用，例如 `GET /api/status`；与 `/mcp` 同在服务的监听地址上。它先以三道防护拒绝外部网页与 DNS 重绑定（Origin 须与请求自身同源，本机连接的 Host 须为回环名，POST 与 PUT 的 Content-Type 须为 JSON），再按连接来源区分：本机连接免登录，其他设备的连接须持有登录得到的会话，否则 401。
 _Avoid_: 运维接口、控制面板、admin
 
 **Web 界面**（Web UI）：
