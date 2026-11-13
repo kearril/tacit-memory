@@ -6,6 +6,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 ## 前提
 
 - **.NET 10 SDK**：用于构建。
+- **Bun**：`dotnet publish` 时用于构建 Web 界面（`web/`）；`dotnet build` 与 `dotnet test` 不需要。不需要 Web 界面时见下节的跳过属性。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
 - **三个辅助模型**（可选，均为 HTTP 端点，需自行准备；不配置的模型即未配置，服务照常运行，依赖它的功能按降级规则处理）：
@@ -21,7 +22,9 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 ```
 
-输出目录中的可执行文件为 `tacit.exe`，并附带 `vec0.dll`，两者须放在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。CLI 未打包为 dotnet tool。
+输出目录中的可执行文件为 `tacit.exe`，并附带 `vec0.dll` 与 Web 界面的 `web/` 子目录，它们须放在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。CLI 未打包为 dotnet tool。
+
+发布时 Bun 须在 `PATH` 中：找不到 Bun 则发布失败并说明原因。若只要后端，发布时加上 `/p:TacitSkipWebBuild=true`，输出目录则没有 `web/`，Web 界面不可用。
 
 ## 快速开始
 

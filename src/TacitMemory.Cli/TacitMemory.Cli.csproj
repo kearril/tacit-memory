@@ -25,4 +25,31 @@
     <ProjectReference Include="..\TacitMemory.Host\TacitMemory.Host.csproj" />
   </ItemGroup>
 
+  <!--
+    The web interface is built only when the project is published, and only then does it need Bun. Setting
+    TacitSkipWebBuild=true publishes without it: no Bun is needed, and the publish directory has no web folder.
+    The built files are copied to the web folder beside the executable, where the service reads them.
+  -->
+  <PropertyGroup>
+    <TacitSkipWebBuild Condition="'$(TacitSkipWebBuild)' == ''">false</TacitSkipWebBuild>
+    <TacitWebDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\web\'))</TacitWebDir>
+  </PropertyGroup>
+
+  <Target Name="TacitWebBuild" BeforeTargets="Publish" Condition="'$(TacitSkipWebBuild)' != 'true'">
+    <Exec Command="bun --version" ContinueOnError="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="TacitBunExitCode" />
+    </Exec>
+    <Error Condition="'$(TacitBunExitCode)' != '0'"
+           Text="Bun was not found on PATH, and the web interface needs it to be built. Install Bun (https://bun.sh), or publish without the web interface with /p:TacitSkipWebBuild=true. 找不到 Bun：构建 Web 界面需要 Bun，请安装 Bun，或加上 /p:TacitSkipWebBuild=true 跳过 Web 界面。" />
+    <Exec Command="bun install --frozen-lockfile" WorkingDirectory="$(TacitWebDir)" />
+    <Exec Command="bun run build" WorkingDirectory="$(TacitWebDir)" />
+  </Target>
+
+  <Target Name="TacitWebCopy" AfterTargets="Publish" Condition="'$(TacitSkipWebBuild)' != 'true'">
+    <ItemGroup>
+      <TacitWebFile Include="$(TacitWebDir)dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TacitWebFile)" DestinationFiles="@(TacitWebFile->'$(PublishDir)web\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
