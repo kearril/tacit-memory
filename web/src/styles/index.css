@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
 @import "./tokens.css";
 
 /* Only the tokens are offered as Tailwind's theme: the default palette, type scale, radii, shadows, sizes and weights are
@@ -29,6 +30,16 @@
   --color-danger: var(--tk-color-danger);
   --color-info: var(--tk-color-info);
   --color-scrim: var(--tk-color-scrim);
+  --color-accent-soft: var(--tk-color-accent-soft);
+  --color-success-soft: var(--tk-color-success-soft);
+  --color-warning-soft: var(--tk-color-warning-soft);
+  --color-danger-soft: var(--tk-color-danger-soft);
+  --color-info-soft: var(--tk-color-info-soft);
+  --color-heat-0: var(--tk-color-heat-0);
+  --color-heat-1: var(--tk-color-heat-1);
+  --color-heat-2: var(--tk-color-heat-2);
+  --color-heat-3: var(--tk-color-heat-3);
+  --color-heat-4: var(--tk-color-heat-4);
 
   --font-sans: var(--tk-font-sans);
   --font-mono: var(--tk-font-mono);
@@ -47,16 +58,22 @@
   --spacing-md: var(--tk-space-md);
   --spacing-lg: var(--tk-space-lg);
   --spacing-xl: var(--tk-space-xl);
+  /* Zero is not a design value, but the spacing scale is dropped above, so inset-0, top-0 and the like need it named. */
+  --spacing-0: 0px;
 
   --height-control: var(--tk-size-control);
 
   --container-content: var(--tk-size-content);
+  --container-page: var(--tk-size-page);
 
   --radius-sm: var(--tk-radius-sm);
   --radius-md: var(--tk-radius-md);
   --radius-lg: var(--tk-radius-lg);
   --radius-full: var(--tk-radius-full);
 
+  --shadow-rest: var(--tk-shadow-rest);
+  --shadow-hover: var(--tk-shadow-hover);
+  --shadow-pressed: var(--tk-shadow-pressed);
   --shadow-raised: var(--tk-shadow-raised);
 
   /* The component defaults for transitions take the motion tokens, not Tailwind's own values. */
@@ -72,5 +89,21 @@
     font-family: var(--tk-font-sans);
     font-size: var(--tk-font-size-base);
     line-height: var(--tk-line-height-normal);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* The soft look's motion for a control or card that answers the pointer: it rises on hover and shrinks a little when
+   pressed. The distances are tokens, which the reduced-motion setting turns to nothing. */
+@utility lift {
+  transition-property: translate, scale, box-shadow, background-color, color, border-color;
+  transition-duration: var(--tk-duration-base);
+  transition-timing-function: var(--tk-ease-standard);
+  &:hover:not(:disabled) {
+    translate: 0 var(--tk-lift-hover);
+  }
+  &:active:not(:disabled) {
+    translate: 0 0;
+    scale: var(--tk-scale-pressed);
   }
 }

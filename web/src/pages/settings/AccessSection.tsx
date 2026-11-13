@@ -1,11 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Info, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
 import { useState } from "react";
 import { type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { ApiError } from "../../api/client";
 import { type AccessPasswordBody, clearAccessPassword, SESSION_QUERY_KEY, setAccessPassword } from "../../api/session";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { errorTextOf } from "../../i18n/messages";
+import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,30 +21,31 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
-import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { PasswordInput } from "../../components/ui/password-input";
+import { useToast } from "../../components/ui/toast-context";
 
 interface PasswordValues {
   password: string;
   current: string;
 }
 
-interface Notice {
-  readonly tone: "success" | "error";
+interface Failure {
+  readonly title: string;
   readonly message: string;
 }
 
 /**
  * The access section of the settings page: whether an access password is set, setting or changing it, and clearing it
- * from a local connection. The service's explanations for a refused field are shown beside that field.
+ * from a local connection. The service's explanations for a refused field are shown beside that field; a success is shown
+ * as a toast, and any other failure stays in the card as an alert.
  */
 export function AccessSection() {
   const dictionary = useDictionary();
   const session = useSessionStatus();
   const queryClient = useQueryClient();
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [revealNew, setRevealNew] = useState(false);
-  const [revealCurrent, setRevealCurrent] = useState(false);
+  const showToast = useToast();
+  const [failure, setFailure] = useState<Failure | null>(null);
   const form = useForm<PasswordValues>({ defaultValues: { password: "", current: "" } });
   const { errors } = form.formState;
 
@@ -48,8 +53,7 @@ export function AccessSection() {
     mutationFn: (values: PasswordValues) => setAccessPassword(bodyFor(values, session.local)),
     onSuccess: (status) => {
       queryClient.setQueryData(SESSION_QUERY_KEY, status);
-      form.reset({ password: "", current: "" });
-      setNotice({ tone: "success", message: dictionary.access.saved });
+      showToast(dictionary.access.saved);
     },
     onError: (error) => {
       if (error instanceof ApiError && error.error === "PasswordTooShort") {
@@ -57,7 +61,7 @@ export function AccessSection() {
       } else if (error instanceof ApiError && error.error === "PasswordWrong") {
         form.setError("current", { type: "server", message: error.message });
       } else {
-        setNotice({ tone: "error", message: errorTextOf(error, dictionary) });
+        setFailure({ title: dictionary.access.saveFailed, message: errorTextOf(error, dictionary) });
       }
     },
   });
@@ -66,51 +70,59 @@ export function AccessSection() {
     mutationFn: clearAccessPassword,
     onSuccess: (status) => {
       queryClient.setQueryData(SESSION_QUERY_KEY, status);
-      setNotice({ tone: "success", message: dictionary.access.cleared });
+      showToast(dictionary.access.cleared);
     },
-    onError: (error) => setNotice({ tone: "error", message: errorTextOf(error, dictionary) }),
+    onMutate: () => setFailure(null),
+    onError: (error) => setFailure({ title: dictionary.access.clearFailed, message: errorTextOf(error, dictionary) }),
   });
 
   const onSubmit = (values: PasswordValues) => {
-    setNotice(null);
+    setFailure(null);
     form.clearErrors();
     save.mutate(values);
   };
 
   return (
-    <section aria-labelledby="access-title" className="grid gap-md rounded-lg border-(length:--tk-border-thin) border-line bg-surface p-lg">
-      <h2 id="access-title" className="text-lg font-semibold">
-        {dictionary.access.title}
-      </h2>
-      <p className="text-sm text-ink-muted">
-        {session.passwordSet ? dictionary.access.passwordSet : dictionary.access.passwordUnset}
-      </p>
-      <p className="text-sm text-ink-muted">{dictionary.access.note}</p>
+    <Card aria-labelledby="access-title">
+      <header className="flex items-start gap-md">
+        <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
+          <KeyRound aria-hidden className="size-(--tk-font-size-lg)" />
+        </span>
+        <div className="grid min-w-0 flex-1 gap-xs">
+          <CardTitle id="access-title">{dictionary.access.title}</CardTitle>
+          <CardDescription>{dictionary.access.summary}</CardDescription>
+        </div>
+        {session.passwordSet ? (
+          <Badge tone="success">
+            <ShieldCheck aria-hidden />
+            {dictionary.access.stateSet}
+          </Badge>
+        ) : (
+          <Badge>
+            <ShieldOff aria-hidden />
+            {dictionary.access.stateUnset}
+          </Badge>
+        )}
+      </header>
 
       <form className="grid gap-md" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-        <PasswordField
-          id="access-new-password"
-          label={dictionary.access.newPassword}
-          registration={form.register("password")}
-          error={errors.password?.message}
-          revealed={revealNew}
-          showLabel={dictionary.showPassword}
-          hideLabel={dictionary.hidePassword}
-          onToggle={() => setRevealNew((value) => !value)}
-        />
         {session.local ? null : (
           <PasswordField
             id="access-current-password"
             label={dictionary.access.currentPassword}
+            placeholder={dictionary.access.currentPlaceholder}
             registration={form.register("current")}
             error={errors.current?.message}
-            revealed={revealCurrent}
-            showLabel={dictionary.showPassword}
-            hideLabel={dictionary.hidePassword}
-            onToggle={() => setRevealCurrent((value) => !value)}
           />
         )}
-        <div>
+        <PasswordField
+          id="access-new-password"
+          label={dictionary.access.newPassword}
+          placeholder={dictionary.access.newPlaceholder}
+          registration={form.register("password")}
+          error={errors.password?.message}
+        />
+        <div className="flex flex-wrap gap-sm">
           <Button type="submit" disabled={save.isPending}>
             {save.isPending
               ? dictionary.access.saving
@@ -118,40 +130,42 @@ export function AccessSection() {
                 ? dictionary.access.changePassword
                 : dictionary.access.setPassword}
           </Button>
+          {session.local && session.passwordSet ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="outline" disabled={clear.isPending}>
+                  {dictionary.access.clearPassword}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{dictionary.access.clearTitle}</AlertDialogTitle>
+                  <AlertDialogDescription>{dictionary.access.clearBody}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{dictionary.access.cancel}</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" onClick={() => clear.mutate()}>
+                    {dictionary.access.clearConfirm}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
         </div>
       </form>
 
-      {session.local && session.passwordSet ? (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" disabled={clear.isPending}>
-              {dictionary.access.clearPassword}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{dictionary.access.clearTitle}</AlertDialogTitle>
-              <AlertDialogDescription>{dictionary.access.clearBody}</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{dictionary.access.cancel}</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={() => clear.mutate()}>
-                {dictionary.access.clearConfirm}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      ) : null}
-
-      {notice === null ? null : (
-        <p
-          role={notice.tone === "error" ? "alert" : "status"}
-          className={notice.tone === "error" ? "text-sm text-danger" : "text-sm text-success"}
-        >
-          {notice.message}
-        </p>
+      {failure === null ? null : (
+        <Alert tone="danger">
+          <AlertTitle>{failure.title}</AlertTitle>
+          <AlertDescription>{failure.message}</AlertDescription>
+        </Alert>
       )}
-    </section>
+
+      <p className="flex gap-sm border-t-(length:--tk-border-thin) border-line pt-md text-xs text-ink-muted">
+        <Info aria-hidden className="size-(--tk-font-size-sm) shrink-0" />
+        {dictionary.access.note}
+      </p>
+    </Card>
   );
 }
 
@@ -163,42 +177,28 @@ function bodyFor(values: PasswordValues, local: boolean): AccessPasswordBody {
 interface PasswordFieldProps {
   readonly id: string;
   readonly label: string;
+  readonly placeholder: string;
   readonly registration: UseFormRegisterReturn;
   readonly error: string | undefined;
-  readonly revealed: boolean;
-  readonly showLabel: string;
-  readonly hideLabel: string;
-  readonly onToggle: () => void;
 }
 
-/** A password input with its visible label, a show/hide control, and the service's explanation beside it when refused. */
-function PasswordField({
-  id,
-  label,
-  registration,
-  error,
-  revealed,
-  showLabel,
-  hideLabel,
-  onToggle,
-}: PasswordFieldProps) {
+/** A password input with its visible label, the eye toggle inside it, and the service's explanation beside it when refused. */
+function PasswordField({ id, label, placeholder, registration, error }: PasswordFieldProps) {
+  const dictionary = useDictionary();
   const errorId = `${id}-error`;
   return (
     <div className="grid gap-sm">
       <Label htmlFor={id}>{label}</Label>
-      <div className="flex gap-sm">
-        <Input
-          id={id}
-          type={revealed ? "text" : "password"}
-          autoComplete="off"
-          aria-invalid={error !== undefined}
-          aria-describedby={error === undefined ? undefined : errorId}
-          {...registration}
-        />
-        <Button type="button" variant="outline" aria-controls={id} aria-pressed={revealed} onClick={onToggle}>
-          {revealed ? hideLabel : showLabel}
-        </Button>
-      </div>
+      <PasswordInput
+        id={id}
+        autoComplete="off"
+        placeholder={placeholder}
+        showLabel={dictionary.showPassword}
+        hideLabel={dictionary.hidePassword}
+        aria-invalid={error !== undefined}
+        aria-describedby={error === undefined ? undefined : errorId}
+        {...registration}
+      />
       {error === undefined ? null : (
         <p id={errorId} role="alert" className="text-sm text-danger">
           {error}

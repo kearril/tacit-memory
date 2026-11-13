@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useReducer, useState } from "react";
+import { useReducer } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router";
 import { ApiError } from "../../api/client";
 import { login, SESSION_QUERY_KEY } from "../../api/session";
+import { Brain } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
+import { Card, CardDescription, CardTitle } from "../../components/ui/card";
+import { PasswordInput } from "../../components/ui/password-input";
 import { Label } from "../../components/ui/label";
 import { destinationAfterLogin } from "../../app/return-target";
 import { useDictionary } from "../../app/session-context";
@@ -23,7 +25,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [attempt, dispatch] = useReducer(loginAttemptReducer, initialLoginAttempt);
-  const [revealed, setRevealed] = useState(false);
   const form = useForm<LoginValues>({ defaultValues: { password: "" } });
 
   const submit = useMutation({
@@ -54,32 +55,30 @@ export function LoginPage() {
   const showError = attempt.phase === "failed" || attempt.phase === "limited";
 
   return (
-    <main className="flex min-h-dvh items-center justify-center p-md">
-      <section className="grid w-full max-w-container-content gap-md rounded-lg border-(length:--tk-border-thin) border-line bg-surface p-lg">
-        <h1 className="text-xl font-semibold">{dictionary.login.title}</h1>
-        <p className="text-sm text-ink-muted">{dictionary.login.description}</p>
+    <main className="flex min-h-dvh items-center justify-center bg-canvas p-md">
+      <Card className="w-full max-w-content gap-lg p-xl">
+        <div className="grid justify-items-start gap-md">
+          <span className="grid size-(--tk-size-control) place-items-center rounded-md bg-accent text-on-accent shadow-pressed">
+            <Brain aria-hidden className="size-(--tk-font-size-lg)" />
+          </span>
+          <div className="grid gap-xs">
+            <CardTitle className="text-xl">{dictionary.login.title}</CardTitle>
+            <CardDescription>{dictionary.login.description}</CardDescription>
+          </div>
+        </div>
         <form className="grid gap-md" onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <div className="grid gap-sm">
             <Label htmlFor="login-password">{dictionary.login.passwordLabel}</Label>
-            <div className="flex gap-sm">
-              <Input
-                id="login-password"
-                type={revealed ? "text" : "password"}
-                autoComplete="current-password"
-                aria-invalid={showError}
-                aria-describedby={showError ? "login-error" : undefined}
-                {...passwordField}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                aria-controls="login-password"
-                aria-pressed={revealed}
-                onClick={() => setRevealed((value) => !value)}
-              >
-                {revealed ? dictionary.hidePassword : dictionary.showPassword}
-              </Button>
-            </div>
+            <PasswordInput
+              id="login-password"
+              autoComplete="current-password"
+              placeholder={dictionary.login.passwordPlaceholder}
+              showLabel={dictionary.showPassword}
+              hideLabel={dictionary.hidePassword}
+              aria-invalid={showError}
+              aria-describedby={showError ? "login-error" : undefined}
+              {...passwordField}
+            />
           </div>
           {showError ? (
             <p id="login-error" role="alert" className="text-sm text-danger">
@@ -90,7 +89,7 @@ export function LoginPage() {
             {attempt.phase === "pending" ? dictionary.login.submitting : dictionary.login.submit}
           </Button>
         </form>
-      </section>
+      </Card>
     </main>
   );
 }

@@ -36,7 +36,7 @@ function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
-          "fixed inset-x-md top-1/2 z-(--tk-layer-dialog) mx-auto grid max-w-container-content -translate-y-1/2 gap-md rounded-lg border-(length:--tk-border-thin) border-line bg-surface p-lg text-ink shadow-raised",
+          "fixed inset-x-md top-1/2 z-(--tk-layer-dialog) mx-auto grid max-w-content -translate-y-1/2 gap-md rounded-lg bg-surface p-lg text-ink shadow-raised",
           className,
         )}
         {...props}
@@ -53,7 +53,7 @@ function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">)
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn("flex flex-col-reverse gap-sm sm:flex-row sm:justify-end", className)}
+      className={cn("flex flex-col-reverse gap-sm pt-sm sm:flex-row sm:justify-end", className)}
       {...props}
     />
   );

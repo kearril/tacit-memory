@@ -23,6 +23,14 @@ export interface Dictionary {
   readonly menuOpen: string;
   readonly menuClose: string;
   readonly logout: string;
+  readonly dismiss: string;
+  readonly notifications: string;
+  readonly connection: {
+    readonly local: string;
+    readonly localNote: string;
+    readonly remote: string;
+    readonly remoteNote: string;
+  };
   readonly showPassword: string;
   readonly hidePassword: string;
   readonly login: {
@@ -31,24 +39,30 @@ export interface Dictionary {
     readonly passwordLabel: string;
     readonly submit: string;
     readonly submitting: string;
+    readonly passwordPlaceholder: string;
   };
   readonly access: {
     readonly title: string;
-    readonly passwordSet: string;
-    readonly passwordUnset: string;
+    readonly summary: string;
+    readonly stateSet: string;
+    readonly stateUnset: string;
     readonly note: string;
     readonly newPassword: string;
     readonly currentPassword: string;
+    readonly newPlaceholder: string;
+    readonly currentPlaceholder: string;
     readonly setPassword: string;
     readonly changePassword: string;
     readonly saving: string;
     readonly saved: string;
+    readonly saveFailed: string;
     readonly clearPassword: string;
     readonly clearTitle: string;
     readonly clearBody: string;
     readonly clearConfirm: string;
     readonly cancel: string;
     readonly cleared: string;
+    readonly clearFailed: string;
   };
 }
 
