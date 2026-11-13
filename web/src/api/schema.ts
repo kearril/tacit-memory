@@ -1295,6 +1295,11 @@ export interface paths {
                                 report: string;
                             };
                             notices: string[];
+                            restart: {
+                                path: string;
+                                running: string;
+                                saved: string;
+                            }[];
                             report: string;
                         };
                     };

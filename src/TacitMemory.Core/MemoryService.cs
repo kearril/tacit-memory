@@ -965,29 +965,53 @@ public sealed class MemoryService : IDisposable
         // Nothing is left to undo: the old content and the staged leftovers go, then the service picks the restored state up.
         install.Finish();
         StartWatching();
-        if (config)
+        // A restored config that loads is reloaded as a save on the settings page is, which also applies the prompts and
+        // renders the resident blocks; one that does not load leaves the service on the config it had.
+        IReadOnlyList<RestartChange> restart = [];
+        var reloaded = false;
+        if (config && restored.Problem is null)
+        {
+            try
+            {
+                restart = ReloadCore();
+                reloaded = true;
+                notices.Add(RestoreMessages.ConfigApplied.In(language));
+            }
+            catch (TacitException e) when (e.Error is TacitError.ReloadFailed or TacitError.ConfigInvalid)
+            {
+                notices.Add(RestoreMessages.ConfigNotApplied.Format(language, e.Message));
+            }
+        }
+        else if (config)
+            notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
+        if (config && !reloaded)
             ApplyPrompts();
         InvalidateInstructions();
 
         if (config)
         {
-            notices.Add(RestoreMessages.ConfigNotice.In(language));
             notices.Add(RestoreMessages.PromptsApplied.In(language));
-            if (restored.Problem is not null)
-                notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
-            else if (!string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
+            if (restart.Count > 0)
+                notices.Add(string.Join('\n', restart
+                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, change.Path, change.Running, change.Saved))
+                    .Prepend(RestoreMessages.RestartPending.In(language))));
+            if (restored.Problem is null
+                && !string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
                 notices.Add(RestoreMessages.MemoryPathNotice.Format(language, restored.MemoryPath, memory));
         }
 
-        try
+        if (!reloaded)
         {
-            foreach (var render in Binder.RenderAll(_options, Config, _prompts))
-                _log.Record(LevelOf(render), render.Message);
-        }
-        catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-        {
-            _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-            notices.Add(Messages.RenderFailed.Format(language, e.Message));
+            try
+            {
+                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
+                    _log.Record(LevelOf(render), render.Message);
+            }
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
+            {
+                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
+                notices.Add(Messages.RenderFailed.Format(language, e.Message));
+            }
         }
 
         _log.Record(LogLevel.Information, LogMessages.RestoreApplied, head, safety, reindex.Files);
@@ -997,7 +1021,7 @@ public sealed class MemoryService : IDisposable
             RestoreMessages.SafetyBackup.Format(language, safety),
             reindex.Report,
         }.Concat(notices));
-        return new RestoreResult(safety, head, reindex, notices, report);
+        return new RestoreResult(safety, head, reindex, notices, restart, report);
     }
 
     /// <summary>

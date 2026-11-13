@@ -11,6 +11,7 @@ import {
   type RestoreSource,
   runRestore,
 } from "../../api/backups";
+import { CONFIG_QUERY_KEY } from "../../api/config";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -71,6 +72,8 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
       void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: BACKUPS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: ACTIVITY_QUERY_KEY });
+      // A restore with the config reloads the service: the settings page reads the file and the pending restarts again.
+      void queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
     },
   });
 
@@ -313,7 +316,7 @@ function RestoreDone({ result }: { readonly result: RestoreResult }) {
       </p>
       {result.notices.map((notice) => (
         <Alert key={notice} tone="warning">
-          <AlertDescription>{notice}</AlertDescription>
+          <AlertDescription className="whitespace-pre-line">{notice}</AlertDescription>
         </Alert>
       ))}
       <DialogFooter>

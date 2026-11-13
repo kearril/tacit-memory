@@ -46,11 +46,19 @@ public sealed record PreviewLine(string Text, bool Replaces);
 /// <param name="SafetyBackup">The <c>pre-restore-*.zip</c> written before anything was replaced.</param>
 /// <param name="MemoryHead">The memory repository's HEAD after the restore.</param>
 /// <param name="Reindex">The full index rebuild that followed the restore.</param>
-/// <param name="Notices">What the user must act on or know: the restart for <c>config.yaml</c>, a different <c>memory.path</c>, the plaintext secrets notice.</param>
+/// <param name="Notices">
+/// What the user must act on or know: whether the restored <c>config.yaml</c> was reloaded or why not, the settings that wait
+/// for a restart, a different <c>memory.path</c>, the plaintext secrets notice.
+/// </param>
+/// <param name="Restart">
+/// With <c>config.yaml</c> restored and reloaded, the settings that take effect only when the service restarts and differ in
+/// the restored file from what the service runs; empty otherwise.
+/// </param>
 /// <param name="Report">The summary for the user, notices included, in the memory language.</param>
 public sealed record RestoreResult(
     string SafetyBackup,
     string MemoryHead,
     ReindexResult Reindex,
     IReadOnlyList<string> Notices,
+    IReadOnlyList<RestartChange> Restart,
     string Report);

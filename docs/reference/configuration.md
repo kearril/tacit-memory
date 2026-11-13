@@ -18,7 +18,7 @@
 
 ## 2. `config.yaml`
 
-`config.yaml` 由同一个写出器整份生成：`tacit init` 写出初始文件，此后经设置页保存时整份重写。写出的文件键顺序固定、不带注释，只含与默认值不同的项；`language` 总是写出。`tacit init` 写出的文件只有一行 `language: zh`（指定了 `--memory` 时另有 `memory.path`）。经设置页保存后，服务在进程内重新加载，新配置立即生效；手动修改文件后，在设置页保存任何改动或重启 `tacit serve` 才生效。五项例外不随重新加载生效，保持运行中的值直到重启：`server.port`、`server.host`、`limits.page.minAliases`（设置页可改，重启后生效），以及 `memory.path`、`language`（设置页只读，只能在文件中修改）。`tacit probe` 每次直接读取文件。
+`config.yaml` 由同一个写出器整份生成：`tacit init` 写出初始文件，此后经设置页保存时整份重写。写出的文件键顺序固定、不带注释，只含与默认值不同的项；`language` 总是写出。`tacit init` 写出的文件只有一行 `language: zh`（指定了 `--memory` 时另有 `memory.path`）。经设置页保存后，或从备份一并恢复 `config.yaml` 后，服务在进程内重新加载，新配置立即生效；手动修改文件后，在设置页保存任何改动或重启 `tacit serve` 才生效。五项例外不随重新加载生效，保持运行中的值直到重启：`server.port`、`server.host`、`limits.page.minAliases`（设置页可改，重启后生效），以及 `memory.path`、`language`（设置页只读，只能在文件中修改）。`tacit probe` 每次直接读取文件。
 
 全部的键（`…` 处取值见下文各节）：
 

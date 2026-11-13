@@ -1287,6 +1287,7 @@
                         "memoryHead",
                         "reindex",
                         "notices",
+                        "restart",
                         "report"
                       ],
                       "type": "object",
@@ -1343,6 +1344,28 @@
                           "type": "array",
                           "items": {
                             "type": "string"
+                          }
+                        },
+                        "restart": {
+                          "type": "array",
+                          "items": {
+                            "required": [
+                              "path",
+                              "running",
+                              "saved"
+                            ],
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "running": {
+                                "type": "string"
+                              },
+                              "saved": {
+                                "type": "string"
+                              }
+                            }
                           }
                         },
                         "report": {

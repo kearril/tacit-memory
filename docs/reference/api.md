@@ -128,4 +128,4 @@
 - `DELETE /api/bindings/<客户端名称>`：规则同 `tacit disconnect`，名称不区分大小写；没有该绑定时 404（`BindingNotFound`）。返回 `{client, lines, mcp: null}`。
 - 两者与服务渲染常驻块互斥，不等待维护操作。
 - `POST /api/backup`：`target` 为 `local` 时 `to` 可给出主机上的绝对目录，省略则写到 `backups/`；`target` 为 `remote` 时执行云端备份。
-- `POST /api/restore`：`path` 与 `remote` 二选一。`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`config` 为真时一并恢复 `config.yaml` 与 `prompts/`。校验在核心中完成。
+- `POST /api/restore`：`path` 与 `remote` 二选一。`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`config` 为真时一并恢复 `config.yaml` 与 `prompts/`，恢复后服务按恢复回来的配置重新加载（规则同 `PUT /api/config` 后的重新加载）；结果的 `restart` 列出需重启才生效、与运行中不同的项（`{path, running, saved}`），不带配置或配置不能加载时为空，`notices` 说明是否已重新加载。校验在核心中完成。
