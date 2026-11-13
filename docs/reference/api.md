@@ -11,7 +11,7 @@
 | 地址 | `http://<主机>:<端口>/api`，端口取自 `server.port`（默认 18888） | 已实现 |
 | 监听 | 总是监听 `127.0.0.1`；`server.host` 给出一个额外监听的 IP 地址（缺省为没有） | 计划（现在只监听 `127.0.0.1`） |
 | 请求与响应 | JSON，属性名为 camelCase，枚举为 camelCase 文本 | 已实现 |
-| 接口描述 | `GET /api/openapi.json`，OpenAPI 文档；字段以它为准，本文不重复 | 计划 |
+| 接口描述 | `GET /api/openapi.json`，OpenAPI 文档；字段以它为准，本文不重复；仓库中的快照是 `web/openapi.json` | 已实现 |
 
 同一个监听上还有 `/mcp`（见 `docs/reference/mcp.md`）与 `/ui`（Web 界面的静态文件，不需登录；`/` 重定向到 `/ui/`）。
 
@@ -75,6 +75,8 @@
 | `GET /api/session` | 当前连接是否来自回环、是否已登录、是否已设访问密码，以及记忆语言；不需登录 | 计划 |
 | `POST /api/session` | 以访问密码登录；不需登录 | 计划 |
 | `DELETE /api/session` | 退出登录 | 计划 |
+| **接口描述** | | |
+| `GET /api/openapi.json` | OpenAPI 文档，描述本节各端点的请求、成功与错误响应 | 已实现 |
 | **状态与维护** | | |
 | `GET /api/status` | 状态报告 | 已实现 |
 | `POST /api/reindex` | 重建派生索引（维护操作） | 已实现 |

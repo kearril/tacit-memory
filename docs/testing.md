@@ -75,6 +75,7 @@
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端能力记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力或扩展的并集变大后再记一条；服务重启后记录仍在。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
+     - `OpenApiTests`：`GET /api/openapi.json` 经真实 HTTP 返回文档，位于 `/api` 之下并受 Origin 防护；快照一致性（见第 6 节）。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌；说明中的别名最少个数取自给定的 `LimitsConfig`，默认值与改动后的值都能填入；说明中不出现已删除的上限数字。
@@ -132,4 +133,17 @@ dotnet test tests/TacitMemory.Host.Tests                                # MCP �
 dotnet test tests/TacitMemory.Cli.Tests                                # CLI 接缝
 dotnet test tests/TacitMemory.Core.Tests --filter "FullyQualifiedName~InitTests"   # 单个测试类
 dotnet test TacitMemory.slnx                                           # 全量
+```
+
+## 6. OpenAPI 快照
+
+管理 API 的文档快照位于仓库的 `web/openapi.json`，格式固定（两空格缩进、键顺序与生成时一致、末尾一个换行）。`OpenApiTests` 把 `GET /api/openapi.json` 的实际文档与快照比对，不一致即失败。快照的唯一用途是前端类型的生成源，改动任一端点的请求或响应类型后，需要更新快照并重新生成前端类型。
+
+更新方式：设置环境变量 `TACIT_UPDATE_OPENAPI`，运行该测试即改写快照，不再比对；之后不设该变量再运行一次，确认通过。
+
+```powershell
+$env:TACIT_UPDATE_OPENAPI = "1"
+dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTests"
+Remove-Item Env:TACIT_UPDATE_OPENAPI
+dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTests"
 ```

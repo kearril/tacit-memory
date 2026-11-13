@@ -41,6 +41,7 @@ public sealed class ServiceHost : IAsyncDisposable
         builder.Logging.AddFilter("Microsoft.Extensions.Hosting", LogLevel.None);
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, port));
         builder.Services.AddSingleton(service);
+        ManagementApi.AddOpenApi(builder.Services);
         builder.Services.AddMcpServer(options =>
             {
                 options.ServerInfo = new() { Name = "tacit", Version = Version };

@@ -3,6 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OpenApi;
 using TacitMemory.Core;
 
 namespace TacitMemory.Host.Api;
@@ -13,10 +16,25 @@ namespace TacitMemory.Host.Api;
 /// </summary>
 public static class ManagementApiJson
 {
-    public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)
+    public static JsonSerializerOptions Options { get; } = Create();
+
+    /// <summary>
+    /// Applies the conventions to the framework's own JSON options as well. The built-in OpenAPI generator takes its schemas
+    /// from those options, so the document describes the JSON the API writes; numbers are never written as strings there.
+    /// </summary>
+    public static void Apply(JsonSerializerOptions options)
     {
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false) },
-    };
+        options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
+        options.NumberHandling = JsonNumberHandling.Strict;
+    }
+
+    private static JsonSerializerOptions Create()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        Apply(options);
+        return options;
+    }
 }
 
 /// <summary>
@@ -105,30 +123,82 @@ internal static class ManagementApi
             }
         });
 
-        var api = app.MapGroup(Prefix);
+        // The tag names the group in the document; without it the generator takes the process name.
+        var api = app.MapGroup(Prefix).WithTags("management");
         api.MapGet("/status", async (HttpContext context) =>
         {
             var report = await service.StatusAsync(McpEndpoint(context), context.RequestAborted);
             return Json(report);
-        });
+        })
+            .Produces<StatusReport>()
+            .ProducesErrors();
         api.MapPost("/reindex", async (HttpContext context) =>
         {
             var result = await service.ReindexAsync(context.RequestAborted);
             return Json(result);
-        });
+        })
+            .Produces<ReindexResult>()
+            .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
         api.MapPost("/backup", async (HttpContext context) =>
         {
             var body = await ReadBody<BackupBody>(context, service);
             var result = await service.BackupAsync(body.Target, body.To, context.RequestAborted);
             return Json(result);
-        });
+        })
+            .Accepts<BackupBody>("application/json")
+            .Produces<BackupResult>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
         api.MapPost("/restore", async (HttpContext context) =>
         {
             var body = await ReadBody<RestoreBody>(context, service);
             if (body.Preview)
                 return Json(await service.PreviewRestoreAsync(body.Path, body.Remote, body.Config, context.RequestAborted));
             return Json(await service.RestoreAsync(body.Path, body.Remote, body.Config, context.RequestAborted));
-        });
+        })
+            .Accepts<RestoreBody>("application/json")
+            .Produces<RestorePreview>()
+            .AddOpenApiOperationTransformer(RestoreResponse)
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        app.MapOpenApi(Prefix + "/openapi.json");
+    }
+
+    /// <summary>
+    /// Declares the error bodies of an endpoint. Every endpoint can be refused by the Origin and Host guards and can fail in
+    /// the environment, so 403 and 500 are always declared; the statuses given are the ones its own operation adds.
+    /// </summary>
+    private static RouteHandlerBuilder ProducesErrors(this RouteHandlerBuilder builder, params int[] statuses)
+    {
+        foreach (var status in statuses.Append(StatusCodes.Status403Forbidden).Append(StatusCodes.Status500InternalServerError))
+            builder.Produces<ApiError>(status);
+        return builder;
+    }
+
+    /// <summary>
+    /// Registers the OpenAPI generator for the management API: the JSON conventions it reads its schemas with, and the
+    /// document's own title and server, which would otherwise come from the process name and the request's port.
+    /// </summary>
+    public static void AddOpenApi(IServiceCollection services)
+    {
+        services.ConfigureHttpJsonOptions(options => ManagementApiJson.Apply(options.SerializerOptions));
+        services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+        {
+            document.Info.Title = "TacitMemory management API";
+            // A relative server keeps the snapshot the same on every port the service runs on.
+            document.Servers = [new OpenApiServer { Url = "/" }];
+            return Task.CompletedTask;
+        }));
+    }
+
+    /// <summary>
+    /// The restore endpoint answers with the preview or with the result, depending on the body; the document says so with a
+    /// <c>oneOf</c> over both schemas.
+    /// </summary>
+    private static async Task RestoreResponse(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
+    {
+        var preview = await context.GetOrCreateSchemaAsync(typeof(RestorePreview), null, cancellationToken);
+        var result = await context.GetOrCreateSchemaAsync(typeof(RestoreResult), null, cancellationToken);
+        var media = operation.Responses![StatusCodes.Status200OK.ToString()].Content!["application/json"];
+        media.Schema = new OpenApiSchema { OneOf = [preview, result] };
     }
 
     /// <summary>
