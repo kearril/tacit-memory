@@ -1421,6 +1421,7 @@
       "LocalBackup": {
         "required": [
           "name",
+          "path",
           "kind",
           "at",
           "bytes"
@@ -1428,6 +1429,9 @@
         "type": "object",
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "path": {
             "type": "string"
           },
           "kind": {

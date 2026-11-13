@@ -7,7 +7,7 @@ using TacitMemory.Host.Api;
 namespace TacitMemory.Host.Tests;
 
 /// <summary>
-/// <c>GET /api/backups</c> over real HTTP: the local backups by kind, time and size, newest first; files with other names
+/// <c>GET /api/backups</c> over real HTTP: the local backups by kind, time, size and full path, newest first; files with other names
 /// left out; whether the cloud backup is configured and its last attempt, read without touching the network; and the
 /// refusal of another device without a session.
 /// </summary>
@@ -82,6 +82,7 @@ public sealed class BackupListApiTests : IAsyncLifetime
             ],
             list.Local.Select(backup => (backup.Name, backup.Kind, backup.Bytes)));
         Assert.Equal(new DateTimeOffset(new DateTime(2026, 11, 2, 10, 15, 0)), list.Local[0].At);
+        Assert.Equal(Path.GetFullPath(Path.Combine(Backups, "manual-2026-11-02-101500.zip")), list.Local[0].Path);
     }
 
     [Fact]

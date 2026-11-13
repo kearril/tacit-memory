@@ -122,6 +122,7 @@ export interface Dictionary {
       readonly cloudSucceeded: string;
       readonly cloudFailed: string;
       readonly backUpNow: string;
+      readonly backUpLocal: string;
       readonly backUpCloud: string;
       readonly backedUp: (name: string) => string;
       readonly cloudBackedUp: string;
@@ -139,6 +140,29 @@ export interface Dictionary {
       readonly network: string;
       readonly timeout: string;
       readonly failedTitle: string;
+    };
+    readonly restore: {
+      readonly open: string;
+      readonly title: string;
+      readonly description: string;
+      readonly cloudLatest: string;
+      readonly empty: string;
+      readonly downloading: string;
+      readonly reading: string;
+      readonly previewFailed: string;
+      readonly at: string;
+      readonly version: string;
+      readonly commit: string;
+      readonly files: string;
+      readonly replaces: string;
+      readonly withConfig: string;
+      readonly cancel: string;
+      readonly confirm: string;
+      readonly failed: string;
+      readonly doneTitle: string;
+      readonly safety: (name: string) => string;
+      readonly reindexed: string;
+      readonly done: string;
     };
     readonly reindex: {
       readonly button: string;

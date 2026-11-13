@@ -1000,6 +1000,7 @@ export interface components {
         };
         LocalBackup: {
             name: string;
+            path: string;
             kind: components["schemas"]["LocalBackupKind"];
             /** Format: date-time */
             at: string;

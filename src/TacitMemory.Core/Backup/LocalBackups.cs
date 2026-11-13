@@ -19,7 +19,7 @@ internal static partial class LocalBackups
         return Directory.EnumerateFiles(directory)
             .Select(path => new FileInfo(path))
             .Select(file => KindOf(file.Name) is { } kind
-                ? new LocalBackup(file.Name, kind, new DateTimeOffset(file.LastWriteTime), file.Length)
+                ? new LocalBackup(file.Name, file.FullName, kind, new DateTimeOffset(file.LastWriteTime), file.Length)
                 : null)
             .OfType<LocalBackup>()
             .OrderByDescending(backup => backup.At)

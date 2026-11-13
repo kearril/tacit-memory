@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Archive,
+  ChevronDown,
   Bot,
   CircleCheck,
   CloudUpload,
@@ -40,10 +41,12 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { CopyButton } from "../../components/ui/copy-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentIcon, type AgentRow, agentsOf } from "./agents";
 import { clockOf, durationOf, remainingOf, sizeOf } from "./duration";
+import { RestoreDialog } from "./RestoreDialog";
 
 interface CardProps {
   readonly report: StatusReport;
@@ -342,8 +345,9 @@ function ReindexButton({ busy, onConfirm }: { readonly busy: boolean; readonly o
 
 /**
  * The backups: when the latest local backup was made, with its kind, its size and how many there are, and the last cloud
- * backup. A manual backup is made at once, without a confirmation; the cloud backup, only when it is configured. While one
- * runs, both buttons wait; the result shows as a toast, a failure as the service's explanation in the card.
+ * backup. The backup button opens a menu of the local and the cloud backup, the latter dimmed while it is not configured;
+ * the one chosen runs at once, without a confirmation. While it runs, the button waits; the result shows as a toast, a failure as the service's explanation in the card. A backup can
+ * be restored from here, through the restore dialog.
  */
 export function BackupsCard({ locale, className }: { readonly locale: string; readonly className: string }) {
   const dictionary = useDictionary();
@@ -416,16 +420,30 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
           </div>
           <FailureAlert failure={failure} />
           <CardActions>
-            {list.remoteConfigured ? (
-              <Button type="button" variant="outline" disabled={backup.isPending} onClick={() => backup.mutate("remote")}>
-                <BusyIcon busy={backup.isPending && backup.variables === "remote"} icon={CloudUpload} />
-                {text.backUpCloud}
-              </Button>
-            ) : null}
-            <Button type="button" disabled={backup.isPending} onClick={() => backup.mutate("local")}>
-              <BusyIcon busy={backup.isPending && backup.variables === "local"} icon={HardDriveDownload} />
-              {text.backUpNow}
-            </Button>
+            <RestoreDialog list={list} locale={locale} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" disabled={backup.isPending}>
+                  <BusyIcon busy={backup.isPending} icon={HardDriveDownload} />
+                  {text.backUpNow}
+                  <ChevronDown aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => backup.mutate("local")}>
+                  <HardDriveDownload aria-hidden />
+                  {text.backUpLocal}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!list.remoteConfigured}
+                  hint={list.remoteConfigured ? undefined : text.cloudNotConfigured}
+                  onSelect={() => backup.mutate("remote")}
+                >
+                  <CloudUpload aria-hidden />
+                  {text.backUpCloud}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardActions>
         </>
       )}

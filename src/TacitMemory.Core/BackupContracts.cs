@@ -41,10 +41,11 @@ public enum LocalBackupKind
 
 /// <summary>One local backup.</summary>
 /// <param name="Name">The file name.</param>
+/// <param name="Path">The file's full path, which a restore takes.</param>
 /// <param name="Kind">What the backup is, from its name.</param>
 /// <param name="At">When the file was last written.</param>
 /// <param name="Bytes">The file's size.</param>
-public sealed record LocalBackup(string Name, LocalBackupKind Kind, DateTimeOffset At, long Bytes);
+public sealed record LocalBackup(string Name, string Path, LocalBackupKind Kind, DateTimeOffset At, long Bytes);
 
 /// <summary>The backups as the dashboard shows them; reading it touches no network.</summary>
 /// <param name="Local">The local backups in <c>TACIT_HOME/backups/</c>, newest first; files with other names are left out.</param>
