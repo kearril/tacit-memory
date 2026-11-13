@@ -276,6 +276,32 @@ public sealed class MemoryService : IDisposable
             _extraListener, cancellationToken);
     }
 
+    /// <summary>
+    /// The activity log's counts per day over the last 53 weeks, for the dashboard's heatmap, with the consolidation days in
+    /// that window. Reads files and the repository's history only, so it does not wait for a maintenance operation.
+    /// </summary>
+    public Task<ActivityReport> ActivityAsync(CancellationToken cancellationToken = default) =>
+        ActivityCounts.ReadAsync(Config, _options.Today, cancellationToken);
+
+    /// <summary>
+    /// The local backups, newest first, whether the cloud backup is configured, and its last attempt. Reads the backup
+    /// folder and <c>remote.json</c> only: no network is touched, and it does not wait for a maintenance operation.
+    /// </summary>
+    public BackupList Backups() => LocalBackups.List(_options, Config);
+
+    /// <summary>
+    /// Probes the three auxiliary models as the saved <c>config.yaml</c> configures them, which is what <c>tacit probe</c>
+    /// reads; the running service keeps the configuration it started with. An unconfigured model is reported and skipped.
+    /// No model's health changes, and it does not wait for a maintenance operation.
+    /// </summary>
+    /// <exception cref="TacitException">The saved configuration cannot be loaded.</exception>
+    public async Task<ProbeReport> ProbeAsync(CancellationToken cancellationToken = default)
+    {
+        var config = ConfigLoader.Read(_options);
+        var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.Time, cancellationToken);
+        return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets: false));
+    }
+
     /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
     public TacitException InvalidRequestBody(string? jsonPath)
     {

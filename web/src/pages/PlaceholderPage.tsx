@@ -6,7 +6,7 @@ export function PlaceholderPage({ section }: { readonly section: keyof Dictionar
   const dictionary = useDictionary();
   return (
     <div className="grid gap-md">
-      <h1 className="text-xl font-semibold">{dictionary.nav[section]}</h1>
+      <h1 className="text-xl leading-(--tk-line-height-tight) font-semibold">{dictionary.nav[section]}</h1>
       <p className="text-sm text-ink-muted">{dictionary.notImplemented}</p>
     </div>
   );

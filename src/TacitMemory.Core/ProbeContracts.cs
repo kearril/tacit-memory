@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TacitMemory.Core;
 
 /// <summary>An auxiliary model, by the role name the status report uses.</summary>
@@ -48,7 +50,11 @@ public sealed record ProbeResult(
     ProbeFailure? Failure,
     int? StatusCode,
     string? ResponseBody,
-    TimeSpan Elapsed);
+    [property: JsonIgnore] TimeSpan Elapsed)
+{
+    /// <summary>How long the probe took, in whole milliseconds, as the management API gives it.</summary>
+    public long ElapsedMilliseconds => (long)Math.Round(Elapsed.TotalMilliseconds);
+}
 
 /// <summary>
 /// The probe report: the result of each model probed, and the lines that print them, already in the config's language.

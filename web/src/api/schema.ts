@@ -66,6 +66,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityReport"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BackupList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProbeReport"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session": {
         parameters: {
             query?: never;
@@ -696,6 +900,23 @@ export interface components {
             password: string;
             current?: null | string;
         };
+        ActivityDay: {
+            /** Format: date */
+            day: string;
+            workstreams: components["schemas"]["WorkstreamCount"][];
+            /** Format: int32 */
+            unlabeled: number;
+        };
+        ActivityReport: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            days: components["schemas"]["ActivityDay"][];
+            consolidationDays: string[];
+            skippedFiles: string[];
+            historyUnreadable: boolean;
+        };
         ApiError: {
             error: string;
             message: string;
@@ -703,6 +924,11 @@ export interface components {
         BackupBody: {
             target: components["schemas"]["BackupTarget"];
             to?: null | string;
+        };
+        BackupList: {
+            local: components["schemas"]["LocalBackup"][];
+            remoteConfigured: boolean;
+            lastRemote: null | components["schemas"]["CloudBackupRecord"];
         };
         BackupResult: {
             location: string;
@@ -772,6 +998,17 @@ export interface components {
             address: string;
             failureReason: null | string;
         };
+        LocalBackup: {
+            name: string;
+            path: string;
+            kind: components["schemas"]["LocalBackupKind"];
+            /** Format: date-time */
+            at: string;
+            /** Format: int64 */
+            bytes: number;
+        };
+        /** @enum {unknown} */
+        LocalBackupKind: "auto" | "manual" | "preRestore";
         LogsStatus: {
             title: string;
             lines: string[];
@@ -779,6 +1016,8 @@ export interface components {
         };
         /** @enum {unknown} */
         MemoryLanguage: "zh" | "en";
+        /** @enum {unknown} */
+        ModelRole: "embedding" | "reranker" | "decision";
         ModelsStatus: {
             title: string;
             lines: string[];
@@ -809,6 +1048,28 @@ export interface components {
         PreviewLine: {
             text: string;
             replaces: boolean;
+        };
+        /** @enum {unknown} */
+        ProbeFailure: "httpStatus" | "wrongFormat" | "network" | "timeout" | null;
+        /** @enum {unknown} */
+        ProbeOutcome: "succeeded" | "unconfigured" | "failed";
+        ProbeReport: {
+            results: components["schemas"]["ProbeResult"][];
+            lines: components["schemas"]["ProbeReportLine"][];
+        };
+        ProbeReportLine: {
+            text: string;
+            level: null | components["schemas"]["StatusLevel"];
+        };
+        ProbeResult: {
+            role: components["schemas"]["ModelRole"];
+            outcome: components["schemas"]["ProbeOutcome"];
+            failure: null | components["schemas"]["ProbeFailure"];
+            /** Format: int32 */
+            statusCode: null | number;
+            responseBody: null | string;
+            /** Format: int64 */
+            elapsedMilliseconds?: number;
         };
         ReindexResult: {
             /** Format: int32 */
@@ -880,6 +1141,8 @@ export interface components {
             language: components["schemas"]["MemoryLanguage"];
             version: string;
         };
+        /** @enum {unknown} */
+        StatusLevel: "ok" | "attention" | "problem" | null;
         StatusReport: {
             config?: null | components["schemas"]["ConfigStatus"];
             service?: null | components["schemas"]["ServiceStatus"];
@@ -891,6 +1154,11 @@ export interface components {
             backups?: null | components["schemas"]["BackupsStatus"];
             logs?: null | components["schemas"]["LogsStatus"];
             secrets?: null | components["schemas"]["SecretsStatus"];
+        };
+        WorkstreamCount: {
+            workstream: string;
+            /** Format: int32 */
+            count: number;
         };
     };
     responses: never;

@@ -1,5 +1,7 @@
 import { ApiError } from "../api/client";
+import type { BindingProblem } from "../api/status";
 import type { components } from "../api/schema";
+import type { Duration } from "../pages/dashboard/format";
 import { en } from "./en";
 import { zh } from "./zh";
 
@@ -23,6 +25,14 @@ export interface Dictionary {
   readonly menuOpen: string;
   readonly menuClose: string;
   readonly logout: string;
+  readonly dismiss: string;
+  readonly notifications: string;
+  readonly connection: {
+    readonly local: string;
+    readonly localNote: string;
+    readonly remote: string;
+    readonly remoteNote: string;
+  };
   readonly showPassword: string;
   readonly hidePassword: string;
   readonly login: {
@@ -31,24 +41,182 @@ export interface Dictionary {
     readonly passwordLabel: string;
     readonly submit: string;
     readonly submitting: string;
+    readonly passwordPlaceholder: string;
   };
   readonly access: {
     readonly title: string;
-    readonly passwordSet: string;
-    readonly passwordUnset: string;
+    readonly summary: string;
+    readonly stateSet: string;
+    readonly stateUnset: string;
     readonly note: string;
     readonly newPassword: string;
     readonly currentPassword: string;
+    readonly newPlaceholder: string;
+    readonly currentPlaceholder: string;
     readonly setPassword: string;
     readonly changePassword: string;
     readonly saving: string;
     readonly saved: string;
+    readonly saveFailed: string;
     readonly clearPassword: string;
     readonly clearTitle: string;
     readonly clearBody: string;
     readonly clearConfirm: string;
     readonly cancel: string;
     readonly cleared: string;
+    readonly clearFailed: string;
+    readonly clearBlocked: (address: string) => string;
+  };
+  readonly dashboard: {
+    readonly connectionLost: (time: string) => string;
+    readonly connectionLostNever: string;
+    readonly calm: string;
+    readonly pending: (count: number) => string;
+    readonly uptime: (duration: Duration) => string;
+    readonly consolidated: (days: number) => string;
+    readonly neverConsolidated: string;
+    readonly cards: {
+      readonly todos: string;
+      readonly models: string;
+      readonly backups: string;
+      readonly activity: string;
+      readonly index: string;
+      readonly service: string;
+      readonly clients: string;
+    };
+    readonly unreadable: string;
+    readonly copy: (what: string) => string;
+    readonly copied: (what: string) => string;
+    readonly modelStates: {
+      readonly available: string;
+      readonly coolingDown: (clock: string) => string;
+      readonly unconfigured: string;
+      readonly cooling: string;
+    };
+    readonly index: {
+      readonly lastConsolidation: (date: string) => string;
+      readonly never: string;
+      readonly daysAgo: (days: number) => string;
+      readonly candidates: string;
+      readonly formatProblems: string;
+      readonly unsummarizedWeeks: string;
+    };
+    readonly service: {
+      readonly uptime: string;
+      readonly duration: (duration: Duration) => string;
+      readonly version: string;
+      readonly mcp: string;
+      readonly web: string;
+      readonly extraListener: string;
+      readonly listening: string;
+      readonly listenFailed: string;
+      readonly noExtraListener: string;
+    };
+    readonly backups: {
+      readonly none: string;
+      readonly kinds: Readonly<Record<"auto" | "manual" | "preRestore", string>>;
+      readonly count: (count: number) => string;
+      readonly cloud: string;
+      readonly cloudNotConfigured: string;
+      readonly cloudNever: string;
+      readonly cloudSucceeded: string;
+      readonly cloudFailed: string;
+      readonly backUpNow: string;
+      readonly backUpLocal: string;
+      readonly backUpCloud: string;
+      readonly backedUp: (name: string) => string;
+      readonly cloudBackedUp: string;
+      readonly failed: string;
+      readonly cloudFailedTitle: string;
+    };
+    readonly probe: {
+      readonly button: string;
+      readonly note: string;
+      readonly succeeded: (milliseconds: number) => string;
+      readonly failed: (reason: string, milliseconds: number) => string;
+      readonly skipped: string;
+      readonly httpStatus: (code: number) => string;
+      readonly wrongFormat: string;
+      readonly network: string;
+      readonly timeout: string;
+      readonly failedTitle: string;
+    };
+    readonly restore: {
+      readonly open: string;
+      readonly title: string;
+      readonly description: string;
+      readonly cloudLatest: string;
+      readonly empty: string;
+      readonly downloading: string;
+      readonly reading: string;
+      readonly previewFailed: string;
+      readonly at: string;
+      readonly version: string;
+      readonly commit: string;
+      readonly files: string;
+      readonly replaces: string;
+      readonly withConfig: string;
+      readonly cancel: string;
+      readonly confirm: string;
+      readonly failed: string;
+      readonly doneTitle: string;
+      readonly safety: (name: string) => string;
+      readonly reindexed: string;
+      readonly done: string;
+    };
+    readonly reindex: {
+      readonly button: string;
+      readonly title: string;
+      readonly body: string;
+      readonly confirm: string;
+      readonly cancel: string;
+      readonly done: (files: number, units: number) => string;
+      readonly failed: string;
+    };
+    readonly agents: {
+      readonly bound: string;
+      readonly unbound: string;
+      readonly broken: string;
+      readonly today: string;
+      readonly yesterday: string;
+      readonly lastSeen: (date: string) => string;
+      readonly neverSeen: string;
+      readonly empty: string;
+      readonly noBindings: string;
+      readonly addBinding: string;
+    };
+    readonly todos: {
+      readonly empty: string;
+      readonly modelsUnconfigured: (models: readonly string[]) => string;
+      readonly modelsUnconfiguredDetail: (models: readonly string[]) => string;
+      readonly noBindings: string;
+      readonly noBindingsDetail: string;
+      readonly bindingProblem: (client: string) => string;
+      readonly extraListenerFailed: (address: string) => string;
+      readonly cloudBackupFailed: string;
+      readonly cloudBackupFailedDetail: (time: string) => string;
+    };
+    readonly models: Readonly<Record<string, string>>;
+    readonly bindingProblems: Readonly<Record<BindingProblem, string>>;
+    readonly activity: {
+      readonly window: string;
+      readonly weekdays: readonly string[];
+      readonly less: string;
+      readonly more: string;
+      readonly consolidated: string;
+      readonly cell: (date: string, total: number, consolidated: boolean) => string;
+      readonly activities: (count: number) => string;
+      readonly none: string;
+      readonly unlabeled: string;
+      readonly total: string;
+      readonly activeDays: string;
+      readonly longestStreak: string;
+      readonly topWorkstream: string;
+      readonly days: (count: number) => string;
+      readonly noWorkstream: string;
+      readonly skipped: (files: string) => string;
+      readonly historyUnreadable: string;
+    };
   };
 }
 

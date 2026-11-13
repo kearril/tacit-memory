@@ -25,3 +25,30 @@ public sealed record BackupResult(string Location, long Bytes, string Report, st
 /// <param name="Succeeded">Whether the cloud backup was replaced.</param>
 /// <param name="Error">Why the attempt failed, in the memory language at the time; <c>null</c> when it succeeded.</param>
 public sealed record CloudBackupRecord(DateTimeOffset At, bool Succeeded, string? Error);
+
+/// <summary>What a local backup in <c>TACIT_HOME/backups/</c> is, as its file name says.</summary>
+public enum LocalBackupKind
+{
+    /// <summary>The daily backup the service makes on its first write of a day: <c>auto-YYYY-MM-DD.zip</c>, pruned to the newest few.</summary>
+    Auto,
+
+    /// <summary>A backup made on request: <c>manual-YYYY-MM-DD-HHmmss.zip</c>, never pruned.</summary>
+    Manual,
+
+    /// <summary>The safety backup a restore writes first: <c>pre-restore-YYYY-MM-DD-HHmmss.zip</c>, never pruned.</summary>
+    PreRestore,
+}
+
+/// <summary>One local backup.</summary>
+/// <param name="Name">The file name.</param>
+/// <param name="Path">The file's full path, which a restore takes.</param>
+/// <param name="Kind">What the backup is, from its name.</param>
+/// <param name="At">When the file was last written.</param>
+/// <param name="Bytes">The file's size.</param>
+public sealed record LocalBackup(string Name, string Path, LocalBackupKind Kind, DateTimeOffset At, long Bytes);
+
+/// <summary>The backups as the dashboard shows them; reading it touches no network.</summary>
+/// <param name="Local">The local backups in <c>TACIT_HOME/backups/</c>, newest first; files with other names are left out.</param>
+/// <param name="RemoteConfigured">Whether <c>backup.webdav</c> is set, so a cloud backup can be made.</param>
+/// <param name="LastRemote">The last attempt at the cloud backup; <c>null</c> when there was none or its record cannot be read.</param>
+public sealed record BackupList(IReadOnlyList<LocalBackup> Local, bool RemoteConfigured, CloudBackupRecord? LastRemote);
