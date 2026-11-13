@@ -76,7 +76,7 @@ public sealed class Tacit(TacitOptions options)
     }
 
     /// <summary>
-    /// What <c>tacit show tools</c> prints, from the tool descriptions the caller reads from <c>TacitMemory.Mcp</c>. The
+    /// What <c>tacit show tools</c> prints, from the tool descriptions the caller reads from <c>TacitMemory.Host</c>. The
     /// memory language comes from <paramref name="config"/>, which the caller loads first: a config that does not load
     /// stops the command before any description is shown.
     /// </summary>

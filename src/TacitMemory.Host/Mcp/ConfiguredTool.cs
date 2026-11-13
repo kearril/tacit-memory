@@ -4,7 +4,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
 
-namespace TacitMemory.Mcp;
+namespace TacitMemory.Host.Mcp;
 
 /// <summary>
 /// A memory tool published with the configured limits in its descriptions. Only the text changes: the SDK's tool keeps its

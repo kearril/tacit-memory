@@ -14,7 +14,7 @@ flowchart LR
     User[用户] -->|tacit 命令| Cli
     Cli -->|管理 API /api| Admin
     subgraph Host["tacit serve（ASP.NET Core，127.0.0.1）"]
-        Mcp[TacitMemory.Mcp<br>McpHost]
+        Mcp[TacitMemory.Host<br>ServiceHost]
         Admin[管理 API]
     end
     Cli -->|init / connect / disconnect / show / serve| Facade
@@ -51,8 +51,8 @@ flowchart LR
 | 程序集 | 职责 | 依赖 |
 | :--- | :--- | :--- |
 | `TacitMemory.Core` | 全部记忆规则（模块见第 3 节）。只公开门面 `Tacit`、常驻服务的运行状态 `MemoryService` 与契约类型，其余为 `internal` | 无内部依赖 |
-| `TacitMemory.Mcp` | MCP 主机 `McpHost`：在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://consolidation-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`），并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
-| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Mcp` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `McpHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
+| `TacitMemory.Host` | 承载 HTTP 入口的程序集，内部分 `Mcp/`（工具、资源、工具目录）与 `Api/`（管理 API 及其防护）两块。入口 `ServiceHost` 在 `127.0.0.1` 上挂载 `/mcp` 与管理 API `/api`，把 `MemoryService` 的操作映射为 MCP 工具、资源（`tacit://consolidation-report`）与服务端说明（对外接口见 `docs/reference/mcp.md`），并承载管理 API 的防护（Origin、Host、POST 的 Content-Type），未知参数名交给 Core（机制见第 5 节），不含业务规则。工具说明中的上限由 `ToolCatalog` 按 `MemoryService` 已加载的 `LimitsConfig` 填入，`show tools` 与服务下发共用同一份说明 | `Core` |
+| `TacitMemory.Cli` | `tacit` 命令（可执行文件名 `tacit`）。入口 `CommandLine.RunAsync` 接收 `TacitOptions`、`CliConsole`（stdout、stderr、stdin 的读写器、三个终端标志与 `NO_COLOR` 设置）与参数；生产入口 `Program.cs` 是唯一从进程与环境读取的地方，命令只经 `CliConsole` 读写控制台，`ConsoleApp.Log`、`LogError` 指向 stdout 与 stderr。输出美化每一路各自判断：该路是终端且未设 `NO_COLOR` 时，由 `StyledOutput` 经 Spectre.Console 排版上色（`status`、`restore` 预览、`connect` 端点，以及 `reindex`、`backup --remote`、`restore` 执行时的等待转圈），否则走原有的纯文本代码路径。所有命令经 `Commands` 的 `Execute` 执行，映射为退出码：2 用法错误，3 配置无效，4 服务未运行或端口被他人占用，1 其他失败，错误只写 stderr。`init`、`connect`、`disconnect`、`show` 直接调用门面；`show tools` 先经门面 `LoadConfig` 严格加载配置（无效时退出码 3），再经 `TacitMemory.Host` 的 `ToolCatalog.Describe(limits)` 读取工具定义，交给门面 `ShowTools(config, tools)` 标注输出；`serve` 打开 `MemoryService`、启动 `ServiceHost`，并把终端输出同时写入 `logs/`；`status` 经 `ManagementApiClient` 调用管理 API，服务未运行时由门面 `OfflineStatus` 给出离线报告，`config.yaml` 无法加载时先经 `ReadLooseSettings` 宽松读取端口，再由 `InvalidConfigStatus` 给出报告；`reindex`、`backup`、`restore` 经同一个 `ManagementApiClient` 调用管理 API（服务未运行时提示先执行 `tacit serve`，退出码 4） | `Core`、`Mcp` |
 
 `tacit probe` 经门面 `LoadConfigFile` 严格加载配置（不要求记忆仓库已初始化），再经门面 `ProbeAsync` 探测；门面返回的 `ProbeReport` 已含按记忆语言排好的报告行，CLI 原样打印，颜色由 `StyledOutput` 按终端规则施加，退出码由 `Commands` 按结果算出。它不经 `Commands` 的服务路径，不需要服务运行。
 
@@ -86,7 +86,7 @@ flowchart LR
 | Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间 | 已实现 |
 | 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见 `docs/reference/configuration.md`「提示词文档」；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
 | 格式问题 | `Formats/`：`FormatIssue` 与 `FormatHandling`，记忆文件的各个解析器（细节页、画像、候选、活动记录、主线文件）报告格式问题时共用的类型。它位于这些模块之下，整理报告只是它的使用者之一，因此解析器不依赖 `Consolidation/` | 已实现 |
-| 客户端能力记录 | `ClientRecords/`：`ClientRecordStore` 的实现；`ClientObservation`（Core 根目录的契约）是核心的公开输入（名称、版本、协议版本、能力与扩展标识的普通值；版本只进日志，不保存）；`ClientRecordStore` 读写 `TACIT_HOME/clients.json`，按名称（忽略大小写）一条记录，能力与扩展取历次声明的并集，持有自己的锁，不经写入队列；只在新客户端、协议版本变了或并集变大时写一条日志，同一天的重复请求不写文件。入口为 `MemoryService.RecordClient`，状态报告的客户端栏经 `ReadFor` 读同一文件。读取 SDK 声明的入站过滤器在 `Mcp` 层（`McpHost.RecordClients`），2026-07-28 从请求的元数据取、旧版本从 `initialize` 参数取。行为见 `docs/design.md` 第 12 节 | 已实现 |
+| 客户端能力记录 | `ClientRecords/`：`ClientRecordStore` 的实现；`ClientObservation`（Core 根目录的契约）是核心的公开输入（名称、版本、协议版本、能力与扩展标识的普通值；版本只进日志，不保存）；`ClientRecordStore` 读写 `TACIT_HOME/clients.json`，按名称（忽略大小写）一条记录，能力与扩展取历次声明的并集，持有自己的锁，不经写入队列；只在新客户端、协议版本变了或并集变大时写一条日志，同一天的重复请求不写文件。入口为 `MemoryService.RecordClient`，状态报告的客户端栏经 `ReadFor` 读同一文件。读取 SDK 声明的入站过滤器在 `Mcp` 层（`ServiceHost.RecordClients`），2026-07-28 从请求的元数据取、旧版本从 `initialize` 参数取。行为见 `docs/design.md` 第 12 节 | 已实现 |
 | 日志 | `Logging/ServiceLog`：各事件经此写入，消息随记忆语言，通知（`notice`）同时显示给用户；记忆工具调用只在 `MemoryService` 的 `RecordToolCall` 一处记录。`serve` 的日志文件由 CLI 的 `ServeLog` 建立（Serilog，按天滚动，保留 14 份） | 已实现 |
 | 本地化 | 面向人的短文本与结构词：每一项以 `Localized(Zh, En)` 一并定义，缺一种写法即无法编译；面向 Agent 的英文文本只有一份 | 已实现 |
 | 查看 | `tacit show`：读取与常驻服务相同的来源，输出服务端说明、常驻区块、记忆 skill、工具说明，或 `remember`、`consolidate` 的 skill 正文，每一部分标明来源与长度；`--default` 输出内置文本；不需要运行中的服务 | 已实现 |
@@ -137,7 +137,7 @@ flowchart LR
 ## 5. 进程与传输
 
 - `serve` 进程中的 ASP.NET Core 主机只监听 `127.0.0.1:<port>`，不做鉴权；管理 API 另有 Origin、Host 与 POST 的 Content-Type 三道防护（规则见本节下文）。
-- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。资源由 `MemoryResources` 声明，只有 `tacit://consolidation-report`，读取时转交 `MemoryService.ConsolidationReportAsync`。不声明 prompt：列表与取回请求分别由 `WithListPromptsHandler`（返回空列表）与 `WithGetPromptHandler`（报错）处理。有的客户端不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `McpHost` 不启动，由 CLI 报告。
+- MCP 端点挂载于 `/mcp`，使用 SDK 的无状态模式（`HttpServerSessionMode.Stateless`）。工具由 `MemoryTools` 声明，参数与标注随工具定义，调用直接转交 `MemoryService`。资源由 `MemoryResources` 声明，只有 `tacit://consolidation-report`，读取时转交 `MemoryService.ConsolidationReportAsync`。不声明 prompt：列表与取回请求分别由 `WithListPromptsHandler`（返回空列表）与 `WithGetPromptHandler`（报错）处理。有的客户端不看服务器声明的能力，照样请求 prompt 列表，请求失败就丢弃这个服务器，因此列表端点必须始终可用。端口被占用时 `ServiceHost` 不启动，由 CLI 报告。
 - 必填与取值由标注声明：`write_page` 的 `op` 与 `page`、`write_page` 的 `type`（取值为 `PageTypes`）、`write_persona` 的 `op`、`write_recent` 的 `text` 用 `[Required]`，取值用 `[AllowedValues]`（`op`、`write_persona` 的 `persona_section`、`recall` 的 `kind`）；SDK 把它们写入输入 schema 的 `required` 与 `enum`。取值只在 Core 的 `ToolValues` 中定义一次，Mcp 的标注与 Core 的 op 分派都引用它；参数类型仍可空，缺参的调用到达服务后由 Core 拒绝。
 - 未知参数：`MemoryTools` 的四个工具（`recall` 与三个写入工具）以 `RequestContext<CallToolRequestParams>` 取得原始调用；`UnknownArguments` 比对原始参数名与该工具 `ProtocolTool.InputSchema` 的属性名，得到未知参数名列表，经请求对象的 `UnknownParameters` 交给 Core。SDK 绑定参数时丢弃未知名，因此只能从原始调用读取。Mcp 不写拒绝文字，拒绝与下一步全部由 Core 给出。
 - 管理 API 挂载于 `/api`，将来的 Web UI 也走这里。已实现：`GET /api/status`（`tacit status`）、`POST /api/reindex`（`tacit reindex`）、`POST /api/backup`（`tacit backup`，本地目标与 `target` 为 `remote` 的云端目标）与 `POST /api/restore`（`tacit restore`）。恢复的请求为 `{path, remote, config, preview}`：`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`path` 与 `remote` 二选一，两者的校验在 Core 中完成。

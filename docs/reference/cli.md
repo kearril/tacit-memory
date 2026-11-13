@@ -83,7 +83,7 @@ tacit disconnect --client <名称>
 | `instructions` | 服务端说明 |
 | `resident` | 常驻区块 |
 | `skill` | 记忆 skill 的成品 |
-| `tools` | 工具说明；先严格加载配置，再由 CLI 经 `TacitMemory.Mcp` 读取，说明中的上限取自该配置 |
+| `tools` | 工具说明；先严格加载配置，再由 CLI 经 `TacitMemory.Host` 读取，说明中的上限取自该配置 |
 | `remember`、`consolidate` | 对应记忆指令 skill 的成品（不含整理报告） |
 
 `--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`resident` 与 `skill`；`remember`、`consolidate` 与 `tools` 不接受。

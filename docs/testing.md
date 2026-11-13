@@ -68,10 +68,10 @@
      - `FormatChecksPersonaTests`：整理报告中画像、候选文件、活动记录与主线文件的格式问题（名字不合规、重名、缺背景说明、无法识别的行）：文件、行号与问题说明，修正后消失；作用域块的问题（缺触发行、块内无法识别的三级标题、域名不合规）；长度与条数不列入格式问题，超长的条目与触发行、条目过多的节或领域都不报告。
    - 未自动化：内置常驻区块逐字节不变，已用中英两种默认配置手工比对确认，不写入测试。
    - 未自动化：`serve` 日志文件的按天滚动与保留 14 份（由 Serilog 保证），在验收中手工确认。
-2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
-   - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
+2. **`tests/TacitMemory.Host.Tests`：MCP 接缝**
+   - 复用 `TestHome`，在进程内以真实 HTTP 启动 `ServiceHost`，用 SDK 的 MCP 客户端调用；
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发（含 `<recent_activity>`，不含主线列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告两部分与各类别标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 "by default"，说明中不出现字数与条数），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
+     - `ServiceHostTests`：服务端说明下发（含 `<recent_activity>`，不含主线列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告两部分与各类别标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 "by default"，说明中不出现字数与条数），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
      - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端能力记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力或扩展的并集变大后再记一条；服务重启后记录仍在。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
@@ -81,7 +81,7 @@
    - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，整理报告的内容由 `ConsolidationReportTests` 覆盖。
 3. **`tests/TacitMemory.Cli.Tests`：CLI 接缝**
    - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道（参数解析、用法检查、执行与退出码）。`CliHarness` 注入 `TestHome` 的 `TacitOptions`（临时用户主目录与临时 `TACIT_HOME`）、捕获 stdout 与 stderr 的写入器、可编排的 stdin，以及 stdout、stderr、stdin 三个终端标志与 `NO_COLOR` 设置；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
-   - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `McpHost`，与 `McpHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
+   - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `ServiceHost`，与 `ServiceHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
    - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
    - 测试类索引：
      - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺子命令或子命令未知、`connect` 缺 `--client`、`--context` 或 `--skills`、名称不合规、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 的 `--from` 与 `--remote` 不恰好一个、`show tools` 等不接受的 `--default`、`probe` 的未知子目标与多余参数）；空路径选项（`restore --from ""`、`backup --to` 为空白、`init --memory ""`）为一行说明的用法错误；用法错误先于配置检查；枚举取值不区分大小写，命令词与子命令也不区分大小写。
@@ -104,7 +104,7 @@
 
 Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reranker-base`）与 `CloudflareDecisionUrl`（`/ai/run/clef-flash`）按 Cloudflare 的形状应答，计数与记录同样计入 `RerankRequests` 与 `DecisionRequests`，分数与概率仍由 `Score` 与 `Choose` 指定。请求体含 `contexts` 时答 `{result: {response: [{id, score}]}, success, errors, messages}`，请求体含 `questions` 时答 `{result: {model, answers}, success, errors, messages}`。`CloudflareReportsFailure = true` 时两条路由都答 `success: false` 且无 `result`。`ModelsYaml` 另有 `embeddingCloudflare`、`rerankerCloudflare`、`decisionCloudflare` 三个参数，为真时写出 `provider: cloudflare` 并把对应模型的 `url` 指向上述 Cloudflare 路由。
 
-`WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Mcp.Tests` 两个项目都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
+`WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Host.Tests` 两个项目都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
 
 重试的等待是 `TestHome.Clock` 上的计时器：每次尝试的超时与每段退避各创建一个，`Advance` 只向前拨动时间，`Elapse` 拨动并触发到期的计时器，`NextTimerAsync(时长)` 等待客户端创建该时长的计时器并认领它。按时长匹配而不按序号匹配，因为写入会触发后台的向量补齐，它也会创建计时器。模型失败后的冷却期同样用 `TestHome.Clock` 的 `Advance` 跨过。
 
@@ -128,7 +128,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ```powershell
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝
-dotnet test tests/TacitMemory.Mcp.Tests                                # MCP 接缝
+dotnet test tests/TacitMemory.Host.Tests                                # MCP 接缝
 dotnet test tests/TacitMemory.Cli.Tests                                # CLI 接缝
 dotnet test tests/TacitMemory.Core.Tests --filter "FullyQualifiedName~InitTests"   # 单个测试类
 dotnet test TacitMemory.slnx                                           # 全量

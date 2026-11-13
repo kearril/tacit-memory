@@ -3,8 +3,9 @@ using System.Text;
 using System.Text.Json;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
+using TacitMemory.Host.Api;
 
-namespace TacitMemory.Mcp.Tests;
+namespace TacitMemory.Host.Tests;
 
 /// <summary>
 /// The cloud restore over the management API: <c>POST /api/restore</c> with <c>remote</c> previews the downloaded
@@ -21,7 +22,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
     private readonly WebDavDouble _dav = new();
     private readonly ModelDouble _models = new();
     private MemoryService _service = null!;
-    private McpHost _host = null!;
+    private ServiceHost _host = null!;
     private HttpClient _http = null!;
 
     public async Task InitializeAsync()
@@ -32,7 +33,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
         var folder = new Uri(_dav.Address, "dav/tacit/").AbsoluteUri;
         _home.InitReady(extraConfig: $"backup:\n  keep: 7\n  webdav: {{ url: '{folder}', username: {User} }}\n", models: _models);
         _service = _home.Tacit().OpenService(_ => { }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
-        _host = await McpHost.TryStartAsync(_service, port: 0, Microsoft.Extensions.Logging.Abstractions.NullLoggerProvider.Instance)
+        _host = await ServiceHost.TryStartAsync(_service, port: 0, Microsoft.Extensions.Logging.Abstractions.NullLoggerProvider.Instance)
             ?? throw new InvalidOperationException("Port 0 is never in use.");
         _http = new HttpClient();
     }

@@ -1,22 +1,23 @@
 using ModelContextProtocol.Client;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
+using TacitMemory.Host.Mcp;
 
-namespace TacitMemory.Mcp.Tests;
+namespace TacitMemory.Host.Tests;
 
-public sealed class McpHostTests : IAsyncLifetime
+public sealed class ServiceHostTests : IAsyncLifetime
 {
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new() { EmbeddingDown = true, RerankDown = true };
     private MemoryService _service = null!;
-    private McpHost _host = null!;
+    private ServiceHost _host = null!;
 
     public async Task InitializeAsync()
     {
         _home.InitReady(models: _models);
         Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory"));
         _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+        _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
     }
 
     public async Task DisposeAsync()
@@ -167,7 +168,7 @@ public sealed class McpHostTests : IAsyncLifetime
         _service.Dispose();
         File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "limits: { page: { minAliases: 3 } }\n");
         _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+        _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
 
         await using var client = await ConnectAsync();
         var served = (await client.ListToolsAsync()).ToDictionary(tool => tool.Name);
@@ -668,6 +669,6 @@ public sealed class McpHostTests : IAsyncLifetime
     public async Task A_second_service_on_a_taken_port_is_refused()
     {
         Assert.Equal("127.0.0.1", _host.Endpoint.Host);
-        Assert.Null(await McpHost.TryStartAsync(_service, _host.Endpoint.Port, NullLoggerProvider.Instance));
+        Assert.Null(await ServiceHost.TryStartAsync(_service, _host.Endpoint.Port, NullLoggerProvider.Instance));
     }
 }

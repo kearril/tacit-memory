@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using TacitMemory.Core;
 
-namespace TacitMemory.Mcp;
+namespace TacitMemory.Host.Api;
 
 /// <summary>
 /// The JSON of the management API in both directions: camelCase names, and enums as camelCase text. The CLI reads the API

@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TacitMemory.Mcp\TacitMemory.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\TacitMemory.Host\TacitMemory.Host.csproj" />
   </ItemGroup>
 
 </Project>

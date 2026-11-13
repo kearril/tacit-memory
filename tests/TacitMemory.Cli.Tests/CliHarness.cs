@@ -6,8 +6,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using TacitMemory.Core;
+using TacitMemory.Host.Api;
 using TacitMemory.Core.Tests;
-using TacitMemory.Mcp;
+using TacitMemory.Host;
 
 namespace TacitMemory.Cli.Tests;
 
@@ -23,7 +24,7 @@ internal sealed class CliHarness : IDisposable
 
     private readonly CapturedText _stdout = new();
     private readonly CapturedText _stderr = new();
-    private McpHost? _host;
+    private ServiceHost? _host;
     private MemoryService? _service;
     private WebApplication? _foreign;
 
@@ -98,7 +99,7 @@ internal sealed class CliHarness : IDisposable
     public async Task StartServiceAsync()
     {
         _service = Home.Tacit().OpenService(_ => { }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
-        _host = await McpHost.TryStartAsync(_service, Port, Microsoft.Extensions.Logging.Abstractions.NullLoggerProvider.Instance)
+        _host = await ServiceHost.TryStartAsync(_service, Port, Microsoft.Extensions.Logging.Abstractions.NullLoggerProvider.Instance)
             ?? throw new InvalidOperationException($"Port {Port} is already in use.");
     }
 

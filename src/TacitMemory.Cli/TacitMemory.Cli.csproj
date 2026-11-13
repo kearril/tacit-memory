@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TacitMemory.Core\TacitMemory.Core.csproj" />
-    <ProjectReference Include="..\TacitMemory.Mcp\TacitMemory.Mcp.csproj" />
+    <ProjectReference Include="..\TacitMemory.Host\TacitMemory.Host.csproj" />
   </ItemGroup>
 
 </Project>

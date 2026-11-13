@@ -6,8 +6,9 @@ using System.Text;
 using System.Text.Json;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
+using TacitMemory.Host.Api;
 
-namespace TacitMemory.Mcp.Tests;
+namespace TacitMemory.Host.Tests;
 
 /// <summary>
 /// The management API over real HTTP on the host: the status and backup JSON, the refusals with their error bodies, the three guards, and <c>/mcp</c>
@@ -18,7 +19,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new() { EmbeddingDown = true, RerankDown = true };
     private MemoryService _service = null!;
-    private McpHost _host = null!;
+    private ServiceHost _host = null!;
     private HttpClient _http = null!;
     private readonly CapturingLoggerFactory _logs = new();
 
@@ -26,7 +27,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
     {
         _home.InitReady(models: _models);
         _service = _home.Tacit().OpenService(_ => { }, _logs);
-        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+        _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
         _http = new HttpClient();
     }
 
@@ -73,7 +74,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
             Path.Combine(home.TacitHome, "config.yaml"),
             $"language: zh\nmodels:\n  embedding: {{ url: '{models.EmbeddingUrl}', model: double-embedding }}\n");
         using var service = home.Tacit().OpenService(_ => { }, _logs);
-        await using var host = await McpHost.TryStartAsync(service, port: 0, NullLoggerProvider.Instance)
+        await using var host = await ServiceHost.TryStartAsync(service, port: 0, NullLoggerProvider.Instance)
             ?? throw new InvalidOperationException("Port 0 is never in use.");
 
         using var response = await _http.GetAsync(new Uri($"http://127.0.0.1:{host.Endpoint.Port}/api/status"));
@@ -355,7 +356,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         await _host.DisposeAsync();
         _service.Dispose();
         _service = _home.Tacit().OpenService(_ => { }, _logs);
-        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+        _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
 
         var recorded = Assert.Single(JsonSerializer.Deserialize<StatusReport>(await StatusText(), ManagementApiJson.Options)!.Clients!.Items);
         Assert.Equal("probe-client", recorded.Name);

@@ -1,7 +1,7 @@
 using TacitMemory.Core;
-using TacitMemory.Mcp;
+using TacitMemory.Host.Mcp;
 
-namespace TacitMemory.Mcp.Tests;
+namespace TacitMemory.Host.Tests;
 
 public sealed class ToolCatalogTests
 {

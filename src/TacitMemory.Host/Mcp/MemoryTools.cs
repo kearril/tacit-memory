@@ -4,7 +4,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
 
-namespace TacitMemory.Mcp;
+namespace TacitMemory.Host.Mcp;
 
 /// <summary>The memory tools. Each one hands its arguments to <see cref="MemoryService"/>, which checks them.</summary>
 [McpServerToolType]

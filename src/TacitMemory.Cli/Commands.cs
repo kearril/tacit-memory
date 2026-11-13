@@ -3,7 +3,9 @@ using ConsoleAppFramework;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core;
 using TacitMemory.Core.Show;
-using TacitMemory.Mcp;
+using TacitMemory.Host.Api;
+using TacitMemory.Host;
+using TacitMemory.Host.Mcp;
 
 namespace TacitMemory.Cli;
 
@@ -69,7 +71,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             foreach (var render in service.StartupRender)
                 console.Out.WriteLine(render.Message);
 
-            await using var host = await McpHost.TryStartAsync(service, service.Config.Port, log.Provider, cancellationToken);
+            await using var host = await ServiceHost.TryStartAsync(service, service.Config.Port, log.Provider, cancellationToken);
             if (host is null)
             {
                 var busy = service.PortInUseMessage();

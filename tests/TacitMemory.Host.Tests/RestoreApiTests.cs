@@ -5,8 +5,9 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
+using TacitMemory.Host.Api;
 
-namespace TacitMemory.Mcp.Tests;
+namespace TacitMemory.Host.Tests;
 
 /// <summary>
 /// The restore route of the management API over real HTTP: the preview and the restore as JSON that reads back, a body
@@ -17,14 +18,14 @@ public sealed class RestoreApiTests : IAsyncLifetime
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
     private MemoryService _service = null!;
-    private McpHost _host = null!;
+    private ServiceHost _host = null!;
     private HttpClient _http = null!;
 
     public async Task InitializeAsync()
     {
         _home.InitReady(models: _models);
         _service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        _host = await McpHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
+        _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance) ?? throw new InvalidOperationException("Port 0 is never in use.");
         _http = new HttpClient();
     }
 

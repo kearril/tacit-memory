@@ -1,7 +1,7 @@
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
-namespace TacitMemory.Mcp;
+namespace TacitMemory.Host.Mcp;
 
 /// <summary>
 /// The argument names a call sent that its tool's input schema does not declare. The SDK drops such names while it binds

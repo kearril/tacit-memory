@@ -10,15 +10,17 @@ using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
+using TacitMemory.Host.Api;
+using TacitMemory.Host.Mcp;
 
-namespace TacitMemory.Mcp;
+namespace TacitMemory.Host;
 
 /// <summary>The memory service's HTTP endpoints on 127.0.0.1, stateless: MCP at <c>/mcp</c> and the management API at <c>/api</c>.</summary>
-public sealed class McpHost : IAsyncDisposable
+public sealed class ServiceHost : IAsyncDisposable
 {
     private readonly WebApplication _app;
 
-    private McpHost(WebApplication app, Uri endpoint)
+    private ServiceHost(WebApplication app, Uri endpoint)
     {
         _app = app;
         Endpoint = endpoint;
@@ -30,7 +32,7 @@ public sealed class McpHost : IAsyncDisposable
     /// Starts listening; <c>null</c> when <paramref name="port"/> is already in use. Port 0 picks a free one. The host's
     /// own warnings go to <paramref name="logs"/>; ASP.NET Core and the MCP SDK write nothing below warning.
     /// </summary>
-    public static async Task<McpHost?> TryStartAsync(MemoryService service, int port, ILoggerProvider logs, CancellationToken cancellationToken = default)
+    public static async Task<ServiceHost?> TryStartAsync(MemoryService service, int port, ILoggerProvider logs, CancellationToken cancellationToken = default)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
@@ -77,7 +79,7 @@ public sealed class McpHost : IAsyncDisposable
         }
 
         var bound = new Uri(app.Urls.Single()).Port;
-        return new McpHost(app, new Uri($"http://127.0.0.1:{bound}/mcp"));
+        return new ServiceHost(app, new Uri($"http://127.0.0.1:{bound}/mcp"));
     }
 
     /// <summary>
@@ -135,5 +137,5 @@ public sealed class McpHost : IAsyncDisposable
     }
 
     private static string Version =>
-        typeof(McpHost).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        typeof(ServiceHost).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 }

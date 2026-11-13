@@ -61,8 +61,8 @@ internal static class Viewer
         "source: code; any text the user sends with the command reaches the agent alongside it");
 
     private static readonly Localized ToolsTitle = new(
-        "工具说明（来源：代码，TacitMemory.Mcp 的工具定义）：{0} 个",
-        "Tool descriptions (source: code, the tool definitions in TacitMemory.Mcp): {0}");
+        "工具说明（来源：代码，TacitMemory.Host 的工具定义）：{0} 个",
+        "Tool descriptions (source: code, the tool definitions in TacitMemory.Host): {0}");
     private static readonly Localized ToolParameters = new("参数：", "Parameters:");
 
     /// <summary>The built-in text alone, for the targets that have one. A memory command has no file that replaces it, so it has none.</summary>

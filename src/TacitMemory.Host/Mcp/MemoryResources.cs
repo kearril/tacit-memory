@@ -2,7 +2,7 @@ using System.ComponentModel;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
 
-namespace TacitMemory.Mcp;
+namespace TacitMemory.Host.Mcp;
 
 /// <summary>MCP resources. Each is computed by the service from its current state when it is read.</summary>
 [McpServerResourceType]

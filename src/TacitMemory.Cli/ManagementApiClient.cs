@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using TacitMemory.Core;
-using TacitMemory.Mcp;
+using TacitMemory.Host.Api;
 
 namespace TacitMemory.Cli;
 
