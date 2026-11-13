@@ -42,9 +42,15 @@ public static class ManagementApiJson
 
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
-/// memory language, ready to show as it is.
+/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path.
 /// </summary>
-public sealed record ApiError(string Error, string Message);
+public sealed record ApiError(string Error, string Message, IReadOnlyList<ConfigProblem>? Problems = null);
+
+/// <summary>
+/// The body of <c>PUT /api/config</c>: the whole config to save, and the hash of the file it was read from. Its secrets are
+/// not taken; the file keeps the ones it holds.
+/// </summary>
+public sealed record ConfigSave(string Hash, ConfigFile Config);
 
 /// <summary>
 /// What <c>/api/session</c> and the access-password endpoints answer: whether the caller is a local connection, whether the
@@ -153,7 +159,7 @@ internal static class ManagementApi
                         var failure = Failure(service, e);
                         if (failure.RetryAfterSeconds is { } seconds)
                             context.Response.Headers["Retry-After"] = seconds.ToString(CultureInfo.InvariantCulture);
-                        await Json(new ApiError(failure.Error.ToString(), failure.Message), StatusOf(failure.Error)).ExecuteAsync(context);
+                        await Json(new ApiError(failure.Error.ToString(), failure.Message, failure.Problems), StatusOf(failure.Error)).ExecuteAsync(context);
                     }
                 }
 
@@ -191,6 +197,17 @@ internal static class ManagementApi
         })
             .Produces<ProbeReport>()
             .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapGet("/config", () => Json(service.ConfigView()))
+            .Produces<ConfigView>()
+            .ProducesErrors(StatusCodes.Status409Conflict);
+        api.MapPut("/config", async (HttpContext context) =>
+        {
+            var body = await ReadBody<ConfigSave>(context, service);
+            return Json(await service.SaveConfigAsync(body.Config, body.Hash, context.RequestAborted));
+        })
+            .Accepts<ConfigSave>("application/json")
+            .Produces<ConfigSaved>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
         api.MapGet("/session", (HttpContext context) =>
             Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
             .Produces<SessionStatus>()
@@ -445,8 +462,8 @@ internal static class ManagementApi
     private static int StatusOf(TacitError error) => error switch
     {
         TacitError.GitFailed or TacitError.VectorExtensionInvalid or TacitError.CloudBackupFailed or TacitError.RestoreFailed
-            or TacitError.FileSystemFailed or TacitError.InternalFailure => StatusCodes.Status500InternalServerError,
-        TacitError.RequestInvalid or TacitError.PasswordTooShort => StatusCodes.Status400BadRequest,
+            or TacitError.ReloadFailed or TacitError.FileSystemFailed or TacitError.InternalFailure => StatusCodes.Status500InternalServerError,
+        TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,

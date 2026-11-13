@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
@@ -422,6 +424,93 @@ public sealed class MemoryService : IDisposable
         var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.Time, cancellationToken);
         return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets: false));
     }
+
+    /// <summary>
+    /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
+    /// each key accepts and the hash a save must name. Secrets carry no value. Reads the file only, so it does not wait for a
+    /// maintenance operation.
+    /// </summary>
+    /// <exception cref="TacitException">The file does not load, as when it was broken by hand after the service started.</exception>
+    public ConfigView ConfigView()
+    {
+        var path = ConfigFilePath;
+        var text = File.ReadAllText(path);
+        var file = ConfigFile.From(ConfigLoader.Read(_options, path, text));
+        return new ConfigView(
+            Hash(text), WithoutSecrets(file), WithoutSecrets(ConfigFile.From(Config)), ConfigSchema.Defaults(_options), ConfigSchema.Keys);
+    }
+
+    /// <summary>
+    /// Saves <paramref name="file"/> as <c>config.yaml</c> and reloads, as one maintenance operation. <paramref name="hash"/>
+    /// names the content the caller read the settings from; a file changed since is not overwritten. The secrets stay as the
+    /// file holds them. When the reload cannot open the new config, the file goes back to what it was.
+    /// </summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.ConfigChanged"/>, <see cref="TacitError.ConfigRejected"/> with every problem, or
+    /// <see cref="TacitError.ReloadFailed"/>; in each case <c>config.yaml</c> is as it was.
+    /// </exception>
+    public Task<ConfigSaved> SaveConfigAsync(ConfigFile file, string hash, CancellationToken cancellationToken = default) =>
+        RunMaintenanceAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash)), cancellationToken);
+
+    private ConfigSaved SaveConfigCore(ConfigFile file, string hash)
+    {
+        var path = ConfigFilePath;
+        var current = File.ReadAllText(path);
+        if (Hash(current) != hash)
+            throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
+
+        var held = ConfigFile.From(ConfigLoader.Read(_options, path, current));
+        var content = ConfigWriter.Render(WithSecretsOf(file, held), _options);
+        try
+        {
+            ConfigLoader.Read(_options, path, content);
+        }
+        catch (TacitException e) when (e.Error == TacitError.ConfigInvalid)
+        {
+            throw new TacitException(TacitError.ConfigRejected, e.Message, e) { Problems = e.Problems };
+        }
+
+        ConfigWriter.Replace(path, content);
+        try
+        {
+            ReloadCore();
+        }
+        catch
+        {
+            ConfigWriter.Replace(path, current);
+            throw;
+        }
+
+        return new ConfigSaved(Hash(content));
+    }
+
+    private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
+
+    /// <summary>The hash that names one content of <c>config.yaml</c>.</summary>
+    private static string Hash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+
+    /// <summary>The settings with every secret left out, as they leave the service.</summary>
+    private static ConfigFile WithoutSecrets(ConfigFile file) => file with
+    {
+        Models = new ModelsFile(
+            file.Models.Embedding is { } embedding ? embedding with { ApiKey = null } : null,
+            file.Models.Reranker is { } reranker ? reranker with { ApiKey = null } : null,
+            file.Models.Decision is { } decision ? decision with { ApiKey = null } : null),
+        Backup = file.Backup with { WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = null } : null },
+    };
+
+    /// <summary><paramref name="file"/> with each secret as <paramref name="held"/> holds it, for each model and cloud backup both have.</summary>
+    private static ConfigFile WithSecretsOf(ConfigFile file, ConfigFile held) => file with
+    {
+        Models = new ModelsFile(
+            file.Models.Embedding is { } embedding ? embedding with { ApiKey = held.Models.Embedding?.ApiKey } : null,
+            file.Models.Reranker is { } reranker ? reranker with { ApiKey = held.Models.Reranker?.ApiKey } : null,
+            file.Models.Decision is { } decision ? decision with { ApiKey = held.Models.Decision?.ApiKey } : null),
+        Backup = file.Backup with
+        {
+            WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = held.Backup.WebDav?.Password } : null,
+        },
+    };
 
     /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
     public TacitException InvalidRequestBody(string? jsonPath)

@@ -77,12 +77,12 @@ internal static class ConfigLoader
         var retrieval = ReadRetrieval(reader, root);
         var backup = ReadBackup(reader, root, options.Secrets);
 
-        if (reader.Errors.Count > 0)
+        if (reader.Problems.Count > 0)
         {
             var message = new StringBuilder(Messages.ConfigErrors.Format(language, path));
             foreach (var error in reader.Errors)
                 message.Append('\n').Append(error);
-            throw new TacitException(TacitError.ConfigInvalid, message.ToString());
+            throw new TacitException(TacitError.ConfigInvalid, message.ToString()) { Problems = reader.Problems };
         }
 
         var prompts = PromptFiles.Load(options.TacitHome, language);

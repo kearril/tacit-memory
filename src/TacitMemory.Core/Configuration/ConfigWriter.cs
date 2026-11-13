@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Decisions;
+using TacitMemory.Core.Retrieval;
 
 namespace TacitMemory.Core.Configuration;
 
@@ -45,15 +47,17 @@ internal static partial class ConfigWriter
         consolidation.Add("hintResidentLength", Unless(c.HintResidentLength, ConfigDefaults.HintResidentLength));
 
         var decision = root.Section("decision");
-        AddThreshold(decision, "samePreference", file.Decision.SamePreference);
-        AddThreshold(decision, "samePage", file.Decision.SamePage);
-        AddThreshold(decision, "sameTopic", file.Decision.SameTopic);
-        AddThreshold(decision, "ruleConflict", file.Decision.RuleConflict);
+        AddThreshold(decision, "samePreference", file.Decision.SamePreference, Judgment.SamePreference);
+        AddThreshold(decision, "samePage", file.Decision.SamePage, Judgment.SamePage);
+        AddThreshold(decision, "sameTopic", file.Decision.SameTopic, Judgment.SameTopic);
+        AddThreshold(decision, "ruleConflict", file.Decision.RuleConflict, Judgment.RuleConflict);
 
         var retrieval = root.Section("retrieval");
         retrieval.Add("candidates", Unless(file.Retrieval.Candidates, ConfigDefaults.Candidates));
         retrieval.Add("topK", Unless(file.Retrieval.TopK, ConfigDefaults.TopK));
-        retrieval.Add("minRerankScore", Number(file.Retrieval.MinRerankScore));
+        retrieval.Add(
+            "minRerankScore",
+            file.Retrieval.MinRerankScore == RecallTool.DefaultMinRerankScore ? null : Number(file.Retrieval.MinRerankScore));
 
         var backup = root.Section("backup");
         backup.Add("keep", Unless(file.Backup.Keep, ConfigDefaults.Keep));
@@ -89,10 +93,13 @@ internal static partial class ConfigWriter
         section.Add("apiKey", Text(model.ApiKey));
     }
 
-    /// <summary>A judgment's thresholds; both are written whenever either is given, so a missing one is reported on load.</summary>
-    private static void AddThreshold(Mapping decision, string key, ThresholdFile? threshold)
+    /// <summary>
+    /// A judgment's thresholds, unless they are its built-in ones; both are written whenever either is given, so a missing
+    /// one is reported on load.
+    /// </summary>
+    private static void AddThreshold(Mapping decision, string key, ThresholdFile? threshold, Threshold builtIn)
     {
-        if (threshold is null)
+        if (threshold is null || threshold == ConfigSchema.File(builtIn))
             return;
         var section = decision.Section(key);
         section.Add("certain", Number(threshold.Certain) ?? "''");

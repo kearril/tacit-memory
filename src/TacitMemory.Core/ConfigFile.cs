@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core;
@@ -6,27 +7,35 @@ namespace TacitMemory.Core;
 /// <c>config.yaml</c> as the file holds it, before validation: one member per key, in the file's own shape, and
 /// <c>null</c> for a key the file leaves out, which takes its default. Secrets are their plain text in the file, not the
 /// value an environment variable may override them with. <see cref="Tacit.SaveConfig"/> writes it; reading it back with
-/// <see cref="Tacit.LoadConfig"/> is what validates it.
+/// <see cref="Tacit.LoadConfig"/> is what validates it. Every section is always present, even when all its keys are absent.
 /// </summary>
 public sealed record ConfigFile
 {
+    [JsonRequired]
     public ServerFile Server { get; init; } = new();
 
+    [JsonRequired]
     public MemoryFile Memory { get; init; } = new();
 
     /// <summary>The language code, such as <c>zh</c>; always written, since its default depends on the machine.</summary>
     public string? Language { get; init; }
 
+    [JsonRequired]
     public ModelsFile Models { get; init; } = new();
 
+    [JsonRequired]
     public LimitsFile Limits { get; init; } = new();
 
+    [JsonRequired]
     public ConsolidationFile Consolidation { get; init; } = new();
 
+    [JsonRequired]
     public DecisionFile Decision { get; init; } = new();
 
+    [JsonRequired]
     public RetrievalFile Retrieval { get; init; } = new();
 
+    [JsonRequired]
     public BackupFile Backup { get; init; } = new();
 
     /// <summary>

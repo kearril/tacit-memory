@@ -59,20 +59,20 @@
 
 ## 3. 响应与错误
 
-错误体为 `{"error": "<错误名>", "message": "<记忆语言的说明>"}`，`message` 可直接显示。
+错误体为 `{"error": "<错误名>", "message": "<记忆语言的说明>"}`，`message` 可直接显示；校验不通过时另带 `problems`。
 
 | 状态码 | 含义 | 状态 |
 | :--- | :--- | :--- |
 | 200 | 成功 | 已实现 |
-| 400 | 请求不被接受：请求体无法读取、缺少必填成员、取值无效；访问密码少于 8 个字符（`PasswordTooShort`） | 已实现 |
+| 400 | 请求不被接受：请求体无法读取、缺少必填成员、取值无效；访问密码少于 8 个字符（`PasswordTooShort`）；配置校验不通过（`ConfigRejected`） | 已实现 |
 | 401 | 其他设备的连接未登录或会话失效访问 `/api`（`ApiUnauthorized`）；访问密码不对（`PasswordWrong`）；修改密码时当前密码不对 | 已实现 |
 | 403 | 被请求防护拒绝；其他设备的连接访问 `/mcp`；其他设备的连接访问 `/`、`/ui`、`/api` 之外的路径（`RemotePathRefused`）；其他设备的连接清除访问密码 | 已实现 |
-| 409 | 记忆或配置不处于该操作接受的状态，用户可以修正；`server.host` 为 `127.0.0.1` 以外的地址时清除访问密码（`PasswordClearRefused`） | 已实现 |
+| 409 | 记忆或配置不处于该操作接受的状态，用户可以修正；`server.host` 为 `127.0.0.1` 以外的地址时清除访问密码（`PasswordClearRefused`）；保存配置时 `config.yaml` 已在读取之后被改过（`ConfigChanged`） | 已实现 |
 | 415 | Content-Type 不是 `application/json` | 已实现 |
 | 429 | 登录或修改访问密码被限速（`LoginLimited`），带 `Retry-After` 头（剩余秒数） | 已实现 |
-| 500 | 环境失败（`git`、向量扩展、云端服务、文件系统）或服务意外失败 | 已实现 |
+| 500 | 环境失败（`git`、向量扩展、云端服务、文件系统）或服务意外失败；保存的配置在重新加载时打不开（`ReloadFailed`） | 已实现 |
 
-校验配置或提示词文档不通过时返回 409，错误体另带出错位置的清单（配置为键路径），供界面标到对应字段。
+校验配置或提示词文档不通过时返回 400，错误体的 `problems` 逐条给出出错位置与说明（`{path, message}`，配置为键路径，如 `retrieval.topK`），一次给出全部问题，供界面标到对应字段。
 
 每次调用记一条日志（方法、路径、状态码、耗时），不含请求体与密钥。
 
@@ -96,8 +96,8 @@
 | `POST /api/restore` | 预览或执行恢复：`{path, remote, config, preview}` | 已实现 |
 | `GET /api/backups` | `backups/` 下的本地备份清单（种类、时间、大小）、是否配置了云端备份与上一次云端备份的记录 | 已实现 |
 | **配置** | | |
-| `GET /api/config` | 各项的当前值、默认值、是否需重启才生效；密钥只给来源，不给值 | 计划 |
-| `PUT /api/config/<节>` | 校验并保存一节，随后在进程内重新加载 | 计划 |
+| `GET /api/config` | 文件中的值、运行中的值、默认值、各键的取值范围与是否需重启才生效，以及文件的哈希；密钥不给值 | 已实现 |
+| `PUT /api/config` | `{hash, config}`：校验并写出整份 `config.yaml`，随后重新加载 | 已实现 |
 | `GET /api/config/secrets/<键>` | 单个密钥的值 | 计划 |
 | `POST /api/probe` | 按已保存的 `config.yaml` 探测三个辅助模型，规则同 `tacit probe` | 已实现 |
 | **绑定** | | |
@@ -118,6 +118,8 @@
 - `GET /api/activity`：窗口为本周（周一开始，按服务的本地日期）及之前 52 周，截至今天，`from` 与 `to` 给出起止日期。`days` 只列出有活动的日子，每天给出各主线的条数（`workstreams`，按写下时的主线标注，多者在前）与未归属的条数（`unlabeled`）；日期标题下每条活动计一次，续行、来源注释与汇总节不计。`consolidationDays` 是窗口内有整理提交的日子，判定与状态报告的「上次整理」相同。某个月份文件不是有效 UTF-8 或读不了时跳过并列入 `skippedFiles`；记忆仓库的历史读不了时 `historyUnreadable` 为真、整理日为空。两者都不使请求失败。只读，不等待维护操作。
 
 - `GET /api/backups`：`local` 只列出按备份命名的文件（`auto-*`、`manual-*`、`pre-restore-*`，种类为 `auto`、`manual`、`preRestore`），按文件的最后写入时间从新到旧；`backups/` 不存在时为空。`remoteConfigured` 表示配置了 `backup.webdav`；`lastRemote` 取自 `backups/remote.json`，没有记录或读不了时为 `null`。不联网，不列出云端的文件，不等待维护操作。
-- `POST /api/probe`：每次重新读取 `config.yaml`，运行中的服务仍用启动时的配置；未配置的模型记为跳过，不发请求。某个模型失败不使请求失败，结果逐个给出（`outcome`、`failure`、`statusCode`、响应体前 500 个字符、`elapsedMilliseconds`）；`config.yaml` 读不了时 409。不改变模型的健康状态，不等待维护操作。
+- `GET /api/config`：`file` 为 `config.yaml` 中写下的值，未写的项为 `null`；`running` 为运行中的服务所用的值，需重启的项在重启前与文件不同；`defaults` 为各项未写时的取值，含内置的判断阈值；`keys` 逐键给出 `min`、`max`、可选值 `choices`、需重启 `restart` 与只读 `readOnly`（`memory.path`、`language`）。密钥（`apiKey`、`password`）在三者中都为 `null`。只读，不等待维护操作。
+- `PUT /api/config`：`hash` 取自 `GET` 的结果，与文件当前的哈希不符时 409（`ConfigChanged`），文件不动。`config` 为完整的配置，写出时只写与默认不同的项，键顺序固定，不带注释；密钥沿用文件中原有的值。校验与 `tacit serve` 读取配置相同，不通过时 400 并带 `problems`，文件不动。写出后作为维护操作重新加载，等待进行中的维护操作；需重启的项（`server.port`、`server.host`、`limits.page.minAliases`）保存后仍按原值运行。新配置打不开时把文件写回原样，服务按原配置继续运行，返回 500（`ReloadFailed`）。成功时返回新的哈希 `{hash}`。
+- `POST /api/probe`：每次重新读取 `config.yaml`，与运行中的服务所用的配置无关；未配置的模型记为跳过，不发请求。某个模型失败不使请求失败，结果逐个给出（`outcome`、`failure`、`statusCode`、响应体前 500 个字符、`elapsedMilliseconds`）；`config.yaml` 读不了时 409。不改变模型的健康状态，不等待维护操作。
 - `POST /api/backup`：`target` 为 `local` 时 `to` 可给出主机上的绝对目录，省略则写到 `backups/`；`target` 为 `remote` 时执行云端备份。
 - `POST /api/restore`：`path` 与 `remote` 二选一。`preview` 为真时只返回预览（`remote` 时先下载云端备份），为假时执行，且 `remote` 不能用于执行；`config` 为真时一并恢复 `config.yaml` 与 `prompts/`。校验在核心中完成。

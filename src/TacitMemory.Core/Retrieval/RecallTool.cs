@@ -29,7 +29,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         "Note: the reranker model is unavailable, so these results keep the fusion order and no minimum score applies.";
 
     /// <summary>The minimum rerank score when the config sets none; units scored below it are not shown.</summary>
-    private const double DefaultMinRerankScore = 0.001;
+    internal const double DefaultMinRerankScore = 0.001;
 
     /// <summary>How many sections a page that matched only on its title or aliases shows.</summary>
     private const int PageLevelSections = 2;

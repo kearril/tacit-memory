@@ -226,6 +226,152 @@
         }
       }
     },
+    "/api/config": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "management"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/session": {
       "get": {
         "tags": [
@@ -1057,6 +1203,15 @@
           },
           "message": {
             "type": "string"
+          },
+          "problems": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ConfigProblem"
+            }
           }
         }
       },
@@ -1073,6 +1228,28 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "BackupFile": {
+        "type": "object",
+        "properties": {
+          "keep": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "webDav": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WebDavFile"
+              }
             ]
           }
         }
@@ -1344,6 +1521,137 @@
           }
         }
       },
+      "ConfigFile": {
+        "required": [
+          "server",
+          "memory",
+          "models",
+          "limits",
+          "consolidation",
+          "decision",
+          "retrieval",
+          "backup"
+        ],
+        "type": "object",
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerFile"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MemoryFile"
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "models": {
+            "$ref": "#/components/schemas/ModelsFile"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/LimitsFile"
+          },
+          "consolidation": {
+            "$ref": "#/components/schemas/ConsolidationFile"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/DecisionFile"
+          },
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalFile"
+          },
+          "backup": {
+            "$ref": "#/components/schemas/BackupFile"
+          }
+        }
+      },
+      "ConfigKey": {
+        "required": [
+          "path",
+          "min",
+          "max",
+          "choices",
+          "restart",
+          "readOnly"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "min": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "max": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "choices": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "restart": {
+            "type": "boolean"
+          },
+          "readOnly": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConfigProblem": {
+        "required": [
+          "path",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigSave": {
+        "required": [
+          "hash",
+          "config"
+        ],
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ConfigFile"
+          }
+        }
+      },
+      "ConfigSaved": {
+        "required": [
+          "hash"
+        ],
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          }
+        }
+      },
       "ConfigStatus": {
         "required": [
           "title",
@@ -1359,6 +1667,83 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ConfigView": {
+        "required": [
+          "hash",
+          "file",
+          "running",
+          "defaults",
+          "keys"
+        ],
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "file": {
+            "$ref": "#/components/schemas/ConfigFile"
+          },
+          "running": {
+            "$ref": "#/components/schemas/ConfigFile"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/ConfigFile"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigKey"
+            }
+          }
+        }
+      },
+      "ConsolidationFile": {
+        "type": "object",
+        "properties": {
+          "remindAfterDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "remindCandidates": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "budgetSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "maxConcurrency": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "hintItemLength": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "hintResidentLength": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -1396,6 +1781,51 @@
           }
         }
       },
+      "DecisionFile": {
+        "type": "object",
+        "properties": {
+          "samePreference": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ThresholdFile"
+              }
+            ]
+          },
+          "samePage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ThresholdFile"
+              }
+            ]
+          },
+          "sameTopic": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ThresholdFile"
+              }
+            ]
+          },
+          "ruleConflict": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ThresholdFile"
+              }
+            ]
+          }
+        }
+      },
       "ExtraListenerStatus": {
         "required": [
           "address",
@@ -1411,6 +1841,28 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "LimitsFile": {
+        "type": "object",
+        "properties": {
+          "brief": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageLimitsFile"
+              }
             ]
           }
         }
@@ -1473,11 +1925,57 @@
           }
         }
       },
+      "MemoryFile": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "MemoryLanguage": {
         "enum": [
           "zh",
           "en"
         ]
+      },
+      "ModelFile": {
+        "required": [
+          "provider",
+          "url",
+          "model",
+          "apiKey"
+        ],
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "apiKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "ModelRole": {
         "enum": [
@@ -1485,6 +1983,41 @@
           "reranker",
           "decision"
         ]
+      },
+      "ModelsFile": {
+        "type": "object",
+        "properties": {
+          "embedding": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModelFile"
+              }
+            ]
+          },
+          "reranker": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModelFile"
+              }
+            ]
+          },
+          "decision": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModelFile"
+              }
+            ]
+          }
+        }
       },
       "ModelsStatus": {
         "required": [
@@ -1533,6 +2066,18 @@
             "$ref": "#/components/schemas/ModelState"
           },
           "coolingSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PageLimitsFile": {
+        "type": "object",
+        "properties": {
+          "minAliases": {
             "type": [
               "null",
               "integer"
@@ -1863,6 +2408,32 @@
           }
         }
       },
+      "RetrievalFile": {
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "topK": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "minRerankScore": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "SecretSource": {
         "enum": [
           "environment",
@@ -1922,6 +2493,24 @@
           },
           "overridden": {
             "type": "boolean"
+          }
+        }
+      },
+      "ServerFile": {
+        "type": "object",
+        "properties": {
+          "port": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "host": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2126,6 +2715,57 @@
               {
                 "$ref": "#/components/schemas/SecretsStatus"
               }
+            ]
+          }
+        }
+      },
+      "ThresholdFile": {
+        "required": [
+          "certain",
+          "unlikely"
+        ],
+        "type": "object",
+        "properties": {
+          "certain": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "unlikely": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "WebDavFile": {
+        "required": [
+          "url",
+          "username",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

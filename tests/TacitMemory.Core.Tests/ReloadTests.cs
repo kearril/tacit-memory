@@ -87,6 +87,33 @@ public sealed class ReloadTests : IDisposable
     }
 
     [Fact]
+    public async Task A_saved_config_that_cannot_be_opened_puts_the_file_back_as_it_was()
+    {
+        var path = Path.Combine(_home.TacitHome, "config.yaml");
+        var before = File.ReadAllText(path);
+        var view = Service.ConfigView();
+        Service.OnOpening = config => { if (config.Retrieval.TopK == 1) throw new IOException("index is locked"); };
+
+        var error = await Assert.ThrowsAsync<TacitException>(
+            () => Service.SaveConfigAsync(view.File with { Retrieval = view.File.Retrieval with { TopK = 1 } }, view.Hash));
+
+        Assert.Equal(TacitError.ReloadFailed, error.Error);
+        Assert.Equal(before, File.ReadAllText(path));
+        Assert.Equal(3, Service.Config.Retrieval.TopK);
+    }
+
+    [Fact]
+    public async Task Saving_keeps_the_secrets_the_file_holds()
+    {
+        var view = Service.ConfigView();
+        Assert.Null(view.File.Models.Decision!.ApiKey);
+
+        await Service.SaveConfigAsync(view.File with { Retrieval = view.File.Retrieval with { TopK = 4 } }, view.Hash);
+
+        Assert.Equal("test-key", _home.Tacit().ReadConfigFile().Models.Decision!.ApiKey);
+    }
+
+    [Fact]
     public async Task A_write_that_arrives_during_a_reload_waits_for_it_then_runs()
     {
         using var opening = new ManualResetEventSlim();
