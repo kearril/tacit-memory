@@ -75,6 +75,9 @@ public enum TacitError
     /// <summary>A restore failed after it began. The memory repository is put back where it was, unless the message says the rollback failed too.</summary>
     RestoreFailed,
 
+    /// <summary>A reload could not open the service with the new config. It runs on with the config it had, unless the message says that failed too.</summary>
+    ReloadFailed,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 

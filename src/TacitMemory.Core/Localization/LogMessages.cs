@@ -49,6 +49,8 @@ internal static class LogMessages
     public static readonly Localized MaintenanceStarted = new("维护操作开始：{0}", "Maintenance started: {0}");
     public static readonly Localized MaintenanceFinished = new("维护操作结束：{0}，耗时 {1} 毫秒", "Maintenance finished: {0} in {1} ms");
     public static readonly Localized MaintenanceFailed = new("维护操作失败：{0}，耗时 {1} 毫秒：{2}", "Maintenance failed: {0} after {1} ms: {2}");
+    public static readonly Localized ReloadFailed = new("新配置未能打开，已按原配置重开：{0}", "The new config could not be opened; reopened with the old one: {0}");
+    public static readonly Localized ReloadFatal = new("新配置与原配置都未能打开，服务停止：{0}；{1}", "Neither the new config nor the old one could be opened, so the service stops: {0}; {1}");
     public static readonly Localized IndexRebuilt = new(
         "索引已重建：文件 {0}，单元 {1}，向量 {2}，跳过 {3} 个非 UTF-8 文件，耗时 {4} 毫秒",
         "Index rebuilt: {0} files, {1} units, {2} vectors, {3} files skipped as not UTF-8, in {4} ms");

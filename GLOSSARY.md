@@ -244,6 +244,10 @@ _Avoid_: 客户端预设、客户端模板、适配
 独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md` 第 12 节「服务运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
 _Avoid_: 运维操作、独占操作、锁定操作
 
+**重新加载**（Reload）：
+经设置页保存配置后，常驻服务不退出进程、以新配置重开自身的维护操作；失败时以原配置重开，配置文件也保持原样。`server.port`、`server.host`、`limits.page.minAliases`、`memory.path` 与 `language` 不随它生效，要等重启 `tacit serve`。
+_Avoid_: 热更新、热重载、重启（指它时）
+
 **自动备份**（Automatic backup）：
 每天第一次写入后生成的备份 zip，文件名为 `auto-YYYY-MM-DD.zip`，内容与手动备份相同；只有自动备份会被清理，保留最近 `backup.keep` 份（`0` 关闭）。
 _Avoid_: 定时备份、每日备份

@@ -32,6 +32,12 @@ namespace TacitMemory.Core;
 /// <c>persona.md</c>, <c>workstreams.md</c>, the activity log or a workstream folder changes and again at each local midnight,
 /// syncs the index when page, activity or persona files change, and a watcher that reloads the prompt
 /// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
+/// <para>
+/// It has two layers. The shell lives as long as the process: the lock that orders the work, the start time, the extra
+/// listener's outcome, the access control, the client records and the timers. The runtime is everything the config decides
+/// (the index, the auxiliary models, the tools, the backups and the file watchers); <see cref="OpenRuntime"/> is the one path
+/// that builds it, at the start and again on each <see cref="ReloadAsync"/>.
+/// </para>
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -43,12 +49,12 @@ public sealed class MemoryService : IDisposable
 
     private readonly TacitOptions _options;
     private readonly DateTimeOffset _startedAt;
-    private readonly AutomaticBackup _backup;
-    private readonly ManualBackup _manual;
-    private readonly CloudBackup _remote;
+    private AutomaticBackup _backup = null!;
+    private ManualBackup _manual = null!;
+    private CloudBackup _remote = null!;
     private readonly ServiceLog _log;
     private readonly ClientRecordStore _clients;
-    private readonly FileSystemWatcher _watcher;
+    private FileSystemWatcher _watcher = null!;
     private FileSystemWatcher? _promptsWatcher;
     private readonly Timer _renderTimer;
     private readonly Timer _promptsTimer;
@@ -70,21 +76,27 @@ public sealed class MemoryService : IDisposable
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
-    private readonly PageTools _pages;
-    private readonly RecentTools _recent;
-    private readonly PersonaTools _persona;
-    private readonly AuxiliaryModels _models;
-    private readonly MemoryIndex _index;
-    private readonly VectorSync _vectors;
-    private readonly JudgmentPool _judgments;
-    private readonly ConsolidationServices _consolidation;
-    private readonly RecallTool _recall;
+    private PageTools _pages = null!;
+    private RecentTools _recent = null!;
+    private PersonaTools _persona = null!;
+    private AuxiliaryModels _models = null!;
+    private MemoryIndex _index = null!;
+    private VectorSync _vectors = null!;
+    private JudgmentPool _judgments = null!;
+    private ConsolidationServices _consolidation = null!;
+    private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
-    private PromptDocuments _prompts;
+    private PromptDocuments _prompts = null!;
     private string? _instructions;
     private string? _instructionsStatus;
     private int _instructionsVersion;
     private volatile bool _disposed;
+
+    /// <summary>Whether a runtime is open; false only after a reload could open none, which ends the service.</summary>
+    private bool _runtimeOpen;
+
+    /// <summary>Completes when a reload has failed with both the new config and the old one: the service can no longer run.</summary>
+    private readonly TaskCompletionSource<Exception> _failed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     internal MemoryService(TacitOptions options, TacitConfig config, Action<string> notice, ILogger logger)
     {
@@ -93,52 +105,161 @@ public sealed class MemoryService : IDisposable
         Config = config;
         _log = new ServiceLog(logger, config.Language, notice);
         Access = new AccessControl(options, config, logger);
-        _prompts = config.Prompts;
         SkillSet.Write(options.TacitHome, config.Language, config.Prompts.Skill);
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _log.Record(LogLevel.Information, LogMessages.Started, ProductVersion.Current, config.Port, config.MemoryPath);
         foreach (var render in StartupRender)
             _log.Record(LevelOf(render), render.Message);
-        _models = new AuxiliaryModels(config, options.Time, _log);
-        if (_models.Unconfigured is { Count: > 0 } unconfigured)
-            _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
-        _index = new MemoryIndex(
-            config.MemoryPath, config.Models.Embedding?.Model, config.Language,
-            () => options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
-        _index.SyncAll();
-        _vectors = new VectorSync(_index, _models.Embedding);
-        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Consolidation.MaxConcurrency);
-        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
-        _vectors.FillInBackground();
-        _pages = new PageTools(
-            options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recent = new RecentTools(options, config, _log, _models.Decision);
-        _persona = new PersonaTools(
-            options, config, _log,
-            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
-            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
-        _backup = new AutomaticBackup(options, config, _log, _gate);
-        _manual = new ManualBackup(options, config, _log);
-        _remote = new CloudBackup(options, config, _log);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _renderTimer = new Timer(_ => RenderNow());
         _promptsTimer = new Timer(_ => ReloadPrompts());
         _indexTimer = new Timer(_ => SyncIndexNow());
         _dayTimer = ArmDayTimer();
-        _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
+        OpenRuntime(config);
+    }
+
+    /// <summary>
+    /// Builds the runtime from <paramref name="config"/>: the auxiliary models, the index (synced with the files), the tools,
+    /// the backups and the two file watchers. The parts that can fail are built before any is put in place, so a failure
+    /// leaves nothing half open: what was built is let go, and the exception is raised.
+    /// </summary>
+    private void OpenRuntime(TacitConfig config)
+    {
+        AuxiliaryModels? models = null;
+        MemoryIndex? index = null;
+        FileSystemWatcher? watcher = null;
+        try
+        {
+            OnOpening?.Invoke(config);
+            models = new AuxiliaryModels(config, _options.Time, _log);
+            index = new MemoryIndex(
+                config.MemoryPath, config.Models.Embedding?.Model, config.Language,
+                () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
+            index.SyncAll();
+            watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
+        }
+        catch
+        {
+            watcher?.Dispose();
+            index?.Dispose();
+            models?.Dispose();
+            throw;
+        }
+
+        Config = config;
+        _prompts = config.Prompts;
+        _models = models;
+        if (_models.Unconfigured is { Count: > 0 } unconfigured)
+            _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
+        _index = index;
+        _vectors = new VectorSync(_index, _models.Embedding);
+        _judgments = new JudgmentPool(_index, _models.Decision, _options.Time, config.Consolidation.MaxConcurrency);
+        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
+        _vectors.FillInBackground();
+        _pages = new PageTools(
+            _options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+        _recent = new RecentTools(_options, config, _log, _models.Decision);
+        _persona = new PersonaTools(
+            _options, config, _log,
+            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
+            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
+        _backup = new AutomaticBackup(_options, config, _log, _gate);
+        _manual = new ManualBackup(_options, config, _log);
+        _remote = new CloudBackup(_options, config, _log);
+
+        _watcher = watcher;
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
         _watcher.Deleted += OnChange;
         _watcher.Renamed += OnChange;
         _watcher.Error += OnOverflow;
         _watcher.EnableRaisingEvents = true;
-
         WatchPrompts();
+        _runtimeOpen = true;
+        InvalidateInstructions();
     }
 
-    public TacitConfig Config { get; }
+    /// <summary>Lets go of the runtime's files and models: the watchers, the index and the model clients. Its background work has already settled.</summary>
+    private void CloseRuntime()
+    {
+        if (!_runtimeOpen)
+            return;
+        _runtimeOpen = false;
+        _watcher.Dispose();
+        lock (_renderGate)
+            _promptsWatcher?.Dispose();
+        _index.Dispose();
+        _models.Dispose();
+    }
+
+    /// <summary>Called with the config at the start of each runtime open; a test throws from it to make an open fail.</summary>
+    internal Action<TacitConfig>? OnOpening { get; set; }
+
+    /// <summary>
+    /// Opens the runtime again with <c>config.yaml</c> as it is now, as a maintenance operation: the reads and writes under
+    /// way finish first, and those that arrive meanwhile wait and then run with the new config. Five settings do not change
+    /// with a reload and keep their running values until the service restarts: <c>server.port</c>, <c>server.host</c>,
+    /// <c>memory.path</c>, <c>language</c> and <c>limits.page.minAliases</c>.
+    /// </summary>
+    /// <exception cref="TacitException">
+    /// The config does not load, and nothing changed; or the runtime could not be opened with it, and the service runs on
+    /// with the config it had (<see cref="TacitError.ReloadFailed"/>). When even that fails, <see cref="Failed"/> completes.
+    /// </exception>
+    public Task ReloadAsync(CancellationToken cancellationToken = default) =>
+        RunMaintenanceAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
+
+    private bool ReloadCore()
+    {
+        var running = Config;
+        var loaded = ConfigLoader.Read(_options);
+        var next = loaded with
+        {
+            Port = running.Port,
+            ExtraAddress = running.ExtraAddress,
+            MemoryPath = running.MemoryPath,
+            Language = running.Language,
+            Limits = loaded.Limits with { Page = running.Limits.Page },
+            Prompts = loaded.Language == running.Language ? loaded.Prompts : PromptFiles.Load(_options.TacitHome, running.Language),
+        };
+
+        CloseRuntime();
+        try
+        {
+            OpenRuntime(next);
+        }
+        catch (Exception failure)
+        {
+            try
+            {
+                OpenRuntime(running);
+            }
+            catch (Exception again)
+            {
+                _log.Record(LogLevel.Error, LogMessages.ReloadFatal, failure.Message, again.Message);
+                _failed.TrySetResult(again);
+                throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFatal.Format(running.Language, again.Message), again);
+            }
+
+            _log.Record(LogLevel.Warning, LogMessages.ReloadFailed, failure.Message);
+            throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFailed.Format(running.Language, failure.Message), failure);
+        }
+
+        SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
+        foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
+            _log.Record(LevelOf(render), render.Message);
+        return true;
+    }
+
+    /// <summary>
+    /// Completes, with the reason, when a reload could open the runtime neither with the new config nor with the old one. The
+    /// service cannot go on; whoever runs it stops it, and the next start reports the cause.
+    /// </summary>
+    public Task<Exception> Failed => _failed.Task;
+
+    /// <summary>The config the service runs with: the one it started with, or the one the last reload put in place.</summary>
+    public TacitConfig Config { get; private set; }
 
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
@@ -757,10 +878,8 @@ public sealed class MemoryService : IDisposable
     public void Dispose()
     {
         _disposed = true;
-        _watcher.Dispose();
         lock (_renderGate)
         {
-            _promptsWatcher?.Dispose();
             _renderTimer.Dispose();
             _promptsTimer.Dispose();
             _dayTimer?.Dispose();
@@ -770,8 +889,7 @@ public sealed class MemoryService : IDisposable
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
-        _index.Dispose();
-        _models.Dispose();
+        CloseRuntime();
         _gate.Dispose();
         _instructionsBuild.Dispose();
     }
