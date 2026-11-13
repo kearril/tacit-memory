@@ -120,4 +120,25 @@ public sealed class InitTests : IDisposable
         Assert.Contains("hintItemLength: 200", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
         Assert.StartsWith("Created the memory repository: ", result.Report);
     }
+
+    [Theory]
+    [InlineData(MemoryLanguage.Zh, "启动服务后，可在浏览器打开 Web 界面继续配置：http://127.0.0.1:18888/")]
+    [InlineData(MemoryLanguage.En, "Once the service is running, continue the setup in the Web interface: http://127.0.0.1:18888/")]
+    public async Task Init_ends_with_the_web_interface_address(MemoryLanguage language, string lastLine)
+    {
+        var result = await _home.Tacit().InitAsync(new InitRequest { Language = language });
+
+        Assert.Equal(lastLine, result.Report.Split('\n')[^1]);
+    }
+
+    [Fact]
+    public async Task Init_gives_the_web_interface_address_on_the_port_of_an_existing_config()
+    {
+        Directory.CreateDirectory(_home.TacitHome);
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), "language: en\nserver:\n  port: 19001\n");
+
+        var result = await _home.Tacit().InitAsync(new InitRequest());
+
+        Assert.EndsWith("http://127.0.0.1:19001/", result.Report);
+    }
 }

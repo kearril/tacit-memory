@@ -33,6 +33,7 @@
 - `--language zh|en`：记忆语言，默认取系统界面语言。
 - `--memory <路径>`：记忆仓库的位置，默认 `TACIT_HOME/memory`。
 - 记忆目录非空且不是 Git 仓库时拒绝初始化：改用空目录，或用 `--memory` 指向已有的记忆仓库。
+- 输出末尾给出后续步骤，最后一行是 Web 界面的地址 `http://127.0.0.1:<端口>/`，端口取自 `config.yaml` 的 `server.port`（已有配置时照用其中的值）。
 
 ### `tacit serve`
 
