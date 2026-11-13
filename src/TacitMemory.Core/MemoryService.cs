@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
@@ -77,6 +79,7 @@ public sealed class MemoryService : IDisposable
     private readonly JudgmentPool _judgments;
     private readonly ConsolidationServices _consolidation;
     private readonly RecallTool _recall;
+    private volatile ExtraListenerStatus? _extraListener;
     private PromptDocuments _prompts;
     private string? _instructions;
     private string? _instructionsStatus;
@@ -198,6 +201,43 @@ public sealed class MemoryService : IDisposable
     /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
     public string ListeningMessage(Uri endpoint) => Messages.ServiceListening.Format(Config.Language, endpoint);
 
+    /// <summary>The extra listener <c>server.host</c> names, as the host bound it when the service started; <c>null</c> when none is named.</summary>
+    public ExtraListenerStatus? ExtraListener => _extraListener;
+
+    /// <summary>The line to show for a bound extra listener at <paramref name="address"/>, in the memory language.</summary>
+    public string ExtraListeningMessage(Uri address) => ManagementApiMessages.ExtraListenerAddress.Format(Config.Language, address);
+
+    /// <summary>
+    /// Records the outcome of the host's attempt to bind the address <c>server.host</c> names, at <paramref name="port"/>. A
+    /// failure is logged as a warning, shown to the user, and kept for the status report; the reason is the system's error
+    /// put in words where it can be, such as a port that is taken.
+    /// </summary>
+    /// <param name="address">The address that was to be listened on besides loopback.</param>
+    /// <param name="port">The port of the service.</param>
+    /// <param name="failure">The error the bind failed with; <c>null</c> when the address answers.</param>
+    public void RecordExtraListener(IPAddress address, int port, Exception? failure)
+    {
+        var listener = new ExtraListenerStatus(new Uri($"http://{HostText(address)}:{port}/"), failure is null ? null : FailureReason(address, port, failure));
+        _extraListener = listener;
+        if (listener.FailureReason is null)
+            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, listener.Address);
+        else
+            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, listener.Address, listener.FailureReason);
+    }
+
+    private string FailureReason(IPAddress address, int port, Exception failure) => failure is SocketException socket
+        ? socket.SocketErrorCode switch
+        {
+            SocketError.AddressAlreadyInUse => ManagementApiMessages.ExtraPortInUse.Format(Config.Language, port),
+            SocketError.AddressNotAvailable => ManagementApiMessages.ExtraAddressUnavailable.Format(Config.Language, address),
+            _ => socket.Message,
+        }
+        : failure.Message;
+
+    /// <summary>An IP address as it goes into a URL: an IPv6 address in brackets.</summary>
+    private static string HostText(IPAddress address) =>
+        address.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{address}]" : address.ToString();
+
     /// <summary>The line to show when <see cref="TacitConfig.Port"/> is taken by another program.</summary>
     public string PortInUseMessage() =>
         Messages.PortInUse.Format(Config.Language, Config.Port, Path.Combine(_options.TacitHome, "config.yaml"));
@@ -210,7 +250,8 @@ public sealed class MemoryService : IDisposable
     {
         var uptime = _options.Time.GetUtcNow() - _startedAt;
         return StatusReporter.RunningAsync(
-            _options, Config, endpoint, ProductVersion.Current, uptime < TimeSpan.Zero ? TimeSpan.Zero : uptime, _models.Statuses, cancellationToken);
+            _options, Config, endpoint, ProductVersion.Current, uptime < TimeSpan.Zero ? TimeSpan.Zero : uptime, _models.Statuses,
+            _extraListener, cancellationToken);
     }
 
     /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
@@ -235,13 +276,15 @@ public sealed class MemoryService : IDisposable
         return new TacitException(TacitError.InternalFailure, ManagementApiMessages.ApiInternalFailure.In(Config.Language), cause);
     }
 
-    /// <summary>The message for a request the management API refuses, in the memory language; <paramref name="port"/> is the port it arrived on.</summary>
-    public string ApiRefusalMessage(TacitError error, int port) => error switch
+    /// <summary>The message for a request the host refuses (the management API's guards, its connection rule, or the MCP endpoint's), in the memory language.</summary>
+    public string RefusalMessage(TacitError error) => error switch
     {
         TacitError.ApiOriginRefused => ManagementApiMessages.ApiOriginRefused.Format(Config.Language),
-        TacitError.ApiHostRefused => ManagementApiMessages.ApiHostRefused.Format(Config.Language, port),
+        TacitError.ApiHostRefused => ManagementApiMessages.ApiHostRefused.Format(Config.Language),
         TacitError.ApiContentTypeRefused => ManagementApiMessages.ApiContentTypeRefused.Format(Config.Language),
-        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Not a management API refusal."),
+        TacitError.ApiUnauthorized => ManagementApiMessages.ApiUnauthorized.Format(Config.Language),
+        TacitError.McpRemoteRefused => ManagementApiMessages.McpRemoteRefused.Format(Config.Language),
+        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Not a host refusal."),
     };
 
     /// <summary>

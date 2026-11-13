@@ -83,6 +83,12 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             var listening = service.ListeningMessage(host.Endpoint);
             log.Output.LogInformation("{Text}", listening);
             console.Out.WriteLine(listening);
+            if (service.ExtraListener is { FailureReason: null } extra)
+            {
+                var extraLine = service.ExtraListeningMessage(extra.Address);
+                log.Output.LogInformation("{Text}", extraLine);
+                console.Out.WriteLine(extraLine);
+            }
             try
             {
                 await Task.Delay(Timeout.Infinite, cancellationToken);

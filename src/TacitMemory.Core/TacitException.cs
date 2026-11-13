@@ -78,14 +78,20 @@ public enum TacitError
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 
-    /// <summary>The management API refused a request that carries an Origin header (a browser page on another site).</summary>
+    /// <summary>The management API refused a request whose Origin is not the origin of the request itself (a browser page on another site).</summary>
     ApiOriginRefused,
 
-    /// <summary>The management API refused a request whose Host is not this service's loopback address and port (DNS rebinding).</summary>
+    /// <summary>The management API refused a local request whose Host is not a loopback name (DNS rebinding).</summary>
     ApiHostRefused,
 
-    /// <summary>The management API refused a POST whose Content-Type is not application/json.</summary>
+    /// <summary>The management API refused a POST or PUT whose Content-Type is not application/json.</summary>
     ApiContentTypeRefused,
+
+    /// <summary>The management API refused a connection from another device: it has no session to show yet.</summary>
+    ApiUnauthorized,
+
+    /// <summary>The MCP endpoint refused a connection from another device; MCP is for this machine only.</summary>
+    McpRemoteRefused,
 }
 
 /// <summary>A refused facade operation. <see cref="Exception.Message"/> is localized and meant for the user.</summary>

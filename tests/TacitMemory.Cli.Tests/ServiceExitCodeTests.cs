@@ -67,6 +67,40 @@ public sealed class ServiceExitCodeTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_names_the_web_address_when_the_service_is_not_running()
+    {
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Contains($"Web 界面：http://127.0.0.1:{_cli.Port}/ui/", result.Stdout);
+    }
+
+    [Fact]
+    public async Task Status_names_the_web_address_and_the_extra_listener_while_the_service_runs()
+    {
+        _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n  host: 127.0.0.2\n");
+        await _cli.StartServiceAsync();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"Web 界面：http://127.0.0.1:{_cli.Port}/ui/", result.Stdout);
+        Assert.Contains($"额外监听：http://127.0.0.2:{_cli.Port}/", result.Stdout);
+    }
+
+    [Fact]
+    public async Task Status_names_the_reason_when_the_extra_listener_did_not_bind_and_the_service_still_runs()
+    {
+        // 192.0.2.1 is a documentation address this machine does not have.
+        _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n  host: 192.0.2.1\n");
+        await _cli.StartServiceAsync();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"额外监听失败：http://192.0.2.1:{_cli.Port}/，192.0.2.1 不是本机的地址", result.Stdout);
+    }
+
+    [Fact]
     public async Task Status_exits_1_when_the_service_refuses_the_report_and_names_the_refusal_on_stderr()
     {
         await _cli.StartRefusingServiceAsync("maintenance", "the service is under maintenance");

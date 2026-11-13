@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OpenApi;
@@ -71,16 +73,24 @@ public sealed record RestoreBody
 }
 
 /// <summary>
-/// The management API at <c>/api</c>, on the same listener as <c>/mcp</c>. The guards apply to paths under <c>/api</c>
-/// only: a request that carries an Origin header is refused (a web page on another site is calling it), a request whose
-/// Host is not this service's loopback address and port is refused (DNS rebinding), and a POST whose Content-Type is not
-/// application/json is refused. There is no token: the service listens on loopback only.
+/// The management API at <c>/api</c>, on the same listeners as <c>/mcp</c>. The guards apply to paths under <c>/api</c>
+/// only, and run before anything else: a request whose Origin is not its own origin is refused (a web page on another site
+/// is calling it); a local request whose Host is not a loopback name is refused (DNS rebinding); a POST or PUT whose
+/// Content-Type is not application/json is refused. Then a connection from another device is refused with 401: there are
+/// no sessions yet. There is no token: a local connection is trusted as it is.
 /// </summary>
 internal static class ManagementApi
 {
     private const string Prefix = "/api";
 
-    public static void Map(WebApplication app, MemoryService service)
+    /// <summary>
+    /// The Host names a local request may carry: the IPv4 loopback address, <c>localhost</c> and the IPv6 loopback address,
+    /// with or without a port. The port is not checked: only the name matters for DNS rebinding.
+    /// </summary>
+    private static readonly Regex LoopbackHost = new(@"^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Maps the API under <c>/api</c>. <paramref name="isLocal"/> says which peer addresses are local.</summary>
+    public static void Map(WebApplication app, MemoryService service, Func<IPAddress?, bool> isLocal)
     {
         app.Use(async (context, next) =>
         {
@@ -93,12 +103,17 @@ internal static class ManagementApi
             // Every call under /api is logged once, refused or not, with the status it was answered with.
             var started = Stopwatch.GetTimestamp();
             var status = StatusCodes.Status500InternalServerError;
+            var local = isLocal(context.Connection.RemoteIpAddress);
             try
             {
-                if (Refusal(context) is { } refusal)
+                if (Refusal(context, local) is { } refusal)
                 {
-                    var message = service.ApiRefusalMessage(refusal.Error, context.Connection.LocalPort);
-                    await Json(new ApiError(refusal.Error.ToString(), message), refusal.Status).ExecuteAsync(context);
+                    await Json(new ApiError(refusal.Error.ToString(), service.RefusalMessage(refusal.Error)), refusal.Status).ExecuteAsync(context);
+                }
+                else if (!local)
+                {
+                    await Json(new ApiError(nameof(TacitError.ApiUnauthorized), service.RefusalMessage(TacitError.ApiUnauthorized)), StatusCodes.Status401Unauthorized)
+                        .ExecuteAsync(context);
                 }
                 else
                 {
@@ -163,12 +178,13 @@ internal static class ManagementApi
     }
 
     /// <summary>
-    /// Declares the error bodies of an endpoint. Every endpoint can be refused by the Origin and Host guards and can fail in
-    /// the environment, so 403 and 500 are always declared; the statuses given are the ones its own operation adds.
+    /// Declares the error bodies of an endpoint. Every endpoint can be refused by the guards, refused to a connection from
+    /// another device with 401, and can fail in the environment, so 401, 403 and 500 are always declared; the statuses given
+    /// are the ones its own operation adds.
     /// </summary>
     private static RouteHandlerBuilder ProducesErrors(this RouteHandlerBuilder builder, params int[] statuses)
     {
-        foreach (var status in statuses.Append(StatusCodes.Status403Forbidden).Append(StatusCodes.Status500InternalServerError))
+        foreach (var status in statuses.Append(StatusCodes.Status401Unauthorized).Append(StatusCodes.Status403Forbidden).Append(StatusCodes.Status500InternalServerError))
             builder.Produces<ApiError>(status);
         return builder;
     }
@@ -230,22 +246,36 @@ internal static class ManagementApi
     private static IResult Json<T>(T value, int statusCode = StatusCodes.Status200OK) =>
         Results.Text(JsonSerializer.Serialize(value, ManagementApiJson.Options), "application/json; charset=utf-8", statusCode: statusCode);
 
-    /// <summary>The guard that refuses the request, with its status code; <c>null</c> when the request may pass.</summary>
-    private static (TacitError Error, int Status)? Refusal(HttpContext context)
+    /// <summary>
+    /// The guard that refuses the request, with its status code; <c>null</c> when the request may pass. The Origin rule
+    /// applies to every connection; the Host rule only to a local one, since a remote peer is not reached by a name of this
+    /// machine; the Content-Type rule to every connection that writes.
+    /// </summary>
+    private static (TacitError Error, int Status)? Refusal(HttpContext context, bool local)
     {
-        if (context.Request.Headers.ContainsKey("Origin"))
+        if (!SameOrigin(context))
             return (TacitError.ApiOriginRefused, StatusCodes.Status403Forbidden);
 
-        var port = context.Connection.LocalPort;
-        var host = context.Request.Headers.Host.ToString();
-        if (!string.Equals(host, $"127.0.0.1:{port}", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(host, $"localhost:{port}", StringComparison.OrdinalIgnoreCase))
+        if (local && !LoopbackHost.IsMatch(context.Request.Headers.Host.ToString()))
             return (TacitError.ApiHostRefused, StatusCodes.Status403Forbidden);
 
-        if (HttpMethods.IsPost(context.Request.Method) && !IsJson(context.Request.ContentType))
+        var method = context.Request.Method;
+        if ((HttpMethods.IsPost(method) || HttpMethods.IsPut(method)) && !IsJson(context.Request.ContentType))
             return (TacitError.ApiContentTypeRefused, StatusCodes.Status415UnsupportedMediaType);
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the request has no Origin header, or one that is the origin of the request itself: its scheme and its Host
+    /// header. A browser page on another site sends its own origin, which never matches.
+    /// </summary>
+    private static bool SameOrigin(HttpContext context)
+    {
+        if (!context.Request.Headers.TryGetValue("Origin", out var origin))
+            return true;
+        var own = $"{context.Request.Scheme}://{context.Request.Headers.Host}";
+        return string.Equals(origin.ToString(), own, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

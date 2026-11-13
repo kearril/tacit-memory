@@ -1,8 +1,10 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
@@ -15,7 +17,11 @@ using TacitMemory.Host.Mcp;
 
 namespace TacitMemory.Host;
 
-/// <summary>The memory service's HTTP endpoints on 127.0.0.1, stateless: MCP at <c>/mcp</c> and the management API at <c>/api</c>.</summary>
+/// <summary>
+/// The memory service's HTTP endpoints: MCP at <c>/mcp</c> and the management API at <c>/api</c>, on 127.0.0.1 and, when
+/// <c>server.host</c> names one, on that address too. The peer address decides who is local: a connection from a loopback
+/// address is local, any other is remote. Stateless.
+/// </summary>
 public sealed class ServiceHost : IAsyncDisposable
 {
     private readonly WebApplication _app;
@@ -29,17 +35,43 @@ public sealed class ServiceHost : IAsyncDisposable
     public Uri Endpoint { get; }
 
     /// <summary>
-    /// Starts listening; <c>null</c> when <paramref name="port"/> is already in use. Port 0 picks a free one. The host's
-    /// own warnings go to <paramref name="logs"/>; ASP.NET Core and the MCP SDK write nothing below warning.
+    /// Starts listening on loopback, and on the address <c>server.host</c> names when there is one; <c>null</c> when
+    /// <paramref name="port"/> is already in use on loopback. Port 0 picks a free one. An extra address that cannot bind does
+    /// not stop the start: the service runs on loopback, and the status report says why. ASP.NET Core and the MCP SDK write
+    /// nothing below warning.
     /// </summary>
-    public static async Task<ServiceHost?> TryStartAsync(MemoryService service, int port, ILoggerProvider logs, CancellationToken cancellationToken = default)
+    public static Task<ServiceHost?> TryStartAsync(MemoryService service, int port, ILoggerProvider logs, CancellationToken cancellationToken = default) =>
+        TryStartAsync(service, port, logs, IsLoopback, cancellationToken);
+
+    /// <summary>
+    /// <see cref="TryStartAsync(MemoryService, int, ILoggerProvider, CancellationToken)"/> with the rule that says which peers
+    /// are local. Tests narrow the rule, so a remote connection can be made from a loopback address; the rule is not a setting.
+    /// </summary>
+    internal static async Task<ServiceHost?> TryStartAsync(
+        MemoryService service, int port, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, CancellationToken cancellationToken = default)
     {
+        var extra = service.Config.ExtraAddress;
+        Exception? extraFailure = null;
+        if (extra is not null)
+        {
+            // Both listeners share one port, so a port 0 is picked here, before either is bound.
+            if (port == 0)
+                port = FreePort();
+            extraFailure = Probe(extra, port);
+        }
+        var listenOnExtra = extra is not null && extraFailure is null;
+
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
         builder.Logging.AddProvider(logs);
         // A taken port is reported to the user in their language; the host's own error log would only repeat it.
         builder.Logging.AddFilter("Microsoft.Extensions.Hosting", LogLevel.None);
-        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, port));
+        builder.WebHost.ConfigureKestrel(kestrel =>
+        {
+            kestrel.Listen(IPAddress.Loopback, port);
+            if (listenOnExtra)
+                kestrel.Listen(extra!, port);
+        });
         builder.Services.AddSingleton(service);
         ManagementApi.AddOpenApi(builder.Services);
         builder.Services.AddMcpServer(options =>
@@ -67,7 +99,19 @@ public sealed class ServiceHost : IAsyncDisposable
                 throw new McpProtocolException($"Unknown prompt '{request.Params?.Name}'.", McpErrorCode.InvalidParams));
 
         var app = builder.Build();
-        ManagementApi.Map(app, service);
+        ManagementApi.Map(app, service, isLocal);
+        // MCP is for this machine only: a connection from anywhere else is refused before the endpoint sees it.
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/mcp", StringComparison.Ordinal) && !isLocal(context.Connection.RemoteIpAddress))
+            {
+                var refusal = new ApiError(nameof(TacitError.McpRemoteRefused), service.RefusalMessage(TacitError.McpRemoteRefused));
+                await Results.Text(JsonSerializer.Serialize(refusal, ManagementApiJson.Options), "application/json; charset=utf-8", statusCode: StatusCodes.Status403Forbidden)
+                    .ExecuteAsync(context);
+                return;
+            }
+            await next(context);
+        });
         app.MapMcp("/mcp");
         try
         {
@@ -79,9 +123,47 @@ public sealed class ServiceHost : IAsyncDisposable
             return null;
         }
 
-        var bound = new Uri(app.Urls.Single()).Port;
+        if (extra is not null)
+            service.RecordExtraListener(extra, port, extraFailure);
+        var bound = new Uri(app.Urls.First()).Port;
         return new ServiceHost(app, new Uri($"http://127.0.0.1:{bound}/mcp"));
     }
+
+    /// <summary>
+    /// Binds the address the way the server will, before the server starts, so a failure is known in advance and costs the extra
+    /// listener alone. Returns the failure, or <c>null</c> when the address can be bound.
+    /// </summary>
+    private static Exception? Probe(IPAddress address, int port)
+    {
+        try
+        {
+            using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            socket.Bind(new IPEndPoint(address, port));
+            return null;
+        }
+        catch (SocketException e)
+        {
+            return e;
+        }
+    }
+
+    /// <summary>A port that was free a moment ago; used only when a port 0 must name one port for two listeners.</summary>
+    private static int FreePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        try
+        {
+            return ((IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
+
+    /// <summary>The peers the default rule counts as local: the whole IPv4 loopback range, IPv6 loopback and their IPv4-mapped forms.</summary>
+    private static bool IsLoopback(IPAddress? peer) => peer is not null && IPAddress.IsLoopback(peer);
 
     /// <summary>
     /// The incoming filter that hands each client's declaration to the service. On the 2026-07-28 revision every request carries

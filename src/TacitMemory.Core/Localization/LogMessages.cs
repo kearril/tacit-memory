@@ -35,6 +35,10 @@ internal static class LogMessages
     public static readonly Localized ApiCall = new(
         "管理 API {0} {1} 返回 {2}，耗时 {3} 毫秒",
         "Management API {0} {1} answered {2} in {3} ms");
+    public static readonly Localized ExtraListenerBound = new("额外监听已启动：{0}", "Extra listener started: {0}");
+    public static readonly Localized ExtraListenerFailed = new(
+        "额外监听 {0} 绑定失败，服务只在回环地址上运行：{1}",
+        "The extra listener {0} did not bind, so the service runs on loopback only: {1}");
     public static readonly Localized ToolCall = new(
         "工具 {0}（op {1}，目标 {2}）：{3}，耗时 {4} 毫秒",
         "Tool {0} (op {1}, target {2}): {3}, {4} ms");

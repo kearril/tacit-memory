@@ -23,28 +23,44 @@ internal static class StatusReporter
     /// <summary>The report of a running service: its endpoint, version and uptime, its models' states, and the shared columns.</summary>
     public static async Task<StatusReport> RunningAsync(
         TacitOptions options, TacitConfig config, Uri endpoint, string version, TimeSpan uptime, IReadOnlyList<ModelStatus> models,
-        CancellationToken cancellationToken)
+        ExtraListenerStatus? extraListener, CancellationToken cancellationToken)
     {
         var language = config.Language;
         var shared = await SharedAsync(options, config, cancellationToken);
+        var web = WebAddress(endpoint);
+        List<string> lines =
+        [
+            ManagementApiMessages.ServiceRunning.In(language),
+            ManagementApiMessages.ServiceAddress.Format(language, endpoint),
+            ManagementApiMessages.ServiceVersion.Format(language, version),
+            ManagementApiMessages.ServiceUptime.Format(language, Uptime(language, uptime)),
+            ManagementApiMessages.WebAddress.Format(language, web),
+        ];
+        if (extraListener is not null)
+            lines.Add(ExtraListenerLine(language, extraListener));
         return shared with
         {
             Service = new ServiceStatus(
                 ManagementApiMessages.ServiceTitle.In(language),
-                [
-                    ManagementApiMessages.ServiceRunning.In(language),
-                    ManagementApiMessages.ServiceAddress.Format(language, endpoint),
-                    ManagementApiMessages.ServiceVersion.Format(language, version),
-                    ManagementApiMessages.ServiceUptime.Format(language, Uptime(language, uptime)),
-                ],
+                lines,
                 Running: true,
                 endpoint,
                 version,
                 (long)uptime.TotalSeconds,
-                OtherProgramAnswered: false),
+                OtherProgramAnswered: false,
+                web,
+                extraListener),
             Models = Models(language, models),
         };
     }
+
+    /// <summary>The Web interface's address: the loopback address of the service's MCP endpoint, at <c>/ui/</c>.</summary>
+    private static Uri WebAddress(Uri endpoint) => new(endpoint, "/ui/");
+
+    /// <summary>The extra listener's line: its address when it answers, and its address with the reason when it did not.</summary>
+    private static string ExtraListenerLine(MemoryLanguage language, ExtraListenerStatus extra) => extra.FailureReason is null
+        ? ManagementApiMessages.ExtraListenerAddress.Format(language, extra.Address)
+        : ManagementApiMessages.ExtraListenerFailed.Format(language, extra.Address, extra.FailureReason);
 
     /// <summary>
     /// The report when no service answers. It reads no model; the service column says so, says whether another program
@@ -80,14 +96,17 @@ internal static class StatusReporter
         var line = otherProgramAnswered
             ? ManagementApiMessages.ServiceNotRunningOtherProgram.Format(language, port)
             : ManagementApiMessages.ServiceNotRunning.In(language);
+        var web = WebAddress(endpoint);
         return new ServiceStatus(
             ManagementApiMessages.ServiceTitle.In(language),
-            [line, ManagementApiMessages.ServiceAddress.Format(language, endpoint)],
+            [line, ManagementApiMessages.ServiceAddress.Format(language, endpoint), ManagementApiMessages.WebAddress.Format(language, web)],
             Running: false,
             Endpoint: endpoint,
             Version: null,
             UptimeSeconds: null,
-            OtherProgramAnswered: otherProgramAnswered);
+            OtherProgramAnswered: otherProgramAnswered,
+            WebAddress: web,
+            ExtraListener: null);
     }
 
     /// <summary>

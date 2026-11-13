@@ -76,6 +76,8 @@ public sealed record ConfigStatus(string Title, IReadOnlyList<string> Lines) : I
 /// <param name="Version">The running service's version; <c>null</c> when it does not run.</param>
 /// <param name="UptimeSeconds">How long the service has run; <c>null</c> when it does not run.</param>
 /// <param name="OtherProgramAnswered">Another program answered on the configured port, so the service is not running.</param>
+/// <param name="WebAddress">The address of the Web interface on loopback, where the service serves it.</param>
+/// <param name="ExtraListener">The extra listener <c>server.host</c> names while the service runs; <c>null</c> when none is named or the service does not run.</param>
 public sealed record ServiceStatus(
     string Title,
     IReadOnlyList<string> Lines,
@@ -83,11 +85,33 @@ public sealed record ServiceStatus(
     Uri? Endpoint,
     string? Version,
     long? UptimeSeconds,
-    bool OtherProgramAnswered) : IStatusColumn
+    bool OtherProgramAnswered,
+    Uri WebAddress,
+    ExtraListenerStatus? ExtraListener) : IStatusColumn
 {
-    /// <summary>Every line of the service column is ok while the service runs, and attention while it does not.</summary>
-    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select(_ => (StatusLevel?)(Running ? StatusLevel.Ok : StatusLevel.Attention)).ToList();
+    /// <summary>
+    /// The lines are the state, the MCP address, and while running the version and uptime; then the Web address, which is
+    /// plain, and the extra listener last when there is one. Every line is ok while the service runs and attention while it
+    /// does not, except the extra listener, which is a problem when it did not bind.
+    /// </summary>
+    public IReadOnlyList<StatusLevel?> LineLevels()
+    {
+        var levels = Lines.Select(_ => (StatusLevel?)(Running ? StatusLevel.Ok : StatusLevel.Attention)).ToList();
+        var webIndex = Lines.Count - (ExtraListener is null ? 1 : 2);
+        if (webIndex >= 0 && webIndex < levels.Count)
+            levels[webIndex] = null;
+        if (ExtraListener is not null && levels.Count > 0)
+            levels[^1] = ExtraListener.FailureReason is null ? StatusLevel.Ok : StatusLevel.Problem;
+        return levels;
+    }
 }
+
+/// <summary>
+/// The extra listener <c>server.host</c> names: the base address it answers on, and why it did not bind.
+/// </summary>
+/// <param name="Address">The base address, such as <c>http://192.168.1.10:18888/</c>.</param>
+/// <param name="FailureReason">Why the address could not be bound, in the memory language; <c>null</c> when the listener answers.</param>
+public sealed record ExtraListenerStatus(Uri Address, string? FailureReason);
 
 /// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data. Offline, only the unconfigured models are listed.</summary>
 public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn

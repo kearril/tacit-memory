@@ -26,6 +26,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden",
             "content": {
@@ -77,6 +87,16 @@
           },
           "415": {
             "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -156,6 +176,16 @@
           },
           "415": {
             "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -398,6 +428,16 @@
           },
           "415": {
             "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -751,6 +791,25 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "ExtraListenerStatus": {
+        "required": [
+          "address",
+          "failureReason"
+        ],
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "format": "uri"
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1110,7 +1169,9 @@
           "endpoint",
           "version",
           "uptimeSeconds",
-          "otherProgramAnswered"
+          "otherProgramAnswered",
+          "webAddress",
+          "extraListener"
         ],
         "type": "object",
         "properties": {
@@ -1148,6 +1209,20 @@
           },
           "otherProgramAnswered": {
             "type": "boolean"
+          },
+          "webAddress": {
+            "type": "string",
+            "format": "uri"
+          },
+          "extraListener": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ExtraListenerStatus"
+              }
+            ]
           }
         }
       },

@@ -132,10 +132,12 @@ public sealed class ManagementApiTests : IAsyncLifetime
 
     [Theory]
     [InlineData("evil.example")]
-    [InlineData("127.0.0.1")]
-    [InlineData("127.0.0.1:1")]
-    [InlineData("localhost:1")]
-    public async Task A_host_other_than_this_services_loopback_address_and_port_is_refused(string host)
+    [InlineData("127.0.0.1.evil.example")]
+    [InlineData("localhost.evil.example")]
+    [InlineData("127.0.0.2")]
+    [InlineData("0.0.0.0")]
+    [InlineData("[::2]")]
+    public async Task A_local_request_whose_host_is_not_a_loopback_name_is_refused(string host)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, Url("/api/status"));
         request.Headers.Host = host;
@@ -146,18 +148,67 @@ public sealed class ManagementApiTests : IAsyncLifetime
         Assert.Equal(nameof(TacitError.ApiHostRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
-    [Fact]
-    public async Task The_loopback_address_and_localhost_with_this_port_are_accepted()
+    [Theory]
+    [InlineData("127.0.0.1")]
+    [InlineData("127.0.0.1:1")]
+    [InlineData("localhost")]
+    [InlineData("LOCALHOST:65535")]
+    [InlineData("[::1]")]
+    [InlineData("[::1]:8080")]
+    public async Task A_local_request_whose_host_is_a_loopback_name_is_accepted_on_any_port(string host)
     {
-        foreach (var host in new[] { $"127.0.0.1:{Port}", $"localhost:{Port}" })
+        using var request = new HttpRequestMessage(HttpMethod.Get, Url("/api/status"));
+        request.Headers.Host = host;
+
+        var (status, _) = await Send(request);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+    }
+
+    [Fact]
+    public async Task An_origin_that_is_the_requests_own_origin_is_accepted_and_another_is_refused()
+    {
+        using (var same = new HttpRequestMessage(HttpMethod.Get, Url("/api/status")))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, Url("/api/status"));
-            request.Headers.Host = host;
-
-            var (status, _) = await Send(request);
-
-            Assert.Equal(HttpStatusCode.OK, status);
+            same.Headers.TryAddWithoutValidation("Origin", $"http://127.0.0.1:{Port}");
+            Assert.Equal(HttpStatusCode.OK, (await Send(same)).Status);
         }
+
+        using (var other = new HttpRequestMessage(HttpMethod.Get, Url("/api/status")))
+        {
+            other.Headers.TryAddWithoutValidation("Origin", $"http://localhost:{Port}");
+            var (status, text) = await Send(other);
+            Assert.Equal(HttpStatusCode.Forbidden, status);
+            Assert.Equal(nameof(TacitError.ApiOriginRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        }
+
+        using var opaque = new HttpRequestMessage(HttpMethod.Get, Url("/api/status"));
+        opaque.Headers.TryAddWithoutValidation("Origin", "null");
+        Assert.Equal(HttpStatusCode.Forbidden, (await Send(opaque)).Status);
+    }
+
+    [Fact]
+    public async Task A_request_without_an_origin_header_passes_the_origin_guard()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, Url("/api/status"));
+
+        var (status, _) = await Send(request);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+    }
+
+    [Fact]
+    public async Task A_put_that_is_not_application_json_is_refused_with_415()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, Url("/api/status"))
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "text/plain"),
+        };
+
+        var (status, text) = await Send(request);
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, status);
+        Assert.Equal(nameof(TacitError.ApiContentTypeRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
