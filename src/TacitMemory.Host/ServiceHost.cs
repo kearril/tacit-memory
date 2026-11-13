@@ -60,6 +60,8 @@ public sealed class ServiceHost : IAsyncDisposable
             extraFailure = Probe(extra, port);
         }
         var listenOnExtra = extra is not null && extraFailure is null;
+        // 0.0.0.0 already covers loopback, and on most systems it cannot share a port with 127.0.0.1, so it stands alone.
+        var listenOnLoopback = !(listenOnExtra && extra!.Equals(IPAddress.Any));
 
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
@@ -68,7 +70,8 @@ public sealed class ServiceHost : IAsyncDisposable
         builder.Logging.AddFilter("Microsoft.Extensions.Hosting", LogLevel.None);
         builder.WebHost.ConfigureKestrel(kestrel =>
         {
-            kestrel.Listen(IPAddress.Loopback, port);
+            if (listenOnLoopback)
+                kestrel.Listen(IPAddress.Loopback, port);
             if (listenOnExtra)
                 kestrel.Listen(extra!, port);
         });
