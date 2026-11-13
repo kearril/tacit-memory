@@ -10,7 +10,7 @@
    - 通过 `TacitMemory.Core` 的公开门面测试；
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
-     - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
+     - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断、末尾的 Web 界面地址（取自 `server.port`）。
      - `ConfigTests`：配置的默认值（含主线简报上限 `limits.brief` 与别名最少个数的默认值；已删除的键（清单见 `docs/reference/configuration.md`）按未知键报错并点名键路径；`consolidation.hintItemLength` 与 `hintResidentLength` 的默认值与校验）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；中英模板的 `url` 与密钥变量名；`server.host`：IP 地址文字（含 `0.0.0.0`、`127.0.0.2`、IPv6）保留，`127.0.0.1` 与不设相同，主机名、带端口、方括号与 `1` 这类写法报错并点名键路径。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、内置核心规则的三节顺序、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含主线列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
@@ -97,7 +97,7 @@
      - `HelpAndOutputTests`：`-h`、`--help`、`connect --help`、`probe --help`、裸命令与 `--version` 为 0；`connect` 只绑定临时用户主目录；`show … --default` 的 stdout 只有内置文本；`show tools` 的 stdout 含配置填入的别名最少个数，且不含字数与条数上限；总览的退出码表只出现一次，总览中出现 `probe`；命令与子命令的词不区分大小写；命令帮助不露出 `[Default` 与可空标记 `?>`。
      - `BindingCommandTests`：`connect` 缺任一选项为 2 且不写任何文件；成功时 stdout 含 MCP 端点 URL；名称不合规为 2；`disconnect` 只需 `--client`、路径取自记录；名称不存在为 1。
      - `RestoreConfirmationTests`：`restore` 的确认（stdin 非终端且无 `--yes` 为 2 且什么都不恢复；终端输入非 `y` 为 1；`--yes` 与 `-y` 为 0）；旧的 `--config` 为用法错误，`--include-config` 可用。
-     - `AccessPasswordCommandTests`：设了访问密码后 `status`、`reindex`、`backup`（备份不含 `access.json`）、`restore` 照常返回 0 且不带凭据；`serve` 在 `server.host` 为`127.0.0.1` 以外的地址而没有访问密码时退出 3 并说明键路径。
+     - `AccessPasswordCommandTests`：设了访问密码后 `status`、`reindex`、`backup`（备份不含 `access.json`）、`restore` 照常返回 0 且不带凭据；`serve` 在 `server.host` 为 `127.0.0.1` 以外的地址而没有访问密码时退出 3 并说明键路径。
      - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0；额外监听的地址行在启动提示中（回环地址之后）；额外地址绑定失败时给出警告且服务照常运行。
      - `ProbeCommandTests`：`tacit probe` 的退出码 0（全部成功，含大小写不同的子目标）、1（失败；明确指定的模型未配置）、3（配置无效）；不带参数时跳过未配置的模型且为 0；服务未运行、记忆仓库未初始化时照常；输出不含密钥值；纯文本无控制字符；报告随记忆语言。
      - `OutputStylingTests`：不需要服务的 `status` 与 `connect`：stdout 不是终端，或设置了 `NO_COLOR` 时为纯文本、不含控制字符；终端中的美化与纯文本显示相同的文字（含辅助模型未配置的离线 `status`）；终端 stderr 下失败的等待仍为 4；`ClientsColumnCliTests`：`status` 的客户端栏在服务未运行（记录文件中的控制字符不出现在纯文本中）与运行时都显示。
