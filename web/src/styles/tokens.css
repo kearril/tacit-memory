@@ -109,4 +109,9 @@
   --tk-layer-overlay: 20;
   --tk-layer-dialog: 30;
   --tk-layer-toast: 40;
+
+  /* States: the opacity of a disabled control, and the share of its colour that a hovered control keeps. Neither depends on
+     the colour set, so both sets share them. */
+  --tk-opacity-disabled: 0.5;
+  --tk-mix-hover: 90%;
 }

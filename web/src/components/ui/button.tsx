@@ -5,12 +5,12 @@ import { Slot } from "radix-ui";
 
 // Structure and behaviour follow shadcn/ui. The colours, sizes and motion are the project's tokens (see styles/tokens.css).
 const buttonVariants = cva(
-  "inline-flex h-control shrink-0 cursor-pointer items-center justify-center gap-sm rounded-md px-md text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex h-control shrink-0 cursor-pointer items-center justify-center gap-sm rounded-md px-md text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-(--tk-opacity-disabled)",
   {
     variants: {
       variant: {
-        default: "bg-accent text-on-accent hover:bg-accent/90",
-        destructive: "bg-danger text-on-accent hover:bg-danger/90 focus-visible:ring-danger",
+        default: "bg-accent text-on-accent hover:bg-accent/(--tk-mix-hover)",
+        destructive: "bg-danger text-on-accent hover:bg-danger/(--tk-mix-hover) focus-visible:ring-danger",
         outline: "border-(length:--tk-border-thin) border-line bg-surface text-ink hover:bg-surface-raised",
         ghost: "text-ink hover:bg-surface-raised",
       },
