@@ -20,7 +20,11 @@ internal static class PeerClients
     public static HttpClient Local() => new();
 
     /// <summary>A client from <c>127.0.0.2</c>: a connection the narrowed host treats as remote.</summary>
-    public static HttpClient Remote() => new(new SocketsHttpHandler { ConnectCallback = ConnectFromRemoteAddress });
+    /// <summary>
+    /// A client from <c>127.0.0.2</c>. It keeps no cookies: a test sends exactly the cookie it names, so a session that is
+    /// refused or still valid is the one the test made, not one the client stored from an earlier reply.
+    /// </summary>
+    public static HttpClient Remote() => new(new SocketsHttpHandler { UseCookies = false, ConnectCallback = ConnectFromRemoteAddress });
 
     private static async ValueTask<Stream> ConnectFromRemoteAddress(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
     {

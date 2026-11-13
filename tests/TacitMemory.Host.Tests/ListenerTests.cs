@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 
@@ -11,6 +12,8 @@ namespace TacitMemory.Host.Tests;
 /// </summary>
 public sealed class ListenerTests : IAsyncDisposable, IDisposable
 {
+    private const string Password = "correct horse";
+
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new() { EmbeddingDown = true, RerankDown = true };
     private readonly CapturingLoggerFactory _logs = new();
@@ -32,12 +35,17 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         Dispose();
     }
 
-    /// <summary>Starts a service on a free port with <paramref name="extraConfig"/> in its config.</summary>
+    /// <summary>
+    /// Starts a service on a free port with <paramref name="extraConfig"/> in its config. A config that names a
+    /// <c>server.host</c> needs an access password to start, so the password is set first.
+    /// </summary>
     private async Task<(ServiceHost Host, MemoryService Service)> StartAsync(string extraConfig = "", int port = 0)
     {
         _home.InitReady(extraConfig, models: _models);
         var service = _home.Tacit().OpenService(_ => { }, _logs);
         _disposables.Add(service);
+        if (extraConfig.Length > 0)
+            service.Access.SetPassword(Password, current: null, local: true);
         var host = await ServiceHost.TryStartAsync(service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal)
             ?? throw new InvalidOperationException($"Port {port} is in use.");
         _asyncDisposables.Add(host);
@@ -147,9 +155,73 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         taken.Start();
         _home.InitReady("server:\n  host: 127.0.0.2\n", models: _models);
         using var service = _home.Tacit().OpenService(_ => { }, _logs);
+        service.Access.SetPassword(Password, current: null, local: true);
 
         var host = await ServiceHost.TryStartAsync(service, port, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal);
 
         Assert.Null(host);
+    }
+
+    [Fact]
+    public async Task A_server_host_without_an_access_password_refuses_to_start_and_names_the_key()
+    {
+        _home.InitReady("server:\n  host: 127.0.0.2\n", models: _models);
+        using var service = _home.Tacit().OpenService(_ => { }, _logs);
+
+        var refusal = await Assert.ThrowsAsync<TacitException>(
+            () => ServiceHost.TryStartAsync(service, 0, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal));
+
+        Assert.Equal(TacitError.ConfigInvalid, refusal.Error);
+        Assert.Contains("server.host", refusal.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(Password, _logs.AllText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_wildcard_server_host_without_an_access_password_refuses_to_start()
+    {
+        _home.InitReady("server:\n  host: 0.0.0.0\n", models: _models);
+        using var service = _home.Tacit().OpenService(_ => { }, _logs);
+
+        await Assert.ThrowsAsync<TacitException>(
+            () => ServiceHost.TryStartAsync(service, 0, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal));
+    }
+
+    [Fact]
+    public async Task Without_server_host_a_service_starts_with_no_access_password()
+    {
+        var (host, _) = await StartAsync();
+
+        Assert.Equal(HttpStatusCode.OK, await StatusOf(host.Endpoint.Port, IPAddress.Loopback));
+    }
+    [Fact]
+    public async Task Clearing_the_password_from_this_machine_is_409_while_server_host_names_an_address()
+    {
+        var (host, _) = await StartAsync("server:\n  host: 127.0.0.2\n");
+        using var local = new HttpClient();
+
+        using var response = await local.DeleteAsync(new Uri($"http://127.0.0.1:{host.Endpoint.Port}/api/access-password"));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(nameof(TacitError.PasswordClearRefused), await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Clearing_the_password_from_another_device_is_403_even_with_a_session_and_whatever_server_host_says()
+    {
+        var (host, _) = await StartAsync("server:\n  host: 127.0.0.2\n");
+        var port = host.Endpoint.Port;
+        using var remote = PeerClients.Remote();
+        using var login = await remote.PostAsync(
+            new Uri($"http://127.0.0.2:{port}/api/session"),
+            new StringContent($"{{\"password\":\"{Password}\"}}", Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var cookie = login.Headers.GetValues("Set-Cookie").Single().Split(';')[0];
+        using var request = new HttpRequestMessage(HttpMethod.Delete, new Uri($"http://127.0.0.2:{port}/api/access-password"));
+        request.Headers.TryAddWithoutValidation("Cookie", cookie);
+
+        using var response = await remote.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains(nameof(TacitError.PasswordClearRemoteRefused), await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 }

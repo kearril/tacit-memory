@@ -50,6 +50,13 @@ internal sealed class CliHarness : IDisposable
     public void InitReady(ModelDouble? models = null) => Home.InitReady(extraConfig: ServerSection, models: models);
 
     /// <summary>
+    /// Sets the access password in the state file, as the service's own API would from this machine. A config whose
+    /// <c>server.host</c> is not loopback needs one before the service starts.
+    /// </summary>
+    public void SetAccessPassword() =>
+        Home.Tacit().OpenAccess(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).SetPassword("correct horse", current: null, local: true);
+
+    /// <summary>
     /// The <c>connect</c> arguments for the omp paths under the throwaway user home. The folders a user would already have
     /// are created first, since <c>connect</c> refuses a skills folder that is missing.
     /// </summary>

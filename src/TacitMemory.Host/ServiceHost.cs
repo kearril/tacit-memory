@@ -20,7 +20,7 @@ namespace TacitMemory.Host;
 /// <summary>
 /// The memory service's HTTP endpoints: MCP at <c>/mcp</c> and the management API at <c>/api</c>, on 127.0.0.1 and, when
 /// <c>server.host</c> names one, on that address too. The peer address decides who is local: a connection from a loopback
-/// address is local, any other is remote. Stateless.
+/// address is local, any other is remote; a remote connection reaches the API only with a session. Stateless.
 /// </summary>
 public sealed class ServiceHost : IAsyncDisposable
 {
@@ -50,6 +50,7 @@ public sealed class ServiceHost : IAsyncDisposable
     internal static async Task<ServiceHost?> TryStartAsync(
         MemoryService service, int port, ILoggerProvider logs, Func<IPAddress?, bool> isLocal, CancellationToken cancellationToken = default)
     {
+        service.CheckExtraListenerAllowed();
         var extra = service.Config.ExtraAddress;
         Exception? extraFailure = null;
         if (extra is not null)

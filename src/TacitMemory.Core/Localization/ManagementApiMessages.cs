@@ -52,8 +52,8 @@ internal static class ManagementApiMessages
         "管理 API 的 POST 与 PUT 请求必须是 Content-Type: application/json。",
         "POST and PUT requests to the management API must have Content-Type: application/json.");
     public static readonly Localized ApiUnauthorized = new(
-        "其他设备不能访问管理 API。",
-        "Requests from other devices cannot use the management API.");
+        "其他设备须先登录才能使用管理 API。",
+        "Other devices must log in before they can use the management API.");
     public static readonly Localized McpRemoteRefused = new(
         "MCP 端点只接受本机连接。",
         "The MCP endpoint only accepts connections from this machine.");

@@ -143,6 +143,9 @@ public sealed class MemoryService : IDisposable
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
 
+    /// <summary>The version of TacitMemory the service runs.</summary>
+    public string Version => ProductVersion.Current;
+
     /// <summary>
     /// Refuses to start a service that listens beside loopback without an access password: <c>server.host</c> names an
     /// address that is not loopback, and no password is set. Called by the host before it binds anything.

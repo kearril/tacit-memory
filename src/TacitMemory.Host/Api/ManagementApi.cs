@@ -46,6 +46,29 @@ public static class ManagementApiJson
 public sealed record ApiError(string Error, string Message);
 
 /// <summary>
+/// What <c>/api/session</c> and the access-password endpoints answer: whether the caller is a local connection, whether the
+/// caller holds a valid session, whether an access password is set, the memory language and the service version.
+/// </summary>
+public sealed record SessionStatus(bool Local, bool LoggedIn, bool PasswordSet, MemoryLanguage Language, string Version);
+
+/// <summary>The body of <c>POST /api/session</c>: the access password to log in with.</summary>
+public sealed record PasswordBody
+{
+    public required string Password { get; init; }
+}
+
+/// <summary>
+/// The body of <c>PUT /api/access-password</c>: the password to set, and for a remote caller the password in use now, which
+/// it must give correctly. A local caller leaves <c>Current</c> out.
+/// </summary>
+public sealed record AccessPasswordBody
+{
+    public required string Password { get; init; }
+
+    public string? Current { get; init; }
+}
+
+/// <summary>
 /// The body of <c>POST /api/backup</c>: the target, and for a local backup the absolute directory it goes to. The CLI
 /// sends this same record with the same JSON options.
 /// </summary>
@@ -76,8 +99,9 @@ public sealed record RestoreBody
 /// The management API at <c>/api</c>, on the same listeners as <c>/mcp</c>. The guards apply to paths under <c>/api</c>
 /// only, and run before anything else: a request whose Origin is not its own origin is refused (a web page on another site
 /// is calling it); a local request whose Host is not a loopback name is refused (DNS rebinding); a POST or PUT whose
-/// Content-Type is not application/json is refused. Then a connection from another device is refused with 401: there are
-/// no sessions yet. There is no token: a local connection is trusted as it is.
+/// Content-Type is not application/json is refused. Then a connection from another device needs a session, the cookie the
+/// login sets, unless the path is the session endpoint itself; without one it is refused with 401. A local connection is
+/// trusted as it is.
 /// </summary>
 internal static class ManagementApi
 {
@@ -110,7 +134,7 @@ internal static class ManagementApi
                 {
                     await Json(new ApiError(refusal.Error.ToString(), service.RefusalMessage(refusal.Error)), refusal.Status).ExecuteAsync(context);
                 }
-                else if (!local)
+                else if (!(local || IsSessionEndpoint(context) || service.Access.IsSession(Cookie(context))))
                 {
                     await Json(new ApiError(nameof(TacitError.ApiUnauthorized), service.RefusalMessage(TacitError.ApiUnauthorized)), StatusCodes.Status401Unauthorized)
                         .ExecuteAsync(context);
@@ -147,6 +171,48 @@ internal static class ManagementApi
         })
             .Produces<StatusReport>()
             .ProducesErrors();
+        api.MapGet("/session", (HttpContext context) =>
+            Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
+            .Produces<SessionStatus>()
+            .ProducesErrors();
+        api.MapPost("/session", async (HttpContext context) =>
+        {
+            var body = await ReadBody<PasswordBody>(context, service);
+            var grant = service.Access.Login(body.Password, context.Connection.RemoteIpAddress);
+            SetCookie(context, grant);
+            return Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), loggedIn: true));
+        })
+            .Accepts<PasswordBody>("application/json")
+            .Produces<SessionStatus>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status429TooManyRequests);
+        api.MapDelete("/session", (HttpContext context) =>
+        {
+            context.Response.Cookies.Delete(SessionCookie, SessionCookieOptions(expires: null));
+            return Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), loggedIn: false));
+        })
+            .Produces<SessionStatus>()
+            .ProducesErrors();
+        api.MapPut("/access-password", async (HttpContext context) =>
+        {
+            var body = await ReadBody<AccessPasswordBody>(context, service);
+            var local = isLocal(context.Connection.RemoteIpAddress);
+            var grant = service.Access.SetPassword(body.Password, body.Current, local);
+            // Every earlier session ended with the old password; a remote caller that changed it is given the new session.
+            if (!local)
+                SetCookie(context, grant);
+            return Json(SessionOf(service, local, loggedIn: !local));
+        })
+            .Accepts<AccessPasswordBody>("application/json")
+            .Produces<SessionStatus>()
+            .ProducesErrors(StatusCodes.Status400BadRequest);
+        api.MapDelete("/access-password", (HttpContext context) =>
+        {
+            var local = isLocal(context.Connection.RemoteIpAddress);
+            service.Access.ClearPassword(local);
+            return Json(SessionOf(service, local, loggedIn: false));
+        })
+            .Produces<SessionStatus>()
+            .ProducesErrors(StatusCodes.Status409Conflict);
         api.MapPost("/reindex", async (HttpContext context) =>
         {
             var result = await service.ReindexAsync(context.RequestAborted);
@@ -242,6 +308,40 @@ internal static class ManagementApi
         _ => service.UnexpectedFailure(e),
     };
 
+    /// <summary>The name of the session cookie. The management API reads and sets it, and its path is <c>/api</c>.</summary>
+    private const string SessionCookie = "tacit_session";
+
+    /// <summary>What the session endpoints and the access-password endpoints answer about the caller and the service.</summary>
+    private static SessionStatus SessionOf(MemoryService service, bool local, bool loggedIn) =>
+        new(local, loggedIn, service.Access.PasswordSet, service.Config.Language, service.Version);
+
+    /// <summary>The session cookie the request carries, if any.</summary>
+    private static string? Cookie(HttpContext context) => context.Request.Cookies[SessionCookie];
+
+    /// <summary>
+    /// Whether the request is for the session endpoint, which any connection may use without a session: reading the session,
+    /// logging in and logging out.
+    /// </summary>
+    private static bool IsSessionEndpoint(HttpContext context) =>
+        context.Request.Path.Equals("/api/session", StringComparison.Ordinal)
+        && (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+
+    /// <summary>
+    /// Sets the session cookie: HttpOnly, SameSite=Strict, Path=/api, expiring with the session. Not Secure, since there is no
+    /// HTTPS.
+    /// </summary>
+    private static void SetCookie(HttpContext context, SessionGrant grant) =>
+        context.Response.Cookies.Append(SessionCookie, grant.Value, SessionCookieOptions(grant.Expires));
+
+    private static CookieOptions SessionCookieOptions(DateTimeOffset? expires) => new()
+    {
+        HttpOnly = true,
+        SameSite = SameSiteMode.Strict,
+        Path = "/api",
+        Expires = expires,
+        IsEssential = true,
+    };
+
     /// <summary>A JSON response, serialized here with <see cref="ManagementApiJson.Options"/>.</summary>
     private static IResult Json<T>(T value, int statusCode = StatusCodes.Status200OK) =>
         Results.Text(JsonSerializer.Serialize(value, ManagementApiJson.Options), "application/json; charset=utf-8", statusCode: statusCode);
@@ -287,7 +387,10 @@ internal static class ManagementApi
     {
         TacitError.GitFailed or TacitError.VectorExtensionInvalid or TacitError.CloudBackupFailed or TacitError.RestoreFailed
             or TacitError.FileSystemFailed or TacitError.InternalFailure => StatusCodes.Status500InternalServerError,
-        TacitError.RequestInvalid => StatusCodes.Status400BadRequest,
+        TacitError.RequestInvalid or TacitError.PasswordTooShort => StatusCodes.Status400BadRequest,
+        TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
+        TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
+        TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };
 

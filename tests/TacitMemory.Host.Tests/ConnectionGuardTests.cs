@@ -9,8 +9,9 @@ namespace TacitMemory.Host.Tests;
 
 /// <summary>
 /// The connection rules over real HTTP, with the host's locality narrowed to <c>127.0.0.1</c>: a connection from anywhere
-/// else is remote. Remote connections get <c>/mcp</c> 403 and every <c>/api</c> path 401 (there are no sessions yet), and
-/// the guards of <c>/api</c> run first, so a bad Origin or Content-Type is refused before the 401.
+/// else is remote. Remote connections get <c>/mcp</c> 403 always. Without a session, a remote connection gets 401 on every
+/// <c>/api</c> path except the session endpoints, which answer; the guards of <c>/api</c> run first, so a bad Origin or
+/// Content-Type is refused before the 401. A logged-in remote connection is covered in <see cref="AccessApiTests"/>.
 /// </summary>
 public sealed class ConnectionGuardTests : IAsyncLifetime
 {
@@ -47,7 +48,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
     private Uri Url(string path) => new($"http://127.0.0.1:{Port}{path}");
 
     [Fact]
-    public async Task A_remote_connection_gets_401_with_an_error_body_on_every_api_path()
+    public async Task A_remote_connection_without_a_session_gets_401_with_an_error_body_on_every_api_path_but_the_session_ones()
     {
         foreach (var (method, path) in new[]
         {

@@ -115,6 +115,7 @@ public sealed class ServeTests : IDisposable
     public async Task Serve_prints_the_extra_listener_address_after_the_loopback_one()
     {
         _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n  host: 127.0.0.2\n");
+        _cli.SetAccessPassword();
         using var stop = new CancellationTokenSource();
         var run = _cli.RunAsync(["serve"], cancellationToken: stop.Token);
 
@@ -134,6 +135,7 @@ public sealed class ServeTests : IDisposable
     {
         // 192.0.2.1 is a documentation address this machine does not have.
         _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n  host: 192.0.2.1\n");
+        _cli.SetAccessPassword();
         using var stop = new CancellationTokenSource();
         var run = _cli.RunAsync(["serve"], cancellationToken: stop.Token);
 
