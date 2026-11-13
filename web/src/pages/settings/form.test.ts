@@ -36,7 +36,7 @@ function view(): ConfigView {
   const defaults = configFile();
   defaults.retrieval = { candidates: 30, topK: 5, minRerankScore: 0.001 };
   defaults.decision = { samePreference: threshold, samePage: threshold, sameTopic: threshold, ruleConflict: threshold };
-  return { hash: "h", file, running: file, defaults, keys: [] };
+  return { hash: "h", file, running: file, defaults, keys: [], secrets: [] };
 }
 
 describe("draftsOf", () => {
@@ -154,12 +154,12 @@ describe("placeProblems", () => {
 
   it("keeps the problems no field on the page answers to apart, in the order given", () => {
     const placed = placeProblems([
-      { path: "backup.keep", message: "keep" },
+      { path: "unknown.key", message: "unknown" },
       { path: "decision", message: "unknown key" },
       { path: "retrieval.topK", message: "range" },
     ]);
 
-    expect(placed.unplaced.map((problem) => problem.path)).toEqual(["backup.keep", "decision"]);
+    expect(placed.unplaced.map((problem) => problem.path)).toEqual(["unknown.key", "decision"]);
     expect(placed.bySection).toEqual({ judgment: 1 });
   });
 
@@ -229,5 +229,36 @@ describe("text settings", () => {
     expect(bodyOf(base, edit(draftsOf(base), "server.host", "127.0.0.1")).config.server.host).toBeNull();
     expect(bodyOf(base, edit(draftsOf(base), "server.host", " 192.168.1.5 ")).config.server.host).toBe("192.168.1.5");
     expect(changedPaths(base, edit(draftsOf(base), "server.host", "0.0.0.0 "))).toEqual([]);
+  });
+});
+
+describe("secrets", () => {
+  it("are sent only when changed, and count as changes whether rewritten or removed", () => {
+    const secrets = { "backup.webdav.password": "s3cret", "models.decision.apiKey": null };
+
+    expect(bodyOf(view(), draftsOf(view())).secrets).toEqual({});
+    expect(bodyOf(view(), draftsOf(view()), secrets).secrets).toEqual(secrets);
+    expect(changedPaths(view(), draftsOf(view()), secrets)).toEqual(["models.decision.apiKey", "backup.webdav.password"]);
+  });
+
+  it("are not rewritten to nothing", () => {
+    expect(bodyOf(view(), draftsOf(view()), { "backup.webdav.password": " " }).invalid).toEqual(["backup.webdav.password"]);
+  });
+
+  it("place the service's problems on their own fields", () => {
+    expect(placeProblems([{ path: "backup.webdav.password", message: "required" }]).bySection).toEqual({ backup: 1 });
+  });
+});
+
+describe("cloud backup", () => {
+  it("is none once both its address and its user name are emptied, and is written once either is given", () => {
+    const configured = view();
+    configured.file.backup = { keep: null, webDav: { url: "https://dav.example/tacit/", username: null, password: null } };
+
+    let drafts = edit(draftsOf(configured), "backup.webdav.url", "");
+    expect(bodyOf(configured, drafts).config.backup.webDav).toBeNull();
+
+    drafts = edit(draftsOf(view()), "backup.webdav.url", "https://dav.example/other/");
+    expect(bodyOf(view(), drafts).config.backup.webDav).toMatchObject({ url: "https://dav.example/other/", username: null });
   });
 });

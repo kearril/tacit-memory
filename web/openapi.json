@@ -372,6 +372,85 @@
         }
       }
     },
+    "/api/config/secrets/{path}": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretShown"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/session": {
       "get": {
         "tags": [
@@ -1638,6 +1717,15 @@
           },
           "config": {
             "$ref": "#/components/schemas/ConfigFile"
+          },
+          "secrets": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       },
@@ -1683,7 +1771,8 @@
           "file",
           "running",
           "defaults",
-          "keys"
+          "keys",
+          "secrets"
         ],
         "type": "object",
         "properties": {
@@ -1703,6 +1792,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConfigKey"
+            }
+          },
+          "secrets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SecretState"
             }
           }
         }
@@ -2460,6 +2555,20 @@
           }
         }
       },
+      "SecretShown": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SecretSource": {
         "enum": [
           "environment",
@@ -2489,6 +2598,32 @@
             "items": {
               "$ref": "#/components/schemas/SecretStatus"
             }
+          }
+        }
+      },
+      "SecretState": {
+        "required": [
+          "path",
+          "source",
+          "variable"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SecretSource"
+              }
+            ]
+          },
+          "variable": {
+            "type": "string"
           }
         }
       },

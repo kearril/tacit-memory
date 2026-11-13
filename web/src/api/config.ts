@@ -8,6 +8,8 @@ export type ConfigKey = components["schemas"]["ConfigKey"];
 export type ConfigProblem = components["schemas"]["ConfigProblem"];
 export type ConfigSaved = components["schemas"]["ConfigSaved"];
 export type RestartChange = components["schemas"]["RestartChange"];
+export type SecretState = components["schemas"]["SecretState"];
+export type SecretShown = components["schemas"]["SecretShown"];
 
 /** The query key of the settings. */
 export const CONFIG_QUERY_KEY = ["config"] as const;
@@ -28,8 +30,19 @@ export function useConfig() {
 /**
  * Saves the whole config, based on the file whose hash is `hash`: the service validates it, writes it and reloads. A file
  * changed since is refused (`ConfigChanged`); a config that does not validate is refused with every problem
- * (`ConfigRejected`). Secrets left `null` keep the values the file holds.
+ * (`ConfigRejected`). The secrets in `config` are ignored: `secrets` names those to change, a text writing it and `null`
+ * removing it, and every other keeps what the file holds. The answer names the settings saved with a value the service
+ * takes only when it restarts.
  */
-export function saveConfig(hash: string, config: ConfigFile): Promise<ConfigSaved> {
-  return apiFetch<ConfigSaved>("/api/config", { method: "PUT", body: JSON.stringify({ hash, config }) });
+export function saveConfig(
+  hash: string,
+  config: ConfigFile,
+  secrets: Readonly<Record<string, string | null>>,
+): Promise<ConfigSaved> {
+  return apiFetch<ConfigSaved>("/api/config", { method: "PUT", body: JSON.stringify({ hash, config, secrets }) });
+}
+
+/** The value of the secret at the key path `path` as the service would use it: the environment variable's, else the file's. */
+export function getSecret(path: string): Promise<SecretShown> {
+  return apiFetch<SecretShown>(`/api/config/secrets/${encodeURIComponent(path)}`);
 }

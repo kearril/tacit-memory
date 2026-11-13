@@ -436,10 +436,23 @@ public sealed class MemoryService : IDisposable
     {
         var path = ConfigFilePath;
         var text = File.ReadAllText(path);
-        var file = ConfigFile.From(ConfigLoader.Read(_options, path, text));
+        var loaded = ConfigLoader.Read(_options, path, text);
         return new ConfigView(
-            Hash(text), WithoutSecrets(file), WithoutSecrets(ConfigFile.From(Config)), ConfigSchema.Defaults(_options), ConfigSchema.Keys);
+            Hash(text),
+            WithoutSecrets(ConfigFile.From(loaded)),
+            WithoutSecrets(ConfigFile.From(Config)),
+            ConfigSchema.Defaults(_options),
+            ConfigSchema.Keys,
+            ConfigSchema.SecretStates(loaded, _options));
     }
+
+    /// <summary>
+    /// The value of the secret at <paramref name="path"/> as the service would use it with <c>config.yaml</c> as it is now:
+    /// the environment variable's, else the file's.
+    /// </summary>
+    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretUnknown"/>).</exception>
+    public SecretShown Secret(string path) =>
+        new(ConfigSchema.SecretValue(ConfigLoader.Read(_options, ConfigFilePath, File.ReadAllText(ConfigFilePath)), _options, path));
 
     /// <summary>
     /// Saves <paramref name="file"/> as <c>config.yaml</c> and reloads, as one maintenance operation. <paramref name="hash"/>
@@ -450,10 +463,11 @@ public sealed class MemoryService : IDisposable
     /// <see cref="TacitError.ConfigChanged"/>, <see cref="TacitError.ConfigRejected"/> with every problem, or
     /// <see cref="TacitError.ReloadFailed"/>; in each case <c>config.yaml</c> is as it was.
     /// </exception>
-    public Task<ConfigSaved> SaveConfigAsync(ConfigFile file, string hash, CancellationToken cancellationToken = default) =>
-        RunMaintenanceAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash)), cancellationToken);
+    public Task<ConfigSaved> SaveConfigAsync(
+        ConfigFile file, string hash, IReadOnlyDictionary<string, string?>? secrets = null, CancellationToken cancellationToken = default) =>
+        RunMaintenanceAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash, secrets ?? new Dictionary<string, string?>())), cancellationToken);
 
-    private ConfigSaved SaveConfigCore(ConfigFile file, string hash)
+    private ConfigSaved SaveConfigCore(ConfigFile file, string hash, IReadOnlyDictionary<string, string?> secrets)
     {
         var path = ConfigFilePath;
         var current = File.ReadAllText(path);
@@ -461,7 +475,14 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
 
         var held = ConfigLoader.Read(_options, path, current);
-        var content = ConfigWriter.Render(WithSecretsOf(file, ConfigFile.From(held)), _options);
+        var unknown = secrets.Keys.Where(key => ConfigSchema.Secrets.All(secret => secret.Path != key)).ToList();
+        if (unknown.Count > 0)
+        {
+            var refused = unknown.Select(key => new ConfigProblem(key, ManagementApiMessages.SecretNotSecret.In(Config.Language))).ToList();
+            throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
+        }
+
+        var content = ConfigWriter.Render(WithSecrets(WithSecretsOf(file, ConfigFile.From(held)), secrets), _options);
         TacitConfig saved;
         try
         {
@@ -511,6 +532,31 @@ public sealed class MemoryService : IDisposable
             file.Models.Decision is { } decision ? decision with { ApiKey = null } : null),
         Backup = file.Backup with { WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = null } : null },
     };
+
+    /// <summary>
+    /// <paramref name="file"/> with each secret <paramref name="secrets"/> names set to its value, or removed where the value
+    /// is <c>null</c>. A secret whose model or cloud backup <paramref name="file"/> does not configure is left out with it.
+    /// </summary>
+    private static ConfigFile WithSecrets(ConfigFile file, IReadOnlyDictionary<string, string?> secrets)
+    {
+        ModelFile? Model(ModelFile? model, string path) =>
+            model is not null && secrets.TryGetValue(path, out var key) ? model with { ApiKey = key } : model;
+
+        var webdav = file.Backup.WebDav;
+        return file with
+        {
+            Models = new ModelsFile(
+                Model(file.Models.Embedding, "models.embedding.apiKey"),
+                Model(file.Models.Reranker, "models.reranker.apiKey"),
+                Model(file.Models.Decision, "models.decision.apiKey")),
+            Backup = file.Backup with
+            {
+                WebDav = webdav is not null && secrets.TryGetValue("backup.webdav.password", out var password)
+                    ? webdav with { Password = password }
+                    : webdav,
+            },
+        };
+    }
 
     /// <summary><paramref name="file"/> with each secret as <paramref name="held"/> holds it, for each model and cloud backup both have.</summary>
     private static ConfigFile WithSecretsOf(ConfigFile file, ConfigFile held) => file with

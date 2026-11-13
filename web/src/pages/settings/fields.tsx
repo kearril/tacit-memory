@@ -7,7 +7,17 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import type { Explained } from "../../i18n/messages";
-import { differsFromDefault, type Drafts, FIELDS, inputIdOf, type Pending, type PlacedProblems, textOf, valueAt } from "./form";
+import {
+  differsFromDefault,
+  type Drafts,
+  FIELDS,
+  inputIdOf,
+  type Pending,
+  type PlacedProblems,
+  type SecretEdits,
+  textOf,
+  valueAt,
+} from "./form";
 
 /** What a card needs to show and edit its settings: the view, the inputs, what changed, and where the problems are. */
 export interface SettingsForm {
@@ -19,6 +29,10 @@ export interface SettingsForm {
   readonly pending: ReadonlyMap<string, Pending>;
   readonly edit: (path: string, text: string) => void;
   readonly restore: (path: string) => void;
+  /** The secrets changed on the page; see `SecretEdits`. */
+  readonly secrets: SecretEdits;
+  /** Rewrites a secret (a text), clears it (`null`), or undoes either (`undefined`). */
+  readonly editSecret: (path: string, value: string | null | undefined) => void;
 }
 
 /**
@@ -32,6 +46,7 @@ export function Setting({
   path,
   text,
   defaultText,
+  wide = false,
   children,
 }: {
   readonly form: SettingsForm;
@@ -39,6 +54,8 @@ export function Setting({
   readonly text: Explained;
   /** How to name the default, for a setting whose default is the absence of a value. */
   readonly defaultText?: string;
+  /** Whether the input takes the whole width, for an address rather than a number. */
+  readonly wide?: boolean;
   readonly children?: React.ReactNode;
 }) {
   const dictionary = useDictionary();
@@ -58,10 +75,10 @@ export function Setting({
         <Explaining help={text.help}>
           <Label htmlFor={id}>{text.label}</Label>
         </Explaining>
-        <code className="truncate font-mono text-xs text-ink-muted">{path}</code>
+        <code className="min-w-0 font-mono text-xs break-all text-ink-muted">{path}</code>
         <RestartBadge form={form} path={path} />
       </div>
-      <div className="flex max-w-(--tk-size-tile) items-center gap-xs">
+      <div className={`flex items-center gap-xs ${wide ? "" : "max-w-(--tk-size-tile)"}`}>
         <SettingInput form={form} path={path} id={id} label={text.label} help={text.help} errors={errors} errorId={`${id}-error`} />
         <RestoreButton shown={differs} label={`${dictionary.settings.restoreDefault}: ${text.label}`} onClick={() => form.restore(path)} />
       </div>
@@ -96,7 +113,7 @@ export function ReadOnlySetting({
         <Explaining help={text.help}>
           <span className="text-sm font-medium">{text.label}</span>
         </Explaining>
-        <code className="truncate font-mono text-xs text-ink-muted">{path}</code>
+        <code className="min-w-0 font-mono text-xs break-all text-ink-muted">{path}</code>
         <RestartBadge form={form} path={path} />
       </div>
       <p

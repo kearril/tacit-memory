@@ -418,6 +418,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config/secrets/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    path: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SecretShown"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session": {
         parameters: {
             query?: never;
@@ -1163,6 +1245,9 @@ export interface components {
         ConfigSave: {
             hash: string;
             config: components["schemas"]["ConfigFile"];
+            secrets?: null | {
+                [key: string]: string;
+            };
         };
         ConfigSaved: {
             hash: string;
@@ -1178,6 +1263,7 @@ export interface components {
             running: components["schemas"]["ConfigFile"];
             defaults: components["schemas"]["ConfigFile"];
             keys: components["schemas"]["ConfigKey"][];
+            secrets: components["schemas"]["SecretState"][];
         };
         ConsolidationFile: {
             /** Format: int32 */
@@ -1357,12 +1443,20 @@ export interface components {
             /** Format: double */
             minRerankScore?: null | number;
         };
+        SecretShown: {
+            value: null | string;
+        };
         /** @enum {unknown} */
         SecretSource: "environment" | "configFile" | null;
         SecretsStatus: {
             title: string;
             lines: string[];
             items: components["schemas"]["SecretStatus"][];
+        };
+        SecretState: {
+            path: string;
+            source: null | components["schemas"]["SecretSource"];
+            variable: string;
         };
         SecretStatus: {
             key: string;

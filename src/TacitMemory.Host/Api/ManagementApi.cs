@@ -50,7 +50,11 @@ public sealed record ApiError(string Error, string Message, IReadOnlyList<Config
 /// The body of <c>PUT /api/config</c>: the whole config to save, and the hash of the file it was read from. Its secrets are
 /// not taken; the file keeps the ones it holds.
 /// </summary>
-public sealed record ConfigSave(string Hash, ConfigFile Config);
+/// <param name="Secrets">
+/// The secrets to change, by key path: a value writes it into <c>config.yaml</c>, <c>null</c> removes it from the file. A
+/// secret left out keeps what the file holds.
+/// </param>
+public sealed record ConfigSave(string Hash, ConfigFile Config, IReadOnlyDictionary<string, string?>? Secrets = null);
 
 /// <summary>
 /// What <c>/api/session</c> and the access-password endpoints answer: whether the caller is a local connection, whether the
@@ -203,11 +207,14 @@ internal static class ManagementApi
         api.MapPut("/config", async (HttpContext context) =>
         {
             var body = await ReadBody<ConfigSave>(context, service);
-            return Json(await service.SaveConfigAsync(body.Config, body.Hash, context.RequestAborted));
+            return Json(await service.SaveConfigAsync(body.Config, body.Hash, body.Secrets, context.RequestAborted));
         })
             .Accepts<ConfigSave>("application/json")
             .Produces<ConfigSaved>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapGet("/config/secrets/{path}", (string path) => Json(service.Secret(path)))
+            .Produces<SecretShown>()
+            .ProducesErrors(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapGet("/session", (HttpContext context) =>
             Json(SessionOf(service, isLocal(context.Connection.RemoteIpAddress), service.Access.IsSession(Cookie(context)))))
             .Produces<SessionStatus>()
@@ -466,6 +473,7 @@ internal static class ManagementApi
         TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
+        TacitError.SecretUnknown => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

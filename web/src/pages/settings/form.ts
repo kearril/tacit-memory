@@ -20,6 +20,16 @@ export interface Field {
 /** A value of `config.yaml`. */
 export type Value = number | string | null;
 
+/** The settings of the consolidation card, all whole numbers. */
+export const CONSOLIDATION = [
+  "remindAfterDays",
+  "remindCandidates",
+  "budgetSeconds",
+  "maxConcurrency",
+  "hintItemLength",
+  "hintResidentLength",
+] as const;
+
 /** The four judgments, each with a pair of thresholds. */
 export const JUDGMENTS = ["samePreference", "samePage", "sameTopic", "ruleConflict"] as const;
 
@@ -40,7 +50,25 @@ export const FIELDS: readonly Field[] = [
       group: `decision.${judgment}`,
     })),
   ),
+  ...CONSOLIDATION.map((key) => ({ path: `consolidation.${key}`, section: "consolidation" as const, kind: "integer" as const })),
+  { path: "backup.keep", section: "backup", kind: "integer" },
+  { path: "backup.webdav.url", section: "backup", kind: "text" },
+  { path: "backup.webdav.username", section: "backup", kind: "text" },
 ];
+
+/** The secrets, by key path, and the section whose card holds each. They are changed apart from the other fields. */
+export const SECRETS: readonly { readonly path: string; readonly section: SectionId }[] = [
+  { path: "models.embedding.apiKey", section: "models" },
+  { path: "models.reranker.apiKey", section: "models" },
+  { path: "models.decision.apiKey", section: "models" },
+  { path: "backup.webdav.password", section: "backup" },
+];
+
+/**
+ * The secrets changed on the page, by key path: a text is the new value to write into `config.yaml`, `null` removes the
+ * secret from the file. A secret not named keeps what the file holds.
+ */
+export type SecretEdits = Readonly<Record<string, string | null>>;
 
 /** The settings the page shows without letting them change, and the section that shows them. */
 export const READ_ONLY: readonly { readonly path: string; readonly section: SectionId }[] = [
@@ -70,12 +98,15 @@ export function restoreDefault(view: ConfigView, drafts: Drafts, path: string): 
   return restored;
 }
 
-/** The fields whose input no longer holds the value the view gave, in the page's order. */
-export function changedPaths(view: ConfigView, drafts: Drafts): string[] {
+/** The fields whose input no longer holds the value the view gave, then the secrets changed, in the page's order. */
+export function changedPaths(view: ConfigView, drafts: Drafts, secrets: SecretEdits = {}): string[] {
   const original = draftsOf(view);
-  return FIELDS.filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind)).map(
-    (field) => field.path,
-  );
+  return [
+    ...FIELDS.filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind)).map(
+      (field) => field.path,
+    ),
+    ...SECRETS.filter((secret) => secret.path in secrets).map((secret) => secret.path),
+  ];
 }
 
 /** Whether the setting at `path`, or either threshold of the pair at `path`, holds something other than its default. */
@@ -88,10 +119,15 @@ export function differsFromDefault(view: ConfigView, drafts: Drafts, path: strin
 /**
  * The config to save: the file as the view gave it, with each field taken from its input. A setting equal to its default
  * is left out (`null`), so the file follows the default from then on; a pair of thresholds is written whole once either
- * differs from its default. An emptied input is the default. `invalid` names the inputs that do not hold a number (or a
- * whole number where one is needed); a config with any is not to be sent.
+ * differs from its default. An emptied input is the default. A cloud backup with neither an address nor a user name is
+ * no cloud backup. The secrets go apart, only those changed. `invalid` names the inputs that do not hold a number (or a
+ * whole number where one is needed) and the secrets being rewritten to nothing; a config with any is not to be sent.
  */
-export function bodyOf(view: ConfigView, drafts: Drafts): { readonly config: ConfigFile; readonly invalid: string[] } {
+export function bodyOf(
+  view: ConfigView,
+  drafts: Drafts,
+  secrets: SecretEdits = {},
+): { readonly config: ConfigFile; readonly secrets: SecretEdits; readonly invalid: string[] } {
   const invalid: string[] = [];
   const values = new Map<string, Value>();
   for (const field of FIELDS) {
@@ -116,7 +152,15 @@ export function bodyOf(view: ConfigView, drafts: Drafts): { readonly config: Con
       asDefault ? null : Object.fromEntries(pair.map((field) => [lastKey(field.path), values.get(field.path) ?? null])),
     );
   }
-  return { config, invalid };
+  if (valueAt(config, "backup.webdav.url") === null && valueAt(config, "backup.webdav.username") === null) {
+    config = setAt(config, "backup.webdav", null);
+  }
+  for (const secret of SECRETS) {
+    if (secrets[secret.path]?.trim() === "") {
+      invalid.push(secret.path);
+    }
+  }
+  return { config, secrets, invalid };
 }
 
 /** A setting that waits for a restart, with the value the service runs and the one `config.yaml` holds. */
@@ -176,7 +220,7 @@ export function placeProblems(problems: readonly ConfigProblem[]): PlacedProblem
   for (const problem of problems) {
     const section =
       FIELDS.find((field) => field.path === problem.path || field.group === problem.path)?.section ??
-      READ_ONLY.find((item) => item.path === problem.path)?.section;
+      [...READ_ONLY, ...SECRETS].find((item) => item.path === problem.path)?.section;
     if (section === undefined) {
       unplaced.push(problem);
       continue;
@@ -184,7 +228,11 @@ export function placeProblems(problems: readonly ConfigProblem[]): PlacedProblem
     (byField[problem.path] ??= []).push(problem.message);
     bySection[section] = (bySection[section] ?? 0) + 1;
   }
-  const order = [...READ_ONLY.map((item) => item.path), ...FIELDS.flatMap((field) => [field.group, field.path])];
+  const order = [
+    ...READ_ONLY.map((item) => item.path),
+    ...FIELDS.flatMap((field) => [field.group, field.path]),
+    ...SECRETS.map((secret) => secret.path),
+  ];
   const first = order.find((path) => path !== undefined && byField[path] !== undefined);
   return { byField, bySection, unplaced, first: first ?? null };
 }

@@ -106,6 +106,58 @@ export const en: Dictionary = {
     reloadTitle: "Load the settings again?",
     reloadBody: "Your unsaved changes are dropped, and the page shows config.yaml as it is now.",
     reloadConfirm: "Discard changes and load again",
+    secret: {
+      hidden: "Hidden",
+      unset: "Not set",
+      show: "Show",
+      hide: "Hide",
+      rewrite: "Change",
+      clear: "Clear",
+      undo: "Undo",
+      fromEnvironment: (variable) => `From the environment variable ${variable}`,
+      fromFile: "From config.yaml",
+      environmentNote: (variable) =>
+        `The environment variable ${variable} wins over config.yaml. To change it, change that variable and restart tacit serve.`,
+      fileNote: (variable) => `Written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
+      willClear: "Removed from config.yaml on save",
+      newValue: "New value",
+      emptyRewrite: "Enter the new value, or undo the change.",
+    },
+    consolidation: {
+      title: "Consolidation",
+      summary: "When to remind you to consolidate, how long one consolidation waits at most, and the length hints of its report.",
+      fields: {
+        remindAfterDays: { label: "Remind after days", help: "Once this many days have passed since the last consolidation, the server instructions remind you." },
+        remindCandidates: { label: "Remind at candidates", help: "Once there are this many persona candidates, the server instructions remind you." },
+        budgetSeconds: {
+          label: "Time limit (s)",
+          help: "The most seconds one consolidation waits for the models; at the limit the report comes as usual, and what is left is worked on next time.",
+        },
+        maxConcurrency: { label: "Judgments at once", help: "How many model judgments run at once, shared by every consolidation in the service." },
+        hintItemLength: {
+          label: "Entry length hint",
+          help: "A persona entry or new activity longer than this many characters is listed by the report's length hints. It only hints; nothing is refused.",
+        },
+        hintResidentLength: {
+          label: "Resident block length hint",
+          help: "Once the resident blocks together are longer than this many characters, the report says so in one line. It only hints; nothing is refused.",
+        },
+      },
+    },
+    backup: {
+      title: "Backup",
+      summary: "How many automatic backups to keep, and the WebDAV folder of the cloud backup.",
+      local: "Local",
+      cloud: "Cloud (WebDAV)",
+      urlDefault: "Leave empty for no cloud backup",
+      usernameDefault: "Optional; without it no credentials are sent",
+      fields: {
+        keep: { label: "Automatic backups kept", help: "How many automatic backups backups/ keeps; 0 only turns automatic backups off." },
+        url: { label: "WebDAV folder", help: "The address of the WebDAV folder the cloud backup goes to; the trailing / may be left out." },
+        username: { label: "User name", help: "The WebDAV user name; with a user name, a password is needed too." },
+        password: { label: "Password", help: "The WebDAV password." },
+      },
+    },
     general: {
       title: "General",
       summary: "Where the service listens, the memory repository and language, and the limits on briefs and detail pages.",

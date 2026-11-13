@@ -43,14 +43,17 @@ import {
   pendingRestart,
   placeProblems,
   restoreDefault,
+  type SecretEdits,
   sectionIdOf,
   type SectionId,
 } from "./form";
+import { BackupCard } from "./BackupCard";
+import { ConsolidationCard } from "./ConsolidationCard";
 import { GeneralCard } from "./GeneralCard";
 import { JudgmentCard } from "./JudgmentCard";
 
 /** The sections that have a card so far, in the page's order. */
-const SECTIONS: readonly SectionId[] = ["general", "judgment", "access"];
+const SECTIONS: readonly SectionId[] = ["general", "judgment", "consolidation", "backup", "access"];
 
 /**
  * The settings page: a row of section tabs that stays at the top, then the section cards in a bento grid, and a bar that
@@ -107,16 +110,20 @@ function SettingsEditor({
   const showToast = useToast();
   const [drafts, setDrafts] = useState<Drafts>(() => draftsOf(view));
   const [problems, setProblems] = useState<readonly ConfigProblem[]>([]);
+  const [secrets, setSecrets] = useState<SecretEdits>({});
   const [failure, setFailure] = useState<Failure | null>(null);
 
-  const changed = useMemo(() => changedPaths(view, drafts), [view, drafts]);
+  const changed = useMemo(() => changedPaths(view, drafts, secrets), [view, drafts, secrets]);
   const placed = useMemo(() => placeProblems(problems), [problems]);
   const pending = useMemo(() => new Map(pendingRestart(view).map((item) => [item.path, item])), [view]);
   const drift = useMemo(() => drifted(view), [view]);
   const dirty = changed.length > 0;
 
   const save = useMutation({
-    mutationFn: () => saveConfig(view.hash, bodyOf(view, drafts).config),
+    mutationFn: () => {
+      const body = bodyOf(view, drafts, secrets);
+      return saveConfig(view.hash, body.config, body.secrets);
+    },
     onSuccess: async (saved) => {
       // A save that leaves settings waiting for a restart says so in a dialog, which also says the rest is in effect.
       if (saved.restart.length > 0) {
@@ -151,22 +158,23 @@ function SettingsEditor({
 
   const onSave = () => {
     setFailure(null);
-    const { invalid } = bodyOf(view, drafts);
+    const { invalid } = bodyOf(view, drafts, secrets);
     if (invalid.length > 0) {
-      show(
-        invalid.map((path) => ({
-          path,
-          message: FIELDS.find((field) => field.path === path)?.kind === "integer" ? text.notAWholeNumber : text.notANumber,
-        })),
-      );
+      show(invalid.map((path) => ({ path, message: invalidText(path) })));
       return;
     }
     setProblems([]);
     save.mutate();
   };
 
+  const invalidText = (path: string) => {
+    const kind = FIELDS.find((field) => field.path === path)?.kind;
+    return kind === undefined ? text.secret.emptyRewrite : kind === "integer" ? text.notAWholeNumber : text.notANumber;
+  };
+
   const onDiscard = () => {
     setDrafts(draftsOf(view));
+    setSecrets({});
     setProblems([]);
     setFailure(null);
   };
@@ -184,6 +192,14 @@ function SettingsEditor({
     restore: (path) => {
       setDrafts((current) => restoreDefault(view, current, path));
       setProblems((current) => current.filter((problem) => !touches(problem.path, path)));
+    },
+    secrets,
+    editSecret: (path, value) => {
+      setSecrets((current) => {
+        const rest = Object.fromEntries(Object.entries(current).filter(([key]) => key !== path));
+        return value === undefined ? rest : { ...rest, [path]: value };
+      });
+      setProblems((current) => current.filter((problem) => problem.path !== path));
     },
   };
 
@@ -207,6 +223,8 @@ function SettingsEditor({
       <div className="grid gap-lg lg:grid-cols-2">
         <GeneralCard form={form} className="lg:col-span-2" />
         <JudgmentCard form={form} className="lg:col-span-2" />
+        <ConsolidationCard form={form} />
+        <BackupCard form={form} />
         <AccessSection id={sectionIdOf("access")} className="scroll-mt-xl" />
       </div>
       {dirty ? (

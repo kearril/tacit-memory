@@ -22,6 +22,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _home.InitReady("retrieval: { topK: 3 }\n");
+        _home.EnvironmentVariables["TACIT_RERANKER_API_KEY"] = "env-key";
         _service = _home.Tacit().OpenService(_ => { }, new CapturingLoggerFactory());
         _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal)
             ?? throw new InvalidOperationException("Port 0 is never in use.");
@@ -193,12 +194,81 @@ public sealed class ConfigApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Gives_where_each_secret_comes_from_without_its_value()
+    {
+        var view = await GetAsync();
+
+        Assert.Equal(
+            [
+                new SecretState("models.embedding.apiKey", null, "TACIT_EMBEDDING_API_KEY"),
+                new SecretState("models.reranker.apiKey", SecretSource.Environment, "TACIT_RERANKER_API_KEY"),
+                new SecretState("models.decision.apiKey", SecretSource.ConfigFile, "TACIT_DECISION_API_KEY"),
+                new SecretState("backup.webdav.password", null, "TACIT_WEBDAV_PASSWORD"),
+            ],
+            view.Secrets);
+        Assert.DoesNotContain("test-key", JsonSerializer.Serialize(view, ManagementApiJson.Options));
+    }
+
+    [Fact]
+    public async Task Gives_a_secret_s_value_when_asked_the_environment_s_first()
+    {
+        Assert.Equal("test-key", (await SecretAsync("models.decision.apiKey")).Value);
+        Assert.Equal("env-key", (await SecretAsync("models.reranker.apiKey")).Value);
+        Assert.Null((await SecretAsync("models.embedding.apiKey")).Value);
+
+        using var other = await _local.GetAsync(new Uri(Url, "config/secrets/retrieval.topK"));
+        Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
+        Assert.Equal(nameof(TacitError.SecretUnknown), (await Read<ApiError>(other)).Error);
+    }
+
+    [Fact]
+    public async Task A_secret_is_kept_when_left_out_written_when_given_and_removed_when_null()
+    {
+        var view = await GetAsync();
+        using (var kept = await PutAsync(new ConfigSave(view.Hash, view.File with { Retrieval = view.File.Retrieval with { TopK = 4 } })))
+            Assert.Equal(HttpStatusCode.OK, kept.StatusCode);
+        Assert.Contains("apiKey: test-key", File.ReadAllText(ConfigPath));
+
+        view = await GetAsync();
+        using (var written = await PutAsync(new ConfigSave(view.Hash, view.File, new Dictionary<string, string?> { ["models.decision.apiKey"] = "new-key" })))
+            Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+        Assert.Contains("apiKey: new-key", File.ReadAllText(ConfigPath));
+        Assert.Equal("new-key", (await SecretAsync("models.decision.apiKey")).Value);
+
+        view = await GetAsync();
+        using (var removed = await PutAsync(new ConfigSave(view.Hash, view.File, new Dictionary<string, string?> { ["models.decision.apiKey"] = null })))
+            Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+        Assert.DoesNotContain("apiKey", File.ReadAllText(ConfigPath));
+        Assert.Null((await GetAsync()).Secrets.Single(secret => secret.Path == "models.decision.apiKey").Source);
+    }
+
+    [Fact]
+    public async Task A_key_that_is_not_a_secret_cannot_be_changed_as_one()
+    {
+        var view = await GetAsync();
+
+        using var response = await PutAsync(new ConfigSave(view.Hash, view.File, new Dictionary<string, string?> { ["retrieval.topK"] = "9" }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("retrieval.topK", Assert.Single((await Read<ApiError>(response)).Problems!).Path);
+    }
+
+    [Fact]
     public async Task Another_device_without_a_session_is_refused()
     {
         using var read = await _remote.GetAsync(Url);
         using var save = await PutAsync(new ConfigSave("x", new ConfigFile()), _remote);
+        using var secret = await _remote.GetAsync(new Uri(Url, "config/secrets/models.decision.apiKey"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, read.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, save.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, secret.StatusCode);
+    }
+
+    private async Task<SecretShown> SecretAsync(string path)
+    {
+        using var response = await _local.GetAsync(new Uri(Url, $"config/secrets/{path}"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await Read<SecretShown>(response);
     }
 }

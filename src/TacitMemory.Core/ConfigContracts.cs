@@ -12,7 +12,18 @@ namespace TacitMemory.Core;
 /// <param name="File">The settings as <c>config.yaml</c> holds them now.</param>
 /// <param name="Running">The settings the service runs with: they differ from <see cref="File"/> where a setting waits for a restart, or where the file was edited by hand since the service last loaded it.</param>
 /// <param name="Defaults">The value each key takes when the file leaves it out; a key with no default is <c>null</c>.</param>
-public sealed record ConfigView(string Hash, ConfigFile File, ConfigFile Running, ConfigFile Defaults, IReadOnlyList<ConfigKey> Keys);
+/// <param name="Secrets">Where each secret's value comes from, as the file and the environment give it now.</param>
+public sealed record ConfigView(
+    string Hash, ConfigFile File, ConfigFile Running, ConfigFile Defaults, IReadOnlyList<ConfigKey> Keys, IReadOnlyList<SecretState> Secrets);
+
+/// <summary>
+/// Where one secret's value comes from, by its key path: its environment variable, which wins over the file, or
+/// <c>config.yaml</c>; <c>null</c> when neither holds it. The value itself is fetched on its own, when asked for.
+/// </summary>
+public sealed record SecretState(string Path, SecretSource? Source, string Variable);
+
+/// <summary>A secret's value as the service would use it: the environment variable's, else the file's; <c>null</c> when neither holds it.</summary>
+public sealed record SecretShown(string? Value);
 
 /// <summary>What one key of <c>config.yaml</c> accepts, by its key path, such as <c>retrieval.topK</c>.</summary>
 /// <param name="Min">The smallest number the key accepts; <c>null</c> for a key that is not a number.</param>

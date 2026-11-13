@@ -2,7 +2,7 @@ import { ApiError } from "../api/client";
 import type { BindingProblem } from "../api/status";
 import type { components } from "../api/schema";
 import type { Duration } from "../pages/dashboard/format";
-import type { JUDGMENTS, SectionId } from "../pages/settings/form";
+import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
 import { en } from "./en";
 import { zh } from "./zh";
 
@@ -111,6 +111,36 @@ export interface Dictionary {
     readonly reloadTitle: string;
     readonly reloadBody: string;
     readonly reloadConfirm: string;
+    readonly secret: {
+      readonly hidden: string;
+      readonly unset: string;
+      readonly show: string;
+      readonly hide: string;
+      readonly rewrite: string;
+      readonly clear: string;
+      readonly undo: string;
+      readonly fromEnvironment: (variable: string) => string;
+      readonly fromFile: string;
+      readonly environmentNote: (variable: string) => string;
+      readonly fileNote: (variable: string) => string;
+      readonly willClear: string;
+      readonly newValue: string;
+      readonly emptyRewrite: string;
+    };
+    readonly consolidation: {
+      readonly title: string;
+      readonly summary: string;
+      readonly fields: Readonly<Record<(typeof CONSOLIDATION)[number], Explained>>;
+    };
+    readonly backup: {
+      readonly title: string;
+      readonly summary: string;
+      readonly local: string;
+      readonly cloud: string;
+      readonly urlDefault: string;
+      readonly usernameDefault: string;
+      readonly fields: Readonly<Record<"keep" | "url" | "username" | "password", Explained>>;
+    };
     readonly general: {
       readonly title: string;
       readonly summary: string;
