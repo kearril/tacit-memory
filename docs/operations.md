@@ -12,6 +12,7 @@
 ├── prompts/                       # 可编辑的提示词文档
 ├── skills/                        # 生成的 skill：tacit-memory、tacit-remember、tacit-consolidate，请勿手改
 ├── bindings.json                  # 已绑定客户端的记录
+├── access.json                    # 访问状态：访问密码的哈希与会话签名密钥（不是配置；不进入备份；删除即未设访问密码）
 ├── clients.json                   # 连接过服务的客户端能力记录（按名称一条，能力与扩展为历次声明的并集；停止服务后删除即重置；运行状态，不进入备份）
 ├── backups/                       # 备份（zip）：auto-、manual-、pre-restore- 三种；remote.json 记录云端备份的最近一次结果
 ├── logs/                          # serve 的日志（见第 3 节）
@@ -34,7 +35,7 @@
 | 保险 | 每次恢复前 | `backups/pre-restore-*.zip` | 不清理 |
 | 云端 | `tacit backup --remote` | 远端 `tacit-backup.zip`，只保留一份 | 每次替换 |
 
-所有备份都含记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/`、`bindings.json` 与清单。生成的 skill 不进入备份。
+所有备份都含记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/`、`bindings.json` 与清单。生成的 skill 不进入备份。访问状态文件 `access.json` 也不进入备份，恢复不会改变访问密码。
 
 **云端备份**经通用 WebDAV 协议上传，任何支持 `PUT`、`MOVE`、`MKCOL`、`GET` 与 `DELETE` 的服务都可以用（`GET` 用于云端恢复，`DELETE` 只用于清理失败留下的 `.part` 文件）。在 `config.yaml` 中填写 `backup.webdav`（见 `docs/reference/configuration.md`「`backup`」）后执行 `tacit backup --remote`。远端不支持 `MOVE` 时报错，不会退回为直接覆盖。上传与恢复都只在执行命令时发生；上传不在本地留副本。
 
@@ -72,6 +73,8 @@
 - **找不到 `config.yaml`**：先执行 `tacit init`。
 - **升级后报未知键**：报错点名的键已删除（清单见 `docs/reference/configuration.md`），从 `config.yaml` 中删去后重启。升级前绑定的 skill 目录里可能还留着旧的 `tacit-checkup` 链接（已改名为 `tacit-consolidate`），它指向已不再生成的目录；`disconnect` 不删除它，需手动删除。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
+- **忘记访问密码**：访问密码只能在本机重设或清除，忘记时在本机处理。先在 `config.yaml` 中去掉 `server.host` 并重启服务（否则清除会被拒绝）；然后在本机调用 `DELETE /api/access-password` 清除，或停止服务后删除 `TACIT_HOME/access.json`。清除后再在本机设置新的访问密码，并把 `server.host` 写回、重启。
+- **`serve` 拒绝启动，提示需要访问密码**：`server.host` 为非回环地址而没有访问密码。按上一条先去掉 `server.host` 启动，在本机设置访问密码，再写回 `server.host`。
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md` 第 4 节，固定部分的上限见 `docs/design.md` 第 8 节）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。

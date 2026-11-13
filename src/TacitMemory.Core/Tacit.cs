@@ -119,6 +119,14 @@ public sealed class Tacit(TacitOptions options)
         new(options, LoadConfig(), notice, loggerFactory.CreateLogger(MemoryService.LogCategory));
 
     /// <summary>
+    /// The access password and its sessions, read from <c>access.json</c> under <c>TACIT_HOME</c>. Loads the config for the
+    /// memory language and <c>server.host</c>, as the service does. A damaged state file is logged to
+    /// <paramref name="loggerFactory"/> once, here. Needs no running service.
+    /// </summary>
+    public AccessControl OpenAccess(ILoggerFactory loggerFactory) =>
+        new(options, LoadConfig(), loggerFactory.CreateLogger(MemoryService.LogCategory));
+
+    /// <summary>
     /// What <c>tacit status</c> reports when no service answers: the service's state, the shared columns and where the
     /// logs are. Needs the loaded config and reads only local files: it calls no model and touches no network.
     /// <paramref name="portAnsweredByOther"/> says another program answered on the configured port, so the report says so.

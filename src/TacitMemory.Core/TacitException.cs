@@ -92,6 +92,21 @@ public enum TacitError
 
     /// <summary>The MCP endpoint refused a connection from another device; MCP is for this machine only.</summary>
     McpRemoteRefused,
+
+    /// <summary>The access password is shorter than eight characters.</summary>
+    PasswordTooShort,
+
+    /// <summary>The access password given does not match: a login, or the current password a remote change must give.</summary>
+    PasswordWrong,
+
+    /// <summary>Too many wrong passwords came from this address; logins from it wait until the pause ends.</summary>
+    LoginLimited,
+
+    /// <summary>The access password cannot be cleared while <c>server.host</c> names an address that is not loopback.</summary>
+    PasswordClearRefused,
+
+    /// <summary>The access password can only be cleared from this machine.</summary>
+    PasswordClearRemoteRefused,
 }
 
 /// <summary>A refused facade operation. <see cref="Exception.Message"/> is localized and meant for the user.</summary>

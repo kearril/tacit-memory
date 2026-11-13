@@ -92,6 +92,7 @@ public sealed class MemoryService : IDisposable
         _startedAt = options.Time.GetUtcNow();
         Config = config;
         _log = new ServiceLog(logger, config.Language, notice);
+        Access = new AccessControl(options, config, logger);
         _prompts = config.Prompts;
         SkillSet.Write(options.TacitHome, config.Language, config.Prompts.Skill);
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
@@ -138,6 +139,20 @@ public sealed class MemoryService : IDisposable
     }
 
     public TacitConfig Config { get; }
+
+    /// <summary>The access password and its sessions, as the service reads them.</summary>
+    public AccessControl Access { get; }
+
+    /// <summary>
+    /// Refuses to start a service that listens beside loopback without an access password: <c>server.host</c> names an
+    /// address that is not loopback, and no password is set. Called by the host before it binds anything.
+    /// </summary>
+    /// <exception cref="TacitException">A <c>server.host</c> that is not loopback, with no access password set.</exception>
+    public void CheckExtraListenerAllowed()
+    {
+        if (Config.ExtraAddress is { } extra && !Access.PasswordSet)
+            throw new TacitException(TacitError.ConfigInvalid, AccessMessages.PasswordRequiredForExtraAddress.Format(Config.Language, extra));
+    }
 
     /// <summary>What happened to each bound context file when the service started.</summary>
     public IReadOnlyList<BlockRender> StartupRender { get; }
