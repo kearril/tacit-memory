@@ -5,14 +5,10 @@ import {
   CircleCheck,
   CloudAlert,
   Cpu,
-  DatabaseZap,
   Link2Off,
   type LucideIcon,
   Network,
-  Plug,
-  Server,
   Unlink,
-  Users,
 } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
@@ -23,12 +19,13 @@ import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf } from "./duration";
 import { HeatmapCard } from "./HeatmapCard";
+import { AgentsCard, IndexCard, ModelsCard, ServiceCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";
 
 /**
  * The dashboard. On a wide screen it is a bento grid of twelve columns: the overview (the status sentence and the to-dos)
- * and the memory activity each across the whole width, then rows of three cards: models, backups, index and
- * consolidation; service, clients, bindings. On a narrower screen the cards stack in one column in the order of the
+ * and the memory activity each across the whole width, then a row of three cards (models, backups, index and
+ * consolidation) and a row of two (service, and the agents with their bindings). On a narrower screen the cards stack in one column in the order of the
  * markup, which puts what to act on (the to-dos, models and backups) before the activity. The status report is fetched every 30 seconds; when a fetch fails, the
  * cards keep the last report and a notice says so.
  */
@@ -62,13 +59,12 @@ export function DashboardPage() {
       ) : (
         <div className="grid gap-lg xl:grid-cols-12">
           <OverviewCard report={report} locale={locale} className="xl:col-span-12" />
-          <PlaceholderCard icon={Cpu} title={cards.models} className="xl:col-span-4 xl:row-start-3" />
+          <ModelsCard report={report} fetchedAt={status.dataUpdatedAt} className="xl:col-span-4 xl:row-start-3" />
           <PlaceholderCard id="backups" icon={Archive} title={cards.backups} className="xl:col-span-4 xl:row-start-3" />
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
-          <PlaceholderCard icon={DatabaseZap} title={cards.index} className="xl:col-span-4" />
-          <PlaceholderCard icon={Server} title={cards.service} className="xl:col-span-4" />
-          <PlaceholderCard icon={Users} title={cards.clients} className="xl:col-span-4" />
-          <PlaceholderCard icon={Plug} title={cards.bindings} className="xl:col-span-4" />
+          <IndexCard report={report} locale={locale} className="xl:col-span-4" />
+          <ServiceCard report={report} className="xl:col-span-6" />
+          <AgentsCard report={report} locale={locale} className="xl:col-span-6" />
         </div>
       )}
     </div>

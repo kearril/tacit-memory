@@ -83,7 +83,46 @@ export interface Dictionary {
       readonly index: string;
       readonly service: string;
       readonly clients: string;
-      readonly bindings: string;
+    };
+    readonly unreadable: string;
+    readonly copy: (what: string) => string;
+    readonly copied: (what: string) => string;
+    readonly modelStates: {
+      readonly available: string;
+      readonly coolingDown: (clock: string) => string;
+      readonly unconfigured: string;
+      readonly cooling: string;
+    };
+    readonly index: {
+      readonly lastConsolidation: string;
+      readonly never: string;
+      readonly daysAgo: (days: number) => string;
+      readonly candidates: string;
+      readonly formatProblems: string;
+      readonly unsummarizedWeeks: string;
+    };
+    readonly service: {
+      readonly uptime: string;
+      readonly duration: (duration: Duration) => string;
+      readonly version: string;
+      readonly mcp: string;
+      readonly web: string;
+      readonly extraListener: string;
+      readonly listening: string;
+      readonly listenFailed: string;
+      readonly noExtraListener: string;
+    };
+    readonly agents: {
+      readonly bound: string;
+      readonly unbound: string;
+      readonly broken: string;
+      readonly today: string;
+      readonly yesterday: string;
+      readonly lastSeen: (date: string) => string;
+      readonly neverSeen: string;
+      readonly empty: string;
+      readonly noBindings: string;
+      readonly addBinding: string;
     };
     readonly todos: {
       readonly empty: string;
