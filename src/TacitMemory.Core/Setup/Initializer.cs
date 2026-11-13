@@ -82,7 +82,8 @@ internal static class Initializer
             report.AppendLine(Messages.InitExisting.Format(language, path));
         if (isRepository && skeletonAdded)
             report.AppendLine(Messages.InitSkeletonNotCommitted.In(language));
-        report.Append(Messages.InitNextSteps.Format(language, configPath));
+        report.AppendLine(Messages.InitNextSteps.Format(language, configPath));
+        report.Append(Messages.InitWebInterface.Format(language, ConfigLoader.ReadLoose(options).Port));
 
         return new InitResult
         {

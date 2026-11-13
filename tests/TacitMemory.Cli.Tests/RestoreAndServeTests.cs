@@ -112,6 +112,46 @@ public sealed class ServeTests : IDisposable
     }
 
     [Fact]
+    public async Task Serve_prints_the_extra_listener_address_after_the_loopback_one()
+    {
+        _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n  host: 127.0.0.2\n");
+        _cli.SetAccessPassword();
+        using var stop = new CancellationTokenSource();
+        var run = _cli.RunAsync(["serve"], cancellationToken: stop.Token);
+
+        for (var waited = 0; waited < 300 && !run.IsCompleted && !_cli.Stdout.Contains("额外监听", StringComparison.Ordinal); waited++)
+            await Task.Delay(100);
+        Assert.Contains($"额外监听：http://127.0.0.2:{_cli.Port}/", _cli.Stdout);
+
+        stop.Cancel();
+        var result = await run;
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("127.0.0.1", result.Stdout);
+    }
+
+    [Fact]
+    public async Task Serve_warns_and_keeps_running_on_loopback_when_the_extra_address_cannot_bind()
+    {
+        // 192.0.2.1 is a documentation address this machine does not have.
+        _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n  host: 192.0.2.1\n");
+        _cli.SetAccessPassword();
+        using var stop = new CancellationTokenSource();
+        var run = _cli.RunAsync(["serve"], cancellationToken: stop.Token);
+
+        for (var waited = 0; waited < 300 && !run.IsCompleted && !_cli.Stdout.Contains("127.0.0.1", StringComparison.Ordinal); waited++)
+            await Task.Delay(100);
+        Assert.Contains("127.0.0.1", _cli.Stdout);
+
+        stop.Cancel();
+        var result = await run;
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"额外监听（http://192.0.2.1:{_cli.Port}/）绑定失败", result.Stdout);
+        Assert.DoesNotContain("额外监听：", result.Stdout);
+    }
+
+    [Fact]
     public async Task Serve_exits_0_when_stopped_with_ctrl_c()
     {
         _cli.InitReady();

@@ -6,8 +6,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using TacitMemory.Core;
+using TacitMemory.Host.Api;
 using TacitMemory.Core.Tests;
-using TacitMemory.Mcp;
+using TacitMemory.Host;
 
 namespace TacitMemory.Cli.Tests;
 
@@ -23,7 +24,7 @@ internal sealed class CliHarness : IDisposable
 
     private readonly CapturedText _stdout = new();
     private readonly CapturedText _stderr = new();
-    private McpHost? _host;
+    private ServiceHost? _host;
     private MemoryService? _service;
     private WebApplication? _foreign;
 
@@ -47,6 +48,13 @@ internal sealed class CliHarness : IDisposable
     /// <see cref="ModelDouble.Quiet"/> when none is given.
     /// </summary>
     public void InitReady(ModelDouble? models = null) => Home.InitReady(extraConfig: ServerSection, models: models);
+
+    /// <summary>
+    /// Sets the access password in the state file, as the service's own API would from this machine. A config whose
+    /// <c>server.host</c> is not loopback needs one before the service starts.
+    /// </summary>
+    public void SetAccessPassword() =>
+        Home.Tacit().OpenAccess(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance).SetPassword("correct horse", current: null, local: true, System.Net.IPAddress.Loopback);
 
     /// <summary>
     /// The <c>connect</c> arguments for the omp paths under the throwaway user home. The folders a user would already have
@@ -98,7 +106,7 @@ internal sealed class CliHarness : IDisposable
     public async Task StartServiceAsync()
     {
         _service = Home.Tacit().OpenService(_ => { }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
-        _host = await McpHost.TryStartAsync(_service, Port, Microsoft.Extensions.Logging.Abstractions.NullLoggerProvider.Instance)
+        _host = await ServiceHost.TryStartAsync(_service, Port, Microsoft.Extensions.Logging.Abstractions.NullLoggerProvider.Instance)
             ?? throw new InvalidOperationException($"Port {Port} is already in use.");
     }
 

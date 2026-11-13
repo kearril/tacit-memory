@@ -5,6 +5,10 @@ obj/
 TestResults/
 artifacts/
 
+# Web interface: dependencies and build output
+web/node_modules/
+web/dist/
+
 # Local-only documentation & workflow system
 AGENTS.local.md
 HANDOFF.md

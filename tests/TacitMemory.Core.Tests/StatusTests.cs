@@ -41,7 +41,7 @@ public sealed class StatusTests : IDisposable
         Assert.Equal(307, service.UptimeSeconds);
         Assert.False(service.OtherProgramAnswered);
         Assert.Equal(
-            new[] { "运行中", "地址：http://127.0.0.1:18888/mcp", $"版本：{service.Version}", "已运行：5 分钟 7 秒" },
+            new[] { "运行中", "地址：http://127.0.0.1:18888/mcp", $"版本：{service.Version}", "已运行：5 分钟 7 秒", "Web 界面：http://127.0.0.1:18888/ui/" },
             service.Lines);
 
         var models = Assert.IsType<ModelsStatus>(report.Models);
@@ -116,7 +116,7 @@ public sealed class StatusTests : IDisposable
 
         var service = Assert.IsType<ServiceStatus>(report.Service);
         Assert.False(service.Running);
-        Assert.Equal(["服务未运行", "地址：http://127.0.0.1:18888/mcp"], service.Lines);
+        Assert.Equal(["服务未运行", "地址：http://127.0.0.1:18888/mcp", "Web 界面：http://127.0.0.1:18888/ui/"], service.Lines);
         Assert.Equal(Endpoint, service.Endpoint);
         Assert.Null(service.Version);
         Assert.Null(service.UptimeSeconds);
@@ -136,7 +136,9 @@ public sealed class StatusTests : IDisposable
 
         Assert.False(service.Running);
         Assert.True(service.OtherProgramAnswered);
-        Assert.Equal([$"服务未运行：端口 {config.Port} 有其他程序在回答", $"地址：http://127.0.0.1:{config.Port}/mcp"], service.Lines);
+        Assert.Equal(
+            [$"服务未运行：端口 {config.Port} 有其他程序在回答", $"地址：http://127.0.0.1:{config.Port}/mcp", $"Web 界面：http://127.0.0.1:{config.Port}/ui/"],
+            service.Lines);
     }
 
     [Fact]
@@ -225,7 +227,7 @@ public sealed class StatusTests : IDisposable
         Assert.False(service.Running);
         Assert.False(service.OtherProgramAnswered);
         Assert.Equal(new Uri("http://127.0.0.1:19001/mcp"), service.Endpoint);
-        Assert.Equal(["服务未运行", "地址：http://127.0.0.1:19001/mcp"], service.Lines);
+        Assert.Equal(["服务未运行", "地址：http://127.0.0.1:19001/mcp", "Web 界面：http://127.0.0.1:19001/ui/"], service.Lines);
         Assert.Null(report.Models);
         Assert.NotNull(report.Config);
     }
@@ -242,7 +244,7 @@ public sealed class StatusTests : IDisposable
 
         Assert.False(service.Running);
         Assert.True(service.OtherProgramAnswered);
-        Assert.Equal(["服务未运行：端口 19001 有其他程序在回答", "地址：http://127.0.0.1:19001/mcp"], service.Lines);
+        Assert.Equal(["服务未运行：端口 19001 有其他程序在回答", "地址：http://127.0.0.1:19001/mcp", "Web 界面：http://127.0.0.1:19001/ui/"], service.Lines);
     }
 
     [Fact]
@@ -254,7 +256,70 @@ public sealed class StatusTests : IDisposable
 
         var report = tacit.InvalidConfigStatus(error, tacit.ReadLooseSettings());
 
-        Assert.Equal(["The service is not running", "Address: http://127.0.0.1:18888/mcp"], Assert.IsType<ServiceStatus>(report.Service).Lines);
+        Assert.Equal(
+            ["The service is not running", "Address: http://127.0.0.1:18888/mcp", "Web interface: http://127.0.0.1:18888/ui/"],
+            Assert.IsType<ServiceStatus>(report.Service).Lines);
         Assert.Equal("Config", report.Config!.Title);
+    }
+
+    [Fact]
+    public async Task A_bound_extra_listener_is_shown_in_the_service_column_with_its_address()
+    {
+        var service = Service;
+        service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failure: null);
+
+        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
+
+        Assert.Equal("额外监听：http://192.168.1.10:18888/", column.Lines[^1]);
+        Assert.Equal(new ExtraListenerStatus(new Uri("http://192.168.1.10:18888/"), null), column.ExtraListener);
+        Assert.Equal(StatusLevel.Ok, column.LineLevels()[^1]);
+    }
+
+    [Fact]
+    public async Task An_extra_listener_that_did_not_bind_is_a_problem_with_the_reason_in_the_service_column()
+    {
+        var service = Service;
+        service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.AddressNotAvailable));
+
+        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
+
+        Assert.True(column.Running);
+        Assert.Equal("额外监听失败：http://192.0.2.1:18888/，192.0.2.1 不是本机的地址", column.Lines[^1]);
+        Assert.NotNull(column.ExtraListener!.FailureReason);
+        Assert.Equal(StatusLevel.Problem, column.LineLevels()[^1]);
+        Assert.Equal(StatusLevel.Ok, column.LineLevels()[0]);
+    }
+
+    [Fact]
+    public async Task A_port_taken_on_the_extra_address_is_named_as_taken()
+    {
+        var service = Service;
+        service.RecordExtraListener(System.Net.IPAddress.Parse("127.0.0.2"), 18888, new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.AddressAlreadyInUse));
+
+        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
+
+        Assert.Equal("额外监听失败：http://127.0.0.2:18888/，端口 18888 已被占用", column.Lines[^1]);
+    }
+
+    [Fact]
+    public void A_failed_extra_listener_is_logged_as_a_warning_naming_the_address()
+    {
+        var logs = new CapturingLoggerFactory();
+        using var service = _home.Tacit().OpenService(_ => { }, logs);
+
+        service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.AddressNotAvailable));
+
+        var warning = Assert.Single(logs.Entries, entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning);
+        Assert.Contains("http://192.0.2.1:18888/", warning.Message);
+    }
+
+    [Fact]
+    public async Task Without_an_extra_listener_the_service_column_has_no_extra_line_and_names_the_web_address()
+    {
+        var column = Assert.IsType<ServiceStatus>((await Service.StatusAsync(Endpoint)).Service);
+
+        Assert.Null(column.ExtraListener);
+        Assert.Equal(new Uri("http://127.0.0.1:18888/ui/"), column.WebAddress);
+        Assert.DoesNotContain(column.Lines, line => line.StartsWith("额外监听", StringComparison.Ordinal));
     }
 }

@@ -13,6 +13,9 @@ internal static class Messages
     public static readonly Localized InitNextSteps = new(
         "下一步：按需在 {0} 中填写 models 一节（可省略，见注释），然后用 tacit connect --client <名称> --context <文件> --skills <目录> 绑定客户端，最后执行 tacit serve。",
         "Next: fill in the models section of {0} if you want models (optional, see its comments), then bind a client with tacit connect --client <name> --context <file> --skills <folder>, and run tacit serve.");
+    public static readonly Localized InitWebInterface = new(
+        "启动服务后，可在浏览器打开 Web 界面继续配置：http://127.0.0.1:{0}/",
+        "Once the service is running, continue the setup in the Web interface: http://127.0.0.1:{0}/");
 
     public static readonly Localized MemoryDirectoryNotEmpty = new(
         "目录 {0} 不为空且不是 Git 仓库，不能用作记忆仓库。请指定空目录或已有的记忆仓库（--memory）。",
@@ -43,6 +46,9 @@ internal static class Messages
     public static readonly Localized ConfigExpectedInteger = new("应为 {0} 到 {1} 之间的整数，实际为 {2}", "must be a whole number from {0} to {1}, but is {2}");
     public static readonly Localized ConfigExpectedProbability = new("应为 0 到 1 之间的数，实际为 {0}", "must be a number from 0 to 1, but is {0}");
     public static readonly Localized ConfigExpectedUrl = new("应为 http 或 https 地址，实际为 {0}", "must be an http or https URL, but is {0}");
+    public static readonly Localized ConfigExpectedIpAddress = new(
+        "应为一个 IP 地址，如 192.168.1.10 或 0.0.0.0（不接受主机名），实际为 {0}",
+        "must be one IP address, such as 192.168.1.10 or 0.0.0.0 (host names are not accepted), but is {0}");
     public static readonly Localized ConfigExpectedLanguage = new("应为 zh 或 en，实际为 {0}", "must be zh or en, but is {0}");
     public static readonly Localized ConfigExpectedProvider = new(
         "可用取值为 cloudflare（省略即为通用协议），实际为 {0}",

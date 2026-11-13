@@ -76,7 +76,7 @@ public sealed class Tacit(TacitOptions options)
     }
 
     /// <summary>
-    /// What <c>tacit show tools</c> prints, from the tool descriptions the caller reads from <c>TacitMemory.Mcp</c>. The
+    /// What <c>tacit show tools</c> prints, from the tool descriptions the caller reads from <c>TacitMemory.Host</c>. The
     /// memory language comes from <paramref name="config"/>, which the caller loads first: a config that does not load
     /// stops the command before any description is shown.
     /// </summary>
@@ -117,6 +117,14 @@ public sealed class Tacit(TacitOptions options)
     /// </summary>
     public MemoryService OpenService(Action<string> notice, ILoggerFactory loggerFactory) =>
         new(options, LoadConfig(), notice, loggerFactory.CreateLogger(MemoryService.LogCategory));
+
+    /// <summary>
+    /// The access password and its sessions, read from <c>access.json</c> under <c>TACIT_HOME</c>. Loads the config for the
+    /// memory language and <c>server.host</c>, as the service does. A damaged state file is logged to
+    /// <paramref name="loggerFactory"/> once, here. Needs no running service.
+    /// </summary>
+    public AccessControl OpenAccess(ILoggerFactory loggerFactory) =>
+        new(options, LoadConfig(), loggerFactory.CreateLogger(MemoryService.LogCategory));
 
     /// <summary>
     /// What <c>tacit status</c> reports when no service answers: the service's state, the shared columns and where the

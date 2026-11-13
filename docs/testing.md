@@ -10,8 +10,8 @@
    - 通过 `TacitMemory.Core` 的公开门面测试；
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
-     - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断。
-     - `ConfigTests`：配置的默认值（含主线简报上限 `limits.brief` 与别名最少个数的默认值；已删除的键（清单见 `docs/reference/configuration.md`）按未知键报错并点名键路径；`consolidation.hintItemLength` 与 `hintResidentLength` 的默认值与校验）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；中英模板的 `url` 与密钥变量名。
+     - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断、末尾的 Web 界面地址（取自 `server.port`）。
+     - `ConfigTests`：配置的默认值（含主线简报上限 `limits.brief` 与别名最少个数的默认值；已删除的键（清单见 `docs/reference/configuration.md`）按未知键报错并点名键路径；`consolidation.hintItemLength` 与 `hintResidentLength` 的默认值与校验）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；中英模板的 `url` 与密钥变量名；`server.host`：IP 地址文字（含 `0.0.0.0`、`127.0.0.2`、IPv6）保留，`127.0.0.1` 与不设相同，主机名、带端口、方括号与 `1` 这类写法报错并点名键路径。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、内置核心规则的三节顺序、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含主线列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；主线条目（背景说明与近况两行）的示例、"只处理主线"的附加文字示例；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
@@ -25,7 +25,7 @@
      - `BindingTests`：`connect` 与 `disconnect` 的门面规则：名称规范化与拒绝（逐例断言拒绝时不写任何文件）、同名异路径的拒绝、上下文文件的上一级目录与 skill 目录不存在时的拒绝、`~` 展开与绝对路径的记录、记录的四个字段、上下文文件的创建与删除（`createdContextFile`）、常驻区块的写入与逐字节恢复、客户端 MCP 配置的字节不变、缺失的名称与配置无效时的 `disconnect`；共用：两个名称共用 skill 目录与上下文文件时的单一常驻区块与三个链接、两种解绑顺序、`createdContextFile` 的继承、只共用上下文文件、Windows 上大小写不同的同一路径、一次渲染只返回一个结果、名称绑到其他路径时的拒绝。
      - `SkillLinkTests`：三个 skill 的目录链接：三个位置都空时全部建立；任一位置被占用（目录、文件或指向别处的链接）时整体拒绝，三个链接都不建；skill 目录不存在或是文件时拒绝且不写；重复 `connect` 补齐缺失的链接；后续步骤失败时回滚；`disconnect` 删除三个链接、报告已缺失的链接并保留别人的同名项；只有旧的记忆 skill 链接的绑定（Windows 上为真实目录联接）；skill 目录被两个客户端共用时的复用报告，以及两种解绑顺序下链接的保留与拆除。
      - `ServiceTests`：服务端说明的组成（不含主线列表）、语言部分、状态提示，以及启动与运行中的绑定渲染（共用的上下文文件只渲染一次）。
-     - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用，服务栏含 MCP 端点），三个辅助模型的可用、冷却中（含剩余秒数，冷却结束后回到可用）与未配置（与可用、冷却中并列），日志位置，配置有误时的错误键路径与服务栏，宽松读取的端口与语言（`server.port` 可读而其他键有错、文件不存在、YAML 无法解析三种情况）；离线报告不含依赖服务的列，其辅助模型栏只列未配置的模型。
+     - `StatusTests`：`tacit status` 的报告：服务运行中（地址、版本、运行时长）与未运行（含端口被其他程序占用，服务栏含 MCP 端点），三个辅助模型的可用、冷却中（含剩余秒数，冷却结束后回到可用）与未配置（与可用、冷却中并列），日志位置，配置有误时的错误键路径与服务栏，宽松读取的端口与语言（`server.port` 可读而其他键有错、文件不存在、YAML 无法解析三种情况）；离线报告不含依赖服务的列，其辅助模型栏只列未配置的模型；服务栏的 Web 界面地址行，额外监听的行（绑定时的地址、失败时的问题级别与原因、端口被占与非本机地址两种原因），失败时记一条警告。
      - `StatusColumnsTests`：`tacit status` 的各栏（不依赖服务的部分）：绑定的四种坏情况（文件缺失、非 UTF-8、标记不完整或重复、三个 skill 链接中某一个缺失或指向别处），每种检查前后文件字节不变（不含 `.cache/`）；共用路径的问题只出现一次、挂在第一个引用它的绑定上，`SharedWith` 列出共用的其他绑定；上次整理的三种基准（初始提交、整理提交、从未整理），改名前的旧前缀提交不作为基准；待处理计数（含待汇总的周）与整理提示相同且不调模型；仓库历史不可读时其余栏照常；最近本地备份在三种前缀中取最新；密钥来源栏列出三个模型的密钥与 WebDAV 密码的来源（环境变量、配置文件或"未设置"，"未设置"不算错误、不上色，不显示值），未配置的模型即使设了环境变量也只写"未配置，不需要密钥"；服务运行与未运行时共用的栏内容一致；离线辅助模型栏只列未配置的模型，三个都已配置时省略，在线与离线中"未配置"的写法一致；客户端栏：无记录时一行说明，有记录时每个客户端一行（名称、日期、协议版本、能力、扩展，能力与扩展为空时都写"无"，不显示版本），服务未运行时同样显示。
      - `ClientRecordTests`：客户端能力记录的核心行为：首次见到写文件并记一条日志；同一天重复既不写文件也不记日志；协议版本变化或能力、扩展的并集变大再记一条，不变大不记；跨天只更新日期；名称（忽略大小写）为键，版本不同仍是同一条；能力与扩展取历次声明的并集；声明的文字去掉控制字符；服务重启后记录仍在；文件无法写入时记警告且调用照常返回；备份不含该文件。
      - `ResidentDocumentTests`：常驻区块外壳：`resident.md` 的替换、节的校验与拒绝（含已删除的节名）、运行中修改与删除；`workstreams` 节的内容与顺序（位于领域索引之后，活跃在前、按最近活动倒序，安静按名称排序）、活跃与安静的显示、未成立的名字与格式不全的条目不进入常驻区块、全部领域都列出、空节不出现、`resident.md` 为新节给出的引导语；主线文件与活动记录变化后重新渲染；经 `TestHome.Clock` 跨过 28 天窗口边界或本地午夜后重新渲染。
@@ -47,6 +47,7 @@
      - `ModelRetryTests`：辅助模型的请求内重试：429、5xx、网络错误与单次超时在第 2～5 次成功时模型仍可用；5 次都失败后冷却；401/403、400/404/422 与格式不对的响应只调用一次；可重试与不可重试的失败、退避与 `Retry-After`、20 秒总时限、冷却与冷却后的再次尝试，以及 `recall`、实时写入判断与整理判断经过重试。
      - `ProbeTests`：`tacit probe` 经门面：通用协议与 Cloudflare 的成功、4xx 带响应体且截断到 500 字符、5xx 只调用一次不重试、格式不对与 Cloudflare `success` 为假、超时（20 秒，经 `TestHome.Clock`）、网络错误、未配置不发请求、请求体只含内置文本、失败的探测不使服务中的模型进入冷却、回显的密钥被替换。
      - `UnconfiguredModelTests`（经门面）：三个模型都不配置或只配置部分时服务照常启动，写入、画像候选与检索照常，返回中不附模型说明；未配置的模型不发请求、不进入冷却，服务端说明只列冷却中的模型；整理对依赖未配置模型的类别标为"未检查（未配置）"且不提问；`tacit status` 的模型项为未配置；去掉嵌入模型后向量保留，加回同一模型名不重新嵌入，换模型名则丢弃并补齐；启动日志一行列出未配置的角色且不含地址与密钥。
+     - `AccessPasswordTests`：访问密码的设置、校验、清除与修改（本机免当前密码，非本机须给出且计入限速），会话的签名与 30 天有效期，状态文件的内容与损坏时的处理；登录与修改的限速：暂停期内即使密码正确也拒绝，暂停结束后的写入清理计数（经可替换的时钟），计数表有上限且丢弃最旧的，同时到达的错误密码先计数后校验。
      - `BackupTests`：每日自动备份的生成、保留、关闭、明文密钥提示（配置中写了任一模型的明文 `apiKey` 或 WebDAV 明文密码即提示，环境变量覆盖时仍提示）与失败处理。
      - `BackupRaceTests`：自动备份在写入槽中打包：打包期间到达的写入排队等待，不与之争用文件。
      - `ManualBackupTests`：手动备份的位置与文件名（本地时间）、内容与清单（`kind`、`memoryHeadSubject`）、写入队列中排在其前的写入、不被自动清理、`--to` 创建目录、同秒重名拒绝且不覆盖、`keep: 0` 时照常、明文密钥提示、相对目录被拒。
@@ -68,29 +69,36 @@
      - `FormatChecksPersonaTests`：整理报告中画像、候选文件、活动记录与主线文件的格式问题（名字不合规、重名、缺背景说明、无法识别的行）：文件、行号与问题说明，修正后消失；作用域块的问题（缺触发行、块内无法识别的三级标题、域名不合规）；长度与条数不列入格式问题，超长的条目与触发行、条目过多的节或领域都不报告。
    - 未自动化：内置常驻区块逐字节不变，已用中英两种默认配置手工比对确认，不写入测试。
    - 未自动化：`serve` 日志文件的按天滚动与保留 14 份（由 Serilog 保证），在验收中手工确认。
-2. **`tests/TacitMemory.Mcp.Tests`：MCP 接缝**
-   - 复用 `TestHome`，在进程内以真实 HTTP 启动 `McpHost`，用 SDK 的 MCP 客户端调用；
+2. **`tests/TacitMemory.Host.Tests`：MCP 接缝**
+   - 复用 `TestHome`，在进程内以真实 HTTP 启动 `ServiceHost`，用 SDK 的 MCP 客户端调用；
+   - 非本机连接的模拟：主机判定「本机」的规则默认为全部回环地址，测试经内部入口 `ServiceHost.TryStartAsync(…, isLocal)` 把它收窄为只有 `127.0.0.1`（`PeerClients.OnlyLoopbackIsLocal`）。`PeerClients.Local()` 从 `127.0.0.1` 连接，是本机；`PeerClients.Remote()` 把本地端点绑定到 `127.0.0.2` 再连接，是非本机。额外监听在测试中经 `server.host` 用 `127.0.0.2`；绑定失败的用例用文档地址 `192.0.2.1`，它不是本机的地址。主机项目对 `TacitMemory.Host.Tests` 开放内部成员，只为这一入口及其探测参数 `probe`（用于模拟探测之后才被占用的额外地址），以及默认的本机判定规则 `ServiceHost.IsLoopback`（直接检查各种写法的回环地址）。
    - 测试类索引（每个测试类一行）：
-     - `McpHostTests`：服务端说明下发（含 `<recent_activity>`，不含主线列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告两部分与各类别标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 "by default"，说明中不出现字数与条数），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
-     - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin、Host（仅 `127.0.0.1` 或 `localhost` 加本服务端口）与 POST 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端能力记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力或扩展的并集变大后再记一条；服务重启后记录仍在。
+     - `ServiceHostTests`：服务端说明下发（含 `<recent_activity>`，不含主线列表）、运行模式（默认的 `2026-07-28` 客户端与固定为 `2025-03-26`、`2025-06-18`、`2025-11-25` 的客户端都能连接、取得服务端说明并调用工具，`SessionId` 为空；原始 `initialize` 的响应不带 `Mcp-Session-Id`）、`write_persona` 的 `scope` 与 `trigger` 经 MCP 写入领域块、工具列表与标注、必填参数与取值（`required`、`enum`，含 `write_page` 的 `type` 四个取值）、缺 `op` 与 `op` 取值外的调用到达服务后被拒绝、参数错误标记与三段返回、schema 之外的参数名经原始调用被点名（`write_page` 的 `content`、`recall` 的 `limit`，`write_recent` 的 `op`、`items`、`hash`）、各写入工具的往返读回、端口被占用时不启动；prompt 列表恒为空而不报错；资源列表只含 `tacit://consolidation-report`，读取得到含记忆仓库绝对路径与报告两部分与各类别标题的文本，改名前的旧 URI 读取时报资源不存在；工具说明按配置填入（`minAliases` 改为非默认值并重启后，说明出现新值、不再出现 "by default"，说明中不出现字数与条数），且与 `ToolCatalog` 的说明一致；`recall` 的 `kind` 四个取值（`pages`、`activities`、`rules`、`persona`）与 `domain` 参数。
+     - `ManagementApiTests`：管理 API 经真实 HTTP 访问：`/api/status` 的 JSON（camelCase，可读回为报告，密钥来源栏含三个模型的条目，辅助模型的未配置状态以 `unconfigured` 读回）；Origin（须与请求自身同源）、本机连接的 Host（`127.0.0.1`、`localhost` 或 `[::1]`，端口不限）与 POST、PUT 的 Content-Type（非 `application/json` 返回 415）三道防护及其错误体；`/mcp` 对本机不受防护；一次 `/api` 调用产生一条含路由与状态码的日志事件；`POST /api/reindex` 的 JSON 往返（结果可读回，含跳过的文件与向量待补）；`POST /api/backup` 的 JSON 往返，`to` 为相对路径返回 400（`RequestInvalid`），同秒重名返回 409（`BackupExists`），云端目标未配置返回 409（`CloudBackupNotConfigured`）；客户端能力记录：经 SDK 客户端以给定的名称、版本、能力与扩展连接（2026-07-28 与旧版本的 `initialize`），`/api/status` 的 `clients` 含该客户端与其能力、扩展；同一客户端重复连接只记一条日志事件，能力或扩展的并集变大后再记一条；服务重启后记录仍在。
+     - `ConnectionGuardTests`：非本机连接（`127.0.0.2`）、未登录：`/api` 下除会话端点外各端点 401（错误体 `ApiUnauthorized`），会话端点可用；防护先于 401（Origin 不同源 403、POST 与 PUT 非 JSON 415）；非本机连接的 Host 不检查；`/mcp` 对非本机 403（`McpRemoteRefused`），对本机不拒绝；本机连接免登录；401 的调用也记一条日志；路径的字母大小写不影响判定（`/API/status`、`/MCP` 等同样拒绝，且 `reindex` 不执行）；原始请求行的各种写法（尾斜杠、重复斜杠、百分号编码、`..` 段、`/apix`）非本机都得不到 API 或 MCP 的应答；非本机访问 `/`、`/ui`、`/api` 之外的路径 403（`RemotePathRefused`）；本机的 Origin、Host 与 Content-Type 防护同样不因大小写而被跳过；默认的本机判定规则认 `127.0.0.0/8`、`::1` 与映射到 IPv6 的回环地址（含 `::ffff:127.0.0.5`），其他地址不认。
+     - `AccessApiTests`：会话与访问密码经真实 HTTP，非本机连接（`127.0.0.2`，不保存 Cookie，每个请求只带测试指定的 Cookie）：`GET /api/session` 的字段与可用性；登录的 401 与 200，Cookie 的属性（`HttpOnly`、`SameSite=Strict`、`Path=/api`、无 `Secure`）；登录后 `/api` 与 `openapi.json` 放行、`/mcp` 仍 403；错误密码、5 次后 429、剩余秒数、60 秒后恢复、成功清零、无密码时也计数、限速按地址（本机不受影响）、修改密码时错误的当前密码同样计数并暂停、429 带 `Retry-After`（剩余秒数）；退出（Cookie 过期、被复制的 Cookie 仍有效直到改密码）；30 天过期（不随使用续期）；改动的 Cookie 被拒；防护先于会话；重启后会话仍有效；设置与修改（本机无需旧密码、非本机须当前密码、修改后旧会话失效、发起者得到新会话、本机修改结束所有远程会话）；清除（非本机 403 且密码保留、非本机未登录 401、本机清除后登录失败、清除结束旧会话）；日志中不含密码与 Cookie 值。
+     - `ListenerTests`：未设 `server.host` 时只在 `127.0.0.1` 应答；设了 `server.host` 而没有访问密码时启动被拒绝（`ConfigInvalid`，说明含 `server.host`），`0.0.0.0` 同样；清除密码时 409（本机）与 403（非本机，即使带有会话）；设了则两个地址同一端口都应答（端口 0 时两者同端口）；`0.0.0.0` 与回环并存；额外地址绑定失败或端口已被占用时仍在回环上启动，状态报告标明原因；额外地址在探测之后才被占用时去掉额外监听重试一次，状态报告标明端口被占用；`127.0.0.1` 与不设相同；回环端口被占时仍不启动，包括 `server.host` 为 `0.0.0.0` 的情况。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
+     - `OpenApiTests`：`GET /api/openapi.json` 经真实 HTTP 返回文档，位于 `/api` 之下并受 Origin 防护；登录限速的 429 声明 `Retry-After` 头；快照一致性（见第 6 节）。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
+     - `WebInterfaceTests`：`/ui` 的托管（测试用自己的目录代替构建产物）：构建产物原样返回，`assets/` 下的文件长期缓存、入口页为 `no-store`；不带扩展名的路径返回入口页，带扩展名而找不到的路径 404 且不返回入口页；路径越出 `web/` 目录的请求不读取任何文件；产物未构建时返回「Web 界面未构建」；`/` 重定向到 `/ui/`；非本机连接无需登录即可打开界面，大小写不同的前缀同样适用。
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌；说明中的别名最少个数取自给定的 `LimitsConfig`，默认值与改动后的值都能填入；说明中不出现已删除的上限数字。
    - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，整理报告的内容由 `ConsolidationReportTests` 覆盖。
 3. **`tests/TacitMemory.Cli.Tests`：CLI 接缝**
    - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道（参数解析、用法检查、执行与退出码）。`CliHarness` 注入 `TestHome` 的 `TacitOptions`（临时用户主目录与临时 `TACIT_HOME`）、捕获 stdout 与 stderr 的写入器、可编排的 stdin，以及 stdout、stderr、stdin 三个终端标志与 `NO_COLOR` 设置；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
-   - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `McpHost`，与 `McpHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
+   - 需要服务的命令另起进程内的真实主机：`MemoryService` 加 `ServiceHost`，与 `ServiceHostTests` 同样的启动方式，监听一个空闲端口（写入测试配置的 `server.port`）。“端口被其他程序占用”用一个非 tacit 的 HTTP 监听模拟，“端口被占用”的 `serve` 用 `TcpListener` 占住端口。
    - `ConsoleApp.Log`、`ConsoleApp.LogError` 与 `Environment.ExitCode` 是静态状态，因此该项目的测试类都加入 `CliCollection` 集合，禁止并行；新增的测试类必须标注 `[Collection(CliCollection.Name)]`。
    - 测试类索引：
      - `UsageErrorTests`：用法错误为 2，说明只出现在 stderr（未知命令、`show` 缺子命令或子命令未知、`connect` 缺 `--client`、`--context` 或 `--skills`、名称不合规、非法 `--language`、未知选项、`backup` 的 `--to` 与 `--remote` 冲突、`restore` 的 `--from` 与 `--remote` 不恰好一个、`show tools` 等不接受的 `--default`、`probe` 的未知子目标与多余参数）；空路径选项（`restore --from ""`、`backup --to` 为空白、`init --memory ""`）为一行说明的用法错误；用法错误先于配置检查；枚举取值不区分大小写，命令词与子命令也不区分大小写。
      - `ConfigRefusalTests`：配置无法加载（`endpoint` 键，即未知键，导致 3 且说明含键路径；残留的 `candidates` 节同样导致 3 并点名键路径）时 `connect`、`status`、`backup`、`reindex`、`show`（含 `show tools`）为 3；缺少模型密钥与省略整个 `models` 段都不再导致配置无法加载，`connect` 为 0；`disconnect` 与 `show … --default` 照常为 0。
-     - `ServiceExitCodeTests`：服务未运行时 `reindex`、`backup`、`restore`、`status` 为 4，说明提示先执行 `tacit serve`；端口被非 tacit 的 HTTP 监听占用时 `status` 为 4；服务运行时 `status` 为 0，纯文本输出无控制字符；服务拒绝 `status` 的报告时为 1、拒绝原因只在 stderr；服务拒绝 `restore` 等请求时同为 1；`backup` 不给选项时写到 `TACIT_HOME/backups/`。
+     - `ServiceExitCodeTests`：服务未运行时 `reindex`、`backup`、`restore`、`status` 为 4，说明提示先执行 `tacit serve`；端口被非 tacit 的 HTTP 监听占用时 `status` 为 4；服务运行时 `status` 为 0，纯文本输出无控制字符；服务拒绝 `status` 的报告时为 1、拒绝原因只在 stderr；服务拒绝 `restore` 等请求时同为 1；`backup` 不给选项时写到 `TACIT_HOME/backups/`；`status` 的 Web 界面地址行，服务运行时额外监听的地址行与绑定失败的原因行。
      - `HelpAndOutputTests`：`-h`、`--help`、`connect --help`、`probe --help`、裸命令与 `--version` 为 0；`connect` 只绑定临时用户主目录；`show … --default` 的 stdout 只有内置文本；`show tools` 的 stdout 含配置填入的别名最少个数，且不含字数与条数上限；总览的退出码表只出现一次，总览中出现 `probe`；命令与子命令的词不区分大小写；命令帮助不露出 `[Default` 与可空标记 `?>`。
      - `BindingCommandTests`：`connect` 缺任一选项为 2 且不写任何文件；成功时 stdout 含 MCP 端点 URL；名称不合规为 2；`disconnect` 只需 `--client`、路径取自记录；名称不存在为 1。
      - `RestoreConfirmationTests`：`restore` 的确认（stdin 非终端且无 `--yes` 为 2 且什么都不恢复；终端输入非 `y` 为 1；`--yes` 与 `-y` 为 0）；旧的 `--config` 为用法错误，`--include-config` 可用。
-     - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0。
+     - `AccessPasswordCommandTests`：设了访问密码后 `status`、`reindex`、`backup`（备份不含 `access.json`）、`restore` 照常返回 0 且不带凭据；`serve` 在 `server.host` 为 `127.0.0.1` 以外的地址而没有访问密码时退出 3 并说明键路径。
+     - `ServeTests`：`serve` 端口被占为 1、配置无效为 3、取消令牌（Ctrl+C）为 0；额外监听的地址行在启动提示中（回环地址之后）；额外地址绑定失败时给出警告且服务照常运行。
      - `ProbeCommandTests`：`tacit probe` 的退出码 0（全部成功，含大小写不同的子目标）、1（失败；明确指定的模型未配置）、3（配置无效）；不带参数时跳过未配置的模型且为 0；服务未运行、记忆仓库未初始化时照常；输出不含密钥值；纯文本无控制字符；报告随记忆语言。
      - `OutputStylingTests`：不需要服务的 `status` 与 `connect`：stdout 不是终端，或设置了 `NO_COLOR` 时为纯文本、不含控制字符；终端中的美化与纯文本显示相同的文字（含辅助模型未配置的离线 `status`）；终端 stderr 下失败的等待仍为 4；`ClientsColumnCliTests`：`status` 的客户端栏在服务未运行（记录文件中的控制字符不出现在纯文本中）与运行时都显示。
      - `StyledRestoreAndWaitTests`：需要服务的 `restore` 预览（纯文本、`NO_COLOR` 与终端中的美化文字相同），`reindex` 与 `restore --yes` 的转圈只出现在终端 stderr 且 stdout 仍为纯文本，stdout 与 stderr 各自判断。
@@ -104,7 +112,7 @@
 
 Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reranker-base`）与 `CloudflareDecisionUrl`（`/ai/run/clef-flash`）按 Cloudflare 的形状应答，计数与记录同样计入 `RerankRequests` 与 `DecisionRequests`，分数与概率仍由 `Score` 与 `Choose` 指定。请求体含 `contexts` 时答 `{result: {response: [{id, score}]}, success, errors, messages}`，请求体含 `questions` 时答 `{result: {model, answers}, success, errors, messages}`。`CloudflareReportsFailure = true` 时两条路由都答 `success: false` 且无 `result`。`ModelsYaml` 另有 `embeddingCloudflare`、`rerankerCloudflare`、`decisionCloudflare` 三个参数，为真时写出 `provider: cloudflare` 并把对应模型的 `url` 指向上述 Cloudflare 路由。
 
-`WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Mcp.Tests` 两个项目都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
+`WebDavDouble` 是进程内的 WebDAV 替身，与 `ModelDouble` 同样用 Kestrel 实现，`TacitMemory.Core.Tests` 与 `TacitMemory.Host.Tests` 两个项目都链接它。支持 PUT、MOVE、MKCOL、GET 与 DELETE；集合只在建立后存在，父目录缺失的 PUT 与 MKCOL 返回 409。`RequireBasic` 要求 HTTP 基本认证；`MoveSupported = false` 让 MOVE 返回 405（不支持原子替换的服务）；`Answer(方法, 状态码)` 让某个方法固定返回指定状态码；`DropNextPutAfter(n)` 让下一次 PUT 读完 n 字节后断开连接；`Requests` 按序记录每个请求的方法、路径、Authorization、Destination 与 Overwrite；`FileAt(路径)` 读取服务上保存的文件。替身只监听 `127.0.0.1` 的临时端口，测试不访问任何真实的 WebDAV 服务。
 
 重试的等待是 `TestHome.Clock` 上的计时器：每次尝试的超时与每段退避各创建一个，`Advance` 只向前拨动时间，`Elapse` 拨动并触发到期的计时器，`NextTimerAsync(时长)` 等待客户端创建该时长的计时器并认领它。按时长匹配而不按序号匹配，因为写入会触发后台的向量补齐，它也会创建计时器。模型失败后的冷却期同样用 `TestHome.Clock` 的 `Advance` 跨过。
 
@@ -128,8 +136,36 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ```powershell
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝
-dotnet test tests/TacitMemory.Mcp.Tests                                # MCP 接缝
+dotnet test tests/TacitMemory.Host.Tests                                # MCP 接缝
 dotnet test tests/TacitMemory.Cli.Tests                                # CLI 接缝
 dotnet test tests/TacitMemory.Core.Tests --filter "FullyQualifiedName~InitTests"   # 单个测试类
 dotnet test TacitMemory.slnx                                           # 全量
 ```
+
+## 6. OpenAPI 快照
+
+管理 API 的文档快照位于仓库的 `web/openapi.json`，格式固定（两空格缩进、键顺序与生成时一致、末尾一个换行）。`OpenApiTests` 把 `GET /api/openapi.json` 的实际文档与快照比对，不一致即失败。快照的唯一用途是前端类型的生成源，改动任一端点的请求或响应类型后，需要更新快照并重新生成前端类型。
+
+更新方式：设置环境变量 `TACIT_UPDATE_OPENAPI`，运行该测试即改写快照，不再比对；之后不设该变量再运行一次，确认通过。
+
+```powershell
+$env:TACIT_UPDATE_OPENAPI = "1"
+dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTests"
+Remove-Item Env:TACIT_UPDATE_OPENAPI
+dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTests"
+```
+
+## 7. 前端检查
+
+前端检查在 `web/` 下用 Bun 运行，不需要运行中的服务，也不需要 `dotnet`。`dotnet build` 与 `dotnet test` 不要求 Bun，两者互不依赖。
+
+```powershell
+cd web
+bun run typecheck   # tsc --noEmit，含中英字典键一致的检查
+bun run lint        # ESLint
+bun run test        # Vitest
+bun run build       # Vite 构建到 web/dist/
+bun run check       # 以上四项依次运行
+```
+
+Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。

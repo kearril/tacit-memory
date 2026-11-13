@@ -23,6 +23,7 @@
 ```yaml
 server:
   port: 18888
+  # host: 192.168.1.10          # 可选：另外监听的一个 IP 地址，供其他设备访问
 memory:
   path: ~/.tacit/memory       # 默认为 $TACIT_HOME/memory
 language: zh
@@ -50,8 +51,19 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 ### `server` 与 `memory`
 
-- `server.port`：MCP 端点与管理 API 监听的端口，默认 18888，只监听 `127.0.0.1`。修改后需自行更新客户端中的 MCP 配置（见 `docs/reference/mcp.md` 第 1 节）。
+- `server.port`：MCP 端点、管理 API 与 Web 界面监听的端口，默认 18888。服务总是监听 `127.0.0.1` 上的这个端口。修改后需自行更新客户端中的 MCP 配置（见 `docs/reference/mcp.md` 第 1 节）。
+- `server.host`：额外监听的一个 IP 地址，缺省为没有。只接受 IP 地址文字，如 `192.168.1.10` 或 `0.0.0.0`（表示所有地址）；主机名、带端口的写法与 IPv6 的方括号写法都报错，报错中给出键路径 `server.host`。写 `127.0.0.1` 与不写相同。它与 `server.port` 用同一端口，只有其他设备能连上；本机连接的行为不变。额外地址绑定失败时服务仍只在回环地址上运行，状态报告标明原因（见 `docs/reference/cli.md`）；额外地址在探测之后才被占用时，服务去掉额外监听重试一次，不再重试额外地址。`0.0.0.0` 在 Windows 上与回环地址同时监听，在其他系统上只监听所有地址（回环端口仍须空闲）。修改后需重启服务。
 - `memory.path`：记忆仓库的位置，默认为 `TACIT_HOME/memory`。
+
+`server.host` 为 `127.0.0.1` 以外的地址时，服务只有在已设访问密码时才会启动；否则启动被拒绝，报告中给出键路径 `server.host` 与补救办法。访问密码不在配置中，见下文「访问状态文件」。
+
+### 访问状态文件（不是配置）
+
+访问密码的哈希与会话签名密钥保存在 `TACIT_HOME/access.json`，属运行状态：
+
+- 它不是配置：`config.yaml` 中没有访问密码的键，没有对应的环境变量，没有命令行子命令；`tacit init` 不生成它；备份不含它，恢复不改变它。
+- 文件不存在即「未设访问密码」。文件损坏时同样按未设访问密码对待，并记一条警告。
+- 访问密码只经管理 API 设置、修改与清除（见 `docs/reference/api.md`）。
 
 ### `language`
 

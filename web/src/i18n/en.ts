@@ -1,0 +1,47 @@
+import type { Dictionary } from "./messages";
+
+export const en: Dictionary = {
+  appName: "TacitMemory",
+  mainNav: "Main navigation",
+  nav: {
+    dashboard: "Dashboard",
+    settings: "Settings",
+    prompts: "Prompts",
+    logs: "Logs",
+    memory: "Memory",
+  },
+  notImplemented: "Not implemented yet",
+  unreachable: "The memory service cannot be reached.",
+  unexpectedAnswer: "The memory service sent an answer that could not be read.",
+  menuOpen: "Open menu",
+  menuClose: "Close menu",
+  logout: "Log out",
+  showPassword: "Show",
+  hidePassword: "Hide",
+  login: {
+    title: "Log in",
+    description: "This connection comes from another device. Enter the access password.",
+    passwordLabel: "Access password",
+    submit: "Log in",
+    submitting: "Logging in…",
+  },
+  access: {
+    title: "Access",
+    passwordSet: "An access password is set.",
+    passwordUnset: "No access password is set.",
+    note: "The extra listener (server.host) is currently entered in config.yaml and takes effect after a restart.",
+    newPassword: "New access password",
+    currentPassword: "Current access password",
+    setPassword: "Set access password",
+    changePassword: "Change access password",
+    saving: "Saving…",
+    saved: "The access password is saved. Logins that already exist on other devices are no longer valid.",
+    clearPassword: "Clear access password",
+    clearTitle: "Clear the access password?",
+    clearBody:
+      "After clearing, any connection can use the interface without a password, and logins that already exist on other devices stop working.",
+    clearConfirm: "Clear access password",
+    cancel: "Cancel",
+    cleared: "The access password is cleared.",
+  },
+};

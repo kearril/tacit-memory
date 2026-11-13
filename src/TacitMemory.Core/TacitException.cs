@@ -78,18 +78,45 @@ public enum TacitError
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 
-    /// <summary>The management API refused a request that carries an Origin header (a browser page on another site).</summary>
+    /// <summary>The management API refused a request whose Origin is not the origin of the request itself (a browser page on another site).</summary>
     ApiOriginRefused,
 
-    /// <summary>The management API refused a request whose Host is not this service's loopback address and port (DNS rebinding).</summary>
+    /// <summary>The management API refused a local request whose Host is not a loopback name (DNS rebinding).</summary>
     ApiHostRefused,
 
-    /// <summary>The management API refused a POST whose Content-Type is not application/json.</summary>
+    /// <summary>The management API refused a POST or PUT whose Content-Type is not application/json.</summary>
     ApiContentTypeRefused,
+
+    /// <summary>The management API refused a connection from another device that has no valid session.</summary>
+    ApiUnauthorized,
+
+    /// <summary>The MCP endpoint refused a connection from another device; MCP is for this machine only.</summary>
+    McpRemoteRefused,
+
+    /// <summary>The host refused a connection from another device to a path other than <c>/</c>, <c>/ui</c> and <c>/api</c>.</summary>
+    RemotePathRefused,
+
+    /// <summary>The access password is shorter than eight characters.</summary>
+    PasswordTooShort,
+
+    /// <summary>The access password given does not match: a login, or the current password a remote change must give.</summary>
+    PasswordWrong,
+
+    /// <summary>Too many wrong passwords came from this address; logins from it wait until the pause ends.</summary>
+    LoginLimited,
+
+    /// <summary>The access password cannot be cleared while <c>server.host</c> names an extra listening address.</summary>
+    PasswordClearRefused,
+
+    /// <summary>The access password can only be cleared from this machine.</summary>
+    PasswordClearRemoteRefused,
 }
 
 /// <summary>A refused facade operation. <see cref="Exception.Message"/> is localized and meant for the user.</summary>
 public sealed class TacitException(TacitError error, string message, Exception? inner = null) : Exception(message, inner)
 {
     public TacitError Error { get; } = error;
+
+    /// <summary>For a login pause: the whole seconds until logins from the address may be tried again.</summary>
+    public int? RetryAfterSeconds { get; init; }
 }

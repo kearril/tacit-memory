@@ -6,6 +6,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 ## 前提
 
 - **.NET 10 SDK**：用于构建。
+- **Bun**：仅 `dotnet publish` 构建 Web 界面时需要，详见 [`docs/operations.md`](docs/operations.md) 第 6 节。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
 - **三个辅助模型**（可选，均为 HTTP 端点，需自行准备；不配置的模型即未配置，服务照常运行，依赖它的功能按降级规则处理）：
@@ -21,7 +22,9 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 ```
 
-输出目录中的可执行文件为 `tacit.exe`，并附带 `vec0.dll`，两者须放在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。CLI 未打包为 dotnet tool。
+输出目录中的可执行文件为 `tacit.exe`，并附带 `vec0.dll` 与 Web 界面的 `web/` 子目录，它们须放在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。CLI 未打包为 dotnet tool。
+
+发布的前提与不构建 Web 界面的方法见 [`docs/operations.md`](docs/operations.md) 第 6 节。
 
 ## 快速开始
 
@@ -55,7 +58,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit serve
    ```
 
-   控制台显示监听地址即已就绪；`Ctrl+C` 停止。
+   控制台显示监听地址即已就绪；`Ctrl+C` 停止。服务运行时，浏览器打开 `http://127.0.0.1:<端口>/`（端口默认 18888）即进入 Web 界面，本机打开不需要登录。
 
 5. **验证**
 
@@ -65,6 +68,14 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    ```
 
    然后开一个新的会话。绑定与提示词的修改在新会话中生效。
+
+## 从其他设备访问 Web 界面
+
+1. 在本机的 Web 界面「设置 → 访问」中设置访问密码。
+2. 在 `config.yaml` 的 `server` 一节写 `host`（如 Tailscale 地址，或 `0.0.0.0` 表示所有网络接口），然后重启 `tacit serve`。`tacit status` 的服务栏会给出额外监听的地址。
+3. 在另一台设备上打开 `http://<该地址>:<端口>/`，输入访问密码登录。
+
+MCP 端点仍只接受本机连接。连接不加密，访问密码以明文传输，请只在可信的网络（如 Tailscale）中开放。规则见 [`docs/reference/api.md`](docs/reference/api.md) 第 2 节。
 
 ## 日常使用
 
@@ -83,6 +94,8 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 | [`docs/reference/cli.md`](docs/reference/cli.md) | 每个命令的语法、选项、输出与退出码 |
 | [`docs/reference/configuration.md`](docs/reference/configuration.md) | `config.yaml`、环境变量、密钥与提示词文档 |
 | [`docs/reference/mcp.md`](docs/reference/mcp.md) | MCP 端点、工具参数、返回格式与资源 |
+| [`docs/reference/api.md`](docs/reference/api.md) | 管理 API 的端点、访问规则与错误 |
+| [`docs/web.md`](docs/web.md) | Web 界面的页面与流程 |
 | [`docs/operations.md`](docs/operations.md) | 文件位置、备份与恢复、日志、排障 |
 | [`docs/design.md`](docs/design.md) | 记忆如何分层、写入、检索与注入 |
 | [`docs/prompts.md`](docs/prompts.md) | 发给模型的每段文字负责什么 |

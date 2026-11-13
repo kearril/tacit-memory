@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace TacitMemory.Core.Localization;
 
 /// <summary>Human-facing text of the status report, the management API's refusals and the hints for commands that need the service.</summary>
@@ -43,14 +45,33 @@ internal static class ManagementApiMessages
         "Port {0} is answered by another program, so the memory service is not running. Run tacit serve first, or change server.port in config.yaml.");
 
     public static readonly Localized ApiOriginRefused = new(
-        "管理 API 不接受带 Origin 头的请求。",
-        "The management API does not accept requests that carry an Origin header.");
+        "管理 API 只接受与请求自身同源的 Origin。",
+        "The management API only accepts an Origin that is the origin of the request itself.");
     public static readonly Localized ApiHostRefused = new(
-        "管理 API 只接受 Host 为 127.0.0.1:{0} 或 localhost:{0} 的请求。",
-        "The management API only accepts requests whose Host is 127.0.0.1:{0} or localhost:{0}.");
+        "管理 API 对本机连接只接受 Host 为 127.0.0.1、localhost 或 [::1] 的请求。",
+        "The management API only accepts local requests whose Host is 127.0.0.1, localhost or [::1].");
     public static readonly Localized ApiContentTypeRefused = new(
-        "管理 API 的 POST 请求必须是 Content-Type: application/json。",
-        "POST requests to the management API must have Content-Type: application/json.");
+        "管理 API 的 POST 与 PUT 请求必须是 Content-Type: application/json。",
+        "POST and PUT requests to the management API must have Content-Type: application/json.");
+    public static readonly Localized ApiUnauthorized = new(
+        "其他设备须先登录才能使用管理 API。",
+        "Other devices must log in before they can use the management API.");
+    public static readonly Localized WebNotBuilt = new(
+        "Web 界面未构建",
+        "The web interface is not built");
+    public static readonly Localized McpRemoteRefused = new(
+        "MCP 端点只接受本机连接。",
+        "The MCP endpoint only accepts connections from this machine.");
+    public static readonly Localized RemotePathRefused = new(
+        "其他设备只能访问 /、/ui 与 /api 下的路径，其余路径一律拒绝。",
+        "Other devices may only use /, /ui and /api; every other path is refused.");
+
+    public static readonly Localized WebAddress = new("Web 界面：{0}", "Web interface: {0}");
+    public static readonly Localized ExtraListenerAddress = new("额外监听：{0}", "Extra listener: {0}");
+    public static readonly Localized ExtraListenerAllInterfaces = new("所有网络接口，端口 {0}", "all network interfaces, port {0}");
+    public static readonly Localized ExtraListenerFailed = new("额外监听失败：{0}，{1}", "Extra listener failed: {0}, {1}");
+    public static readonly Localized ExtraPortInUse = new("端口 {0} 已被占用", "port {0} is already in use");
+    public static readonly Localized ExtraAddressUnavailable = new("{0} 不是本机的地址", "{0} is not an address of this machine");
     public static readonly Localized ApiBodyInvalid = new(
         "请求体无效：应为 JSON 对象，格式见管理 API 说明。",
         "The request body is invalid: it must be a JSON object, as the management API describes.");
@@ -117,4 +138,13 @@ internal static class ManagementApiMessages
     public static readonly Localized ApiInternalFailure = new(
         "服务内部出错，详情见 logs 目录中的日志。",
         "The service failed unexpectedly; the details are in the logs folder.");
+
+    /// <summary>
+    /// The extra listener's address as people read it: a wildcard address names every network interface and the port,
+    /// and any other address is shown as its URL.
+    /// </summary>
+    public static string ExtraListenerName(Uri address, MemoryLanguage language) =>
+        IPAddress.TryParse(address.Host.Trim('[', ']'), out var host) && (host.Equals(IPAddress.Any) || host.Equals(IPAddress.IPv6Any))
+            ? ExtraListenerAllInterfaces.Format(language, address.Port)
+            : address.ToString();
 }

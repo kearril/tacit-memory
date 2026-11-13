@@ -63,6 +63,7 @@ internal static class Templates
 
         server:
           port: 18888                 # 常驻服务在 127.0.0.1 上监听的端口
+          # host: 192.168.1.10          # 另外监听的一个 IP 地址（如 0.0.0.0），供其他设备访问；省略即只在本机
 
         memory:
         {memory}
@@ -123,6 +124,7 @@ internal static class Templates
 
         server:
           port: 18888                 # port the memory service listens on at 127.0.0.1
+          # host: 192.168.1.10          # one more IP address to listen on (such as 0.0.0.0) for other devices; leave out to listen on this machine only
 
         memory:
         {memory}
