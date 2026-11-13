@@ -44,7 +44,7 @@ interface Failure {
  * is unavailable: hovering or focusing it explains why, and clicking it (the only way on a touch screen) shows the same
  * explanation as an alert.
  */
-export function AccessSection() {
+export function AccessSection({ id, className }: { readonly id?: string; readonly className?: string }) {
   const dictionary = useDictionary();
   const session = useSessionStatus();
   const queryClient = useQueryClient();
@@ -89,7 +89,7 @@ export function AccessSection() {
   };
 
   return (
-    <Card aria-labelledby="access-title">
+    <Card id={id} aria-labelledby="access-title" className={className}>
       <header className="flex items-start gap-md">
         <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
           <KeyRound aria-hidden className="size-(--tk-font-size-lg)" />

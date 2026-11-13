@@ -2,8 +2,15 @@ import { ApiError } from "../api/client";
 import type { BindingProblem } from "../api/status";
 import type { components } from "../api/schema";
 import type { Duration } from "../pages/dashboard/format";
+import type { JUDGMENTS, SectionId } from "../pages/settings/form";
 import { en } from "./en";
 import { zh } from "./zh";
+
+/** A setting's name and the sentence or two that explains it. */
+export interface Explained {
+  readonly label: string;
+  readonly help: string;
+}
 
 /**
  * The text of the interface, in both memory languages. Every dictionary is annotated with this type, so a dictionary that
@@ -66,6 +73,44 @@ export interface Dictionary {
     readonly cleared: string;
     readonly clearFailed: string;
     readonly clearBlocked: (address: string) => string;
+  };
+  readonly settings: {
+    readonly sections: Readonly<Record<SectionId, string>>;
+    readonly sectionsNav: string;
+    readonly problemsIn: (count: number) => string;
+    readonly loadFailed: string;
+    readonly defaultValue: (value: string) => string;
+    readonly range: (min: string, max: string) => string;
+    readonly restoreDefault: string;
+    readonly notANumber: string;
+    readonly notAWholeNumber: string;
+    readonly changes: (count: number) => string;
+    readonly discard: string;
+    readonly save: string;
+    readonly saving: string;
+    readonly saved: string;
+    readonly saveFailed: string;
+    readonly unplacedTitle: string;
+    readonly reload: string;
+    readonly cancel: string;
+    readonly discardTitle: string;
+    readonly discardBody: string;
+    readonly discardConfirm: string;
+    readonly leaveTitle: string;
+    readonly leaveBody: string;
+    readonly leaveConfirm: string;
+    readonly judgment: {
+      readonly title: string;
+      readonly summary: string;
+      readonly calibration: string;
+      readonly retrieval: string;
+      readonly thresholds: string;
+      readonly certain: string;
+      readonly unlikely: string;
+      readonly thresholdsHelp: string;
+      readonly fields: Readonly<Record<"candidates" | "topK" | "minRerankScore", Explained>>;
+      readonly judgments: Readonly<Record<(typeof JUDGMENTS)[number], Explained>>;
+    };
   };
   readonly dashboard: {
     readonly connectionLost: (time: string) => string;
