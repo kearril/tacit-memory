@@ -93,6 +93,9 @@ public enum TacitError
     /// <summary>The MCP endpoint refused a connection from another device; MCP is for this machine only.</summary>
     McpRemoteRefused,
 
+    /// <summary>The host refused a connection from another device to a path other than <c>/</c>, <c>/ui</c> and <c>/api</c>.</summary>
+    RemotePathRefused,
+
     /// <summary>The access password is shorter than eight characters.</summary>
     PasswordTooShort,
 

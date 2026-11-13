@@ -60,6 +60,9 @@ internal static class ManagementApiMessages
     public static readonly Localized McpRemoteRefused = new(
         "MCP 端点只接受本机连接。",
         "The MCP endpoint only accepts connections from this machine.");
+    public static readonly Localized RemotePathRefused = new(
+        "其他设备只能访问 /、/ui 与 /api 下的路径，其余路径一律拒绝。",
+        "Other devices may only use /, /ui and /api; every other path is refused.");
 
     public static readonly Localized WebAddress = new("Web 界面：{0}", "Web interface: {0}");
     public static readonly Localized ExtraListenerAddress = new("额外监听：{0}", "Extra listener: {0}");

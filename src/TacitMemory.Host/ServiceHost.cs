@@ -107,21 +107,25 @@ public sealed class ServiceHost : IAsyncDisposable
                 throw new McpProtocolException($"Unknown prompt '{request.Params?.Name}'.", McpErrorCode.InvalidParams));
 
         var app = builder.Build();
-        ManagementApi.Map(app, service, isLocal);
-        WebInterface.Map(app, service, webRoot ?? Path.Combine(AppContext.BaseDirectory, "web"));
-        // MCP is for this machine only: a connection from anywhere else is refused before the endpoint sees it.
+        // A connection from another device may reach only the root, the web interface and the management API, and MCP not at
+        // all. Every other path is refused here, before any endpoint can answer it. The paths are matched the way the routes
+        // match them, without regard to letter case.
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments("/mcp", StringComparison.Ordinal) && !isLocal(context.Connection.RemoteIpAddress))
+            if (!isLocal(context.Connection.RemoteIpAddress) && !RemoteMayReach(context.Request.Path))
             {
-                var refusal = new ApiError(nameof(TacitError.McpRemoteRefused), service.RefusalMessage(TacitError.McpRemoteRefused));
-                await Results.Text(JsonSerializer.Serialize(refusal, ManagementApiJson.Options), "application/json; charset=utf-8", statusCode: StatusCodes.Status403Forbidden)
+                var error = context.Request.Path.StartsWithSegments(McpPath, StringComparison.OrdinalIgnoreCase)
+                    ? TacitError.McpRemoteRefused
+                    : TacitError.RemotePathRefused;
+                await ManagementApi.Json(new ApiError(error.ToString(), service.RefusalMessage(error)), StatusCodes.Status403Forbidden)
                     .ExecuteAsync(context);
                 return;
             }
             await next(context);
         });
-        app.MapMcp("/mcp");
+        ManagementApi.Map(app, service, isLocal);
+        WebInterface.Map(app, service, webRoot ?? Path.Combine(AppContext.BaseDirectory, "web"));
+        app.MapMcp(McpPath);
         try
         {
             await app.StartAsync(cancellationToken);
@@ -170,6 +174,13 @@ public sealed class ServiceHost : IAsyncDisposable
             listener.Stop();
         }
     }
+
+    /// <summary>The path of the MCP endpoint.</summary>
+    private const string McpPath = "/mcp";
+
+    /// <summary>Whether a connection from another device may use the path: the root, and the paths under the web interface and the management API.</summary>
+    private static bool RemoteMayReach(PathString path) =>
+        path == "/" || path.StartsWithSegments("/ui", StringComparison.OrdinalIgnoreCase) || path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The peers the default rule counts as local: the whole IPv4 loopback range, IPv6 loopback and their IPv4-mapped forms.</summary>
     private static bool IsLoopback(IPAddress? peer) => peer is not null && IPAddress.IsLoopback(peer);

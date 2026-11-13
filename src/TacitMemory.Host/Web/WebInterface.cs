@@ -41,7 +41,7 @@ internal static class WebInterface
                 context.Response.Redirect(Prefix + "/");
                 return;
             }
-            if (path != Prefix && !path.StartsWith(Prefix + "/", StringComparison.Ordinal))
+            if (!path.Equals(Prefix, StringComparison.OrdinalIgnoreCase) && !path.StartsWith(Prefix + "/", StringComparison.OrdinalIgnoreCase))
             {
                 await next(context);
                 return;

@@ -305,6 +305,7 @@ public sealed class MemoryService : IDisposable
         TacitError.ApiContentTypeRefused => ManagementApiMessages.ApiContentTypeRefused.Format(Config.Language),
         TacitError.ApiUnauthorized => ManagementApiMessages.ApiUnauthorized.Format(Config.Language),
         TacitError.McpRemoteRefused => ManagementApiMessages.McpRemoteRefused.Format(Config.Language),
+        TacitError.RemotePathRefused => ManagementApiMessages.RemotePathRefused.Format(Config.Language),
         _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Not a host refusal."),
     };
 

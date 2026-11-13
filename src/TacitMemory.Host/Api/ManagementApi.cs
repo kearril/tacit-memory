@@ -118,7 +118,7 @@ internal static class ManagementApi
     {
         app.Use(async (context, next) =>
         {
-            if (!context.Request.Path.StartsWithSegments(Prefix, StringComparison.Ordinal))
+            if (!context.Request.Path.StartsWithSegments(Prefix, StringComparison.OrdinalIgnoreCase))
             {
                 await next(context);
                 return;
@@ -323,7 +323,7 @@ internal static class ManagementApi
     /// logging in and logging out.
     /// </summary>
     private static bool IsSessionEndpoint(HttpContext context) =>
-        context.Request.Path.Equals("/api/session", StringComparison.Ordinal)
+        context.Request.Path.Equals("/api/session", StringComparison.OrdinalIgnoreCase)
         && (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
 
     /// <summary>
@@ -343,7 +343,7 @@ internal static class ManagementApi
     };
 
     /// <summary>A JSON response, serialized here with <see cref="ManagementApiJson.Options"/>.</summary>
-    private static IResult Json<T>(T value, int statusCode = StatusCodes.Status200OK) =>
+    internal static IResult Json<T>(T value, int statusCode = StatusCodes.Status200OK) =>
         Results.Text(JsonSerializer.Serialize(value, ManagementApiJson.Options), "application/json; charset=utf-8", statusCode: statusCode);
 
     /// <summary>
