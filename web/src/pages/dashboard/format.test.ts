@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockOf, durationOf, remainingOf, sizeOf } from "./duration";
+import { clockOf, dayText, durationOf, fileNameOf, remainingOf, sizeOf, versionText } from "./format";
 
 describe("durationOf", () => {
   it("splits seconds into whole days, hours and minutes", () => {
@@ -33,5 +33,25 @@ describe("sizeOf", () => {
     expect(sizeOf(512, "en")).toBe("512 byte");
     expect(sizeOf(1536, "en")).toBe("1.5 kB");
     expect(sizeOf(3.44 * 1024 * 1024, "en")).toBe("3.4 MB");
+  });
+});
+
+describe("dayText", () => {
+  it("shows the calendar day itself, whatever the browser's time zone", () => {
+    expect(dayText("2026-11-01", "en", { month: "short", day: "numeric" })).toBe("Nov 1");
+  });
+});
+
+describe("fileNameOf", () => {
+  it("takes the last part of a Windows or a POSIX path", () => {
+    expect(fileNameOf("C:\\tacit\\backups\\manual-2026-11-13-200859.zip")).toBe("manual-2026-11-13-200859.zip");
+    expect(fileNameOf("/home/me/.tacit/backups/auto-2026-11-13.zip")).toBe("auto-2026-11-13.zip");
+  });
+});
+
+describe("versionText", () => {
+  it("drops the build metadata, and leaves a plain version alone", () => {
+    expect(versionText("1.0.0+cd36d27")).toBe("1.0.0");
+    expect(versionText("1.0.0")).toBe("1.0.0");
   });
 });

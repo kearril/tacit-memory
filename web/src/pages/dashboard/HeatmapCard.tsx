@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
+import { dayText } from "./format";
 import { calendarColumns, dayLevel, fillWindow, type HeatDay, type HeatLevel, monthLabels, statsOf } from "./heatmap";
 
 const levelClass: Record<HeatLevel, string> = {
@@ -18,12 +19,7 @@ const levelClass: Record<HeatLevel, string> = {
 
 /** A `yyyy-MM-dd` date as the interface shows it: month, day and weekday, in the memory language. */
 function dateText(date: string, locale: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString(locale, {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    timeZone: "UTC",
-  });
+  return dayText(date, locale, { month: "long", day: "numeric", weekday: "short" });
 }
 
 /**
@@ -139,7 +135,7 @@ function Heatmap({
               className="text-xs whitespace-nowrap text-ink-muted"
               style={{ gridColumn: label.column + 2, gridRow: 1 }}
             >
-              {new Date(`${label.date}T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" })}
+              {dayText(label.date, locale, { month: "short" })}
             </span>
           ))}
           {text.weekdays.map((weekday, row) =>

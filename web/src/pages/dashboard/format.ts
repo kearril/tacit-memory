@@ -44,3 +44,23 @@ export function sizeOf(bytes: number, locale: string): string {
     maximumFractionDigits: unit === 0 ? 0 : 1,
   }).format(value);
 }
+
+/** A calendar day, `yyyy-MM-dd`, as the interface shows it: that day whatever the browser's time zone, in the given parts. */
+export function dayText(day: string, locale: string, parts: Intl.DateTimeFormatOptions): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(locale, { ...parts, timeZone: "UTC" });
+}
+
+/** A moment as a medium date and a short time, in the browser's time zone. */
+export function timeText(at: string, locale: string): string {
+  return new Date(at).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** The file name at the end of a path, whichever separator the host uses. */
+export function fileNameOf(path: string): string {
+  return path.split(/[\\/]/).pop() || path;
+}
+
+/** A version without its build metadata: "1.0.0+cd36d27" shows as "1.0.0". */
+export function versionText(version: string): string {
+  return version.split("+")[0];
+}

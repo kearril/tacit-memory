@@ -11,12 +11,14 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
+import { useActivity } from "../../api/activity";
+import { useBackups } from "../../api/backups";
 import { type StatusReport, useStatus } from "../../api/status";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
-import { durationOf } from "./duration";
+import { durationOf, timeText } from "./format";
 import { HeatmapCard } from "./HeatmapCard";
 import { AgentsCard, BackupsCard, IndexCard, ModelsCard, ServiceCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";
@@ -24,9 +26,10 @@ import { targetOf, type Todo, todosOf } from "./todos";
 /**
  * The dashboard. On a wide screen it is a bento grid of twelve columns: the overview (the status sentence and the to-dos)
  * and the memory activity each across the whole width, then a row of three cards (models, backups, index and
- * consolidation) and a row of two (service, and the agents with their bindings). On a narrower screen the cards stack in one column in the order of the
- * markup, which puts what to act on (the to-dos, models and backups) before the activity. The status report is fetched every 30 seconds; when a fetch fails, the
- * cards keep the last report and a notice says so.
+ * consolidation) and a row of two (service, and the agents with their bindings). On a narrower screen the cards stack in
+ * one column in the order of the markup, which puts what to act on (the to-dos, models and backups) before the activity.
+ * The status report is fetched every 30 seconds, the activity and the backups when the window regains focus; when a fetch
+ * fails, the cards keep what they last had and a notice at the top says so, with the time of the oldest data shown.
  */
 export function DashboardPage() {
   const dictionary = useDictionary();
@@ -34,20 +37,27 @@ export function DashboardPage() {
   const status = useStatus();
   const report = status.data;
   useScrollToHash(report !== undefined);
+  // The cards read the same queries; asking for them here only adds them to the notice, not another request.
+  const stale = [status, useActivity(), useBackups()].filter((query) => query.isError && query.data !== undefined);
 
   const locale = session.language === "zh" ? "zh-CN" : "en";
 
   return (
     <div className="grid gap-lg">
       <h1 className="sr-only">{dictionary.nav.dashboard}</h1>
-      {status.isError ? (
+      {status.isError && report === undefined ? (
+        <Alert tone="danger">
+          <AlertDescription>{dictionary.dashboard.connectionLostNever}</AlertDescription>
+        </Alert>
+      ) : stale.length > 0 ? (
         <Alert tone="danger">
           <AlertDescription>
-            {report === undefined
-              ? dictionary.dashboard.connectionLostNever
-              : dictionary.dashboard.connectionLost(
-                  new Date(status.dataUpdatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
-                )}
+            {dictionary.dashboard.connectionLost(
+              new Date(Math.min(...stale.map((query) => query.dataUpdatedAt))).toLocaleTimeString(locale, {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -198,7 +208,7 @@ function viewOf(todo: Todo, dictionary: Dictionary, locale: string): TodoView {
         detail:
           todo.error ??
           text.cloudBackupFailedDetail(
-            new Date(todo.at).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }),
+            timeText(todo.at, locale),
           ),
         failure: true,
       };

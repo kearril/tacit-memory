@@ -7,7 +7,6 @@ import {
   CircleCheck,
   CloudUpload,
   HardDriveDownload,
-  LoaderCircle,
   RefreshCw,
   CircleDashed,
   Cpu,
@@ -45,7 +44,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentIcon, type AgentRow, agentsOf } from "./agents";
-import { clockOf, durationOf, remainingOf, sizeOf } from "./duration";
+import { clockOf, dayText, durationOf, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
+import { BusyIcon, InfoRow } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 
 interface CardProps {
@@ -111,11 +111,6 @@ function FailureAlert({ failure }: { readonly failure: Failure | null }) {
       <AlertDescription>{failure.message}</AlertDescription>
     </Alert>
   );
-}
-
-/** The icon of a button that runs a command: its own icon, or a spinner while the command runs. */
-function BusyIcon({ busy, icon: Icon }: { readonly busy: boolean; readonly icon: LucideIcon }) {
-  return busy ? <LoaderCircle aria-hidden className="motion-safe:animate-spin" /> : <Icon aria-hidden />;
 }
 
 /**
@@ -294,10 +289,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
           <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{text.daysAgo(consolidation.daysSince)}</span>
           <span className="text-xs text-ink-muted">
             {text.lastConsolidation(
-              new Date(`${consolidation.lastConsolidationDay}T00:00:00Z`).toLocaleDateString(locale, {
-                dateStyle: "medium",
-                timeZone: "UTC",
-              }),
+              dayText(consolidation.lastConsolidationDay, locale, { dateStyle: "medium" }),
             )}
           </span>
         </div>
@@ -346,8 +338,8 @@ function ReindexButton({ busy, onConfirm }: { readonly busy: boolean; readonly o
 /**
  * The backups: when the latest local backup was made, with its kind, its size and how many there are, and the last cloud
  * backup. The backup button opens a menu of the local and the cloud backup, the latter dimmed while it is not configured;
- * the one chosen runs at once, without a confirmation. While it runs, the button waits; the result shows as a toast, a failure as the service's explanation in the card. A backup can
- * be restored from here, through the restore dialog.
+ * the one chosen runs at once, without a confirmation. While it runs, the button waits; the result shows as a toast, a
+ * failure as the service's explanation in the card. A backup can be restored from here, through the restore dialog.
  */
 export function BackupsCard({ locale, className }: { readonly locale: string; readonly className: string }) {
   const dictionary = useDictionary();
@@ -360,7 +352,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
     mutationFn: (target: BackupTarget) => runBackup(target),
     onMutate: () => setFailure(null),
     onSuccess: (result, target) => {
-      showToast(target === "remote" ? text.cloudBackedUp : text.backedUp(result.location.split(/[\\/]/).pop() ?? result.location));
+      showToast(target === "remote" ? text.cloudBackedUp : text.backedUp(fileNameOf(result.location)));
     },
     onError: (error, target) =>
       setFailure({ title: target === "remote" ? text.cloudFailedTitle : text.failed, message: errorTextOf(error, dictionary) }),
@@ -369,7 +361,6 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
       void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
     },
   });
-  const timeOf = (at: string) => new Date(at).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
   const list = backups.data;
   const latest = list?.local[0];
   const lastRemote = list?.lastRemote ?? null;
@@ -389,7 +380,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
             <span className="text-lg font-semibold">{text.none}</span>
           ) : (
             <div className="grid gap-xs">
-              <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{timeOf(latest.at)}</span>
+              <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{timeText(latest.at, locale)}</span>
               <span className="text-xs text-ink-muted">
                 {[text.kinds[latest.kind], sizeOf(latest.bytes, locale), text.count(list.local.length)].join(" · ")}
               </span>
@@ -403,7 +394,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
               <span className="text-ink-muted">{text.cloudNever}</span>
             ) : (
               <span className="flex min-w-0 items-center gap-sm">
-                <span className="truncate text-xs text-ink-muted">{timeOf(lastRemote.at)}</span>
+                <span className="truncate text-xs text-ink-muted">{timeText(lastRemote.at, locale)}</span>
                 {lastRemote.succeeded ? (
                   <Badge tone="success">
                     <CircleCheck aria-hidden />
@@ -451,16 +442,6 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   );
 }
 
-/** One line of the service card: a label on the left and its value on the right, with what goes after the value. */
-function ServiceRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return (
-    <div className="contents">
-      <dt className="py-xs text-ink-muted">{label}</dt>
-      <dd className="flex min-w-0 items-center gap-xs">{children}</dd>
-    </div>
-  );
-}
-
 /** An address in the service card, with a button that copies it. */
 function Address({ value, label }: { readonly value: string; readonly label: string }) {
   const dictionary = useDictionary();
@@ -474,7 +455,10 @@ function Address({ value, label }: { readonly value: string; readonly label: str
   );
 }
 
-/** The running service: how long it has run, its version, the MCP and web addresses, and the extra listener and whether it started. */
+/**
+ * The running service: how long it has run, its version, the MCP and web addresses, and the extra listener and whether
+ * it started.
+ */
 export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.service;
@@ -488,24 +472,24 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
       ) : (
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs text-sm">
           {service.uptimeSeconds === null ? null : (
-            <ServiceRow label={text.uptime}>{text.duration(durationOf(service.uptimeSeconds))}</ServiceRow>
+            <InfoRow label={text.uptime}>{text.duration(durationOf(service.uptimeSeconds))}</InfoRow>
           )}
           {service.version === null ? null : (
-            <ServiceRow label={text.version}>
+            <InfoRow label={text.version}>
               <span title={service.version} className="truncate">
-                {service.version.split("+")[0]}
+                {versionText(service.version)}
               </span>
-            </ServiceRow>
+            </InfoRow>
           )}
           {service.endpoint === null ? null : (
-            <ServiceRow label={text.mcp}>
+            <InfoRow label={text.mcp}>
               <Address value={service.endpoint} label={text.mcp} />
-            </ServiceRow>
+            </InfoRow>
           )}
-          <ServiceRow label={text.web}>
+          <InfoRow label={text.web}>
             <Address value={service.webAddress} label={text.web} />
-          </ServiceRow>
-          <ServiceRow label={text.extraListener}>
+          </InfoRow>
+          <InfoRow label={text.extraListener}>
             {service.extraListener === null ? (
               <span className="text-ink-muted">{text.noExtraListener}</span>
             ) : (
@@ -524,7 +508,7 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
                 )}
               </>
             )}
-          </ServiceRow>
+          </InfoRow>
         </dl>
       )}
     </Card>
@@ -567,7 +551,7 @@ function seenText(day: string | null, locale: string, text: ReturnType<typeof us
     return text.yesterday;
   }
   return text.lastSeen(
-    new Date(`${day}T00:00:00Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }),
+    dayText(day, locale, { month: "short", day: "numeric" }),
   );
 }
 

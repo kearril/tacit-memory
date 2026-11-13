@@ -7,7 +7,7 @@ export type ActivityReport = components["schemas"]["ActivityReport"];
 /** The query key of the activity counts. */
 export const ACTIVITY_QUERY_KEY = ["activity"] as const;
 
-/** The activity log's counts per day over the last 26 weeks, with the consolidation days and the skipped month files. */
+/** The activity log's counts per day over the last 53 weeks, with the consolidation days and the skipped month files. */
 export function getActivity(): Promise<ActivityReport> {
   return apiFetch<ActivityReport>("/api/activity");
 }

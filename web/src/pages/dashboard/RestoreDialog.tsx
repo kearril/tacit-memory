@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Cloud, History, LoaderCircle, RotateCcw, TriangleAlert } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { ACTIVITY_QUERY_KEY } from "../../api/activity";
 import {
   BACKUPS_QUERY_KEY,
@@ -27,13 +27,19 @@ import {
   DialogTrigger,
 } from "../../components/ui/dialog";
 import { errorTextOf } from "../../i18n/messages";
-import { sizeOf } from "./duration";
+import { fileNameOf, sizeOf, timeText, versionText } from "./format";
+import { BusyIcon, InfoRow } from "./parts";
 
-/** The choice in the list: a local backup by its full path, or the latest cloud backup. */
-const CLOUD = "cloud";
+/** The backup chosen in the list: a local one by its full path, or the latest cloud backup. */
+type Choice = { readonly kind: "local"; readonly path: string } | { readonly kind: "cloud" };
 
-function sourceOf(choice: string): RestoreSource {
-  return choice === CLOUD ? { remote: true } : { path: choice };
+function sourceOf(choice: Choice): RestoreSource {
+  return choice.kind === "cloud" ? { remote: true } : { path: choice.path };
+}
+
+/** The value that tells the choices apart in the list and in the preview's query key. */
+function keyOf(choice: Choice): string {
+  return choice.kind === "cloud" ? "cloud" : `local:${choice.path}`;
 }
 
 /**
@@ -46,12 +52,12 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
   const dictionary = useDictionary();
   const text = dictionary.dashboard.restore;
   const [open, setOpen] = useState(false);
-  const [choice, setChoice] = useState<string | null>(null);
+  const [choice, setChoice] = useState<Choice | null>(null);
   const [config, setConfig] = useState(false);
   const queryClient = useQueryClient();
 
   const preview = useQuery({
-    queryKey: ["restore-preview", choice, config],
+    queryKey: ["restore-preview", choice === null ? null : keyOf(choice), config],
     queryFn: () => previewRestore(sourceOf(choice!), config),
     enabled: open && choice !== null,
     staleTime: Infinity,
@@ -74,7 +80,8 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
     }
     setOpen(next);
     if (next) {
-      setChoice(list.local[0]?.path ?? (list.remoteConfigured ? CLOUD : null));
+      const newest = list.local[0];
+      setChoice(newest !== undefined ? { kind: "local", path: newest.path } : list.remoteConfigured ? { kind: "cloud" } : null);
       setConfig(false);
       restore.reset();
     }
@@ -100,7 +107,7 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
               <PreviewPanel
                 preview={preview.data}
                 loading={preview.isFetching}
-                cloud={choice === CLOUD}
+                cloud={choice.kind === "cloud"}
                 error={preview.isError ? errorTextOf(preview.error, dictionary) : null}
                 locale={locale}
               />
@@ -133,11 +140,7 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
                 disabled={preview.data === undefined || preview.isFetching || restore.isPending}
                 onClick={() => restore.mutate(preview.data!.path)}
               >
-                {restore.isPending ? (
-                  <LoaderCircle aria-hidden className="motion-safe:animate-spin" />
-                ) : (
-                  <RotateCcw aria-hidden />
-                )}
+                <BusyIcon busy={restore.isPending} icon={RotateCcw} />
                 {text.confirm}
               </Button>
             </DialogFooter>
@@ -160,18 +163,20 @@ function BackupChoices({
 }: {
   readonly list: BackupList;
   readonly locale: string;
-  readonly choice: string | null;
+  readonly choice: Choice | null;
   readonly disabled: boolean;
-  readonly onChoose: (choice: string) => void;
+  readonly onChoose: (choice: Choice) => void;
 }) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.restore;
   const kinds = dictionary.dashboard.backups.kinds;
   const choices = [
-    ...(list.remoteConfigured ? [{ value: CLOUD, label: text.cloudLatest, detail: null as string | null, cloud: true }] : []),
+    ...(list.remoteConfigured
+      ? [{ choice: { kind: "cloud" } as Choice, label: text.cloudLatest, detail: null as string | null, cloud: true }]
+      : []),
     ...list.local.map((backup) => ({
-      value: backup.path,
-      label: new Date(backup.at).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }),
+      choice: { kind: "local", path: backup.path } as Choice,
+      label: timeText(backup.at, locale),
       detail: `${kinds[backup.kind]} · ${sizeOf(backup.bytes, locale)}`,
       cloud: false,
     })),
@@ -186,37 +191,31 @@ function BackupChoices({
       className="grid max-h-(--tk-size-list) overflow-y-auto rounded-md border-(length:--tk-border-thin) border-line"
     >
       <legend className="sr-only">{text.title}</legend>
-      {choices.map((item) => (
-        <label
-          key={item.value}
-          className={`flex cursor-pointer items-center gap-sm border-b-(length:--tk-border-thin) border-line px-md py-sm text-sm last:border-b-0 ${
-            choice === item.value ? "bg-accent-soft" : "hover:bg-surface-raised"
-          }`}
-        >
-          <input
-            type="radio"
-            name="restore-backup"
-            value={item.value}
-            checked={choice === item.value}
-            onChange={() => onChoose(item.value)}
+      {choices.map((item) => {
+        const key = keyOf(item.choice);
+        const chosen = choice !== null && keyOf(choice) === key;
+        return (
+          <label
+            key={key}
+            className={`flex cursor-pointer items-center gap-sm border-b-(length:--tk-border-thin) border-line px-md py-sm text-sm last:border-b-0 ${
+              chosen ? "bg-accent-soft" : "hover:bg-surface-raised"
+            }`}
+          >
+            <input
+              type="radio"
+              name="restore-backup"
+              value={key}
+              checked={chosen}
+              onChange={() => onChoose(item.choice)}
             className="size-(--tk-font-size-sm) accent-accent"
           />
           {item.cloud ? <Cloud aria-hidden className="size-(--tk-font-size-sm) text-ink-muted" /> : null}
           <span className="flex-1 truncate font-medium">{item.label}</span>
-          {item.detail === null ? null : <span className="text-xs text-ink-muted">{item.detail}</span>}
-        </label>
-      ))}
+            {item.detail === null ? null : <span className="text-xs text-ink-muted">{item.detail}</span>}
+          </label>
+        );
+      })}
     </fieldset>
-  );
-}
-
-/** One line of the preview: a label on the left and its value on the right. */
-function Fact({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return (
-    <div className="contents">
-      <dt className="text-ink-muted">{label}</dt>
-      <dd className="min-w-0 truncate">{children}</dd>
-    </div>
   );
 }
 
@@ -257,21 +256,25 @@ function PreviewPanel({
     <div className="grid gap-sm">
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-lg gap-y-xs text-sm">
         {preview.generatedAt === null ? null : (
-          <Fact label={text.at}>
-            {new Date(preview.generatedAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}
-          </Fact>
+          <InfoRow label={text.at}>
+            <span className="truncate">{timeText(preview.generatedAt, locale)}</span>
+          </InfoRow>
         )}
         {preview.tacitVersion === null ? null : (
-          <Fact label={text.version}>
-            <span title={preview.tacitVersion}>{preview.tacitVersion.split("+")[0]}</span>
-          </Fact>
+          <InfoRow label={text.version}>
+            <span title={preview.tacitVersion} className="truncate">
+              {versionText(preview.tacitVersion)}
+            </span>
+          </InfoRow>
         )}
-        <Fact label={text.commit}>
-          <span title={preview.memoryHeadSubject ?? undefined}>
+        <InfoRow label={text.commit}>
+          <span title={preview.memoryHeadSubject ?? undefined} className="truncate">
             <code className="text-xs">{preview.memoryHead.slice(0, 7)}</code> {preview.memoryHeadSubject}
           </span>
-        </Fact>
-        <Fact label={text.files}>{preview.fileCount}</Fact>
+        </InfoRow>
+        <InfoRow label={text.files}>
+          <span>{preview.fileCount}</span>
+        </InfoRow>
       </dl>
       <div className="grid gap-xs rounded-md bg-warning-soft px-md py-sm text-sm">
         <span className="flex items-center gap-xs font-medium text-warning">
@@ -299,7 +302,7 @@ function RestoreDone({ result }: { readonly result: RestoreResult }) {
           <CircleCheck aria-hidden className="size-(--tk-font-size-lg) text-success" />
           {text.doneTitle}
         </DialogTitle>
-        <DialogDescription>{text.safety(result.safetyBackup.split(/[\\/]/).pop() ?? result.safetyBackup)}</DialogDescription>
+        <DialogDescription>{text.safety(fileNameOf(result.safetyBackup))}</DialogDescription>
       </DialogHeader>
       <p className="flex flex-wrap items-center gap-sm text-sm">
         <Badge tone="success">

@@ -1,7 +1,7 @@
 import { ApiError } from "../api/client";
 import type { BindingProblem } from "../api/status";
 import type { components } from "../api/schema";
-import type { Duration } from "../pages/dashboard/duration";
+import type { Duration } from "../pages/dashboard/format";
 import { en } from "./en";
 import { zh } from "./zh";
 

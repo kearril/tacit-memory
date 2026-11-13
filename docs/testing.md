@@ -80,7 +80,10 @@
      - `ListenerTests`：未设 `server.host` 时只在 `127.0.0.1` 应答；设了 `server.host` 而没有访问密码时启动被拒绝（`ConfigInvalid`，说明含 `server.host`），`0.0.0.0` 同样；清除密码时 409（本机）与 403（非本机，即使带有会话）；设了则两个地址同一端口都应答（端口 0 时两者同端口）；`0.0.0.0` 与回环并存；额外地址绑定失败或端口已被占用时仍在回环上启动，状态报告标明原因；额外地址在探测之后才被占用时去掉额外监听重试一次，状态报告标明端口被占用；`127.0.0.1` 与不设相同；回环端口被占时仍不启动，包括 `server.host` 为 `0.0.0.0` 的情况。
      - `ManagementErrorTests`：错误体为 JSON 且 `error` 取自 `TacitError`：`backup --to` 指向无法创建的路径返回 500（`FileSystemFailed`），错误说明含原因而不含异常类型名；恢复不存在的文件返回 400（`RequestInvalid`）；请求体读不出时返回 400，说明指出字段，不含解析器原文；`"remote"` 是云端目标的线上值，未配置时返回 409（`CloudBackupNotConfigured`）。
      - `RemoteBackupApiTests`：`POST /api/backup` 的云端目标经真实 HTTP 上传并返回结果 JSON；云端目标与 `to` 同时出现返回 400（`RequestInvalid`）；上传失败返回 500（`CloudBackupFailed`），错误体含 HTTP 状态码，不含密码。
-     - `OpenApiTests`：`GET /api/openapi.json` 经真实 HTTP 返回文档，位于 `/api` 之下并受 Origin 防护；登录限速的 429 声明 `Retry-After` 头；快照一致性（见第 6 节）。
+     - `OpenApiTests`：`GET /api/openapi.json` 经真实 HTTP 返回文档，位于 `/api` 之下并受 Origin 防护；登录限速的 429 声明 `Retry-After` 头；`GET /api/backups` 与 `POST /api/probe` 的响应分别声明为 `BackupList` 与 `ProbeReport`；快照一致性（见第 6 节）。
+     - `ActivityApiTests`：`GET /api/activity` 经真实 HTTP：每条活动按其主线标签计数一次，没有标签的计入未归属，跨月文件累计；窗口从本周之前 52 周的周一开始，窗口之前的月文件不读；不是 UTF-8 的月文件被跳过并点名，其余照常返回；整理日取窗口内的 `consolidate:` 提交，历史读不了时整理日为空、计数照常；没有活动记录时返回空窗口；非本机未登录 401。
+     - `BackupListApiTests`：`GET /api/backups` 经真实 HTTP：列出自动、手动、保险三种本地备份（完整路径、时间、大小），新的在前，其他文件不列；种类在线上为 camelCase；没有 `backups/` 时列表为空、云端未配置；配置了云端时给出上次尝试且不访问网络；`remote.json` 读不了时没有上次尝试；非本机未登录 401。
+     - `ProbeApiTests`：`POST /api/probe` 经真实 HTTP：按顺序探测三个模型，耗时以毫秒给出；某个模型失败只体现在结果中，请求本身成功；探测读取服务启动后保存的配置；保存的配置无法加载时返回 409（`ConfigInvalid`）；非本机未登录 401。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
      - `WebInterfaceTests`：`/ui` 的托管（测试用自己的目录代替构建产物）：构建产物原样返回，`assets/` 下的文件长期缓存、入口页为 `no-store`；不带扩展名的路径返回入口页，带扩展名而找不到的路径 404 且不返回入口页；路径越出 `web/` 目录的请求不读取任何文件；产物未构建时返回「Web 界面未构建」；`/` 重定向到 `/ui/`；非本机连接无需登录即可打开界面，大小写不同的前缀同样适用。

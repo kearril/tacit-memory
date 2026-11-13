@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type ActivityReport, calendarColumns, dayLevel, fillWindow, type HeatDay, monthLabels, statsOf } from "./heatmap";
 
-/** A 26-week window ending on Wednesday 2026-11-11: from Monday 2026-05-18. */
+/** A short window of whole weeks ending on Wednesday 2026-11-11: from Monday 2026-05-18, 26 weeks in all. */
 function report(overrides: Partial<ActivityReport> = {}): ActivityReport {
   return {
     from: "2026-05-18",
@@ -55,7 +55,7 @@ describe("fillWindow", () => {
 });
 
 describe("calendarColumns", () => {
-  it("makes 26 weeks of Monday to Sunday, with empty places after today", () => {
+  it("makes one column of Monday to Sunday per week of the window, with empty places after today", () => {
     const columns = calendarColumns(fillWindow(report()));
 
     expect(columns).toHaveLength(26);
