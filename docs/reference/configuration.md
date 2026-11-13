@@ -18,32 +18,32 @@
 
 ## 2. `config.yaml`
 
-`tacit init` 生成模板。运行中的服务使用启动时加载的配置，修改后需重启 `tacit serve`；`tacit probe` 每次直接读取文件。
+`config.yaml` 由同一个写出器整份生成：`tacit init` 写出初始文件，此后经设置页保存时整份重写。写出的文件键顺序固定、不带注释，只含与默认值不同的项；`language` 总是写出。`tacit init` 写出的文件只有一行 `language: zh`（指定了 `--memory` 时另有 `memory.path`）。运行中的服务使用启动时加载的配置，修改后需重启 `tacit serve`；`tacit probe` 每次直接读取文件。
+
+全部的键（`…` 处取值见下文各节）：
 
 ```yaml
 server:
   port: 18888
-  # host: 192.168.1.10          # 可选：另外监听的一个 IP 地址，供其他设备访问
+  host: 192.168.1.10
 memory:
-  path: ~/.tacit/memory       # 默认为 $TACIT_HOME/memory
+  path: ~/.tacit/memory
 language: zh
-
-models:                       # 可选；省略的模型即未配置，省略整个 models 段则三个都未配置
-  embedding: { url: …, model: …, apiKey: … }   # url 为完整请求地址，原样请求，不追加路径；apiKey 可省略，改设环境变量 TACIT_EMBEDDING_API_KEY
-  reranker:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_RERANKER_API_KEY
-  decision:  { url: …, model: …, apiKey: … }   # url 为完整请求地址；apiKey 可省略，改设环境变量 TACIT_DECISION_API_KEY
-
+models:
+  embedding: { provider: …, url: …, model: …, apiKey: … }
+  reranker: { provider: …, url: …, model: …, apiKey: … }
+  decision: { provider: …, url: …, model: …, apiKey: … }
 limits:
   brief: 3000
   page: { minAliases: 2 }
 consolidation: { remindAfterDays: 7, remindCandidates: 5, budgetSeconds: 20, maxConcurrency: 5, hintItemLength: 200, hintResidentLength: 6000 }
-decision:                     # 各判断的上下阈值
+decision:
   samePreference: { certain: …, unlikely: … }
-  samePage:       { certain: …, unlikely: … }
-  sameTopic:      { certain: …, unlikely: … }
-  ruleConflict:   { certain: …, unlikely: … }
+  samePage: { certain: …, unlikely: … }
+  sameTopic: { certain: …, unlikely: … }
+  ruleConflict: { certain: …, unlikely: … }
 retrieval: { candidates: 30, topK: 5, minRerankScore: … }
-backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云端备份（WebDAV）；password 可省略，改设 TACIT_WEBDAV_PASSWORD
+backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 ```
 
 - 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见 `docs/design.md` 第 4 节「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
