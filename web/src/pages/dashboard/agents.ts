@@ -31,7 +31,7 @@ export interface KnownAgent {
 export const KNOWN_AGENTS: readonly KnownAgent[] = [
   { label: "Claude Code", icon: { url: claudeCodeIcon, monochrome: false }, names: ["claude"] },
   { label: "Antigravity", icon: { url: antigravityIcon, monochrome: false }, names: ["agy", "antigravity"] },
-  { label: "oh-my-pi", icon: { url: ompIcon, monochrome: false }, names: ["omp"] },
+  { label: "Oh My Pi", icon: { url: ompIcon, monochrome: false }, names: ["omp"] },
   { label: "Codex", icon: { url: codexIcon, monochrome: false }, names: ["codex"] },
   { label: "Gemini CLI", icon: { url: geminiCliIcon, monochrome: false }, names: ["gemini"] },
   { label: "Cursor", icon: { url: cursorIcon, monochrome: true }, names: ["cursor"] },
