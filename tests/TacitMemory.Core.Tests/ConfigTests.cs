@@ -556,6 +556,45 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void Without_server_host_there_is_no_extra_address()
+    {
+        WriteConfig(Models);
+
+        Assert.Null(_home.Tacit().LoadConfig().ExtraAddress);
+    }
+
+    [Theory]
+    [InlineData("0.0.0.0", "0.0.0.0")]
+    [InlineData("192.168.1.10", "192.168.1.10")]
+    [InlineData("fd7a:115c:a1e0::1", "fd7a:115c:a1e0::1")]
+    [InlineData("127.0.0.2", "127.0.0.2")]
+    [InlineData("::1", "::1")]
+    [InlineData("127.0.0.1", null)]
+    public void A_server_host_that_is_an_ip_address_is_kept_and_127_0_0_1_is_the_default(string written, string? expected)
+    {
+        WriteConfig(Models + $"server:\n  host: {written}\n");
+
+        var address = _home.Tacit().LoadConfig().ExtraAddress;
+
+        Assert.Equal(expected is null ? null : System.Net.IPAddress.Parse(expected), address);
+    }
+
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("example.com")]
+    [InlineData("1")]
+    [InlineData("127.1")]
+    [InlineData("[::1]")]
+    [InlineData("192.168.1.10:18888")]
+    [InlineData("fe80::1%eth0")]
+    public void A_server_host_that_is_not_an_ip_address_is_refused_with_its_key_path(string written)
+    {
+        WriteConfig(Models + $"server:\n  host: '{written}'\n");
+
+        Assert.Contains("server.host", LoadFails().Message);
+    }
+
+    [Fact]
     public void Broken_yaml_is_refused_with_its_position()
     {
         WriteConfig(Models + "server: { port: 1\n");

@@ -1,9 +1,17 @@
+using System.Net;
+
 namespace TacitMemory.Core;
 
 /// <summary>The validated <c>config.yaml</c> together with the prompt documents in <c>prompts/</c>.</summary>
 public sealed record TacitConfig
 {
     public required int Port { get; init; }
+
+    /// <summary>
+    /// The address <c>server.host</c> names, which the service listens on in addition to <c>127.0.0.1</c>; <c>null</c> when
+    /// none is named, or when it names <c>127.0.0.1</c> itself, which means the same.
+    /// </summary>
+    public IPAddress? ExtraAddress { get; init; }
 
     /// <summary>Full path of the memory repository.</summary>
     public required string MemoryPath { get; init; }

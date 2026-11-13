@@ -23,6 +23,7 @@
 ```yaml
 server:
   port: 18888
+  # host: 192.168.1.10          # 可选：另外监听的一个 IP 地址，供其他设备访问
 memory:
   path: ~/.tacit/memory       # 默认为 $TACIT_HOME/memory
 language: zh
@@ -50,7 +51,8 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }   # 云�
 
 ### `server` 与 `memory`
 
-- `server.port`：MCP 端点与管理 API 监听的端口，默认 18888，只监听 `127.0.0.1`。修改后需自行更新客户端中的 MCP 配置（见 `docs/reference/mcp.md` 第 1 节）。
+- `server.port`：MCP 端点、管理 API 与 Web 界面监听的端口，默认 18888。服务总是监听 `127.0.0.1` 上的这个端口。修改后需自行更新客户端中的 MCP 配置（见 `docs/reference/mcp.md` 第 1 节）。
+- `server.host`：额外监听的一个 IP 地址，缺省为没有。只接受 IP 地址文字，如 `192.168.1.10` 或 `0.0.0.0`（表示所有地址）；主机名、带端口的写法与 IPv6 的方括号写法都报错，报错中给出键路径 `server.host`。写 `127.0.0.1` 与不写相同。它与 `server.port` 用同一端口，只有其他设备能连上；本机连接的行为不变。额外监听绑定失败时服务仍只在回环地址上运行，状态报告标明原因（见 `docs/reference/cli.md`），不自动重试。修改后需重启服务。
 - `memory.path`：记忆仓库的位置，默认为 `TACIT_HOME/memory`。
 
 ### `language`

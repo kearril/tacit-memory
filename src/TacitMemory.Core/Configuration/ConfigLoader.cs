@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
@@ -46,8 +47,9 @@ internal static class ConfigLoader
             reader.Error("language", Messages.ConfigExpectedLanguage, code);
 
         var server = reader.Mapping(root, "", "server");
-        reader.OnlyKnown(server, "server", "port");
+        reader.OnlyKnown(server, "server", "port", "host");
         var port = reader.Integer(server, "server", "port", DefaultPort, 1, 65535);
+        var extraAddress = ReadExtraAddress(reader, server);
 
         var memory = reader.Mapping(root, "", "memory");
         reader.OnlyKnown(memory, "memory", "path");
@@ -76,6 +78,7 @@ internal static class ConfigLoader
         return new TacitConfig
         {
             Port = port,
+            ExtraAddress = extraAddress,
             MemoryPath = memoryPath,
             Language = language,
             Models = models,
@@ -158,6 +161,41 @@ internal static class ConfigLoader
                 TacitError.ConfigInvalid, Messages.ConfigUnparsable.Format(
                     language, path, other.Start.Line, other.Start.Column, Messages.ConfigExpectedMapping.In(language))),
         };
+    }
+
+    /// <summary>
+    /// <c>server.host</c>: one IP address literal, or none. <c>127.0.0.1</c>, the address the service always listens on, means
+    /// none; every other address is an extra listener, loopback ones included. Anything else, host names included, is reported
+    /// with its key path.
+    /// </summary>
+    private static IPAddress? ReadExtraAddress(ConfigReader reader, YamlMappingNode? server)
+    {
+        var text = reader.Text(server, "server", "host");
+        if (text is null)
+            return null;
+        if (IsIpAddressLiteral(text, out var address))
+            return address.Equals(IPAddress.Loopback) ? null : address;
+        reader.Error(ConfigReader.Join("server", "host"), Messages.ConfigExpectedIpAddress, text);
+        return null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="text"/> is written as an IP address and nothing else. <see cref="IPAddress.TryParse(string?, out IPAddress?)"/>
+    /// also takes forms such as <c>1</c> or <c>127.1</c>, and a port or a zone is not part of an address; those are refused here.
+    /// </summary>
+    private static bool IsIpAddressLiteral(string text, out IPAddress address)
+    {
+        address = IPAddress.None;
+        if (text.Contains('[') || text.Contains(']') || text.Contains('%') || text.Contains(' '))
+            return false;
+        if (!IPAddress.TryParse(text, out var parsed))
+            return false;
+        if (parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && parsed.ToString() != text)
+            return false;
+        if (parsed.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && !text.Contains(':'))
+            return false;
+        address = parsed;
+        return true;
     }
 
     /// <summary>

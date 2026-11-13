@@ -43,6 +43,9 @@ internal static class Messages
     public static readonly Localized ConfigExpectedInteger = new("应为 {0} 到 {1} 之间的整数，实际为 {2}", "must be a whole number from {0} to {1}, but is {2}");
     public static readonly Localized ConfigExpectedProbability = new("应为 0 到 1 之间的数，实际为 {0}", "must be a number from 0 to 1, but is {0}");
     public static readonly Localized ConfigExpectedUrl = new("应为 http 或 https 地址，实际为 {0}", "must be an http or https URL, but is {0}");
+    public static readonly Localized ConfigExpectedIpAddress = new(
+        "应为一个 IP 地址，如 192.168.1.10 或 0.0.0.0（不接受主机名），实际为 {0}",
+        "must be one IP address, such as 192.168.1.10 or 0.0.0.0 (host names are not accepted), but is {0}");
     public static readonly Localized ConfigExpectedLanguage = new("应为 zh 或 en，实际为 {0}", "must be zh or en, but is {0}");
     public static readonly Localized ConfigExpectedProvider = new(
         "可用取值为 cloudflare（省略即为通用协议），实际为 {0}",
