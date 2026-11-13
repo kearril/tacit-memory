@@ -4,8 +4,8 @@ import codexIcon from "@lobehub/icons-static-svg/icons/codex-color.svg?url";
 import cursorIcon from "@lobehub/icons-static-svg/icons/cursor.svg?url";
 import geminiCliIcon from "@lobehub/icons-static-svg/icons/geminicli-color.svg?url";
 import openCodeIcon from "@lobehub/icons-static-svg/icons/opencode.svg?url";
-import piIcon from "@lobehub/icons-static-svg/icons/pi.svg?url";
 import type { components } from "../../api/schema";
+import ompIcon from "../../assets/agents/omp.svg?url";
 
 export type ClientStatus = components["schemas"]["ClientStatus"];
 export type BindingCheck = components["schemas"]["BindingCheck"];
@@ -31,7 +31,7 @@ export interface KnownAgent {
 export const KNOWN_AGENTS: readonly KnownAgent[] = [
   { label: "Claude Code", icon: { url: claudeCodeIcon, monochrome: false }, names: ["claude"] },
   { label: "Antigravity", icon: { url: antigravityIcon, monochrome: false }, names: ["agy", "antigravity"] },
-  { label: "omp", icon: { url: piIcon, monochrome: true }, names: ["omp"] },
+  { label: "omp", icon: { url: ompIcon, monochrome: false }, names: ["omp"] },
   { label: "Codex", icon: { url: codexIcon, monochrome: false }, names: ["codex"] },
   { label: "Gemini CLI", icon: { url: geminiCliIcon, monochrome: false }, names: ["gemini"] },
   { label: "Cursor", icon: { url: cursorIcon, monochrome: true }, names: ["cursor"] },
