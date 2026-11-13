@@ -132,6 +132,67 @@ public sealed class ConfigApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_setting_that_waits_for_a_restart_is_saved_and_reported_with_its_running_value()
+    {
+        var view = await GetAsync();
+        var config = view.File with
+        {
+            Server = view.File.Server with { Port = 19001 },
+            Limits = view.File.Limits with { Page = new PageLimitsFile(MinAliases: 3) },
+            Retrieval = view.File.Retrieval with { TopK = 2 },
+        };
+
+        using var response = await PutAsync(new ConfigSave(view.Hash, config));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var saved = await Read<ConfigSaved>(response);
+        Assert.Equal(
+            [new RestartChange("server.port", "18888", "19001"), new RestartChange("limits.page.minAliases", "2", "3")],
+            saved.Restart);
+        var after = await GetAsync();
+        Assert.Equal(19001, after.File.Server.Port);
+        Assert.Equal(18888, after.Running.Server.Port);
+        Assert.Equal(2, after.Running.Limits.Page!.MinAliases);
+        Assert.Equal(2, after.Running.Retrieval.TopK);
+    }
+
+    [Fact]
+    public async Task A_read_only_setting_cannot_be_changed_from_the_page()
+    {
+        var before = File.ReadAllText(ConfigPath);
+        var view = await GetAsync();
+
+        using var response = await PutAsync(new ConfigSave(view.Hash, view.File with { Language = "en", Memory = new MemoryFile("~/elsewhere") }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await Read<ApiError>(response);
+        Assert.Equal(["memory.path", "language"], error.Problems!.Select(problem => problem.Path));
+        Assert.Equal(before, File.ReadAllText(ConfigPath));
+    }
+
+    [Fact]
+    public async Task An_extra_listening_address_needs_an_access_password_first()
+    {
+        var view = await GetAsync();
+
+        using var response = await PutAsync(new ConfigSave(view.Hash, view.File with { Server = view.File.Server with { Host = "0.0.0.0" } }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("server.host", Assert.Single((await Read<ApiError>(response)).Problems!).Path);
+    }
+
+    [Fact]
+    public async Task A_file_edited_by_hand_shows_its_values_beside_the_running_ones()
+    {
+        File.WriteAllText(ConfigPath, File.ReadAllText(ConfigPath).Replace("topK: 3", "topK: 7"));
+
+        var view = await GetAsync();
+
+        Assert.Equal(7, view.File.Retrieval.TopK);
+        Assert.Equal(3, view.Running.Retrieval.TopK);
+    }
+
+    [Fact]
     public async Task Another_device_without_a_session_is_refused()
     {
         using var read = await _remote.GetAsync(Url);

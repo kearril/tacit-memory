@@ -1643,12 +1643,19 @@
       },
       "ConfigSaved": {
         "required": [
-          "hash"
+          "hash",
+          "restart"
         ],
         "type": "object",
         "properties": {
           "hash": {
             "type": "string"
+          },
+          "restart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RestartChange"
+            }
           }
         }
       },
@@ -2302,6 +2309,25 @@
             "format": "int64"
           },
           "report": {
+            "type": "string"
+          }
+        }
+      },
+      "RestartChange": {
+        "required": [
+          "path",
+          "running",
+          "saved"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "running": {
+            "type": "string"
+          },
+          "saved": {
             "type": "string"
           }
         }

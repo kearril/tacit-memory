@@ -1166,6 +1166,7 @@ export interface components {
         };
         ConfigSaved: {
             hash: string;
+            restart: components["schemas"]["RestartChange"][];
         };
         ConfigStatus: {
             title: string;
@@ -1319,6 +1320,11 @@ export interface components {
             /** Format: int64 */
             elapsedMilliseconds: number;
             report: string;
+        };
+        RestartChange: {
+            path: string;
+            running: string;
+            saved: string;
         };
         RestoreBody: {
             path?: null | string;

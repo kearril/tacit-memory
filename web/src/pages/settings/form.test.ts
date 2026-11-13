@@ -4,8 +4,10 @@ import {
   bodyOf,
   changedPaths,
   differsFromDefault,
+  drifted,
   draftsOf,
   edit,
+  pendingRestart,
   placeProblems,
   restoreDefault,
 } from "./form";
@@ -168,5 +170,64 @@ describe("placeProblems", () => {
     ]);
 
     expect(placed.first).toBe("retrieval.candidates");
+  });
+});
+
+/** A view of a service started with port 18888 and no extra listener, whose file now asks for others. */
+function general(): ConfigView {
+  const base = view();
+  const keys = [
+    { path: "server.port", min: 1, max: 65535, choices: null, restart: true, readOnly: false },
+    { path: "server.host", min: null, max: null, choices: null, restart: true, readOnly: false },
+    { path: "language", min: null, max: null, choices: ["zh", "en"], restart: true, readOnly: true },
+    { path: "retrieval.topK", min: 1, max: 100000, choices: null, restart: false, readOnly: false },
+    { path: "retrieval.candidates", min: 1, max: 100000, choices: null, restart: false, readOnly: false },
+  ];
+  const running = structuredClone(base.file);
+  running.server = { port: 18888, host: null };
+  running.retrieval = { candidates: 30, topK: 3, minRerankScore: null };
+  const file = structuredClone(base.file);
+  file.server = { port: 19000, host: "0.0.0.0" };
+  file.retrieval = { candidates: 30, topK: 3, minRerankScore: null };
+  base.defaults.server = { port: 18888, host: "127.0.0.1" };
+  return { ...base, file, running, keys };
+}
+
+describe("pendingRestart", () => {
+  it("lists each setting saved with a value the service takes only on a restart, with both values", () => {
+    expect(pendingRestart(general())).toEqual([
+      { path: "server.port", running: "18888", saved: "19000" },
+      { path: "server.host", running: "127.0.0.1", saved: "0.0.0.0" },
+    ]);
+  });
+
+  it("lists nothing once the service runs what the file holds", () => {
+    const settled = general();
+    settled.running = structuredClone(settled.file);
+
+    expect(pendingRestart(settled)).toEqual([]);
+  });
+});
+
+describe("drifted", () => {
+  it("names a setting that takes effect at once but runs with another value than the file holds", () => {
+    const edited = general();
+    edited.file.retrieval = { ...edited.file.retrieval, topK: 7 };
+
+    expect(drifted(edited)).toEqual(["retrieval.topK"]);
+  });
+
+  it("names nothing when only settings that wait for a restart differ", () => {
+    expect(drifted(general())).toEqual([]);
+  });
+});
+
+describe("text settings", () => {
+  it("leaves out an address equal to its default, and keeps another as typed but trimmed", () => {
+    const base = general();
+
+    expect(bodyOf(base, edit(draftsOf(base), "server.host", "127.0.0.1")).config.server.host).toBeNull();
+    expect(bodyOf(base, edit(draftsOf(base), "server.host", " 192.168.1.5 ")).config.server.host).toBe("192.168.1.5");
+    expect(changedPaths(base, edit(draftsOf(base), "server.host", "0.0.0.0 "))).toEqual([]);
   });
 });

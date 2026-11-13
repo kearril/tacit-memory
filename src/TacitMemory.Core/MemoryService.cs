@@ -209,10 +209,11 @@ public sealed class MemoryService : IDisposable
     /// The config does not load, and nothing changed; or the runtime could not be opened with it, and the service runs on
     /// with the config it had (<see cref="TacitError.ReloadFailed"/>). When even that fails, <see cref="Failed"/> completes.
     /// </exception>
-    public Task ReloadAsync(CancellationToken cancellationToken = default) =>
+    /// <returns>The settings that wait for a restart and differ in the file from what the service runs.</returns>
+    public Task<IReadOnlyList<RestartChange>> ReloadAsync(CancellationToken cancellationToken = default) =>
         RunMaintenanceAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
 
-    private bool ReloadCore()
+    private IReadOnlyList<RestartChange> ReloadCore()
     {
         var running = Config;
         var loaded = ConfigLoader.Read(_options);
@@ -251,7 +252,7 @@ public sealed class MemoryService : IDisposable
         SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
         foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
             _log.Record(LevelOf(render), render.Message);
-        return true;
+        return RestartChange.Between(running, loaded);
     }
 
     /// <summary>
@@ -459,21 +460,33 @@ public sealed class MemoryService : IDisposable
         if (Hash(current) != hash)
             throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
 
-        var held = ConfigFile.From(ConfigLoader.Read(_options, path, current));
-        var content = ConfigWriter.Render(WithSecretsOf(file, held), _options);
+        var held = ConfigLoader.Read(_options, path, current);
+        var content = ConfigWriter.Render(WithSecretsOf(file, ConfigFile.From(held)), _options);
+        TacitConfig saved;
         try
         {
-            ConfigLoader.Read(_options, path, content);
+            saved = ConfigLoader.Read(_options, path, content);
         }
         catch (TacitException e) when (e.Error == TacitError.ConfigInvalid)
         {
             throw new TacitException(TacitError.ConfigRejected, e.Message, e) { Problems = e.Problems };
         }
 
+        var problems = new List<ConfigProblem>();
+        if (saved.MemoryPath != held.MemoryPath)
+            problems.Add(new ConfigProblem("memory.path", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
+        if (saved.Language != held.Language)
+            problems.Add(new ConfigProblem("language", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
+        if (saved.ExtraAddress is not null && !Access.PasswordSet)
+            problems.Add(new ConfigProblem("server.host", ManagementApiMessages.ConfigExtraNeedsPassword.In(Config.Language)));
+        if (problems.Count > 0)
+            throw new TacitException(TacitError.ConfigRejected, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
+
         ConfigWriter.Replace(path, content);
+        IReadOnlyList<RestartChange> restart;
         try
         {
-            ReloadCore();
+            restart = ReloadCore();
         }
         catch
         {
@@ -481,7 +494,7 @@ public sealed class MemoryService : IDisposable
             throw;
         }
 
-        return new ConfigSaved(Hash(content));
+        return new ConfigSaved(Hash(content), restart);
     }
 
     private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");

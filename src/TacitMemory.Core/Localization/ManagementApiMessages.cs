@@ -75,6 +75,12 @@ internal static class ManagementApiMessages
     public static readonly Localized ConfigChanged = new(
         "config.yaml 在你打开设置页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
         "config.yaml was changed after you opened the settings page, and saving would overwrite that change. Load it again, then make your changes.");
+    public static readonly Localized ConfigReadOnly = new(
+        "设置页不能修改这一项：请在 config.yaml 中修改，重启 tacit serve 后生效。",
+        "The settings page cannot change this: edit it in config.yaml, and it takes effect when tacit serve restarts.");
+    public static readonly Localized ConfigExtraNeedsPassword = new(
+        "额外监听地址让其他设备能连上服务，必须先在「访问」一节设置访问密码。",
+        "An extra listening address lets other devices reach the service; set an access password in the Access section first.");
     public static readonly Localized ApiBodyInvalid = new(
         "请求体无效：应为 JSON 对象，格式见管理 API 说明。",
         "The request body is invalid: it must be a JSON object, as the management API describes.");

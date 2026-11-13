@@ -6,7 +6,7 @@ import { differsFromDefault, inputIdOf, JUDGMENTS, sectionIdOf, valueAt } from "
 import {
   DefaultBar,
   Explaining,
-  NumberSetting,
+  Setting,
   Problems,
   RestoreButton,
   type SettingsForm,
@@ -43,9 +43,9 @@ export function JudgmentCard({ form, className }: { readonly form: SettingsForm;
           <h3 id="judgment-retrieval" className="text-sm font-semibold">
             {text.retrieval}
           </h3>
-          <NumberSetting form={form} path="retrieval.candidates" text={text.fields.candidates} />
-          <NumberSetting form={form} path="retrieval.topK" text={text.fields.topK} />
-          <NumberSetting form={form} path="retrieval.minRerankScore" text={text.fields.minRerankScore} />
+          <Setting form={form} path="retrieval.candidates" text={text.fields.candidates} />
+          <Setting form={form} path="retrieval.topK" text={text.fields.topK} />
+          <Setting form={form} path="retrieval.minRerankScore" text={text.fields.minRerankScore} />
         </section>
 
         <section

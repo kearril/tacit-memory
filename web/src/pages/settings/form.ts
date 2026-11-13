@@ -3,33 +3,49 @@ import type { ConfigFile, ConfigProblem, ConfigView } from "../../api/config";
 /** The sections of the settings page, in the order of their cards. */
 export type SectionId = "general" | "models" | "bindings" | "judgment" | "consolidation" | "backup" | "access";
 
+/** What an input holds: a whole number, any number, or text. */
+export type FieldKind = "integer" | "number" | "text";
+
 /**
- * A setting the page edits: a number in `config.yaml` by its key path, and the section whose card holds it. A threshold
- * belongs to a pair (`group`), which the file holds whole or not at all.
+ * A setting the page edits: a value in `config.yaml` by its key path, the section whose card holds it, and what its input
+ * takes. A threshold belongs to a pair (`group`), which the file holds whole or not at all.
  */
 export interface Field {
   readonly path: string;
   readonly section: SectionId;
-  readonly integer: boolean;
+  readonly kind: FieldKind;
   readonly group?: string;
 }
+
+/** A value of `config.yaml`. */
+export type Value = number | string | null;
 
 /** The four judgments, each with a pair of thresholds. */
 export const JUDGMENTS = ["samePreference", "samePage", "sameTopic", "ruleConflict"] as const;
 
 /** The fields the page edits, in the order they appear on it. */
 export const FIELDS: readonly Field[] = [
-  { path: "retrieval.candidates", section: "judgment", integer: true },
-  { path: "retrieval.topK", section: "judgment", integer: true },
-  { path: "retrieval.minRerankScore", section: "judgment", integer: false },
+  { path: "server.port", section: "general", kind: "integer" },
+  { path: "server.host", section: "general", kind: "text" },
+  { path: "limits.brief", section: "general", kind: "integer" },
+  { path: "limits.page.minAliases", section: "general", kind: "integer" },
+  { path: "retrieval.candidates", section: "judgment", kind: "integer" },
+  { path: "retrieval.topK", section: "judgment", kind: "integer" },
+  { path: "retrieval.minRerankScore", section: "judgment", kind: "number" },
   ...JUDGMENTS.flatMap((judgment) =>
     (["certain", "unlikely"] as const).map((bound) => ({
       path: `decision.${judgment}.${bound}`,
       section: "judgment" as const,
-      integer: false,
+      kind: "number" as const,
       group: `decision.${judgment}`,
     })),
   ),
+];
+
+/** The settings the page shows without letting them change, and the section that shows them. */
+export const READ_ONLY: readonly { readonly path: string; readonly section: SectionId }[] = [
+  { path: "memory.path", section: "general" },
+  { path: "language", section: "general" },
 ];
 
 /** What each field's input holds, by key path: the text as typed, so a half-typed number is kept as it is. */
@@ -37,9 +53,7 @@ export type Drafts = Readonly<Record<string, string>>;
 
 /** The inputs as the view gives them: the file's value, or the default where the file leaves the setting out. */
 export function draftsOf(view: ConfigView): Drafts {
-  return Object.fromEntries(
-    FIELDS.map((field) => [field.path, textOf(valueAt(view.file, field.path) ?? valueAt(view.defaults, field.path))]),
-  );
+  return Object.fromEntries(FIELDS.map((field) => [field.path, textOf(effective(view, "file", field.path))]));
 }
 
 /** The drafts with the input at `path` changed to `text`. */
@@ -56,10 +70,10 @@ export function restoreDefault(view: ConfigView, drafts: Drafts, path: string): 
   return restored;
 }
 
-/** The fields whose input no longer holds the number the view gave, in the page's order. */
+/** The fields whose input no longer holds the value the view gave, in the page's order. */
 export function changedPaths(view: ConfigView, drafts: Drafts): string[] {
   const original = draftsOf(view);
-  return FIELDS.filter((field) => !sameNumber(drafts[field.path] ?? "", original[field.path] ?? "")).map(
+  return FIELDS.filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind)).map(
     (field) => field.path,
   );
 }
@@ -67,7 +81,7 @@ export function changedPaths(view: ConfigView, drafts: Drafts): string[] {
 /** Whether the setting at `path`, or either threshold of the pair at `path`, holds something other than its default. */
 export function differsFromDefault(view: ConfigView, drafts: Drafts, path: string): boolean {
   return fieldsAt(path).some(
-    (field) => !sameNumber(drafts[field.path] ?? "", textOf(valueAt(view.defaults, field.path))),
+    (field) => !sameInput(drafts[field.path] ?? "", textOf(valueAt(view.defaults, field.path)), field.kind),
   );
 }
 
@@ -79,31 +93,64 @@ export function differsFromDefault(view: ConfigView, drafts: Drafts, path: strin
  */
 export function bodyOf(view: ConfigView, drafts: Drafts): { readonly config: ConfigFile; readonly invalid: string[] } {
   const invalid: string[] = [];
-  const numbers = new Map<string, number | null>();
+  const values = new Map<string, Value>();
   for (const field of FIELDS) {
-    const fallback = valueAt(view.defaults, field.path);
-    const value = numberOf(drafts[field.path] ?? "", field.integer);
+    const value = parse(drafts[field.path] ?? "", field.kind);
     if (value === undefined) {
       invalid.push(field.path);
     }
-    numbers.set(field.path, value ?? fallback);
+    values.set(field.path, value ?? valueAt(view.defaults, field.path));
   }
 
   let config: ConfigFile = structuredClone(view.file);
   for (const field of FIELDS.filter((field) => field.group === undefined)) {
-    const value = numbers.get(field.path) ?? null;
+    const value = values.get(field.path) ?? null;
     config = setAt(config, field.path, value === valueAt(view.defaults, field.path) ? null : value);
   }
   for (const group of new Set(FIELDS.flatMap((field) => (field.group === undefined ? [] : [field.group])))) {
     const pair = fieldsAt(group);
-    const asDefault = pair.every((field) => numbers.get(field.path) === valueAt(view.defaults, field.path));
+    const asDefault = pair.every((field) => values.get(field.path) === valueAt(view.defaults, field.path));
     config = setAt(
       config,
       group,
-      asDefault ? null : Object.fromEntries(pair.map((field) => [lastKey(field.path), numbers.get(field.path) ?? null])),
+      asDefault ? null : Object.fromEntries(pair.map((field) => [lastKey(field.path), values.get(field.path) ?? null])),
     );
   }
   return { config, invalid };
+}
+
+/** A setting that waits for a restart, with the value the service runs and the one `config.yaml` holds. */
+export interface Pending {
+  readonly path: string;
+  readonly running: string;
+  readonly saved: string;
+}
+
+/**
+ * The settings that wait for a restart (or that only `config.yaml` can change) and whose saved value is not yet the one
+ * the service runs. It follows from the file and the running service alone, so it holds after a reload of the page or on
+ * another device, until the service restarts.
+ */
+export function pendingRestart(view: ConfigView): Pending[] {
+  return view.keys
+    .filter((key) => key.restart)
+    .map((key) => ({
+      path: key.path,
+      running: textOf(effective(view, "running", key.path)),
+      saved: textOf(effective(view, "file", key.path)),
+    }))
+    .filter((item) => item.running !== item.saved);
+}
+
+/**
+ * The settings that take effect at once but whose value in `config.yaml` is not the one the service runs: the file was
+ * edited by hand since the service last loaded it.
+ */
+export function drifted(view: ConfigView): string[] {
+  return view.keys
+    .filter((key) => !key.restart && !key.readOnly)
+    .filter((key) => textOf(effective(view, "file", key.path)) !== textOf(effective(view, "running", key.path)))
+    .map((key) => key.path);
 }
 
 /** The service's problems with a config, placed on the page. */
@@ -119,25 +166,26 @@ export interface PlacedProblems {
 }
 
 /**
- * Places each problem on the field whose key path it names, or on the pair of thresholds it names; anything else (another
- * section, a key the page does not show) stays unplaced.
+ * Places each problem on the field whose key path it names, on the pair of thresholds it names, or on a read-only setting
+ * the page shows; anything else (a key the page does not show) stays unplaced.
  */
 export function placeProblems(problems: readonly ConfigProblem[]): PlacedProblems {
   const byField: Record<string, string[]> = {};
   const bySection: Partial<Record<SectionId, number>> = {};
   const unplaced: ConfigProblem[] = [];
   for (const problem of problems) {
-    const field = FIELDS.find((field) => field.path === problem.path || field.group === problem.path);
-    if (field === undefined) {
+    const section =
+      FIELDS.find((field) => field.path === problem.path || field.group === problem.path)?.section ??
+      READ_ONLY.find((item) => item.path === problem.path)?.section;
+    if (section === undefined) {
       unplaced.push(problem);
       continue;
     }
     (byField[problem.path] ??= []).push(problem.message);
-    bySection[field.section] = (bySection[field.section] ?? 0) + 1;
+    bySection[section] = (bySection[section] ?? 0) + 1;
   }
-  const first = FIELDS.flatMap((field) => [field.group, field.path]).find(
-    (path) => path !== undefined && byField[path] !== undefined,
-  );
+  const order = [...READ_ONLY.map((item) => item.path), ...FIELDS.flatMap((field) => [field.group, field.path])];
+  const first = order.find((path) => path !== undefined && byField[path] !== undefined);
   return { byField, bySection, unplaced, first: first ?? null };
 }
 
@@ -157,50 +205,68 @@ export function sectionIdOf(section: SectionId): string {
   return `settings-${section}`;
 }
 
-/** The number at a key path of the config, or `null` where any part of the path is missing. */
-export function valueAt(file: ConfigFile, path: string): number | null {
+/**
+ * The value at a key path of the config, or `null` where any part of the path is missing. Key paths are those of
+ * `config.yaml` (`backup.webdav.url`); the keys of the JSON may differ in case (`webDav`), so each is matched without it.
+ */
+export function valueAt(file: ConfigFile, path: string): Value {
   let node: unknown = file;
   for (const key of path.split(".")) {
     if (typeof node !== "object" || node === null) {
       return null;
     }
-    node = (node as Record<string, unknown>)[key];
+    const record = node as Record<string, unknown>;
+    node = record[keyIn(record, key)];
   }
-  return typeof node === "number" ? node : null;
+  return typeof node === "number" || typeof node === "string" ? node : null;
+}
+
+/** The value the setting takes in the file or in the running service: what it holds, or else its default. */
+export function effective(view: ConfigView, which: "file" | "running", path: string): Value {
+  return valueAt(view[which], path) ?? valueAt(view.defaults, path);
+}
+
+/** A value as an input or a note shows it. */
+export function textOf(value: Value): string {
+  return value === null ? "" : String(value);
 }
 
 function setAt(file: ConfigFile, path: string, value: unknown): ConfigFile {
   const keys = path.split(".");
-  const root = file as unknown as Record<string, unknown>;
-  let node = root;
+  let node = file as unknown as Record<string, unknown>;
   for (const key of keys.slice(0, -1)) {
-    const next = node[key];
-    node = node[key] = typeof next === "object" && next !== null ? (next as Record<string, unknown>) : {};
+    const name = keyIn(node, key);
+    const next = node[name];
+    node = node[name] = typeof next === "object" && next !== null ? (next as Record<string, unknown>) : {};
   }
-  node[lastKey(path)] = value;
+  node[keyIn(node, lastKey(path))] = value;
   return file;
+}
+
+/** The key of `record` that is `key` but for case, or `key` itself when there is none. */
+function keyIn(record: Record<string, unknown>, key: string): string {
+  return Object.keys(record).find((name) => name.toLowerCase() === key.toLowerCase()) ?? key;
 }
 
 function lastKey(path: string): string {
   return path.slice(path.lastIndexOf(".") + 1);
 }
 
-function textOf(value: number | null): string {
-  return value === null ? "" : String(value);
-}
-
-/** The number an input holds: `null` when it is empty (the default), `undefined` when it is not a valid number. */
-function numberOf(text: string, integer: boolean): number | null | undefined {
+/** The value an input holds: `null` when it is empty (the default), `undefined` when it is not a valid number. */
+function parse(text: string, kind: FieldKind): Value | undefined {
   const trimmed = text.trim();
   if (trimmed === "") {
     return null;
   }
+  if (kind === "text") {
+    return trimmed;
+  }
   const value = Number(trimmed);
-  return Number.isFinite(value) && (!integer || Number.isInteger(value)) ? value : undefined;
+  return Number.isFinite(value) && (kind === "number" || Number.isInteger(value)) ? value : undefined;
 }
 
-function sameNumber(a: string, b: string): boolean {
-  const x = numberOf(a, false);
-  const y = numberOf(b, false);
+function sameInput(a: string, b: string, kind: FieldKind): boolean {
+  const x = parse(a, kind === "text" ? "text" : "number");
+  const y = parse(b, kind === "text" ? "text" : "number");
   return x === undefined || y === undefined ? a.trim() === b.trim() : x === y;
 }

@@ -55,7 +55,6 @@ export interface Dictionary {
     readonly summary: string;
     readonly stateSet: string;
     readonly stateUnset: string;
-    readonly note: string;
     readonly newPassword: string;
     readonly currentPassword: string;
     readonly newPlaceholder: string;
@@ -99,6 +98,31 @@ export interface Dictionary {
     readonly leaveTitle: string;
     readonly leaveBody: string;
     readonly leaveConfirm: string;
+    readonly restartBadge: string;
+    readonly restartHelp: string;
+    readonly pendingBadge: (running: string) => string;
+    readonly readOnlyNote: string;
+    readonly restartTitle: string;
+    readonly restartBody: string;
+    readonly restartLine: (running: string, saved: string) => string;
+    readonly restartOk: string;
+    readonly driftTitle: string;
+    readonly driftBody: string;
+    readonly reloadTitle: string;
+    readonly reloadBody: string;
+    readonly reloadConfirm: string;
+    readonly general: {
+      readonly title: string;
+      readonly summary: string;
+      readonly service: string;
+      readonly memory: string;
+      readonly hostNeedsPassword: string;
+      readonly hostDefault: string;
+      readonly languages: Readonly<Record<string, string>>;
+      readonly fields: Readonly<
+        Record<"port" | "host" | "memoryPath" | "language" | "brief" | "minAliases", Explained>
+      >;
+    };
     readonly judgment: {
       readonly title: string;
       readonly summary: string;

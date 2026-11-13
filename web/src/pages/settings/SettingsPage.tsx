@@ -2,7 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { ApiError } from "../../api/client";
-import { CONFIG_QUERY_KEY, type ConfigProblem, type ConfigView, saveConfig, useConfig } from "../../api/config";
+import {
+  CONFIG_QUERY_KEY,
+  type ConfigProblem,
+  type ConfigView,
+  type RestartChange,
+  saveConfig,
+  useConfig,
+} from "../../api/config";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -28,19 +35,22 @@ import {
   changedPaths,
   type Drafts,
   draftsOf,
+  drifted,
   edit,
   FIELDS,
   fieldsAt,
   inputIdOf,
+  pendingRestart,
   placeProblems,
   restoreDefault,
   sectionIdOf,
   type SectionId,
 } from "./form";
+import { GeneralCard } from "./GeneralCard";
 import { JudgmentCard } from "./JudgmentCard";
 
 /** The sections that have a card so far, in the page's order. */
-const SECTIONS: readonly SectionId[] = ["judgment", "access"];
+const SECTIONS: readonly SectionId[] = ["general", "judgment", "access"];
 
 /**
  * The settings page: a row of section tabs that stays at the top, then the section cards in a bento grid, and a bar that
@@ -50,13 +60,21 @@ const SECTIONS: readonly SectionId[] = ["judgment", "access"];
 export function SettingsPage() {
   const dictionary = useDictionary();
   const config = useConfig();
+  // Kept here, above the editor, as a save gives the editor a new file and so starts it again.
+  const [restart, setRestart] = useState<readonly RestartChange[]>([]);
 
   return (
     <div className="grid gap-lg">
       <h1 className="sr-only">{dictionary.nav.settings}</h1>
+      <RestartDialog changes={restart} onClose={() => setRestart([])} />
       {config.data !== undefined ? (
         // A new hash is a new file: after a save or a reload the inputs start again from it.
-        <SettingsEditor key={config.data.hash} view={config.data} onReload={() => void config.refetch()} />
+        <SettingsEditor
+          key={config.data.hash}
+          view={config.data}
+          onReload={() => void config.refetch()}
+          onRestart={setRestart}
+        />
       ) : config.isError ? (
         <Alert tone="danger">
           <AlertTitle>{dictionary.settings.loadFailed}</AlertTitle>
@@ -74,7 +92,15 @@ interface Failure {
   readonly reload: boolean;
 }
 
-function SettingsEditor({ view, onReload }: { readonly view: ConfigView; readonly onReload: () => void }) {
+function SettingsEditor({
+  view,
+  onReload,
+  onRestart,
+}: {
+  readonly view: ConfigView;
+  readonly onReload: () => void;
+  readonly onRestart: (changes: readonly RestartChange[]) => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.settings;
   const queryClient = useQueryClient();
@@ -85,12 +111,19 @@ function SettingsEditor({ view, onReload }: { readonly view: ConfigView; readonl
 
   const changed = useMemo(() => changedPaths(view, drafts), [view, drafts]);
   const placed = useMemo(() => placeProblems(problems), [problems]);
+  const pending = useMemo(() => new Map(pendingRestart(view).map((item) => [item.path, item])), [view]);
+  const drift = useMemo(() => drifted(view), [view]);
   const dirty = changed.length > 0;
 
   const save = useMutation({
     mutationFn: () => saveConfig(view.hash, bodyOf(view, drafts).config),
-    onSuccess: async () => {
-      showToast(text.saved);
+    onSuccess: async (saved) => {
+      // A save that leaves settings waiting for a restart says so in a dialog, which also says the rest is in effect.
+      if (saved.restart.length > 0) {
+        onRestart(saved.restart);
+      } else {
+        showToast(text.saved);
+      }
       void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
       await queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
     },
@@ -123,7 +156,7 @@ function SettingsEditor({ view, onReload }: { readonly view: ConfigView; readonl
       show(
         invalid.map((path) => ({
           path,
-          message: FIELDS.find((field) => field.path === path)?.integer ? text.notAWholeNumber : text.notANumber,
+          message: FIELDS.find((field) => field.path === path)?.kind === "integer" ? text.notAWholeNumber : text.notANumber,
         })),
       );
       return;
@@ -143,6 +176,7 @@ function SettingsEditor({ view, onReload }: { readonly view: ConfigView; readonl
     drafts,
     changed: new Set(changed),
     problems: placed,
+    pending,
     edit: (path, value) => {
       setDrafts((current) => edit(current, path, value));
       setProblems((current) => current.filter((problem) => !touches(problem.path, path)));
@@ -156,7 +190,22 @@ function SettingsEditor({ view, onReload }: { readonly view: ConfigView; readonl
   return (
     <>
       <SectionTabs counts={placed.bySection} />
+      {drift.length === 0 ? null : (
+        <Alert tone="warning">
+          <AlertTitle>{text.driftTitle}</AlertTitle>
+          <AlertDescription>
+            {text.driftBody}{" "}
+            {drift.map((path, index) => (
+              <span key={path}>
+                {index === 0 ? null : ", "}
+                <code className="font-mono">{path}</code>
+              </span>
+            ))}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid gap-lg lg:grid-cols-2">
+        <GeneralCard form={form} className="lg:col-span-2" />
         <JudgmentCard form={form} className="lg:col-span-2" />
         <AccessSection id={sectionIdOf("access")} className="scroll-mt-xl" />
       </div>
@@ -259,9 +308,25 @@ function SaveBar({
           <AlertDescription>{failure.message}</AlertDescription>
           {failure.reload ? (
             <div className="col-start-2 pt-xs">
-              <Button type="button" variant="outline" onClick={onReload}>
-                {text.reload}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline">
+                    {text.reload}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{text.reloadTitle}</AlertDialogTitle>
+                    <AlertDialogDescription>{text.reloadBody}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{text.cancel}</AlertDialogCancel>
+                    <AlertDialogAction variant="destructive" onClick={onReload}>
+                      {text.reloadConfirm}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           ) : null}
         </Alert>
@@ -344,6 +409,36 @@ function LeaveGuard({ dirty }: { readonly dirty: boolean }) {
             }}>
             {text.leaveConfirm}
           </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
+ * After a save that changed settings which wait for a restart: each with its running and its saved value, and that the
+ * rest is in effect. It only informs, so its one button closes it.
+ */
+function RestartDialog({ changes, onClose }: { readonly changes: readonly RestartChange[]; readonly onClose: () => void }) {
+  const dictionary = useDictionary();
+  const text = dictionary.settings;
+  return (
+    <AlertDialog open={changes.length > 0} onOpenChange={(open) => (open ? undefined : onClose())}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{text.restartTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{text.restartBody}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <ul className="grid gap-sm text-sm">
+          {changes.map((change) => (
+            <li key={change.path} className="grid gap-xs rounded-md bg-surface-raised px-md py-sm">
+              <code className="font-mono text-xs text-ink-muted">{change.path}</code>
+              <span className="font-mono break-all">{text.restartLine(change.running, change.saved)}</span>
+            </li>
+          ))}
+        </ul>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={onClose}>{text.restartOk}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

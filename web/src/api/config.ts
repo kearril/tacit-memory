@@ -7,6 +7,7 @@ export type ConfigFile = components["schemas"]["ConfigFile"];
 export type ConfigKey = components["schemas"]["ConfigKey"];
 export type ConfigProblem = components["schemas"]["ConfigProblem"];
 export type ConfigSaved = components["schemas"]["ConfigSaved"];
+export type RestartChange = components["schemas"]["RestartChange"];
 
 /** The query key of the settings. */
 export const CONFIG_QUERY_KEY = ["config"] as const;

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Info, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
+import { KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
 import { useState } from "react";
 import { type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { ApiError } from "../../api/client";
@@ -184,10 +184,6 @@ export function AccessSection({ id, className }: { readonly id?: string; readonl
         </Alert>
       )}
 
-      <p className="flex gap-sm border-t-(length:--tk-border-thin) border-line pt-md text-xs text-ink-muted">
-        <Info aria-hidden className="size-(--tk-font-size-sm) shrink-0" />
-        {dictionary.access.note}
-      </p>
     </Card>
   );
 }
