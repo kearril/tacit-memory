@@ -1,4 +1,5 @@
 using ModelContextProtocol.Client;
+using System.Text.Json.Nodes;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host.Mcp;
@@ -100,6 +101,17 @@ public sealed class ServiceHostTests : IAsyncLifetime
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.False(response.Headers.Contains("Mcp-Session-Id"));
+    }
+
+    [Fact]
+    public async Task The_server_info_version_is_the_version_the_management_api_reports()
+    {
+        await using var client = await ConnectAsync();
+        using var http = new HttpClient();
+
+        var session = JsonNode.Parse(await http.GetStringAsync(new Uri(_host.Endpoint, "/api/session")))!;
+
+        Assert.Equal(session["version"]!.GetValue<string>(), client.ServerInfo?.Version);
     }
 
     [Fact]

@@ -143,7 +143,7 @@ public sealed class ServiceHost : IAsyncDisposable
         ManagementApi.AddOpenApi(builder.Services);
         builder.Services.AddMcpServer(options =>
             {
-                options.ServerInfo = new() { Name = "tacit", Version = Version };
+                options.ServerInfo = new() { Name = "tacit", Version = service.Version };
                 options.Filters.Message.IncomingFilters.Add(RecordClients(service));
             })
             .WithHttpTransport(options =>
@@ -289,7 +289,4 @@ public sealed class ServiceHost : IAsyncDisposable
         await _app.StopAsync();
         await _app.DisposeAsync();
     }
-
-    private static string Version =>
-        typeof(ServiceHost).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 }
