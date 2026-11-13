@@ -59,8 +59,8 @@ internal static class StatusReporter
 
     /// <summary>The extra listener's line: its address when it answers, and its address with the reason when it did not.</summary>
     private static string ExtraListenerLine(MemoryLanguage language, ExtraListenerStatus extra) => extra.FailureReason is null
-        ? ManagementApiMessages.ExtraListenerAddress.Format(language, extra.Address)
-        : ManagementApiMessages.ExtraListenerFailed.Format(language, extra.Address, extra.FailureReason);
+        ? ManagementApiMessages.ExtraListenerAddress.Format(language, ManagementApiMessages.ExtraListenerName(extra.Address, language))
+        : ManagementApiMessages.ExtraListenerFailed.Format(language, ManagementApiMessages.ExtraListenerName(extra.Address, language), extra.FailureReason);
 
     /// <summary>
     /// The report when no service answers. It reads no model; the service column says so, says whether another program

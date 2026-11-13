@@ -147,7 +147,7 @@ public sealed class ServeTests : IDisposable
         var result = await run;
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains($"额外监听 http://192.0.2.1:{_cli.Port}/ 绑定失败", result.Stdout);
+        Assert.Contains($"额外监听（http://192.0.2.1:{_cli.Port}/）绑定失败", result.Stdout);
         Assert.DoesNotContain("额外监听：", result.Stdout);
     }
 

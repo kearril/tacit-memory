@@ -226,7 +226,8 @@ public sealed class MemoryService : IDisposable
     public string WebNotBuiltMessage() => ManagementApiMessages.WebNotBuilt.In(Config.Language);
 
     /// <summary>The line to show for a bound extra listener at <paramref name="address"/>, in the memory language.</summary>
-    public string ExtraListeningMessage(Uri address) => ManagementApiMessages.ExtraListenerAddress.Format(Config.Language, address);
+    public string ExtraListeningMessage(Uri address) =>
+        ManagementApiMessages.ExtraListenerAddress.Format(Config.Language, ManagementApiMessages.ExtraListenerName(address, Config.Language));
 
     /// <summary>
     /// Records the outcome of the host's attempt to bind the address <c>server.host</c> names, at <paramref name="port"/>. A
@@ -241,9 +242,9 @@ public sealed class MemoryService : IDisposable
         var listener = new ExtraListenerStatus(new Uri($"http://{HostText(address)}:{port}/"), failure is null ? null : FailureReason(address, port, failure));
         _extraListener = listener;
         if (listener.FailureReason is null)
-            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, listener.Address);
+            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language));
         else
-            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, listener.Address, listener.FailureReason);
+            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language), listener.FailureReason);
     }
 
     private string FailureReason(IPAddress address, int port, Exception failure) => failure is SocketException socket

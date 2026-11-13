@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace TacitMemory.Core.Localization;
 
 /// <summary>Human-facing text of the status report, the management API's refusals and the hints for commands that need the service.</summary>
@@ -66,6 +68,7 @@ internal static class ManagementApiMessages
 
     public static readonly Localized WebAddress = new("Web 界面：{0}", "Web interface: {0}");
     public static readonly Localized ExtraListenerAddress = new("额外监听：{0}", "Extra listener: {0}");
+    public static readonly Localized ExtraListenerAllInterfaces = new("所有网络接口，端口 {0}", "all network interfaces, port {0}");
     public static readonly Localized ExtraListenerFailed = new("额外监听失败：{0}，{1}", "Extra listener failed: {0}, {1}");
     public static readonly Localized ExtraPortInUse = new("端口 {0} 已被占用", "port {0} is already in use");
     public static readonly Localized ExtraAddressUnavailable = new("{0} 不是本机的地址", "{0} is not an address of this machine");
@@ -135,4 +138,13 @@ internal static class ManagementApiMessages
     public static readonly Localized ApiInternalFailure = new(
         "服务内部出错，详情见 logs 目录中的日志。",
         "The service failed unexpectedly; the details are in the logs folder.");
+
+    /// <summary>
+    /// The extra listener's address as people read it: a wildcard address names every network interface and the port,
+    /// and any other address is shown as its URL.
+    /// </summary>
+    public static string ExtraListenerName(Uri address, MemoryLanguage language) =>
+        IPAddress.TryParse(address.Host.Trim('[', ']'), out var host) && (host.Equals(IPAddress.Any) || host.Equals(IPAddress.IPv6Any))
+            ? ExtraListenerAllInterfaces.Format(language, address.Port)
+            : address.ToString();
 }

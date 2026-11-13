@@ -102,7 +102,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         // and the status reports the wildcard as bound.
         Assert.Equal(HttpStatusCode.OK, await StatusOf(port, IPAddress.Loopback));
         var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(host.Endpoint)).Service);
-        Assert.Equal($"额外监听：http://0.0.0.0:{port}/", column.Lines[^1]);
+        Assert.Equal($"额外监听：所有网络接口，端口 {port}", column.Lines[^1]);
         Assert.Null(column.ExtraListener!.FailureReason);
     }
 
