@@ -852,7 +852,6 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes when the consolidation judgments started so far have finished and their answers are cached. Tests await it.</summary>
     internal Task JudgmentCompletion => _judgments.Completion;
 
-    /// <summary>Writes the management API's event for one call: its method, route, status code and time taken.</summary>
     /// <summary>
     /// Records what a client declared on a request: its name, version, protocol revision, capabilities and extensions. It only
     /// observes; no behaviour depends on the record. It takes no part in the memory's write lock, and a file that cannot be
@@ -860,8 +859,16 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
 
-    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
+    /// <summary>
+    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful GET is not
+    /// written: it changed nothing, and the Web UI's polling would otherwise fill the log.
+    /// </summary>
+    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed)
+    {
+        if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && statusCode is >= 200 and < 300)
+            return;
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
+    }
 
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>

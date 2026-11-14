@@ -5,6 +5,7 @@ using TacitMemory.Core.ClientRecords;
 using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Logging;
 
 namespace TacitMemory.Core.Status;
 
@@ -348,7 +349,7 @@ internal static class StatusReporter
     /// <summary>The logs column. It needs only the home directory, so it is shown even when the config does not load.</summary>
     private static LogsStatus Logs(TacitOptions options, MemoryLanguage language)
     {
-        var directory = Path.Combine(options.TacitHome, "logs");
+        var directory = ServiceLogFiles.DirectoryOf(options.TacitHome);
         return new LogsStatus(ManagementApiMessages.LogsTitle.In(language), [ManagementApiMessages.LogsDirectory.Format(language, directory)], directory);
     }
 

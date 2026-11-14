@@ -141,6 +141,22 @@ public sealed class LogTests : IDisposable
     }
 
     [Fact]
+    public void A_management_API_call_is_logged_unless_it_is_a_successful_read()
+    {
+        Service.RecordApiCall("GET", "/api/status", 200, TimeSpan.FromMilliseconds(3));
+        Service.RecordApiCall("GET", "/api/backups", 404, TimeSpan.FromMilliseconds(3));
+        Service.RecordApiCall("GET", "/api/logs", 500, TimeSpan.FromMilliseconds(3));
+        Service.RecordApiCall("POST", "/api/backup", 200, TimeSpan.FromMilliseconds(3));
+        Service.RecordApiCall("PUT", "/api/config", 400, TimeSpan.FromMilliseconds(3));
+
+        var calls = _logs.Entries.Select(entry => entry.Message).Where(message => message.StartsWith("管理 API", StringComparison.Ordinal)).ToList();
+        Assert.Equal(
+            ["管理 API GET /api/backups 返回 404，耗时 3 毫秒", "管理 API GET /api/logs 返回 500，耗时 3 毫秒",
+             "管理 API POST /api/backup 返回 200，耗时 3 毫秒", "管理 API PUT /api/config 返回 400，耗时 3 毫秒"],
+            calls);
+    }
+
+    [Fact]
     public void The_startup_is_logged_with_the_version_the_port_and_the_memory_path()
     {
         _ = Service;
