@@ -33,7 +33,7 @@ const promptHighlight = HighlightStyle.define([
 ]);
 
 /**
- * The editor's look in the design tokens: the monospace font without ligatures, a gutter of quiet line numbers, the least height of a
+ * The editor's look in the design tokens: the monospace font, a gutter of quiet line numbers, the least height of a
  * prompt editor, and no scrolling of its own, as it grows with its text. The frame and focus ring are the wrapper's.
  */
 const promptTheme = EditorView.theme({
@@ -42,8 +42,6 @@ const promptTheme = EditorView.theme({
   ".cm-scroller": {
     fontFamily: "var(--tk-font-mono)",
     lineHeight: "var(--tk-line-height-normal)",
-    // The text is the file as written: a font's ligatures would show <!-- or -> as other glyphs.
-    fontVariantLigatures: "none",
     overflow: "visible",
   },
   ".cm-content": { minHeight: "var(--tk-size-editor)", padding: "var(--tk-space-md) 0", caretColor: "var(--tk-color-ink)" },
