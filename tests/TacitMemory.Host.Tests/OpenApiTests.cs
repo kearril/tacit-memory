@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host.Api;
@@ -82,6 +82,22 @@ public sealed class OpenApiTests : IAsyncLifetime
         var schema = responses?["200"]?["content"]?["application/json"]?["schema"];
         Assert.Equal("#/components/schemas/BackupList", schema?["$ref"]?.GetValue<string>());
         Assert.NotNull(responses?["401"]);
+    }
+
+    [Fact]
+    public async Task The_document_describes_the_service_log_with_its_three_levels()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var days = document["paths"]?["/api/logs"]?["get"]?["responses"]?["200"]?["content"]?["application/json"]?["schema"];
+        Assert.Equal("#/components/schemas/ServiceLogDays", days?["$ref"]?.GetValue<string>());
+        var responses = document["paths"]?["/api/logs/{date}"]?["get"]?["responses"];
+        var day = responses?["200"]?["content"]?["application/json"]?["schema"];
+        Assert.Equal("#/components/schemas/ServiceLogDay", day?["$ref"]?.GetValue<string>());
+        Assert.NotNull(responses?["400"]);
+        Assert.NotNull(responses?["404"]);
+        var levels = document["components"]?["schemas"]?["ServiceLogLevel"]?["enum"]?.AsArray().Select(level => level?.GetValue<string>());
+        Assert.Equal(["information", "warning", "error"], levels);
     }
 
     [Fact]

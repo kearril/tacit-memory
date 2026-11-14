@@ -1,6 +1,6 @@
+using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
-using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 

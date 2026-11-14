@@ -16,6 +16,7 @@
   --tk-color-surface: #ffffff;
   --tk-color-surface-raised: #f6f8fb;
   --tk-color-line: #e2e8f0;
+  --tk-color-scrollbar: #cbd5e1;
   --tk-color-ink: #1f2937;
   --tk-color-ink-muted: #5b6577;
   --tk-color-accent: #4f46e5;
@@ -47,6 +48,7 @@
     --tk-color-surface: #1a2231;
     --tk-color-surface-raised: #222b3b;
     --tk-color-line: #2f3a4d;
+    --tk-color-scrollbar: #435069;
     --tk-color-ink: #e6e9ef;
     --tk-color-ink-muted: #9aa4b5;
     --tk-color-accent: #9d9ef8;
@@ -64,9 +66,9 @@
     --tk-color-syntax-code: #f9a8d4;
     --tk-color-syntax-link: #7dd3fc;
     --tk-mix-soft: 14%;
-  --tk-mix-heat-1: 35%;
-  --tk-mix-heat-2: 58%;
-  --tk-mix-heat-3: 80%;
+    --tk-mix-heat-1: 35%;
+    --tk-mix-heat-2: 58%;
+    --tk-mix-heat-3: 80%;
   }
 }
 
@@ -77,6 +79,7 @@
   --tk-color-surface: #1a2231;
   --tk-color-surface-raised: #222b3b;
   --tk-color-line: #2f3a4d;
+  --tk-color-scrollbar: #435069;
   --tk-color-ink: #e6e9ef;
   --tk-color-ink-muted: #9aa4b5;
   --tk-color-accent: #9d9ef8;
@@ -118,7 +121,9 @@
      monospace face prefers a Chinese monospace font where one is installed, so Chinese takes two Latin widths; elsewhere
      Chinese falls back to the same system face as the interface. No monospace font is bundled. */
   --tk-font-sans: "Inter Variable", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
-  --tk-font-mono: "Maple Mono NF CN", "Sarasa Mono SC", ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", monospace;
+  --tk-font-mono:
+    "Maple Mono NF CN", "Sarasa Mono SC", ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "PingFang SC",
+    "Microsoft YaHei UI", "Microsoft YaHei", monospace;
   --tk-font-size-xs: 0.8125rem;
   --tk-font-size-sm: 0.875rem;
   --tk-font-size-base: 1rem;
@@ -139,8 +144,9 @@
 
   /* Sizes of controls (buttons, inputs), of the narrow content column (forms, dialogs), of the sidebar, of the page, the
      smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; of the settings column
-     and the names on its left, of a client's logo tile, of the prompts column, and the least height of a prompt document's
-     editor; they sit with the spacing scale */
+     and the names on its left, of a client's logo tile, of the prompts column, the least height of a prompt document's
+     editor, and the most height of the log's scrolling area, which fills the window below the card's head and filters
+     but never drops below a readable height; they sit with the spacing scale */
   --tk-size-control: 2.5rem;
   --tk-size-content: 32rem;
   --tk-size-sidebar: 15rem;
@@ -154,6 +160,8 @@
   --tk-size-logo: 3rem;
   --tk-size-prompts: 60rem;
   --tk-size-editor: 28rem;
+  --tk-size-log-view: max(20rem, calc(100dvh - 17rem));
+  --tk-size-scrollbar: 0.75rem;
 
   /* Shape */
   --tk-radius-xs: 0.25rem;

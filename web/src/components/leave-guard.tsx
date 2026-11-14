@@ -40,11 +40,14 @@ export function LeaveGuard({ dirty, text }: { readonly dirty: boolean; readonly 
   }, [dirty]);
 
   return (
-    <AlertDialog open={blocker.state === "blocked"} onOpenChange={(open) => {
+    <AlertDialog
+      open={blocker.state === "blocked"}
+      onOpenChange={(open) => {
         if (!open && !leaving.current) {
           blocker.reset?.();
         }
-      }}>
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{text.title}</AlertDialogTitle>
@@ -52,10 +55,13 @@ export function LeaveGuard({ dirty, text }: { readonly dirty: boolean; readonly 
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{text.cancel}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={() => {
+          <AlertDialogAction
+            variant="destructive"
+            onClick={() => {
               leaving.current = true;
               blocker.proceed?.();
-            }}>
+            }}
+          >
             {text.confirm}
           </AlertDialogAction>
         </AlertDialogFooter>

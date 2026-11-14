@@ -36,6 +36,9 @@ internal static class ManagementApiMessages
 
     public static readonly Localized LogsTitle = new("日志", "Logs");
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
+    public static readonly Localized LogsToday = new("今天：{0} 条警告，{1} 条错误", "Today: {0} warnings, {1} errors");
+    public static readonly Localized LogsTodayQuiet = new("今天没有警告与错误", "No warnings or errors today");
+    public static readonly Localized LogsTodayUnreadable = new("无法读取今天的日志：{0}", "Today's log cannot be read: {0}");
 
     public static readonly Localized NotRunningHint = new(
         "服务未运行，先执行 tacit serve。",
@@ -82,6 +85,9 @@ internal static class ManagementApiMessages
     public static readonly Localized PromptChanged = new(
         "prompts/{0} 在你打开提示词页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
         "prompts/{0} was changed after you opened the prompts page, and saving would overwrite that change. Load it again, then make your changes.");
+    public static readonly Localized LogDateInvalid = new("{0} 不是日期，请写成 2026-11-14 这样的形式。", "{0} is not a date; write it like 2026-11-14.");
+    public static readonly Localized LogAfterInvalid = new("after 应为已读到的条数（0 或正整数），而不是 {0}。", "after is the number of events already read (0 or more), not {0}.");
+    public static readonly Localized LogDateNotFound = new("{0} 没有日志。", "There is no log for {0}.");
     public static readonly Localized SecretNotSecret = new("不是密钥，不能按密钥修改", "not a secret, so it cannot be changed as one");
     public static readonly Localized ConfigReadOnly = new(
         "设置页不能修改这一项：请在 config.yaml 中修改，重启 tacit serve 后生效。",

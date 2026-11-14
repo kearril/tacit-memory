@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Index;
-using TacitMemory.Core.Models;
 using TacitMemory.Core.Injection;
+using TacitMemory.Core.Models;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Tools;

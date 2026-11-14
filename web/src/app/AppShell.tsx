@@ -27,7 +27,11 @@ import { SECTIONS, sectionIdOf } from "../pages/settings/form";
 import { useSectionNav } from "../pages/settings/section-nav";
 import { useDictionary, useSessionStatus } from "./session-context";
 
-const navItems: readonly { to: string; key: "dashboard" | "settings" | "prompts" | "logs" | "memory"; icon: LucideIcon }[] = [
+const navItems: readonly {
+  to: string;
+  key: "dashboard" | "settings" | "prompts" | "logs" | "memory";
+  icon: LucideIcon;
+}[] = [
   { to: "/dashboard", key: "dashboard", icon: LayoutDashboard },
   { to: "/settings", key: "settings", icon: Settings },
   { to: "/prompts", key: "prompts", icon: FileText },
@@ -163,7 +167,11 @@ function SettingsSections({ onNavigate }: { readonly onNavigate: () => void }) {
         <ChevronDown aria-hidden className={`transition-transform ${open ? "" : "-rotate-90"}`} />
       </Button>
       {open ? (
-        <ul id="settings-sections" aria-label={text.sectionsNav} className="mt-xs ml-lg grid gap-xs border-l-(length:--tk-border-thin) border-line">
+        <ul
+          id="settings-sections"
+          aria-label={text.sectionsNav}
+          className="mt-xs ml-lg grid gap-xs border-l-(length:--tk-border-thin) border-line"
+        >
           {SECTIONS.map((section) => {
             const active = nav.active === section;
             const problems = nav.problems[section] ?? 0;
@@ -173,16 +181,23 @@ function SettingsSections({ onNavigate }: { readonly onNavigate: () => void }) {
                   to={`/settings#${sectionIdOf(section)}`}
                   aria-current={active ? "location" : undefined}
                   onClick={() => {
-                    document.getElementById(sectionIdOf(section))?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    document
+                      .getElementById(sectionIdOf(section))
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
                     onNavigate();
                   }}
                   className={`-ml-(--tk-border-thin) flex items-center justify-between gap-sm border-l-(length:--tk-border-thick) py-xs pr-sm pl-md text-sm transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
-                    active ? "border-accent font-medium text-accent" : "border-transparent text-ink-muted hover:text-ink"
+                    active
+                      ? "border-accent font-medium text-accent"
+                      : "border-transparent text-ink-muted hover:text-ink"
                   }`}
                 >
                   {text.sections[section]}
                   {problems > 0 ? (
-                    <span aria-label={text.problemsIn(problems)} className="rounded-full bg-danger-soft px-sm text-xs text-danger">
+                    <span
+                      aria-label={text.problemsIn(problems)}
+                      className="rounded-full bg-danger-soft px-sm text-xs text-danger"
+                    >
                       {problems}
                     </span>
                   ) : null}
@@ -210,7 +225,10 @@ function PromptDocuments({ onNavigate }: { readonly onNavigate: () => void }) {
   }
 
   return (
-    <ul aria-label={text.documentsNav} className="mt-xs ml-lg grid gap-xs border-l-(length:--tk-border-thin) border-line">
+    <ul
+      aria-label={text.documentsNav}
+      className="mt-xs ml-lg grid gap-xs border-l-(length:--tk-border-thin) border-line"
+    >
       {PROMPT_NAMES.map((name) => {
         const path = promptPathOf(name);
         const active = pathname === path;
@@ -229,7 +247,11 @@ function PromptDocuments({ onNavigate }: { readonly onNavigate: () => void }) {
             >
               {text.documents[name].title}
               {invalid ? (
-                <TriangleAlert role="img" aria-label={text.invalid} className="size-(--tk-font-size-sm) shrink-0 text-danger">
+                <TriangleAlert
+                  role="img"
+                  aria-label={text.invalid}
+                  className="size-(--tk-font-size-sm) shrink-0 text-danger"
+                >
                   <title>{text.invalid}</title>
                 </TriangleAlert>
               ) : customized ? (

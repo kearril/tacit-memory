@@ -172,6 +172,64 @@ public sealed class StatusTests : IDisposable
     }
 
     [Fact]
+    public async Task The_logs_column_counts_todays_warnings_and_errors_in_every_report()
+    {
+        var logs = Path.Combine(_home.TacitHome, "logs");
+        Directory.CreateDirectory(logs);
+        File.WriteAllText(Path.Combine(logs, $"tacit-{TestHome.Today:yyyyMMdd}.log"), """
+            2026-11-02 09:00:00.000 +00:00 WRN 一
+            2026-11-02 09:00:01.000 +00:00 INF 二
+            2026-11-02 09:00:02.000 +00:00 WRN 三
+            2026-11-02 09:00:03.000 +00:00 ERR 四
+
+            """.ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(logs, $"tacit-{TestHome.Today.AddDays(-1):yyyyMMdd}.log"), "2026-11-01 09:00:00.000 +00:00 ERR 昨天\n");
+        var tacit = _home.Tacit();
+
+        var running = (await Service.StatusAsync(Endpoint)).Logs!;
+        var offline = (await tacit.OfflineStatus(tacit.LoadConfig())).Logs!;
+        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\n");
+        var invalid = tacit.InvalidConfigStatus(Assert.Throws<TacitException>(() => tacit.LoadConfig()), tacit.ReadLooseSettings()).Logs!;
+
+        foreach (var column in new[] { running, offline, invalid })
+        {
+            Assert.Equal(2, column.Warnings);
+            Assert.Equal(1, column.Errors);
+            Assert.Contains("今天：2 条警告，1 条错误", column.Lines);
+            Assert.Equal(StatusLevel.Problem, ((IStatusColumn)column).LineLevels()[^1]);
+        }
+    }
+
+    [Fact]
+    public async Task Without_a_log_today_the_logs_column_says_there_is_nothing_to_look_at()
+    {
+        var column = (await Service.StatusAsync(Endpoint)).Logs!;
+
+        Assert.Equal(0, column.Warnings);
+        Assert.Equal(0, column.Errors);
+        Assert.Contains("今天没有警告与错误", column.Lines);
+        Assert.Null(((IStatusColumn)column).LineLevels()[^1]);
+    }
+
+    [Fact]
+    public async Task A_log_that_cannot_be_read_today_leaves_the_counts_unknown_and_says_why()
+    {
+        var logs = Path.Combine(_home.TacitHome, "logs");
+        Directory.CreateDirectory(logs);
+        var path = Path.Combine(logs, $"tacit-{TestHome.Today:yyyyMMdd}.log");
+        File.WriteAllText(path, "2026-11-02 09:00:00.000 +00:00 ERR 一\n");
+
+        LogsStatus column;
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            column = (await Service.StatusAsync(Endpoint)).Logs!;
+
+        Assert.Null(column.Warnings);
+        Assert.Null(column.Errors);
+        Assert.StartsWith("无法读取今天的日志：", column.Lines[^1]);
+        Assert.Equal(StatusLevel.Problem, ((IStatusColumn)column).LineLevels()[^1]);
+    }
+
+    [Fact]
     public void The_loose_port_is_server_port_even_when_other_keys_are_wrong()
     {
         File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");

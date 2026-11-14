@@ -21,15 +21,15 @@ import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf, timeText } from "./format";
 import { HeatmapCard } from "./HeatmapCard";
-import { BackupsCard, ConnectionCard, IndexCard, ModelsCard } from "./StatusCards";
+import { BackupsCard, ClientsCard, IndexCard, LogsCard, ModelsCard, ServiceCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";
 
 /**
  * The dashboard. On a wide screen it is a bento grid of twelve columns: the overview (the status sentence and the to-dos)
- * and the memory activity each across the whole width, then a row of three cards (models, backups, index and
- * consolidation), and the connection (the service's addresses, and the agents with their bindings) across the width. On a
- * narrower screen the cards stack in one column in the order of the markup, which puts what to act on (the to-dos, models
- * and backups) before the activity.
+ * and the memory activity each across the whole width, then a row of four small cards (models, backups, index and
+ * consolidation, logs), and last the service's addresses beside the clients with their bindings. On a narrower screen the
+ * cards stack in one column in the order of the markup, which puts what to act on (the to-dos, models and backups) before
+ * the activity.
  * The status report is fetched every 30 seconds, the activity and the backups when the window regains focus; when a fetch
  * fails, the cards keep what they last had and a notice at the top says so, with the time of the oldest data shown.
  */
@@ -65,15 +65,19 @@ export function DashboardPage() {
       ) : null}
 
       {report === undefined ? (
-        status.isError ? null : <div aria-busy="true" className="min-h-dvh" />
+        status.isError ? null : (
+          <div aria-busy="true" className="min-h-dvh" />
+        )
       ) : (
         <div className="grid gap-lg xl:grid-cols-12">
           <OverviewCard report={report} locale={locale} className="xl:col-span-12" />
-          <ModelsCard report={report} fetchedAt={status.dataUpdatedAt} className="xl:col-span-4 xl:row-start-3" />
-          <BackupsCard locale={locale} className="xl:col-span-4 xl:row-start-3" />
+          <ModelsCard report={report} fetchedAt={status.dataUpdatedAt} className="xl:col-span-3 xl:row-start-3" />
+          <BackupsCard locale={locale} className="xl:col-span-3 xl:row-start-3" />
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
-          <IndexCard report={report} locale={locale} className="xl:col-span-4" />
-          <ConnectionCard report={report} locale={locale} className="xl:col-span-12" />
+          <IndexCard report={report} locale={locale} className="xl:col-span-3" />
+          <LogsCard report={report} className="xl:col-span-3" />
+          <ServiceCard report={report} className="xl:col-span-4" />
+          <ClientsCard report={report} locale={locale} className="xl:col-span-8" />
         </div>
       )}
     </div>
@@ -108,7 +112,10 @@ function OverviewCard({
   ].filter((detail) => detail !== null);
 
   return (
-    <Card aria-labelledby="overview-title" className={`py-md lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center ${className}`}>
+    <Card
+      aria-labelledby="overview-title"
+      className={`py-md lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center ${className}`}
+    >
       <div className="flex items-center gap-md lg:pr-lg">
         <span
           className={`grid size-(--tk-size-control) shrink-0 place-items-center rounded-md ${
@@ -152,7 +159,7 @@ function TodoItem({ todo, locale }: { readonly todo: Todo; readonly locale: stri
     <Link
       to={targetOf(todo)}
       title={view.detail === null ? view.title : `${view.title}\n${view.detail}`}
-      className="lift flex items-center gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface px-sm py-xs shadow-pressed outline-none hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+      className="flex lift items-center gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface px-sm py-xs shadow-pressed outline-none hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
     >
       <span
         className={`grid size-(--tk-size-icon-tile) shrink-0 place-items-center rounded-sm ${
@@ -213,11 +220,7 @@ function viewOf(todo: Todo, dictionary: Dictionary, locale: string): TodoView {
       return {
         icon: CloudAlert,
         title: text.cloudBackupFailed,
-        detail:
-          todo.error ??
-          text.cloudBackupFailedDetail(
-            timeText(todo.at, locale),
-          ),
+        detail: todo.error ?? text.cloudBackupFailedDetail(timeText(todo.at, locale)),
         failure: true,
       };
   }

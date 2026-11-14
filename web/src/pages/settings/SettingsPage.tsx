@@ -95,7 +95,15 @@ export function SettingsPage() {
  * names each key that is wrong, says the service runs on with the config it last loaded, and offers to read the file again
  * once it is fixed; any other failure gives the service's explanation.
  */
-function LoadFailed({ error, retrying, onRetry }: { readonly error: Error; readonly retrying: boolean; readonly onRetry: () => void }) {
+function LoadFailed({
+  error,
+  retrying,
+  onRetry,
+}: {
+  readonly error: Error;
+  readonly retrying: boolean;
+  readonly onRetry: () => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.settings;
   const invalid = error instanceof ApiError && error.error === "ConfigInvalid";
@@ -370,7 +378,9 @@ function SaveBar({
       >
         <p aria-live="polite" className="grid text-sm font-medium">
           {text.changes(count)}
-          {restarts === 0 ? null : <span className="text-xs font-normal text-ink-muted">{text.changesRestart(restarts)}</span>}
+          {restarts === 0 ? null : (
+            <span className="text-xs font-regular text-ink-muted">{text.changesRestart(restarts)}</span>
+          )}
         </p>
         <div className="flex gap-sm">
           <AlertDialog>
@@ -405,7 +415,13 @@ function SaveBar({
  * After a save that changed settings which wait for a restart: each with its running and its saved value, and that the
  * rest is in effect. It only informs, so its one button closes it.
  */
-function RestartDialog({ changes, onClose }: { readonly changes: readonly RestartChange[]; readonly onClose: () => void }) {
+function RestartDialog({
+  changes,
+  onClose,
+}: {
+  readonly changes: readonly RestartChange[];
+  readonly onClose: () => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.settings;
   return (

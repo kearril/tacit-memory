@@ -17,7 +17,12 @@ export function BackupSection({ form }: { readonly form: SettingsForm }) {
       </SettingsGroup>
       <SettingsGroup title={text.cloud}>
         <Setting form={form} path="backup.webdav.url" text={text.fields.url} placeholder={text.urlDefault} wide />
-        <Setting form={form} path="backup.webdav.username" text={text.fields.username} placeholder={text.usernameDefault} />
+        <Setting
+          form={form}
+          path="backup.webdav.username"
+          text={text.fields.username}
+          placeholder={text.usernameDefault}
+        />
         <SecretField form={form} path="backup.webdav.password" text={text.fields.password} />
       </SettingsGroup>
     </SettingsSection>

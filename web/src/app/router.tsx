@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { LoginPage } from "../pages/login/LoginPage";
+import { LogsPage } from "../pages/logs/LogsPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { DEFAULT_PROMPT, promptPathOf } from "../pages/prompts/names";
 import { PromptsPage } from "../pages/prompts/PromptsPage";
@@ -24,7 +25,8 @@ export const router = createBrowserRouter(
             { path: "settings", Component: SettingsPage },
             { path: "prompts", element: <Navigate to={promptPathOf(DEFAULT_PROMPT)} replace /> },
             { path: "prompts/:name", Component: PromptsPage },
-            { path: "logs", element: <PlaceholderPage section="logs" /> },
+            { path: "logs", Component: LogsPage },
+            { path: "logs/:date", Component: LogsPage },
             { path: "memory", element: <PlaceholderPage section="memory" /> },
           ],
         },

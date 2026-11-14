@@ -52,5 +52,8 @@ export function previewRestore(source: RestoreSource, config: boolean): Promise<
 
 /** Restores the backup at `path`, the path a preview gave; a maintenance operation that keeps a safety backup first. */
 export function runRestore(path: string, config: boolean): Promise<RestoreResult> {
-  return apiFetch<RestoreResult>("/api/restore", { method: "POST", body: JSON.stringify({ path, config, preview: false }) });
+  return apiFetch<RestoreResult>("/api/restore", {
+    method: "POST",
+    body: JSON.stringify({ path, config, preview: false }),
+  });
 }

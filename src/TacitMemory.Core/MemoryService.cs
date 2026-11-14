@@ -1,30 +1,31 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using TacitMemory.Core.Logging;
-using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Backup;
-using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.ClientRecords;
 using TacitMemory.Core.Clients;
-using TacitMemory.Core.Index;
-using TacitMemory.Core.Models;
-using TacitMemory.Core.Pages;
+using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Decisions;
-using TacitMemory.Core.Retrieval;
+using TacitMemory.Core.Git;
+using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Logging;
+using TacitMemory.Core.Maintenance;
+using TacitMemory.Core.Models;
+using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
-using TacitMemory.Core.Workstreams;
+using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Status;
-using TacitMemory.Core.Maintenance;
-using TacitMemory.Core.Git;
+using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core;
 
@@ -418,6 +419,33 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public Task<ActivityReport> ActivityAsync(CancellationToken cancellationToken = default) =>
         ActivityCounts.ReadAsync(Config, _options.Today, cancellationToken);
+
+    /// <summary>The days the service log has a file for, newest first, and today. Reads the directory only.</summary>
+    public ServiceLogDays LogDays() => new(_options.Today, ServiceLogReader.Days(_options.TacitHome));
+
+    /// <summary>
+    /// The events of one day's service log, oldest first, read from the file the service may still be writing to. Today
+    /// without a file has no events yet. With <paramref name="after"/>, only the events past that many are returned, so a
+    /// reader that follows the log asks for what is new; the events of a file never move, as it is only appended to.
+    /// </summary>
+    /// <param name="date">The day as <c>yyyy-MM-dd</c>.</param>
+    /// <param name="after">How many events the caller already has, as written in the request; none means 0.</param>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.RequestInvalid"/> when <paramref name="date"/> is not a date or <paramref name="after"/> not a
+    /// count; <see cref="TacitError.LogDateNotFound"/> for another day without a file.
+    /// </exception>
+    public ServiceLogDay ServiceLog(string date, string? after = null)
+    {
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogDateInvalid.Format(Config.Language, date));
+        var skip = 0;
+        if (after is not null && !int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out skip))
+            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogAfterInvalid.Format(Config.Language, after));
+        var today = _options.Today;
+        var entries = ServiceLogReader.Read(_options.TacitHome, day)
+            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, ManagementApiMessages.LogDateNotFound.Format(Config.Language, date)));
+        return new ServiceLogDay(day, today, [.. entries.Skip(skip)], entries.Count);
+    }
 
     /// <summary>
     /// The local backups, newest first, whether the cloud backup is configured, and its last attempt. Reads the backup
@@ -852,7 +880,6 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes when the consolidation judgments started so far have finished and their answers are cached. Tests await it.</summary>
     internal Task JudgmentCompletion => _judgments.Completion;
 
-    /// <summary>Writes the management API's event for one call: its method, route, status code and time taken.</summary>
     /// <summary>
     /// Records what a client declared on a request: its name, version, protocol revision, capabilities and extensions. It only
     /// observes; no behaviour depends on the record. It takes no part in the memory's write lock, and a file that cannot be
@@ -860,8 +887,16 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
 
-    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
+    /// <summary>
+    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful GET is not
+    /// written: it changed nothing, and the Web UI's polling would otherwise fill the log.
+    /// </summary>
+    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed)
+    {
+        if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && statusCode is >= 200 and < 300)
+            return;
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
+    }
 
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>

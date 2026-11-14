@@ -45,7 +45,7 @@
 
 ## 3. 日志
 
-日志写入 `TACIT_HOME/logs/tacit-YYYYMMDD.log`，只有 `serve` 写入，内容与终端输出相同：按天一份，保留最近 14 份，级别从 Information 起，格式为「时间 级别 消息」；ASP.NET Core 与 MCP SDK 的日志只写警告。消息语言随记忆语言。
+日志写入 `TACIT_HOME/logs/tacit-YYYYMMDD.log`，只有 `serve` 写入，内容与终端输出相同：按天一份，保留最近 14 份，级别从 Information 起，格式为「时间 级别 消息」；ASP.NET Core 与 MCP SDK 的日志只写警告。管理 API 的每次请求记一条（方法、路径、状态码与耗时），成功的 GET 请求除外：它们不改动任何东西，Web 界面的自动刷新又会让它们占满日志。消息语言随记忆语言。
 
 记录的事件：
 

@@ -45,6 +45,23 @@ public sealed class OutputStylingTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_counts_todays_warnings_and_errors_at_a_terminal_and_in_a_pipe()
+    {
+        _cli.InitReady();
+        var logs = Path.Combine(_cli.Home.TacitHome, "logs");
+        Directory.CreateDirectory(logs);
+        File.WriteAllText(
+            Path.Combine(logs, $"tacit-{TacitMemory.Core.Tests.TestHome.Today:yyyyMMdd}.log"),
+            "2026-11-02 09:00:00.000 +00:00 WRN 额外监听绑定失败\n");
+
+        var pipe = await _cli.RunAsync(["status"]);
+        var styled = await _cli.RunAsync(["status"], stdoutIsTerminal: true);
+
+        Assert.Contains("今天：1 条警告，0 条错误", pipe.Stdout, StringComparison.Ordinal);
+        Assert.Equal(OutputWords.Of(pipe.Stdout), OutputWords.Of(styled.Stdout));
+    }
+
+    [Fact]
     public async Task Status_at_a_terminal_with_NO_COLOR_is_the_same_plain_text()
     {
         _cli.InitReady();

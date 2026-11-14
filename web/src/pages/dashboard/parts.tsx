@@ -1,7 +1,9 @@
 import { LoaderCircle, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { ProbeResult } from "../../api/probe";
 import { useDictionary } from "../../app/session-context";
+import { Button } from "../../components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 
 /** The icon of a button that runs a command: its own icon, or a spinner while the command runs. */
 export function BusyIcon({ busy, icon: Icon }: { readonly busy: boolean; readonly icon: LucideIcon }) {
@@ -22,8 +24,37 @@ export function InfoRow({ label, children }: { readonly label: string; readonly 
 }
 
 /**
- * The action bar at the bottom of a card that runs commands, under a divider. The cards of one row are as tall as the
- * tallest, so their bars line up; a short note can stand on the left of the buttons.
+ * A command in the head of a dashboard card: a square button with only its icon, whose name shows in a tooltip on hover
+ * or keyboard focus and is read out as the button's name. It takes the props of a button, so a dialog's or a menu's
+ * trigger can wrap it, and `asChild` for a link. A dialog or menu it opened hands the focus back when it closes; after a
+ * click that focus is not a keyboard one, so the tooltip stays shut rather than popping up on its own.
+ */
+export function IconAction({
+  label,
+  variant = "outline",
+  size = "icon",
+  ...props
+}: ComponentProps<typeof Button> & { readonly label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        asChild
+        onFocus={(event) => {
+          if (!event.currentTarget.matches(":focus-visible")) {
+            event.preventDefault();
+          }
+        }}
+      >
+        <Button variant={variant} size={size} aria-label={label} {...props} />
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * The action bar at the bottom of a settings section that runs commands, under a divider; a short note can stand on the
+ * left of the buttons.
  */
 export function CardActions({ note, children }: { readonly note?: string; readonly children: ReactNode }) {
   return (

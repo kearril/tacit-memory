@@ -25,7 +25,12 @@ export function AdvancedSection({ form }: { readonly form: SettingsForm }) {
           text={text.fields.memoryPath}
           value={textOf(effective(form.view, "file", "memory.path"))}
         />
-        <ReadOnlySetting form={form} path="language" text={text.fields.language} value={text.languages[language] ?? language} />
+        <ReadOnlySetting
+          form={form}
+          path="language"
+          text={text.fields.language}
+          value={text.languages[language] ?? language}
+        />
       </SettingsGroup>
     </SettingsSection>
   );

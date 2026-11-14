@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
-using TacitMemory.Core.Logging;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Logging;
 using TacitMemory.Core.Models;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Tools;

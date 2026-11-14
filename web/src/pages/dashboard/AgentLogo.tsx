@@ -28,7 +28,11 @@ export function AgentLogo({
       {icon === null ? (
         <Bot aria-hidden className={glyph} />
       ) : icon.monochrome ? (
-        <span aria-hidden className={`${glyph} bg-current`} style={{ mask: `url("${icon.url}") center / contain no-repeat` }} />
+        <span
+          aria-hidden
+          className={`${glyph} bg-current`}
+          style={{ mask: `url("${icon.url}") center / contain no-repeat` }}
+        />
       ) : (
         <img alt="" src={icon.url} className={glyph} />
       )}
@@ -42,7 +46,14 @@ export function AgentLogo({
           {sound ? (
             <Check className="size-(--tk-space-sm)" strokeWidth={4} />
           ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" className="size-(--tk-space-sm)">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={4}
+              strokeLinecap="round"
+              className="size-(--tk-space-sm)"
+            >
               <path d="M12 5v8M12 19h.01" />
             </svg>
           )}

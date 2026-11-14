@@ -82,10 +82,7 @@ function ModelItem({
   const formId = `${inputIdOf(path)}-settings`;
 
   return (
-    <section
-      aria-labelledby={`${inputIdOf(path)}-name`}
-      className="grid gap-md"
-    >
+    <section aria-labelledby={`${inputIdOf(path)}-name`} className="grid gap-md">
       <div className="flex items-center gap-md">
         <Switch
           id={inputIdOf(path)}
@@ -234,7 +231,9 @@ function Switch({
       <span
         aria-hidden
         className={`inline-block size-(--tk-space-md) rounded-full bg-surface shadow-rest transition-transform ${
-          checked ? "translate-x-[calc(var(--tk-space-xl)-var(--tk-space-md)-var(--tk-space-xs))]" : "translate-x-(--tk-space-xs)"
+          checked
+            ? "translate-x-[calc(var(--tk-space-xl)-var(--tk-space-md)-var(--tk-space-xs))]"
+            : "translate-x-(--tk-space-xs)"
         }`}
       />
     </button>

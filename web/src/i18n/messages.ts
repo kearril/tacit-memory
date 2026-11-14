@@ -1,4 +1,5 @@
 import { ApiError } from "../api/client";
+import type { ServiceLogLevel } from "../api/logs";
 import type { BindingProblem } from "../api/status";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
@@ -135,6 +136,29 @@ export interface Dictionary {
       readonly notRecorded: string;
     };
   };
+  readonly logs: {
+    /** The label of the button that picks the day. */
+    readonly dateLabel: string;
+    readonly today: string;
+    /** Each level's three-letter code as the file writes it, and its name for screen readers and tooltips. */
+    readonly levels: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly name: string }>>;
+    readonly loadFailed: string;
+    readonly readAgain: string;
+    readonly emptyToday: string;
+    readonly emptyDay: string;
+    readonly noLog: (date: string) => string;
+    readonly backToToday: string;
+    readonly levelsLabel: string;
+    readonly levelToggle: (level: string, count: number) => string;
+    readonly keywordLabel: string;
+    readonly shown: (shown: number, total: number) => string;
+    readonly noMatch: string;
+    readonly clearFilters: string;
+    readonly follow: string;
+    readonly entriesLabel: string;
+    readonly unseen: (count: number) => string;
+    readonly offline: string;
+  };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;
     readonly sectionsNav: string;
@@ -242,9 +266,13 @@ export interface Dictionary {
       readonly probeNote: string;
       readonly providers: Readonly<Record<"generic" | "cloudflare", string>>;
       /** What each protocol means for each model, in one line under the protocol. */
-      readonly protocols: Readonly<Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>>;
+      readonly protocols: Readonly<
+        Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>
+      >;
       /** An example of the URL for each model and protocol, as the placeholder of an empty URL; empty for none. */
-      readonly urlExamples: Readonly<Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>>;
+      readonly urlExamples: Readonly<
+        Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>
+      >;
       readonly fields: Readonly<Record<"provider" | "url" | "model" | "apiKey", Explained>>;
       readonly probeDirty: string;
     };
@@ -296,7 +324,8 @@ export interface Dictionary {
       readonly backups: string;
       readonly activity: string;
       readonly index: string;
-      readonly connection: string;
+      readonly service: string;
+      readonly logs: string;
     };
     readonly unreadable: string;
     readonly copy: (what: string) => string;
@@ -306,6 +335,13 @@ export interface Dictionary {
       readonly coolingDown: (clock: string) => string;
       readonly unconfigured: string;
       readonly cooling: string;
+    };
+    readonly logs: {
+      readonly today: string;
+      readonly quiet: string;
+      readonly warnings: (count: number) => string;
+      readonly errors: (count: number) => string;
+      readonly view: string;
     };
     readonly index: {
       readonly lastConsolidation: string;
@@ -390,8 +426,6 @@ export interface Dictionary {
     readonly agents: {
       readonly title: string;
       readonly bound: string;
-      readonly unbound: string;
-      readonly unboundSeen: (seen: string) => string;
       readonly broken: string;
       readonly today: string;
       readonly yesterday: string;
@@ -400,6 +434,12 @@ export interface Dictionary {
       readonly empty: string;
       readonly noBindings: string;
       readonly addBinding: string;
+      readonly seenOnly: string;
+      readonly bindingsUnreadable: string;
+      readonly legend: string;
+      readonly manage: string;
+      readonly more: (count: number) => string;
+      readonly moreLabel: (count: number) => string;
     };
     readonly todos: {
       readonly empty: string;

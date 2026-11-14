@@ -98,7 +98,8 @@ export const en: Dictionary = {
     customized: "Customized",
     invalid: "Error",
     invalidTitle: "The file has an error, so the service runs the previous version",
-    invalidNote: "Below is what the file holds now. Fix it and save, or restore the default, and the service takes the new text.",
+    invalidNote:
+      "Below is what the file holds now. Fix it and save, or restore the default, and the service takes the new text.",
     customizedNote: (file) => `The service uses your file prompts/${file}.`,
     readAgain: "Read again",
     aboutLabel: (title) => `About the ${title.toLowerCase()}`,
@@ -144,6 +145,32 @@ export const en: Dictionary = {
       notRecorded: "Not recorded",
     },
   },
+  logs: {
+    dateLabel: "Pick a day",
+    today: "Today",
+    levels: {
+      information: { code: "INF", name: "Information" },
+      warning: { code: "WRN", name: "Warning" },
+      error: { code: "ERR", name: "Error" },
+    },
+    loadFailed: "Could not read the log",
+    readAgain: "Read again",
+    emptyToday: "Nothing has been logged today. The first event the service writes will appear here.",
+    emptyDay: "The log of this day is empty.",
+    noLog: (date) => `There is no log for ${date}. Logs are kept for the last 14 days.`,
+    backToToday: "Back to today",
+    levelsLabel: "Filter by level",
+    levelToggle: (level, count) => `${level}, ${count}`,
+    keywordLabel: "Filter by keyword",
+    shown: (shown, total) => (shown === total ? `${total} events` : `${shown} of ${total} events`),
+    noMatch: "No events match the filters.",
+    clearFilters: "Clear filters",
+    follow: "Follow",
+    entriesLabel: "Log events",
+    unseen: (count) => (count === 1 ? "1 new event" : `${count} new events`),
+    offline:
+      "The service cannot be reached for now. The events already shown stay, and following resumes once it is back.",
+  },
   settings: {
     sections: {
       models: "Models",
@@ -158,7 +185,8 @@ export const en: Dictionary = {
     problemsIn: (count) => (count === 1 ? "1 problem" : `${count} problems`),
     loadFailed: "The settings could not be read",
     fileInvalid: "config.yaml has errors, so the settings cannot be shown",
-    fileInvalidNote: "The service runs on with the config it last loaded. Fix these in config.yaml, then choose Read again.",
+    fileInvalidNote:
+      "The service runs on with the config it last loaded. Fix these in config.yaml, then choose Read again.",
     readAgain: "Read again",
     defaultValue: (value) => `Default ${value}`,
     outOfRange: (min, max) => `Must be between ${min} and ${max}`,
@@ -207,22 +235,34 @@ export const en: Dictionary = {
       fromEnvironment: (variable) => `From the environment variable ${variable}`,
       environmentNote: (variable) =>
         `The environment variable ${variable} wins over config.yaml. To change it, change that variable and restart tacit serve.`,
-      fileNote: (variable) => `Written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
-      unsetNote: (variable) => `What you enter here is written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
+      fileNote: (variable) =>
+        `Written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
+      unsetNote: (variable) =>
+        `What you enter here is written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
       willClear: "Removed from config.yaml on save",
       newValue: "New value",
       emptyRewrite: "Enter the new value, or undo the change.",
     },
     consolidation: {
-      summary: "When to remind you to consolidate, how long one consolidation may take, and the length hints in its report.",
+      summary:
+        "When to remind you to consolidate, how long one consolidation may take, and the length hints in its report.",
       fields: {
-        remindAfterDays: { label: "Remind after days", help: "Once this many days have passed since the last consolidation, the server instructions remind you." },
-        remindCandidates: { label: "Remind at candidates", help: "Once there are this many persona candidates, the server instructions remind you." },
+        remindAfterDays: {
+          label: "Remind after days",
+          help: "Once this many days have passed since the last consolidation, the server instructions remind you.",
+        },
+        remindCandidates: {
+          label: "Remind at candidates",
+          help: "Once there are this many persona candidates, the server instructions remind you.",
+        },
         budgetSeconds: {
           label: "Time limit (s)",
           help: "The most seconds one consolidation waits for the models; at the limit the report comes as usual, and what is left is worked on next time.",
         },
-        maxConcurrency: { label: "Judgments at once", help: "How many model judgments run at once, shared by every consolidation in the service." },
+        maxConcurrency: {
+          label: "Judgments at once",
+          help: "How many model judgments run at once, shared by every consolidation in the service.",
+        },
         hintItemLength: {
           label: "Entry length hint",
           help: "A persona entry or new activity longer than this many characters is listed by the report's length hints. It only hints; nothing is refused.",
@@ -234,13 +274,15 @@ export const en: Dictionary = {
       },
     },
     bindings: {
-      summary: "Let a client use the memory: the resident block goes into its context file, and the skills are linked into its skills folder.",
+      summary:
+        "Let a client use the memory: the resident block goes into its context file, and the skills are linked into its skills folder.",
       healthy: "Sound",
       broken: "Has a problem",
       sharedWith: (names) => `Shared with ${names}`,
       unbind: "Unbind",
       unbindTitle: (client) => `Unbind ${client}?`,
-      unbindBody: "This removes the resident block from its context file and the links to tacit from its skills folder, then the binding. Files and links another binding still uses are kept.",
+      unbindBody:
+        "This removes the resident block from its context file and the links to tacit from its skills folder, then the binding. Files and links another binding still uses are kept.",
       unbound: (client) => `Unbound ${client}.`,
       unbindFailed: "Unbinding did not finish",
       add: "Add a binding",
@@ -253,22 +295,34 @@ export const en: Dictionary = {
       bindingName: (client) => `Binding name ${client}`,
       close: "Close",
       done: "Done",
-      pathsNote: "Paths are on the host the service runs on, where ~ is the user's home folder; the skills folder must already exist.",
+      pathsNote:
+        "Paths are on the host the service runs on, where ~ is the user's home folder; the skills folder must already exist.",
       fields: {
-        client: { label: "Client name", help: "Letters, digits and hyphens, up to 32 characters; letter case does not matter." },
-        contextFile: { label: "Context file", help: "The file the resident block goes into, created when missing; its folder must exist." },
-        skillsFolder: { label: "Skills folder", help: "The folder the client scans for skills, where the skill links go." },
+        client: {
+          label: "Client name",
+          help: "Letters, digits and hyphens, up to 32 characters; letter case does not matter.",
+        },
+        contextFile: {
+          label: "Context file",
+          help: "The file the resident block goes into, created when missing; its folder must exist.",
+        },
+        skillsFolder: {
+          label: "Skills folder",
+          help: "The folder the client scans for skills, where the skill links go.",
+        },
       },
       bind: "Bind",
       bindFailed: "Binding did not finish",
       bound: (client) => `Bound ${client}`,
       mcpTitle: "Register the MCP server in the client",
-      mcpNote: "MCP accepts connections from this host only: register it in the client on this host; tacit does not edit the client's configuration.",
+      mcpNote:
+        "MCP accepts connections from this host only: register it in the client on this host; tacit does not edit the client's configuration.",
       mcp: { url: "Endpoint", transport: "Transport", name: "Server name" },
       details: "What was done",
     },
     models: {
-      summary: "The three models retrieval and writing use. A model switched off is removed from the config on save; what you filled in stays on the page.",
+      summary:
+        "The three models retrieval and writing use. A model switched off is removed from the config on save; what you filled in stays on the page.",
       enable: (model) => `Enable ${model}`,
       edit: "Edit",
       collapse: "Collapse",
@@ -289,7 +343,8 @@ export const en: Dictionary = {
         },
         reranker: {
           generic: "Requests in the Cohere/Jina Rerank format. The URL is used as is: give the full endpoint.",
-          cloudflare: "Requests in the Workers AI format, with the model in the URL; the model ID is still required, for display only.",
+          cloudflare:
+            "Requests in the Workers AI format, with the model in the URL; the model ID is still required, for display only.",
         },
         decision: {
           generic: "Requests in the System One format. The URL is used as is: give the full endpoint.",
@@ -298,14 +353,23 @@ export const en: Dictionary = {
       },
       urlExamples: {
         embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
-        reranker: { generic: "https://api.jina.ai/v1/rerank", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<account ID>/ai/run/<model>" },
-        decision: { generic: "", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<account ID>/ai/run/<model>" },
+        reranker: {
+          generic: "https://api.jina.ai/v1/rerank",
+          cloudflare: "https://api.cloudflare.com/client/v4/accounts/<account ID>/ai/run/<model>",
+        },
+        decision: {
+          generic: "",
+          cloudflare: "https://api.cloudflare.com/client/v4/accounts/<account ID>/ai/run/<model>",
+        },
       },
       fields: {
         provider: { label: "Protocol", help: "The request format the model service takes." },
         url: { label: "URL", help: "The full endpoint, requested as is with no path added." },
         model: { label: "Model ID", help: "The model ID sent to the service in each request." },
-        apiKey: { label: "API key", help: "The key for the model service; an environment variable wins over config.yaml." },
+        apiKey: {
+          label: "API key",
+          help: "The key for the model service; an environment variable wins over config.yaml.",
+        },
       },
       probeDirty: "There are unsaved changes; save them before probing",
     },
@@ -316,14 +380,21 @@ export const en: Dictionary = {
       urlDefault: "Leave empty for no cloud backup",
       usernameDefault: "Optional; without it no credentials are sent",
       fields: {
-        keep: { label: "Automatic backups kept", help: "How many automatic backups backups/ keeps; 0 only turns automatic backups off." },
-        url: { label: "WebDAV folder", help: "The address of the WebDAV folder the cloud backup goes to; the trailing / may be left out." },
+        keep: {
+          label: "Automatic backups kept",
+          help: "How many automatic backups backups/ keeps; 0 only turns automatic backups off.",
+        },
+        url: {
+          label: "WebDAV folder",
+          help: "The address of the WebDAV folder the cloud backup goes to; the trailing / may be left out.",
+        },
         username: { label: "User name", help: "The WebDAV user name; with a user name, a password is needed too." },
         password: { label: "Password", help: "The WebDAV password." },
       },
     },
     access: {
-      summary: "Let other devices on your network open this interface with a password. MCP still accepts only this machine.",
+      summary:
+        "Let other devices on your network open this interface with a password. MCP still accepts only this machine.",
       password: "Access password",
       listener: "Listening",
       hostNeedsPassword: "Set an access password before opening an extra listening address.",
@@ -343,13 +414,23 @@ export const en: Dictionary = {
           help: "The port the MCP endpoint, the management API and the web interface share, always on 127.0.0.1. After a change, update the MCP settings of your clients too.",
         },
         memoryPath: { label: "Memory repository", help: "The folder of the memory repository." },
-        language: { label: "Memory language", help: "The language of the memory, the prompts, the interface and the service's output." },
-        brief: { label: "Brief limit", help: "The most characters of the workstream brief recall gives back; over it, only the page list is cut." },
-        minAliases: { label: "Fewest aliases", help: "How many aliases a detail page must give at least; a write with fewer is refused." },
+        language: {
+          label: "Memory language",
+          help: "The language of the memory, the prompts, the interface and the service's output.",
+        },
+        brief: {
+          label: "Brief limit",
+          help: "The most characters of the workstream brief recall gives back; over it, only the page list is cut.",
+        },
+        minAliases: {
+          label: "Fewest aliases",
+          help: "How many aliases a detail page must give at least; a write with fewer is refused.",
+        },
       },
     },
     judgment: {
-      summary: "How much one search takes in and gives back, and how sure a judgment on a write must be to act on its own.",
+      summary:
+        "How much one search takes in and gives back, and how sure a judgment on a write must be to act on its own.",
       calibration:
         "The default thresholds were calibrated on one particular decision model. With another decision model they may no longer fit; check and adjust them yourself.",
       retrieval: "Retrieval",
@@ -371,8 +452,14 @@ export const en: Dictionary = {
           label: "Same preference",
           help: "Whether a new persona candidate is the same preference as a candidate, a rejected entry or a persona entry.",
         },
-        samePage: { label: "Same page", help: "Whether a new detail page repeats a page already in the same workstream." },
-        sameTopic: { label: "Same topic", help: "Whether a new activity is on the same topic as one already written that day." },
+        samePage: {
+          label: "Same page",
+          help: "Whether a new detail page repeats a page already in the same workstream.",
+        },
+        sameTopic: {
+          label: "Same topic",
+          help: "Whether a new activity is on the same topic as one already written that day.",
+        },
         ruleConflict: {
           label: "Rule conflict",
           help: "Whether a new persona entry conflicts with, repeats or replaces an entry already there.",
@@ -387,7 +474,8 @@ export const en: Dictionary = {
     pending: (count) => (count === 1 ? "1 thing needs you" : `${count} things need you`),
     uptime: ({ days, hours, minutes }) =>
       days > 0 ? `Up ${days} d ${hours} h` : hours > 0 ? `Up ${hours} h ${minutes} min` : `Up ${minutes} min`,
-    consolidated: (days) => (days === 0 ? "Consolidated today" : days === 1 ? "Consolidated 1 day ago" : `Consolidated ${days} days ago`),
+    consolidated: (days) =>
+      days === 0 ? "Consolidated today" : days === 1 ? "Consolidated 1 day ago" : `Consolidated ${days} days ago`,
     neverConsolidated: "Never consolidated",
     cards: {
       todos: "To do",
@@ -395,7 +483,8 @@ export const en: Dictionary = {
       backups: "Backups",
       activity: "Memory activity",
       index: "Index and consolidation",
-      connection: "Connections",
+      service: "Service",
+      logs: "Logs",
     },
     unreadable: "This could not be read; see the service log.",
     copy: (what) => `Copy the ${what}`,
@@ -406,11 +495,19 @@ export const en: Dictionary = {
       unconfigured: "Not configured",
       cooling: "Cooling down",
     },
+    logs: {
+      today: "Today",
+      quiet: "No warnings or errors",
+      warnings: (count) => (count === 1 ? "1 warning" : `${count} warnings`),
+      errors: (count) => (count === 1 ? "1 error" : `${count} errors`),
+      view: "View the log",
+    },
     index: {
       lastConsolidation: "Last consolidated",
       never: "Never consolidated",
       daysAgo: (days) => (days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days} days ago`),
-      candidates: (count) => (count === 1 ? "1 candidate waits for the next run" : `${count} candidates wait for the next run`),
+      candidates: (count) =>
+        count === 1 ? "1 candidate waits for the next run" : `${count} candidates wait for the next run`,
       formatProblems: (count) => (count === 1 ? "1 file has a format problem" : `${count} files have format problems`),
       unsummarizedWeeks: (count) => (count === 1 ? "1 week to summarize" : `${count} weeks to summarize`),
       clear: "All in order",
@@ -489,8 +586,6 @@ export const en: Dictionary = {
     agents: {
       title: "Clients",
       bound: "Bound",
-      unbound: "Not bound",
-      unboundSeen: (seen) => `Not bound, ${seen.charAt(0).toLowerCase()}${seen.slice(1)}`,
       broken: "Binding broken",
       today: "Seen today",
       yesterday: "Seen yesterday",
@@ -499,11 +594,21 @@ export const en: Dictionary = {
       empty: "No bindings and no clients yet. Once bound, a client can read the persona and rules.",
       noBindings: "No bindings yet, so clients cannot read the persona and rules.",
       addBinding: "Add a binding",
+      seenOnly: "Not bound, only connected",
+      bindingsUnreadable:
+        "The bindings cannot be read, so whether each client is bound is unknown; see the service log.",
+      legend: "What the dots mean",
+      manage: "Manage bindings",
+      more: (count) => `+${count}`,
+      moreLabel: (count) =>
+        count === 1 ? "1 more client, see it in the settings" : `${count} more clients, see them in the settings`,
     },
     todos: {
       empty: "Nothing needs you",
       modelsUnconfigured: (models) =>
-        models.length === 1 ? `The ${models[0]} is not configured` : `${models.length} auxiliary models are not configured`,
+        models.length === 1
+          ? `The ${models[0]} is not configured`
+          : `${models.length} auxiliary models are not configured`,
       modelsUnconfiguredDetail: (models) =>
         models.length === 1 ? "Fill it in under Models in the settings" : models.join(", "),
       noBindings: "No client is bound yet",

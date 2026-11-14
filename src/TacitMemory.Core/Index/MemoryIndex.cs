@@ -1,8 +1,8 @@
 using System.Globalization;
-using System.Text;
-using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using TacitMemory.Core.Injection;
@@ -327,7 +327,8 @@ internal sealed class MemoryIndex : IDisposable
                 FROM units_vec v JOIN units u ON u.id = v.rowid JOIN sources s ON s.id = u.source_id
                 WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds {scopeFilter}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
-                """, new
+                """,
+                new
                 {
                     sourceKinds = sourceKinds.ToList(),
                     unitKinds = (unitKinds ?? JudgmentKinds).ToList(),

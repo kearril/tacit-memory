@@ -152,6 +152,30 @@ public sealed class ServeTests : IDisposable
     }
 
     [Fact]
+    public async Task Serve_writes_what_it_prints_to_the_days_log_as_time_level_message()
+    {
+        _cli.InitReady();
+        using var stop = new CancellationTokenSource();
+        var run = _cli.RunAsync(["serve"], cancellationToken: stop.Token);
+        for (var waited = 0; waited < 300 && !run.IsCompleted && !_cli.Stdout.Contains("127.0.0.1"); waited++)
+            await Task.Delay(100);
+        stop.Cancel();
+        await run;
+
+        var file = Path.Combine(_cli.Home.TacitHome, "logs", $"tacit-{DateTime.Now:yyyyMMdd}.log");
+        var lines = File.ReadAllLines(file);
+        Assert.Contains(lines, line => System.Text.RegularExpressions.Regex.IsMatch(
+            line, @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{2}:\d{2} INF 常驻服务已启动：http://127\.0\.0\.1:\d+/mcp"));
+
+        // Read back by the same definition: the service's reader understands what serve wrote.
+        using var service = _cli.Home.Tacit().OpenService(_ => { }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+        var started = Assert.Single(
+            service.ServiceLog($"{DateTime.Now:yyyy-MM-dd}").Entries, entry => entry.Message.StartsWith("常驻服务已启动", StringComparison.Ordinal));
+        Assert.Equal(TacitMemory.Core.ServiceLogLevel.Information, started.Level);
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Now), DateOnly.FromDateTime(started.Time!.Value.LocalDateTime));
+    }
+
+    [Fact]
     public async Task Serve_exits_0_when_stopped_with_ctrl_c()
     {
         _cli.InitReady();

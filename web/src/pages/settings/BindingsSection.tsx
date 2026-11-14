@@ -106,10 +106,8 @@ function Tile({
       type="button"
       title={title}
       aria-label={title}
-      className={`lift grid w-full cursor-pointer justify-items-center gap-sm rounded-lg border-(length:--tk-border-thin) p-md outline-none hover:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
-        muted
-          ? "border-dashed border-line text-ink-muted hover:text-accent"
-          : "border-line"
+      className={`grid w-full lift cursor-pointer justify-items-center gap-sm rounded-lg border-(length:--tk-border-thin) p-md outline-none hover:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+        muted ? "border-dashed border-line text-ink-muted hover:text-accent" : "border-line"
       }`}
       onClick={onClick}
     >
@@ -119,7 +117,10 @@ function Tile({
   );
 }
 
-type Step = { readonly kind: "choose" } | { readonly kind: "fill"; readonly known: boolean } | { readonly kind: "done"; readonly done: BindingDone };
+type Step =
+  | { readonly kind: "choose" }
+  | { readonly kind: "fill"; readonly known: boolean }
+  | { readonly kind: "done"; readonly done: BindingDone };
 
 /**
  * The dialog that adds a binding, in steps: a client to start from (the known ones not bound yet, by logo, or another),
@@ -179,7 +180,9 @@ function AddDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{step.kind === "choose" ? text.choose : step.kind === "fill" ? text.pathsNote : text.mcpNote}</DialogDescription>
+          <DialogDescription>
+            {step.kind === "choose" ? text.choose : step.kind === "fill" ? text.pathsNote : text.mcpNote}
+          </DialogDescription>
         </DialogHeader>
 
         {step.kind === "choose" ? (
@@ -379,7 +382,12 @@ function Details({
                   <Button type="button" variant="outline" onClick={() => setConfirming(false)}>
                     {dictionary.settings.cancel}
                   </Button>
-                  <Button type="button" variant="destructive" disabled={unbind.isPending} onClick={() => unbind.mutate(binding.client)}>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={unbind.isPending}
+                    onClick={() => unbind.mutate(binding.client)}
+                  >
                     <BusyIcon busy={unbind.isPending} icon={Unlink} />
                     {text.unbind}
                   </Button>
@@ -404,7 +412,15 @@ function Details({
 }
 
 /** The MCP server to register in a client: its address with a copy button, its transport and the suggested name. */
-function McpServer({ url, transport, name }: { readonly url: string; readonly transport: string; readonly name: string }) {
+function McpServer({
+  url,
+  transport,
+  name,
+}: {
+  readonly url: string;
+  readonly transport: string;
+  readonly name: string;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.settings.bindings;
   const rows = [
@@ -421,7 +437,11 @@ function McpServer({ url, transport, name }: { readonly url: string; readonly tr
             <dt className="text-xs text-ink-muted">{text.mcp[key]}</dt>
             <dd className="flex min-w-0 items-center gap-xs">
               <span className="min-w-0 font-mono text-sm break-all">{value}</span>
-              <CopyButton value={value} label={dictionary.dashboard.copy(text.mcp[key])} copiedMessage={dictionary.dashboard.copied(text.mcp[key])} />
+              <CopyButton
+                value={value}
+                label={dictionary.dashboard.copy(text.mcp[key])}
+                copiedMessage={dictionary.dashboard.copied(text.mcp[key])}
+              />
             </dd>
           </div>
         ))}

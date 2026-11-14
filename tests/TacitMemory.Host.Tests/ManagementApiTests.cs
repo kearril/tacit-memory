@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host.Api;
@@ -60,6 +60,8 @@ public sealed class ManagementApiTests : IAsyncLifetime
         Assert.Equal(_host.Endpoint, report.Service.Endpoint);
         Assert.Equal(["embedding", "reranker", "decision"], report.Models!.Items.Select(item => item.Role));
         Assert.NotNull(report.Logs);
+        Assert.Contains("\"warnings\":0", text);
+        Assert.Contains("\"errors\":0", text);
         Assert.Null(report.Config);
     }
 
@@ -105,14 +107,19 @@ public sealed class ManagementApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task One_call_to_the_api_writes_one_event_with_its_route_and_status()
+    public async Task A_successful_read_writes_no_event_and_a_refused_one_writes_one_with_its_route_and_status()
     {
-        var response = await Send(new HttpRequestMessage(HttpMethod.Get, Url("/api/status")));
+        var read = await Send(new HttpRequestMessage(HttpMethod.Get, Url("/api/status")));
+        var refused = new HttpRequestMessage(HttpMethod.Get, Url("/api/backups"));
+        refused.Headers.Add("Origin", "http://evil.example");
+        var refusal = await Send(refused);
 
-        var line = Assert.Single(_logs.Entries, entry => entry.Message.Contains("/api/status", StringComparison.Ordinal));
+        Assert.Equal(HttpStatusCode.OK, read.Status);
+        Assert.Equal(HttpStatusCode.Forbidden, refusal.Status);
+        Assert.DoesNotContain(_logs.Entries, entry => entry.Message.Contains("/api/status", StringComparison.Ordinal));
+        var line = Assert.Single(_logs.Entries, entry => entry.Message.Contains("/api/backups", StringComparison.Ordinal));
         Assert.Equal(LogLevel.Information, line.Level);
-        Assert.Equal(HttpStatusCode.OK, response.Status);
-        Assert.Contains("200", line.Message, StringComparison.Ordinal);
+        Assert.Contains("403", line.Message, StringComparison.Ordinal);
     }
 
     [Fact]

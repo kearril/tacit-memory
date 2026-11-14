@@ -1,6 +1,6 @@
 using System.Text;
-using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Recent;

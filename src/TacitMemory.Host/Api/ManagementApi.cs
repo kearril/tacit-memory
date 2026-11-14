@@ -42,9 +42,13 @@ public static class ManagementApiJson
 
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
-/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path.
+/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path;
+/// other errors leave the field out.
 /// </summary>
-public sealed record ApiError(string Error, string Message, IReadOnlyList<ConfigProblem>? Problems = null);
+public sealed record ApiError(
+    string Error,
+    string Message,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ConfigProblem>? Problems = null);
 
 /// <summary>
 /// The body of <c>PUT /api/config</c>: the whole config to save, and the hash of the file it was read from. Its secrets are
@@ -191,6 +195,12 @@ internal static class ManagementApi
         })
             .Produces<ActivityReport>()
             .ProducesErrors();
+        api.MapGet("/logs", () => Json(service.LogDays()))
+            .Produces<ServiceLogDays>()
+            .ProducesErrors();
+        api.MapGet("/logs/{date}", (string date, string? after) => Json(service.ServiceLog(date, after)))
+            .Produces<ServiceLogDay>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/backups", () => Json(service.Backups()))
             .Produces<BackupList>()
             .ProducesErrors();
@@ -513,7 +523,8 @@ internal static class ManagementApi
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown => StatusCodes.Status404NotFound,
+        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown
+            or TacitError.LogDateNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

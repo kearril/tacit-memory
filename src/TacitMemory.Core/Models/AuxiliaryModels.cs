@@ -1,5 +1,5 @@
-using TacitMemory.Core.Logging;
 using TacitMemory.Core;
+using TacitMemory.Core.Logging;
 
 namespace TacitMemory.Core.Models;
 

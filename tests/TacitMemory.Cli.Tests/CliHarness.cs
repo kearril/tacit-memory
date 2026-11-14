@@ -1,14 +1,14 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using TacitMemory.Core;
-using TacitMemory.Host.Api;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host;
+using TacitMemory.Host.Api;
 
 namespace TacitMemory.Cli.Tests;
 

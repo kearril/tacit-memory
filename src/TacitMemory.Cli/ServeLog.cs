@@ -1,18 +1,17 @@
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Extensions.Logging;
+using TacitMemory.Core.Logging;
 
 namespace TacitMemory.Cli;
 
 /// <summary>
-/// The log of <c>tacit serve</c>: <c>TACIT_HOME/logs/tacit-YYYYMMDD.log</c>, one file a day, the newest 14 kept. It holds
+/// The log of <c>tacit serve</c>, in the files and shape <see cref="ServiceLogFiles"/> defines, the newest 14 kept. It holds
 /// Information and above, so what the command prints and the service's events; ASP.NET Core and the MCP SDK write only
 /// their warnings. No other command opens it.
 /// </summary>
 internal sealed class ServeLog : IDisposable
 {
-    private const string Template = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3} {Message:lj}{NewLine}{Exception}";
-
     private readonly Serilog.Core.Logger _logger;
 
     public ServeLog(string tacitHome)
@@ -20,12 +19,12 @@ internal sealed class ServeLog : IDisposable
         _logger = new LoggerConfiguration()
             .MinimumLevel.Information()
             .WriteTo.File(
-                Path.Combine(tacitHome, "logs", "tacit-.log"),
+                ServiceLogFiles.RollingPathOf(tacitHome),
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14,
+                retainedFileCountLimit: ServiceLogFiles.RetainedDays,
                 // Shared, so a second serve that fails on the port can still write its own line.
                 shared: true,
-                outputTemplate: Template)
+                outputTemplate: ServiceLogFiles.OutputTemplate)
             .CreateLogger();
         Factory = new SerilogLoggerFactory(_logger);
         Provider = new SerilogLoggerProvider(_logger);
