@@ -262,18 +262,20 @@ export function IndexCard({ report, locale, className }: CardProps) {
 
 /**
  * The service log at a glance: how many warnings and errors today's file holds. The button opens the logs page showing
- * only those when there are any, and the whole day otherwise.
+ * only those when there are any, and the whole day otherwise. When today's file cannot be read, the card says so.
  */
 export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.logs;
-  const logs = report.logs;
-  const notable = logs == null ? 0 : logs.warnings + logs.errors;
+  const logs = report.logs?.warnings == null || report.logs.errors == null
+    ? undefined
+    : { warnings: report.logs.warnings, errors: report.logs.errors };
+  const notable = logs === undefined ? 0 : logs.warnings + logs.errors;
 
   return (
     <Card aria-labelledby="logs-title" className={`flex flex-col ${className}`}>
       <CardHeading id="logs-title" icon={ScrollText} title={dictionary.dashboard.cards.logs} />
-      {logs == null ? (
+      {logs === undefined ? (
         <Unreadable />
       ) : (
         <div className="grid gap-xs">

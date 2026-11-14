@@ -347,24 +347,30 @@ internal static class StatusReporter
         days == 1 ? ManagementApiMessages.DayAgo.In(language) : ManagementApiMessages.DaysAgo.Format(language, days);
 
     /// <summary>
-    /// The logs column: where the files are, and how many warnings and errors today's file holds so far. It needs only the
-    /// home directory, so it is shown even when the service does not run or the config does not load.
+    /// The logs column: where the files are, and how many warnings and errors today's file holds so far, or why it cannot be
+    /// read. It needs only the home directory, so it is shown even when the service does not run or the config does not load.
     /// </summary>
     private static LogsStatus Logs(TacitOptions options, MemoryLanguage language)
     {
         var directory = ServiceLogFiles.DirectoryOf(options.TacitHome);
-        var today = ServiceLogReader.Read(options.TacitHome, options.Today) ?? [];
+        var title = ManagementApiMessages.LogsTitle.In(language);
+        var where = ManagementApiMessages.LogsDirectory.Format(language, directory);
+        IReadOnlyList<ServiceLogEntry> today;
+        try
+        {
+            today = ServiceLogReader.Read(options.TacitHome, options.Today) ?? [];
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return new LogsStatus(title, [where, ManagementApiMessages.LogsTodayUnreadable.Format(language, e.Message)], directory, null, null);
+        }
+
         var warnings = today.Count(entry => entry.Level == ServiceLogLevel.Warning);
         var errors = today.Count(entry => entry.Level == ServiceLogLevel.Error);
         var counts = warnings + errors == 0
             ? ManagementApiMessages.LogsTodayQuiet.In(language)
             : ManagementApiMessages.LogsToday.Format(language, warnings, errors);
-        return new LogsStatus(
-            ManagementApiMessages.LogsTitle.In(language),
-            [ManagementApiMessages.LogsDirectory.Format(language, directory), counts],
-            directory,
-            warnings,
-            errors);
+        return new LogsStatus(title, [where, counts], directory, warnings, errors);
     }
 
     /// <summary>The uptime in the memory language, with the units that are not zero: "2 小时 3 分钟 4 秒" or "2 h 3 min 4 s".</summary>

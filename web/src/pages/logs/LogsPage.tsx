@@ -28,9 +28,9 @@ const LEVEL_STYLES: Readonly<Record<ServiceLogLevel, { readonly code: string; re
 
 /**
  * The logs page: one day of the service log, oldest event first, today unless the address names another day. The events
- * scroll in an area of their own inside the card, which keeps its height whatever the day holds. The filters live in the address, so a link can carry them and a
- * reload keeps them; changing them replaces the address rather than adding to the history. The page heading is for screen
- * readers only, as the sidebar already shows which page this is.
+ * scroll in an area of their own inside the card, which keeps its height whatever the day holds. The filters live in the
+ * address, so a link can carry them and a reload keeps them; changing them replaces the address rather than adding to the
+ * history. The page heading is for screen readers only, as the sidebar already shows which page this is.
  */
 export function LogsPage() {
   const dictionary = useDictionary();
@@ -95,7 +95,9 @@ function LogHeader({
   const locale = useSessionStatus().language === "zh" ? "zh-CN" : "en";
   const navigate = useNavigate();
   const { search } = useLocation();
-  const label = (day: string) => (day === days.today ? `${text.today} · ${dayLabel(day, locale)}` : dayLabel(day, locale));
+  // An address that names no calendar day is shown as written.
+  const label = (day: string) =>
+    logDateOf(day) === undefined ? day : day === days.today ? `${text.today} · ${dayLabel(day, locale)}` : dayLabel(day, locale);
 
   return (
     <header className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-sm">

@@ -38,6 +38,7 @@ internal static class ManagementApiMessages
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
     public static readonly Localized LogsToday = new("今天：{0} 条警告，{1} 条错误", "Today: {0} warnings, {1} errors");
     public static readonly Localized LogsTodayQuiet = new("今天没有警告与错误", "No warnings or errors today");
+    public static readonly Localized LogsTodayUnreadable = new("无法读取今天的日志：{0}", "Today's log cannot be read: {0}");
 
     public static readonly Localized NotRunningHint = new(
         "服务未运行，先执行 tacit serve。",

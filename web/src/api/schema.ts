@@ -2059,9 +2059,9 @@ export interface components {
             lines: string[];
             directory: string;
             /** Format: int32 */
-            warnings: number;
+            warnings: null | number;
             /** Format: int32 */
-            errors: number;
+            errors: null | number;
         };
         McpServer: {
             /** Format: uri */

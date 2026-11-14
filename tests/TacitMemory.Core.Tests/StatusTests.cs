@@ -212,6 +212,24 @@ public sealed class StatusTests : IDisposable
     }
 
     [Fact]
+    public async Task A_log_that_cannot_be_read_today_leaves_the_counts_unknown_and_says_why()
+    {
+        var logs = Path.Combine(_home.TacitHome, "logs");
+        Directory.CreateDirectory(logs);
+        var path = Path.Combine(logs, $"tacit-{TestHome.Today:yyyyMMdd}.log");
+        File.WriteAllText(path, "2026-11-02 09:00:00.000 +00:00 ERR 一\n");
+
+        LogsStatus column;
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            column = (await Service.StatusAsync(Endpoint)).Logs!;
+
+        Assert.Null(column.Warnings);
+        Assert.Null(column.Errors);
+        Assert.StartsWith("无法读取今天的日志：", column.Lines[^1]);
+        Assert.Equal(StatusLevel.Problem, ((IStatusColumn)column).LineLevels()[^1]);
+    }
+
+    [Fact]
     public void The_loose_port_is_server_port_even_when_other_keys_are_wrong()
     {
         File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");

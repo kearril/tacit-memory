@@ -26,12 +26,18 @@ export function useLogDays() {
   return useQuery({ queryKey: [...LOGS_QUERY_KEY, "days"], queryFn: getLogDays, refetchOnWindowFocus: true });
 }
 
-/** One day's events, fetched once the day is known. A day without a log is an answer, so a 404 is not retried. */
+/**
+ * One day's events, fetched once the day is known. A day without a log is an answer, so a 404 is not retried. Read once
+ * and kept: following asks only for the events past those held, and reading the whole day again on focus would drop
+ * what following has added and miscount the new events.
+ */
 export function useLogDay(date: string | undefined) {
   return useQuery({
     queryKey: [...LOGS_QUERY_KEY, "day", date],
     queryFn: () => getLogDay(date ?? ""),
     enabled: date !== undefined,
     retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 }

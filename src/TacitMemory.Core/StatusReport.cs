@@ -245,15 +245,18 @@ public sealed record SecretsStatus(string Title, IReadOnlyList<string> Lines, IR
 public sealed record SecretStatus(string Key, string Variable, SecretSource? Source, bool Overridden);
 
 /// <param name="Directory">The directory holding the service's daily log files.</param>
-/// <param name="Warnings">How many warnings today's log holds so far; 0 when there is no file yet.</param>
-/// <param name="Errors">How many errors today's log holds so far; 0 when there is no file yet.</param>
-public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, string Directory, int Warnings, int Errors) : IStatusColumn
+/// <param name="Warnings">How many warnings today's log holds so far; 0 when there is no file yet, null when it cannot be read.</param>
+/// <param name="Errors">How many errors today's log holds so far; 0 when there is no file yet, null when it cannot be read.</param>
+public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, string Directory, int? Warnings, int? Errors) : IStatusColumn
 {
-    /// <summary>The line of today's counts, the last, is a problem with an error, needs attention with a warning, and is plain otherwise.</summary>
+    /// <summary>
+    /// The line of today's counts, the last, is a problem with an error or when the file cannot be read, needs attention with
+    /// a warning, and is plain otherwise.
+    /// </summary>
     public IReadOnlyList<StatusLevel?> LineLevels()
     {
         var levels = new StatusLevel?[Lines.Count];
-        levels[^1] = Errors > 0 ? StatusLevel.Problem : Warnings > 0 ? StatusLevel.Attention : null;
+        levels[^1] = Errors is null or > 0 ? StatusLevel.Problem : Warnings > 0 ? StatusLevel.Attention : null;
         return levels;
     }
 }
