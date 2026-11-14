@@ -156,6 +156,13 @@ dotnet test tests/TacitMemory.Core.Tests --filter "FullyQualifiedName~InitTests"
 dotnet test TacitMemory.slnx                                           # 全量
 ```
 
+C# 的格式由根目录 `.editorconfig` 规定（文件级命名空间、`System` 的 using 在前且不分组、简短的初始化器与匿名对象可以一行写多个成员），用 SDK 自带的 `dotnet format` 检查与修正，不放进编译：
+
+```powershell
+dotnet format --verify-no-changes TacitMemory.slnx   # 只检查，有不合格式的文件时失败
+dotnet format TacitMemory.slnx                       # 就地修正
+```
+
 ## 6. OpenAPI 快照
 
 管理 API 的文档快照位于仓库的 `web/openapi.json`，格式固定（两空格缩进、键顺序与生成时一致、末尾一个换行）。`OpenApiTests` 把 `GET /api/openapi.json` 的实际文档与快照比对，不一致即失败。快照的唯一用途是前端类型的生成源，改动任一端点的请求或响应类型后，需要更新快照并重新生成前端类型。
@@ -178,8 +185,12 @@ cd web
 bun run typecheck   # tsc --noEmit，含中英字典键一致的检查
 bun run lint        # ESLint
 bun run test        # Vitest
+bun run format:check  # Prettier 只检查格式
+bun run format      # Prettier 就地格式化
 bun run build       # Vite 构建到 web/dist/
-bun run check       # 以上四项依次运行
+bun run check       # 类型检查、ESLint、格式检查、Vitest 与构建依次运行
 ```
+
+格式由 `web/.prettierrc.json` 规定：120 列，其余取 Prettier 默认；`prettier-plugin-tailwindcss` 按 Tailwind 的顺序排列类名（包括 `cn`、`cva` 中的字符串），主题与自定义工具类从 `src/styles/index.css` 读取。生成的 `openapi.json` 与 `src/api/schema.ts` 不经 Prettier。缩进、换行符与文件末尾换行由根目录 `.editorconfig` 统一。
 
 Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）；错误说明的取用（`src/i18n/messages.test.ts`）。仪表盘的纯函数：时长、倒计时、大小与日期的格式（`src/pages/dashboard/format.test.ts`），热力图的窗口、周列、月份标签、深浅与统计（`heatmap.test.ts`），绑定与客户端合并为每个客户端一行（`agents.test.ts`），待处理的生成与去向（`todos.test.ts`，含每份有误的提示词文档一条、链接到该文档）。设置页的表单模型（`src/pages/settings/form.test.ts`）：草稿、改动、恢复默认、请求体（等于默认的项省略、阈值成对写出、清空即默认）、问题的定位与各节计数、待重启与运行值不一致的项、超出范围与需重启的计数、密钥的改写与清除；绑定预设（`bindings.test.ts`）。提示词页的地址与文档名的互转（`src/pages/prompts/names.test.ts`，未知或大小写不同的名称不算）；编辑状态（`editor.test.ts`）：内置默认在开始自定义前只读、开始后不改动也可保存，写法约定直接可编辑，已自定义时可恢复默认，文件有误时标出且仍可编辑；长度信息的显示文字（`measure.test.ts`）：自身上限的字数、固定部分与最近活动余量、两节条目数（满额不算超出）、超出时的标记与余量为负时的说法。日志页的日期（`src/pages/logs/day.test.ts`）：地址中的日期只认日历日期，今天不写进地址，日期清单含今天且最新在前，时钟取文件中写下的时间；筛选（`filter.test.ts`）：地址与筛选的互转（未知级别忽略、全开时省略），级别与关键字（不分大小写、按字面、含续行）的过滤、各级条数与高亮的切分；跟随（`follow.test.ts`）：增量的追加、跨日的判断、贴底的容差与新条目中通过筛选的条数。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。
