@@ -83,7 +83,7 @@ export function SettingsSection({
     <section
       id={id}
       aria-labelledby={`${id}-title`}
-      className="grid scroll-mt-lg gap-lg rounded-lg bg-surface p-lg shadow-rest"
+      className="grid scroll-mt-lg gap-xl rounded-lg bg-surface p-lg shadow-rest"
     >
       <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-sm gap-y-xs">
         <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
@@ -116,7 +116,7 @@ export function Immediate() {
 
 /**
  * A group of rows inside a section: a small heading of its own when it has one, a note under it when it needs one, then the
- * rows, a line between each two. The group has no box; the section's card is the only one.
+ * rows. The group has no box and no lines; the section's card is the only one.
  */
 export function SettingsGroup({
   title,
@@ -130,7 +130,7 @@ export function SettingsGroup({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-xs">
+    <div className="grid gap-sm">
       {title === undefined ? null : (
         <div className="flex flex-wrap items-center gap-sm">
           <h3 className="text-sm font-semibold">{title}</h3>
@@ -143,9 +143,9 @@ export function SettingsGroup({
   );
 }
 
-/** Rows one under another, a line between each two. */
+/** Rows one under another, set apart by space alone. */
 export function Rows({ children }: { readonly children: React.ReactNode }) {
-  return <div className="grid [&>*]:py-sm [&>*+*]:border-t-(length:--tk-border-thin) [&>*+*]:border-line">{children}</div>;
+  return <div className="grid gap-md">{children}</div>;
 }
 
 /**

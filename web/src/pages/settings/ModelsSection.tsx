@@ -13,7 +13,7 @@ import { SecretField } from "./SecretField";
 type Model = (typeof MODELS)[number];
 
 /**
- * The models section: the three auxiliary models one under another, a line between each two, each a line that reads at a glance (its switch, its
+ * The models section: the three auxiliary models one under another, each a line that reads at a glance (its switch, its
  * name, and the model, protocol and URL while it is on) with an edit button that opens its settings under it, inset. One
  * opens at a time, and any with a problem opens too, so the problem can be seen. A model switched off keeps what is
  * filled in on the page but is left out of the config. The probe at the bottom tries the saved configuration, so it waits

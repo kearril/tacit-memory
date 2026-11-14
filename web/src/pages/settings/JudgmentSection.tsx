@@ -54,7 +54,7 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
     <div
       role="table"
       aria-label={text.thresholds}
-      className="grid [&>*]:py-sm [&>*:first-child]:pt-0 [&>*:last-child]:pb-0 [&>*+*]:border-t-(length:--tk-border-thin) [&>*+*]:border-line"
+      className="grid gap-sm"
     >
       <div role="row" className={`${columns} text-xs text-ink-muted`}>
         <span role="columnheader">
