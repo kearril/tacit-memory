@@ -161,6 +161,9 @@ export const zh: Dictionary = {
     shown: (shown, total) => (shown === total ? `共 ${total} 条` : `显示 ${shown} / 共 ${total} 条`),
     noMatch: "没有符合筛选的日志。",
     clearFilters: "清除筛选",
+    follow: "实时跟随",
+    unseen: (count) => `${count} 条新日志`,
+    offline: "暂时连不上服务，已有的日志保留在页面上，恢复后自动继续。",
   },
   settings: {
     sections: {

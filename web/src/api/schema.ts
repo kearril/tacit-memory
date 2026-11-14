@@ -199,7 +199,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    after?: string;
+                };
                 header?: never;
                 path: {
                     date: string;

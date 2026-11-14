@@ -158,6 +158,36 @@ public sealed class ServiceLogTests : IDisposable
     }
 
     [Fact]
+    public void After_a_count_only_the_events_past_it_are_read_and_next_is_the_whole_count()
+    {
+        Write(Today, "2026-11-02 10:00:00.000 +00:00 INF 一\n2026-11-02 10:00:01.000 +00:00 INF 二\n2026-11-02 10:00:02.000 +00:00 INF 三\n");
+
+        var tail = Service.ServiceLog(Today.ToString("yyyy-MM-dd"), "1");
+        var none = Service.ServiceLog(Today.ToString("yyyy-MM-dd"), "3");
+        var past = Service.ServiceLog(Today.ToString("yyyy-MM-dd"), "9");
+
+        Assert.Equal(["二", "三"], tail.Entries.Select(entry => entry.Message));
+        Assert.Equal(3, tail.Next);
+        Assert.Empty(none.Entries);
+        Assert.Equal(3, none.Next);
+        Assert.Empty(past.Entries);
+        Assert.Equal(3, past.Next);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("1.5")]
+    [InlineData("two")]
+    public void An_after_that_is_not_a_count_is_refused(string after)
+    {
+        Write(Today, "");
+
+        var refusal = Assert.Throws<TacitException>(() => Service.ServiceLog(Today.ToString("yyyy-MM-dd"), after));
+
+        Assert.Equal(TacitError.RequestInvalid, refusal.Error);
+    }
+
+    [Fact]
     public void Today_without_a_file_has_no_events()
     {
         var day = Service.ServiceLog(Today.ToString("yyyy-MM-dd"));

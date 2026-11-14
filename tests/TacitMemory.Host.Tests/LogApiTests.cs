@@ -87,6 +87,34 @@ public sealed class LogApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task After_a_count_only_the_new_events_are_served()
+    {
+        Write("20261102", "2026-11-02 10:00:00.000 +00:00 INF 一\n2026-11-02 10:00:01.000 +00:00 INF 二\n");
+
+        using var tail = await _local.GetAsync(Url("/api/logs/2026-11-02?after=1"));
+        using var past = await _local.GetAsync(Url("/api/logs/2026-11-02?after=5"));
+
+        var day = JsonSerializer.Deserialize<ServiceLogDay>(await tail.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
+        Assert.Equal(["二"], day.Entries.Select(entry => entry.Message));
+        Assert.Equal(2, day.Next);
+        var beyond = JsonSerializer.Deserialize<ServiceLogDay>(await past.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
+        Assert.Empty(beyond.Entries);
+        Assert.Equal(2, beyond.Next);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("x")]
+    public async Task An_after_that_is_not_a_count_is_400(string after)
+    {
+        using var response = await _local.GetAsync(Url($"/api/logs/2026-11-02?after={after}"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
+        Assert.Equal(nameof(TacitError.RequestInvalid), error.Error);
+    }
+
+    [Fact]
     public async Task Today_without_a_file_has_no_events()
     {
         using var response = await _local.GetAsync(Url("/api/logs/2026-11-02"));

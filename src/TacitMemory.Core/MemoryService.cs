@@ -425,21 +425,26 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// The events of one day's service log, oldest first, read from the file the service may still be writing to. Today
-    /// without a file has no events yet.
+    /// without a file has no events yet. With <paramref name="after"/>, only the events past that many are returned, so a
+    /// reader that follows the log asks for what is new; the events of a file never move, as it is only appended to.
     /// </summary>
     /// <param name="date">The day as <c>yyyy-MM-dd</c>.</param>
+    /// <param name="after">How many events the caller already has, as written in the request; none means 0.</param>
     /// <exception cref="TacitException">
-    /// <see cref="TacitError.RequestInvalid"/> when <paramref name="date"/> is not a date; <see cref="TacitError.LogDateNotFound"/>
-    /// for another day without a file.
+    /// <see cref="TacitError.RequestInvalid"/> when <paramref name="date"/> is not a date or <paramref name="after"/> not a
+    /// count; <see cref="TacitError.LogDateNotFound"/> for another day without a file.
     /// </exception>
-    public ServiceLogDay ServiceLog(string date)
+    public ServiceLogDay ServiceLog(string date, string? after = null)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
             throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogDateInvalid.Format(Config.Language, date));
+        var skip = 0;
+        if (after is not null && !int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out skip))
+            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogAfterInvalid.Format(Config.Language, after));
         var today = _options.Today;
         var entries = ServiceLogReader.Read(_options.TacitHome, day)
             ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, ManagementApiMessages.LogDateNotFound.Format(Config.Language, date)));
-        return new ServiceLogDay(day, today, entries, entries.Count);
+        return new ServiceLogDay(day, today, [.. entries.Skip(skip)], entries.Count);
     }
 
     /// <summary>

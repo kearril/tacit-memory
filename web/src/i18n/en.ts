@@ -164,6 +164,9 @@ export const en: Dictionary = {
     shown: (shown, total) => (shown === total ? `${total} events` : `${shown} of ${total} events`),
     noMatch: "No events match the filters.",
     clearFilters: "Clear filters",
+    follow: "Follow",
+    unseen: (count) => (count === 1 ? "1 new event" : `${count} new events`),
+    offline: "The service cannot be reached for now. The events already shown stay, and following resumes once it is back.",
   },
   settings: {
     sections: {

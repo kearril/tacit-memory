@@ -198,7 +198,7 @@ internal static class ManagementApi
         api.MapGet("/logs", () => Json(service.LogDays()))
             .Produces<ServiceLogDays>()
             .ProducesErrors();
-        api.MapGet("/logs/{date}", (string date) => Json(service.ServiceLog(date)))
+        api.MapGet("/logs/{date}", (string date, string? after) => Json(service.ServiceLog(date, after)))
             .Produces<ServiceLogDay>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/backups", () => Json(service.Backups()))

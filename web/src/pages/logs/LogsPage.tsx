@@ -1,8 +1,10 @@
-import { CalendarDays, Check, ChevronDown, RefreshCw, ScrollText, Search, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowDown, CalendarDays, Check, ChevronDown, Pause, Radio, RefreshCw, ScrollText, Search, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import type { ServiceLogDays, ServiceLogEntry, ServiceLogLevel } from "../../api/logs";
-import { useLogDay, useLogDays } from "../../api/logs";
+import { LOGS_QUERY_KEY, useLogDay, useLogDays } from "../../api/logs";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -14,6 +16,8 @@ import { BusyIcon } from "../dashboard/parts";
 import { dayText } from "../dashboard/format";
 import { clockOf, dateOptions, LOGS_PATH, logDateOf, logPathOf } from "./day";
 import { applyFilters, filtersOf, highlightParts, LEVELS, levelCounts, type LogFilters, searchOf } from "./filter";
+import { isAtBottom, unseenOf } from "./follow";
+import { useFollowedLog } from "./use-followed-log";
 
 /** The colour of each level's code; a warning or an error also tints its whole row. */
 const LEVEL_STYLES: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly row: string; readonly on: string }>> = {
@@ -35,6 +39,7 @@ export function LogsPage() {
   const filters = filtersOf(search);
   const setFilters = (next: LogFilters) => setSearch(new URLSearchParams(searchOf(next)), { replace: true });
   const days = useLogDays();
+  const [following, setFollowing] = useState(true);
   const named = logDateOf(param);
   const today = days.data?.today;
   if (param !== undefined && named !== undefined && named === today) {
@@ -51,11 +56,18 @@ export function LogsPage() {
         <div aria-busy="true" className="min-h-dvh" />
       ) : (
         <Card>
-          <LogHeader days={days.data} date={date ?? param ?? days.data.today} />
+          <LogHeader days={days.data} date={date ?? param ?? days.data.today} following={following} onFollowing={setFollowing} />
           {date === undefined ? (
             <NoLog today={days.data.today} date={param ?? ""} />
           ) : (
-            <LogDay date={date} today={days.data.today} filters={filters} onFilters={setFilters} />
+            <LogDay
+              key={date}
+              date={date}
+              today={days.data.today}
+              following={following && date === days.data.today}
+              filters={filters}
+              onFilters={setFilters}
+            />
           )}
         </Card>
       )}
@@ -63,8 +75,21 @@ export function LogsPage() {
   );
 }
 
-/** The head of the card: the page's icon, the day shown, and the button that picks another. */
-function LogHeader({ days, date }: { readonly days: ServiceLogDays; readonly date: string }) {
+/**
+ * The head of the card: the page's icon, the day shown, the switch that follows today's log (only on today: a past day's
+ * file no longer changes), and the button that picks another day.
+ */
+function LogHeader({
+  days,
+  date,
+  following,
+  onFollowing,
+}: {
+  readonly days: ServiceLogDays;
+  readonly date: string;
+  readonly following: boolean;
+  readonly onFollowing: (following: boolean) => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.logs;
   const locale = useSessionStatus().language === "zh" ? "zh-CN" : "en";
@@ -73,11 +98,26 @@ function LogHeader({ days, date }: { readonly days: ServiceLogDays; readonly dat
   const label = (day: string) => (day === days.today ? `${text.today} · ${dayLabel(day, locale)}` : dayLabel(day, locale));
 
   return (
-    <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-sm">
+    <header className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-sm">
       <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
         <ScrollText aria-hidden className="size-(--tk-font-size-sm)" />
       </span>
       <h2 className="truncate text-lg font-semibold">{label(date)}</h2>
+      {date === days.today ? (
+        <Button
+          type="button"
+          variant="outline"
+          aria-pressed={following}
+          aria-label={text.follow}
+          onClick={() => onFollowing(!following)}
+          className={following ? "border-accent text-accent" : ""}
+        >
+          {following ? <Radio aria-hidden className="motion-safe:animate-pulse" /> : <Pause aria-hidden />}
+          <span className="hidden sm:inline">{text.follow}</span>
+        </Button>
+      ) : (
+        <span />
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" aria-label={text.dateLabel}>
@@ -99,20 +139,71 @@ function LogHeader({ days, date }: { readonly days: ServiceLogDays; readonly dat
   );
 }
 
-/** One day's events under the filters, or why there are none. */
+/**
+ * One day's events under the filters, or why there are none. While it follows today's log, new events are added at the
+ * end. A reader at the end of the page is kept there; one who has scrolled up stays put, and a button at the bottom counts
+ * the new events the filters let through and takes the reader back down.
+ */
 function LogDay({
   date,
   today,
+  following,
   filters,
   onFilters,
 }: {
   readonly date: string;
   readonly today: string;
+  readonly following: boolean;
   readonly filters: LogFilters;
   readonly onFilters: (filters: LogFilters) => void;
 }) {
   const dictionary = useDictionary();
+  const queryClient = useQueryClient();
   const day = useLogDay(date);
+  const [atBottom, setAtBottom] = useState(true);
+  const [unseen, setUnseen] = useState(0);
+  const atBottomRef = useRef(true);
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  });
+
+  const onFresh = useCallback(
+    (fresh: readonly ServiceLogEntry[]) => {
+      if (following && !atBottomRef.current) {
+        setUnseen((count) => count + unseenOf(fresh, filtersRef.current));
+      }
+    },
+    [following],
+  );
+  // The service's today has moved on: reading the days again moves the page, which shows today, to the new day.
+  const onDayTurned = useCallback(() => void queryClient.invalidateQueries({ queryKey: [...LOGS_QUERY_KEY, "days"] }), [queryClient]);
+  const { held, offline } = useFollowedLog(day.data, following, onFresh, onDayTurned);
+  const count = held?.entries.length ?? 0;
+
+  useEffect(() => {
+    const onScroll = () => {
+      const bottom = isAtBottom({
+        scrollTop: window.scrollY,
+        clientHeight: window.innerHeight,
+        scrollHeight: document.documentElement.scrollHeight,
+      });
+      atBottomRef.current = bottom;
+      setAtBottom(bottom);
+      if (bottom) {
+        setUnseen(0);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Followed, the page opens at the newest event, and stays there as events come while the reader is at the end.
+  useLayoutEffect(() => {
+    if (following && count > 0 && atBottomRef.current) {
+      scrollToEnd("instant");
+    }
+  }, [following, count]);
 
   if (day.isError) {
     return day.error instanceof ApiError && day.error.status === 404 ? (
@@ -121,16 +212,27 @@ function LogDay({
       <LoadFailed error={day.error} busy={day.isFetching} onRetry={() => void day.refetch()} />
     );
   }
-  if (day.data === undefined) {
+  if (held === undefined) {
     return <div aria-busy="true" className="min-h-dvh" />;
   }
-  if (day.data.entries.length === 0) {
-    return <p className="text-sm text-ink-muted">{date === today ? dictionary.logs.emptyToday : dictionary.logs.emptyDay}</p>;
+  const offlineLine = offline ? (
+    <p role="status" className="text-sm text-warning">
+      {dictionary.logs.offline}
+    </p>
+  ) : null;
+  if (held.entries.length === 0) {
+    return (
+      <>
+        {offlineLine}
+        <p className="text-sm text-ink-muted">{date === today ? dictionary.logs.emptyToday : dictionary.logs.emptyDay}</p>
+      </>
+    );
   }
-  const shown = applyFilters(day.data.entries, filters);
+  const shown = applyFilters(held.entries, filters);
   return (
     <>
-      <FilterBar entries={day.data.entries} shown={shown.length} filters={filters} onFilters={onFilters} />
+      <FilterBar entries={held.entries} shown={shown.length} filters={filters} onFilters={onFilters} />
+      {offlineLine}
       {shown.length === 0 ? (
         <div className="grid justify-items-start gap-sm">
           <p className="text-sm text-ink-muted">{dictionary.logs.noMatch}</p>
@@ -142,8 +244,20 @@ function LogDay({
       ) : (
         <EntryList entries={shown} query={filters.query} />
       )}
+      {following && unseen > 0 && !atBottom ? (
+        <Button type="button" onClick={() => scrollToEnd("smooth")} className="sticky bottom-lg justify-self-center shadow-raised">
+          <ArrowDown aria-hidden />
+          {dictionary.logs.unseen(unseen)}
+        </Button>
+      ) : null}
     </>
   );
+}
+
+/** Scrolls the page to its end; smoothly when asked, unless the system asks for reduced motion. */
+function scrollToEnd(behavior: "instant" | "smooth") {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: reduced ? "instant" : behavior });
 }
 
 /**

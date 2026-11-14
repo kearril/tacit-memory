@@ -154,6 +154,9 @@ export interface Dictionary {
     readonly shown: (shown: number, total: number) => string;
     readonly noMatch: string;
     readonly clearFilters: string;
+    readonly follow: string;
+    readonly unseen: (count: number) => string;
+    readonly offline: string;
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;

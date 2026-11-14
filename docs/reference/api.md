@@ -112,8 +112,7 @@
 | `DELETE /api/prompts/<文档名>` | 删除文件，回到内置默认并立即生效，返回同上；文件不存在时直接返回当前状态；内置文本放不下时 400 并保留文件；未知文档名 404 | 已实现 |
 | **日志** | | |
 | `GET /api/logs` | `{today, dates}`：服务所在机器的今天，与有日志文件的日期（`yyyy-MM-dd`，最新在前）；今天可能还没有文件 | 已实现 |
-| `GET /api/logs/<日期>` | `{date, today, entries, next}`：某天的服务日志，从旧到新。`entries` 每项 `{time, level, message}`：`time` 为带时区偏移的 ISO 8601（文件开头不带时间的行为 `null`），`level` 为 `information`、`warning`、`error`，`message` 含该条之后的续行（多条原因、异常堆栈），以换行连接；文件末尾尚未写完的一行不返回。`next` 为已读到的条数。日期不是 `yyyy-MM-dd` 的日历日期时 400（`RequestInvalid`）；今天没有文件时返回空的 `entries`，其他日期没有文件时 404（`LogDateNotFound`） | 已实现 |
-| `GET /api/logs/stream` | 实时推送新日志（Server-Sent Events） | 计划 |
+| `GET /api/logs/<日期>` | `{date, today, entries, next}`：某天的服务日志，从旧到新。`entries` 每项 `{time, level, message}`：`time` 为带时区偏移的 ISO 8601（文件开头不带时间的行为 `null`），`level` 为 `information`、`warning`、`error`，`message` 含该条之后的续行（多条原因、异常堆栈），以换行连接；文件末尾尚未写完的一行不返回。`next` 为文件当前的总条数。查询参数 `after`（缺省 0）只返回第 `after` 条之后的条目，供页面跟随时取增量：文件只追加，条目的序号不变；`after` 大于现有条数时返回空的 `entries`，`next` 仍为现有条数；`after` 不是非负整数时 400（`RequestInvalid`）。日期不是 `yyyy-MM-dd` 的日历日期时 400（`RequestInvalid`）；今天没有文件时返回空的 `entries`，其他日期没有文件时 404（`LogDateNotFound`） | 已实现 |
 
 已实现端点的补充说明：
 

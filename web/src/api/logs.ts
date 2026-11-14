@@ -15,9 +15,10 @@ export function getLogDays(): Promise<ServiceLogDays> {
   return apiFetch<ServiceLogDays>("/api/logs");
 }
 
-/** The events of one day, `yyyy-MM-dd`, oldest first. */
-export function getLogDay(date: string): Promise<ServiceLogDay> {
-  return apiFetch<ServiceLogDay>(`/api/logs/${encodeURIComponent(date)}`);
+/** The events of one day, `yyyy-MM-dd`, oldest first; with `after`, only those past that many. */
+export function getLogDay(date: string, after = 0): Promise<ServiceLogDay> {
+  const query = after === 0 ? "" : `?after=${after}`;
+  return apiFetch<ServiceLogDay>(`/api/logs/${encodeURIComponent(date)}${query}`);
 }
 
 /** The days with a log file, fetched when the page opens and again when the window regains focus. */
