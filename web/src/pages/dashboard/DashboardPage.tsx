@@ -20,14 +20,15 @@ import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf, timeText } from "./format";
 import { HeatmapCard } from "./HeatmapCard";
-import { AgentsCard, BackupsCard, IndexCard, ModelsCard, ServiceCard } from "./StatusCards";
+import { BackupsCard, ConnectionCard, IndexCard, ModelsCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";
 
 /**
  * The dashboard. On a wide screen it is a bento grid of twelve columns: the overview (the status sentence and the to-dos)
  * and the memory activity each across the whole width, then a row of three cards (models, backups, index and
- * consolidation) and a row of two (service, and the agents with their bindings). On a narrower screen the cards stack in
- * one column in the order of the markup, which puts what to act on (the to-dos, models and backups) before the activity.
+ * consolidation), and the connection (the service's addresses, and the agents with their bindings) across the width. On a
+ * narrower screen the cards stack in one column in the order of the markup, which puts what to act on (the to-dos, models
+ * and backups) before the activity.
  * The status report is fetched every 30 seconds, the activity and the backups when the window regains focus; when a fetch
  * fails, the cards keep what they last had and a notice at the top says so, with the time of the oldest data shown.
  */
@@ -71,8 +72,7 @@ export function DashboardPage() {
           <BackupsCard locale={locale} className="xl:col-span-4 xl:row-start-3" />
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
           <IndexCard report={report} locale={locale} className="xl:col-span-4" />
-          <ServiceCard report={report} className="xl:col-span-6" />
-          <AgentsCard report={report} locale={locale} className="xl:col-span-6" />
+          <ConnectionCard report={report} locale={locale} className="xl:col-span-12" />
         </div>
       )}
     </div>

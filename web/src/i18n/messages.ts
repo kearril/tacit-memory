@@ -223,8 +223,7 @@ export interface Dictionary {
       readonly backups: string;
       readonly activity: string;
       readonly index: string;
-      readonly service: string;
-      readonly clients: string;
+      readonly connection: string;
     };
     readonly unreadable: string;
     readonly copy: (what: string) => string;
@@ -236,17 +235,16 @@ export interface Dictionary {
       readonly cooling: string;
     };
     readonly index: {
-      readonly lastConsolidation: (date: string) => string;
+      readonly lastConsolidation: string;
       readonly never: string;
       readonly daysAgo: (days: number) => string;
-      readonly candidates: string;
-      readonly formatProblems: string;
-      readonly unsummarizedWeeks: string;
+      readonly candidates: (count: number) => string;
+      readonly formatProblems: (count: number) => string;
+      readonly unsummarizedWeeks: (count: number) => string;
+      readonly clear: string;
     };
     readonly service: {
-      readonly uptime: string;
-      readonly duration: (duration: Duration) => string;
-      readonly version: string;
+      readonly version: (version: string) => string;
       readonly mcp: string;
       readonly web: string;
       readonly extraListener: string;
@@ -257,9 +255,11 @@ export interface Dictionary {
     readonly backups: {
       readonly none: string;
       readonly kinds: Readonly<Record<"auto" | "manual" | "preRestore", string>>;
+      readonly latest: (kind: string, size: string) => string;
       readonly count: (count: number) => string;
       readonly cloud: string;
       readonly cloudNotConfigured: string;
+      readonly configure: string;
       readonly cloudNever: string;
       readonly cloudSucceeded: string;
       readonly cloudFailed: string;
@@ -273,7 +273,6 @@ export interface Dictionary {
     };
     readonly probe: {
       readonly button: string;
-      readonly note: string;
       readonly succeeded: (milliseconds: number) => string;
       readonly failed: (reason: string, milliseconds: number) => string;
       readonly skipped: string;
@@ -316,8 +315,10 @@ export interface Dictionary {
       readonly failed: string;
     };
     readonly agents: {
+      readonly title: string;
       readonly bound: string;
       readonly unbound: string;
+      readonly unboundSeen: (seen: string) => string;
       readonly broken: string;
       readonly today: string;
       readonly yesterday: string;
