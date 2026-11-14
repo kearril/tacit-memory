@@ -155,6 +155,12 @@ export const zh: Dictionary = {
     emptyDay: "这一天的日志是空的。",
     noLog: (date) => `${date} 没有日志。日志保留最近 14 天。`,
     backToToday: "回到今天",
+    levelsLabel: "按级别筛选",
+    levelToggle: (level, count) => `${level}，${count} 条`,
+    keywordLabel: "筛选关键字",
+    shown: (shown, total) => (shown === total ? `共 ${total} 条` : `显示 ${shown} / 共 ${total} 条`),
+    noMatch: "没有符合筛选的日志。",
+    clearFilters: "清除筛选",
   },
   settings: {
     sections: {

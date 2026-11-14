@@ -1,5 +1,5 @@
-import { CalendarDays, Check, ChevronDown, RefreshCw, ScrollText } from "lucide-react";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { CalendarDays, Check, ChevronDown, RefreshCw, ScrollText, Search, X } from "lucide-react";
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import type { ServiceLogDays, ServiceLogEntry, ServiceLogLevel } from "../../api/logs";
 import { useLogDay, useLogDays } from "../../api/logs";
@@ -8,31 +8,37 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Input } from "../../components/ui/input";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { dayText } from "../dashboard/format";
 import { clockOf, dateOptions, LOGS_PATH, logDateOf, logPathOf } from "./day";
+import { applyFilters, filtersOf, highlightParts, LEVELS, levelCounts, type LogFilters, searchOf } from "./filter";
 
 /** The colour of each level's code; a warning or an error also tints its whole row. */
-const LEVEL_STYLES: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly row: string }>> = {
-  information: { code: "text-ink-muted", row: "" },
-  warning: { code: "text-warning", row: "bg-warning-soft" },
-  error: { code: "text-danger", row: "bg-danger-soft" },
+const LEVEL_STYLES: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly row: string; readonly on: string }>> = {
+  information: { code: "text-ink-muted", row: "", on: "bg-surface-raised text-ink" },
+  warning: { code: "text-warning", row: "bg-warning-soft", on: "bg-warning-soft text-warning" },
+  error: { code: "text-danger", row: "bg-danger-soft", on: "bg-danger-soft text-danger" },
 };
 
 /**
  * The logs page: one day of the service log, oldest event first, today unless the address names another day. The page
- * itself scrolls, so a long day reads like the file does. The page heading is for screen readers only, as the sidebar
- * already shows which page this is.
+ * itself scrolls, so a long day reads like the file does. The filters live in the address, so a link can carry them and a
+ * reload keeps them; changing them replaces the address rather than adding to the history. The page heading is for screen
+ * readers only, as the sidebar already shows which page this is.
  */
 export function LogsPage() {
   const dictionary = useDictionary();
   const param = useParams().date;
+  const [search, setSearch] = useSearchParams();
+  const filters = filtersOf(search);
+  const setFilters = (next: LogFilters) => setSearch(new URLSearchParams(searchOf(next)), { replace: true });
   const days = useLogDays();
   const named = logDateOf(param);
   const today = days.data?.today;
   if (param !== undefined && named !== undefined && named === today) {
-    return <Navigate to={LOGS_PATH} replace />;
+    return <Navigate to={{ pathname: LOGS_PATH, search: searchOf(filters) }} replace />;
   }
   const date = param === undefined ? today : named;
 
@@ -46,7 +52,11 @@ export function LogsPage() {
       ) : (
         <Card>
           <LogHeader days={days.data} date={date ?? param ?? days.data.today} />
-          {date === undefined ? <NoLog today={days.data.today} date={param ?? ""} /> : <LogDay date={date} today={days.data.today} />}
+          {date === undefined ? (
+            <NoLog today={days.data.today} date={param ?? ""} />
+          ) : (
+            <LogDay date={date} today={days.data.today} filters={filters} onFilters={setFilters} />
+          )}
         </Card>
       )}
     </div>
@@ -59,6 +69,7 @@ function LogHeader({ days, date }: { readonly days: ServiceLogDays; readonly dat
   const text = dictionary.logs;
   const locale = useSessionStatus().language === "zh" ? "zh-CN" : "en";
   const navigate = useNavigate();
+  const { search } = useLocation();
   const label = (day: string) => (day === days.today ? `${text.today} · ${dayLabel(day, locale)}` : dayLabel(day, locale));
 
   return (
@@ -77,7 +88,7 @@ function LogHeader({ days, date }: { readonly days: ServiceLogDays; readonly dat
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {dateOptions(days).map((day) => (
-            <DropdownMenuItem key={day} onSelect={() => void navigate(logPathOf(day, days.today))}>
+            <DropdownMenuItem key={day} onSelect={() => void navigate({ pathname: logPathOf(day, days.today), search })}>
               {day === date ? <Check aria-hidden /> : <span aria-hidden className="size-(--tk-font-size-sm)" />}
               {label(day)}
             </DropdownMenuItem>
@@ -88,8 +99,18 @@ function LogHeader({ days, date }: { readonly days: ServiceLogDays; readonly dat
   );
 }
 
-/** One day's events, or why there are none. */
-function LogDay({ date, today }: { readonly date: string; readonly today: string }) {
+/** One day's events under the filters, or why there are none. */
+function LogDay({
+  date,
+  today,
+  filters,
+  onFilters,
+}: {
+  readonly date: string;
+  readonly today: string;
+  readonly filters: LogFilters;
+  readonly onFilters: (filters: LogFilters) => void;
+}) {
   const dictionary = useDictionary();
   const day = useLogDay(date);
 
@@ -106,7 +127,90 @@ function LogDay({ date, today }: { readonly date: string; readonly today: string
   if (day.data.entries.length === 0) {
     return <p className="text-sm text-ink-muted">{date === today ? dictionary.logs.emptyToday : dictionary.logs.emptyDay}</p>;
   }
-  return <EntryList entries={day.data.entries} />;
+  const shown = applyFilters(day.data.entries, filters);
+  return (
+    <>
+      <FilterBar entries={day.data.entries} shown={shown.length} filters={filters} onFilters={onFilters} />
+      {shown.length === 0 ? (
+        <div className="grid justify-items-start gap-sm">
+          <p className="text-sm text-ink-muted">{dictionary.logs.noMatch}</p>
+          <Button type="button" variant="outline" onClick={() => onFilters({ levels: new Set(LEVELS), query: "" })}>
+            <X aria-hidden />
+            {dictionary.logs.clearFilters}
+          </Button>
+        </div>
+      ) : (
+        <EntryList entries={shown} query={filters.query} />
+      )}
+    </>
+  );
+}
+
+/**
+ * The filters: a switch for each level with how many events of the day it holds, the keyword, and how many events are
+ * shown of all. The last level switched on cannot be switched off.
+ */
+function FilterBar({
+  entries,
+  shown,
+  filters,
+  onFilters,
+}: {
+  readonly entries: readonly ServiceLogEntry[];
+  readonly shown: number;
+  readonly filters: LogFilters;
+  readonly onFilters: (filters: LogFilters) => void;
+}) {
+  const text = useDictionary().logs;
+  const counts = levelCounts(entries);
+  const toggle = (level: ServiceLogLevel) => {
+    const levels = new Set(filters.levels);
+    if (levels.has(level)) {
+      levels.delete(level);
+    } else {
+      levels.add(level);
+    }
+    if (levels.size > 0) {
+      onFilters({ ...filters, levels });
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-sm">
+      <div role="group" aria-label={text.levelsLabel} className="flex gap-xs">
+        {LEVELS.map((level) => {
+          const on = filters.levels.has(level);
+          return (
+            <button
+              key={level}
+              type="button"
+              aria-pressed={on}
+              aria-label={text.levelToggle(text.levels[level].name, counts[level])}
+              onClick={() => toggle(level)}
+              className={`lift inline-flex h-control cursor-pointer items-center gap-xs rounded-md px-sm font-mono text-xs font-semibold outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+                on ? LEVEL_STYLES[level].on : "text-ink-muted line-through"
+              }`}
+            >
+              {text.levels[level].code}
+              <span className="font-normal tabular-nums">{counts[level]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="relative min-w-0 flex-1 basis-(--tk-size-tile)">
+        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-md size-(--tk-font-size-sm) -translate-y-1/2 text-ink-muted" />
+        <Input
+          type="search"
+          aria-label={text.keywordLabel}
+          placeholder={text.keywordLabel}
+          value={filters.query}
+          onChange={(event) => onFilters({ ...filters, query: event.target.value })}
+          className="pl-xl"
+        />
+      </div>
+      <p className="text-sm text-ink-muted tabular-nums">{text.shown(shown, entries.length)}</p>
+    </div>
+  );
 }
 
 /**
@@ -114,7 +218,7 @@ function LogDay({ date, today }: { readonly date: string; readonly today: string
  * narrow one the time and level take a line and the message the line below. The lines a message carries (a list of
  * reasons, an exception) keep their breaks.
  */
-function EntryList({ entries }: { readonly entries: readonly ServiceLogEntry[] }) {
+function EntryList({ entries, query }: { readonly entries: readonly ServiceLogEntry[]; readonly query: string }) {
   const levels = useDictionary().logs.levels;
   return (
     <ol className="grid font-mono text-xs leading-(--tk-line-height-normal)">
@@ -130,7 +234,17 @@ function EntryList({ entries }: { readonly entries: readonly ServiceLogEntry[] }
             <abbr title={levels[entry.level].name} className={`font-semibold no-underline ${style.code}`}>
               {levels[entry.level].code}
             </abbr>
-            <span className="col-span-2 break-words whitespace-pre-wrap sm:col-span-1">{entry.message}</span>
+            <span className="col-span-2 break-words whitespace-pre-wrap sm:col-span-1">
+              {highlightParts(entry.message, query).map((part, at) =>
+                part.hit ? (
+                  <mark key={at} className="rounded-xs bg-accent-soft text-accent">
+                    {part.text}
+                  </mark>
+                ) : (
+                  part.text
+                ),
+              )}
+            </span>
           </li>
         );
       })}

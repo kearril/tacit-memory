@@ -148,6 +148,12 @@ export interface Dictionary {
     readonly emptyDay: string;
     readonly noLog: (date: string) => string;
     readonly backToToday: string;
+    readonly levelsLabel: string;
+    readonly levelToggle: (level: string, count: number) => string;
+    readonly keywordLabel: string;
+    readonly shown: (shown: number, total: number) => string;
+    readonly noMatch: string;
+    readonly clearFilters: string;
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;

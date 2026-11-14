@@ -158,6 +158,12 @@ export const en: Dictionary = {
     emptyDay: "The log of this day is empty.",
     noLog: (date) => `There is no log for ${date}. Logs are kept for the last 14 days.`,
     backToToday: "Back to today",
+    levelsLabel: "Filter by level",
+    levelToggle: (level, count) => `${level}, ${count}`,
+    keywordLabel: "Filter by keyword",
+    shown: (shown, total) => (shown === total ? `${total} events` : `${shown} of ${total} events`),
+    noMatch: "No events match the filters.",
+    clearFilters: "Clear filters",
   },
   settings: {
     sections: {
