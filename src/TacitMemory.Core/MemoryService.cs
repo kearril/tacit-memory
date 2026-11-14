@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -418,6 +419,28 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public Task<ActivityReport> ActivityAsync(CancellationToken cancellationToken = default) =>
         ActivityCounts.ReadAsync(Config, _options.Today, cancellationToken);
+
+    /// <summary>The days the service log has a file for, newest first, and today. Reads the directory only.</summary>
+    public ServiceLogDays LogDays() => new(_options.Today, ServiceLogReader.Days(_options.TacitHome));
+
+    /// <summary>
+    /// The events of one day's service log, oldest first, read from the file the service may still be writing to. Today
+    /// without a file has no events yet.
+    /// </summary>
+    /// <param name="date">The day as <c>yyyy-MM-dd</c>.</param>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.RequestInvalid"/> when <paramref name="date"/> is not a date; <see cref="TacitError.LogDateNotFound"/>
+    /// for another day without a file.
+    /// </exception>
+    public ServiceLogDay ServiceLog(string date)
+    {
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogDateInvalid.Format(Config.Language, date));
+        var today = _options.Today;
+        var entries = ServiceLogReader.Read(_options.TacitHome, day)
+            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, ManagementApiMessages.LogDateNotFound.Format(Config.Language, date)));
+        return new ServiceLogDay(day, today, entries, entries.Count);
+    }
 
     /// <summary>
     /// The local backups, newest first, whether the cloud backup is configured, and its last attempt. Reads the backup

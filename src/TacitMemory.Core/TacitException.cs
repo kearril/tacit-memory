@@ -96,6 +96,9 @@ public enum TacitError
     /// <summary>A prompt document changed after the text being saved was read from it; the save would overwrite that change.</summary>
     PromptChanged,
 
+    /// <summary>A day the service log has no file for, other than today.</summary>
+    LogDateNotFound,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 

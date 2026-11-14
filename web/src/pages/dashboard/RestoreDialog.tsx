@@ -12,6 +12,7 @@ import {
   runRestore,
 } from "../../api/backups";
 import { CONFIG_QUERY_KEY } from "../../api/config";
+import { LOGS_QUERY_KEY } from "../../api/logs";
 import { PROMPTS_QUERY_KEY } from "../../api/prompts";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
@@ -77,6 +78,8 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
       void queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
       // It also replaces the prompt documents.
       void queryClient.invalidateQueries({ queryKey: PROMPTS_QUERY_KEY });
+      // And it writes its own events to the service log.
+      void queryClient.invalidateQueries({ queryKey: LOGS_QUERY_KEY });
     },
   });
 

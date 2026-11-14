@@ -195,6 +195,12 @@ internal static class ManagementApi
         })
             .Produces<ActivityReport>()
             .ProducesErrors();
+        api.MapGet("/logs", () => Json(service.LogDays()))
+            .Produces<ServiceLogDays>()
+            .ProducesErrors();
+        api.MapGet("/logs/{date}", (string date) => Json(service.ServiceLog(date)))
+            .Produces<ServiceLogDay>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/backups", () => Json(service.Backups()))
             .Produces<BackupList>()
             .ProducesErrors();
@@ -517,7 +523,8 @@ internal static class ManagementApi
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown => StatusCodes.Status404NotFound,
+        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown
+            or TacitError.LogDateNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

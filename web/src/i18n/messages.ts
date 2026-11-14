@@ -1,4 +1,5 @@
 import { ApiError } from "../api/client";
+import type { ServiceLogLevel } from "../api/logs";
 import type { BindingProblem } from "../api/status";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
@@ -134,6 +135,19 @@ export interface Dictionary {
       readonly worthRecording: string;
       readonly notRecorded: string;
     };
+  };
+  readonly logs: {
+    /** The label of the button that picks the day. */
+    readonly dateLabel: string;
+    readonly today: string;
+    /** Each level's three-letter code as the file writes it, and its name for screen readers and tooltips. */
+    readonly levels: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly name: string }>>;
+    readonly loadFailed: string;
+    readonly readAgain: string;
+    readonly emptyToday: string;
+    readonly emptyDay: string;
+    readonly noLog: (date: string) => string;
+    readonly backToToday: string;
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;

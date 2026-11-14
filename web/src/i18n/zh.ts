@@ -141,6 +141,21 @@ export const zh: Dictionary = {
       notRecorded: "不记",
     },
   },
+  logs: {
+    dateLabel: "选择日期",
+    today: "今天",
+    levels: {
+      information: { code: "INF", name: "信息" },
+      warning: { code: "WRN", name: "警告" },
+      error: { code: "ERR", name: "错误" },
+    },
+    loadFailed: "读取日志失败",
+    readAgain: "重新读取",
+    emptyToday: "今天还没有日志。服务写下第一条后会出现在这里。",
+    emptyDay: "这一天的日志是空的。",
+    noLog: (date) => `${date} 没有日志。日志保留最近 14 天。`,
+    backToToday: "回到今天",
+  },
   settings: {
     sections: {
       models: "模型",

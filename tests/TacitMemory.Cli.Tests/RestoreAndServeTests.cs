@@ -166,6 +166,13 @@ public sealed class ServeTests : IDisposable
         var lines = File.ReadAllLines(file);
         Assert.Contains(lines, line => System.Text.RegularExpressions.Regex.IsMatch(
             line, @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{2}:\d{2} INF 常驻服务已启动：http://127\.0\.0\.1:\d+/mcp"));
+
+        // Read back by the same definition: the service's reader understands what serve wrote.
+        using var service = _cli.Home.Tacit().OpenService(_ => { }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+        var started = Assert.Single(
+            service.ServiceLog($"{DateTime.Now:yyyy-MM-dd}").Entries, entry => entry.Message.StartsWith("常驻服务已启动", StringComparison.Ordinal));
+        Assert.Equal(TacitMemory.Core.ServiceLogLevel.Information, started.Level);
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Now), DateOnly.FromDateTime(started.Time!.Value.LocalDateTime));
     }
 
     [Fact]

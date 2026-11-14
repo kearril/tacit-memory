@@ -85,6 +85,22 @@ public sealed class OpenApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_document_describes_the_service_log_with_its_three_levels()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var days = document["paths"]?["/api/logs"]?["get"]?["responses"]?["200"]?["content"]?["application/json"]?["schema"];
+        Assert.Equal("#/components/schemas/ServiceLogDays", days?["$ref"]?.GetValue<string>());
+        var responses = document["paths"]?["/api/logs/{date}"]?["get"]?["responses"];
+        var day = responses?["200"]?["content"]?["application/json"]?["schema"];
+        Assert.Equal("#/components/schemas/ServiceLogDay", day?["$ref"]?.GetValue<string>());
+        Assert.NotNull(responses?["400"]);
+        Assert.NotNull(responses?["404"]);
+        var levels = document["components"]?["schemas"]?["ServiceLogLevel"]?["enum"]?.AsArray().Select(level => level?.GetValue<string>());
+        Assert.Equal(["information", "warning", "error"], levels);
+    }
+
+    [Fact]
     public async Task The_document_describes_the_probe_report()
     {
         var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;

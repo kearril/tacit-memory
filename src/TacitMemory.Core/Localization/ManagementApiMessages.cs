@@ -82,6 +82,8 @@ internal static class ManagementApiMessages
     public static readonly Localized PromptChanged = new(
         "prompts/{0} 在你打开提示词页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
         "prompts/{0} was changed after you opened the prompts page, and saving would overwrite that change. Load it again, then make your changes.");
+    public static readonly Localized LogDateInvalid = new("{0} 不是日期，请写成 2026-11-14 这样的形式。", "{0} is not a date; write it like 2026-11-14.");
+    public static readonly Localized LogDateNotFound = new("{0} 没有日志。", "There is no log for {0}.");
     public static readonly Localized SecretNotSecret = new("不是密钥，不能按密钥修改", "not a secret, so it cannot be changed as one");
     public static readonly Localized ConfigReadOnly = new(
         "设置页不能修改这一项：请在 config.yaml 中修改，重启 tacit serve 后生效。",

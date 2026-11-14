@@ -144,6 +144,21 @@ export const en: Dictionary = {
       notRecorded: "Not recorded",
     },
   },
+  logs: {
+    dateLabel: "Pick a day",
+    today: "Today",
+    levels: {
+      information: { code: "INF", name: "Information" },
+      warning: { code: "WRN", name: "Warning" },
+      error: { code: "ERR", name: "Error" },
+    },
+    loadFailed: "Could not read the log",
+    readAgain: "Read again",
+    emptyToday: "Nothing has been logged today. The first event the service writes will appear here.",
+    emptyDay: "The log of this day is empty.",
+    noLog: (date) => `There is no log for ${date}. Logs are kept for the last 14 days.`,
+    backToToday: "Back to today",
+  },
   settings: {
     sections: {
       models: "Models",
