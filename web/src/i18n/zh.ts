@@ -98,6 +98,7 @@ export const zh: Dictionary = {
     invalidTitle: "文件有误，服务正在使用上一版",
     invalidNote: "下面是文件现在的内容。改正后保存，或恢复默认，服务即改用新的内容。",
     customizedNote: (file) => `服务正在使用你的文件 prompts/${file}。`,
+    readAgain: "重新读取",
     aboutLabel: (title) => `关于${title}`,
     residentSections: "允许的节名：",
     textLabel: (title) => `${title}的内容`,

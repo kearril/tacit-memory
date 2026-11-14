@@ -100,6 +100,7 @@ export const en: Dictionary = {
     invalidTitle: "The file has an error, so the service runs the previous version",
     invalidNote: "Below is what the file holds now. Fix it and save, or restore the default, and the service takes the new text.",
     customizedNote: (file) => `The service uses your file prompts/${file}.`,
+    readAgain: "Read again",
     aboutLabel: (title) => `About the ${title.toLowerCase()}`,
     residentSections: "Allowed sections:",
     textLabel: (title) => `Text of the ${title.toLowerCase()}`,

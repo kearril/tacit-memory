@@ -56,10 +56,10 @@ internal static class RulesFile
     /// <summary>The refusal of each section of <paramref name="criteria"/> with more than <see cref="MaxItemsPerSection"/> items.</summary>
     public static IReadOnlyList<string> Problems(RecordingCriteria criteria, string path, MemoryLanguage language) =>
     [
-        .. new[] { (StructureWords.WorthRecording, criteria.WorthRecording), (StructureWords.NotRecorded, criteria.NotRecorded) }
-            .Where(section => section.Item2.Count > MaxItemsPerSection)
+        .. new[] { (Heading: StructureWords.WorthRecording, Items: criteria.WorthRecording), (Heading: StructureWords.NotRecorded, Items: criteria.NotRecorded) }
+            .Where(section => section.Items.Count > MaxItemsPerSection)
             .Select(section => Messages.RulesTooMany.Format(
-                language, path, section.Item1.In(language), section.Item2.Count, MaxItemsPerSection, section.Item2.Count - MaxItemsPerSection)),
+                language, path, section.Heading.In(language), section.Items.Count, MaxItemsPerSection, section.Items.Count - MaxItemsPerSection)),
     ];
 
     /// <summary>The criteria in a text written as <c>rules.md</c>, however many items each section has.</summary>

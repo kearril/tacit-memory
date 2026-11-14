@@ -66,6 +66,17 @@ public sealed class PromptSaveTests : IDisposable
     }
 
     [Fact]
+    public async Task Saving_the_resident_document_renders_once_and_not_again_after_the_debounce()
+    {
+        _home.Bind();
+
+        await _service.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
+        await Task.Delay(TimeSpan.FromSeconds(1));
+
+        Assert.Empty(_notices);
+    }
+
+    [Fact]
     public async Task A_text_that_breaks_its_rules_is_refused_with_the_file_named_and_no_file_is_written()
     {
         var text = "## 值得记\n" + string.Concat(Enumerable.Range(1, 11).Select(i => $"- 规则 {i}\n"));

@@ -617,6 +617,8 @@ public sealed class MemoryService : IDisposable
         var notices = new List<string>();
         lock (_renderGate)
         {
+            // Applying a changed resident.md schedules a render, which this one makes needless.
+            _renderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             try
             {
                 foreach (var render in Binder.RenderAll(_options, Config, _prompts))

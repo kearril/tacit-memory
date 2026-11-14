@@ -74,7 +74,7 @@ export function PromptsPage() {
             <div>
               <Button type="button" variant="outline" disabled={prompts.isFetching} onClick={() => void prompts.refetch()}>
                 <BusyIcon busy={prompts.isFetching} icon={RefreshCw} />
-                {dictionary.settings.readAgain}
+                {dictionary.prompts.readAgain}
               </Button>
             </div>
           </AlertDescription>
@@ -111,6 +111,8 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
     );
     setNotices(saved.notices);
     showToast(message);
+    // The core rules and the recording criteria are measured together, so the other one's length changed as well.
+    void queryClient.invalidateQueries({ queryKey: PROMPTS_QUERY_KEY });
     // A save or a return to the default may fix a broken file, which the dashboard lists from the status.
     void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
   };
@@ -149,14 +151,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
         </Alert>
       )}
       {notices.length === 0 ? null : (
-        <Alert tone="warning">
-          <AlertTitle>{text.noticesTitle}</AlertTitle>
-          <ul className="col-start-2 grid gap-xs">
-            {notices.map((notice, index) => (
-              <li key={index}>{notice}</li>
-            ))}
-          </ul>
-        </Alert>
+        <ListAlert tone="warning" title={text.noticesTitle} items={notices} />
       )}
       {/* A new hash is a new file: after a save, a return to the default or a reload the editor starts again from it. */}
       <PromptEditor
@@ -204,6 +199,28 @@ function About({ document, stateNote }: { readonly document: PromptDocument; rea
         <p className="text-ink-muted">{stateNote}</p>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** An alert that lists its points one to a line under its title. */
+function ListAlert({
+  tone,
+  title,
+  items,
+}: {
+  readonly tone: "warning" | "danger";
+  readonly title: string;
+  readonly items: readonly string[];
+}) {
+  return (
+    <Alert tone={tone}>
+      <AlertTitle>{title}</AlertTitle>
+      <ul className="col-start-2 grid gap-xs">
+        {items.map((item, index) => (
+          <li key={index}>{item}</li>
+        ))}
+      </ul>
+    </Alert>
   );
 }
 
@@ -294,24 +311,10 @@ function PromptEditor({
       {measure === undefined ? null : <Measure measure={measure} />}
 
       {problems.length === 0 || failure?.kind === "rejected" ? null : (
-        <Alert tone="warning">
-          <AlertTitle>{text.problemsTitle}</AlertTitle>
-          <ul className="col-start-2 grid gap-xs">
-            {problems.map((problem, index) => (
-              <li key={index}>{problem}</li>
-            ))}
-          </ul>
-        </Alert>
+        <ListAlert tone="warning" title={text.problemsTitle} items={problems} />
       )}
       {failure === null ? null : failure.kind === "rejected" ? (
-        <Alert tone="danger">
-          <AlertTitle>{text.rejectedTitle}</AlertTitle>
-          <ul className="col-start-2 grid gap-xs">
-            {failure.problems.map((problem, index) => (
-              <li key={index}>{problem.message}</li>
-            ))}
-          </ul>
-        </Alert>
+        <ListAlert tone="danger" title={text.rejectedTitle} items={failure.problems.map((problem) => problem.message)} />
       ) : (
         <Alert tone="danger">
           <AlertTitle>{failure.title}</AlertTitle>
