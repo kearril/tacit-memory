@@ -62,7 +62,7 @@ flowchart LR
 | :--- | :--- | :--- |
 | 门面 | 对外的唯一入口 `Tacit`：`GenerateSkills` 生成全部 skill，不需要运行中的服务；`OpenService` 返回 `MemoryService`，持有配置、记忆工具、服务端说明缓存、文件监听与访问控制，整理报告的入口是 `MemoryService.ConsolidationReportAsync`；`OpenAccess` 返回独立的 `AccessControl`，不需要运行中的服务，供测试与不经常驻服务的调用方使用（常驻服务内的访问经 `MemoryService.Access`） | 已实现 |
 | 访问 | `Access/AccessControl`：访问密码与会话。`access.json`（PBKDF2-SHA256 的哈希与会话签名密钥，不属于配置，不进入备份）的读写与损坏时的处理；会话为 HMAC-SHA256 签名的 Cookie 值，服务端不存清单；按对端地址的登录限速，计数表有上限，PBKDF2 的计算在锁外，检查暂停、计算与计数之间不让并发请求绕过计数。规则见 `docs/reference/api.md` 第 2 节 | 已实现 |
-| 初始化 | 生成 `config.yaml` 与 `prompts/rules.md` 模板，创建记忆仓库骨架 | 已实现 |
+| 初始化 | 生成 `config.yaml` 与空的 `prompts/` 目录，创建记忆仓库骨架 | 已实现 |
 | 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/reference/configuration.md`「提示词文档」）；校验服务端说明的固定部分长度（见 `docs/design.md` 第 8 节）。配置写出器 `ConfigWriter` 把 `ConfigFile`（文件形态、未经校验，文件省略的键为 `null`）整份写出：键按配置参考的顺序，不带注释，只写与默认不同的键（默认值集中在 `ConfigDefaults`），以替换的方式写入，写到一半失败时保留原文件。`ConfigSchema` 描述每个键接受什么（数值范围、可选值、是否要重启、是否只读）与各密钥的来源，供设置页显示；是否有效仍由加载器判定 | 已实现 |
 | 重新加载 | `MemoryService` 分两层：外壳随进程存在（排序工作的锁、启动时间、额外监听的结果、访问控制、客户端记录与定时器）；运行时由配置决定（派生索引、辅助模型、记忆工具、备份与文件监听），只经 `OpenRuntime` 建立，启动与每次重新加载走同一条路径。`ReloadCore` 关闭运行时后按新配置重开，五个需重启的项保留运行中的值，失败时按原配置重开（再失败则 `Failed` 完成，`serve` 随之退出）；之后重新生成 skill、重渲染各绑定的常驻区块，并返回文件与运行中不同的需重启项（`RestartChange`）。`SaveConfigAsync` 比对设置页读取时的文件哈希（文件已被改动则拒绝）、并入文件中的密钥与本次改写的密钥、校验后写出并重新加载，重新加载失败时写回原文件；带配置的恢复在恢复完成后调用同一个 `ReloadCore` | 已实现 |
 | 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
@@ -125,6 +125,7 @@ flowchart LR
 ### 注入
 
 - `MemoryService` 生成服务端说明后缓存（`ServerInstructionsAsync`，同一时间只生成一次）。以下变化使缓存失效：`persona.md` 与 `candidates.md`、`pages/` 下的任何文件、`recent/` 下的文件与主线文件 `workstreams.md`、记忆仓库的提交（`.git` 下的 `HEAD`、`refs/`、`logs/` 与 `packed-refs`，含空的整理提交）、`prompts/` 下的提示词文档重新载入，以及本服务写入页面、画像或活动之后。每次取用时比对状态（不可用的模型、被跳过的文件、当天日期），不同则重新生成。整理提示在生成时由 `ConsolidationReminder` 读取仓库现状，不调用模型。无状态模式下 SDK 每个请求都要求给出服务端说明，状态相同时直接返回缓存。
+- 提示词文档：`Configuration/PromptFiles` 是四份文档的统一入口：路径与内置默认文本、校验（`Check`，一次给出全部错误）、长度（`Measure`，按下发后的文本、与另一份运行中的文档合计）、页面所见（`View`）、启动时读取（`Load`）与运行中重读（`Reload`）。重读时某份文件有误，服务沿用这份文档的上一版，原因记在 `MemoryService` 中（固定部分合计超限时核心规则与值得记标准都记下），直到这份文档再次读取成功或运行时重新打开；`PromptView`、`PromptProblems` 与状态报告的 `prompts` 一栏由此取得。网页保存与恢复默认先应用、再读取视图，返回的状态已不带刚修好的问题。
 - skill：`Skills/SkillSet` 在服务启动时与 `prompts/` 变化后生成 `TACIT_HOME/skills/` 下的三个 skill：`tacit-memory`（`MemorySkill`，成品取决于代码与 `prompts/skill.md`）、`tacit-remember` 与 `tacit-consolidate`（正文只取决于代码与记忆语言）；门面 `GenerateSkills` 不依赖运行中的服务。三者都不读取记忆仓库，因此记忆变化不会重写它们。
 - `connect` 绑定时先检查路径与三个链接位置，通过后生成三个 skill、写常驻区块，再建立缺失的链接并写绑定记录；检查与拒绝规则见 `docs/design.md` 第 12 节。
 - `persona.md` 或 `resident.md` 变化后（文件监听事件去抖 300 ms），注入渲染重写所有已绑定文件中的常驻区块。渲染彼此串行；失败只在控制台提示，不中断服务。
@@ -159,7 +160,7 @@ flowchart LR
 | 索引驱动 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建索引文件） | 已引入 |
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），连同上游 LICENSE 存于仓库 `lib/sqlite-vec/`，构建时复制到输出目录；每次加载前校验代码中记录的 SHA-256，不符则拒绝启动；不使用 NuGet 上的第三方包 | 已引入 |
 | 查询与映射 | `Dapper` | 已引入 |
-| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；表单用 React Hook Form，组件用 `radix-ui`（无样式的交互原语）、`class-variance-authority`（组件变体）与 `cn`（合并类名）。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
+| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；表单用 React Hook Form，组件用 `radix-ui`（无样式的交互原语）、`class-variance-authority`（组件变体）与 `cn`（合并类名）；提示词页的编辑器用 CodeMirror（`@codemirror/*` 与 `@lezer/highlight`）。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
 | 嵌入 | `HttpClient`，按 OpenAI Embeddings 协议请求配置的完整 URL；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
 | reranker | `HttpClient` 类型化客户端，按 Cohere/Jina Rerank 协议请求配置的完整 URL | 已引入 |
 | 决策模型 | `HttpClient`，实现 System One 协议，请求配置的完整 URL | 已引入 |
@@ -186,9 +187,10 @@ flowchart LR
 | `web/src/app/session-context.ts` | 会话状态的上下文与按记忆语言取字典的钩子 |
 | `web/src/pages/login/` | 登录页与其状态机（`login-attempt.ts`，429 时锁住提交直到密码被改动） |
 | `web/src/pages/dashboard/` | 仪表盘：页面与网格（`DashboardPage.tsx`）、状态卡片（`StatusCards.tsx`）、热力图（`HeatmapCard.tsx`）与恢复对话框（`RestoreDialog.tsx`）；不含界面的逻辑各在一个可单测的模块中：待处理事项及其去处（`todos.ts`）、热力图的周列与月份标签（`heatmap.ts`）、按名称认出常见客户端及其图标（`agents.ts`）、时长、大小、日期与版本的格式化（`format.ts`）；几张卡片共用的小部件在 `parts.tsx`。功能见 `docs/web.md` 第 3 节 |
+| `web/src/pages/prompts/` | 提示词页（`PromptsPage.tsx`）与懒加载的 Markdown 编辑器（`MarkdownEditor.tsx`，CodeMirror，语法高亮的颜色取自令牌）；不含界面的逻辑：地址与文档名的互转（`names.ts`）、编辑状态（`editor.ts`）、长度信息的显示文字（`measure.ts`）。功能见 `docs/web.md` 第 3 节 |
 | `web/src/assets/agents/` | 图标库中没有的客户端图标，自己绘制的 SVG |
 | `web/src/pages/settings/` | 设置页与各节（如「远程访问」一节的 `RemoteAccessSection.tsx`），各节的功能见 `docs/web.md` 第 3 节 |
-| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
+| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
 | `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
 | `web/src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |

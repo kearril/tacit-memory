@@ -69,6 +69,7 @@ public sealed class HelpAndOutputTests : IDisposable
 
     [Theory]
     [InlineData("instructions", ShowTarget.Instructions)]
+    [InlineData("rules", ShowTarget.Rules)]
     [InlineData("resident", ShowTarget.Resident)]
     [InlineData("skill", ShowTarget.Skill)]
     [InlineData("RESIDENT", ShowTarget.Resident)]

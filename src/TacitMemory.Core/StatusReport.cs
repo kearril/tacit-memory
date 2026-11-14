@@ -24,6 +24,9 @@ public sealed record StatusReport
     /// <summary>Each client binding and whether its files are still in place.</summary>
     public BindingsStatus? Bindings { get; init; }
 
+    /// <summary>The prompt documents whose file the running service does not run; present only while it runs and one does.</summary>
+    public PromptsStatus? Prompts { get; init; }
+
     /// <summary>When the last consolidation was, and how many days ago.</summary>
     public ConsolidationStatus? Consolidation { get; init; }
 
@@ -42,7 +45,7 @@ public sealed record StatusReport
     /// <summary>The columns the report carries, in the order the CLI lists them. Not part of the reply: it is derived from the columns above.</summary>
     [JsonIgnore]
     public IReadOnlyList<IStatusColumn> Columns =>
-        new IStatusColumn?[] { Config, Service, Models, Clients, Bindings, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
+        new IStatusColumn?[] { Config, Service, Models, Clients, Bindings, Prompts, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
 }
 
 /// <summary>How a line of a status column stands. The CLI colours it: ok green, attention yellow, problem red.</summary>
@@ -185,6 +188,20 @@ public enum BindingProblem
     /// <summary>One of the client's skill links is missing or does not point at its tacit skill.</summary>
     SkillLinkNotTacit,
 }
+
+/// <summary>
+/// The prompt documents with an error in their file, one line each, while the service keeps running their previous text;
+/// <paramref name="Items"/> carries the same as data. Every line needs attention: the service runs, on text the user
+/// changed.
+/// </summary>
+public sealed record PromptsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<PromptProblem> Items) : IStatusColumn
+{
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select(_ => (StatusLevel?)StatusLevel.Attention).ToList();
+}
+
+/// <param name="Name">The document whose file is refused.</param>
+/// <param name="Problem">The refusal of the file, in the memory language.</param>
+public sealed record PromptProblem(PromptName Name, string Problem);
 
 /// <param name="LastConsolidationDay">The day of the last consolidation, or of the init commit standing in for it; <c>null</c> when there is none, or the history cannot be read.</param>
 /// <param name="DaysSince">Days from that day to today; <c>null</c> together with <paramref name="LastConsolidationDay"/>.</param>

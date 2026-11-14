@@ -76,6 +76,12 @@ internal static class ManagementApiMessages
         "config.yaml 在你打开设置页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
         "config.yaml was changed after you opened the settings page, and saving would overwrite that change. Load it again, then make your changes.");
     public static readonly Localized SecretUnknown = new("{0} 不是密钥。", "{0} is not a secret.");
+    public static readonly Localized PromptUnknown = new(
+        "{0} 不是提示词文档。提示词文档有 instructions、rules、resident、skill。",
+        "{0} is not a prompt document. The prompt documents are instructions, rules, resident and skill.");
+    public static readonly Localized PromptChanged = new(
+        "prompts/{0} 在你打开提示词页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
+        "prompts/{0} was changed after you opened the prompts page, and saving would overwrite that change. Load it again, then make your changes.");
     public static readonly Localized SecretNotSecret = new("不是密钥，不能按密钥修改", "not a secret, so it cannot be changed as one");
     public static readonly Localized ConfigReadOnly = new(
         "设置页不能修改这一项：请在 config.yaml 中修改，重启 tacit serve 后生效。",
@@ -91,6 +97,10 @@ internal static class ManagementApiMessages
         "The request body is invalid: the value of {0} has the wrong type or value.");
 
     public static readonly Localized BindingsTitle = new("绑定", "Bindings");
+    public static readonly Localized PromptsTitle = new("提示词文档有误", "Prompt documents with errors");
+    public static readonly Localized PromptKept = new(
+        "{0} 有误，服务正在使用上一版：{1}",
+        "{0} has an error, and the service runs its previous version: {1}");
     public static readonly Localized BindingsNone = new("没有绑定的客户端。", "No client is bound.");
     public static readonly Localized BindingsUnreadable = new("bindings.json 无法读取：{0}", "bindings.json cannot be read: {0}");
     public static readonly Localized BindingOk = new("{0}：正常（上下文文件 {1}；skill 目录 {2}）", "{0}: fine (context file {1}; skills folder {2})");

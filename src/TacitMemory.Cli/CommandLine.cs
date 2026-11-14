@@ -72,7 +72,7 @@ public static class CommandLine
     private static readonly string[] CommandNames = ["init", "serve", "connect", "disconnect", "show", "probe", "status", "reindex", "backup", "restore"];
 
     /// <summary>The <c>show</c> subcommands. Their match ignores case, like the command names.</summary>
-    private static readonly string[] ShowNames = ["instructions", "resident", "skill", "tools", "remember", "consolidate"];
+    private static readonly string[] ShowNames = ["instructions", "rules", "resident", "skill", "tools", "remember", "consolidate"];
 
     /// <summary>The <c>probe</c> targets. Their match ignores case, like the <c>show</c> subcommands.</summary>
     private static readonly string[] ProbeNames = [.. ModelRoles.All.Select(ModelRoles.Name)];

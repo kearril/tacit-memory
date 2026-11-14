@@ -570,23 +570,21 @@ public sealed class ConfigTests : IDisposable
         WriteConfig(Models);
         File.WriteAllText(RulesPath, "## 值得记\n- 用户纠正 Agent\n  补充说明\n- 环境事实\n\n## Not recorded\n- 常规改动\n");
 
-        var rules = _home.Tacit().LoadConfig().Prompts.Rules;
+        var rules = _home.Tacit().LoadConfig().Prompts.Rules!;
 
         Assert.Equal(["用户纠正 Agent", "环境事实"], rules.WorthRecording);
         Assert.Equal(["常规改动"], rules.NotRecorded);
     }
 
     [Fact]
-    public void A_deleted_rules_md_is_written_again_from_the_template_in_the_memory_language()
+    public void Without_rules_md_the_built_in_criteria_apply_and_no_file_is_written()
     {
         WriteConfig(Models + "language: en\n");
-        File.Delete(RulesPath);
 
         var rules = _home.Tacit().LoadConfig().Prompts.Rules;
 
-        Assert.StartsWith("## Worth recording\n", File.ReadAllText(RulesPath));
-        Assert.Equal(5, rules.WorthRecording.Count);
-        Assert.Equal(3, rules.NotRecorded.Count);
+        Assert.Null(rules);
+        Assert.False(File.Exists(RulesPath));
     }
 
     [Fact]

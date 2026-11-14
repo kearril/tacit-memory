@@ -10,7 +10,7 @@
 | `tacit serve` | 启动常驻服务 | — |
 | `tacit connect --client <名称> --context <文件> --skills <目录>` | 绑定客户端 | 否 |
 | `tacit disconnect --client <名称>` | 解除绑定 | 否 |
-| `tacit show instructions\|resident\|skill [--default]`、`tacit show tools\|remember\|consolidate` | 查看 Agent 收到的内容 | 否 |
+| `tacit show instructions\|rules\|resident\|skill [--default]`、`tacit show tools\|remember\|consolidate` | 查看 Agent 收到的内容 | 否 |
 | `tacit status` | 查看服务、模型、绑定、整理、备份与密钥的状况 | 否 |
 | `tacit probe [embedding\|reranker\|decision]` | 探测配置中的辅助模型 | 否 |
 | `tacit reindex` | 全量重建派生索引 | 是 |
@@ -28,7 +28,7 @@
 
 ### `tacit init`
 
-生成配置 `TACIT_HOME/config.yaml`、`prompts/rules.md` 模板与记忆仓库。
+生成配置 `TACIT_HOME/config.yaml`、空的 `prompts/` 目录与记忆仓库。提示词文档不生成，缺失时使用内置默认。
 
 - `--language zh|en`：记忆语言，默认取系统界面语言。
 - `--memory <路径>`：记忆仓库的位置，默认 `TACIT_HOME/memory`。
@@ -82,12 +82,13 @@ tacit disconnect --client <名称>
 | 子命令 | 输出 |
 | :--- | :--- |
 | `instructions` | 服务端说明 |
+| `rules` | 值得记标准（文件格式），以及两节各自的条数与上限 |
 | `resident` | 常驻区块 |
 | `skill` | 记忆 skill 的成品 |
 | `tools` | 工具说明；先严格加载配置，再由 CLI 经 `TacitMemory.Host` 读取，说明中的上限取自该配置 |
 | `remember`、`consolidate` | 对应记忆指令 skill 的成品（不含整理报告） |
 
-`--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`resident` 与 `skill`；`remember`、`consolidate` 与 `tools` 不接受。
+`--default` 输出内置默认文本（`skill` 只输出系统部分），只用于 `instructions`、`rules`、`resident` 与 `skill`（`rules` 的内置默认按记忆语言给出，配置无法加载时按系统界面语言）；`remember`、`consolidate` 与 `tools` 不接受。
 
 ### `tacit status`
 
@@ -97,6 +98,7 @@ tacit disconnect --client <名称>
 - 辅助模型：可用、冷却（含剩余秒数）或未配置。
 - 客户端：每个记录过的客户端一行，最近连接者在前：名称、最近连接日期、协议版本、声明的能力、声明的扩展（能力在扩展之前，各自按序数字典序列出，各自为空时写"无"；不显示版本）；没有记录时写明"尚未有客户端连接过服务"。服务运行与未运行时都显示（记录见 `docs/design.md` 第 12 节「客户端能力记录」）。一行形如：`example-client：最近连接 2026-11-12，协议 2026-07-28，能力：elicitation, roots，扩展：io.example/apps, io.example/tasks`。
 - 绑定：上下文文件是否存在且为 UTF-8、起止标记完整且唯一、三个 skill 链接是否都指向 tacit，缺哪个就指出哪个。每条绑定注明与之共用路径的其他绑定；共用路径只检查一次，问题挂在第一个引用它的绑定上。
+- 提示词文档有误：只在服务运行、且有提示词文档的文件有误而服务正在沿用上一版时出现，每份一行（`prompts/<文件> 有误，服务正在使用上一版：<原因>`），以警告色显示。这样的文件同样会让配置加载失败（重启会被拒绝），所以配置栏也列出它，退出码为 3。
 - 上次整理：已整理过时给日期与距今天数；尚未整理时从初始化提交起算，给其日期与距今天数；仓库里既没有整理提交也没有初始化提交时写明"从未整理"。
 - 待处理问题：候选、格式问题、主线是否为空、待汇总的周，口径与整理提示相同。
 - 最近本地备份（三种前缀中最新的一份）与云端备份（`backups/remote.json` 记录的最近一次结果，不访问网络）。
@@ -171,7 +173,7 @@ tacit restore --remote [--include-config] [--yes]
 
 美化只在终端中进行，且每一路（stdout、stderr）各自判断：该路是终端且未设置环境变量 `NO_COLOR`（非空）时美化，否则输出与美化前逐字相同的纯文本，不含任何控制字符。美化只改变排版与颜色，不新增任何文字，中英两种记忆语言下的内容一致。
 
-- `status`：每栏的标题与行放进面板。颜色由各栏已有的结构化字段决定：服务正常为绿色、未运行为黄色（Web 界面地址不上色，额外监听正常为绿色、绑定失败为红色）；模型可用为绿色、冷却中为黄色、未配置不上色；绑定无问题为绿色、有问题为红色；待处理的计数均为零且主线不为空为绿色，有计数或主线为空为黄色，无法读取为红色；云端备份最近一次成功为绿色、失败为红色；客户端栏不上色；配置栏总是红色。
+- `status`：每栏的标题与行放进面板。颜色由各栏已有的结构化字段决定：服务正常为绿色、未运行为黄色（Web 界面地址不上色，额外监听正常为绿色、绑定失败为红色）；模型可用为绿色、冷却中为黄色、未配置不上色；绑定无问题为绿色、有问题为红色；待处理的计数均为零且主线不为空为绿色，有计数或主线为空为黄色，无法读取为红色；云端备份最近一次成功为绿色、失败为红色；客户端栏不上色；提示词文档有误一栏为黄色；配置栏总是红色。
 - `restore` 预览：预览放进面板，将被替换的条目高亮。
 - 等待转圈：`reindex`、`backup --remote` 与 `restore` 的执行阶段，stderr 为终端时显示转圈与已用时间，不显示百分比，结束即清除。
 - `connect`：端点三行（端点、传输方式、建议的服务名）放进面板，其余照常。

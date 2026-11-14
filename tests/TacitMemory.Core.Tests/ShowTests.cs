@@ -27,8 +27,8 @@ public sealed class ShowTests : IDisposable
         Assert.Equal(ShowSource.Code, Part(result, "general").Source);
         Assert.Equal(ShowSource.Code, Part(result, "language").Source);
         var criteria = Part(result, "criteria");
-        Assert.Equal(ShowSource.UserFile, criteria.Source);
-        Assert.Equal(Path.Combine(Prompts, "rules.md"), criteria.Path);
+        Assert.Equal(ShowSource.BuiltInDefault, criteria.Source);
+        Assert.Null(criteria.Path);
 
         Assert.Equal(3000, result.Fixed!.Limit);
         Assert.Equal(4000, result.Whole!.Limit);
@@ -116,6 +116,81 @@ public sealed class ShowTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "instructions.md"), (await home.ShowAsync(ShowTarget.Instructions, useDefault: true)).Report);
         var after = Part(await home.ShowAsync(ShowTarget.Instructions), "instructions");
+
+        Assert.Equal(ShowSource.BuiltInDefault, before.Source);
+        Assert.Equal(ShowSource.UserFile, after.Source);
+        Assert.Equal(before.Text, after.Text);
+    }
+
+    [Fact]
+    public async Task The_criteria_in_the_instructions_name_rules_md_when_it_exists()
+    {
+        Directory.CreateDirectory(Prompts);
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+
+        var criteria = Part(await _home.Tacit().ShowAsync(ShowTarget.Instructions), "criteria");
+
+        Assert.Equal(ShowSource.UserFile, criteria.Source);
+        Assert.Equal(Path.Combine(Prompts, "rules.md"), criteria.Path);
+        Assert.Contains("- 自定义的标准", criteria.Text);
+    }
+
+    [Fact]
+    public async Task The_rules_show_the_built_in_criteria_in_the_memory_language_with_the_item_counts()
+    {
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Rules);
+
+        var criteria = Part(result, "criteria");
+        Assert.Equal(ShowSource.BuiltInDefault, criteria.Source);
+        Assert.Null(criteria.Path);
+        Assert.StartsWith("## 值得记\n- 用户纠正或打断 Agent\n", criteria.Text);
+        Assert.Contains("\n## 不记\n", criteria.Text);
+        var heading = result.Report.Split('\n')[0];
+        Assert.Contains("内置默认", heading);
+        Assert.Contains("5/10", heading);
+        Assert.Contains("3/10", heading);
+        Assert.EndsWith(criteria.Text, result.Report);
+    }
+
+    [Fact]
+    public async Task The_rules_show_the_file_with_its_path_when_it_exists()
+    {
+        Directory.CreateDirectory(Prompts);
+        var path = Path.Combine(Prompts, "rules.md");
+        File.WriteAllText(path, "## 值得记\n- 自定义的标准\n  续行不算条目\n\n## Not recorded\n- 日常闲聊\n");
+
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Rules);
+
+        var criteria = Part(result, "criteria");
+        Assert.Equal(ShowSource.UserFile, criteria.Source);
+        Assert.Equal(path, criteria.Path);
+        Assert.Equal("## 值得记\n- 自定义的标准\n\n## 不记\n- 日常闲聊", criteria.Text);
+        Assert.Contains(path, result.Report.Split('\n')[0]);
+        Assert.Contains("1/10", result.Report.Split('\n')[0]);
+    }
+
+    [Theory]
+    [InlineData("zh", "## 值得记\n- 用户纠正或打断 Agent\n")]
+    [InlineData("en", "## Worth recording\n- The user corrects or interrupts the agent\n")]
+    public async Task The_default_rules_are_the_bare_file_in_the_memory_language(string language, string start)
+    {
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), $"{TestHome.Models}language: {language}\n");
+
+        var result = await _home.Tacit().ShowAsync(ShowTarget.Rules, useDefault: true);
+
+        Assert.StartsWith(start, result.Report);
+        Assert.Equal(ShowSource.BuiltInDefault, Part(result, "text").Source);
+    }
+
+    [Fact]
+    public async Task Saving_the_default_rules_as_the_file_gives_the_same_instructions()
+    {
+        var home = _home.Tacit();
+        var before = Part(await home.ShowAsync(ShowTarget.Instructions), "criteria");
+
+        Directory.CreateDirectory(Prompts);
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), (await home.ShowAsync(ShowTarget.Rules, useDefault: true)).Report);
+        var after = Part(await home.ShowAsync(ShowTarget.Instructions), "criteria");
 
         Assert.Equal(ShowSource.BuiltInDefault, before.Source);
         Assert.Equal(ShowSource.UserFile, after.Source);

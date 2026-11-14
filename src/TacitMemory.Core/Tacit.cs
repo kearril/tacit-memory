@@ -21,8 +21,7 @@ public sealed class Tacit(TacitOptions options)
         Initializer.RunAsync(options, request, cancellationToken);
 
     /// <summary>
-    /// Loads and validates <c>config.yaml</c> and the prompt documents in <c>prompts/</c>, writing <c>prompts/rules.md</c>
-    /// again from the template if it was deleted.
+    /// Loads and validates <c>config.yaml</c> and the prompt documents in <c>prompts/</c>.
     /// </summary>
     public TacitConfig LoadConfig() => ConfigLoader.Load(options);
 
@@ -77,11 +76,12 @@ public sealed class Tacit(TacitOptions options)
     }
 
     /// <summary>
-    /// What <c>tacit show</c> prints for the server instructions, the resident block, the memory skill or a memory
-    /// command: each part with its source and length. Reads the same sources the service reads and needs no running
-    /// service. Loading the config may create <c>prompts/</c> and rewrite a missing <c>rules.md</c>, as the service does at
-    /// startup; nothing else is written. With <paramref name="useDefault"/> it returns only the built-in text, which can be
-    /// saved as the file that replaces it, and then needs no config; a memory command has no file that replaces it, so it
+    /// What <c>tacit show</c> prints for the server instructions, the recording criteria, the resident block, the memory
+    /// skill or a memory command: each part with its source and length. Reads the same sources the service reads and needs
+    /// no running service. Loading the config may create <c>prompts/</c>; nothing else is written. With
+    /// <paramref name="useDefault"/> it returns only the built-in text, which can be saved as the file that replaces it, and
+    /// then needs no valid config (the recording criteria take the memory language from it when it loads, the system UI
+    /// language otherwise); a memory command has no file that replaces it, so it
     /// refuses. The instructions end with the consolidation reminder when one is due, read from the memory repository's history;
     /// no model is called.
     /// </summary>
@@ -91,7 +91,7 @@ public sealed class Tacit(TacitOptions options)
             return await Viewer.Show(options, LoadConfig(), target, cancellationToken);
         if (target is ShowTarget.Remember or ShowTarget.Consolidation)
             throw NoBuiltInText(target == ShowTarget.Remember ? "remember" : "consolidate");
-        return Viewer.Default(target);
+        return Viewer.Default(target, ConfigLoader.LanguageOf(options));
     }
 
     /// <summary>

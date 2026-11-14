@@ -27,6 +27,12 @@
   --tk-color-scrim: rgb(15 23 42 / 0.32);
   --tk-color-shadow: rgb(100 116 139);
   --tk-color-heat-0: #eef1f6;
+  /* Markdown in the prompt editor: headings, the marks that shape it (#, -, **, `), HTML comments, inline code, links */
+  --tk-color-syntax-heading: #6d28d9;
+  --tk-color-syntax-mark: #c2410c;
+  --tk-color-syntax-comment: #15803d;
+  --tk-color-syntax-code: #be185d;
+  --tk-color-syntax-link: #0369a1;
   --tk-mix-soft: 8%;
   --tk-mix-heat-1: 22%;
   --tk-mix-heat-2: 42%;
@@ -52,6 +58,11 @@
     --tk-color-scrim: rgb(0 0 0 / 0.55);
     --tk-color-shadow: rgb(0 0 0);
     --tk-color-heat-0: #222a38;
+    --tk-color-syntax-heading: #c4b5fd;
+    --tk-color-syntax-mark: #fdba74;
+    --tk-color-syntax-comment: #86efac;
+    --tk-color-syntax-code: #f9a8d4;
+    --tk-color-syntax-link: #7dd3fc;
     --tk-mix-soft: 14%;
   --tk-mix-heat-1: 35%;
   --tk-mix-heat-2: 58%;
@@ -77,6 +88,11 @@
   --tk-color-scrim: rgb(0 0 0 / 0.55);
   --tk-color-shadow: rgb(0 0 0);
   --tk-color-heat-0: #222a38;
+  --tk-color-syntax-heading: #c4b5fd;
+  --tk-color-syntax-mark: #fdba74;
+  --tk-color-syntax-comment: #86efac;
+  --tk-color-syntax-code: #f9a8d4;
+  --tk-color-syntax-link: #7dd3fc;
   --tk-mix-soft: 14%;
   --tk-mix-heat-1: 35%;
   --tk-mix-heat-2: 58%;
@@ -98,9 +114,11 @@
   --tk-color-heat-3: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-3), var(--tk-color-surface));
   --tk-color-heat-4: var(--tk-color-accent);
 
-  /* Typography. Inter is bundled with the interface; Chinese text falls back to the system's own sans-serif face. */
+  /* Typography. Inter is bundled with the interface; Chinese text falls back to the system's own sans-serif face. The
+     monospace face prefers a Chinese monospace font where one is installed, so Chinese takes two Latin widths; elsewhere
+     Chinese falls back to the same system face as the interface. No monospace font is bundled. */
   --tk-font-sans: "Inter Variable", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
-  --tk-font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --tk-font-mono: "Maple Mono NF CN", "Sarasa Mono SC", ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", monospace;
   --tk-font-size-xs: 0.8125rem;
   --tk-font-size-sm: 0.875rem;
   --tk-font-size-base: 1rem;
@@ -121,7 +139,8 @@
 
   /* Sizes of controls (buttons, inputs), of the narrow content column (forms, dialogs), of the sidebar, of the page, the
      smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; of the settings column
-     and the names on its left, and of a client's logo tile; they sit with the spacing scale */
+     and the names on its left, of a client's logo tile, of the prompts column, and the least height of a prompt document's
+     editor; they sit with the spacing scale */
   --tk-size-control: 2.5rem;
   --tk-size-content: 32rem;
   --tk-size-sidebar: 15rem;
@@ -133,6 +152,8 @@
   --tk-size-settings: 47.5rem;
   --tk-size-setting-name: 11rem;
   --tk-size-logo: 3rem;
+  --tk-size-prompts: 60rem;
+  --tk-size-editor: 28rem;
 
   /* Shape */
   --tk-radius-xs: 0.25rem;

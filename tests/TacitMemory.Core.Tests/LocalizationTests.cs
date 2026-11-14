@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
+using TacitMemory.Core.Show;
 
 namespace TacitMemory.Core.Tests;
 
@@ -35,18 +36,15 @@ public sealed partial class LocalizationTests
     [Theory]
     [InlineData(MemoryLanguage.Zh)]
     [InlineData(MemoryLanguage.En)]
-    public async Task Every_heading_init_writes_is_a_structure_word_of_that_language(MemoryLanguage language)
+    public async Task Every_heading_init_writes_and_the_built_in_criteria_has_is_a_structure_word_of_that_language(MemoryLanguage language)
     {
         using var home = new TestHome();
         var result = await home.Tacit().InitAsync(new InitRequest { Language = language });
         var words = StructureWordsIn().Select(word => word.In(language)).ToHashSet();
 
-        string[] files =
-        [
-            Path.Combine(home.TacitHome, "prompts", "rules.md"),
-            .. new[] { "persona.md", "candidates.md", "workstreams.md" }.Select(name => Path.Combine(result.MemoryPath, name)),
-        ];
-        var headings = files.SelectMany(File.ReadLines).Where(line => line.StartsWith('#')).ToList();
+        var files = new[] { "persona.md", "candidates.md", "workstreams.md" }.Select(name => Path.Combine(result.MemoryPath, name));
+        var criteria = (await home.Tacit().ShowAsync(ShowTarget.Rules, useDefault: true)).Report.Split('\n');
+        var headings = files.SelectMany(File.ReadLines).Concat(criteria).Where(line => line.StartsWith('#')).ToList();
 
         Assert.NotEmpty(headings);
         Assert.All(headings, heading => Assert.Contains(heading.TrimStart('#', ' '), words));

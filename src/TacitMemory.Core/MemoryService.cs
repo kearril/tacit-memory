@@ -89,6 +89,9 @@ public sealed class MemoryService : IDisposable
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
     private PromptDocuments _prompts = null!;
+
+    /// <summary>The refusal of each prompt document whose file the service does not run, keeping its previous text instead.</summary>
+    private IReadOnlyDictionary<PromptName, string> _promptProblems = new Dictionary<PromptName, string>();
     private string? _instructions;
     private string? _instructionsStatus;
     private int _instructionsVersion;
@@ -150,7 +153,12 @@ public sealed class MemoryService : IDisposable
         }
 
         Config = config;
-        _prompts = config.Prompts;
+        lock (_instructionsGate)
+        {
+            // A config that loads has every prompt document as its file holds it.
+            _prompts = config.Prompts;
+            _promptProblems = new Dictionary<PromptName, string>();
+        }
         _models = models;
         if (_models.Unconfigured is { Count: > 0 } unconfigured)
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
@@ -401,7 +409,7 @@ public sealed class MemoryService : IDisposable
         var uptime = _options.Time.GetUtcNow() - _startedAt;
         return StatusReporter.RunningAsync(
             _options, Config, endpoint, ProductVersion.Current, uptime < TimeSpan.Zero ? TimeSpan.Zero : uptime, _models.Statuses,
-            _extraListener, cancellationToken);
+            _extraListener, PromptProblems(), cancellationToken);
     }
 
     /// <summary>
@@ -457,6 +465,179 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
+    /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
+    /// file. Reads the files only, so it does not wait for a maintenance operation.
+    /// </summary>
+    public PromptList Prompts() => new([.. Enum.GetValues<PromptName>().Select(PromptView)]);
+
+    /// <summary>
+    /// Checks <paramref name="text"/> as the prompt document <paramref name="name"/> without saving it: its measure beside
+    /// the other documents as the service runs them, and every refusal a save of it would give.
+    /// </summary>
+    public PromptCheck CheckPrompt(PromptName name, string text)
+    {
+        var running = RunningPrompts();
+        return new PromptCheck(
+            PromptFiles.Measure(Config.Language, running, name, text),
+            PromptFiles.Check(_options.TacitHome, Config.Language, running, name, text));
+    }
+
+    /// <summary>The prompt documents the service runs with now.</summary>
+    private PromptDocuments RunningPrompts()
+    {
+        lock (_instructionsGate)
+            return _prompts;
+    }
+
+    /// <summary>
+    /// The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with, and
+    /// why the service keeps its previous text, if it does.
+    /// </summary>
+    private PromptDocumentView PromptView(PromptName name)
+    {
+        PromptDocuments running;
+        string? problem;
+        lock (_instructionsGate)
+        {
+            running = _prompts;
+            problem = _promptProblems.GetValueOrDefault(name);
+        }
+        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problem);
+    }
+
+    /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
+    private IReadOnlyList<PromptProblem> PromptProblems()
+    {
+        lock (_instructionsGate)
+            return [.. Enum.GetValues<PromptName>().Where(_promptProblems.ContainsKey).Select(name => new PromptProblem(name, _promptProblems[name]))];
+    }
+
+    /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
+    /// <exception cref="TacitException"><see cref="TacitError.PromptUnknown"/> for any other name.</exception>
+    public PromptName PromptNamed(string name)
+    {
+        foreach (var candidate in Enum.GetValues<PromptName>())
+        {
+            if (string.Equals(candidate.ToString(), name, StringComparison.OrdinalIgnoreCase) && name == name.ToLowerInvariant())
+                return candidate;
+        }
+        throw new TacitException(TacitError.PromptUnknown, ManagementApiMessages.PromptUnknown.Format(Config.Language, name));
+    }
+
+    /// <summary>
+    /// Saves <paramref name="text"/> as the prompt document <paramref name="name"/>, with LF line breaks, and applies it at
+    /// once: the skills are written again, the resident blocks rendered again and the next server instructions built from it.
+    /// <paramref name="hash"/> names the file the caller read the text from, <c>null</c> when there was none; a file changed
+    /// since is not overwritten. The text is checked first by the rules a load applies, so a refused text changes no file.
+    /// </summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.PromptChanged"/>, or <see cref="TacitError.PromptRejected"/> with every refusal; in each case
+    /// the file is as it was.
+    /// </exception>
+    public async Task<PromptSaved> SavePromptAsync(PromptName name, string? hash, string text, CancellationToken cancellationToken = default)
+    {
+        var hold = await _gate.WriteAsync(cancellationToken);
+        try
+        {
+            var path = PromptFiles.PathOf(_options.TacitHome, name);
+            var current = PromptView(name);
+            if (current.Hash != hash)
+                throw new TacitException(TacitError.PromptChanged, ManagementApiMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
+
+            var content = text.ReplaceLineEndings("\n");
+            RefuseUnless(name, content);
+            Directory.CreateDirectory(PromptFiles.Folder(_options.TacitHome));
+            ConfigWriter.Replace(path, content);
+            return Applied(name);
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Returns the prompt document <paramref name="name"/> to its built-in default by deleting its file, and applies that at
+    /// once as a save does. Without a file it changes nothing. It is refused when the built-in text would not fit beside
+    /// the other documents, as when a long <c>instructions.md</c> leaves no room for the built-in recording criteria.
+    /// </summary>
+    /// <exception cref="TacitException"><see cref="TacitError.PromptRejected"/>; the file is kept.</exception>
+    public async Task<PromptSaved> RestorePromptDefaultAsync(PromptName name, CancellationToken cancellationToken = default)
+    {
+        var hold = await _gate.WriteAsync(cancellationToken);
+        try
+        {
+            var path = PromptFiles.PathOf(_options.TacitHome, name);
+            if (!File.Exists(path))
+                return new PromptSaved(PromptView(name), []);
+
+            RefuseUnless(name, PromptFiles.DefaultText(name, Config.Language));
+            File.Delete(path);
+            return Applied(name);
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Applies the prompt documents now, then gives the document <paramref name="name"/> as the service runs it: the view is
+    /// read after the apply, as its measure and its problem depend on what the service runs.
+    /// </summary>
+    private PromptSaved Applied(PromptName name)
+    {
+        var notices = ApplyPromptsNow(name);
+        return new PromptSaved(PromptView(name), notices);
+    }
+
+    /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
+    private void RefuseUnless(PromptName name, string text)
+    {
+        var refusals = PromptFiles.Check(_options.TacitHome, Config.Language, RunningPrompts(), name, text);
+        if (refusals.Count == 0)
+            return;
+        var file = Path.GetFileName(PromptFiles.PathOf(_options.TacitHome, name));
+        throw new TacitException(TacitError.PromptRejected, string.Join(" ", refusals))
+        {
+            Problems = [.. refusals.Select(refusal => new ConfigProblem(file, refusal))],
+        };
+    }
+
+    /// <summary>
+    /// Applies the prompt documents as a change to <c>prompts/</c> does, without waiting for the watcher; after a change to
+    /// <c>resident.md</c> it renders the resident blocks now as well. Returns what went wrong in the render.
+    /// </summary>
+    private IReadOnlyList<string> ApplyPromptsNow(PromptName name)
+    {
+        ApplyPrompts();
+        if (name != PromptName.Resident)
+            return [];
+
+        var notices = new List<string>();
+        lock (_renderGate)
+        {
+            // Applying a changed resident.md schedules a render, which this one makes needless.
+            _renderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            try
+            {
+                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
+                {
+                    _log.Record(LevelOf(render), render.Message);
+                    if (LevelOf(render) != LogLevel.Information)
+                        notices.Add(render.Message);
+                }
+            }
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
+            {
+                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
+                notices.Add(Messages.RenderFailed.Format(Config.Language, e.Message));
+            }
+        }
+        return notices;
+    }
+
+    /// <summary>
     /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
     /// each key accepts and the hash a save must name. Secrets carry no value. Reads the file only, so it does not wait for a
     /// maintenance operation.
@@ -468,7 +649,7 @@ public sealed class MemoryService : IDisposable
         var text = File.ReadAllText(path);
         var loaded = ConfigLoader.Read(_options, path, text);
         return new ConfigView(
-            Hash(text),
+            ContentHash.Of(text),
             WithoutSecrets(ConfigFile.From(loaded)),
             WithoutSecrets(ConfigFile.From(Config)),
             ConfigSchema.Defaults(_options),
@@ -501,7 +682,7 @@ public sealed class MemoryService : IDisposable
     {
         var path = ConfigFilePath;
         var current = File.ReadAllText(path);
-        if (Hash(current) != hash)
+        if (ContentHash.Of(current) != hash)
             throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
 
         var held = ConfigLoader.Read(_options, path, current);
@@ -545,14 +726,12 @@ public sealed class MemoryService : IDisposable
             throw;
         }
 
-        return new ConfigSaved(Hash(content), restart);
+        return new ConfigSaved(ContentHash.Of(content), restart);
     }
 
     private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
 
     /// <summary>The hash that names one content of <c>config.yaml</c>.</summary>
-    private static string Hash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
-
     /// <summary>The settings with every secret left out, as they leave the service.</summary>
     private static ConfigFile WithoutSecrets(ConfigFile file) => file with
     {
@@ -1284,9 +1463,9 @@ public sealed class MemoryService : IDisposable
             try
             {
                 WatchPrompts();
-                var problems = new List<string>();
+                var problems = new Dictionary<PromptName, string>();
                 var prompts = PromptFiles.Reload(_options.TacitHome, Config.Language, _prompts, problems);
-                foreach (var problem in problems)
+                foreach (var problem in problems.Values.Distinct())
                     _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
                 SkillSet.Write(_options.TacitHome, Config.Language, prompts.Skill);
                 _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
@@ -1294,6 +1473,7 @@ public sealed class MemoryService : IDisposable
                 lock (_instructionsGate)
                 {
                     _prompts = prompts;
+                    _promptProblems = problems;
                     ClearInstructionsLocked();
                 }
                 _promptsRetries = 0;

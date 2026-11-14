@@ -1,17 +1,20 @@
+import type { PromptName } from "../../api/prompts";
 import type { BindingProblem, StatusReport } from "../../api/status";
+import { promptPathOf } from "../prompts/names";
 
 /** One thing the user has to deal with, as the status report shows it. */
 export type Todo =
   | { readonly kind: "modelsUnconfigured"; readonly roles: readonly string[] }
   | { readonly kind: "noBindings" }
   | { readonly kind: "bindingProblem"; readonly client: string; readonly problem: BindingProblem }
+  | { readonly kind: "promptProblem"; readonly name: PromptName; readonly problem: string }
   | { readonly kind: "extraListenerFailed"; readonly address: string; readonly reason: string }
   | { readonly kind: "cloudBackupFailed"; readonly at: string; readonly error: string | null };
 
 /**
  * The things the user has to deal with, in the order the dashboard lists them: the auxiliary models that are not
- * configured, as one to-do naming them all; a missing binding or each binding with a problem; an extra listener that
- * failed; and a failed last cloud backup. A cooling model and pending candidates or format problems are not listed: they
+ * configured, as one to-do naming them all; a missing binding or each binding with a problem; each prompt document whose
+ * file the service does not run; an extra listener that failed; and a failed last cloud backup. A cooling model and pending candidates or format problems are not listed: they
  * pass by themselves or are left to consolidation. A column the report leaves out (it could not be read) adds nothing.
  */
 export function todosOf(report: StatusReport): Todo[] {
@@ -32,6 +35,10 @@ export function todosOf(report: StatusReport): Todo[] {
     }
   }
 
+  for (const prompt of report.prompts?.items ?? []) {
+    todos.push({ kind: "promptProblem", name: prompt.name, problem: prompt.problem });
+  }
+
   const extra = report.service?.extraListener;
   if (extra?.failureReason != null) {
     todos.push({ kind: "extraListenerFailed", address: extra.address, reason: extra.failureReason });
@@ -45,7 +52,7 @@ export function todosOf(report: StatusReport): Todo[] {
   return todos;
 }
 
-/** Where a to-do leads: the settings section that fixes it, or the backup card on the dashboard. */
+/** Where a to-do leads: the settings section that fixes it, the prompt document, or the backup card on the dashboard. */
 export function targetOf(todo: Todo): string {
   switch (todo.kind) {
     case "modelsUnconfigured":
@@ -53,6 +60,8 @@ export function targetOf(todo: Todo): string {
     case "noBindings":
     case "bindingProblem":
       return "/settings#settings-bindings";
+    case "promptProblem":
+      return promptPathOf(todo.name);
     case "extraListenerFailed":
       return "/settings#settings-access";
     case "cloudBackupFailed":

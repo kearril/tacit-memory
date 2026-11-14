@@ -119,10 +119,10 @@ public sealed record RecordingCriteria(IReadOnlyList<string> WorthRecording, IRe
 
 /// <summary>
 /// The prompt documents in <c>prompts/</c>: the recording criteria from <c>rules.md</c>, the text of
-/// <c>instructions.md</c>, <c>resident.md</c> and <c>skill.md</c>. The last three are <c>null</c> when their file is absent
-/// and the built-in default applies; <c>skill.md</c> is also <c>null</c> when it is blank.
+/// <c>instructions.md</c>, <c>resident.md</c> and <c>skill.md</c>. Each is <c>null</c> when its file is absent and the
+/// built-in default applies; <c>skill.md</c> is also <c>null</c> when it is blank.
 /// </summary>
-public sealed record PromptDocuments(RecordingCriteria Rules, string? Instructions, ResidentDocument? Resident, string? Skill);
+public sealed record PromptDocuments(RecordingCriteria? Rules, string? Instructions, ResidentDocument? Resident, string? Skill);
 
 /// <summary>
 /// <c>resident.md</c>: the shell paragraph of the resident block and the guidance under each of its sections, in the

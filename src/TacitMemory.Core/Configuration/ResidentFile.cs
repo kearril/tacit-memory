@@ -51,12 +51,13 @@ internal static class ResidentFile
 
     /// <summary>Reads the file, or returns <c>null</c> when it is absent, so the built-in shell and guidance apply.</summary>
     /// <exception cref="TacitException">The file is longer than <see cref="MaxLength"/>, or names a section wrongly.</exception>
-    public static ResidentDocument? Load(string path, MemoryLanguage language)
-    {
-        if (!File.Exists(path))
-            return null;
+    public static ResidentDocument? Load(string path, MemoryLanguage language) =>
+        File.Exists(path) ? Parse(ReadText(path), path, language) : null;
 
-        var text = ReadText(path);
+    /// <summary>A text written as <c>resident.md</c>, its line breaks as LF; <paramref name="path"/> names the file in a refusal.</summary>
+    /// <exception cref="TacitException">The text is longer than <see cref="MaxLength"/>, or names a section wrongly.</exception>
+    public static ResidentDocument Parse(string text, string path, MemoryLanguage language)
+    {
         if (text.Length > MaxLength)
             throw new TacitException(TacitError.PromptInvalid, Messages.ResidentTooLong.Format(
                 language, path, text.Length, MaxLength, text.Length - MaxLength));

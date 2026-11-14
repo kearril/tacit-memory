@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker } from "react-router";
+import { useMemo, useState } from "react";
 import { ApiError } from "../../api/client";
 import {
   CONFIG_QUERY_KEY,
@@ -26,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
+import { LeaveGuard } from "../../components/leave-guard";
 import { Button } from "../../components/ui/button";
 import { BusyIcon } from "../dashboard/parts";
 import { useToast } from "../../components/ui/toast-context";
@@ -282,7 +282,10 @@ function SettingsEditor({
           onReload={onReload}
         />
       ) : null}
-      <LeaveGuard dirty={dirty && !save.isSuccess} />
+      <LeaveGuard
+        dirty={dirty && !save.isSuccess}
+        text={{ title: text.leaveTitle, body: text.leaveBody, confirm: text.leaveConfirm, cancel: text.cancel }}
+      />
     </>
   );
 }
@@ -395,53 +398,6 @@ function SaveBar({
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Keeps unsaved changes from being lost: a move to another page of the interface asks first, and closing or reloading the
- * tab is met with the browser's own question.
- */
-function LeaveGuard({ dirty }: { readonly dirty: boolean }) {
-  const dictionary = useDictionary();
-  const text = dictionary.settings;
-  // Leaving closes the dialog too; that close must not reset the navigation it just let through.
-  const leaving = useRef(false);
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname,
-  );
-
-  useEffect(() => {
-    if (!dirty) {
-      return;
-    }
-    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
-
-  return (
-    <AlertDialog open={blocker.state === "blocked"} onOpenChange={(open) => {
-        if (!open && !leaving.current) {
-          blocker.reset?.();
-        }
-      }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{text.leaveTitle}</AlertDialogTitle>
-          <AlertDialogDescription>{text.leaveBody}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{text.cancel}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={() => {
-              leaving.current = true;
-              blocker.proceed?.();
-            }}>
-            {text.leaveConfirm}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
 

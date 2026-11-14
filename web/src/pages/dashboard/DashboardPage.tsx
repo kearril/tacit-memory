@@ -4,6 +4,7 @@ import {
   CircleCheck,
   CloudAlert,
   Cpu,
+  FileWarning,
   Link2Off,
   type LucideIcon,
   Network,
@@ -197,6 +198,13 @@ function viewOf(todo: Todo, dictionary: Dictionary, locale: string): TodoView {
         icon: Unlink,
         title: text.bindingProblem(todo.client),
         detail: dictionary.dashboard.bindingProblems[todo.problem],
+        failure: true,
+      };
+    case "promptProblem":
+      return {
+        icon: FileWarning,
+        title: text.promptProblem(dictionary.prompts.documents[todo.name].title),
+        detail: todo.problem,
         failure: true,
       };
     case "extraListenerFailed":

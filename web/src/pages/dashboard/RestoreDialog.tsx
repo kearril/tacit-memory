@@ -12,6 +12,7 @@ import {
   runRestore,
 } from "../../api/backups";
 import { CONFIG_QUERY_KEY } from "../../api/config";
+import { PROMPTS_QUERY_KEY } from "../../api/prompts";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -74,6 +75,8 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
       void queryClient.invalidateQueries({ queryKey: ACTIVITY_QUERY_KEY });
       // A restore with the config reloads the service: the settings page reads the file and the pending restarts again.
       void queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
+      // It also replaces the prompt documents.
+      void queryClient.invalidateQueries({ queryKey: PROMPTS_QUERY_KEY });
     },
   });
 

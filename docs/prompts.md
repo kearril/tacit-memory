@@ -116,7 +116,7 @@
 
 ### 值得记标准（由配置填入）
 
-`prompts/rules.md` 两节的条目原样写入，决定什么值得记、什么不记。它是用户直接维护的策略，缺失时按记忆语言重新生成。
+值得记标准两节的条目原样写入，决定什么值得记、什么不记。来源是 `prompts/rules.md`：用户放置该文件时整份替换内置默认，缺失时使用内置默认（按记忆语言给出）。
 
 ### 最近 7 天的活动、状态提示、整理提示（动态数据）
 
@@ -245,12 +245,13 @@
 | 子命令 | 看到的内容 | 来源标注 |
 | :--- | :--- | :--- |
 | `instructions` | 服务端说明，按段标注来源，并给出固定部分与总长的长度和上限（示例：固定部分 2116/3000，总长 2365/4000） | 每段分别为代码、内置默认或 `prompts/` 中的文件 |
+| `rules` | 值得记标准，文件格式，并给出两节各自的条数与上限 | 内置默认或 `prompts/rules.md` |
 | `resident` | 常驻区块的外壳与四节引导语，文件格式 | 内置默认或 `prompts/resident.md` |
 | `skill` | `tacit-memory` skill 的完整成品；`--default` 只输出系统部分 | 代码，以及 `prompts/skill.md` |
 | `tools` | 各工具与参数的说明，由 CLI 经 `TacitMemory.Host` 读取，上限取自已严格加载的配置 | 代码与 `config.yaml` 的 `limits` |
 | `remember` | `tacit-remember` skill 的完整成品 | 代码 |
 | `consolidate` | `tacit-consolidate` skill 的完整成品（不含整理报告，报告由资源提供） | 代码与记忆语言 |
 
-- `--default`（用于 `instructions`、`resident`、`skill`）只输出内置默认文本，可以直接保存为覆盖文件的起点，例如 `tacit show instructions --default > <TACIT_HOME>/prompts/instructions.md`。`remember`、`consolidate` 与 `tools` 没有内置默认文本，不接受 `--default`。
+- `--default`（用于 `instructions`、`rules`、`resident`、`skill`）只输出内置默认文本，可以直接保存为覆盖文件的起点，例如 `tacit show instructions --default > <TACIT_HOME>/prompts/instructions.md`。`remember`、`consolidate` 与 `tools` 没有内置默认文本，不接受 `--default`。
 - 输出是此刻的内容，不含运行时状态（调用失败的辅助模型、非 UTF-8 文件）；运行中的服务还会加入这些状态提示。
 - 标签随记忆语言切换，正文原样输出。

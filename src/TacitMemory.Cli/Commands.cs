@@ -133,14 +133,19 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
     {
         var subcommand = FirstArgument(context);
         throw new UsageException(subcommand is null
-            ? "Missing show subcommand. Valid subcommands: instructions, resident, skill, tools, remember, consolidate."
-            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, resident, skill, tools, remember, consolidate.");
+            ? "Missing show subcommand. Valid subcommands: instructions, rules, resident, skill, tools, remember, consolidate."
+            : $"Unknown show subcommand '{subcommand}'. Valid subcommands: instructions, rules, resident, skill, tools, remember, consolidate.");
     });
 
     /// <summary>Show the server instructions a session receives.</summary>
     /// <param name="default">Print only the built-in text, ready to save as the file that replaces it.</param>
     [Command("show instructions")]
     public Task<int> ShowInstructions(bool @default = false) => ShowPart(ShowTarget.Instructions, @default);
+
+    /// <summary>Show the recording criteria: what is worth recording and what is not.</summary>
+    /// <param name="default">Print only the built-in text, ready to save as the file that replaces it.</param>
+    [Command("show rules")]
+    public Task<int> ShowRules(bool @default = false) => ShowPart(ShowTarget.Rules, @default);
 
     /// <summary>Show the resident block that is written into the context file.</summary>
     /// <param name="default">Print only the built-in text, ready to save as the file that replaces it.</param>

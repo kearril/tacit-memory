@@ -141,11 +141,11 @@ _Avoid_: 大模型、LLM
 _Avoid_: 记忆提示词、系统规则
 
 **值得记标准**（Recording criteria）：
-记忆规则中判断哪些内容应写入、哪些不记的条目，存于 `prompts/rules.md`，可自由修改。
+记忆规则中判断哪些内容应写入、哪些不记的条目。内置一份默认，按记忆语言给出；用户放置 `prompts/rules.md` 时整份替换它。
 _Avoid_: 记忆触发器、写入条件
 
 **提示词文档**（Prompt documents）：
-`TACIT_HOME/prompts/` 下用户可修改的四份文档：`rules.md`（值得记标准）、`instructions.md`（核心规则，存在时整份替换内置默认）、`resident.md`（常驻区块的外壳与各节引导语，存在时整份替换内置默认）与 `skill.md`（写法约定，接在记忆 skill 末尾）。启动时校验；运行中修改时，`resident.md` 的变化经去抖后重渲染常驻区块，`skill.md` 的变化经去抖后重新生成记忆 skill，其余文档下一个会话生效。
+`TACIT_HOME/prompts/` 下用户可放置的四份文档：`rules.md`（值得记标准）、`instructions.md`（核心规则）与 `resident.md`（常驻区块的外壳与各节引导语）存在时整份替换各自的内置默认，`skill.md`（写法约定）接在记忆 skill 末尾。文件存在即用户自定义，不存在即使用内置默认；服务不会生成这些文件。启动时校验；运行中修改时，`resident.md` 的变化经去抖后重渲染常驻区块，`skill.md` 的变化经去抖后重新生成记忆 skill，其余文档下一个会话生效。
 _Avoid_: 提示词文件、配置文件
 
 **记忆 skill**（Memory skill）：

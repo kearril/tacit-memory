@@ -19,7 +19,7 @@ internal static class StatusReporter
     /// <summary>The report of a running service: its endpoint, version and uptime, its models' states, and the shared columns.</summary>
     public static async Task<StatusReport> RunningAsync(
         TacitOptions options, TacitConfig config, Uri endpoint, string version, TimeSpan uptime, IReadOnlyList<ModelStatus> models,
-        ExtraListenerStatus? extraListener, CancellationToken cancellationToken)
+        ExtraListenerStatus? extraListener, IReadOnlyList<PromptProblem> prompts, CancellationToken cancellationToken)
     {
         var language = config.Language;
         var shared = await SharedAsync(options, config, cancellationToken);
@@ -47,8 +47,14 @@ internal static class StatusReporter
                 web,
                 extraListener),
             Models = Models(language, models),
+            Prompts = prompts.Count == 0 ? null : new PromptsStatus(
+                ManagementApiMessages.PromptsTitle.In(language),
+                [.. prompts.Select(item => ManagementApiMessages.PromptKept.Format(language, $"prompts/{FileName(item.Name)}", item.Problem))],
+                prompts),
         };
     }
+
+    private static string FileName(PromptName name) => Path.GetFileName(PromptFiles.PathOf("", name));
 
     /// <summary>The Web interface's address: the loopback address of the service's MCP endpoint, at <c>/ui/</c>.</summary>
     private static Uri WebAddress(Uri endpoint) => new(endpoint, "/ui/");

@@ -93,8 +93,11 @@ internal static class ServerInstructionText
         ## Language
         Memory is written in {LanguageName(language)}. Write `recall` queries in {LanguageName(language)} too. When you quote or record memory, keep the user's words, code, paths, commands and proper nouns as they are.
         """),
-        Part(InstructionPart.RecordingCriteria, Criteria(prompts.Rules)),
+        Part(InstructionPart.RecordingCriteria, Criteria(prompts.Rules ?? RulesFile.Default(language))),
     ];
+
+    /// <summary>The length of the fixed parts joined, which must stay within <see cref="FixedLimit"/>.</summary>
+    public static int FixedLength(MemoryLanguage language, PromptDocuments prompts) => FixedText(language, prompts).Length;
 
     /// <summary>The fixed parts joined: the text every session gets in full.</summary>
     private static string FixedText(MemoryLanguage language, PromptDocuments prompts) =>
@@ -111,14 +114,16 @@ internal static class ServerInstructionText
 
     /// <summary>
     /// Refuses prompt documents that push the fixed parts past <see cref="FixedLimit"/>. The message names the files
-    /// the user can shorten: <c>rules.md</c>, and <c>instructions.md</c> when it exists.
+    /// the user can shorten: <c>rules.md</c> and <c>instructions.md</c>, each when it exists.
     /// </summary>
     public static void Check(MemoryLanguage language, PromptDocuments prompts, string tacitHome)
     {
-        var length = FixedText(language, prompts).Length;
+        var length = FixedLength(language, prompts);
         if (length > FixedLimit)
         {
-            var files = new List<string> { PromptFiles.RulesPath(tacitHome) };
+            var files = new List<string>();
+            if (prompts.Rules is not null)
+                files.Add(PromptFiles.RulesPath(tacitHome));
             if (prompts.Instructions is not null)
                 files.Add(PromptFiles.InstructionsPath(tacitHome));
             throw new TacitException(TacitError.PromptInvalid, Messages.InstructionsTooLong.Format(
@@ -178,7 +183,7 @@ internal static class ServerInstructionText
         return $"<recent_activity days=\"{RecentSummary.WindowDays}\">\n{string.Join("\n", lines)}\n</recent_activity>";
     }
 
-    /// <summary>The two sections of <c>rules.md</c>, items word for word; an empty section is left out.</summary>
+    /// <summary>The two sections of the recording criteria, items word for word; an empty section is left out.</summary>
     private static string Criteria(RecordingCriteria criteria) => Join(
         new[] { ("## Worth recording", criteria.WorthRecording), ("## Not recorded", criteria.NotRecorded) }
             .Where(section => section.Item2.Count > 0)

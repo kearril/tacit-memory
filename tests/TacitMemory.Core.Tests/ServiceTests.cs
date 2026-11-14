@@ -241,7 +241,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         Directory.Delete(Path.Combine(_home.TacitHome, "prompts"), recursive: true);
 
-        await Eventually(() => File.Exists(RulesMd));
+        await Eventually(() => Directory.Exists(Path.Combine(_home.TacitHome, "prompts")));
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), "Use Chinese page titles.");
 
         var skill = Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");

@@ -10,15 +10,19 @@ import {
   Menu,
   Monitor,
   MonitorSmartphone,
+  PencilLine,
   ScrollText,
   Settings,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { usePrompts } from "../api/prompts";
 import { logout, SESSION_QUERY_KEY } from "../api/session";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet";
+import { PROMPT_NAMES, promptPathOf } from "../pages/prompts/names";
 import { SECTIONS, sectionIdOf } from "../pages/settings/form";
 import { useSectionNav } from "../pages/settings/section-nav";
 import { useDictionary, useSessionStatus } from "./session-context";
@@ -33,7 +37,8 @@ const navItems: readonly { to: string; key: "dashboard" | "settings" | "prompts"
 
 /**
  * The frame of every page once the session allows it: a sidebar on the left with the brand, the five navigation items
- * (on the settings page, the list of its sections under its name) and who the connection is, and the page centred in the
+ * (on the settings page, the list of its sections under its name; on the prompts page, the list of its documents) and who
+ * the connection is, and the page centred in the
  * space to its right. On a narrow screen the sidebar becomes a drawer
  * that a menu button in the page header opens.
  */
@@ -101,6 +106,7 @@ function SidebarBody({ onNavigate }: { readonly onNavigate: () => void }) {
                 {dictionary.nav[item.key]}
               </NavLink>
               {item.key === "settings" ? <SettingsSections onNavigate={onNavigate} /> : null}
+              {item.key === "prompts" ? <PromptDocuments onNavigate={onNavigate} /> : null}
             </li>
           ))}
         </ul>
@@ -187,6 +193,55 @@ function SettingsSections({ onNavigate }: { readonly onNavigate: () => void }) {
         </ul>
       ) : null}
     </>
+  );
+}
+
+/**
+ * On the prompts page, the list of its four documents under its name in the sidebar: each opens its document, the open one
+ * is marked, and a pencil marks the documents the user has a file for.
+ */
+function PromptDocuments({ onNavigate }: { readonly onNavigate: () => void }) {
+  const dictionary = useDictionary();
+  const text = dictionary.prompts;
+  const { pathname } = useLocation();
+  const prompts = usePrompts();
+  if (!pathname.startsWith("/prompts")) {
+    return null;
+  }
+
+  return (
+    <ul aria-label={text.documentsNav} className="mt-xs ml-lg grid gap-xs border-l-(length:--tk-border-thin) border-line">
+      {PROMPT_NAMES.map((name) => {
+        const path = promptPathOf(name);
+        const active = pathname === path;
+        const document = prompts.data?.documents.find((candidate) => candidate.name === name);
+        const customized = document?.builtIn === false;
+        const invalid = document?.problem != null;
+        return (
+          <li key={name}>
+            <Link
+              to={path}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
+              className={`-ml-(--tk-border-thin) flex items-center justify-between gap-sm border-l-(length:--tk-border-thick) py-xs pr-sm pl-md text-sm transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+                active ? "border-accent font-medium text-accent" : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {text.documents[name].title}
+              {invalid ? (
+                <TriangleAlert role="img" aria-label={text.invalid} className="size-(--tk-font-size-sm) shrink-0 text-danger">
+                  <title>{text.invalid}</title>
+                </TriangleAlert>
+              ) : customized ? (
+                <PencilLine role="img" aria-label={text.customized} className="size-(--tk-font-size-sm) shrink-0">
+                  <title>{text.customized}</title>
+                </PencilLine>
+              ) : null}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

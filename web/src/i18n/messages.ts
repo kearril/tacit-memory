@@ -1,5 +1,6 @@
 import { ApiError } from "../api/client";
 import type { BindingProblem } from "../api/status";
+import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
 import type { Duration } from "../pages/dashboard/format";
 import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
@@ -70,6 +71,69 @@ export interface Dictionary {
     readonly cleared: string;
     readonly clearFailed: string;
     readonly clearBlocked: (address: string) => string;
+  };
+  readonly prompts: {
+    /** The label of the list of documents in the sidebar. */
+    readonly documentsNav: string;
+    /** Each document's name and the lines on where its text goes, what it holds and when a change takes effect. */
+    readonly documents: Readonly<Record<PromptName, { readonly title: string; readonly help: readonly string[] }>>;
+    readonly builtIn: string;
+    readonly builtInNote: string;
+    readonly customized: string;
+    readonly customizedNote: (file: string) => string;
+    /** The mark in the sidebar, and the title above the editor, of a document whose file the service does not run. */
+    readonly invalid: string;
+    readonly invalidTitle: string;
+    readonly invalidNote: string;
+    /** Reading the documents again after they failed to load. */
+    readonly readAgain: string;
+    /** The name of the information button beside a document's title. */
+    readonly aboutLabel: (title: string) => string;
+    readonly residentSections: string;
+    readonly textLabel: (title: string) => string;
+    /** What an empty editor shows: the built-in `skill.md` is empty. */
+    readonly empty: string;
+    readonly loadFailed: string;
+    readonly customize: string;
+    readonly unsaved: string;
+    readonly save: string;
+    readonly saving: string;
+    /** After a save: the change reaches the agents with their next session. */
+    readonly saved: string;
+    readonly restored: string;
+    /** Above what did not go as planned after a save, such as a resident block that could not be rendered again. */
+    readonly noticesTitle: string;
+    readonly rejectedTitle: string;
+    readonly saveFailed: string;
+    readonly restoreFailed: string;
+    readonly cancel: string;
+    readonly discard: string;
+    readonly discardTitle: string;
+    readonly discardBody: string;
+    readonly discardConfirm: string;
+    readonly restore: string;
+    readonly restoreTitle: string;
+    readonly restoreBody: (file: string) => string;
+    readonly restoreConfirm: string;
+    readonly reload: string;
+    readonly reloadTitle: string;
+    readonly reloadBody: (file: string) => string;
+    readonly reloadConfirm: string;
+    readonly leaveTitle: string;
+    readonly leaveBody: string;
+    readonly leaveConfirm: string;
+    /** Above the problems the check finds in the text being edited, before any save. */
+    readonly problemsTitle: string;
+    /** The measure under the text: characters, the fixed part of the server instructions and what it leaves. */
+    readonly measure: {
+      readonly characters: (length: number, limit: number) => string;
+      readonly fixedPart: (length: number, limit: number) => string;
+      readonly activityRoom: (room: number) => string;
+      readonly noActivityRoom: (short: number) => string;
+      readonly items: (section: string, count: number, limit: number) => string;
+      readonly worthRecording: string;
+      readonly notRecorded: string;
+    };
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;
@@ -347,6 +411,7 @@ export interface Dictionary {
       readonly extraListenerFailed: (address: string) => string;
       readonly cloudBackupFailed: string;
       readonly cloudBackupFailedDetail: (time: string) => string;
+      readonly promptProblem: (document: string) => string;
     };
     readonly models: Readonly<Record<string, string>>;
     readonly bindingProblems: Readonly<Record<BindingProblem, string>>;
