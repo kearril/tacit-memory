@@ -12,7 +12,7 @@ function Card({
     <section
       data-slot="card"
       className={cn(
-        "grid content-start gap-md rounded-lg bg-surface p-lg text-ink shadow-rest",
+        "grid grid-cols-1 content-start gap-md rounded-lg bg-surface p-lg text-ink shadow-rest",
         interactive && "lift hover:shadow-hover",
         className,
       )}

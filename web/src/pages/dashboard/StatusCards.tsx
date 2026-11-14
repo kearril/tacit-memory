@@ -527,14 +527,26 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   );
 }
 
-/** An address of the service, with a button that copies it. */
-function Address({ value, label }: { readonly value: string; readonly label: string }) {
+/**
+ * An address of the service, with a button that copies it. The address takes the rest of the row and the button ends it,
+ * so the copy buttons of the rows line up; a state that belongs to the address goes between them.
+ */
+function Address({
+  value,
+  label,
+  children,
+}: {
+  readonly value: string;
+  readonly label: string;
+  readonly children?: ReactNode;
+}) {
   const dictionary = useDictionary();
   return (
     <>
-      <span title={value} className="min-w-0 truncate select-all">
+      <span title={value} className="min-w-0 flex-1 truncate select-all">
         {value}
       </span>
+      {children}
       <CopyButton
         value={value}
         label={dictionary.dashboard.copy(label)}
@@ -580,8 +592,7 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
             {service.extraListener === null ? (
               <span className="text-ink-muted">{text.noExtraListener}</span>
             ) : (
-              <>
-                <Address value={service.extraListener.address} label={text.extraListener} />
+              <Address value={service.extraListener.address} label={text.extraListener}>
                 {service.extraListener.failureReason === null ? (
                   <Badge tone="success">
                     <CircleCheck aria-hidden />
@@ -593,7 +604,7 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
                     {text.listenFailed}
                   </Badge>
                 )}
-              </>
+              </Address>
             )}
           </InfoRow>
         </dl>
