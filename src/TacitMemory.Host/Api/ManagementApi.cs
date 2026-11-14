@@ -42,9 +42,13 @@ public static class ManagementApiJson
 
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
-/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path.
+/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path;
+/// other errors leave the field out.
 /// </summary>
-public sealed record ApiError(string Error, string Message, IReadOnlyList<ConfigProblem>? Problems = null);
+public sealed record ApiError(
+    string Error,
+    string Message,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ConfigProblem>? Problems = null);
 
 /// <summary>
 /// The body of <c>PUT /api/config</c>: the whole config to save, and the hash of the file it was read from. Its secrets are
