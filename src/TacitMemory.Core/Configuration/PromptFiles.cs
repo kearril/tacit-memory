@@ -8,7 +8,7 @@ namespace TacitMemory.Core.Configuration;
 /// <summary>
 /// The prompt documents in <c>TACIT_HOME/prompts/</c>. <see cref="Load"/> runs when the config is loaded and
 /// <see cref="Reload"/> whenever the folder changes while the service runs. Each document is checked there; a document
-/// that is absent falls back to its built-in default, and <c>rules.md</c> is written again from its template.
+/// that is absent falls back to its built-in default.
 /// </summary>
 internal static partial class PromptFiles
 {
@@ -28,8 +28,7 @@ internal static partial class PromptFiles
     public static string ResidentPath(string tacitHome) => Path.Combine(Folder(tacitHome), "resident.md");
 
     /// <summary>
-    /// Reads every prompt document, throwing for the first one that breaks its limits or format. <c>rules.md</c> is
-    /// written again from its template when it is missing.
+    /// Reads every prompt document, throwing for the first one that breaks its limits or format.
     /// </summary>
     public static PromptDocuments Load(string tacitHome, MemoryLanguage language)
     {

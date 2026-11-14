@@ -6,6 +6,9 @@ public enum ShowTarget
     /// <summary>The server instructions a new session receives.</summary>
     Instructions,
 
+    /// <summary>The recording criteria, as <c>rules.md</c> holds them.</summary>
+    Rules,
+
     /// <summary>The shell and the four guidance paragraphs of the resident block.</summary>
     Resident,
 

@@ -22,15 +22,44 @@ public sealed class PromptDocumentTests : IDisposable
     private MemoryService Open() => _home.Tacit().OpenService(_notices.Enqueue, NullLoggerFactory.Instance);
 
     [Fact]
-    public async Task Init_writes_rules_under_prompts_and_no_instructions_file()
+    public async Task Init_writes_no_prompt_document()
     {
         using var home = new TestHome();
 
         await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh });
 
-        Assert.True(File.Exists(Path.Combine(home.TacitHome, "prompts", "rules.md")));
+        Assert.True(Directory.Exists(Path.Combine(home.TacitHome, "prompts")));
+        Assert.False(File.Exists(Path.Combine(home.TacitHome, "prompts", "rules.md")));
         Assert.False(File.Exists(Path.Combine(home.TacitHome, "rules.md")));
         Assert.False(File.Exists(Path.Combine(home.TacitHome, "prompts", "instructions.md")));
+    }
+
+    [Theory]
+    [InlineData("zh", "## Worth recording\n- 用户纠正或打断 Agent\n", "## Not recorded\n- 常规的写代码、改错字、看日志\n")]
+    [InlineData("en", "## Worth recording\n- The user corrects or interrupts the agent\n", "## Not recorded\n- Routine coding, typo fixes and log reading\n")]
+    public async Task Without_rules_md_the_instructions_carry_the_built_in_criteria_in_the_memory_language(string language, string worth, string notRecorded)
+    {
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), $"{TestHome.Models}language: {language}\n");
+
+        var instructions = await Open().ServerInstructionsAsync();
+
+        Assert.Contains(worth, instructions);
+        Assert.Contains(notRecorded, instructions);
+        Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
+    }
+
+    [Fact]
+    public async Task Deleting_rules_md_while_running_brings_back_the_built_in_criteria()
+    {
+        Directory.CreateDirectory(Prompts);
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+        using var service = Open();
+        Assert.Contains("- 自定义的标准", await service.ServerInstructionsAsync());
+
+        File.Delete(Path.Combine(Prompts, "rules.md"));
+
+        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 用户纠正或打断 Agent", StringComparison.Ordinal));
+        Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 
     [Fact]
@@ -40,7 +69,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         var rules = _home.Tacit().LoadConfig().Prompts.Rules;
 
-        Assert.DoesNotContain("旧位置的条目", rules.WorthRecording);
+        Assert.Null(rules);
     }
 
     [Fact]
@@ -150,7 +179,7 @@ public sealed class PromptDocumentTests : IDisposable
     }
 
     [Fact]
-    public void Instructions_md_that_breaks_the_fixed_limit_refuses_startup_and_names_both_files()
+    public void Instructions_md_that_breaks_the_fixed_limit_refuses_startup_and_names_only_the_files_that_exist()
     {
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n" + new string('长', 2600) + "\n");
@@ -159,7 +188,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         Assert.Equal(TacitError.PromptInvalid, error.Error);
         Assert.Contains(InstructionsMd, error.Message);
-        Assert.Contains(Path.Combine(Prompts, "rules.md"), error.Message);
+        Assert.DoesNotContain("rules.md", error.Message);
         var match = Regex.Match(error.Message, @"共 (\d+) 字符.*超出 (\d+) 字符");
         Assert.True(match.Success, error.Message);
         Assert.Equal(int.Parse(match.Groups[1].Value) - FixedLimit, int.Parse(match.Groups[2].Value));
@@ -168,6 +197,7 @@ public sealed class PromptDocumentTests : IDisposable
     [Fact]
     public void Without_instructions_md_only_rules_md_is_named_when_the_limit_is_broken()
     {
+        Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
 
         var error = Assert.Throws<TacitException>(() => Open());
@@ -248,7 +278,6 @@ public sealed class PromptDocumentTests : IDisposable
         var backup = Path.Combine(_home.TacitHome, "backups", $"auto-{TestHome.Today:yyyy-MM-dd}.zip");
         using var archive = ZipFile.OpenRead(backup);
         var names = archive.Entries.Select(entry => entry.FullName).ToArray();
-        Assert.Contains("prompts/rules.md", names);
         Assert.Contains("prompts/instructions.md", names);
     }
 

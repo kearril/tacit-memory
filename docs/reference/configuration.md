@@ -151,12 +151,12 @@ backup:
 
 | 文件 | 作用 | 行为 |
 | :--- | :--- | :--- |
-| `rules.md` | 值得记 / 不记的标准 | 缺失时按记忆语言重新生成 |
+| `rules.md` | 值得记 / 不记的标准 | 存在时整份替换内置默认（内置默认按记忆语言给出） |
 | `instructions.md` | 核心规则（何时检索、何时写） | 存在时整份替换内置默认 |
 | `resident.md` | 常驻区块的外壳与各节引导语 | 存在时整份替换内置默认 |
 | `skill.md` | 个人写法约定 | 接在记忆 skill 末尾 |
 
-需要以内置默认为起点时，在 PowerShell 7 中执行（输出为 UTF-8 无 BOM）：
+四份文档都不会自动生成：`tacit init` 只创建空的 `prompts/` 目录，文件存在即用户自定义，删除文件即回到内置默认。需要以内置默认为起点时，在 PowerShell 7 中执行（输出为 UTF-8 无 BOM；`rules`、`resident` 同理）：
 
 ```powershell
 tacit show instructions --default > ~/.tacit/prompts/instructions.md
@@ -165,7 +165,7 @@ tacit show instructions --default > ~/.tacit/prompts/instructions.md
 各段文字的职责见 `docs/prompts.md`。各文件在启动与运行中保存时按以下规则检查，长度上限均以字符计：
 
 - **核心规则**（`instructions.md`）：独占一行的 HTML 注释（`<!-- -->`）下发前删去，不计入长度；与文字同行的注释原样下发。它与 `rules.md` 共同计入服务端说明固定部分的长度上限（见 `docs/design.md` 第 8 节「服务端说明」）。
-- **值得记标准**（`rules.md`）：「值得记」与「不记」两节各最多 10 条，条目为顶层 `- ` 列表项。初始化时生成默认模板；缺失时，下次加载配置时（启动服务、绑定、解绑）按记忆语言重新生成。
+- **值得记标准**（`rules.md`）：「值得记」与「不记」两节各最多 10 条，条目为顶层 `- ` 列表项；节标题按任一支持的语言识别，其他小节与续行忽略。
 - **常驻区块**（`resident.md`）：全文不超过 1500 字符，换行按 LF 计，末尾空行也计入。开头为外壳正文，之后以 `## red_lines`、`## working_rules`、`## preferences`、`## profile`、`## situational_rules`、`## workstreams` 分节，小节标题须与名称完全一致（领域索引与主线两节的引导语写在对应标题下，标题与数据仍由服务生成）。已删除的 `## mainline`、`## recent_weeks`、`## projects` 按未知节名拒绝，并指出节名。出现其他小节标题或同一小节出现两次时拒绝启动，并指出文件与行号。缺少某一节时，该节只显示条目，不显示引导语；生成节在无内容时整节不出现。
 - **记忆 skill**（`skill.md`）：不超过 3000 字符，不能以 frontmatter（开头的 `---` 部分）起始。
 - 以上文档均不检查语言，可用任一语言书写。

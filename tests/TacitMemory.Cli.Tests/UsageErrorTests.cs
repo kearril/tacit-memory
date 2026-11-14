@@ -17,6 +17,7 @@ public sealed class UsageErrorTests : IDisposable
         { ["show"], "instructions" },
         { ["show", "bogus"], "bogus" },
         { ["show", "bogus"], "consolidate." },
+        { ["show", "bogus"], "rules," },
         { ["connect"], "--client" },
         { ["connect", "--client", "omp"], "--context" },
         { ["init", "--language", "fr"], "zh, en" },

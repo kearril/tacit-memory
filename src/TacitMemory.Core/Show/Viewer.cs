@@ -10,8 +10,8 @@ namespace TacitMemory.Core.Show;
 
 /// <summary>
 /// What <c>tacit show</c> prints. It reads the sources the service reads, so the output is what a session would receive
-/// (except the runtime status). Loading the config may create <c>prompts/</c> and rewrite a missing <c>rules.md</c>, as the
-/// service does at startup; nothing else is written.
+/// (except the runtime status). Loading the config may create <c>prompts/</c>, as the service does at startup; nothing else
+/// is written.
 /// </summary>
 internal static class Viewer
 {
@@ -35,6 +35,10 @@ internal static class Viewer
     private static readonly Localized RecordingCriteriaLabel = new("值得记标准", "Recording criteria");
     private static readonly Localized RecentLabel = new("最近 7 天活动", "Activities of the last seven days");
     private static readonly Localized ConsolidationLabel = new("整理提示", "Consolidation reminder");
+
+    private static readonly Localized RulesTitle = new(
+        "[值得记标准] 来源：{0}；值得记 {1}/{2} 条，不记 {3}/{4} 条",
+        "[Recording criteria] source: {0}; worth recording {1}/{2} items, not recorded {3}/{4} items");
 
     private static readonly Localized ResidentTitle = new(
         "[常驻区块外壳与四节引导语] 来源：{0}，{1}/{2} 字符",
@@ -66,9 +70,10 @@ internal static class Viewer
     private static readonly Localized ToolParameters = new("参数：", "Parameters:");
 
     /// <summary>The built-in text alone, for the targets that have one. A memory command has no file that replaces it, so it has none.</summary>
-    public static ShowResult Default(ShowTarget target) => target switch
+    public static ShowResult Default(ShowTarget target, MemoryLanguage language) => target switch
     {
         ShowTarget.Instructions => Bare(ShowSource.BuiltInDefault, ServerInstructionText.DefaultInstructions),
+        ShowTarget.Rules => Bare(ShowSource.BuiltInDefault, RulesFile.Compose(RulesFile.Default(language), language)),
         ShowTarget.Resident => Bare(ShowSource.BuiltInDefault, ResidentFile.Compose(ResidentBlock.Default)),
         ShowTarget.Skill => Bare(ShowSource.Code, MemorySkill.SystemPart),
         _ => throw new ArgumentException("A memory command has no built-in text that a file replaces.", nameof(target)),
@@ -80,6 +85,7 @@ internal static class Viewer
         return target switch
         {
             ShowTarget.Instructions => await Instructions(options, config, cancellationToken),
+            ShowTarget.Rules => Rules(options, config),
             ShowTarget.Resident => Resident(options, config),
             ShowTarget.Skill => Skill(options, config),
             ShowTarget.Remember => Command(RememberSkill.Name, RememberSkill.Compose(), config.Language),
@@ -146,6 +152,7 @@ internal static class Viewer
         {
             InstructionPart.CoreRules when config.Prompts.Instructions is null => new ShowPart(key, ShowSource.BuiltInDefault, null, part.Text),
             InstructionPart.CoreRules => new ShowPart(key, ShowSource.UserFile, PromptFiles.InstructionsPath(tacitHome), part.Text),
+            InstructionPart.RecordingCriteria when config.Prompts.Rules is null => new ShowPart(key, ShowSource.BuiltInDefault, null, part.Text),
             InstructionPart.RecordingCriteria => new ShowPart(key, ShowSource.UserFile, PromptFiles.RulesPath(tacitHome), part.Text),
             _ => new ShowPart(key, ShowSource.Code, null, part.Text),
         };
@@ -171,6 +178,22 @@ internal static class Viewer
         InstructionPart.RecordingCriteria => RecordingCriteriaLabel,
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };
+
+    /// <summary>The recording criteria in the form of <c>rules.md</c>, with their source and the item count of each section.</summary>
+    private static ShowResult Rules(TacitOptions options, TacitConfig config)
+    {
+        var language = config.Language;
+        var rules = config.Prompts.Rules;
+        var source = rules is null ? ShowSource.BuiltInDefault : ShowSource.UserFile;
+        var path = rules is null ? null : PromptFiles.RulesPath(options.TacitHome);
+        var criteria = rules ?? RulesFile.Default(language);
+        var text = RulesFile.Compose(criteria, language).TrimEnd('\n');
+
+        var heading = RulesTitle.Format(
+            language, SourceText(language, source, path),
+            criteria.WorthRecording.Count, RulesFile.MaxItemsPerSection, criteria.NotRecorded.Count, RulesFile.MaxItemsPerSection);
+        return new ShowResult(heading + "\n\n" + text, [new ShowPart("criteria", source, path, text)]);
+    }
 
     private static ShowResult Resident(TacitOptions options, TacitConfig config)
     {

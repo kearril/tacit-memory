@@ -18,7 +18,6 @@ internal static class Initializer
     public static async Task<InitResult> RunAsync(TacitOptions options, InitRequest request, CancellationToken cancellationToken)
     {
         var configPath = Path.Combine(options.TacitHome, "config.yaml");
-        var rulesPath = PromptFiles.RulesPath(options.TacitHome);
         var config = ExistingConfig.Read(configPath, options.UserHome);
         var requestedMemory = request.MemoryPath is null ? null : Path.GetFullPath(request.MemoryPath);
 
@@ -54,7 +53,7 @@ internal static class Initializer
         }
 
         Write(configPath, ConfigWriter.Render(new ConfigFile { Language = language.Code(), Memory = new MemoryFile(requestedMemory) }, options));
-        Write(rulesPath, Templates.Rules(language));
+        Directory.CreateDirectory(PromptFiles.Folder(options.TacitHome));
 
         Directory.CreateDirectory(memory);
         if (!isRepository)

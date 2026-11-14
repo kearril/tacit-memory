@@ -69,7 +69,6 @@ public sealed class ManualBackupTests : IDisposable
         Assert.Contains("memory/.git/HEAD", names);
         Assert.Contains("memory/pages/tacit-memory/manual-page.md", names);
         Assert.Contains("config.yaml", names);
-        Assert.Contains("prompts/rules.md", names);
         Assert.Contains("manifest.json", names);
         Assert.DoesNotContain(names, name => name.StartsWith("memory/.cache/", StringComparison.Ordinal));
 

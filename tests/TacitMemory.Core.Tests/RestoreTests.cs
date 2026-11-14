@@ -271,6 +271,7 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task With_config_the_config_and_the_prompts_are_replaced_and_extra_prompt_files_are_deleted()
     {
+        File.WriteAllText(Path.Combine(PromptsFolder, "rules.md"), "## 值得记\n- 备份时的规则\n");
         var backup = await _service.BackupAsync(BackupTarget.Local);
         var backedUpConfig = ReadEntries(backup.Location)["config.yaml"];
         var backedUpRules = ReadEntries(backup.Location)["prompts/rules.md"];
