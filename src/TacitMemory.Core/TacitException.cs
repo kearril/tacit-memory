@@ -87,6 +87,15 @@ public enum TacitError
     /// <summary>A key path asked for as a secret that is not one.</summary>
     SecretUnknown,
 
+    /// <summary>A name that is not one of the four prompt documents.</summary>
+    PromptUnknown,
+
+    /// <summary>A prompt document submitted to be saved breaks its rules; the problems give every refusal.</summary>
+    PromptRejected,
+
+    /// <summary>A prompt document changed after the text being saved was read from it; the save would overwrite that change.</summary>
+    PromptChanged,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 

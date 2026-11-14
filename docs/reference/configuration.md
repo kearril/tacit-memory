@@ -156,7 +156,12 @@ backup:
 | `resident.md` | 常驻区块的外壳与各节引导语 | 存在时整份替换内置默认 |
 | `skill.md` | 个人写法约定 | 接在记忆 skill 末尾 |
 
-四份文档都不会自动生成：`tacit init` 只创建空的 `prompts/` 目录，文件存在即用户自定义，删除文件即回到内置默认。需要以内置默认为起点时，在 PowerShell 7 中执行（输出为 UTF-8 无 BOM；`rules`、`resident` 同理）：
+四份文档都不会自动生成：`tacit init` 只创建空的 `prompts/` 目录，文件存在即用户自定义，删除文件即回到内置默认。
+
+修改有两种入口，规则相同：
+
+- **Web 界面的提示词页**（`docs/web.md`「提示词」）：以内置默认为起点编辑，保存前由服务校验，不通过则文件不变；通过后立即生效，「恢复默认」即删除文件。
+- **手动改文件**：服务监听 `prompts/`，保存后重新加载；出错的文件沿用上一版并提示（见下）。需要以内置默认为起点时，在 PowerShell 7 中执行（输出为 UTF-8 无 BOM；`rules`、`resident` 同理）：
 
 ```powershell
 tacit show instructions --default > ~/.tacit/prompts/instructions.md

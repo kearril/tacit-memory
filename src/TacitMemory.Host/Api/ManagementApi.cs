@@ -197,6 +197,19 @@ internal static class ManagementApi
         api.MapGet("/prompts", () => Json(service.Prompts()))
             .Produces<PromptList>()
             .ProducesErrors();
+        api.MapPut("/prompts/{name}", async (string name, HttpContext context) =>
+        {
+            var document = service.PromptNamed(name);
+            var body = await ReadBody<PromptSave>(context, service);
+            return Json(await service.SavePromptAsync(document, body.Hash, body.Text, context.RequestAborted));
+        })
+            .Accepts<PromptSave>("application/json")
+            .Produces<PromptSaved>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapDelete("/prompts/{name}", async (string name, HttpContext context) =>
+            Json(await service.RestorePromptDefaultAsync(service.PromptNamed(name), context.RequestAborted)))
+            .Produces<PromptSaved>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapPost("/probe", async (HttpContext context) =>
         {
             var report = await service.ProbeAsync(context.RequestAborted);
@@ -487,11 +500,11 @@ internal static class ManagementApi
     {
         TacitError.GitFailed or TacitError.VectorExtensionInvalid or TacitError.CloudBackupFailed or TacitError.RestoreFailed
             or TacitError.ReloadFailed or TacitError.FileSystemFailed or TacitError.InternalFailure => StatusCodes.Status500InternalServerError,
-        TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected
+        TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected or TacitError.PromptRejected
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretUnknown or TacitError.BindingNotFound => StatusCodes.Status404NotFound,
+        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

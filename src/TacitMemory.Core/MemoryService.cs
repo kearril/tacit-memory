@@ -463,6 +463,122 @@ public sealed class MemoryService : IDisposable
     public PromptList Prompts() =>
         new([.. Enum.GetValues<PromptName>().Select(name => PromptFiles.View(_options.TacitHome, Config.Language, name))]);
 
+    /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
+    /// <exception cref="TacitException"><see cref="TacitError.PromptUnknown"/> for any other name.</exception>
+    public PromptName PromptNamed(string name)
+    {
+        foreach (var candidate in Enum.GetValues<PromptName>())
+        {
+            if (string.Equals(candidate.ToString(), name, StringComparison.OrdinalIgnoreCase) && name == name.ToLowerInvariant())
+                return candidate;
+        }
+        throw new TacitException(TacitError.PromptUnknown, ManagementApiMessages.PromptUnknown.Format(Config.Language, name));
+    }
+
+    /// <summary>
+    /// Saves <paramref name="text"/> as the prompt document <paramref name="name"/>, with LF line breaks, and applies it at
+    /// once: the skills are written again, the resident blocks rendered again and the next server instructions built from it.
+    /// <paramref name="hash"/> names the file the caller read the text from, <c>null</c> when there was none; a file changed
+    /// since is not overwritten. The text is checked first by the rules a load applies, so a refused text changes no file.
+    /// </summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.PromptChanged"/>, or <see cref="TacitError.PromptRejected"/> with every refusal; in each case
+    /// the file is as it was.
+    /// </exception>
+    public async Task<PromptSaved> SavePromptAsync(PromptName name, string? hash, string text, CancellationToken cancellationToken = default)
+    {
+        var hold = await _gate.WriteAsync(cancellationToken);
+        try
+        {
+            var path = PromptFiles.PathOf(_options.TacitHome, name);
+            var current = PromptFiles.View(_options.TacitHome, Config.Language, name);
+            if (current.Hash != hash)
+                throw new TacitException(TacitError.PromptChanged, ManagementApiMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
+
+            var content = text.ReplaceLineEndings("\n");
+            RefuseUnless(name, content);
+            Directory.CreateDirectory(PromptFiles.Folder(_options.TacitHome));
+            ConfigWriter.Replace(path, content);
+            return new PromptSaved(PromptFiles.View(_options.TacitHome, Config.Language, name), ApplyPromptsNow(name));
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Returns the prompt document <paramref name="name"/> to its built-in default by deleting its file, and applies that at
+    /// once as a save does. Without a file it changes nothing. It is refused when the built-in text would not fit beside
+    /// the other documents, as when a long <c>instructions.md</c> leaves no room for the built-in recording criteria.
+    /// </summary>
+    /// <exception cref="TacitException"><see cref="TacitError.PromptRejected"/>; the file is kept.</exception>
+    public async Task<PromptSaved> RestorePromptDefaultAsync(PromptName name, CancellationToken cancellationToken = default)
+    {
+        var hold = await _gate.WriteAsync(cancellationToken);
+        try
+        {
+            var path = PromptFiles.PathOf(_options.TacitHome, name);
+            if (!File.Exists(path))
+                return new PromptSaved(PromptFiles.View(_options.TacitHome, Config.Language, name), []);
+
+            RefuseUnless(name, PromptFiles.DefaultText(name, Config.Language));
+            File.Delete(path);
+            return new PromptSaved(PromptFiles.View(_options.TacitHome, Config.Language, name), ApplyPromptsNow(name));
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+    }
+
+    /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
+    private void RefuseUnless(PromptName name, string text)
+    {
+        PromptDocuments running;
+        lock (_instructionsGate)
+            running = _prompts;
+        var refusals = PromptFiles.Check(_options.TacitHome, Config.Language, running, name, text);
+        if (refusals.Count == 0)
+            return;
+        var file = Path.GetFileName(PromptFiles.PathOf(_options.TacitHome, name));
+        throw new TacitException(TacitError.PromptRejected, string.Join(" ", refusals))
+        {
+            Problems = [.. refusals.Select(refusal => new ConfigProblem(file, refusal))],
+        };
+    }
+
+    /// <summary>
+    /// Applies the prompt documents as a change to <c>prompts/</c> does, without waiting for the watcher; after a change to
+    /// <c>resident.md</c> it renders the resident blocks now as well. Returns what went wrong in the render.
+    /// </summary>
+    private IReadOnlyList<string> ApplyPromptsNow(PromptName name)
+    {
+        ApplyPrompts();
+        if (name != PromptName.Resident)
+            return [];
+
+        var notices = new List<string>();
+        lock (_renderGate)
+        {
+            try
+            {
+                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
+                {
+                    _log.Record(LevelOf(render), render.Message);
+                    if (LevelOf(render) != LogLevel.Information)
+                        notices.Add(render.Message);
+                }
+            }
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
+            {
+                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
+                notices.Add(Messages.RenderFailed.Format(Config.Language, e.Message));
+            }
+        }
+        return notices;
+    }
+
     /// <summary>
     /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
     /// each key accepts and the hash a save must name. Secrets carry no value. Reads the file only, so it does not wait for a

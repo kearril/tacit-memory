@@ -49,6 +49,43 @@ internal static partial class PromptFiles
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
     };
 
+    /// <summary>
+    /// Checks <paramref name="text"/> as the content of the document <paramref name="name"/>, by the rules a load applies to
+    /// its file, and the fixed part of the server instructions with the other documents as <paramref name="running"/> holds
+    /// them. Returns every refusal, and none when the text may be saved.
+    /// </summary>
+    public static IReadOnlyList<string> Check(
+        string tacitHome, MemoryLanguage language, PromptDocuments running, PromptName name, string text)
+    {
+        var path = PathOf(tacitHome, name);
+        PromptDocuments candidate;
+        try
+        {
+            candidate = name switch
+            {
+                PromptName.Instructions => running with { Instructions = text },
+                PromptName.Rules => running with { Rules = RulesFile.Parse(text, path, language) },
+                PromptName.Resident => running with { Resident = ResidentFile.Parse(text, path, language) },
+                PromptName.Skill => running with { Skill = ParseSkill(text, path, language) },
+                _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
+            };
+        }
+        catch (TacitException e)
+        {
+            return [e.Message];
+        }
+
+        try
+        {
+            ServerInstructionText.Check(language, candidate, tacitHome);
+            return [];
+        }
+        catch (TacitException e)
+        {
+            return [e.Message];
+        }
+    }
+
     /// <summary>A document as its file holds it, with the file's hash, or its built-in text when the file is absent.</summary>
     public static PromptDocumentView View(string tacitHome, MemoryLanguage language, PromptName name)
     {
@@ -113,9 +150,12 @@ internal static partial class PromptFiles
     public static string? ReadSkill(string tacitHome, MemoryLanguage language)
     {
         var path = SkillPath(tacitHome);
-        if (!File.Exists(path))
-            return null;
-        var text = File.ReadAllText(path, Utf8);
+        return File.Exists(path) ? ParseSkill(File.ReadAllText(path, Utf8), path, language) : null;
+    }
+
+    /// <summary>The writing conventions in a text written as <c>skill.md</c>, checked as <see cref="ReadSkill"/> checks the file.</summary>
+    public static string? ParseSkill(string text, string path, MemoryLanguage language)
+    {
         if (FrontmatterStart().IsMatch(text))
             throw new TacitException(TacitError.PromptInvalid, Messages.SkillHasFrontmatter.Format(language, path));
         if (text.Length > SkillLimit)

@@ -107,8 +107,8 @@
 | `DELETE /api/bindings/<客户端名称>` | 解除绑定 | 已实现 |
 | **提示词文档** | | |
 | `GET /api/prompts` | 四份文档（`instructions`、`rules`、`resident`、`skill`）各自的名称、文本（文件的原文，文件不存在时为内置默认文本）、是否为内置默认与文件的哈希（文件不存在时为空） | 已实现 |
-| `PUT /api/prompts/<文档名>` | 校验并保存 | 计划 |
-| `DELETE /api/prompts/<文档名>` | 删除文件，回到内置默认 | 计划 |
+| `PUT /api/prompts/<文档名>` | 请求体 `{hash, text}`：按读取时的哈希（文件不存在时为空）比对，校验后以 LF 换行写文件并立即生效；返回 `{document, notices}`（新状态与常驻区块渲染失败的说明）。校验不通过 400（`PromptRejected`，`problems` 列出全部错误）；文件已在别处改动 409（`PromptChanged`）；未知文档名 404（`PromptUnknown`） | 已实现 |
+| `DELETE /api/prompts/<文档名>` | 删除文件，回到内置默认并立即生效，返回同上；文件不存在时直接返回当前状态；内置文本放不下时 400 并保留文件；未知文档名 404 | 已实现 |
 | **日志** | | |
 | `GET /api/logs` | 有日志的日期 | 计划 |
 | `GET /api/logs/<日期>` | 某天的日志 | 计划 |

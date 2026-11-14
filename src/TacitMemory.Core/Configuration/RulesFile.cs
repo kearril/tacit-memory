@@ -41,15 +41,17 @@ internal static class RulesFile
         $"## {StructureWords.NotRecorded.In(language)}\n{Items(criteria.NotRecorded)}";
 
     /// <summary>The criteria in <c>rules.md</c>, or <c>null</c> when the file is absent and the built-in criteria apply.</summary>
-    public static RecordingCriteria? Load(string path, MemoryLanguage language)
-    {
-        if (!File.Exists(path))
-            return null;
+    public static RecordingCriteria? Load(string path, MemoryLanguage language) =>
+        File.Exists(path) ? Parse(File.ReadAllText(path, Utf8), path, language) : null;
 
+    /// <summary>The criteria in a text written as <c>rules.md</c>; <paramref name="path"/> names the file in a refusal.</summary>
+    /// <exception cref="TacitException">A section has more than <see cref="MaxItemsPerSection"/> items.</exception>
+    public static RecordingCriteria Parse(string text, string path, MemoryLanguage language)
+    {
         var worth = new List<string>();
         var notRecorded = new List<string>();
         List<string>? section = null;
-        foreach (var line in File.ReadLines(path, Utf8))
+        foreach (var line in text.ReplaceLineEndings("\n").Split('\n'))
         {
             if (line.StartsWith("## ", StringComparison.Ordinal))
             {

@@ -86,6 +86,34 @@ export interface Dictionary {
     /** What an empty editor shows: the built-in `skill.md` is empty. */
     readonly empty: string;
     readonly loadFailed: string;
+    readonly customize: string;
+    readonly unsaved: string;
+    readonly save: string;
+    readonly saving: string;
+    /** After a save: the change reaches the agents with their next session. */
+    readonly saved: string;
+    readonly restored: string;
+    /** Above what did not go as planned after a save, such as a resident block that could not be rendered again. */
+    readonly noticesTitle: string;
+    readonly rejectedTitle: string;
+    readonly saveFailed: string;
+    readonly restoreFailed: string;
+    readonly cancel: string;
+    readonly discard: string;
+    readonly discardTitle: string;
+    readonly discardBody: string;
+    readonly discardConfirm: string;
+    readonly restore: string;
+    readonly restoreTitle: string;
+    readonly restoreBody: (file: string) => string;
+    readonly restoreConfirm: string;
+    readonly reload: string;
+    readonly reloadTitle: string;
+    readonly reloadBody: (file: string) => string;
+    readonly reloadConfirm: string;
+    readonly leaveTitle: string;
+    readonly leaveBody: string;
+    readonly leaveConfirm: string;
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;
