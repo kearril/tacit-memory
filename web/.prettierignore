@@ -1,0 +1,5 @@
+# Generated: the API snapshot keeps the exact shape its test compares, and the types are regenerated from it.
+openapi.json
+src/api/schema.ts
+bun.lock
+dist
