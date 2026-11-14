@@ -81,6 +81,10 @@ export interface Dictionary {
     readonly builtInNote: string;
     readonly customized: string;
     readonly customizedNote: (file: string) => string;
+    /** The mark in the sidebar, and the title above the editor, of a document whose file the service does not run. */
+    readonly invalid: string;
+    readonly invalidTitle: string;
+    readonly invalidNote: string;
     readonly residentSections: string;
     readonly textLabel: (title: string) => string;
     /** What an empty editor shows: the built-in `skill.md` is empty. */
@@ -403,6 +407,7 @@ export interface Dictionary {
       readonly extraListenerFailed: (address: string) => string;
       readonly cloudBackupFailed: string;
       readonly cloudBackupFailedDetail: (time: string) => string;
+      readonly promptProblem: (document: string) => string;
     };
     readonly models: Readonly<Record<string, string>>;
     readonly bindingProblems: Readonly<Record<BindingProblem, string>>;

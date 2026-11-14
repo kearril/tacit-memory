@@ -23,7 +23,11 @@ public enum PromptName
 /// </summary>
 /// <param name="BuiltIn">Whether the file is absent, so the built-in default applies; the default of <c>skill.md</c> is empty.</param>
 /// <param name="Measure">The length of <see cref="Text"/> against its limit, as a check of it gives.</param>
-public sealed record PromptDocumentView(PromptName Name, string Text, bool BuiltIn, string? Hash, PromptMeasure Measure);
+/// <param name="Problem">
+/// Why the service keeps running the document's previous text instead of what its file holds: the refusal of the file as it
+/// was last read. <c>null</c> when the service runs the file, or the built-in text.
+/// </param>
+public sealed record PromptDocumentView(PromptName Name, string Text, bool BuiltIn, string? Hash, PromptMeasure Measure, string? Problem);
 
 /// <summary>
 /// How much of its limit a prompt document's text takes, counted as it is sent. For <c>resident.md</c> and

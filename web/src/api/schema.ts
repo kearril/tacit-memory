@@ -2004,6 +2004,7 @@ export interface components {
             builtIn: boolean;
             hash: null | string;
             measure: components["schemas"]["PromptMeasure"];
+            problem: null | string;
         };
         PromptDraft: {
             text: string;
@@ -2030,6 +2031,10 @@ export interface components {
         };
         /** @enum {unknown} */
         PromptName: "instructions" | "rules" | "resident" | "skill";
+        PromptProblem: {
+            name: components["schemas"]["PromptName"];
+            problem: string;
+        };
         PromptSave: {
             hash: null | string;
             text: string;
@@ -2037,6 +2042,11 @@ export interface components {
         PromptSaved: {
             document: components["schemas"]["PromptDocumentView"];
             notices: string[];
+        };
+        PromptsStatus: {
+            title: string;
+            lines: string[];
+            items: components["schemas"]["PromptProblem"][];
         };
         ReindexResult: {
             /** Format: int32 */
@@ -2142,6 +2152,7 @@ export interface components {
             models?: null | components["schemas"]["ModelsStatus"];
             clients?: null | components["schemas"]["ClientsStatus"];
             bindings?: null | components["schemas"]["BindingsStatus"];
+            prompts?: null | components["schemas"]["PromptsStatus"];
             consolidation?: null | components["schemas"]["ConsolidationStatus"];
             pending?: null | components["schemas"]["PendingStatus"];
             backups?: null | components["schemas"]["BackupsStatus"];

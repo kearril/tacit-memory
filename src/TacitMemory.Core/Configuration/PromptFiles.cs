@@ -129,18 +129,20 @@ internal static partial class PromptFiles
 
     /// <summary>
     /// A document as its file holds it, with the file's hash, or its built-in text when the file is absent; measured beside
-    /// the other documents as <paramref name="running"/> holds them.
+    /// the other documents as <paramref name="running"/> holds them. <paramref name="problem"/> is why the service keeps
+    /// the document's previous text instead of the file's, if it does.
     /// </summary>
-    public static PromptDocumentView View(string tacitHome, MemoryLanguage language, PromptDocuments running, PromptName name)
+    public static PromptDocumentView View(
+        string tacitHome, MemoryLanguage language, PromptDocuments running, PromptName name, string? problem)
     {
         var path = PathOf(tacitHome, name);
         if (!File.Exists(path))
         {
             var builtIn = DefaultText(name, language);
-            return new PromptDocumentView(name, builtIn, BuiltIn: true, Hash: null, Measure(language, running, name, builtIn));
+            return new PromptDocumentView(name, builtIn, BuiltIn: true, Hash: null, Measure(language, running, name, builtIn), problem);
         }
         var text = File.ReadAllText(path, Utf8);
-        return new PromptDocumentView(name, text, BuiltIn: false, ContentHash.Of(text), Measure(language, running, name, text));
+        return new PromptDocumentView(name, text, BuiltIn: false, ContentHash.Of(text), Measure(language, running, name, text), problem);
     }
 
     /// <summary>
@@ -158,18 +160,19 @@ internal static partial class PromptFiles
 
     /// <summary>
     /// Reads the prompt documents again while the service runs. A document that fails its checks keeps its previous text
-    /// and its refusal is added to <paramref name="problems"/>; the others take their new text. <c>rules.md</c> and
-    /// <c>instructions.md</c> count toward the fixed limit together, so when they exceed it together both keep their
-    /// previous text.
+    /// and its refusal is added to <paramref name="problems"/> under its name; the others take their new text.
+    /// <c>rules.md</c> and <c>instructions.md</c> count toward the fixed limit together, so when they exceed it together
+    /// both keep their previous text and both carry the refusal.
     /// </summary>
-    public static PromptDocuments Reload(string tacitHome, MemoryLanguage language, PromptDocuments previous, List<string> problems)
+    public static PromptDocuments Reload(
+        string tacitHome, MemoryLanguage language, PromptDocuments previous, Dictionary<PromptName, string> problems)
     {
         Directory.CreateDirectory(Folder(tacitHome));
         var candidate = new PromptDocuments(
-            Keep(() => RulesFile.Load(RulesPath(tacitHome), language), previous.Rules, problems),
-            Keep(() => ReadInstructions(tacitHome), previous.Instructions, problems),
-            Keep(() => ResidentFile.Load(ResidentPath(tacitHome), language), previous.Resident, problems),
-            Keep(() => ReadSkill(tacitHome, language), previous.Skill, problems));
+            Keep(PromptName.Rules, () => RulesFile.Load(RulesPath(tacitHome), language), previous.Rules, problems),
+            Keep(PromptName.Instructions, () => ReadInstructions(tacitHome), previous.Instructions, problems),
+            Keep(PromptName.Resident, () => ResidentFile.Load(ResidentPath(tacitHome), language), previous.Resident, problems),
+            Keep(PromptName.Skill, () => ReadSkill(tacitHome, language), previous.Skill, problems));
         try
         {
             ServerInstructionText.Check(language, candidate, tacitHome);
@@ -177,7 +180,8 @@ internal static partial class PromptFiles
         }
         catch (TacitException e)
         {
-            problems.Add(e.Message);
+            problems.TryAdd(PromptName.Rules, e.Message);
+            problems.TryAdd(PromptName.Instructions, e.Message);
             return candidate with { Rules = previous.Rules, Instructions = previous.Instructions };
         }
     }
@@ -215,7 +219,7 @@ internal static partial class PromptFiles
     /// Runs one document's reader. A refusal keeps the previous value and is recorded; an I/O error propagates, so the
     /// caller tries again later.
     /// </summary>
-    private static T Keep<T>(Func<T> read, T previous, List<string> problems)
+    private static T Keep<T>(PromptName name, Func<T> read, T previous, Dictionary<PromptName, string> problems)
     {
         try
         {
@@ -223,7 +227,7 @@ internal static partial class PromptFiles
         }
         catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
         {
-            problems.Add(e.Message);
+            problems[name] = e.Message;
             return previous;
         }
     }

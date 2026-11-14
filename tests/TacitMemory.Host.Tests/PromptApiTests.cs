@@ -137,6 +137,26 @@ public sealed class PromptApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_file_broken_while_the_service_runs_comes_back_with_its_problem_on_the_document_and_in_the_status()
+    {
+        File.WriteAllText(Path.Combine(Prompts, "resident.md"), "外壳\n\n## mainline\n旧节名\n");
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        PromptDocumentView resident;
+        while ((resident = (await ReadAsync()).Documents.Single(document => document.Name == PromptName.Resident)).Problem is null)
+        {
+            Assert.True(DateTime.UtcNow < deadline, "the problem did not show within 10 s");
+            await Task.Delay(50);
+        }
+
+        Assert.Contains("mainline", resident.Problem);
+        var status = JsonSerializer.Deserialize<StatusReport>(await _local.GetStringAsync(Url("/api/status")), ManagementApiJson.Options)!;
+        var item = Assert.Single(status.Prompts!.Items);
+        Assert.Equal(PromptName.Resident, item.Name);
+        Assert.Equal(resident.Problem, item.Problem);
+    }
+
+    [Fact]
     public async Task A_check_of_an_unknown_document_is_404()
     {
         using var response = await _local.PostAsync(Url("/api/prompts/tools/check"), Draft("x"));

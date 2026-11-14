@@ -67,6 +67,37 @@ public sealed class ServiceExitCodeTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_names_a_prompt_document_the_service_keeps_at_its_previous_version_and_exits_3()
+    {
+        await _cli.StartServiceAsync();
+        File.WriteAllText(Path.Combine(_cli.Home.TacitHome, "prompts", "resident.md"), "外壳\n\n## mainline\n旧节名\n");
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var result = await _cli.RunAsync(["status"]);
+        while (!result.Stdout.Contains("提示词文档有误", StringComparison.Ordinal))
+        {
+            Assert.True(DateTime.UtcNow < deadline, "the status did not name the document within 10 s");
+            await Task.Delay(100);
+            result = await _cli.RunAsync(["status"]);
+        }
+
+        // The file would also refuse a restart, so the config column names it and the code is the one for a refused config.
+        Assert.Equal(3, result.ExitCode);
+        Assert.Contains("prompts/resident.md 有误，服务正在使用上一版：", result.Stdout);
+        Assert.Contains("mainline", result.Stdout);
+    }
+
+    [Fact]
+    public async Task Status_leaves_out_the_prompt_documents_while_none_is_broken()
+    {
+        await _cli.StartServiceAsync();
+
+        var result = await _cli.RunAsync(["status"]);
+
+        Assert.DoesNotContain("提示词文档有误", result.Stdout);
+    }
+
+    [Fact]
     public async Task Status_names_the_web_address_when_the_service_is_not_running()
     {
         var result = await _cli.RunAsync(["status"]);

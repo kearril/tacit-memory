@@ -97,6 +97,10 @@ internal static class ManagementApiMessages
         "The request body is invalid: the value of {0} has the wrong type or value.");
 
     public static readonly Localized BindingsTitle = new("绑定", "Bindings");
+    public static readonly Localized PromptsTitle = new("提示词文档有误", "Prompt documents with errors");
+    public static readonly Localized PromptKept = new(
+        "{0} 有误，服务正在使用上一版：{1}",
+        "{0} has an error, and the service runs its previous version: {1}");
     public static readonly Localized BindingsNone = new("没有绑定的客户端。", "No client is bound.");
     public static readonly Localized BindingsUnreadable = new("bindings.json 无法读取：{0}", "bindings.json cannot be read: {0}");
     public static readonly Localized BindingOk = new("{0}：正常（上下文文件 {1}；skill 目录 {2}）", "{0}: fine (context file {1}; skills folder {2})");

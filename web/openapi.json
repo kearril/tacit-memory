@@ -3078,7 +3078,8 @@
           "text",
           "builtIn",
           "hash",
-          "measure"
+          "measure",
+          "problem"
         ],
         "type": "object",
         "properties": {
@@ -3099,6 +3100,12 @@
           },
           "measure": {
             "$ref": "#/components/schemas/PromptMeasure"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -3193,6 +3200,21 @@
           "skill"
         ]
       },
+      "PromptProblem": {
+        "required": [
+          "name",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/PromptName"
+          },
+          "problem": {
+            "type": "string"
+          }
+        }
+      },
       "PromptSave": {
         "required": [
           "hash",
@@ -3225,6 +3247,31 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "PromptsStatus": {
+        "required": [
+          "title",
+          "lines",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromptProblem"
             }
           }
         }
@@ -3688,6 +3735,16 @@
               },
               {
                 "$ref": "#/components/schemas/BindingsStatus"
+              }
+            ]
+          },
+          "prompts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromptsStatus"
               }
             ]
           },

@@ -89,6 +89,9 @@ public sealed class MemoryService : IDisposable
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
     private PromptDocuments _prompts = null!;
+
+    /// <summary>The refusal of each prompt document whose file the service does not run, keeping its previous text instead.</summary>
+    private IReadOnlyDictionary<PromptName, string> _promptProblems = new Dictionary<PromptName, string>();
     private string? _instructions;
     private string? _instructionsStatus;
     private int _instructionsVersion;
@@ -150,7 +153,12 @@ public sealed class MemoryService : IDisposable
         }
 
         Config = config;
-        _prompts = config.Prompts;
+        lock (_instructionsGate)
+        {
+            // A config that loads has every prompt document as its file holds it.
+            _prompts = config.Prompts;
+            _promptProblems = new Dictionary<PromptName, string>();
+        }
         _models = models;
         if (_models.Unconfigured is { Count: > 0 } unconfigured)
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
@@ -401,7 +409,7 @@ public sealed class MemoryService : IDisposable
         var uptime = _options.Time.GetUtcNow() - _startedAt;
         return StatusReporter.RunningAsync(
             _options, Config, endpoint, ProductVersion.Current, uptime < TimeSpan.Zero ? TimeSpan.Zero : uptime, _models.Statuses,
-            _extraListener, cancellationToken);
+            _extraListener, PromptProblems(), cancellationToken);
     }
 
     /// <summary>
@@ -460,11 +468,7 @@ public sealed class MemoryService : IDisposable
     /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
     /// file. Reads the files only, so it does not wait for a maintenance operation.
     /// </summary>
-    public PromptList Prompts()
-    {
-        var running = RunningPrompts();
-        return new([.. Enum.GetValues<PromptName>().Select(name => PromptFiles.View(_options.TacitHome, Config.Language, running, name))]);
-    }
+    public PromptList Prompts() => new([.. Enum.GetValues<PromptName>().Select(PromptView)]);
 
     /// <summary>
     /// Checks <paramref name="text"/> as the prompt document <paramref name="name"/> without saving it: its measure beside
@@ -485,9 +489,28 @@ public sealed class MemoryService : IDisposable
             return _prompts;
     }
 
-    /// <summary>The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with.</summary>
-    private PromptDocumentView PromptView(PromptName name) =>
-        PromptFiles.View(_options.TacitHome, Config.Language, RunningPrompts(), name);
+    /// <summary>
+    /// The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with, and
+    /// why the service keeps its previous text, if it does.
+    /// </summary>
+    private PromptDocumentView PromptView(PromptName name)
+    {
+        PromptDocuments running;
+        string? problem;
+        lock (_instructionsGate)
+        {
+            running = _prompts;
+            problem = _promptProblems.GetValueOrDefault(name);
+        }
+        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problem);
+    }
+
+    /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
+    private IReadOnlyList<PromptProblem> PromptProblems()
+    {
+        lock (_instructionsGate)
+            return [.. Enum.GetValues<PromptName>().Where(_promptProblems.ContainsKey).Select(name => new PromptProblem(name, _promptProblems[name]))];
+    }
 
     /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
     /// <exception cref="TacitException"><see cref="TacitError.PromptUnknown"/> for any other name.</exception>
@@ -525,7 +548,7 @@ public sealed class MemoryService : IDisposable
             RefuseUnless(name, content);
             Directory.CreateDirectory(PromptFiles.Folder(_options.TacitHome));
             ConfigWriter.Replace(path, content);
-            return new PromptSaved(PromptView(name), ApplyPromptsNow(name));
+            return Applied(name);
         }
         finally
         {
@@ -550,12 +573,22 @@ public sealed class MemoryService : IDisposable
 
             RefuseUnless(name, PromptFiles.DefaultText(name, Config.Language));
             File.Delete(path);
-            return new PromptSaved(PromptView(name), ApplyPromptsNow(name));
+            return Applied(name);
         }
         finally
         {
             hold.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Applies the prompt documents now, then gives the document <paramref name="name"/> as the service runs it: the view is
+    /// read after the apply, as its measure and its problem depend on what the service runs.
+    /// </summary>
+    private PromptSaved Applied(PromptName name)
+    {
+        var notices = ApplyPromptsNow(name);
+        return new PromptSaved(PromptView(name), notices);
     }
 
     /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
@@ -1428,9 +1461,9 @@ public sealed class MemoryService : IDisposable
             try
             {
                 WatchPrompts();
-                var problems = new List<string>();
+                var problems = new Dictionary<PromptName, string>();
                 var prompts = PromptFiles.Reload(_options.TacitHome, Config.Language, _prompts, problems);
-                foreach (var problem in problems)
+                foreach (var problem in problems.Values.Distinct())
                     _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
                 SkillSet.Write(_options.TacitHome, Config.Language, prompts.Skill);
                 _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
@@ -1438,6 +1471,7 @@ public sealed class MemoryService : IDisposable
                 lock (_instructionsGate)
                 {
                     _prompts = prompts;
+                    _promptProblems = problems;
                     ClearInstructionsLocked();
                 }
                 _promptsRetries = 0;

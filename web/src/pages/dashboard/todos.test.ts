@@ -112,12 +112,29 @@ describe("todosOf", () => {
     expect(todosOf(report)).toEqual([]);
   });
 
+  it("lists each prompt document the service keeps at its previous version, with the reason", () => {
+    const report = healthy();
+    report.prompts = {
+      ...columns,
+      items: [
+        { name: "rules", problem: "超出 12 字符" },
+        { name: "instructions", problem: "超出 12 字符" },
+      ],
+    };
+
+    expect(todosOf(report)).toEqual([
+      { kind: "promptProblem", name: "rules", problem: "超出 12 字符" },
+      { kind: "promptProblem", name: "instructions", problem: "超出 12 字符" },
+    ]);
+  });
+
   it("adds nothing for a column the report leaves out", () => {
     expect(todosOf({})).toEqual([]);
   });
 
-  it("keeps the order: models, bindings, extra listener, cloud backup", () => {
+  it("keeps the order: models, bindings, prompt documents, extra listener, cloud backup", () => {
     const report = healthy();
+    report.prompts = { ...columns, items: [{ name: "resident", problem: "x" }] };
     report.backups!.lastRemote = { at: "2026-11-12T03:00:00Z", succeeded: false, error: null };
     report.service!.extraListener = { address: "100.64.0.10", failureReason: "in use" };
     report.bindings!.items = [];
@@ -126,6 +143,7 @@ describe("todosOf", () => {
     expect(todosOf(report).map((todo) => todo.kind)).toEqual([
       "modelsUnconfigured",
       "noBindings",
+      "promptProblem",
       "extraListenerFailed",
       "cloudBackupFailed",
     ]);
@@ -137,6 +155,7 @@ describe("targetOf", () => {
     expect(targetOf({ kind: "modelsUnconfigured", roles: ["decision"] })).toBe("/settings#settings-models");
     expect(targetOf({ kind: "noBindings" })).toBe("/settings#settings-bindings");
     expect(targetOf({ kind: "bindingProblem", client: "claude", problem: "markersIncomplete" })).toBe("/settings#settings-bindings");
+    expect(targetOf({ kind: "promptProblem", name: "resident", problem: "x" })).toBe("/prompts/resident");
     expect(targetOf({ kind: "extraListenerFailed", address: "x", reason: "y" })).toBe("/settings#settings-access");
     expect(targetOf({ kind: "cloudBackupFailed", at: "x", error: null })).toBe("/dashboard#backups");
   });

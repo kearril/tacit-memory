@@ -90,7 +90,7 @@
 | **接口描述** | | |
 | `GET /api/openapi.json` | OpenAPI 文档，描述本节各端点的请求、成功与错误响应（非本机连接须已登录） | 已实现 |
 | **状态与维护** | | |
-| `GET /api/status` | 状态报告 | 已实现 |
+| `GET /api/status` | 状态报告；服务正沿用某份提示词文档的上一版时带 `prompts`：`items` 为 `{name, problem}`，无误时省略 | 已实现 |
 | `GET /api/activity` | 近一年活动记录的每日条数（按主线与未归属）、整理日、读不了的月份文件 | 已实现 |
 | `POST /api/reindex` | 重建派生索引（维护操作） | 已实现 |
 | `POST /api/backup` | 手动备份或云端备份：`{target, to}` | 已实现 |
@@ -106,7 +106,7 @@
 | `POST /api/bindings` | 新增绑定：`{client, contextFile, skillsFolder}` | 已实现 |
 | `DELETE /api/bindings/<客户端名称>` | 解除绑定 | 已实现 |
 | **提示词文档** | | |
-| `GET /api/prompts` | 四份文档（`instructions`、`rules`、`resident`、`skill`）各自的名称、文本（文件的原文，文件不存在时为内置默认文本）、是否为内置默认、文件的哈希（文件不存在时为空）与长度信息 `measure`（见 check） | 已实现 |
+| `GET /api/prompts` | 四份文档（`instructions`、`rules`、`resident`、`skill`）各自的名称、文本（文件的原文，文件不存在时为内置默认文本）、是否为内置默认、文件的哈希（文件不存在时为空）、长度信息 `measure`（见 check）与 `problem`（文件有误、服务正沿用上一版时的原因，否则为空） | 已实现 |
 | `POST /api/prompts/<文档名>/check` | 请求体 `{text}`，不写文件：返回 `{measure, problems}`。`measure` 为 `{length, limit, activityRoom, items}`：`resident`、`skill` 为该文本的字符数与上限；`instructions`、`rules` 为与另一份运行中的文档合计的服务端说明固定部分长度与上限 3000，`activityRoom` 为总长上限 4000 减去它（可为负）；`rules` 的 `items` 为两节的条目数与上限 10。长度按下发后的文本计。`problems` 为保存时会给出的全部拒绝，文本违反规则时仍为 200。未知文档名 404 | 已实现 |
 | `PUT /api/prompts/<文档名>` | 请求体 `{hash, text}`：按读取时的哈希（文件不存在时为空）比对，校验后以 LF 换行写文件并立即生效；返回 `{document, notices}`（新状态与常驻区块渲染失败的说明）。校验不通过 400（`PromptRejected`，`problems` 列出全部错误）；文件已在别处改动 409（`PromptChanged`）；未知文档名 404（`PromptUnknown`） | 已实现 |
 | `DELETE /api/prompts/<文档名>` | 删除文件，回到内置默认并立即生效，返回同上；文件不存在时直接返回当前状态；内置文本放不下时 400 并保留文件；未知文档名 404 | 已实现 |

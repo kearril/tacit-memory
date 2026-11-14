@@ -10,6 +10,8 @@ export interface EditorState {
   readonly canSave: boolean;
   /** There is a file to delete, so the built-in text can apply again. */
   readonly canRestore: boolean;
+  /** The file breaks its rules, so the service keeps running the document's previous text. */
+  readonly invalid: boolean;
 }
 
 /**
@@ -24,5 +26,6 @@ export function stateOf(document: PromptDocument, customizing: boolean, draft: s
     dirty,
     canSave: !readOnly && (dirty || (document.builtIn && customizing)),
     canRestore: !document.builtIn,
+    invalid: document.problem !== null,
   };
 }

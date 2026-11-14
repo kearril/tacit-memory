@@ -13,6 +13,7 @@ import {
   PencilLine,
   ScrollText,
   Settings,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -213,7 +214,9 @@ function PromptDocuments({ onNavigate }: { readonly onNavigate: () => void }) {
       {PROMPT_NAMES.map((name) => {
         const path = promptPathOf(name);
         const active = pathname === path;
-        const customized = prompts.data?.documents.find((document) => document.name === name)?.builtIn === false;
+        const document = prompts.data?.documents.find((candidate) => candidate.name === name);
+        const customized = document?.builtIn === false;
+        const invalid = document?.problem != null;
         return (
           <li key={name}>
             <Link
@@ -225,7 +228,11 @@ function PromptDocuments({ onNavigate }: { readonly onNavigate: () => void }) {
               }`}
             >
               {text.documents[name].title}
-              {customized ? (
+              {invalid ? (
+                <TriangleAlert role="img" aria-label={text.invalid} className="size-(--tk-font-size-sm) shrink-0 text-danger">
+                  <title>{text.invalid}</title>
+                </TriangleAlert>
+              ) : customized ? (
                 <PencilLine role="img" aria-label={text.customized} className="size-(--tk-font-size-sm) shrink-0">
                   <title>{text.customized}</title>
                 </PencilLine>

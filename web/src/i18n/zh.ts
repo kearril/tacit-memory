@@ -94,6 +94,9 @@ export const zh: Dictionary = {
     builtIn: "内置默认",
     builtInNote: "没有这份文件，服务正在使用下面的内置文本。",
     customized: "已自定义",
+    invalid: "有误",
+    invalidTitle: "文件有误，服务正在使用上一版",
+    invalidNote: "下面是文件现在的内容。改正后保存，或恢复默认，服务即改用新的内容。",
     customizedNote: (file) => `服务正在使用你的文件 prompts/${file}。`,
     residentSections: "允许的节名：",
     textLabel: (title) => `${title}的内容`,
@@ -476,6 +479,7 @@ export const zh: Dictionary = {
       extraListenerFailed: (address) => `额外监听 ${address} 未能启动`,
       cloudBackupFailed: "上一次云端备份失败",
       cloudBackupFailedDetail: (time) => `${time} 的云端备份没有成功`,
+      promptProblem: (document) => `提示词「${document}」有误，服务正在使用上一版`,
     },
     models: {
       embedding: "嵌入模型",

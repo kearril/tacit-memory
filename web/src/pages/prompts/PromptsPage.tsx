@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BookOpenText, ListChecks, type LucideIcon, PenLine, Pin, RefreshCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, useParams } from "react-router";
 import { ApiError } from "../../api/client";
 import type { ConfigProblem } from "../../api/config";
 import type { PromptDocument, PromptList, PromptMeasure, PromptName, PromptSaved } from "../../api/prompts";
 import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePromptCheck, usePrompts } from "../../api/prompts";
+import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { useDebounced } from "../../app/use-debounced";
 import { LeaveGuard } from "../../components/leave-guard";
@@ -83,7 +84,8 @@ export function PromptsPage() {
 /**
  * One document as a card: its icon, its name, its file and whether the built-in text applies; a few lines on where the
  * text goes and when a change takes effect; then the text and what can be done with it. What did not go as planned in
- * the last save stays shown above the text until the next one.
+ * the last save stays shown above the text until the next one. A file the service does not run, as it breaks its rules,
+ * is named at the top with the reason.
  */
 function PromptCard({ document, onReload }: { readonly document: PromptDocument; readonly onReload: () => void }) {
   const dictionary = useDictionary();
@@ -103,6 +105,8 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
     );
     setNotices(saved.notices);
     showToast(message);
+    // A save or a return to the default may fix a broken file, which the dashboard lists from the status.
+    void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
   };
 
   return (
@@ -135,7 +139,19 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
         </div>
       </header>
 
-      <p className="text-sm text-ink-muted">{document.builtIn ? text.builtInNote : text.customizedNote(FILE_NAMES[document.name])}</p>
+      {document.problem === null ? null : (
+        <Alert tone="danger">
+          <AlertTitle>{text.invalidTitle}</AlertTitle>
+          <AlertDescription className="grid gap-xs">
+            <p>{document.problem}</p>
+            <p>{text.invalidNote}</p>
+          </AlertDescription>
+        </Alert>
+      )}
+      {/* With a broken file the service does not run it, which the alert above says instead. */}
+      {document.problem !== null ? null : (
+        <p className="text-sm text-ink-muted">{document.builtIn ? text.builtInNote : text.customizedNote(FILE_NAMES[document.name])}</p>
+      )}
       {notices.length === 0 ? null : (
         <Alert tone="warning">
           <AlertTitle>{text.noticesTitle}</AlertTitle>
@@ -231,6 +247,23 @@ function PromptEditor({
     setFailure(null);
   };
 
+  // The editor grows with its text, so the page scrolls instead of the editor: its height is reset, then set to what the
+  // text needs, before the browser paints. The minimum height stays from the class.
+  // A narrower window wraps more lines, so a resize fits it again.
+  useLayoutEffect(() => {
+    const fit = () => {
+      const element = textarea.current;
+      if (element !== null) {
+        element.style.height = "auto";
+        // The text's height leaves out the border, which the height of a border box counts.
+        element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
+      }
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [draft]);
+
   // Starting to customize hands the text to the keyboard.
   useEffect(() => {
     if (customizing) {
@@ -248,7 +281,7 @@ function PromptEditor({
         placeholder={text.empty}
         spellCheck={false}
         onChange={(event) => setDraft(event.target.value)}
-        className="min-h-(--tk-size-editor) w-full resize-y rounded-md border-(length:--tk-border-thin) border-line bg-surface p-md font-mono text-sm leading-(--tk-line-height-normal) text-ink outline-none placeholder:text-ink-muted read-only:bg-surface-raised focus-visible:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+        className="min-h-(--tk-size-editor) w-full resize-none overflow-hidden rounded-md border-(length:--tk-border-thin) border-line bg-surface p-md font-mono text-sm leading-(--tk-line-height-normal) text-ink outline-none placeholder:text-ink-muted read-only:bg-surface-raised focus-visible:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
       />
       {measure === undefined ? null : <Measure measure={measure} />}
 

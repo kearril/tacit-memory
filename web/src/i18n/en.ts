@@ -96,6 +96,9 @@ export const en: Dictionary = {
     builtIn: "Built-in default",
     builtInNote: "There is no such file, so the service uses the built-in text below.",
     customized: "Customized",
+    invalid: "Error",
+    invalidTitle: "The file has an error, so the service runs the previous version",
+    invalidNote: "Below is what the file holds now. Fix it and save, or restore the default, and the service takes the new text.",
     customizedNote: (file) => `The service uses your file prompts/${file}.`,
     residentSections: "Allowed sections:",
     textLabel: (title) => `Text of the ${title.toLowerCase()}`,
@@ -507,6 +510,7 @@ export const en: Dictionary = {
       extraListenerFailed: (address) => `The extra listener ${address} did not start`,
       cloudBackupFailed: "The last cloud backup failed",
       cloudBackupFailedDetail: (time) => `The cloud backup of ${time} did not succeed`,
+      promptProblem: (document) => `${document}: the file has an error, and the service runs the previous version`,
     },
     models: {
       embedding: "embedding model",
