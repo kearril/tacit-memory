@@ -8,6 +8,7 @@ artifacts/
 # Web interface: dependencies and build output
 web/node_modules/
 web/dist/
+web/*.tsbuildinfo
 
 # Local-only documentation & workflow system
 AGENTS.local.md
