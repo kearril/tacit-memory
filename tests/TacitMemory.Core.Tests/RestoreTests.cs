@@ -302,6 +302,24 @@ public sealed class RestoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_restored_config_that_does_not_load_leaves_the_service_on_the_config_it_had_and_says_why()
+    {
+        var running = _service.Config;
+        var valid = File.ReadAllText(ConfigYaml);
+        File.AppendAllText(ConfigYaml, "retrieval:\n  topK: lots\n");
+        var backup = await _service.BackupAsync(BackupTarget.Local);
+        File.WriteAllText(ConfigYaml, valid);
+
+        var result = await _service.RestoreAsync(backup.Location, config: true);
+
+        Assert.Same(running, _service.Config);
+        Assert.Empty(result.Restart);
+        Assert.Contains("topK: lots", File.ReadAllText(ConfigYaml));
+        Assert.Contains(result.Notices, notice => notice.StartsWith("恢复回来的 config.yaml 有错误", StringComparison.Ordinal)
+            && notice.Contains("retrieval.topK", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_restore_without_the_config_does_not_reload()
     {
         var running = _service.Config;

@@ -22,7 +22,7 @@ import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups
 import { runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
-import { AgentLogo } from "./AgentLogo";
+import { AgentLogo, LOGO_TILES } from "./AgentLogo";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -521,7 +521,7 @@ function Agents({ report, locale }: { readonly report: StatusReport; readonly lo
       ) : (
         <>
           {rows.length === 0 ? null : (
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(calc(var(--tk-size-logo)*2.5),1fr))] gap-sm">
+            <ul className={LOGO_TILES}>
               {rows.map((row) => (
                 <AgentTile key={row.key} row={row} seen={seenText(row.lastSeen, locale, text)} />
               ))}

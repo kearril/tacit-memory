@@ -44,7 +44,9 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
   const text = dictionary.settings.judgment;
   // The names line up with the names of the rows above; the two inputs sit close, as one pair.
   const columns = "grid grid-cols-[minmax(0,var(--tk-size-setting-name))_minmax(0,1fr)] items-center gap-x-lg";
-  const pair = "grid grid-cols-[minmax(0,6rem)_minmax(0,6rem)_minmax(0,1fr)] items-center gap-x-sm";
+  // Two inputs as wide together as one number input above, so the pair lines up with the rows.
+  const pair =
+    "grid grid-cols-[minmax(0,calc((var(--tk-size-tile)-var(--tk-space-sm))/2))_minmax(0,calc((var(--tk-size-tile)-var(--tk-space-sm))/2))_minmax(0,1fr)] items-center gap-x-sm";
   const shared = BOUNDS.map((bound) => {
     const values = new Set(JUDGMENTS.map((judgment) => textOf(valueAt(form.view.defaults, `decision.${judgment}.${bound}`))));
     return values.size === 1 ? [...values][0] : null;

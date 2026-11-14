@@ -522,7 +522,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["BindingsStatus"];
+                        "application/json": components["schemas"]["BindingList"];
                     };
                 };
                 /** @description Unauthorized */
@@ -1439,6 +1439,10 @@ export interface components {
             client: string;
             lines: string[];
             mcp: null | components["schemas"]["McpServer"];
+        };
+        BindingList: {
+            items: components["schemas"]["BindingCheck"][];
+            mcp: components["schemas"]["McpServer"];
         };
         /** @enum {unknown} */
         BindingProblem: "contextFileMissing" | "contextFileNotUtf8" | "contextFileUnreadable" | "markersIncomplete" | "skillLinkNotTacit" | null;

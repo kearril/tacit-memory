@@ -8,9 +8,10 @@ import {
   connectClient,
   type ConnectRequest,
   disconnectClient,
+  type McpServer as McpServerInfo,
   useBindings,
 } from "../../api/bindings";
-import { STATUS_QUERY_KEY, useStatus } from "../../api/status";
+import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -20,10 +21,10 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
-import { AgentLogo } from "../dashboard/AgentLogo";
+import { AgentLogo, LOGO_TILES } from "../dashboard/AgentLogo";
 import { knownAgentOf } from "../dashboard/agents";
 import { BusyIcon } from "../dashboard/parts";
-import { complete, EMPTY, MCP_NAME, MCP_TRANSPORT, presetsLeft } from "./bindings";
+import { complete, EMPTY, presetsLeft } from "./bindings";
 import { Explaining, SettingsSection } from "./fields";
 
 /** The name a client goes by on the page: its agent's when the interface knows it, else the binding's own. */
@@ -52,7 +53,7 @@ export function BindingsSection() {
           <AlertDescription>{errorTextOf(bindings.error, dictionary)}</AlertDescription>
         </Alert>
       ) : bindings.data === undefined ? null : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(calc(var(--tk-size-logo)*2.5),1fr))] gap-sm">
+        <ul className={LOGO_TILES}>
           {items.map((binding) => (
             <li key={binding.client}>
               <Tile
@@ -74,7 +75,11 @@ export function BindingsSection() {
         </ul>
       )}
       <AddDialog open={adding} onOpenChange={setAdding} bound={items.map((binding) => binding.client)} />
-      <Details binding={items.find((binding) => binding.client === shown) ?? null} onClose={() => setShown(null)} />
+      <Details
+        binding={items.find((binding) => binding.client === shown) ?? null}
+        mcp={bindings.data?.mcp ?? null}
+        onClose={() => setShown(null)}
+      />
     </SettingsSection>
   );
 }
@@ -295,12 +300,19 @@ function Choice({
  * A bound client's details: what is wrong with it, its two paths, who shares them, the MCP server to register in the
  * client, and unbinding, which asks once more in place before it happens.
  */
-function Details({ binding, onClose }: { readonly binding: BindingCheck | null; readonly onClose: () => void }) {
+function Details({
+  binding,
+  mcp,
+  onClose,
+}: {
+  readonly binding: BindingCheck | null;
+  readonly mcp: McpServerInfo | null;
+  readonly onClose: () => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.settings.bindings;
   const queries = useQueryClient();
   const showToast = useToast();
-  const endpoint = useStatus().data?.service?.endpoint ?? null;
   const [confirming, setConfirming] = useState(false);
   const unbind = useMutation({
     mutationFn: disconnectClient,
@@ -353,7 +365,7 @@ function Details({ binding, onClose }: { readonly binding: BindingCheck | null; 
             {binding.sharedWith.length === 0 ? null : (
               <p className="text-xs text-ink-muted">{text.sharedWith(binding.sharedWith.map(nameOf).join(", "))}</p>
             )}
-            {endpoint === null ? null : <McpServer url={endpoint} transport={MCP_TRANSPORT} name={MCP_NAME} />}
+            {mcp === null ? null : <McpServer url={mcp.url} transport={mcp.transport} name={mcp.name} />}
             {unbind.isError ? (
               <p role="alert" className="text-sm text-danger">
                 {text.unbindFailed}：{errorTextOf(unbind.error, dictionary)}

@@ -226,14 +226,14 @@ function Switch({
       aria-checked={checked}
       aria-label={label}
       title={label}
-      className={`relative inline-flex h-(--tk-space-lg) w-(--tk-space-xl) shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+      className={`relative inline-flex h-(--tk-space-lg) w-(--tk-space-xl) shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface ${
         checked ? "bg-accent" : "bg-line"
-      } ${changed ? "ring-2 ring-accent/40" : ""}`}
+      } ${changed ? "ring-(length:--tk-border-thick) ring-accent-soft" : ""}`}
       onClick={() => onChange(!checked)}
     >
       <span
         aria-hidden
-        className={`inline-block size-(--tk-space-md) rounded-full bg-surface shadow-sm transition-transform ${
+        className={`inline-block size-(--tk-space-md) rounded-full bg-surface shadow-rest transition-transform ${
           checked ? "translate-x-[calc(var(--tk-space-xl)-var(--tk-space-md)-var(--tk-space-xs))]" : "translate-x-(--tk-space-xs)"
         }`}
       />

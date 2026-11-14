@@ -76,6 +76,11 @@ export interface Dictionary {
     readonly sectionsNav: string;
     readonly problemsIn: (count: number) => string;
     readonly loadFailed: string;
+    /** The title when `config.yaml` does not load, as when it was broken by hand or restored broken. */
+    readonly fileInvalid: string;
+    /** That the service runs on with the config it last loaded, and how to go on. */
+    readonly fileInvalidNote: string;
+    readonly readAgain: string;
     readonly defaultValue: (value: string) => string;
     readonly outOfRange: (min: string, max: string) => string;
     readonly immediate: string;

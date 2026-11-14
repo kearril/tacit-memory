@@ -4,7 +4,7 @@
 
 ## 1. 三个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。读取使用次数时测试使用 internal 的 `PageUsages()`（返回 internal 的 `PageUsage`）与 `ActivityUsages()`（按短码返回活动的次数），它们也不属于公开契约。让自动备份停在打包阶段时，测试在 `TacitOptions` 上设置 internal 钩子 `BeforeBackupPack`（打包前等待），见 `BackupRaceTests`。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。读取使用次数时测试使用 internal 的 `PageUsages()`（返回 internal 的 `PageUsage`）与 `ActivityUsages()`（按短码返回活动的次数），它们也不属于公开契约。让自动备份停在打包阶段时，测试在 `TacitOptions` 上设置 internal 钩子 `BeforeBackupPack`（打包前等待），见 `BackupRaceTests`。让重新加载打不开运行时，测试设置 `MemoryService` 的 internal 钩子 `OnOpening`（每次打开运行时先以配置调用它，从中抛出即打开失败），见 `ReloadTests`。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
@@ -54,7 +54,7 @@
      - `BackupRaceTests`：自动备份在写入槽中打包：打包期间到达的写入排队等待，不与之争用文件。
      - `ManualBackupTests`：手动备份的位置与文件名（本地时间）、内容与清单（`kind`、`memoryHeadSubject`）、写入队列中排在其前的写入、不被自动清理、`--to` 创建目录、同秒重名拒绝且不覆盖、`keep: 0` 时照常、明文密钥提示、相对目录被拒。
      - `RestoreTests`：恢复的预览（备份信息与将被替换的内容，`--include-config` 时三项替换）、旧清单（无 `kind`、`memoryHeadSubject`）、无清单拒绝；清单与内容不符、条目位置越界（`..`、绝对路径、未列出的文件）各自拒绝且什么都不改、不生成保险备份；仅恢复记忆仓库；`--include-config` 替换配置与提示词并删除多余的提示词文件；`bindings.json` 永不恢复；恢复前先生成保险备份并记录日志；恢复后的检索、服务端说明与常驻区块反映备份内容；恢复回来的 `memory.path` 不同时的提示；换入失败时回滚（记忆仓库回到恢复前内容）；恢复期间到达的写入落在恢复后的仓库中；恢复回来的 `config.yaml` 不能加载（如含旧版 `apiKeyEnv`）时恢复照常完成、结果附错误说明，预览同样提示；恢复结束后记忆仓库内没有残留的 `.tacit-*` 暂存目录；`path` 与 `remote` 的来源校验、`remote` 只能预览的规则由门面拒绝。
-     - `RestoreTests` 另含带配置的恢复：恢复回来的配置立即重新加载，并列出等待重启的项；不带配置的恢复不重新加载。
+     - `RestoreTests` 另含带配置的恢复：恢复回来的配置立即重新加载，并列出等待重启的项；恢复回来的配置无法加载时服务按原配置继续、不列等待重启的项，结果中说明出错的键路径；不带配置的恢复不重新加载。
      - `RemoteBackupTests`：云端备份经 `WebDavDouble`：PUT `.part` 后 MOVE 覆盖（`Overwrite: T`，基本认证头）；第二次上传替换远端内容；父目录缺失时 MKCOL 后重试一次；MOVE 不支持（405）时报错、远端旧文件不变、`.part` 被删；上传中途断开时远端旧文件不变；认证与连接失败的阶段；错误与日志不含密码；`remote.json` 的记录与 `status` 的云端行（不访问网络）；未配置时的提示；目录被拒；无用户名时不发认证；配置中的明文密码提示；本地 `backups/` 中不留副本。
      - `RemoteRestoreTests`：恢复云端备份经 `WebDavDouble`：预览读取远端文件、下载文件位于 `backups/.download/` 且不计入最近的本地备份；确认的下载恢复为远端内容、生成保险备份并删除下载文件；远端没有备份时拒绝、什么都不改、不留下载文件；认证失败拒绝且不泄露密码；非备份的远端文件拒绝、什么都不改、保留下载文件；未配置时的提示。
      - `RecentActivityTests`：新增活动与 `replaces` 改写、回复只有一行（附新短码）、写入不改动 `workstreams.md`；已删除的 `op`、`items`、`hash` 与其他未知参数按名拒绝，下一步指向 `tacit-consolidate`。
@@ -90,7 +90,7 @@
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
      - `ConfigApiTests`：`/api/config` 经真实 HTTP：每一项的文件值、运行中的值与默认值；保存的设置立即生效、无需重启；校验不通过时返回全部问题且文件不变；基于已被改动的文件的保存被拒绝、改动保留；需重启的项保存后连同运行中的值一并报告；只读项不能从页面修改；额外监听地址要先设访问密码；手动编辑过的文件与运行中的值并列给出；只给出各密钥的来源而不给值，单独请求时给值（环境变量优先）；密钥省略即保留、给值即写入、`null` 即删除，非密钥的键不能按密钥改；关掉的模型从文件与运行中的服务中移除；不认识的 `provider` 在它自己的键上报错；没有会话的其他设备被拒绝。
-     - `BindingsApiTests`：`/api/bindings` 经真实 HTTP：绑定时展开用户主目录并给出要注册的 MCP 服务；拒绝时给出与命令相同的原因且什么都不改；不合规则的客户端名称为 400；列表说明绑定哪里有问题；解除绑定，未绑定的名称为 404；没有会话的其他设备被拒绝。
+     - `BindingsApiTests`：`/api/bindings` 经真实 HTTP：绑定时展开用户主目录并给出要注册的 MCP 服务，绑定清单给出同一个 MCP 服务；拒绝时给出与命令相同的原因且什么都不改；不合规则的客户端名称为 400；列表说明绑定哪里有问题；解除绑定，未绑定的名称为 404；没有会话的其他设备被拒绝。
      - `WebInterfaceTests`：`/ui` 的托管（测试用自己的目录代替构建产物）：构建产物原样返回，`assets/` 下的文件长期缓存、入口页为 `no-store`；不带扩展名的路径返回入口页，带扩展名而找不到的路径 404 且不返回入口页；路径越出 `web/` 目录的请求不读取任何文件；产物未构建时返回「Web 界面未构建」；`/` 重定向到 `/ui/`；非本机连接无需登录即可打开界面，大小写不同的前缀同样适用。
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌；说明中的别名最少个数取自给定的 `LimitsConfig`，默认值与改动后的值都能填入；说明中不出现已删除的上限数字。
    - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，整理报告的内容由 `ConsolidationReportTests` 覆盖。

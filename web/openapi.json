@@ -462,7 +462,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BindingsStatus"
+                  "$ref": "#/components/schemas/BindingList"
                 }
               }
             }
@@ -1767,6 +1767,24 @@
                 "$ref": "#/components/schemas/McpServer"
               }
             ]
+          }
+        }
+      },
+      "BindingList": {
+        "required": [
+          "items",
+          "mcp"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BindingCheck"
+            }
+          },
+          "mcp": {
+            "$ref": "#/components/schemas/McpServer"
           }
         }
       },

@@ -33,7 +33,15 @@ public sealed record McpServer(Uri Url, string Transport, string Name)
 {
     internal const string StreamableHttp = "Streamable HTTP";
     internal const string SuggestedName = "tacit";
+
+    /// <summary>The MCP server on <paramref name="port"/>, which only takes connections from this machine.</summary>
+    internal static McpServer On(int port) => new(new Uri($"http://127.0.0.1:{port}/mcp"), StreamableHttp, SuggestedName);
 }
+
+/// <summary>What the management API returns for the bindings.</summary>
+/// <param name="Items">Each binding and what is wrong with it, as the status report's bindings column has them.</param>
+/// <param name="Mcp">The MCP server a bound client registers, as a bind returns it.</param>
+public sealed record BindingList(IReadOnlyList<BindingCheck> Items, McpServer Mcp);
 
 /// <summary>What happened to one bound context file when the resident blocks were rendered.</summary>
 public enum BlockState

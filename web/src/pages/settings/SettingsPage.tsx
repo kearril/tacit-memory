@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { ApiError } from "../../api/client";
@@ -26,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
 import { Button } from "../../components/ui/button";
+import { BusyIcon } from "../dashboard/parts";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import type { SettingsForm } from "./fields";
@@ -80,14 +82,49 @@ export function SettingsPage() {
           onRestart={setRestart}
         />
       ) : config.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{dictionary.settings.loadFailed}</AlertTitle>
-          <AlertDescription>{errorTextOf(config.error, dictionary)}</AlertDescription>
-        </Alert>
+        <LoadFailed error={config.error} retrying={config.isFetching} onRetry={() => void config.refetch()} />
       ) : (
         <div aria-busy="true" className="min-h-dvh" />
       )}
     </div>
+  );
+}
+
+/**
+ * What the page shows when it cannot read the settings. A `config.yaml` broken by hand, or restored broken from a backup,
+ * names each key that is wrong, says the service runs on with the config it last loaded, and offers to read the file again
+ * once it is fixed; any other failure gives the service's explanation.
+ */
+function LoadFailed({ error, retrying, onRetry }: { readonly error: Error; readonly retrying: boolean; readonly onRetry: () => void }) {
+  const dictionary = useDictionary();
+  const text = dictionary.settings;
+  const invalid = error instanceof ApiError && error.error === "ConfigInvalid";
+
+  return (
+    <Alert tone="danger">
+      <AlertTitle>{invalid ? text.fileInvalid : text.loadFailed}</AlertTitle>
+      <AlertDescription className="grid gap-sm">
+        {invalid && error.problems.length > 0 ? (
+          <ul className="grid gap-xs">
+            {error.problems.map((problem) => (
+              <li key={problem.path} className="flex flex-wrap gap-x-sm">
+                <code className="font-mono">{problem.path}</code>
+                <span>{problem.message}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>{errorTextOf(error, dictionary)}</p>
+        )}
+        {invalid ? <p>{text.fileInvalidNote}</p> : null}
+        <div>
+          <Button type="button" variant="outline" disabled={retrying} onClick={onRetry}>
+            <BusyIcon busy={retrying} icon={RefreshCw} />
+            {text.readAgain}
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -122,14 +159,17 @@ function SettingsEditor({
   usePublishProblems(placed.bySection);
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const body = bodyOf(view, drafts, secrets);
-      return saveConfig(view.hash, body.config, body.secrets);
+      const saved = await saveConfig(view.hash, body.config, body.secrets);
+      // The service lists every setting still waiting for a restart; the dialog is about the ones this save changed, as the
+      // others are already marked on the page.
+      return saved.restart.filter((change) => changed.includes(change.path));
     },
-    onSuccess: async (saved) => {
+    onSuccess: async (restart) => {
       // A save that leaves settings waiting for a restart says so in a dialog, which also says the rest is in effect.
-      if (saved.restart.length > 0) {
-        onRestart(saved.restart);
+      if (restart.length > 0) {
+        onRestart(restart);
       } else {
         showToast(text.saved);
       }

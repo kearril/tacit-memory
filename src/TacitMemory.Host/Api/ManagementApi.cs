@@ -216,7 +216,7 @@ internal static class ManagementApi
             .Produces<SecretShown>()
             .ProducesErrors(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapGet("/bindings", () => Json(service.Bindings()))
-            .Produces<BindingsStatus>()
+            .Produces<BindingList>()
             .ProducesErrors(StatusCodes.Status409Conflict);
         api.MapPost("/bindings", async (HttpContext context) =>
         {

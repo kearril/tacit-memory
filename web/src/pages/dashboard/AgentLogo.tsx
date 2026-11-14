@@ -1,6 +1,9 @@
 import { Bot, Check } from "lucide-react";
 import type { AgentIcon } from "./agents";
 
+/** The grid the large logo tiles wrap in: as many columns as fit, each a few logos wide. */
+export const LOGO_TILES = "grid grid-cols-[repeat(auto-fill,minmax(calc(var(--tk-size-logo)*2.5),1fr))] gap-sm";
+
 /**
  * An agent's logo on a soft tile: its own colours, a one-colour shape in the colour of the text, or a plain robot. `large`
  * is the tile of the settings page's bindings. `sound`, when given, puts the binding's state on the tile's corner: a tick
@@ -39,7 +42,9 @@ export function AgentLogo({
           {sound ? (
             <Check className="size-(--tk-space-sm)" strokeWidth={4} />
           ) : (
-            <span className="text-[length:var(--tk-space-sm)] leading-none font-bold">!</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" className="size-(--tk-space-sm)">
+              <path d="M12 5v8M12 19h.01" />
+            </svg>
           )}
         </span>
       )}

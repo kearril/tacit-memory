@@ -50,11 +50,11 @@ public sealed class BindingsApiTests : IAsyncLifetime
     private static async Task<T> Read<T>(HttpResponseMessage response) =>
         JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
 
-    private async Task<BindingsStatus> ListAsync()
+    private async Task<BindingList> ListAsync()
     {
         using var response = await _local.GetAsync(Url());
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return await Read<BindingsStatus>(response);
+        return await Read<BindingList>(response);
     }
 
     [Fact]
@@ -71,8 +71,10 @@ public sealed class BindingsApiTests : IAsyncLifetime
         Assert.EndsWith("/mcp", done.Mcp.Url.AbsoluteUri);
         Assert.Equal("tacit", done.Mcp.Name);
         Assert.True(File.Exists(AgentsMd));
-        var binding = Assert.Single((await ListAsync()).Items);
+        var list = await ListAsync();
+        var binding = Assert.Single(list.Items);
         Assert.Equal(("omp", AgentsMd, SkillsFolder, (BindingProblem?)null), (binding.Client, binding.ContextFile, binding.SkillsFolder, binding.Problem));
+        Assert.Equal(done.Mcp, list.Mcp);
     }
 
     [Fact]

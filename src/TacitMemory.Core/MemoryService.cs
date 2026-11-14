@@ -249,9 +249,13 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFailed.Format(running.Language, failure.Message), failure);
         }
 
-        SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
-        foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
-            _log.Record(LevelOf(render), render.Message);
+        // Under the render lock, as a binding and the timed render are: they write the same context files.
+        lock (_renderGate)
+        {
+            SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
+            foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
+                _log.Record(LevelOf(render), render.Message);
+        }
         return RestartChange.Between(running, loaded);
     }
 
@@ -413,9 +417,12 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public BackupList Backups() => LocalBackups.List(_options, Config);
 
-    /// <summary>The bindings and what is wrong with each, as the status report's bindings column has them.</summary>
+    /// <summary>
+    /// The bindings and what is wrong with each, as the status report's bindings column has them, with the MCP server a bound
+    /// client registers.
+    /// </summary>
     /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
-    public BindingsStatus Bindings() => BindingChecks.Produce(_options, Config.Language);
+    public BindingList Bindings() => new(BindingChecks.Produce(_options, Config.Language).Items, McpServer.On(Config.Port));
 
     /// <summary>
     /// Binds a client by the rules of <c>tacit connect</c>; a refusal changes no file. Holds the render lock, so the service
@@ -438,7 +445,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Probes the three auxiliary models as the saved <c>config.yaml</c> configures them, which is what <c>tacit probe</c>
-    /// reads; the running service keeps the configuration it started with. An unconfigured model is reported and skipped.
+    /// reads, which is also what the service runs once a save has reloaded it. An unconfigured model is reported and skipped.
     /// No model's health changes, and it does not wait for a maintenance operation.
     /// </summary>
     /// <exception cref="TacitException">The saved configuration cannot be loaded.</exception>
