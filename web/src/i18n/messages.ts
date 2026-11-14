@@ -85,6 +85,8 @@ export interface Dictionary {
     readonly invalid: string;
     readonly invalidTitle: string;
     readonly invalidNote: string;
+    /** The name of the information button beside a document's title. */
+    readonly aboutLabel: (title: string) => string;
     readonly residentSections: string;
     readonly textLabel: (title: string) => string;
     /** What an empty editor shows: the built-in `skill.md` is empty. */

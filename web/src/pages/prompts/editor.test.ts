@@ -53,4 +53,11 @@ describe("stateOf", () => {
 
     expect(stateOf(document, false, document.text)).toEqual({ readOnly: false, dirty: false, canSave: false, canRestore: true, invalid: true });
   });
+
+  it("does not count a file's CRLF line breaks, which the editor keeps as LF, as a change", () => {
+    const document = file("instructions", "## 核心\r\n- 规则\r\n");
+
+    expect(stateOf(document, false, "## 核心\n- 规则\n").dirty).toBe(false);
+    expect(stateOf(document, false, "## 核心\n- 改过\n").dirty).toBe(true);
+  });
 });

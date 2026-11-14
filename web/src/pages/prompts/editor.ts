@@ -4,7 +4,7 @@ import type { PromptDocument } from "../../api/prompts";
 export interface EditorState {
   /** The text cannot be typed into: the built-in text of a document whose customizing has not started. */
   readonly readOnly: boolean;
-  /** The text differs from the document's; leaving asks first. */
+  /** The text differs from the document's, line breaks aside; leaving asks first. */
   readonly dirty: boolean;
   /** Saving would write the file. Once customizing starts, the built-in text may be saved unchanged, to start the file from it. */
   readonly canSave: boolean;
@@ -20,7 +20,7 @@ export interface EditorState {
  */
 export function stateOf(document: PromptDocument, customizing: boolean, draft: string): EditorState {
   const readOnly = document.builtIn && document.name !== "skill" && !customizing;
-  const dirty = draft !== document.text;
+  const dirty = lf(draft) !== lf(document.text);
   return {
     readOnly,
     dirty,
@@ -28,4 +28,9 @@ export function stateOf(document: PromptDocument, customizing: boolean, draft: s
     canRestore: !document.builtIn,
     invalid: document.problem !== null,
   };
+}
+
+/** Line breaks as the editor keeps them and a save writes them: LF, whatever the file had. */
+export function lf(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpenText, ListChecks, type LucideIcon, PenLine, Pin, RefreshCw } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin, RefreshCw } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router";
 import { ApiError } from "../../api/client";
 import type { ConfigProblem } from "../../api/config";
@@ -24,12 +24,17 @@ import {
 } from "../../components/ui/alert-dialog";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { useToast } from "../../components/ui/toast-context";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
-import { stateOf } from "./editor";
+import { lf, stateOf } from "./editor";
 import { measureLines } from "./measure";
 import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf, RESIDENT_SECTIONS } from "./names";
+
+/** The Markdown editor, loaded only once the prompts page opens, so the other pages do not carry it. */
+const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
 
 /** How long the user pauses typing before the text is checked, in milliseconds. */
 const CHECK_DELAY = 400;
@@ -57,7 +62,7 @@ export function PromptsPage() {
 
   const document = prompts.data?.documents.find((candidate) => candidate.name === name);
   return (
-    <div className="mx-auto grid w-full max-w-(--tk-size-settings) gap-xl">
+    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-xl">
       <h1 className="sr-only">{dictionary.nav.prompts}</h1>
       {document !== undefined ? (
         <PromptCard key={name} document={document} onReload={() => void prompts.refetch()} />
@@ -82,8 +87,8 @@ export function PromptsPage() {
 }
 
 /**
- * One document as a card: its icon, its name, its file and whether the built-in text applies; a few lines on where the
- * text goes and when a change takes effect; then the text and what can be done with it. What did not go as planned in
+ * One document as a card: its icon, its name, its file and whether the built-in text applies, with what the document is
+ * for behind an information button; then the text and what can be done with it. What did not go as planned in
  * the last save stays shown above the text until the next one. A file the service does not run, as it breaks its rules,
  * is named at the top with the reason.
  */
@@ -96,6 +101,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
   const about = text.documents[document.name];
   const Icon = PROMPT_ICONS[document.name];
   const titleId = `prompt-${document.name}-title`;
+  const stateNote = document.builtIn ? text.builtInNote : text.customizedNote(FILE_NAMES[document.name]);
 
   const onDone = (saved: PromptSaved, message: string) => {
     queryClient.setQueryData<PromptList>(PROMPTS_QUERY_KEY, (list) =>
@@ -120,22 +126,16 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
             {about.title}
           </h2>
           <code className="font-mono text-sm text-ink-muted">{FILE_NAMES[document.name]}</code>
-          {document.builtIn ? <Badge>{text.builtIn}</Badge> : <Badge tone="accent">{text.customized}</Badge>}
-        </div>
-        <div className="col-start-2 grid gap-xs text-sm text-ink-muted">
-          {about.help.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-          {document.name === "resident" ? (
-            <p className="flex flex-wrap items-center gap-xs">
-              {text.residentSections}
-              {RESIDENT_SECTIONS.map((section) => (
-                <code key={section} className="rounded-sm bg-surface-raised px-xs font-mono text-xs text-ink">
-                  ## {section}
-                </code>
-              ))}
-            </p>
-          ) : null}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* Focusable, so the keyboard reaches what the badge means as well. */}
+              <span tabIndex={0} className="rounded-sm outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent">
+                {document.builtIn ? <Badge>{text.builtIn}</Badge> : <Badge tone="accent">{text.customized}</Badge>}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{stateNote}</TooltipContent>
+          </Tooltip>
+          <About document={document} stateNote={stateNote} />
         </div>
       </header>
 
@@ -147,10 +147,6 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
             <p>{text.invalidNote}</p>
           </AlertDescription>
         </Alert>
-      )}
-      {/* With a broken file the service does not run it, which the alert above says instead. */}
-      {document.problem !== null ? null : (
-        <p className="text-sm text-ink-muted">{document.builtIn ? text.builtInNote : text.customizedNote(FILE_NAMES[document.name])}</p>
       )}
       {notices.length === 0 ? null : (
         <Alert tone="warning">
@@ -172,6 +168,42 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
         onReload={onReload}
       />
     </section>
+  );
+}
+
+/**
+ * The information button beside a document's name, and what it opens: where the text goes, its limits and when a change
+ * takes effect; the sections the resident document accepts; and whether the file or the built-in text applies. It opens
+ * on a click, so a touch screen and the keyboard reach it too.
+ */
+function About({ document, stateNote }: { readonly document: PromptDocument; readonly stateNote: string }) {
+  const dictionary = useDictionary();
+  const text = dictionary.prompts;
+  const about = text.documents[document.name];
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" aria-label={text.aboutLabel(about.title)} className="text-ink-muted">
+          <Info aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="max-w-(--tk-size-content)">
+        {about.help.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
+        {document.name === "resident" ? (
+          <p className="flex flex-wrap items-center gap-xs">
+            {text.residentSections}
+            {RESIDENT_SECTIONS.map((section) => (
+              <code key={section} className="rounded-sm bg-surface-raised px-xs font-mono text-xs">
+                ## {section}
+              </code>
+            ))}
+          </p>
+        ) : null}
+        <p className="text-ink-muted">{stateNote}</p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -203,11 +235,10 @@ function PromptEditor({
   const [customizing, setCustomizing] = useState(false);
   const [draft, setDraft] = useState(document.text);
   const [failure, setFailure] = useState<Failure | null>(null);
-  const textarea = useRef<HTMLTextAreaElement>(null);
   const state = stateOf(document, customizing, draft);
   // The text as it is saved needs no check: the document carries its measure. Any other text is checked once typing pauses.
   const settled = useDebounced(draft, CHECK_DELAY);
-  const edited = settled !== document.text;
+  const edited = lf(settled) !== lf(document.text);
   const check = usePromptCheck(document.name, settled, edited);
   const measure = !edited ? document.measure : check.isError ? undefined : check.data?.measure;
   const problems = edited && !check.isPlaceholderData ? (check.data?.problems ?? []) : [];
@@ -247,42 +278,19 @@ function PromptEditor({
     setFailure(null);
   };
 
-  // The editor grows with its text, so the page scrolls instead of the editor: its height is reset, then set to what the
-  // text needs, before the browser paints. The minimum height stays from the class.
-  // A narrower window wraps more lines, so a resize fits it again.
-  useLayoutEffect(() => {
-    const fit = () => {
-      const element = textarea.current;
-      if (element !== null) {
-        element.style.height = "auto";
-        // The text's height leaves out the border, which the height of a border box counts.
-        element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
-      }
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [draft]);
-
-  // Starting to customize hands the text to the keyboard.
-  useEffect(() => {
-    if (customizing) {
-      textarea.current?.focus();
-    }
-  }, [customizing]);
-
   return (
     <div className="grid gap-md">
-      <textarea
-        ref={textarea}
-        readOnly={state.readOnly}
-        aria-label={label}
-        value={draft}
-        placeholder={text.empty}
-        spellCheck={false}
-        onChange={(event) => setDraft(event.target.value)}
-        className="min-h-(--tk-size-editor) w-full resize-none overflow-hidden rounded-md border-(length:--tk-border-thin) border-line bg-surface p-md font-mono text-sm leading-(--tk-line-height-normal) text-ink outline-none placeholder:text-ink-muted read-only:bg-surface-raised focus-visible:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
-      />
+      {/* Until the editor's code arrives, an empty frame of its least height holds its place. */}
+      <Suspense fallback={<div aria-busy="true" className="min-h-(--tk-size-editor) rounded-md border-(length:--tk-border-thin) border-line" />}>
+        <MarkdownEditor
+          value={draft}
+          onChange={setDraft}
+          readOnly={state.readOnly}
+          label={label}
+          placeholder={text.empty}
+          focused={customizing}
+        />
+      </Suspense>
       {measure === undefined ? null : <Measure measure={measure} />}
 
       {problems.length === 0 || failure?.kind === "rejected" ? null : (
