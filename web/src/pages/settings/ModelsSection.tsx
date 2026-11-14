@@ -84,7 +84,7 @@ function ModelItem({
   return (
     <section
       aria-labelledby={`${inputIdOf(path)}-name`}
-      className={`grid gap-md rounded-lg p-md transition-colors ${open ? "bg-surface shadow-raised" : "bg-surface-raised"}`}
+      className={`grid gap-md rounded-lg bg-surface p-md transition-shadow ${open ? "shadow-raised" : "shadow-rest"}`}
     >
       <div className="flex items-center gap-md">
         <Switch
@@ -112,8 +112,15 @@ function ModelItem({
       {open ? (
         <div id={formId} className="grid gap-md">
           {on ? null : <p className="text-xs text-ink-muted">{text.offHint}</p>}
-          <Provider form={form} path={`${path}.provider`} />
-          <Setting form={form} path={`${path}.url`} text={text.fields.url} required wide />
+          <Provider form={form} model={model} />
+          <Setting
+            form={form}
+            path={`${path}.url`}
+            text={text.fields.url}
+            placeholder={text.urlExamples[model][providerOf(form, model)] || undefined}
+            required
+            wide
+          />
           <Setting form={form} path={`${path}.model`} text={text.fields.model} required />
           <SecretField form={form} path={`${path}.apiKey`} text={text.fields.apiKey} />
         </div>
@@ -131,7 +138,7 @@ function Summary({ form, model, on }: { readonly form: SettingsForm; readonly mo
   }
   const name = (form.drafts[`models.${model}.model`] ?? "").trim();
   const url = (form.drafts[`models.${model}.url`] ?? "").trim();
-  const provider = (form.drafts[`models.${model}.provider`] ?? "").toLowerCase() === "cloudflare" ? "cloudflare" : "generic";
+  const provider = providerOf(form, model);
   return (
     <span className="truncate text-xs">
       {name === "" ? <span className="text-ink-muted">{text.noModel}</span> : name}
@@ -141,13 +148,22 @@ function Summary({ form, model, on }: { readonly form: SettingsForm; readonly mo
   );
 }
 
-/** The protocol of a model as two segments: the generic protocol (no value) or Cloudflare's. */
-function Provider({ form, path }: { readonly form: SettingsForm; readonly path: string }) {
+/** The protocol of a model as the inputs have it now. */
+function providerOf(form: SettingsForm, model: Model): "generic" | "cloudflare" {
+  return (form.drafts[`models.${model}.provider`] ?? "").toLowerCase() === "cloudflare" ? "cloudflare" : "generic";
+}
+
+/**
+ * The protocol of a model as two segments: the generic protocol (no value) or Cloudflare's, with a line under them on what
+ * the one chosen means for this model.
+ */
+function Provider({ form, model }: { readonly form: SettingsForm; readonly model: Model }) {
   const dictionary = useDictionary();
   const text = dictionary.settings.models;
+  const path = `models.${model}.provider`;
   const id = inputIdOf(path);
   const errors = form.problems.byField[path] ?? [];
-  const value = (form.drafts[path] ?? "").toLowerCase() === "cloudflare" ? "cloudflare" : "";
+  const value = providerOf(form, model) === "cloudflare" ? "cloudflare" : "";
   const choices = [
     { value: "", label: text.providers.generic },
     { value: "cloudflare", label: text.providers.cloudflare },
@@ -182,6 +198,7 @@ function Provider({ form, path }: { readonly form: SettingsForm; readonly path: 
         </div>
       }
     >
+      <p className="text-xs text-ink-muted">{text.protocols[model][providerOf(form, model)]}</p>
       <Problems id={`${id}-error`} messages={errors} />
     </SettingRow>
   );

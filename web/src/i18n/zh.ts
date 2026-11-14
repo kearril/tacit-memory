@@ -172,13 +172,32 @@ export const zh: Dictionary = {
       uses: { embedding: "把记忆转成向量，用于语义检索", reranker: "给检索结果重新排序", decision: "写入时判断是否重复或冲突" },
       offLine: (use) => `未启用 · ${use}`,
       offHint: "未启用：可以先填好，打开开关并保存后生效。",
-      noModel: "未填模型名",
+      noModel: "未填模型 ID",
       probeNote: "探测已保存的配置，看模型能否连通。",
       providers: { generic: "通用协议", cloudflare: "Cloudflare" },
+      protocols: {
+        embedding: {
+          generic: "按 OpenAI Embeddings 格式请求。URL 原样使用，填完整的接口地址。",
+          cloudflare: "嵌入模型选 Cloudflare 时仍按通用协议（OpenAI Embeddings）请求。",
+        },
+        reranker: {
+          generic: "按 Cohere/Jina Rerank 格式请求。URL 原样使用，填完整的接口地址。",
+          cloudflare: "按 Workers AI 格式请求，模型写在 URL 里；模型 ID 仍要填写，只用于显示。",
+        },
+        decision: {
+          generic: "按 System One 格式请求。URL 原样使用，填完整的接口地址。",
+          cloudflare: "请求与 System One 相同，响应按 Workers AI 的 result 外层读取。",
+        },
+      },
+      urlExamples: {
+        embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
+        reranker: { generic: "https://api.jina.ai/v1/rerank", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<账户 ID>/ai/run/<模型>" },
+        decision: { generic: "", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<账户 ID>/ai/run/<模型>" },
+      },
       fields: {
-        provider: { label: "协议", help: "通用协议：嵌入模型为 OpenAI Embeddings，重排模型为 Cohere/Jina Rerank，决策模型为 System One；Cloudflare 为 Workers AI 的适配。" },
-        url: { label: "地址", help: "模型服务的接口地址。" },
-        model: { label: "模型名", help: "请求中传给服务的模型名。" },
+        provider: { label: "协议", help: "模型服务接受的请求格式。" },
+        url: { label: "URL", help: "完整的接口地址，原样请求，不追加路径。" },
+        model: { label: "模型 ID", help: "请求中传给服务的模型 ID。" },
         apiKey: { label: "API 密钥", help: "调用模型服务的密钥；环境变量优先于 config.yaml。" },
       },
       probeDirty: "有未保存的改动，保存后才能探测",

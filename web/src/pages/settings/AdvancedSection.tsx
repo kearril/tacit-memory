@@ -13,13 +13,12 @@ export function AdvancedSection({ form }: { readonly form: SettingsForm }) {
 
   return (
     <SettingsSection section="advanced" summary={text.summary}>
-      <div className="grid gap-md">
+      <SettingsGroup>
         <Setting form={form} path="server.port" text={text.fields.port} />
         <Setting form={form} path="limits.brief" text={text.fields.brief} />
         <Setting form={form} path="limits.page.minAliases" text={text.fields.minAliases} />
-      </div>
-      <SettingsGroup title={text.fileOnly}>
-        <p className="text-xs text-ink-muted">{dictionary.settings.readOnlyNote}</p>
+      </SettingsGroup>
+      <SettingsGroup title={text.fileOnly} note={dictionary.settings.readOnlyNote}>
         <ReadOnlySetting
           form={form}
           path="memory.path"

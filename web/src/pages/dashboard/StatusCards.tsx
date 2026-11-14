@@ -437,7 +437,8 @@ function Address({ value, label }: { readonly value: string; readonly label: str
  * How clients reach the memory, in one card: the service's version in the head; on the left its MCP and web addresses and
  * the extra listener, whether it started; on the right the agents, each binding and each client that connected merged into
  * one tile per agent with its logo, whether its binding is sound or broken on the logo's corner, and when it last
- * connected. On a narrow screen the agents go under the addresses. With no binding, a line says what that means and a
+ * connected. The addresses take only the width they need, up to half, and the agents the rest; on a narrow screen the
+ * agents go under the addresses. With no binding, a line says what that means and a
  * button leads to the bindings in the settings.
  */
 export function ConnectionCard({ report, locale, className }: CardProps) {
@@ -459,7 +460,7 @@ export function ConnectionCard({ report, locale, className }: CardProps) {
           )
         }
       />
-      <div className="grid gap-lg lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-lg lg:grid-cols-[fit-content(50%)_minmax(0,1fr)]">
         {service == null ? (
           <Unreadable />
         ) : (

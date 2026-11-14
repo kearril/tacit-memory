@@ -189,13 +189,32 @@ export const en: Dictionary = {
       },
       offLine: (use) => `Off · ${use}`,
       offHint: "Off: you can fill it in now; it takes effect once switched on and saved.",
-      noModel: "No model name",
+      noModel: "No model ID",
       probeNote: "Probes the saved configuration to see whether the models answer.",
       providers: { generic: "Generic protocol", cloudflare: "Cloudflare" },
+      protocols: {
+        embedding: {
+          generic: "Requests in the OpenAI Embeddings format. The URL is used as is: give the full endpoint.",
+          cloudflare: "With Cloudflare, the embedding model still requests in the generic format (OpenAI Embeddings).",
+        },
+        reranker: {
+          generic: "Requests in the Cohere/Jina Rerank format. The URL is used as is: give the full endpoint.",
+          cloudflare: "Requests in the Workers AI format, with the model in the URL; the model ID is still required, for display only.",
+        },
+        decision: {
+          generic: "Requests in the System One format. The URL is used as is: give the full endpoint.",
+          cloudflare: "Requests as System One does; the response is read inside the Workers AI result wrapper.",
+        },
+      },
+      urlExamples: {
+        embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
+        reranker: { generic: "https://api.jina.ai/v1/rerank", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<account ID>/ai/run/<model>" },
+        decision: { generic: "", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<account ID>/ai/run/<model>" },
+      },
       fields: {
-        provider: { label: "Protocol", help: "Generic: OpenAI Embeddings for the embedding model, Cohere/Jina Rerank for the reranker, System One for the decision model; Cloudflare adapts to Workers AI." },
-        url: { label: "Address", help: "The address of the model service's API." },
-        model: { label: "Model name", help: "The model name sent to the service in each request." },
+        provider: { label: "Protocol", help: "The request format the model service takes." },
+        url: { label: "URL", help: "The full endpoint, requested as is with no path added." },
+        model: { label: "Model ID", help: "The model ID sent to the service in each request." },
         apiKey: { label: "API key", help: "The key for the model service; an environment variable wins over config.yaml." },
       },
       probeDirty: "There are unsaved changes; save them before probing",

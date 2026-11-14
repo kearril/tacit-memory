@@ -66,7 +66,7 @@ export function BindingsSection() {
           ))}
           <li>
             <Tile label={text.addTile} title={text.add} muted onClick={() => setAdding(true)}>
-              <span className="grid size-(--tk-size-logo) place-items-center rounded-lg border-(length:--tk-border-thin) border-dashed border-line">
+              <span className="grid size-(--tk-size-logo) place-items-center rounded-lg">
                 <Plus aria-hidden className="size-(--tk-font-size-xl)" />
               </span>
             </Tile>
@@ -79,7 +79,10 @@ export function BindingsSection() {
   );
 }
 
-/** One tile: a logo over a name, the whole of it a button. */
+/**
+ * One tile: a logo over a name, the whole of it a button that looks like one: a small card that rises on hover. The tile
+ * that adds a binding is only a dashed outline.
+ */
 function Tile({
   label,
   title,
@@ -98,8 +101,10 @@ function Tile({
       type="button"
       title={title}
       aria-label={title}
-      className={`grid w-full cursor-pointer justify-items-center gap-sm rounded-lg p-md outline-none hover:bg-surface-raised focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
-        muted ? "text-ink-muted hover:text-accent" : ""
+      className={`lift grid w-full cursor-pointer justify-items-center gap-sm rounded-lg border-(length:--tk-border-thin) p-md outline-none hover:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+        muted
+          ? "border-dashed border-line text-ink-muted hover:text-accent"
+          : "border-line bg-surface shadow-pressed hover:shadow-hover"
       }`}
       onClick={onClick}
     >

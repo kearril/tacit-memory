@@ -1,4 +1,4 @@
-import { RotateCcw, RotateCw } from "lucide-react";
+import { Info, RotateCcw, RotateCw } from "lucide-react";
 import type { ConfigView } from "../../api/config";
 import { useDictionary } from "../../app/session-context";
 import { Badge } from "../../components/ui/badge";
@@ -83,15 +83,33 @@ export function Immediate() {
   );
 }
 
-/** A group of rows inside a section, under a small heading of its own. */
-export function SettingsGroup({ title, aside, children }: { readonly title: string; readonly aside?: React.ReactNode; readonly children: React.ReactNode }) {
+/**
+ * A group of rows inside a section: a small heading of its own when it has one, a note under it when it needs one, then the
+ * rows on a panel, a line between each two.
+ */
+export function SettingsGroup({
+  title,
+  note,
+  aside,
+  children,
+}: {
+  readonly title?: string;
+  readonly note?: string;
+  readonly aside?: React.ReactNode;
+  readonly children: React.ReactNode;
+}) {
   return (
-    <div className="grid gap-md">
-      <div className="flex flex-wrap items-center gap-sm">
-        <h3 className="text-sm font-semibold text-ink-muted">{title}</h3>
-        {aside}
+    <div className="grid gap-sm">
+      {title === undefined ? null : (
+        <div className="flex flex-wrap items-center gap-sm">
+          <h3 className="text-sm font-semibold text-ink-muted">{title}</h3>
+          {aside}
+        </div>
+      )}
+      {note === undefined ? null : <p className="text-xs text-ink-muted">{note}</p>}
+      <div className="grid rounded-lg bg-surface px-lg shadow-rest [&>*]:py-md [&>*+*]:border-t-(length:--tk-border-thin) [&>*+*]:border-line">
+        {children}
       </div>
-      {children}
     </div>
   );
 }
@@ -121,7 +139,14 @@ export function SettingRow({
 }
 
 /**
- * A setting's name: hovering it explains the setting and gives its key path in `config.yaml`. A setting that takes effect
+ * The settings whose names carry a mark that they explain themselves: only those whose explanation says something the name
+ * and the input do not, so the marks stay few. Every name still explains itself on hover.
+ */
+const EXPLAINED = new Set(["server.host", "server.port", "retrieval.minRerankScore", "consolidation.budgetSeconds", "backup.keep"]);
+
+/**
+ * A setting's name: hovering it explains the setting and gives its key path in `config.yaml`; the few whose explanation
+ * matters carry a small mark that says so. A setting that takes effect
  * only when the service restarts has a small mark after it; one saved with a value still waiting for a restart has a badge
  * with the running value instead.
  */
@@ -138,16 +163,19 @@ export function SettingName({
   readonly htmlFor?: string;
   readonly id?: string;
 }) {
+  const mark = EXPLAINED.has(path) ? <Info aria-hidden className="size-(--tk-font-size-sm) text-ink-muted" /> : null;
   return (
     <>
       <Explaining help={text.help} keyPath={path}>
         {htmlFor === undefined ? (
-          <span id={id} tabIndex={0} className="w-fit text-sm font-medium outline-none">
+          <span id={id} tabIndex={0} className="flex w-fit items-center gap-xs text-sm font-medium outline-none">
             {text.label}
+            {mark}
           </span>
         ) : (
-          <Label id={id} htmlFor={htmlFor} className="w-fit">
+          <Label id={id} htmlFor={htmlFor} className="w-fit gap-xs">
             {text.label}
+            {mark}
           </Label>
         )}
       </Explaining>

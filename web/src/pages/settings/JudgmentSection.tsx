@@ -26,10 +26,7 @@ export function JudgmentSection({ form }: { readonly form: SettingsForm }) {
         <Setting form={form} path="retrieval.topK" text={text.fields.topK} />
         <Setting form={form} path="retrieval.minRerankScore" text={text.fields.minRerankScore} />
       </SettingsGroup>
-      <SettingsGroup title={text.thresholds}>
-        <p className="text-xs text-ink-muted">
-          {text.thresholdsHelp} {text.calibration}
-        </p>
+      <SettingsGroup title={text.thresholds} note={`${text.thresholdsHelp} ${text.calibration}`}>
         <ThresholdTable form={form} />
       </SettingsGroup>
     </SettingsSection>
