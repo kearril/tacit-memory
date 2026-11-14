@@ -128,6 +128,16 @@ export const en: Dictionary = {
     leaveTitle: "Leave this document?",
     leaveBody: "There are unsaved changes, and leaving loses them.",
     leaveConfirm: "Discard changes and leave",
+    problemsTitle: "The text breaks the rules, and a save would be refused",
+    measure: {
+      characters: (length, limit) => `${length} / ${limit} characters`,
+      fixedPart: (length, limit) => `Fixed part of the server instructions: ${length} / ${limit} characters`,
+      activityRoom: (room) => `Room left for recent activity: ${room} characters`,
+      noActivityRoom: (short) => `No room left for recent activity, ${short} characters short`,
+      items: (section, count, limit) => `${section}: ${count} / ${limit} items`,
+      worthRecording: "Worth recording",
+      notRecorded: "Not recorded",
+    },
   },
   settings: {
     sections: {

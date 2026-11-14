@@ -431,6 +431,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prompts/{name}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PromptDraft"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PromptCheck"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/probe": {
         parameters: {
             query?: never;
@@ -1899,14 +1994,39 @@ export interface components {
             /** Format: int64 */
             elapsedMilliseconds?: number;
         };
+        PromptCheck: {
+            measure: components["schemas"]["PromptMeasure"];
+            problems: string[];
+        };
         PromptDocumentView: {
             name: components["schemas"]["PromptName"];
             text: string;
             builtIn: boolean;
             hash: null | string;
+            measure: components["schemas"]["PromptMeasure"];
+        };
+        PromptDraft: {
+            text: string;
+        };
+        PromptItems: {
+            /** Format: int32 */
+            worthRecording: number;
+            /** Format: int32 */
+            notRecorded: number;
+            /** Format: int32 */
+            limit: number;
         };
         PromptList: {
             documents: components["schemas"]["PromptDocumentView"][];
+        };
+        PromptMeasure: {
+            /** Format: int32 */
+            length: number;
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            activityRoom: null | number;
+            items: null | components["schemas"]["PromptItems"];
         };
         /** @enum {unknown} */
         PromptName: "instructions" | "rules" | "resident" | "skill";

@@ -9,7 +9,7 @@ namespace TacitMemory.Host.Tests;
 
 /// <summary>
 /// <c>/api/prompts</c> over real HTTP: the four prompt documents with their text, whether the built-in default applies and
-/// the hash of each file; and the refusal of another device without a session.
+/// the hash and the measure of each file; checks, saves and returns to the default; and the refusal of another device without a session.
 /// </summary>
 public sealed class PromptApiTests : IAsyncLifetime
 {
@@ -88,10 +88,60 @@ public sealed class PromptApiTests : IAsyncLifetime
         using var response = await _remote.GetAsync(Url("/api/prompts"));
         using var put = await _remote.PutAsync(Url("/api/prompts/skill"), Body(null, "x"));
         using var delete = await _remote.DeleteAsync(Url("/api/prompts/skill"));
+        using var check = await _remote.PostAsync(Url("/api/prompts/skill/check"), Draft("x"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, put.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, check.StatusCode);
+    }
+
+    private static JsonContent Draft(string text) =>
+        JsonContent.Create(new PromptDraft(text), options: ManagementApiJson.Options);
+
+    [Fact]
+    public async Task Each_document_carries_its_measure()
+    {
+        var list = await ReadAsync();
+
+        var instructions = list.Documents[0].Measure;
+        Assert.Equal(3000, instructions.Limit);
+        Assert.Equal(4000 - instructions.Length, instructions.ActivityRoom);
+        Assert.Equal(new PromptItems(5, 3, 10), list.Documents[1].Measure.Items);
+        Assert.Equal(new PromptMeasure(0, 3000, null, null), list.Documents[3].Measure);
+    }
+
+    [Fact]
+    public async Task A_check_answers_with_the_measure_and_writes_no_file()
+    {
+        using var response = await _local.PostAsync(Url("/api/prompts/skill/check"), Draft("页面标题用中文。"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var check = await Read<PromptCheck>(response);
+        Assert.Equal(new PromptMeasure(8, 3000, null, null), check.Measure);
+        Assert.Empty(check.Problems);
+        Assert.False(File.Exists(Path.Combine(Prompts, "skill.md")));
+    }
+
+    [Fact]
+    public async Task A_check_of_a_text_that_breaks_its_rules_is_200_with_every_problem()
+    {
+        var items = string.Concat(Enumerable.Range(1, 11).Select(i => $"- 条目 {i}\n"));
+
+        using var response = await _local.PostAsync(Url("/api/prompts/rules/check"), Draft("## 值得记\n" + items + "## 不记\n" + items));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var check = await Read<PromptCheck>(response);
+        Assert.Equal(new PromptItems(11, 11, 10), check.Measure.Items);
+        Assert.Equal(2, check.Problems.Count);
+    }
+
+    [Fact]
+    public async Task A_check_of_an_unknown_document_is_404()
+    {
+        using var response = await _local.PostAsync(Url("/api/prompts/tools/check"), Draft("x"));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     private static JsonContent Body(string? hash, string text) =>

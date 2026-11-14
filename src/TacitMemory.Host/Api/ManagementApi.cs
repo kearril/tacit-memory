@@ -206,6 +206,15 @@ internal static class ManagementApi
             .Accepts<PromptSave>("application/json")
             .Produces<PromptSaved>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapPost("/prompts/{name}/check", async (string name, HttpContext context) =>
+        {
+            var document = service.PromptNamed(name);
+            var body = await ReadBody<PromptDraft>(context, service);
+            return Json(service.CheckPrompt(document, body.Text));
+        })
+            .Accepts<PromptDraft>("application/json")
+            .Produces<PromptCheck>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status415UnsupportedMediaType);
         api.MapDelete("/prompts/{name}", async (string name, HttpContext context) =>
             Json(await service.RestorePromptDefaultAsync(service.PromptNamed(name), context.RequestAborted)))
             .Produces<PromptSaved>()

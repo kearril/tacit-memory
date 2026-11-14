@@ -460,8 +460,34 @@ public sealed class MemoryService : IDisposable
     /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
     /// file. Reads the files only, so it does not wait for a maintenance operation.
     /// </summary>
-    public PromptList Prompts() =>
-        new([.. Enum.GetValues<PromptName>().Select(name => PromptFiles.View(_options.TacitHome, Config.Language, name))]);
+    public PromptList Prompts()
+    {
+        var running = RunningPrompts();
+        return new([.. Enum.GetValues<PromptName>().Select(name => PromptFiles.View(_options.TacitHome, Config.Language, running, name))]);
+    }
+
+    /// <summary>
+    /// Checks <paramref name="text"/> as the prompt document <paramref name="name"/> without saving it: its measure beside
+    /// the other documents as the service runs them, and every refusal a save of it would give.
+    /// </summary>
+    public PromptCheck CheckPrompt(PromptName name, string text)
+    {
+        var running = RunningPrompts();
+        return new PromptCheck(
+            PromptFiles.Measure(Config.Language, running, name, text),
+            PromptFiles.Check(_options.TacitHome, Config.Language, running, name, text));
+    }
+
+    /// <summary>The prompt documents the service runs with now.</summary>
+    private PromptDocuments RunningPrompts()
+    {
+        lock (_instructionsGate)
+            return _prompts;
+    }
+
+    /// <summary>The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with.</summary>
+    private PromptDocumentView PromptView(PromptName name) =>
+        PromptFiles.View(_options.TacitHome, Config.Language, RunningPrompts(), name);
 
     /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
     /// <exception cref="TacitException"><see cref="TacitError.PromptUnknown"/> for any other name.</exception>
@@ -491,7 +517,7 @@ public sealed class MemoryService : IDisposable
         try
         {
             var path = PromptFiles.PathOf(_options.TacitHome, name);
-            var current = PromptFiles.View(_options.TacitHome, Config.Language, name);
+            var current = PromptView(name);
             if (current.Hash != hash)
                 throw new TacitException(TacitError.PromptChanged, ManagementApiMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
 
@@ -499,7 +525,7 @@ public sealed class MemoryService : IDisposable
             RefuseUnless(name, content);
             Directory.CreateDirectory(PromptFiles.Folder(_options.TacitHome));
             ConfigWriter.Replace(path, content);
-            return new PromptSaved(PromptFiles.View(_options.TacitHome, Config.Language, name), ApplyPromptsNow(name));
+            return new PromptSaved(PromptView(name), ApplyPromptsNow(name));
         }
         finally
         {
@@ -520,11 +546,11 @@ public sealed class MemoryService : IDisposable
         {
             var path = PromptFiles.PathOf(_options.TacitHome, name);
             if (!File.Exists(path))
-                return new PromptSaved(PromptFiles.View(_options.TacitHome, Config.Language, name), []);
+                return new PromptSaved(PromptView(name), []);
 
             RefuseUnless(name, PromptFiles.DefaultText(name, Config.Language));
             File.Delete(path);
-            return new PromptSaved(PromptFiles.View(_options.TacitHome, Config.Language, name), ApplyPromptsNow(name));
+            return new PromptSaved(PromptView(name), ApplyPromptsNow(name));
         }
         finally
         {
@@ -535,10 +561,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
     private void RefuseUnless(PromptName name, string text)
     {
-        PromptDocuments running;
-        lock (_instructionsGate)
-            running = _prompts;
-        var refusals = PromptFiles.Check(_options.TacitHome, Config.Language, running, name, text);
+        var refusals = PromptFiles.Check(_options.TacitHome, Config.Language, RunningPrompts(), name, text);
         if (refusals.Count == 0)
             return;
         var file = Path.GetFileName(PromptFiles.PathOf(_options.TacitHome, name));

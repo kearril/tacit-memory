@@ -96,6 +96,9 @@ internal static class ServerInstructionText
         Part(InstructionPart.RecordingCriteria, Criteria(prompts.Rules ?? RulesFile.Default(language))),
     ];
 
+    /// <summary>The length of the fixed parts joined, which must stay within <see cref="FixedLimit"/>.</summary>
+    public static int FixedLength(MemoryLanguage language, PromptDocuments prompts) => FixedText(language, prompts).Length;
+
     /// <summary>The fixed parts joined: the text every session gets in full.</summary>
     private static string FixedText(MemoryLanguage language, PromptDocuments prompts) =>
         Join(FixedParts(language, prompts).Select(part => part.Text));
@@ -115,7 +118,7 @@ internal static class ServerInstructionText
     /// </summary>
     public static void Check(MemoryLanguage language, PromptDocuments prompts, string tacitHome)
     {
-        var length = FixedText(language, prompts).Length;
+        var length = FixedLength(language, prompts);
         if (length > FixedLimit)
         {
             var files = new List<string>();

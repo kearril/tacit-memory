@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useParams } from "react-router";
 import { ApiError } from "../../api/client";
 import type { ConfigProblem } from "../../api/config";
-import type { PromptDocument, PromptList, PromptName, PromptSaved } from "../../api/prompts";
-import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePrompts } from "../../api/prompts";
+import type { PromptDocument, PromptList, PromptMeasure, PromptName, PromptSaved } from "../../api/prompts";
+import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePromptCheck, usePrompts } from "../../api/prompts";
 import { useDictionary } from "../../app/session-context";
+import { useDebounced } from "../../app/use-debounced";
 import { LeaveGuard } from "../../components/leave-guard";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
@@ -26,7 +27,11 @@ import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { stateOf } from "./editor";
+import { measureLines } from "./measure";
 import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf, RESIDENT_SECTIONS } from "./names";
+
+/** How long the user pauses typing before the text is checked, in milliseconds. */
+const CHECK_DELAY = 400;
 
 /** The icon of each document, in the head of its card. */
 const PROMPT_ICONS: Readonly<Record<PromptName, LucideIcon>> = {
@@ -184,6 +189,12 @@ function PromptEditor({
   const [failure, setFailure] = useState<Failure | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const state = stateOf(document, customizing, draft);
+  // The text as it is saved needs no check: the document carries its measure. Any other text is checked once typing pauses.
+  const settled = useDebounced(draft, CHECK_DELAY);
+  const edited = settled !== document.text;
+  const check = usePromptCheck(document.name, settled, edited);
+  const measure = !edited ? document.measure : check.isError ? undefined : check.data?.measure;
+  const problems = edited && !check.isPlaceholderData ? (check.data?.problems ?? []) : [];
 
   const failed = (title: string) => (error: Error) => {
     if (error instanceof ApiError && error.problems.length > 0) {
@@ -239,7 +250,18 @@ function PromptEditor({
         onChange={(event) => setDraft(event.target.value)}
         className="min-h-(--tk-size-editor) w-full resize-y rounded-md border-(length:--tk-border-thin) border-line bg-surface p-md font-mono text-sm leading-(--tk-line-height-normal) text-ink outline-none placeholder:text-ink-muted read-only:bg-surface-raised focus-visible:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
       />
+      {measure === undefined ? null : <Measure measure={measure} />}
 
+      {problems.length === 0 || failure?.kind === "rejected" ? null : (
+        <Alert tone="warning">
+          <AlertTitle>{text.problemsTitle}</AlertTitle>
+          <ul className="col-start-2 grid gap-xs">
+            {problems.map((problem, index) => (
+              <li key={index}>{problem}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
       {failure === null ? null : failure.kind === "rejected" ? (
         <Alert tone="danger">
           <AlertTitle>{text.rejectedTitle}</AlertTitle>
@@ -318,6 +340,24 @@ function PromptEditor({
         text={{ title: text.leaveTitle, body: text.leaveBody, confirm: text.leaveConfirm, cancel: text.cancel }}
       />
     </div>
+  );
+}
+
+/**
+ * The measure of the text under it, one part after another: past a limit, a part turns to the danger tone, so the colour
+ * is never the only sign as the numbers say it too. Announced politely, so a screen reader hears it once typing pauses.
+ */
+function Measure({ measure }: { readonly measure: PromptMeasure }) {
+  const dictionary = useDictionary();
+  const words = dictionary.prompts.measure;
+  return (
+    <p aria-live="polite" className="-mt-sm flex flex-wrap gap-x-md gap-y-xs text-xs text-ink-muted tabular-nums">
+      {measureLines(measure, words).map((line) => (
+        <span key={line.text} className={line.over ? "font-medium text-danger" : undefined}>
+          {line.text}
+        </span>
+      ))}
+    </p>
   );
 }
 

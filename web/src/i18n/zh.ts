@@ -125,6 +125,16 @@ export const zh: Dictionary = {
     leaveTitle: "离开这份文档？",
     leaveBody: "还有未保存的改动，离开后将丢失。",
     leaveConfirm: "放弃改动并离开",
+    problemsTitle: "当前内容不符合要求，保存会被拒绝",
+    measure: {
+      characters: (length, limit) => `${length} / ${limit} 字符`,
+      fixedPart: (length, limit) => `服务端说明固定部分 ${length} / ${limit} 字符`,
+      activityRoom: (room) => `最近活动还能用 ${room} 字符`,
+      noActivityRoom: (short) => `最近活动没有空间，还差 ${short} 字符`,
+      items: (section, count, limit) => `${section} ${count} / ${limit} 条`,
+      worthRecording: "值得记",
+      notRecorded: "不记",
+    },
   },
   settings: {
     sections: {

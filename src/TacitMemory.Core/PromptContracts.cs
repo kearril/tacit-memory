@@ -22,7 +22,31 @@ public enum PromptName
 /// file has changed.
 /// </summary>
 /// <param name="BuiltIn">Whether the file is absent, so the built-in default applies; the default of <c>skill.md</c> is empty.</param>
-public sealed record PromptDocumentView(PromptName Name, string Text, bool BuiltIn, string? Hash);
+/// <param name="Measure">The length of <see cref="Text"/> against its limit, as a check of it gives.</param>
+public sealed record PromptDocumentView(PromptName Name, string Text, bool BuiltIn, string? Hash, PromptMeasure Measure);
+
+/// <summary>
+/// How much of its limit a prompt document's text takes, counted as it is sent. For <c>resident.md</c> and
+/// <c>skill.md</c> it is the text's own length and limit. <c>instructions.md</c> and <c>rules.md</c> have no limit of their
+/// own: they are counted in the fixed part of the server instructions, beside the other one as the service runs it and
+/// the parts the code provides, so the length is that part's and the limit its limit.
+/// </summary>
+/// <param name="Length">Characters, with LF line breaks; the core rules without the comments that fill their lines, and the recording criteria as they are laid out when sent.</param>
+/// <param name="ActivityRoom">
+/// For the fixed part only: the characters the server instructions have left for recent activity, their total limit less
+/// the fixed part. Below zero when the fixed part is over its limit.
+/// </param>
+/// <param name="Items">For <c>rules.md</c> only: the items in each of its two sections.</param>
+public sealed record PromptMeasure(int Length, int Limit, int? ActivityRoom, PromptItems? Items);
+
+/// <summary>The items in the two sections of <c>rules.md</c>, and the most each may hold.</summary>
+public sealed record PromptItems(int WorthRecording, int NotRecorded, int Limit);
+
+/// <summary>A prompt document's text checked without being saved: its measure, and every refusal a save would give.</summary>
+public sealed record PromptCheck(PromptMeasure Measure, IReadOnlyList<string> Problems);
+
+/// <summary>The body of a prompt document's check: the text to check.</summary>
+public sealed record PromptDraft(string Text);
 
 /// <summary>
 /// A prompt document as a save or a return to the built-in default left it, which the service runs with from now on.

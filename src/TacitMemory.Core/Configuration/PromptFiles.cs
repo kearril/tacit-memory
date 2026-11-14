@@ -52,48 +52,95 @@ internal static partial class PromptFiles
     /// <summary>
     /// Checks <paramref name="text"/> as the content of the document <paramref name="name"/>, by the rules a load applies to
     /// its file, and the fixed part of the server instructions with the other documents as <paramref name="running"/> holds
-    /// them. Returns every refusal, and none when the text may be saved.
+    /// them. Returns every refusal, and none when the text may be saved. The fixed part is checked even when the text
+    /// breaks a rule of its own, as long as its length can still be counted.
     /// </summary>
     public static IReadOnlyList<string> Check(
         string tacitHome, MemoryLanguage language, PromptDocuments running, PromptName name, string text)
     {
         var path = PathOf(tacitHome, name);
-        PromptDocuments candidate;
-        try
+        text = text.ReplaceLineEndings("\n");
+        var problems = new List<string>();
+        var candidate = running;
+        switch (name)
         {
-            candidate = name switch
-            {
-                PromptName.Instructions => running with { Instructions = text },
-                PromptName.Rules => running with { Rules = RulesFile.Parse(text, path, language) },
-                PromptName.Resident => running with { Resident = ResidentFile.Parse(text, path, language) },
-                PromptName.Skill => running with { Skill = ParseSkill(text, path, language) },
-                _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
-            };
+            case PromptName.Instructions:
+                candidate = running with { Instructions = text };
+                break;
+            case PromptName.Rules:
+                var criteria = RulesFile.Read(text);
+                problems.AddRange(RulesFile.Problems(criteria, path, language));
+                candidate = running with { Rules = criteria };
+                break;
+            case PromptName.Resident:
+                Refusal(() => ResidentFile.Parse(text, path, language));
+                break;
+            case PromptName.Skill:
+                Refusal(() => ParseSkill(text, path, language));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(name), name, null);
         }
-        catch (TacitException e)
-        {
-            return [e.Message];
-        }
+        Refusal(() => ServerInstructionText.Check(language, candidate, tacitHome));
+        return problems;
 
-        try
+        void Refusal(Action check)
         {
-            ServerInstructionText.Check(language, candidate, tacitHome);
-            return [];
-        }
-        catch (TacitException e)
-        {
-            return [e.Message];
+            try
+            {
+                check();
+            }
+            catch (TacitException e)
+            {
+                problems.Add(e.Message);
+            }
         }
     }
 
-    /// <summary>A document as its file holds it, with the file's hash, or its built-in text when the file is absent.</summary>
-    public static PromptDocumentView View(string tacitHome, MemoryLanguage language, PromptName name)
+    /// <summary>
+    /// How much of its limit <paramref name="text"/> takes as the content of the document <paramref name="name"/>, with the
+    /// other documents as <paramref name="running"/> holds them; counted however the text breaks its rules.
+    /// </summary>
+    public static PromptMeasure Measure(MemoryLanguage language, PromptDocuments running, PromptName name, string text)
+    {
+        text = text.ReplaceLineEndings("\n");
+        switch (name)
+        {
+            case PromptName.Instructions:
+                return Fixed(running with { Instructions = text }, null);
+            case PromptName.Rules:
+                var criteria = RulesFile.Read(text);
+                return Fixed(running with { Rules = criteria },
+                    new PromptItems(criteria.WorthRecording.Count, criteria.NotRecorded.Count, RulesFile.MaxItemsPerSection));
+            case PromptName.Resident:
+                return new PromptMeasure(text.Length, ResidentFile.MaxLength, null, null);
+            case PromptName.Skill:
+                return new PromptMeasure(text.Length, SkillLimit, null, null);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(name), name, null);
+        }
+
+        PromptMeasure Fixed(PromptDocuments candidate, PromptItems? items)
+        {
+            var length = ServerInstructionText.FixedLength(language, candidate);
+            return new PromptMeasure(length, ServerInstructionText.FixedLimit, ServerInstructionText.TotalLimit - length, items);
+        }
+    }
+
+    /// <summary>
+    /// A document as its file holds it, with the file's hash, or its built-in text when the file is absent; measured beside
+    /// the other documents as <paramref name="running"/> holds them.
+    /// </summary>
+    public static PromptDocumentView View(string tacitHome, MemoryLanguage language, PromptDocuments running, PromptName name)
     {
         var path = PathOf(tacitHome, name);
         if (!File.Exists(path))
-            return new PromptDocumentView(name, DefaultText(name, language), BuiltIn: true, Hash: null);
+        {
+            var builtIn = DefaultText(name, language);
+            return new PromptDocumentView(name, builtIn, BuiltIn: true, Hash: null, Measure(language, running, name, builtIn));
+        }
         var text = File.ReadAllText(path, Utf8);
-        return new PromptDocumentView(name, text, BuiltIn: false, ContentHash.Of(text));
+        return new PromptDocumentView(name, text, BuiltIn: false, ContentHash.Of(text), Measure(language, running, name, text));
     }
 
     /// <summary>

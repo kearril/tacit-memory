@@ -48,6 +48,23 @@ internal static class RulesFile
     /// <exception cref="TacitException">A section has more than <see cref="MaxItemsPerSection"/> items.</exception>
     public static RecordingCriteria Parse(string text, string path, MemoryLanguage language)
     {
+        var criteria = Read(text);
+        var problems = Problems(criteria, path, language);
+        return problems.Count == 0 ? criteria : throw new TacitException(TacitError.PromptInvalid, problems[0]);
+    }
+
+    /// <summary>The refusal of each section of <paramref name="criteria"/> with more than <see cref="MaxItemsPerSection"/> items.</summary>
+    public static IReadOnlyList<string> Problems(RecordingCriteria criteria, string path, MemoryLanguage language) =>
+    [
+        .. new[] { (StructureWords.WorthRecording, criteria.WorthRecording), (StructureWords.NotRecorded, criteria.NotRecorded) }
+            .Where(section => section.Item2.Count > MaxItemsPerSection)
+            .Select(section => Messages.RulesTooMany.Format(
+                language, path, section.Item1.In(language), section.Item2.Count, MaxItemsPerSection, section.Item2.Count - MaxItemsPerSection)),
+    ];
+
+    /// <summary>The criteria in a text written as <c>rules.md</c>, however many items each section has.</summary>
+    public static RecordingCriteria Read(string text)
+    {
         var worth = new List<string>();
         var notRecorded = new List<string>();
         List<string>? section = null;
@@ -66,16 +83,7 @@ internal static class RulesFile
             }
         }
 
-        Check(worth, StructureWords.WorthRecording);
-        Check(notRecorded, StructureWords.NotRecorded);
         return new RecordingCriteria(worth, notRecorded);
-
-        void Check(List<string> items, Localized heading)
-        {
-            if (items.Count > MaxItemsPerSection)
-                throw new TacitException(TacitError.PromptInvalid, Messages.RulesTooMany.Format(
-                    language, path, heading.In(language), items.Count, MaxItemsPerSection, items.Count - MaxItemsPerSection));
-        }
     }
 
     private static string Items(IEnumerable<string> items) => string.Concat(items.Select(item => $"- {item}\n"));

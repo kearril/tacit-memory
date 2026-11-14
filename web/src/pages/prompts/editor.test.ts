@@ -2,8 +2,21 @@ import { describe, expect, it } from "vitest";
 import type { PromptDocument } from "../../api/prompts";
 import { stateOf } from "./editor";
 
-const builtIn = (name: PromptDocument["name"], text: string): PromptDocument => ({ name, text, builtIn: true, hash: null });
-const file = (name: PromptDocument["name"], text: string): PromptDocument => ({ name, text, builtIn: false, hash: "a".repeat(64) });
+const measure = (text: string): PromptDocument["measure"] => ({ length: text.length, limit: 3000, activityRoom: null, items: null });
+const builtIn = (name: PromptDocument["name"], text: string): PromptDocument => ({
+  name,
+  text,
+  builtIn: true,
+  hash: null,
+  measure: measure(text),
+});
+const file = (name: PromptDocument["name"], text: string): PromptDocument => ({
+  name,
+  text,
+  builtIn: false,
+  hash: "a".repeat(64),
+  measure: measure(text),
+});
 
 describe("stateOf", () => {
   it("keeps a built-in document read-only until customizing starts", () => {

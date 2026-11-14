@@ -114,6 +114,18 @@ export interface Dictionary {
     readonly leaveTitle: string;
     readonly leaveBody: string;
     readonly leaveConfirm: string;
+    /** Above the problems the check finds in the text being edited, before any save. */
+    readonly problemsTitle: string;
+    /** The measure under the text: characters, the fixed part of the server instructions and what it leaves. */
+    readonly measure: {
+      readonly characters: (length: number, limit: number) => string;
+      readonly fixedPart: (length: number, limit: number) => string;
+      readonly activityRoom: (room: number) => string;
+      readonly noActivityRoom: (short: number) => string;
+      readonly items: (section: string, count: number, limit: number) => string;
+      readonly worthRecording: string;
+      readonly notRecorded: string;
+    };
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;
