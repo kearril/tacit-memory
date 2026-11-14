@@ -55,7 +55,10 @@ export function LogsPage() {
   const param = useParams().date;
   const [search, setSearch] = useSearchParams();
   const filters = filtersOf(search);
-  const setFilters = (next: LogFilters) => setSearch(new URLSearchParams(searchOf(next)), { replace: true });
+  // At once rather than as a transition: the keyword box shows the address, and a key pressed before a transitioned
+  // address arrived would be typed into the old value and lose the ones before it.
+  const setFilters = (next: LogFilters) =>
+    setSearch(new URLSearchParams(searchOf(next)), { replace: true, flushSync: true });
   const days = useLogDays();
   const [following, setFollowing] = useState(true);
   const named = logDateOf(param);
