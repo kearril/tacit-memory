@@ -125,6 +125,7 @@ flowchart LR
 ### 注入
 
 - `MemoryService` 生成服务端说明后缓存（`ServerInstructionsAsync`，同一时间只生成一次）。以下变化使缓存失效：`persona.md` 与 `candidates.md`、`pages/` 下的任何文件、`recent/` 下的文件与主线文件 `workstreams.md`、记忆仓库的提交（`.git` 下的 `HEAD`、`refs/`、`logs/` 与 `packed-refs`，含空的整理提交）、`prompts/` 下的提示词文档重新载入，以及本服务写入页面、画像或活动之后。每次取用时比对状态（不可用的模型、被跳过的文件、当天日期），不同则重新生成。整理提示在生成时由 `ConsolidationReminder` 读取仓库现状，不调用模型。无状态模式下 SDK 每个请求都要求给出服务端说明，状态相同时直接返回缓存。
+- 提示词文档：`Configuration/PromptFiles` 是四份文档的统一入口：路径与内置默认文本、校验（`Check`，一次给出全部错误）、长度（`Measure`，按下发后的文本、与另一份运行中的文档合计）、页面所见（`View`）、启动时读取（`Load`）与运行中重读（`Reload`）。重读时某份文件有误，服务沿用这份文档的上一版，原因记在 `MemoryService` 中（固定部分合计超限时核心规则与值得记标准都记下），直到这份文档再次读取成功或运行时重新打开；`PromptView`、`PromptProblems` 与状态报告的 `prompts` 一栏由此取得。网页保存与恢复默认先应用、再读取视图，返回的状态已不带刚修好的问题。
 - skill：`Skills/SkillSet` 在服务启动时与 `prompts/` 变化后生成 `TACIT_HOME/skills/` 下的三个 skill：`tacit-memory`（`MemorySkill`，成品取决于代码与 `prompts/skill.md`）、`tacit-remember` 与 `tacit-consolidate`（正文只取决于代码与记忆语言）；门面 `GenerateSkills` 不依赖运行中的服务。三者都不读取记忆仓库，因此记忆变化不会重写它们。
 - `connect` 绑定时先检查路径与三个链接位置，通过后生成三个 skill、写常驻区块，再建立缺失的链接并写绑定记录；检查与拒绝规则见 `docs/design.md` 第 12 节。
 - `persona.md` 或 `resident.md` 变化后（文件监听事件去抖 300 ms），注入渲染重写所有已绑定文件中的常驻区块。渲染彼此串行；失败只在控制台提示，不中断服务。
@@ -186,9 +187,10 @@ flowchart LR
 | `web/src/app/session-context.ts` | 会话状态的上下文与按记忆语言取字典的钩子 |
 | `web/src/pages/login/` | 登录页与其状态机（`login-attempt.ts`，429 时锁住提交直到密码被改动） |
 | `web/src/pages/dashboard/` | 仪表盘：页面与网格（`DashboardPage.tsx`）、状态卡片（`StatusCards.tsx`）、热力图（`HeatmapCard.tsx`）与恢复对话框（`RestoreDialog.tsx`）；不含界面的逻辑各在一个可单测的模块中：待处理事项及其去处（`todos.ts`）、热力图的周列与月份标签（`heatmap.ts`）、按名称认出常见客户端及其图标（`agents.ts`）、时长、大小、日期与版本的格式化（`format.ts`）；几张卡片共用的小部件在 `parts.tsx`。功能见 `docs/web.md` 第 3 节 |
+| `web/src/pages/prompts/` | 提示词页（`PromptsPage.tsx`）与懒加载的 Markdown 编辑器（`MarkdownEditor.tsx`，CodeMirror，语法高亮的颜色取自令牌）；不含界面的逻辑：地址与文档名的互转（`names.ts`）、编辑状态（`editor.ts`）、长度信息的显示文字（`measure.ts`）。功能见 `docs/web.md` 第 3 节 |
 | `web/src/assets/agents/` | 图标库中没有的客户端图标，自己绘制的 SVG |
 | `web/src/pages/settings/` | 设置页与各节（如「远程访问」一节的 `RemoteAccessSection.tsx`），各节的功能见 `docs/web.md` 第 3 节 |
-| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
+| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
 | `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
 | `web/src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |
