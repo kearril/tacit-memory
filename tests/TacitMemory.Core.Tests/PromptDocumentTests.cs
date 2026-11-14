@@ -281,6 +281,37 @@ public sealed class PromptDocumentTests : IDisposable
         Assert.Contains("prompts/instructions.md", names);
     }
 
+    [Fact]
+    public async Task The_prompts_page_reads_each_file_or_the_built_in_text_and_the_hash_follows_the_file()
+    {
+        using var service = Open();
+        var builtIn = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
+
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+        var first = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 改过的标准\n");
+        var second = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
+
+        Assert.True(builtIn.BuiltIn);
+        Assert.Null(builtIn.Hash);
+        Assert.Equal((await _home.Tacit().ShowAsync(Show.ShowTarget.Rules, useDefault: true)).Report, builtIn.Text);
+        Assert.False(first.BuiltIn);
+        Assert.Equal("## 值得记\n- 自定义的标准\n", first.Text);
+        Assert.NotNull(first.Hash);
+        Assert.NotEqual(first.Hash, second.Hash);
+    }
+
+    [Fact]
+    public async Task The_built_in_texts_on_the_prompts_page_are_the_ones_show_default_prints()
+    {
+        using var service = Open();
+        var documents = service.Prompts().Documents;
+
+        Assert.Equal((await _home.Tacit().ShowAsync(Show.ShowTarget.Instructions, useDefault: true)).Report, documents[0].Text);
+        Assert.Equal((await _home.Tacit().ShowAsync(Show.ShowTarget.Resident, useDefault: true)).Report, documents[2].Text);
+        Assert.Equal("", documents[3].Text);
+    }
+
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value)).Count;
 

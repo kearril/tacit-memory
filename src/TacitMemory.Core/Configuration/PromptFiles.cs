@@ -27,6 +27,38 @@ internal static partial class PromptFiles
 
     public static string ResidentPath(string tacitHome) => Path.Combine(Folder(tacitHome), "resident.md");
 
+    public static string PathOf(string tacitHome, PromptName name) => name switch
+    {
+        PromptName.Instructions => InstructionsPath(tacitHome),
+        PromptName.Rules => RulesPath(tacitHome),
+        PromptName.Resident => ResidentPath(tacitHome),
+        PromptName.Skill => SkillPath(tacitHome),
+        _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
+    };
+
+    /// <summary>
+    /// The built-in text of a document in the form of its file, which applies while the file is absent: the recording
+    /// criteria are in the memory language, and <c>skill.md</c> has none.
+    /// </summary>
+    public static string DefaultText(PromptName name, MemoryLanguage language) => name switch
+    {
+        PromptName.Instructions => ServerInstructionText.DefaultInstructions,
+        PromptName.Rules => RulesFile.Compose(RulesFile.Default(language), language),
+        PromptName.Resident => ResidentFile.Compose(ResidentBlock.Default),
+        PromptName.Skill => "",
+        _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
+    };
+
+    /// <summary>A document as its file holds it, with the file's hash, or its built-in text when the file is absent.</summary>
+    public static PromptDocumentView View(string tacitHome, MemoryLanguage language, PromptName name)
+    {
+        var path = PathOf(tacitHome, name);
+        if (!File.Exists(path))
+            return new PromptDocumentView(name, DefaultText(name, language), BuiltIn: true, Hash: null);
+        var text = File.ReadAllText(path, Utf8);
+        return new PromptDocumentView(name, text, BuiltIn: false, ContentHash.Of(text));
+    }
+
     /// <summary>
     /// Reads every prompt document, throwing for the first one that breaks its limits or format.
     /// </summary>

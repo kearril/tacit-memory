@@ -86,6 +86,7 @@
      - `OpenApiTests`：`GET /api/openapi.json` 经真实 HTTP 返回文档，位于 `/api` 之下并受 Origin 防护；登录限速的 429 声明 `Retry-After` 头；`GET /api/backups` 与 `POST /api/probe` 的响应分别声明为 `BackupList` 与 `ProbeReport`；快照一致性（见第 6 节）。
      - `ActivityApiTests`：`GET /api/activity` 经真实 HTTP：每条活动按其主线标签计数一次，没有标签的计入未归属，跨月文件累计；窗口从本周之前 52 周的周一开始，窗口之前的月文件不读；不是 UTF-8 的月文件被跳过并点名，其余照常返回；整理日取窗口内的 `consolidate:` 提交，历史读不了时整理日为空、计数照常；没有活动记录时返回空窗口；非本机未登录 401。
      - `BackupListApiTests`：`GET /api/backups` 经真实 HTTP：列出自动、手动、保险三种本地备份（完整路径、时间、大小），新的在前，其他文件不列；种类在线上为 camelCase；没有 `backups/` 时列表为空、云端未配置；配置了云端时给出上次尝试且不访问网络；`remote.json` 读不了时没有上次尝试；非本机未登录 401。
+     - `PromptApiTests`：`/api/prompts` 经真实 HTTP：没有文件时四份文档按顺序给出内置文本、不带哈希（写法约定为空）；有文件时给出原文与哈希；文档名在线上为小写；非本机未登录 401。
      - `ProbeApiTests`：`POST /api/probe` 经真实 HTTP：按顺序探测三个模型，耗时以毫秒给出；某个模型失败只体现在结果中，请求本身成功；探测读取服务启动后保存的配置；保存的配置无法加载时返回 409（`ConfigInvalid`）；非本机未登录 401。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
@@ -176,4 +177,4 @@ bun run build       # Vite 构建到 web/dist/
 bun run check       # 以上四项依次运行
 ```
 
-Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）；错误说明的取用（`src/i18n/messages.test.ts`）。仪表盘的纯函数：时长、倒计时、大小与日期的格式（`src/pages/dashboard/format.test.ts`），热力图的窗口、周列、月份标签、深浅与统计（`heatmap.test.ts`），绑定与客户端合并为每个客户端一行（`agents.test.ts`），待处理的生成与去向（`todos.test.ts`）。设置页的表单模型（`src/pages/settings/form.test.ts`）：草稿、改动、恢复默认、请求体（等于默认的项省略、阈值成对写出、清空即默认）、问题的定位与各节计数、待重启与运行值不一致的项、超出范围与需重启的计数、密钥的改写与清除；绑定预设（`bindings.test.ts`）。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。
+Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）；错误说明的取用（`src/i18n/messages.test.ts`）。仪表盘的纯函数：时长、倒计时、大小与日期的格式（`src/pages/dashboard/format.test.ts`），热力图的窗口、周列、月份标签、深浅与统计（`heatmap.test.ts`），绑定与客户端合并为每个客户端一行（`agents.test.ts`），待处理的生成与去向（`todos.test.ts`）。设置页的表单模型（`src/pages/settings/form.test.ts`）：草稿、改动、恢复默认、请求体（等于默认的项省略、阈值成对写出、清空即默认）、问题的定位与各节计数、待重启与运行值不一致的项、超出范围与需重启的计数、密钥的改写与清除；绑定预设（`bindings.test.ts`）。提示词页的地址与文档名的互转（`src/pages/prompts/names.test.ts`，未知或大小写不同的名称不算）。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。

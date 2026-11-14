@@ -55,6 +55,51 @@ export const zh: Dictionary = {
     clearFailed: "未能清除访问密码",
     clearBlocked: (address) => `额外监听（${address}）开着时不能清除访问密码，否则其他设备会在没有密码的情况下连上服务。要清除，先在 config.yaml 中删去 server.host 并重启服务。`,
   },
+  prompts: {
+    documentsNav: "提示词文档",
+    documents: {
+      instructions: {
+        title: "核心规则",
+        help: [
+          "写进服务端说明，规定 Agent 怎样运用记忆、何时检索、何时写入。",
+          "它与值得记标准、代码提供的几段一起，不能超过服务端说明固定部分的 3000 字符；固定部分越长，最近活动能留下的条数越少。",
+          "改动在下一个会话生效。",
+        ],
+      },
+      rules: {
+        title: "值得记标准",
+        help: [
+          "写进服务端说明，决定什么值得记、什么不记。分「值得记」与「不记」两节，每节最多 10 条，每条以「- 」开头。",
+          "它与核心规则一起计入服务端说明固定部分的 3000 字符。",
+          "改动在下一个会话生效。",
+        ],
+      },
+      resident: {
+        title: "常驻区块",
+        help: [
+          "常驻区块外壳的文字与各节的引导语，渲染进每个已绑定客户端的上下文文件；画像、领域索引与主线的内容由服务生成，不在这里。",
+          "全文不超过 1500 字符。",
+          "改动后常驻区块随之重新渲染，在下一个会话生效。",
+        ],
+      },
+      skill: {
+        title: "写法约定",
+        help: [
+          "你的写法习惯，接在记忆 skill 末尾，只能补充，不能改动系统部分。",
+          "不超过 3000 字符，不能以 frontmatter（开头的 --- 部分）起始。",
+          "改动后记忆 skill 随之重新生成，Agent 下次读取时生效。",
+        ],
+      },
+    },
+    builtIn: "内置默认",
+    builtInNote: "没有这份文件，服务正在使用下面的内置文本。",
+    customized: "已自定义",
+    customizedNote: (file) => `服务正在使用你的文件 prompts/${file}。`,
+    residentSections: "允许的节名：",
+    textLabel: (title) => `${title}的内容`,
+    empty: "（空）",
+    loadFailed: "未能读取提示词文档",
+  },
   settings: {
     sections: {
       models: "模型",

@@ -457,6 +457,13 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
+    /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
+    /// file. Reads the files only, so it does not wait for a maintenance operation.
+    /// </summary>
+    public PromptList Prompts() =>
+        new([.. Enum.GetValues<PromptName>().Select(name => PromptFiles.View(_options.TacitHome, Config.Language, name))]);
+
+    /// <summary>
     /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
     /// each key accepts and the hash a save must name. Secrets carry no value. Reads the file only, so it does not wait for a
     /// maintenance operation.
@@ -468,7 +475,7 @@ public sealed class MemoryService : IDisposable
         var text = File.ReadAllText(path);
         var loaded = ConfigLoader.Read(_options, path, text);
         return new ConfigView(
-            Hash(text),
+            ContentHash.Of(text),
             WithoutSecrets(ConfigFile.From(loaded)),
             WithoutSecrets(ConfigFile.From(Config)),
             ConfigSchema.Defaults(_options),
@@ -501,7 +508,7 @@ public sealed class MemoryService : IDisposable
     {
         var path = ConfigFilePath;
         var current = File.ReadAllText(path);
-        if (Hash(current) != hash)
+        if (ContentHash.Of(current) != hash)
             throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
 
         var held = ConfigLoader.Read(_options, path, current);
@@ -545,14 +552,12 @@ public sealed class MemoryService : IDisposable
             throw;
         }
 
-        return new ConfigSaved(Hash(content), restart);
+        return new ConfigSaved(ContentHash.Of(content), restart);
     }
 
     private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
 
     /// <summary>The hash that names one content of <c>config.yaml</c>.</summary>
-    private static string Hash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
-
     /// <summary>The settings with every secret left out, as they leave the service.</summary>
     private static ConfigFile WithoutSecrets(ConfigFile file) => file with
     {

@@ -57,6 +57,51 @@ export const en: Dictionary = {
     clearBlocked: (address) =>
       `The access password cannot be cleared while the extra listener (${address}) is on, or other devices could reach the service without a password. To clear it, first remove server.host from config.yaml and restart the service.`,
   },
+  prompts: {
+    documentsNav: "Prompt documents",
+    documents: {
+      instructions: {
+        title: "Core rules",
+        help: [
+          "Part of the server instructions: how the agent uses memory, when it recalls and when it writes.",
+          "Together with the recording criteria and the parts the code provides, it must fit the 3000 characters of the fixed part of the server instructions; the longer the fixed part, the fewer recent activities fit beside it.",
+          "A change takes effect in the next session.",
+        ],
+      },
+      rules: {
+        title: "Recording criteria",
+        help: [
+          "Part of the server instructions: what is worth recording and what is not. Two sections, \u201cWorth recording\u201d and \u201cNot recorded\u201d, of at most 10 items each, every item starting with \u201c- \u201d.",
+          "Together with the core rules it counts toward the 3000 characters of the fixed part of the server instructions.",
+          "A change takes effect in the next session.",
+        ],
+      },
+      resident: {
+        title: "Resident block",
+        help: [
+          "The shell and the guidance of each section of the resident block, rendered into the context file of every bound client; the persona, the domain index and the workstreams are filled in by the service and are not here.",
+          "At most 1500 characters in all.",
+          "A change renders the resident block again and takes effect in the next session.",
+        ],
+      },
+      skill: {
+        title: "Writing conventions",
+        help: [
+          "Your own writing habits, added at the end of the memory skill; they can add to the system part but not change it.",
+          "At most 3000 characters, and it must not start with frontmatter (a leading --- block).",
+          "A change generates the memory skill again and takes effect the next time the agent reads it.",
+        ],
+      },
+    },
+    builtIn: "Built-in default",
+    builtInNote: "There is no such file, so the service uses the built-in text below.",
+    customized: "Customized",
+    customizedNote: (file) => `The service uses your file prompts/${file}.`,
+    residentSections: "Allowed sections:",
+    textLabel: (title) => `Text of the ${title.toLowerCase()}`,
+    empty: "(empty)",
+    loadFailed: "Could not read the prompt documents",
+  },
   settings: {
     sections: {
       models: "Models",

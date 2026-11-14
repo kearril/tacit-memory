@@ -106,7 +106,7 @@
 | `POST /api/bindings` | 新增绑定：`{client, contextFile, skillsFolder}` | 已实现 |
 | `DELETE /api/bindings/<客户端名称>` | 解除绑定 | 已实现 |
 | **提示词文档** | | |
-| `GET /api/prompts` | 四份文档的当前内容、是否为内置默认、长度与上限 | 计划 |
+| `GET /api/prompts` | 四份文档（`instructions`、`rules`、`resident`、`skill`）各自的名称、文本（文件的原文，文件不存在时为内置默认文本）、是否为内置默认与文件的哈希（文件不存在时为空） | 已实现 |
 | `PUT /api/prompts/<文档名>` | 校验并保存 | 计划 |
 | `DELETE /api/prompts/<文档名>` | 删除文件，回到内置默认 | 计划 |
 | **日志** | | |

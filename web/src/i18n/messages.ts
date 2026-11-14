@@ -1,5 +1,6 @@
 import { ApiError } from "../api/client";
 import type { BindingProblem } from "../api/status";
+import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
 import type { Duration } from "../pages/dashboard/format";
 import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
@@ -70,6 +71,21 @@ export interface Dictionary {
     readonly cleared: string;
     readonly clearFailed: string;
     readonly clearBlocked: (address: string) => string;
+  };
+  readonly prompts: {
+    /** The label of the list of documents in the sidebar. */
+    readonly documentsNav: string;
+    /** Each document's name and the lines on where its text goes, what it holds and when a change takes effect. */
+    readonly documents: Readonly<Record<PromptName, { readonly title: string; readonly help: readonly string[] }>>;
+    readonly builtIn: string;
+    readonly builtInNote: string;
+    readonly customized: string;
+    readonly customizedNote: (file: string) => string;
+    readonly residentSections: string;
+    readonly textLabel: (title: string) => string;
+    /** What an empty editor shows: the built-in `skill.md` is empty. */
+    readonly empty: string;
+    readonly loadFailed: string;
   };
   readonly settings: {
     readonly sections: Readonly<Record<SectionId, string>>;

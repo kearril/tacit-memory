@@ -157,6 +157,55 @@
         }
       }
     },
+    "/api/prompts": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/probe": {
       "post": {
         "tags": [
@@ -2709,6 +2758,54 @@
             "format": "int64"
           }
         }
+      },
+      "PromptDocumentView": {
+        "required": [
+          "name",
+          "text",
+          "builtIn",
+          "hash"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/PromptName"
+          },
+          "text": {
+            "type": "string"
+          },
+          "builtIn": {
+            "type": "boolean"
+          },
+          "hash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PromptList": {
+        "required": [
+          "documents"
+        ],
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromptDocumentView"
+            }
+          }
+        }
+      },
+      "PromptName": {
+        "enum": [
+          "instructions",
+          "rules",
+          "resident",
+          "skill"
+        ]
       },
       "ReindexResult": {
         "required": [

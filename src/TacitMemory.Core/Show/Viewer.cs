@@ -72,9 +72,9 @@ internal static class Viewer
     /// <summary>The built-in text alone, for the targets that have one. A memory command has no file that replaces it, so it has none.</summary>
     public static ShowResult Default(ShowTarget target, MemoryLanguage language) => target switch
     {
-        ShowTarget.Instructions => Bare(ShowSource.BuiltInDefault, ServerInstructionText.DefaultInstructions),
-        ShowTarget.Rules => Bare(ShowSource.BuiltInDefault, RulesFile.Compose(RulesFile.Default(language), language)),
-        ShowTarget.Resident => Bare(ShowSource.BuiltInDefault, ResidentFile.Compose(ResidentBlock.Default)),
+        ShowTarget.Instructions => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Instructions, language)),
+        ShowTarget.Rules => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Rules, language)),
+        ShowTarget.Resident => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Resident, language)),
         ShowTarget.Skill => Bare(ShowSource.Code, MemorySkill.SystemPart),
         _ => throw new ArgumentException("A memory command has no built-in text that a file replaces.", nameof(target)),
     };

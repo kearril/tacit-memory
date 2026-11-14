@@ -194,6 +194,9 @@ internal static class ManagementApi
         api.MapGet("/backups", () => Json(service.Backups()))
             .Produces<BackupList>()
             .ProducesErrors();
+        api.MapGet("/prompts", () => Json(service.Prompts()))
+            .Produces<PromptList>()
+            .ProducesErrors();
         api.MapPost("/probe", async (HttpContext context) =>
         {
             var report = await service.ProbeAsync(context.RequestAborted);
