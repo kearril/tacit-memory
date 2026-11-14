@@ -139,8 +139,9 @@
 
   /* Sizes of controls (buttons, inputs), of the narrow content column (forms, dialogs), of the sidebar, of the page, the
      smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; of the settings column
-     and the names on its left, of a client's logo tile, of the prompts column, and the least height of a prompt document's
-     editor; they sit with the spacing scale */
+     and the names on its left, of a client's logo tile, of the prompts column, the least height of a prompt document's
+     editor, and the most height of the log's scrolling area, which fills the window below the card's head and filters
+     but never drops below a readable height; they sit with the spacing scale */
   --tk-size-control: 2.5rem;
   --tk-size-content: 32rem;
   --tk-size-sidebar: 15rem;
@@ -154,6 +155,7 @@
   --tk-size-logo: 3rem;
   --tk-size-prompts: 60rem;
   --tk-size-editor: 28rem;
+  --tk-size-log-view: max(20rem, calc(100dvh - 17rem));
 
   /* Shape */
   --tk-radius-xs: 0.25rem;

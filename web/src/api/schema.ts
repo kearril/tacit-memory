@@ -2058,6 +2058,10 @@ export interface components {
             title: string;
             lines: string[];
             directory: string;
+            /** Format: int32 */
+            warnings: number;
+            /** Format: int32 */
+            errors: number;
         };
         McpServer: {
             /** Format: uri */

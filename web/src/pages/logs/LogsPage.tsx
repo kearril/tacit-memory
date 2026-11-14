@@ -27,8 +27,8 @@ const LEVEL_STYLES: Readonly<Record<ServiceLogLevel, { readonly code: string; re
 };
 
 /**
- * The logs page: one day of the service log, oldest event first, today unless the address names another day. The page
- * itself scrolls, so a long day reads like the file does. The filters live in the address, so a link can carry them and a
+ * The logs page: one day of the service log, oldest event first, today unless the address names another day. The events
+ * scroll in an area of their own inside the card, which keeps its height whatever the day holds. The filters live in the address, so a link can carry them and a
  * reload keeps them; changing them replaces the address rather than adding to the history. The page heading is for screen
  * readers only, as the sidebar already shows which page this is.
  */
@@ -141,8 +141,8 @@ function LogHeader({
 
 /**
  * One day's events under the filters, or why there are none. While it follows today's log, new events are added at the
- * end. A reader at the end of the page is kept there; one who has scrolled up stays put, and a button at the bottom counts
- * the new events the filters let through and takes the reader back down.
+ * end. A reader at the end of the scrolling area is kept there; one who has scrolled up stays put, and a button at the
+ * bottom of the area counts the new events the filters let through and takes the reader back down.
  */
 function LogDay({
   date,
@@ -160,6 +160,8 @@ function LogDay({
   const dictionary = useDictionary();
   const queryClient = useQueryClient();
   const day = useLogDay(date);
+  // The scrolling area of the events; null while it is not shown (no events, or none under the filters).
+  const [view, setView] = useState<HTMLDivElement | null>(null);
   const [atBottom, setAtBottom] = useState(true);
   const [unseen, setUnseen] = useState(0);
   const atBottomRef = useRef(true);
@@ -182,28 +184,27 @@ function LogDay({
   const count = held?.entries.length ?? 0;
 
   useEffect(() => {
+    if (view === null) {
+      return;
+    }
     const onScroll = () => {
-      const bottom = isAtBottom({
-        scrollTop: window.scrollY,
-        clientHeight: window.innerHeight,
-        scrollHeight: document.documentElement.scrollHeight,
-      });
+      const bottom = isAtBottom(view);
       atBottomRef.current = bottom;
       setAtBottom(bottom);
       if (bottom) {
         setUnseen(0);
       }
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    view.addEventListener("scroll", onScroll, { passive: true });
+    return () => view.removeEventListener("scroll", onScroll);
+  }, [view]);
 
-  // Followed, the page opens at the newest event, and stays there as events come while the reader is at the end.
+  // Followed, the area opens at the newest event, and stays there as events come while the reader is at the end.
   useLayoutEffect(() => {
-    if (following && count > 0 && atBottomRef.current) {
-      scrollToEnd("instant");
+    if (view !== null && following && count > 0 && atBottomRef.current) {
+      scrollToEnd(view, "instant");
     }
-  }, [following, count]);
+  }, [view, following, count]);
 
   if (day.isError) {
     return day.error instanceof ApiError && day.error.status === 404 ? (
@@ -242,22 +243,30 @@ function LogDay({
           </Button>
         </div>
       ) : (
-        <EntryList entries={shown} query={filters.query} />
+        <div className="relative">
+          <div ref={setView} tabIndex={0} aria-label={dictionary.logs.entriesLabel} className="max-h-(--tk-size-log-view) overflow-y-auto rounded-sm outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent">
+            <EntryList entries={shown} query={filters.query} />
+          </div>
+          {view !== null && following && unseen > 0 && !atBottom ? (
+            <Button
+              type="button"
+              onClick={() => scrollToEnd(view, "smooth")}
+              className="absolute bottom-md left-1/2 -translate-x-1/2 shadow-raised"
+            >
+              <ArrowDown aria-hidden />
+              {dictionary.logs.unseen(unseen)}
+            </Button>
+          ) : null}
+        </div>
       )}
-      {following && unseen > 0 && !atBottom ? (
-        <Button type="button" onClick={() => scrollToEnd("smooth")} className="sticky bottom-lg justify-self-center shadow-raised">
-          <ArrowDown aria-hidden />
-          {dictionary.logs.unseen(unseen)}
-        </Button>
-      ) : null}
     </>
   );
 }
 
-/** Scrolls the page to its end; smoothly when asked, unless the system asks for reduced motion. */
-function scrollToEnd(behavior: "instant" | "smooth") {
+/** Scrolls an area to its end; smoothly when asked, unless the system asks for reduced motion. */
+function scrollToEnd(area: HTMLElement, behavior: "instant" | "smooth") {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: reduced ? "instant" : behavior });
+  area.scrollTo({ top: area.scrollHeight, behavior: reduced ? "instant" : behavior });
 }
 
 /**

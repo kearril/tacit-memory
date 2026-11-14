@@ -60,6 +60,8 @@ public sealed class ManagementApiTests : IAsyncLifetime
         Assert.Equal(_host.Endpoint, report.Service.Endpoint);
         Assert.Equal(["embedding", "reranker", "decision"], report.Models!.Items.Select(item => item.Role));
         Assert.NotNull(report.Logs);
+        Assert.Contains("\"warnings\":0", text);
+        Assert.Contains("\"errors\":0", text);
         Assert.Null(report.Config);
     }
 

@@ -14,6 +14,7 @@ import {
   Link2,
   type LucideIcon,
   Cable,
+  ScrollText,
   TriangleAlert,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
@@ -46,6 +47,8 @@ import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
 import { BusyIcon, CardActions, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
+import { LOGS_PATH } from "../logs/day";
+import { searchOf } from "../logs/filter";
 
 interface CardProps {
   readonly report: StatusReport;
@@ -252,6 +255,46 @@ export function IndexCard({ report, locale, className }: CardProps) {
       <FailureAlert failure={failure} />
       <CardActions>
         <ReindexButton busy={reindex.isPending} onConfirm={() => reindex.mutate()} />
+      </CardActions>
+    </Card>
+  );
+}
+
+/**
+ * The service log at a glance: how many warnings and errors today's file holds. The button opens the logs page showing
+ * only those when there are any, and the whole day otherwise.
+ */
+export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
+  const dictionary = useDictionary();
+  const text = dictionary.dashboard.logs;
+  const logs = report.logs;
+  const notable = logs == null ? 0 : logs.warnings + logs.errors;
+
+  return (
+    <Card aria-labelledby="logs-title" className={`flex flex-col ${className}`}>
+      <CardHeading id="logs-title" icon={ScrollText} title={dictionary.dashboard.cards.logs} />
+      {logs == null ? (
+        <Unreadable />
+      ) : (
+        <div className="grid gap-xs">
+          <span className="text-xs text-ink-muted">{text.today}</span>
+          {notable === 0 ? (
+            <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{text.quiet}</span>
+          ) : (
+            <span className="flex flex-wrap gap-x-md text-lg leading-(--tk-line-height-tight) font-semibold">
+              <span className={logs.warnings > 0 ? "text-warning" : "text-ink-muted"}>{text.warnings(logs.warnings)}</span>
+              <span className={logs.errors > 0 ? "text-danger" : "text-ink-muted"}>{text.errors(logs.errors)}</span>
+            </span>
+          )}
+        </div>
+      )}
+      <CardActions>
+        <Button asChild variant="outline">
+          <Link to={notable === 0 ? LOGS_PATH : `${LOGS_PATH}${searchOf({ levels: new Set(["warning", "error"]), query: "" })}`}>
+            <ScrollText aria-hidden />
+            {text.view}
+          </Link>
+        </Button>
       </CardActions>
     </Card>
   );

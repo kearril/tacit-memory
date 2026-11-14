@@ -21,7 +21,7 @@ import { Card } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf, timeText } from "./format";
 import { HeatmapCard } from "./HeatmapCard";
-import { BackupsCard, ConnectionCard, IndexCard, ModelsCard } from "./StatusCards";
+import { BackupsCard, ConnectionCard, IndexCard, LogsCard, ModelsCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";
 
 /**
@@ -73,7 +73,8 @@ export function DashboardPage() {
           <BackupsCard locale={locale} className="xl:col-span-4 xl:row-start-3" />
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
           <IndexCard report={report} locale={locale} className="xl:col-span-4" />
-          <ConnectionCard report={report} locale={locale} className="xl:col-span-12" />
+          <ConnectionCard report={report} locale={locale} className="xl:col-span-8" />
+          <LogsCard report={report} className="xl:col-span-4" />
         </div>
       )}
     </div>

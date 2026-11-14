@@ -346,11 +346,25 @@ internal static class StatusReporter
     private static string DaysAgo(MemoryLanguage language, int days) =>
         days == 1 ? ManagementApiMessages.DayAgo.In(language) : ManagementApiMessages.DaysAgo.Format(language, days);
 
-    /// <summary>The logs column. It needs only the home directory, so it is shown even when the config does not load.</summary>
+    /// <summary>
+    /// The logs column: where the files are, and how many warnings and errors today's file holds so far. It needs only the
+    /// home directory, so it is shown even when the service does not run or the config does not load.
+    /// </summary>
     private static LogsStatus Logs(TacitOptions options, MemoryLanguage language)
     {
         var directory = ServiceLogFiles.DirectoryOf(options.TacitHome);
-        return new LogsStatus(ManagementApiMessages.LogsTitle.In(language), [ManagementApiMessages.LogsDirectory.Format(language, directory)], directory);
+        var today = ServiceLogReader.Read(options.TacitHome, options.Today) ?? [];
+        var warnings = today.Count(entry => entry.Level == ServiceLogLevel.Warning);
+        var errors = today.Count(entry => entry.Level == ServiceLogLevel.Error);
+        var counts = warnings + errors == 0
+            ? ManagementApiMessages.LogsTodayQuiet.In(language)
+            : ManagementApiMessages.LogsToday.Format(language, warnings, errors);
+        return new LogsStatus(
+            ManagementApiMessages.LogsTitle.In(language),
+            [ManagementApiMessages.LogsDirectory.Format(language, directory), counts],
+            directory,
+            warnings,
+            errors);
     }
 
     /// <summary>The uptime in the memory language, with the units that are not zero: "2 小时 3 分钟 4 秒" or "2 h 3 min 4 s".</summary>

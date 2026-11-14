@@ -245,7 +245,18 @@ public sealed record SecretsStatus(string Title, IReadOnlyList<string> Lines, IR
 public sealed record SecretStatus(string Key, string Variable, SecretSource? Source, bool Overridden);
 
 /// <param name="Directory">The directory holding the service's daily log files.</param>
-public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, string Directory) : IStatusColumn;
+/// <param name="Warnings">How many warnings today's log holds so far; 0 when there is no file yet.</param>
+/// <param name="Errors">How many errors today's log holds so far; 0 when there is no file yet.</param>
+public sealed record LogsStatus(string Title, IReadOnlyList<string> Lines, string Directory, int Warnings, int Errors) : IStatusColumn
+{
+    /// <summary>The line of today's counts, the last, is a problem with an error, needs attention with a warning, and is plain otherwise.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels()
+    {
+        var levels = new StatusLevel?[Lines.Count];
+        levels[^1] = Errors > 0 ? StatusLevel.Problem : Warnings > 0 ? StatusLevel.Attention : null;
+        return levels;
+    }
+}
 
 /// <summary>The recorded clients, one line each; <paramref name="Items"/> carries the same clients as data. Plain lines: a sighting is information, not a problem.</summary>
 public sealed record ClientsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ClientStatus> Items) : IStatusColumn;

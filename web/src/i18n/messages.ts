@@ -155,6 +155,7 @@ export interface Dictionary {
     readonly noMatch: string;
     readonly clearFilters: string;
     readonly follow: string;
+    readonly entriesLabel: string;
     readonly unseen: (count: number) => string;
     readonly offline: string;
   };
@@ -320,6 +321,7 @@ export interface Dictionary {
       readonly activity: string;
       readonly index: string;
       readonly connection: string;
+      readonly logs: string;
     };
     readonly unreadable: string;
     readonly copy: (what: string) => string;
@@ -329,6 +331,13 @@ export interface Dictionary {
       readonly coolingDown: (clock: string) => string;
       readonly unconfigured: string;
       readonly cooling: string;
+    };
+    readonly logs: {
+      readonly today: string;
+      readonly quiet: string;
+      readonly warnings: (count: number) => string;
+      readonly errors: (count: number) => string;
+      readonly view: string;
     };
     readonly index: {
       readonly lastConsolidation: string;

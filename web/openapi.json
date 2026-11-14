@@ -2812,7 +2812,9 @@
         "required": [
           "title",
           "lines",
-          "directory"
+          "directory",
+          "warnings",
+          "errors"
         ],
         "type": "object",
         "properties": {
@@ -2827,6 +2829,14 @@
           },
           "directory": {
             "type": "string"
+          },
+          "warnings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errors": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
