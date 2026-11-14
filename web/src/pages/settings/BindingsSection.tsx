@@ -80,8 +80,8 @@ export function BindingsSection() {
 }
 
 /**
- * One tile: a logo over a name, the whole of it a button that looks like one: a small card that rises on hover. The tile
- * that adds a binding is only a dashed outline.
+ * One tile: a logo over a name, the whole of it a button that looks like one: outlined, and on hover it rises and the
+ * outline takes the accent colour. The tile that adds a binding has a dashed outline.
  */
 function Tile({
   label,
@@ -104,7 +104,7 @@ function Tile({
       className={`lift grid w-full cursor-pointer justify-items-center gap-sm rounded-lg border-(length:--tk-border-thin) p-md outline-none hover:border-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
         muted
           ? "border-dashed border-line text-ink-muted hover:text-accent"
-          : "border-line bg-surface shadow-pressed hover:shadow-hover"
+          : "border-line"
       }`}
       onClick={onClick}
     >

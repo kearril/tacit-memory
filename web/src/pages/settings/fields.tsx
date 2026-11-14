@@ -1,4 +1,16 @@
-import { Info, RotateCcw, RotateCw } from "lucide-react";
+import {
+  Archive,
+  Cpu,
+  Globe,
+  Info,
+  Layers,
+  Link2,
+  type LucideIcon,
+  RotateCcw,
+  RotateCw,
+  SlidersHorizontal,
+  Wrench,
+} from "lucide-react";
 import type { ConfigView } from "../../api/config";
 import { useDictionary } from "../../app/session-context";
 import { Badge } from "../../components/ui/badge";
@@ -38,9 +50,20 @@ export interface SettingsForm {
   readonly editSecret: (path: string, value: string | null | undefined) => void;
 }
 
+/** The icon of each section, in the head of its card; the models and the backups take the dashboard's icons for them. */
+const SECTION_ICONS: Readonly<Record<SectionId, LucideIcon>> = {
+  models: Cpu,
+  bindings: Link2,
+  judgment: SlidersHorizontal,
+  consolidation: Layers,
+  backup: Archive,
+  access: Globe,
+  advanced: Wrench,
+};
+
 /**
- * One section of the settings page: its name, a line on what it is for, and a rule under them, then its content. A
- * section whose actions happen at once, without the save bar, says so beside its name.
+ * One section of the settings page, as a card: its icon on a soft tile, its name and a line on what it is for, then its
+ * content. A section whose actions happen at once, without the save bar, says so beside its name.
  */
 export function SettingsSection({
   section,
@@ -55,16 +78,24 @@ export function SettingsSection({
 }) {
   const dictionary = useDictionary();
   const id = sectionIdOf(section);
+  const Icon = SECTION_ICONS[section];
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="grid scroll-mt-lg gap-lg">
-      <header className="grid gap-xs border-b-(length:--tk-border-thin) border-line pb-sm">
+    <section
+      id={id}
+      aria-labelledby={`${id}-title`}
+      className="grid scroll-mt-lg gap-lg rounded-lg bg-surface p-lg shadow-rest"
+    >
+      <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-sm gap-y-xs">
+        <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
+          <Icon aria-hidden className="size-(--tk-font-size-sm)" />
+        </span>
         <div className="flex flex-wrap items-center gap-sm">
           <h2 id={`${id}-title`} className="text-lg font-semibold">
             {dictionary.settings.sections[section]}
           </h2>
           {immediate ? <Immediate /> : null}
         </div>
-        <p className="text-sm text-ink-muted">{summary}</p>
+        <p className="col-start-2 text-sm text-ink-muted">{summary}</p>
       </header>
       {children}
     </section>
@@ -85,7 +116,7 @@ export function Immediate() {
 
 /**
  * A group of rows inside a section: a small heading of its own when it has one, a note under it when it needs one, then the
- * rows on a panel, a line between each two.
+ * rows, a line between each two. The group has no box; the section's card is the only one.
  */
 export function SettingsGroup({
   title,
@@ -99,19 +130,22 @@ export function SettingsGroup({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-sm">
+    <div className="grid gap-xs">
       {title === undefined ? null : (
         <div className="flex flex-wrap items-center gap-sm">
-          <h3 className="text-sm font-semibold text-ink-muted">{title}</h3>
+          <h3 className="text-sm font-semibold">{title}</h3>
           {aside}
         </div>
       )}
       {note === undefined ? null : <p className="text-xs text-ink-muted">{note}</p>}
-      <div className="grid rounded-lg bg-surface px-lg shadow-rest [&>*]:py-md [&>*+*]:border-t-(length:--tk-border-thin) [&>*+*]:border-line">
-        {children}
-      </div>
+      <Rows>{children}</Rows>
     </div>
   );
+}
+
+/** Rows one under another, a line between each two. */
+export function Rows({ children }: { readonly children: React.ReactNode }) {
+  return <div className="grid [&>*]:py-sm [&>*+*]:border-t-(length:--tk-border-thin) [&>*+*]:border-line">{children}</div>;
 }
 
 /**

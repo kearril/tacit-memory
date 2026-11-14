@@ -6,15 +6,15 @@ import { useDictionary } from "../../app/session-context";
 import { Button } from "../../components/ui/button";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon, CardActions, ProbeLine } from "../dashboard/parts";
-import { Problems, Setting, SettingName, SettingRow, type SettingsForm, SettingsSection } from "./fields";
+import { Problems, Rows, Setting, SettingName, SettingRow, type SettingsForm, SettingsSection } from "./fields";
 import { inputIdOf, MODELS, ON } from "./form";
 import { SecretField } from "./SecretField";
 
 type Model = (typeof MODELS)[number];
 
 /**
- * The models section: the three auxiliary models one under another, each a line that reads at a glance (its switch, its
- * name, and the model, protocol and address while it is on) with an edit button that opens its settings under it. One
+ * The models section: the three auxiliary models one under another, a line between each two, each a line that reads at a glance (its switch, its
+ * name, and the model, protocol and URL while it is on) with an edit button that opens its settings under it, inset. One
  * opens at a time, and any with a problem opens too, so the problem can be seen. A model switched off keeps what is
  * filled in on the page but is left out of the config. The probe at the bottom tries the saved configuration, so it waits
  * until the page has nothing unsaved.
@@ -28,7 +28,7 @@ export function ModelsSection({ form }: { readonly form: SettingsForm }) {
 
   return (
     <SettingsSection section="models" summary={text.summary}>
-      <div className="grid gap-sm">
+      <Rows>
         {MODELS.map((model) => (
           <ModelItem
             key={model}
@@ -39,7 +39,7 @@ export function ModelsSection({ form }: { readonly form: SettingsForm }) {
             result={probe.data?.results.find((result) => result.role === model)}
           />
         ))}
-      </div>
+      </Rows>
       {probe.isError ? (
         <p role="alert" className="text-sm text-danger">
           {dictionary.dashboard.probe.failedTitle}：{errorTextOf(probe.error, dictionary)}
@@ -84,7 +84,7 @@ function ModelItem({
   return (
     <section
       aria-labelledby={`${inputIdOf(path)}-name`}
-      className={`grid gap-md rounded-lg bg-surface p-md transition-shadow ${open ? "shadow-raised" : "shadow-rest"}`}
+      className="grid gap-md"
     >
       <div className="flex items-center gap-md">
         <Switch
@@ -110,7 +110,7 @@ function ModelItem({
         </Button>
       </div>
       {open ? (
-        <div id={formId} className="grid gap-md">
+        <div id={formId} className="grid gap-md rounded-md bg-canvas p-md">
           {on ? null : <p className="text-xs text-ink-muted">{text.offHint}</p>}
           <Provider form={form} model={model} />
           <Setting
