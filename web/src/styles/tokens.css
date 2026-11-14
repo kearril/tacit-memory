@@ -16,6 +16,7 @@
   --tk-color-surface: #ffffff;
   --tk-color-surface-raised: #f6f8fb;
   --tk-color-line: #e2e8f0;
+  --tk-color-scrollbar: #cbd5e1;
   --tk-color-ink: #1f2937;
   --tk-color-ink-muted: #5b6577;
   --tk-color-accent: #4f46e5;
@@ -47,6 +48,7 @@
     --tk-color-surface: #1a2231;
     --tk-color-surface-raised: #222b3b;
     --tk-color-line: #2f3a4d;
+    --tk-color-scrollbar: #435069;
     --tk-color-ink: #e6e9ef;
     --tk-color-ink-muted: #9aa4b5;
     --tk-color-accent: #9d9ef8;
@@ -77,6 +79,7 @@
   --tk-color-surface: #1a2231;
   --tk-color-surface-raised: #222b3b;
   --tk-color-line: #2f3a4d;
+  --tk-color-scrollbar: #435069;
   --tk-color-ink: #e6e9ef;
   --tk-color-ink-muted: #9aa4b5;
   --tk-color-accent: #9d9ef8;
@@ -156,6 +159,7 @@
   --tk-size-prompts: 60rem;
   --tk-size-editor: 28rem;
   --tk-size-log-view: max(20rem, calc(100dvh - 17rem));
+  --tk-size-scrollbar: 0.75rem;
 
   /* Shape */
   --tk-radius-xs: 0.25rem;
