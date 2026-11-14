@@ -13,9 +13,10 @@ import {
   Hourglass,
   Link2,
   type LucideIcon,
-  Cable,
   ScrollText,
+  Server,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -23,7 +24,7 @@ import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups
 import { runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
-import { AgentLogo, LOGO_TILES } from "./AgentLogo";
+import { AgentLogo } from "./AgentLogo";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -50,7 +51,7 @@ import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, CardActions, InfoRow, ProbeLine } from "./parts";
+import { BusyIcon, IconAction, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 import { LOGS_PATH } from "../logs/day";
 import { searchOf } from "../logs/filter";
@@ -61,17 +62,23 @@ interface CardProps {
   readonly className: string;
 }
 
-/** The head of a status card: its icon on a soft tile, its name, and on the right a badge when there is something to say. */
+/**
+ * The head of a status card: its icon on a soft tile, its name, on the right a badge when there is something to say, and
+ * at the end the card's commands. The commands sit beside the name rather than at the bottom, so nothing is pinned to the
+ * foot of a card and a short card in a row of taller ones simply ends sooner.
+ */
 function CardHeading({
   id,
   icon: Icon,
   title,
   badge,
+  actions,
 }: {
   readonly id: string;
   readonly icon: LucideIcon;
   readonly title: string;
   readonly badge?: ReactNode;
+  readonly actions?: ReactNode;
 }) {
   return (
     <header className="flex items-center gap-sm">
@@ -82,6 +89,7 @@ function CardHeading({
         {title}
       </CardTitle>
       {badge}
+      {actions === undefined ? null : <div className="flex shrink-0 items-center gap-xs">{actions}</div>}
     </header>
   );
 }
@@ -124,7 +132,7 @@ function FailureAlert({ failure }: { readonly failure: Failure | null }) {
  * The three auxiliary models, each available, cooling down or not configured; the three look different in icon and words,
  * not only in colour, and not configured is not an error. A cooldown counts down every second from the report; when one
  * reaches zero the report is fetched again. While a model cools down, the card is outlined in the warning colour. The
- * models can be probed; what each probe found shows under its model.
+ * models can be probed from the card's head; what each probe found shows under its model.
  */
 export function ModelsCard({
   report,
@@ -160,7 +168,7 @@ export function ModelsCard({
   return (
     <Card
       aria-labelledby="models-title"
-      className={`flex flex-col ${cooling ? "ring-(length:--tk-border-thin) ring-warning" : ""} ${className}`}
+      className={`${cooling ? "ring-(length:--tk-border-thin) ring-warning" : ""} ${className}`}
     >
       <CardHeading
         id="models-title"
@@ -173,6 +181,16 @@ export function ModelsCard({
               {text.cooling}
             </Badge>
           ) : null
+        }
+        actions={
+          <IconAction
+            type="button"
+            label={dictionary.dashboard.probe.button}
+            disabled={probe.isPending}
+            onClick={() => probe.mutate()}
+          >
+            <BusyIcon busy={probe.isPending} icon={Activity} />
+          </IconAction>
         }
       />
       {items === undefined ? (
@@ -209,12 +227,6 @@ export function ModelsCard({
         </ul>
       )}
       <FailureAlert failure={failure} />
-      <CardActions>
-        <Button type="button" variant="outline" disabled={probe.isPending} onClick={() => probe.mutate()}>
-          <BusyIcon busy={probe.isPending} icon={Activity} />
-          {dictionary.dashboard.probe.button}
-        </Button>
-      </CardActions>
     </Card>
   );
 }
@@ -245,8 +257,13 @@ export function IndexCard({ report, locale, className }: CardProps) {
   });
 
   return (
-    <Card aria-labelledby="index-title" className={`flex flex-col ${className}`}>
-      <CardHeading id="index-title" icon={DatabaseZap} title={dictionary.dashboard.cards.index} />
+    <Card aria-labelledby="index-title" className={className}>
+      <CardHeading
+        id="index-title"
+        icon={DatabaseZap}
+        title={dictionary.dashboard.cards.index}
+        actions={<ReindexButton busy={reindex.isPending} onConfirm={() => reindex.mutate()} />}
+      />
       {consolidation == null ? (
         <Unreadable />
       ) : consolidation.lastConsolidationDay === null || consolidation.daysSince === null ? (
@@ -266,16 +283,13 @@ export function IndexCard({ report, locale, className }: CardProps) {
       )}
       {pending == null ? null : <Waiting pending={pending} />}
       <FailureAlert failure={failure} />
-      <CardActions>
-        <ReindexButton busy={reindex.isPending} onConfirm={() => reindex.mutate()} />
-      </CardActions>
     </Card>
   );
 }
 
 /**
- * The service log at a glance: how many warnings and errors today's file holds. The button opens the logs page showing
- * only those when there are any, and the whole day otherwise. When today's file cannot be read, the card says so.
+ * The service log at a glance: how many warnings and errors today's file holds. The link in the head opens the logs page
+ * showing only those when there are any, and the whole day otherwise. When today's file cannot be read, the card says so.
  */
 export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
   const dictionary = useDictionary();
@@ -287,8 +301,25 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
   const notable = logs === undefined ? 0 : logs.warnings + logs.errors;
 
   return (
-    <Card aria-labelledby="logs-title" className={`flex flex-col ${className}`}>
-      <CardHeading id="logs-title" icon={ScrollText} title={dictionary.dashboard.cards.logs} />
+    <Card aria-labelledby="logs-title" className={className}>
+      <CardHeading
+        id="logs-title"
+        icon={ScrollText}
+        title={dictionary.dashboard.cards.logs}
+        actions={
+          <IconAction asChild label={text.view}>
+            <Link
+              to={
+                notable === 0
+                  ? LOGS_PATH
+                  : `${LOGS_PATH}${searchOf({ levels: new Set(["warning", "error"]), query: "" })}`
+              }
+            >
+              <ScrollText aria-hidden />
+            </Link>
+          </IconAction>
+        }
+      />
       {logs === undefined ? (
         <Unreadable />
       ) : (
@@ -306,20 +337,6 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
           )}
         </div>
       )}
-      <CardActions>
-        <Button asChild variant="outline">
-          <Link
-            to={
-              notable === 0
-                ? LOGS_PATH
-                : `${LOGS_PATH}${searchOf({ levels: new Set(["warning", "error"]), query: "" })}`
-            }
-          >
-            <ScrollText aria-hidden />
-            {text.view}
-          </Link>
-        </Button>
-      </CardActions>
     </Card>
   );
 }
@@ -357,10 +374,9 @@ function ReindexButton({ busy, onConfirm }: { readonly busy: boolean; readonly o
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="outline" disabled={busy}>
+        <IconAction type="button" label={text.button} disabled={busy}>
           <BusyIcon busy={busy} icon={RefreshCw} />
-          {text.button}
-        </Button>
+        </IconAction>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -378,9 +394,10 @@ function ReindexButton({ busy, onConfirm }: { readonly busy: boolean; readonly o
 
 /**
  * The backups: when the latest local backup was made, with its kind and its size, how many there are, and the last cloud
- * backup; while the cloud backup is not configured, a link leads to it in the settings. The backup button opens a menu of the local and the cloud backup, the latter dimmed while it is not configured;
- * the one chosen runs at once, without a confirmation. While it runs, the button waits; the result shows as a toast, a
- * failure as the service's explanation in the card. A backup can be restored from here, through the restore dialog.
+ * backup; while the cloud backup is not configured, a link leads to it in the settings. In the card's head, the backup
+ * button opens a menu of the local and the cloud backup, the latter dimmed while it is not configured; the one chosen runs
+ * at once, without a confirmation. While it runs, the button waits; the result shows as a toast, a failure as the service's
+ * explanation in the card. Beside it, the restore dialog restores a backup.
  */
 export function BackupsCard({ locale, className }: { readonly locale: string; readonly className: string }) {
   const dictionary = useDictionary();
@@ -410,8 +427,47 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   const lastRemote = list?.lastRemote ?? null;
 
   return (
-    <Card id="backups" aria-labelledby="backups-title" className={`flex flex-col ${className}`}>
-      <CardHeading id="backups-title" icon={Archive} title={dictionary.dashboard.cards.backups} />
+    <Card id="backups" aria-labelledby="backups-title" className={className}>
+      <CardHeading
+        id="backups-title"
+        icon={Archive}
+        title={dictionary.dashboard.cards.backups}
+        actions={
+          list === undefined ? undefined : (
+            <>
+              <RestoreDialog list={list} locale={locale} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <IconAction
+                    type="button"
+                    label={text.backUpNow}
+                    variant="default"
+                    className="w-auto gap-xs px-sm"
+                    disabled={backup.isPending}
+                  >
+                    <BusyIcon busy={backup.isPending} icon={HardDriveDownload} />
+                    <ChevronDown aria-hidden />
+                  </IconAction>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => backup.mutate("local")}>
+                    <HardDriveDownload aria-hidden />
+                    {text.backUpLocal}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!list.remoteConfigured}
+                    hint={list.remoteConfigured ? undefined : text.cloudNotConfigured}
+                    onSelect={() => backup.mutate("remote")}
+                  >
+                    <CloudUpload aria-hidden />
+                    {text.backUpCloud}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )
+        }
+      />
       {list === undefined ? (
         backups.isError ? (
           <FailureAlert
@@ -464,32 +520,6 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
             )}
           </div>
           <FailureAlert failure={failure} />
-          <CardActions>
-            <RestoreDialog list={list} locale={locale} />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" disabled={backup.isPending}>
-                  <BusyIcon busy={backup.isPending} icon={HardDriveDownload} />
-                  {text.backUpNow}
-                  <ChevronDown aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => backup.mutate("local")}>
-                  <HardDriveDownload aria-hidden />
-                  {text.backUpLocal}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!list.remoteConfigured}
-                  hint={list.remoteConfigured ? undefined : text.cloudNotConfigured}
-                  onSelect={() => backup.mutate("remote")}
-                >
-                  <CloudUpload aria-hidden />
-                  {text.backUpCloud}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </CardActions>
         </>
       )}
     </Card>
@@ -513,25 +543,18 @@ function Address({ value, label }: { readonly value: string; readonly label: str
   );
 }
 
-/**
- * How clients reach the memory, in one card: the service's version in the head; on the left its MCP and web addresses and
- * the extra listener, whether it started; on the right the agents, each binding and each client that connected merged into
- * one tile per agent with its logo, whether its binding is sound or broken on the logo's corner, and when it last
- * connected. The addresses take only the width they need, up to half, and the agents the rest; on a narrow screen the
- * agents go under the addresses. With no binding, a line says what that means and a
- * button leads to the bindings in the settings.
- */
-export function ConnectionCard({ report, locale, className }: CardProps) {
+/** The service: its version in the head, the MCP and web addresses, each with a copy button, and the extra listener. */
+export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.service;
   const service = report.service;
 
   return (
-    <Card aria-labelledby="connection-title" className={className}>
+    <Card aria-labelledby="service-title" className={className}>
       <CardHeading
-        id="connection-title"
-        icon={Cable}
-        title={dictionary.dashboard.cards.connection}
+        id="service-title"
+        icon={Server}
+        title={dictionary.dashboard.cards.service}
         badge={
           service?.version == null ? null : (
             <span title={service.version} className="truncate text-xs text-ink-muted">
@@ -540,70 +563,140 @@ export function ConnectionCard({ report, locale, className }: CardProps) {
           )
         }
       />
-      <div className="grid gap-lg lg:grid-cols-[fit-content(50%)_minmax(0,1fr)]">
-        {service == null ? (
-          <Unreadable />
-        ) : (
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-lg gap-y-xs text-sm">
-            {service.endpoint === null ? null : (
-              <InfoRow label={text.mcp}>
-                <Address value={service.endpoint} label={text.mcp} />
-              </InfoRow>
+      {service == null ? (
+        <Unreadable />
+      ) : (
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-lg gap-y-xs text-sm">
+          {service.endpoint === null ? null : (
+            <InfoRow label={text.mcp}>
+              <Address value={service.endpoint} label={text.mcp} />
+            </InfoRow>
+          )}
+          <InfoRow label={text.web}>
+            <Address value={service.webAddress} label={text.web} />
+          </InfoRow>
+          <InfoRow label={text.extraListener}>
+            {service.extraListener === null ? (
+              <span className="text-ink-muted">{text.noExtraListener}</span>
+            ) : (
+              <>
+                <Address value={service.extraListener.address} label={text.extraListener} />
+                {service.extraListener.failureReason === null ? (
+                  <Badge tone="success">
+                    <CircleCheck aria-hidden />
+                    {text.listening}
+                  </Badge>
+                ) : (
+                  <Badge tone="danger" title={service.extraListener.failureReason}>
+                    <TriangleAlert aria-hidden />
+                    {text.listenFailed}
+                  </Badge>
+                )}
+              </>
             )}
-            <InfoRow label={text.web}>
-              <Address value={service.webAddress} label={text.web} />
-            </InfoRow>
-            <InfoRow label={text.extraListener}>
-              {service.extraListener === null ? (
-                <span className="text-ink-muted">{text.noExtraListener}</span>
-              ) : (
-                <>
-                  <Address value={service.extraListener.address} label={text.extraListener} />
-                  {service.extraListener.failureReason === null ? (
-                    <Badge tone="success">
-                      <CircleCheck aria-hidden />
-                      {text.listening}
-                    </Badge>
-                  ) : (
-                    <Badge tone="danger" title={service.extraListener.failureReason}>
-                      <TriangleAlert aria-hidden />
-                      {text.listenFailed}
-                    </Badge>
-                  )}
-                </>
-              )}
-            </InfoRow>
-          </dl>
-        )}
-        <Agents report={report} locale={locale} />
-      </div>
+          </InfoRow>
+        </dl>
+      )}
     </Card>
   );
 }
 
-/** The agents of the connection card, under a small heading, beside the addresses on a wide screen. */
-function Agents({ report, locale }: { readonly report: StatusReport; readonly locale: string }) {
+/** Where the bindings are kept: the bindings section of the settings. */
+const BINDINGS_PATH = "/settings#settings-bindings";
+
+/** How many chips the clients card shows; past it, the last chip counts the rest. */
+const SHOWN_CLIENTS = 12;
+
+/** What a client's binding is: sound, broken, or none (it only connected). */
+type ClientState = "bound" | "broken" | "unbound";
+
+function stateOf(row: AgentRow): ClientState {
+  return row.binding === null ? "unbound" : row.binding.problem === null ? "bound" : "broken";
+}
+
+const STATE_DOTS: Record<ClientState, string> = {
+  bound: "bg-success",
+  broken: "bg-danger",
+  unbound: "bg-ink-muted",
+};
+
+/**
+ * The clients: every binding and every client that connected, merged into one chip per agent with its logo and name, the
+ * bound ones first and then those that only connected, the most recent first. A dot on the chip tells the binding's
+ * state, and a legend under the chips names the states that occur; the state and when the client last connected are in
+ * the chip's tooltip and read out with it. Past twelve, the last chip counts the rest and leads to the bindings in the
+ * settings, as does the link in the head. With no binding, a line says what that means and a button leads there.
+ */
+export function ClientsCard({ report, locale, className }: CardProps) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.agents;
   const bindings = report.bindings?.items;
   const rows = agentsOf(bindings ?? [], report.clients?.items ?? []);
+  const shown = rows.length > SHOWN_CLIENTS ? rows.slice(0, SHOWN_CLIENTS - 1) : rows;
+  const states = (["bound", "broken", "unbound"] as const).filter((state) =>
+    rows.some((row) => stateOf(row) === state),
+  );
+  const stateText: Record<ClientState, string> = { bound: text.bound, broken: text.broken, unbound: text.seenOnly };
 
   return (
-    <section
-      aria-labelledby="agents-title"
-      className="grid content-start gap-sm lg:border-l-(length:--tk-border-thin) lg:border-line lg:pl-lg"
-    >
-      <h3 id="agents-title" className="text-xs text-ink-muted">
-        {text.title}
-      </h3>
+    <Card aria-labelledby="clients-title" className={className}>
+      <CardHeading
+        id="clients-title"
+        icon={Users}
+        title={text.title}
+        actions={
+          rows.length === 0 ? undefined : (
+            <IconAction asChild label={text.manage}>
+              <Link to={BINDINGS_PATH}>
+                <Link2 aria-hidden />
+              </Link>
+            </IconAction>
+          )
+        }
+      />
       {bindings === undefined && report.clients == null ? (
         <Unreadable />
       ) : (
         <>
           {rows.length === 0 ? null : (
-            <ul className={LOGO_TILES}>
-              {rows.map((row) => (
-                <AgentTile key={row.key} row={row} seen={seenText(row.lastSeen, locale, text)} />
+            <ul className="flex flex-wrap gap-sm">
+              {shown.map((row) => {
+                const state = stateOf(row);
+                const problem = row.binding?.problem ?? null;
+                const detail = `${problem === null ? stateText[state] : dictionary.dashboard.bindingProblems[problem]} · ${seenText(row.lastSeen, locale, text)}`;
+                return (
+                  <li
+                    key={row.key}
+                    title={`${row.label}\n${detail}`}
+                    className="flex min-w-0 items-center gap-sm rounded-full bg-surface-raised py-xs pr-md pl-xs text-sm"
+                  >
+                    <AgentLogo icon={row.icon} />
+                    <span className="truncate">{row.label}</span>
+                    <span aria-hidden className={`size-(--tk-space-sm) shrink-0 rounded-full ${STATE_DOTS[state]}`} />
+                    <span className="sr-only">{detail}</span>
+                  </li>
+                );
+              })}
+              {rows.length > shown.length ? (
+                <li>
+                  <Link
+                    to={BINDINGS_PATH}
+                    aria-label={text.moreLabel(rows.length - shown.length)}
+                    className="flex h-full items-center rounded-full bg-surface-raised px-md text-sm text-accent hover:bg-accent-soft"
+                  >
+                    {text.more(rows.length - shown.length)}
+                  </Link>
+                </li>
+              ) : null}
+            </ul>
+          )}
+          {states.length === 0 ? null : (
+            <ul aria-label={text.legend} className="flex flex-wrap gap-x-md gap-y-xs text-xs text-ink-muted">
+              {states.map((state) => (
+                <li key={state} className="flex items-center gap-xs">
+                  <span aria-hidden className={`size-(--tk-space-sm) rounded-full ${STATE_DOTS[state]}`} />
+                  {stateText[state]}
+                </li>
               ))}
             </ul>
           )}
@@ -611,7 +704,7 @@ function Agents({ report, locale }: { readonly report: StatusReport; readonly lo
             <div className="flex flex-wrap items-center justify-between gap-sm">
               <p className="text-sm text-ink-muted">{rows.length === 0 ? text.empty : text.noBindings}</p>
               <Button asChild variant="outline">
-                <Link to="/settings#settings-bindings">
+                <Link to={BINDINGS_PATH}>
                   <Link2 aria-hidden />
                   {text.addBinding}
                 </Link>
@@ -620,38 +713,7 @@ function Agents({ report, locale }: { readonly report: StatusReport; readonly lo
           ) : null}
         </>
       )}
-    </section>
-  );
-}
-
-/**
- * One agent as a tile: its logo with the binding's state on the corner, its name, and when it last connected; a broken
- * binding says what is wrong in that line instead, and an agent with no binding says so.
- */
-function AgentTile({ row, seen }: { readonly row: AgentRow; readonly seen: string }) {
-  const dictionary = useDictionary();
-  const text = dictionary.dashboard.agents;
-  const problem = row.binding?.problem ?? null;
-  const state = row.binding === null ? text.unbound : problem === null ? text.bound : text.broken;
-
-  return (
-    <li
-      title={`${row.label}\n${state}`}
-      className="grid min-w-0 justify-items-center gap-xs rounded-md p-sm text-center"
-    >
-      <AgentLogo icon={row.icon} large sound={row.binding === null ? undefined : problem === null} />
-      <span className="sr-only">{state}</span>
-      <span className="w-full truncate text-sm font-medium">{row.label}</span>
-      <span className="w-full truncate text-xs text-ink-muted">
-        {problem !== null ? (
-          <span className="text-danger">{dictionary.dashboard.bindingProblems[problem]}</span>
-        ) : row.binding === null ? (
-          text.unboundSeen(seen)
-        ) : (
-          seen
-        )}
-      </span>
-    </li>
+    </Card>
   );
 }
 

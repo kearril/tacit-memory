@@ -324,7 +324,7 @@ export interface Dictionary {
       readonly backups: string;
       readonly activity: string;
       readonly index: string;
-      readonly connection: string;
+      readonly service: string;
       readonly logs: string;
     };
     readonly unreadable: string;
@@ -427,7 +427,6 @@ export interface Dictionary {
       readonly title: string;
       readonly bound: string;
       readonly unbound: string;
-      readonly unboundSeen: (seen: string) => string;
       readonly broken: string;
       readonly today: string;
       readonly yesterday: string;
@@ -436,6 +435,11 @@ export interface Dictionary {
       readonly empty: string;
       readonly noBindings: string;
       readonly addBinding: string;
+      readonly seenOnly: string;
+      readonly legend: string;
+      readonly manage: string;
+      readonly more: (count: number) => string;
+      readonly moreLabel: (count: number) => string;
     };
     readonly todos: {
       readonly empty: string;

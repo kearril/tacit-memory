@@ -31,7 +31,7 @@ import {
 } from "../../components/ui/dialog";
 import { errorTextOf } from "../../i18n/messages";
 import { fileNameOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, InfoRow } from "./parts";
+import { BusyIcon, IconAction, InfoRow } from "./parts";
 
 /** The backup chosen in the list: a local one by its full path, or the latest cloud backup. */
 type Choice = { readonly kind: "local"; readonly path: string } | { readonly kind: "cloud" };
@@ -101,10 +101,9 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline">
+        <IconAction type="button" label={text.open}>
           <History aria-hidden />
-          {text.open}
-        </Button>
+        </IconAction>
       </DialogTrigger>
       <DialogContent locked={restore.isPending}>
         {restore.data === undefined ? (
