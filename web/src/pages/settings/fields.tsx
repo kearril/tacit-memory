@@ -1,4 +1,4 @@
-import { Lock, RotateCcw, RotateCw } from "lucide-react";
+import { RotateCcw, RotateCw } from "lucide-react";
 import type { ConfigView } from "../../api/config";
 import { useDictionary } from "../../app/session-context";
 import { Badge } from "../../components/ui/badge";
@@ -12,14 +12,17 @@ import {
   type Drafts,
   FIELDS,
   inputIdOf,
+  outOfRange,
   type Pending,
   type PlacedProblems,
   type SecretEdits,
+  type SectionId,
+  sectionIdOf,
   textOf,
   valueAt,
 } from "./form";
 
-/** What a card needs to show and edit its settings: the view, the inputs, what changed, and where the problems are. */
+/** What a section needs to show and edit its settings: the view, the inputs, what changed, and where the problems are. */
 export interface SettingsForm {
   readonly view: ConfigView;
   readonly drafts: Drafts;
@@ -36,67 +39,196 @@ export interface SettingsForm {
 }
 
 /**
- * One setting: its name (hovering it explains the setting) beside its key path and whether it waits for a restart, the
- * input with the restore button after it, the default and the range below, anything the card adds (`children`), and the
- * service's problems with it. A setting that differs from its default has an accent bar on its left; an input changed
- * since the last save has an accent outline.
+ * One section of the settings page: its name, a line on what it is for, and a rule under them, then its content. A
+ * section whose actions happen at once, without the save bar, says so beside its name.
  */
-export function Setting({
-  form,
-  path,
-  text,
-  defaultText,
-  wide = false,
-  required = false,
+export function SettingsSection({
+  section,
+  summary,
+  immediate = false,
   children,
 }: {
-  readonly form: SettingsForm;
-  readonly path: string;
-  readonly text: Explained;
-  /** How to name the default, for a setting whose default is the absence of a value. */
-  readonly defaultText?: string;
-  /** Whether the input takes the whole width, for an address rather than a number. */
-  readonly wide?: boolean;
-  /** Whether the setting has no default to restore, so it must be filled in. */
-  readonly required?: boolean;
-  readonly children?: React.ReactNode;
+  readonly section: SectionId;
+  readonly summary: string;
+  readonly immediate?: boolean;
+  readonly children: React.ReactNode;
 }) {
   const dictionary = useDictionary();
-  const id = inputIdOf(path);
-  const key = form.view.keys.find((key) => key.path === path);
-  const errors = form.problems.byField[path] ?? [];
-  const differs = !required && differsFromDefault(form.view, form.drafts, path);
-  const notes = [
-    required ? dictionary.settings.required : (defaultText ?? dictionary.settings.defaultValue(textOf(valueAt(form.view.defaults, path)))),
-  ];
-  if (key?.min != null && key.max != null) {
-    notes.push(dictionary.settings.range(String(key.min), String(key.max)));
-  }
-
+  const id = sectionIdOf(section);
   return (
-    <div className="relative grid gap-xs pl-md">
-      <DefaultBar shown={differs} />
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-sm">
-        <Explaining help={text.help}>
-          <Label htmlFor={id}>{text.label}</Label>
-        </Explaining>
-        <code className="min-w-0 font-mono text-xs break-all text-ink-muted">{path}</code>
-        <RestartBadge form={form} path={path} />
-      </div>
-      <div className={`flex items-center gap-xs ${wide ? "" : "max-w-(--tk-size-tile)"}`}>
-        <SettingInput form={form} path={path} id={id} label={text.label} help={text.help} errors={errors} errorId={`${id}-error`} />
-        <RestoreButton shown={differs} label={`${dictionary.settings.restoreDefault}: ${text.label}`} onClick={() => form.restore(path)} />
-      </div>
-      <p className="text-xs text-ink-muted">{notes.join(" · ")}</p>
+    <section id={id} aria-labelledby={`${id}-title`} className="grid scroll-mt-lg gap-lg">
+      <header className="grid gap-xs border-b-(length:--tk-border-thin) border-line pb-sm">
+        <div className="flex flex-wrap items-center gap-sm">
+          <h2 id={`${id}-title`} className="text-lg font-semibold">
+            {dictionary.settings.sections[section]}
+          </h2>
+          {immediate ? <Immediate /> : null}
+        </div>
+        <p className="text-sm text-ink-muted">{summary}</p>
+      </header>
       {children}
-      <Problems id={`${id}-error`} messages={errors} />
+    </section>
+  );
+}
+
+/** The mark of something that happens at once rather than on save, explained on hover. */
+export function Immediate() {
+  const dictionary = useDictionary();
+  return (
+    <Explaining help={dictionary.settings.immediateHelp}>
+      <Badge tone="info" tabIndex={0}>
+        {dictionary.settings.immediate}
+      </Badge>
+    </Explaining>
+  );
+}
+
+/** A group of rows inside a section, under a small heading of its own. */
+export function SettingsGroup({ title, aside, children }: { readonly title: string; readonly aside?: React.ReactNode; readonly children: React.ReactNode }) {
+  return (
+    <div className="grid gap-md">
+      <div className="flex flex-wrap items-center gap-sm">
+        <h3 className="text-sm font-semibold text-ink-muted">{title}</h3>
+        {aside}
+      </div>
+      {children}
     </div>
   );
 }
 
 /**
- * A setting the page shows but does not change: its name and key path, its value in a locked box, and how to change it.
- * The service's problems with it show as with any setting.
+ * A row of a section: the name on the left and what sets it on the right, stacked on a narrow screen. Anything under the
+ * control (a note, the problems) lines up with the control.
+ */
+export function SettingRow({
+  name,
+  control,
+  children,
+}: {
+  readonly name: React.ReactNode;
+  readonly control: React.ReactNode;
+  readonly children?: React.ReactNode;
+}) {
+  return (
+    <div className="grid items-start gap-x-lg gap-y-xs sm:grid-cols-[minmax(0,var(--tk-size-setting-name))_minmax(0,1fr)]">
+      <div className="flex min-h-control min-w-0 flex-wrap items-center gap-x-sm gap-y-xs">{name}</div>
+      <div className="grid min-w-0 gap-xs">
+        {control}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A setting's name: hovering it explains the setting and gives its key path in `config.yaml`. A setting that takes effect
+ * only when the service restarts has a small mark after it; one saved with a value still waiting for a restart has a badge
+ * with the running value instead.
+ */
+export function SettingName({
+  form,
+  path,
+  text,
+  htmlFor,
+  id,
+}: {
+  readonly form: SettingsForm;
+  readonly path: string;
+  readonly text: Explained;
+  readonly htmlFor?: string;
+  readonly id?: string;
+}) {
+  return (
+    <>
+      <Explaining help={text.help} keyPath={path}>
+        {htmlFor === undefined ? (
+          <span id={id} tabIndex={0} className="w-fit text-sm font-medium outline-none">
+            {text.label}
+          </span>
+        ) : (
+          <Label id={id} htmlFor={htmlFor} className="w-fit">
+            {text.label}
+          </Label>
+        )}
+      </Explaining>
+      <RestartMark form={form} path={path} />
+    </>
+  );
+}
+
+/**
+ * One setting: its name, the input, and once the value differs from the default a button that restores it, naming the
+ * default. Below the input, a number outside its limits and the service's problems with the setting. `placeholder` says
+ * what an empty input means, for a setting whose default is the absence of a value.
+ */
+export function Setting({
+  form,
+  path,
+  text,
+  placeholder,
+  wide = false,
+  required = false,
+  disabled = false,
+  children,
+}: {
+  readonly form: SettingsForm;
+  readonly path: string;
+  readonly text: Explained;
+  readonly placeholder?: string;
+  /** Whether the input takes the whole width, for an address rather than a number. */
+  readonly wide?: boolean;
+  /** Whether the setting has no default to restore, so it must be filled in. */
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly children?: React.ReactNode;
+}) {
+  const dictionary = useDictionary();
+  const id = inputIdOf(path);
+  const range = outOfRange(form.view, form.drafts, path);
+  const errors = [
+    ...(range === null ? [] : [dictionary.settings.outOfRange(String(range.min), String(range.max))]),
+    ...(form.problems.byField[path] ?? []),
+  ];
+  const differs = !required && differsFromDefault(form.view, form.drafts, path);
+
+  return (
+    <SettingRow
+      name={<SettingName form={form} path={path} text={text} htmlFor={id} />}
+      control={
+        <div className="flex min-w-0 flex-wrap items-center gap-sm">
+          <div className={wide ? "min-w-0 flex-1" : "w-(--tk-size-tile) max-w-full"}>
+            <SettingInput
+              form={form}
+              path={path}
+              id={id}
+              label={text.label}
+              help={text.help}
+              placeholder={placeholder ?? (required ? dictionary.settings.required : undefined)}
+              mono={wide}
+              disabled={disabled}
+              errors={errors}
+              errorId={`${id}-error`}
+            />
+          </div>
+          {differs ? (
+            <RestoreButton
+              label={`${dictionary.settings.restoreDefault}: ${text.label}`}
+              value={placeholder === undefined ? textOf(valueAt(form.view.defaults, path)) : null}
+              onClick={() => form.restore(path)}
+            />
+          ) : null}
+        </div>
+      }
+    >
+      {children}
+      <Problems id={`${id}-error`} messages={errors} />
+    </SettingRow>
+  );
+}
+
+/**
+ * A setting the page shows but does not change, as a plain row of its name and value. The service's problems with it
+ * show as with any setting.
  */
 export function ReadOnlySetting({
   form,
@@ -109,37 +241,27 @@ export function ReadOnlySetting({
   readonly text: Explained;
   readonly value: string;
 }) {
-  const dictionary = useDictionary();
   const id = inputIdOf(path);
   const errors = form.problems.byField[path] ?? [];
   return (
-    <div className="grid gap-xs pl-md">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-sm">
-        <Explaining help={text.help}>
-          <span className="text-sm font-medium">{text.label}</span>
-        </Explaining>
-        <code className="min-w-0 font-mono text-xs break-all text-ink-muted">{path}</code>
-        <RestartBadge form={form} path={path} />
-      </div>
-      <p
-        id={id}
-        tabIndex={-1}
-        className="flex min-h-control min-w-0 items-start gap-sm rounded-md bg-surface-raised px-md py-sm text-sm text-ink-muted outline-none"
-      >
-        <Lock aria-hidden className="mt-xs size-(--tk-font-size-sm) shrink-0" />
-        <span className="min-w-0 font-mono break-all">{value}</span>
-      </p>
-      <p className="text-xs text-ink-muted">{dictionary.settings.readOnlyNote}</p>
+    <SettingRow
+      name={<SettingName form={form} path={path} text={text} />}
+      control={
+        <p id={id} tabIndex={-1} className="flex min-h-control items-center text-sm break-all text-ink-muted outline-none">
+          {value}
+        </p>
+      }
+    >
       <Problems id={`${id}-error`} messages={errors} />
-    </div>
+    </SettingRow>
   );
 }
 
 /**
- * Whether a setting waits for a restart: a quiet badge for one that does, and a warning badge with the running value
- * once a saved value is waiting.
+ * After a setting's name: a badge with the running value while a saved value waits for a restart, else a quiet mark for
+ * a setting that takes effect only on a restart, explained on hover.
  */
-export function RestartBadge({ form, path }: { readonly form: SettingsForm; readonly path: string }) {
+export function RestartMark({ form, path }: { readonly form: SettingsForm; readonly path: string }) {
   const dictionary = useDictionary();
   const text = dictionary.settings;
   const pending = form.pending.get(path);
@@ -153,21 +275,23 @@ export function RestartBadge({ form, path }: { readonly form: SettingsForm; read
   }
   return form.view.keys.some((key) => key.path === path && key.restart && !key.readOnly) ? (
     <Explaining help={text.restartHelp}>
-      <Badge>
-        <RotateCw aria-hidden />
-        {text.restartBadge}
-      </Badge>
+      <span tabIndex={0} aria-label={text.restartHelp} className="inline-flex text-ink-muted outline-none">
+        <RotateCw aria-hidden className="size-(--tk-font-size-sm)" />
+      </span>
     </Explaining>
   ) : null;
 }
 
-/** The input of one number: the text as typed, outlined in the accent colour once it differs from the saved value. */
+/** The input of one setting: the text as typed, outlined in the accent colour once it differs from the saved value. */
 export function SettingInput({
   form,
   path,
   id,
   label,
   help,
+  placeholder,
+  mono = false,
+  disabled = false,
   errors,
   errorId,
 }: {
@@ -176,6 +300,10 @@ export function SettingInput({
   readonly id: string;
   readonly label: string;
   readonly help: string;
+  readonly placeholder?: string;
+  /** Whether the value is an address or a path, set in the monospaced face. */
+  readonly mono?: boolean;
+  readonly disabled?: boolean;
   readonly errors: readonly string[];
   readonly errorId: string;
 }) {
@@ -191,7 +319,9 @@ export function SettingInput({
         aria-label={label}
         aria-invalid={errors.length > 0}
         aria-describedby={errors.length > 0 ? `${id}-help ${errorId}` : `${id}-help`}
-        className={`tabular-nums ${changed ? "border-accent" : ""}`}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={`tabular-nums ${mono ? "font-mono" : ""} ${changed ? "border-accent" : ""}`}
         value={form.drafts[path] ?? ""}
         onChange={(event) => form.edit(path, event.target.value)}
       />
@@ -202,45 +332,33 @@ export function SettingInput({
   );
 }
 
-/** The accent bar on the left of a setting that differs from its default. */
-export function DefaultBar({ shown }: { readonly shown: boolean }) {
-  return shown ? <span aria-hidden className="absolute inset-y-0 left-0 w-(--tk-border-thick) rounded-full bg-accent" /> : null;
-}
-
-/** Restores a setting's default; it keeps its place while hidden, so the inputs beside it do not move. */
-export function RestoreButton({ shown, label, onClick }: { readonly shown: boolean; readonly label: string; readonly onClick: () => void }) {
+/** Restores a setting's default, naming the default when it has one to show. */
+export function RestoreButton({ label, value, onClick }: { readonly label: string; readonly value: string | null; readonly onClick: () => void }) {
+  const dictionary = useDictionary();
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={label}
-          aria-hidden={!shown}
-          tabIndex={shown ? 0 : -1}
-          className={shown ? "text-ink-muted" : "invisible"}
-          onClick={onClick}
-        >
-          <RotateCcw aria-hidden />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <Button type="button" variant="ghost" aria-label={label} title={label} className="text-ink-muted" onClick={onClick}>
+      <RotateCcw aria-hidden />
+      {value === null ? dictionary.settings.restoreDefault : dictionary.settings.defaultValue(value)}
+    </Button>
   );
 }
 
-/** A name that explains itself on hover. */
-export function Explaining({ help, children }: { readonly help: string; readonly children: React.ReactNode }) {
+/** A name that explains itself on hover, with the key path in `config.yaml` under the explanation when there is one. */
+export function Explaining({ help, keyPath, children }: { readonly help: string; readonly keyPath?: string; readonly children: React.ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent>{help}</TooltipContent>
+      <TooltipContent>
+        <span className="grid gap-xs">
+          <span>{help}</span>
+          {keyPath === undefined ? null : <code className="font-mono text-xs">{keyPath}</code>}
+        </span>
+      </TooltipContent>
     </Tooltip>
   );
 }
 
-/** The service's problems with a setting, in its words. */
+/** The problems with a setting: the service's, in its words, and any the page finds before saving. */
 export function Problems({ id, messages }: { readonly id: string; readonly messages: readonly string[] }) {
   return messages.length === 0 ? null : (
     <div id={id} role="alert" className="grid gap-xs text-sm text-danger">

@@ -120,8 +120,8 @@
   --tk-space-xl: 2.5rem;
 
   /* Sizes of controls (buttons, inputs), of the narrow content column (forms, dialogs), of the sidebar, of the page, the
-     smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; they sit with the spacing
-     scale */
+     smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; of the settings column
+     and the names on its left, and of a client's logo tile; they sit with the spacing scale */
   --tk-size-control: 2.5rem;
   --tk-size-content: 32rem;
   --tk-size-sidebar: 15rem;
@@ -130,6 +130,9 @@
   --tk-size-tile: 15rem;
   --tk-size-icon-tile: 1.75rem;
   --tk-size-list: 13rem;
+  --tk-size-settings: 47.5rem;
+  --tk-size-setting-name: 11rem;
+  --tk-size-logo: 3rem;
 
   /* Shape */
   --tk-radius-xs: 0.25rem;

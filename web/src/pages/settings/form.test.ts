@@ -8,9 +8,11 @@ import {
   draftsOf,
   edit,
   ON,
+  outOfRange,
   pendingRestart,
   placeProblems,
   restoreDefault,
+  restartsAmong,
 } from "./form";
 
 const threshold = { certain: 0.85, unlikely: 0.25 };
@@ -300,5 +302,31 @@ describe("model toggles", () => {
     const drafts = edit(draftsOf(withDecision()), "models.decision", "");
 
     expect(bodyOf(withDecision(), drafts, { "models.decision.apiKey": "k" }).secrets).toEqual({});
+  });
+});
+
+describe("outOfRange", () => {
+  it("gives the limits of a number typed outside them, and nothing for one inside, an empty input or a half-typed number", () => {
+    let drafts = edit(draftsOf(general()), "retrieval.topK", "0");
+    expect(outOfRange(general(), drafts, "retrieval.topK")).toEqual({ min: 1, max: 100000 });
+
+    drafts = edit(drafts, "retrieval.topK", "7");
+    expect(outOfRange(general(), drafts, "retrieval.topK")).toBeNull();
+    drafts = edit(drafts, "retrieval.topK", "");
+    expect(outOfRange(general(), drafts, "retrieval.topK")).toBeNull();
+    drafts = edit(drafts, "retrieval.topK", "1e");
+    expect(outOfRange(general(), drafts, "retrieval.topK")).toBeNull();
+  });
+
+  it("gives nothing for a setting without limits", () => {
+    const drafts = edit(draftsOf(general()), "server.host", "anything");
+    expect(outOfRange(general(), drafts, "server.host")).toBeNull();
+  });
+});
+
+describe("restartsAmong", () => {
+  it("counts the changed settings that take effect only when the service restarts", () => {
+    expect(restartsAmong(general(), ["server.port", "server.host", "retrieval.topK"])).toBe(2);
+    expect(restartsAmong(general(), ["retrieval.topK"])).toBe(0);
   });
 });

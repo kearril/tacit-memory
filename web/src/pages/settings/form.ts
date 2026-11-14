@@ -1,7 +1,10 @@
 import type { ConfigFile, ConfigProblem, ConfigView } from "../../api/config";
 
-/** The sections of the settings page, in the order of their cards. */
-export type SectionId = "general" | "models" | "bindings" | "judgment" | "consolidation" | "backup" | "access";
+/** The sections of the settings page, in the page's order. */
+export const SECTIONS = ["models", "bindings", "judgment", "consolidation", "backup", "access", "advanced"] as const;
+
+/** A section of the settings page. */
+export type SectionId = (typeof SECTIONS)[number];
 
 /** What an input holds: a whole number, any number, text, one of fixed choices, or on and off (`ON` or empty). */
 export type FieldKind = "integer" | "number" | "text" | "choice" | "toggle";
@@ -10,7 +13,7 @@ export type FieldKind = "integer" | "number" | "text" | "choice" | "toggle";
 export const ON = "on";
 
 /**
- * A setting the page edits: a value in `config.yaml` by its key path, the section whose card holds it, and what its input
+ * A setting the page edits: a value in `config.yaml` by its key path, the section that holds it, and what its input
  * takes. A threshold belongs to a pair (`group`), which the file holds whole or not at all.
  */
 export interface Field {
@@ -28,7 +31,7 @@ export type Value = number | string | null;
 /** The three auxiliary models. */
 export const MODELS = ["embedding", "reranker", "decision"] as const;
 
-/** The settings of the consolidation card, all whole numbers. */
+/** The consolidation settings, all whole numbers. */
 export const CONSOLIDATION = [
   "remindAfterDays",
   "remindCandidates",
@@ -43,10 +46,10 @@ export const JUDGMENTS = ["samePreference", "samePage", "sameTopic", "ruleConfli
 
 /** The fields the page edits, in the order they appear on it. */
 export const FIELDS: readonly Field[] = [
-  { path: "server.port", section: "general", kind: "integer" },
-  { path: "server.host", section: "general", kind: "text" },
-  { path: "limits.brief", section: "general", kind: "integer" },
-  { path: "limits.page.minAliases", section: "general", kind: "integer" },
+  { path: "server.port", section: "advanced", kind: "integer" },
+  { path: "server.host", section: "access", kind: "text" },
+  { path: "limits.brief", section: "advanced", kind: "integer" },
+  { path: "limits.page.minAliases", section: "advanced", kind: "integer" },
   ...MODELS.flatMap((model) => {
     const within = `models.${model}`;
     return [
@@ -73,7 +76,7 @@ export const FIELDS: readonly Field[] = [
   { path: "backup.webdav.username", section: "backup", kind: "text" },
 ];
 
-/** The secrets, by key path, and the section whose card holds each. They are changed apart from the other fields. */
+/** The secrets, by key path, and the section that holds each. They are changed apart from the other fields. */
 export const SECRETS: readonly { readonly path: string; readonly section: SectionId }[] = [
   { path: "models.embedding.apiKey", section: "models" },
   { path: "models.reranker.apiKey", section: "models" },
@@ -89,8 +92,8 @@ export type SecretEdits = Readonly<Record<string, string | null>>;
 
 /** The settings the page shows without letting them change, and the section that shows them. */
 export const READ_ONLY: readonly { readonly path: string; readonly section: SectionId }[] = [
-  { path: "memory.path", section: "general" },
-  { path: "language", section: "general" },
+  { path: "memory.path", section: "advanced" },
+  { path: "language", section: "advanced" },
 ];
 
 /** What each field's input holds, by key path: the text as typed, so a half-typed number is kept as it is. */
@@ -136,6 +139,24 @@ export function differsFromDefault(view: ConfigView, drafts: Drafts, path: strin
   return fieldsAt(path).some(
     (field) => !sameInput(drafts[field.path] ?? "", textOf(valueAt(view.defaults, field.path)), field.kind),
   );
+}
+
+/**
+ * The limits of the number at `path` when its input holds a number outside them; `null` for one inside, for an input that
+ * is empty or not a number yet, and for a setting without limits. The service checks the same limits when saving.
+ */
+export function outOfRange(view: ConfigView, drafts: Drafts, path: string): { readonly min: number; readonly max: number } | null {
+  const key = view.keys.find((item) => item.path === path);
+  const value = parse(drafts[path] ?? "", "number");
+  if (key?.min == null || key.max == null || typeof value !== "number") {
+    return null;
+  }
+  return value < key.min || value > key.max ? { min: key.min, max: key.max } : null;
+}
+
+/** How many of the settings at `paths` take effect only when the service restarts. */
+export function restartsAmong(view: ConfigView, paths: readonly string[]): number {
+  return paths.filter((path) => view.keys.some((key) => key.path === path && key.restart)).length;
 }
 
 /**
@@ -227,7 +248,7 @@ export function drifted(view: ConfigView): string[] {
 export interface PlacedProblems {
   /** The messages by the field or pair of thresholds they are about. */
   readonly byField: Readonly<Record<string, string[]>>;
-  /** How many problems each section's card holds. */
+  /** How many problems each section holds. */
   readonly bySection: Partial<Record<SectionId, number>>;
   /** The problems no field on the page answers to, in the order given. */
   readonly unplaced: readonly ConfigProblem[];
@@ -293,7 +314,7 @@ export function inputIdOf(path: string): string {
   return `setting-${(field?.path ?? path).replaceAll(".", "-")}`;
 }
 
-/** The section card's anchor on the page. */
+/** The section's anchor on the page. */
 export function sectionIdOf(section: SectionId): string {
   return `settings-${section}`;
 }

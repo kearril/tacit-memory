@@ -25,11 +25,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
-import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
-import { AccessSection } from "./AccessSection";
 import type { SettingsForm } from "./fields";
 import {
   bodyOf,
@@ -43,25 +41,23 @@ import {
   inputIdOf,
   pendingRestart,
   placeProblems,
+  restartsAmong,
   restoreDefault,
   type SecretEdits,
-  sectionIdOf,
-  type SectionId,
 } from "./form";
-import { BackupCard } from "./BackupCard";
-import { BindingsCard } from "./BindingsCard";
-import { ConsolidationCard } from "./ConsolidationCard";
-import { GeneralCard } from "./GeneralCard";
-import { JudgmentCard } from "./JudgmentCard";
-import { ModelsCard } from "./ModelsCard";
-
-/** The sections that have a card so far, in the page's order. */
-const SECTIONS: readonly SectionId[] = ["general", "models", "bindings", "judgment", "consolidation", "backup", "access"];
+import { AdvancedSection } from "./AdvancedSection";
+import { BackupSection } from "./BackupSection";
+import { BindingsSection } from "./BindingsSection";
+import { ConsolidationSection } from "./ConsolidationSection";
+import { JudgmentSection } from "./JudgmentSection";
+import { ModelsSection } from "./ModelsSection";
+import { RemoteAccessSection } from "./RemoteAccessSection";
+import { usePublishProblems, useScrollSpy } from "./section-nav";
 
 /**
- * The settings page: a row of section tabs that stays at the top, then the section cards in a bento grid, and a bar that
- * rises from the bottom once anything is changed, to save the whole page at once or discard it. The page heading is for
- * screen readers only, as the sidebar already shows which page this is.
+ * The settings page: one column of sections, read from top to bottom, whose list sits in the sidebar under the page's
+ * name; and a bar that rises from the bottom once anything is changed, to save the whole page at once or discard it. The
+ * page heading is for screen readers only, as the sidebar already shows which page this is.
  */
 export function SettingsPage() {
   const dictionary = useDictionary();
@@ -69,9 +65,10 @@ export function SettingsPage() {
   // Kept here, above the editor, as a save gives the editor a new file and so starts it again.
   const [restart, setRestart] = useState<readonly RestartChange[]>([]);
   useScrollToHash(config.data !== undefined, "start");
+  useScrollSpy(config.data !== undefined);
 
   return (
-    <div className="grid gap-lg">
+    <div className="mx-auto grid w-full max-w-(--tk-size-settings) gap-xl">
       <h1 className="sr-only">{dictionary.nav.settings}</h1>
       <RestartDialog changes={restart} onClose={() => setRestart([])} />
       {config.data !== undefined ? (
@@ -122,6 +119,7 @@ function SettingsEditor({
   const pending = useMemo(() => new Map(pendingRestart(view).map((item) => [item.path, item])), [view]);
   const drift = useMemo(() => drifted(view), [view]);
   const dirty = changed.length > 0;
+  usePublishProblems(placed.bySection);
 
   const save = useMutation({
     mutationFn: () => {
@@ -153,11 +151,13 @@ function SettingsEditor({
 
   const show = (found: readonly ConfigProblem[]) => {
     setProblems(found);
-    // The inputs are on the page whether or not they have problems, so the first one can be reached at once.
+    // A model with a problem opens to show it, so the first input is reached once the page has drawn the problems.
     const first = placeProblems(found).first;
-    const input = first === null ? null : document.getElementById(inputIdOf(first));
-    input?.scrollIntoView({ block: "center", behavior: "smooth" });
-    input?.focus({ preventScroll: true });
+    window.setTimeout(() => {
+      const input = first === null ? null : document.getElementById(inputIdOf(first));
+      input?.scrollIntoView({ block: "center", behavior: "smooth" });
+      input?.focus({ preventScroll: true });
+    });
   };
 
   const onSave = () => {
@@ -209,7 +209,6 @@ function SettingsEditor({
 
   return (
     <>
-      <SectionTabs counts={placed.bySection} />
       {drift.length === 0 ? null : (
         <Alert tone="warning">
           <AlertTitle>{text.driftTitle}</AlertTitle>
@@ -224,18 +223,17 @@ function SettingsEditor({
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-lg lg:grid-cols-2">
-        <GeneralCard form={form} className="lg:col-span-2" />
-        <ModelsCard form={form} className="lg:col-span-2" />
-        <BindingsCard className="lg:col-span-2" />
-        <JudgmentCard form={form} className="lg:col-span-2" />
-        <ConsolidationCard form={form} />
-        <BackupCard form={form} />
-        <AccessSection id={sectionIdOf("access")} className="scroll-mt-xl" />
-      </div>
+      <ModelsSection form={form} />
+      <BindingsSection />
+      <JudgmentSection form={form} />
+      <ConsolidationSection form={form} />
+      <BackupSection form={form} />
+      <RemoteAccessSection form={form} />
+      <AdvancedSection form={form} />
       {dirty ? (
         <SaveBar
           count={changed.length}
+          restarts={restartsAmong(view, changed)}
           saving={save.isPending}
           unplaced={placed.unplaced}
           failure={failure}
@@ -255,46 +253,12 @@ function touches(problem: string, path: string): boolean {
 }
 
 /**
- * The row of section names at the top: each scrolls to its card, and a section with problems shows how many. It stays at
- * the top of a wide screen while the page scrolls under it.
- */
-function SectionTabs({ counts }: { readonly counts: Partial<Record<SectionId, number>> }) {
-  const dictionary = useDictionary();
-  const text = dictionary.settings;
-  return (
-    <nav
-      aria-label={text.sectionsNav}
-      className="-mx-sm flex flex-wrap gap-xs bg-canvas/(--tk-mix-hover) px-sm py-sm backdrop-blur-sm lg:sticky lg:top-0 lg:z-(--tk-layer-nav)"
-    >
-      {SECTIONS.map((section) => {
-        const count = counts[section] ?? 0;
-        return (
-          <Button
-            key={section}
-            type="button"
-            variant="outline"
-            className="rounded-full"
-            onClick={() => document.getElementById(sectionIdOf(section))?.scrollIntoView({ behavior: "smooth" })}
-          >
-            {text.sections[section]}
-            {count > 0 ? (
-              <Badge tone="danger" aria-label={text.problemsIn(count)}>
-                {count}
-              </Badge>
-            ) : null}
-          </Button>
-        );
-      })}
-    </nav>
-  );
-}
-
-/**
- * The bar at the bottom while anything is changed: how many changes, discard (after a confirmation) and save. Problems no
- * field answers to, and a failed save, show above it.
+ * The bar at the bottom while anything is changed: how many changes and how many of them wait for a restart, discard
+ * (after a confirmation) and save. Problems no field answers to, and a failed save, show above it.
  */
 function SaveBar({
   count,
+  restarts,
   saving,
   unplaced,
   failure,
@@ -303,6 +267,7 @@ function SaveBar({
   onReload,
 }: {
   readonly count: number;
+  readonly restarts: number;
   readonly saving: boolean;
   readonly unplaced: readonly ConfigProblem[];
   readonly failure: Failure | null;
@@ -360,8 +325,9 @@ function SaveBar({
         aria-label={text.changes(count)}
         className="flex flex-wrap items-center justify-between gap-md rounded-lg bg-surface px-lg py-md shadow-raised"
       >
-        <p aria-live="polite" className="text-sm font-medium">
+        <p aria-live="polite" className="grid text-sm font-medium">
           {text.changes(count)}
+          {restarts === 0 ? null : <span className="text-xs font-normal text-ink-muted">{text.changesRestart(restarts)}</span>}
         </p>
         <div className="flex gap-sm">
           <AlertDialog>

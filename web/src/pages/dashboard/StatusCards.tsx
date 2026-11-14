@@ -3,7 +3,6 @@ import {
   Activity,
   Archive,
   ChevronDown,
-  Bot,
   CircleCheck,
   CloudUpload,
   HardDriveDownload,
@@ -24,6 +23,7 @@ import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups
 import { runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
+import { AgentLogo } from "./AgentLogo";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -43,7 +43,7 @@ import { CopyButton } from "../../components/ui/copy-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
-import { type AgentIcon, type AgentRow, agentsOf } from "./agents";
+import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, durationOf, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
 import { BusyIcon, CardActions, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
@@ -473,25 +473,6 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
         </dl>
       )}
     </Card>
-  );
-}
-
-/** An agent's logo on a soft tile: its own colours, a one-colour shape in the colour of the text, or a plain robot. */
-function AgentLogo({ icon }: { readonly icon: AgentIcon | null }) {
-  return (
-    <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-md bg-surface-raised text-ink">
-      {icon === null ? (
-        <Bot aria-hidden className="size-(--tk-font-size-xl)" />
-      ) : icon.monochrome ? (
-        <span
-          aria-hidden
-          className="size-(--tk-font-size-xl) bg-current"
-          style={{ mask: `url("${icon.url}") center / contain no-repeat` }}
-        />
-      ) : (
-        <img alt="" src={icon.url} className="size-(--tk-font-size-xl)" />
-      )}
-    </span>
   );
 }
 

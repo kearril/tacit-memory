@@ -23,3 +23,10 @@ export function presetsLeft(bound: readonly string[]): readonly ConnectRequest[]
 export function complete(request: ConnectRequest): boolean {
   return request.client.trim() !== "" && request.contextFile.trim() !== "" && request.skillsFolder.trim() !== "";
 }
+
+/**
+ * How a client registers the MCP server, besides its address: the transport and the name the service suggests, as it
+ * gives them with a binding that succeeds. A binding's details show them again later.
+ */
+export const MCP_TRANSPORT = "Streamable HTTP";
+export const MCP_NAME = "tacit";

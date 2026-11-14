@@ -54,7 +54,7 @@ export function targetOf(todo: Todo): string {
     case "bindingProblem":
       return "/settings#settings-bindings";
     case "extraListenerFailed":
-      return "/settings#settings-general";
+      return "/settings#settings-access";
     case "cloudBackupFailed":
       return "/dashboard#backups";
   }
