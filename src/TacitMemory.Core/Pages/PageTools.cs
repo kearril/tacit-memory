@@ -1,11 +1,11 @@
-using Microsoft.Extensions.Logging;
-using TacitMemory.Core.Logging;
 using System.Globalization;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Git;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
+using TacitMemory.Core.Logging;
 using TacitMemory.Core.Tools;
 
 namespace TacitMemory.Core.Pages;

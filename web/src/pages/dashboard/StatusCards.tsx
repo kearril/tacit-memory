@@ -40,7 +40,12 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { CopyButton } from "../../components/ui/copy-button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
@@ -121,7 +126,11 @@ function FailureAlert({ failure }: { readonly failure: Failure | null }) {
  * reaches zero the report is fetched again. While a model cools down, the card is outlined in the warning colour. The
  * models can be probed; what each probe found shows under its model.
  */
-export function ModelsCard({ report, fetchedAt, className }: Omit<CardProps, "locale"> & { readonly fetchedAt: number }) {
+export function ModelsCard({
+  report,
+  fetchedAt,
+  className,
+}: Omit<CardProps, "locale"> & { readonly fetchedAt: number }) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.modelStates;
   const queryClient = useQueryClient();
@@ -132,11 +141,14 @@ export function ModelsCard({ report, fetchedAt, className }: Omit<CardProps, "lo
   const probe = useMutation({
     mutationFn: runProbe,
     onMutate: () => setFailure(null),
-    onError: (error) => setFailure({ title: dictionary.dashboard.probe.failedTitle, message: errorTextOf(error, dictionary) }),
+    onError: (error) =>
+      setFailure({ title: dictionary.dashboard.probe.failedTitle, message: errorTextOf(error, dictionary) }),
   });
 
   const remaining = (items ?? []).map((model) =>
-    model.state === "coolingDown" && model.coolingSeconds !== null ? remainingOf(model.coolingSeconds, fetchedAt, now) : null,
+    model.state === "coolingDown" && model.coolingSeconds !== null
+      ? remainingOf(model.coolingSeconds, fetchedAt, now)
+      : null,
   );
   const expired = remaining.some((seconds) => seconds === 0);
   useEffect(() => {
@@ -228,7 +240,8 @@ export function IndexCard({ report, locale, className }: CardProps) {
       showToast(dictionary.dashboard.reindex.done(result.files, result.units));
       void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
     },
-    onError: (error) => setFailure({ title: dictionary.dashboard.reindex.failed, message: errorTextOf(error, dictionary) }),
+    onError: (error) =>
+      setFailure({ title: dictionary.dashboard.reindex.failed, message: errorTextOf(error, dictionary) }),
   });
 
   return (
@@ -244,7 +257,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
           <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
             {text.daysAgo(consolidation.daysSince)}
             {consolidation.daysSince > 1 ? (
-              <span className="ml-sm text-sm font-normal text-ink-muted">
+              <span className="font-normal ml-sm text-sm text-ink-muted">
                 {dayText(consolidation.lastConsolidationDay, locale, { dateStyle: "medium" })}
               </span>
             ) : null}
@@ -267,9 +280,10 @@ export function IndexCard({ report, locale, className }: CardProps) {
 export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.logs;
-  const logs = report.logs?.warnings == null || report.logs.errors == null
-    ? undefined
-    : { warnings: report.logs.warnings, errors: report.logs.errors };
+  const logs =
+    report.logs?.warnings == null || report.logs.errors == null
+      ? undefined
+      : { warnings: report.logs.warnings, errors: report.logs.errors };
   const notable = logs === undefined ? 0 : logs.warnings + logs.errors;
 
   return (
@@ -284,7 +298,9 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
             <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{text.quiet}</span>
           ) : (
             <span className="flex flex-wrap gap-x-md text-lg leading-(--tk-line-height-tight) font-semibold">
-              <span className={logs.warnings > 0 ? "text-warning" : "text-ink-muted"}>{text.warnings(logs.warnings)}</span>
+              <span className={logs.warnings > 0 ? "text-warning" : "text-ink-muted"}>
+                {text.warnings(logs.warnings)}
+              </span>
               <span className={logs.errors > 0 ? "text-danger" : "text-ink-muted"}>{text.errors(logs.errors)}</span>
             </span>
           )}
@@ -292,7 +308,13 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
       )}
       <CardActions>
         <Button asChild variant="outline">
-          <Link to={notable === 0 ? LOGS_PATH : `${LOGS_PATH}${searchOf({ levels: new Set(["warning", "error"]), query: "" })}`}>
+          <Link
+            to={
+              notable === 0
+                ? LOGS_PATH
+                : `${LOGS_PATH}${searchOf({ levels: new Set(["warning", "error"]), query: "" })}`
+            }
+          >
             <ScrollText aria-hidden />
             {text.view}
           </Link>
@@ -374,7 +396,10 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
       showToast(target === "remote" ? text.cloudBackedUp : text.backedUp(fileNameOf(result.location)));
     },
     onError: (error, target) =>
-      setFailure({ title: target === "remote" ? text.cloudFailedTitle : text.failed, message: errorTextOf(error, dictionary) }),
+      setFailure({
+        title: target === "remote" ? text.cloudFailedTitle : text.failed,
+        message: errorTextOf(error, dictionary),
+      }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: BACKUPS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
@@ -389,7 +414,9 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
       <CardHeading id="backups-title" icon={Archive} title={dictionary.dashboard.cards.backups} />
       {list === undefined ? (
         backups.isError ? (
-          <FailureAlert failure={{ title: dictionary.dashboard.unreadable, message: errorTextOf(backups.error, dictionary) }} />
+          <FailureAlert
+            failure={{ title: dictionary.dashboard.unreadable, message: errorTextOf(backups.error, dictionary) }}
+          />
         ) : (
           <div aria-busy="true" className="py-lg" />
         )
@@ -399,8 +426,12 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
             <span className="text-lg font-semibold">{text.none}</span>
           ) : (
             <div className="grid gap-xs">
-              <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{timeText(latest.at, locale)}</span>
-              <span className="text-xs text-ink-muted">{text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}</span>
+              <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
+                {timeText(latest.at, locale)}
+              </span>
+              <span className="text-xs text-ink-muted">
+                {text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}
+              </span>
               <span className="text-xs text-ink-muted">{text.count(list.local.length)}</span>
             </div>
           )}
@@ -473,7 +504,11 @@ function Address({ value, label }: { readonly value: string; readonly label: str
       <span title={value} className="min-w-0 truncate select-all">
         {value}
       </span>
-      <CopyButton value={value} label={dictionary.dashboard.copy(label)} copiedMessage={dictionary.dashboard.copied(label)} />
+      <CopyButton
+        value={value}
+        label={dictionary.dashboard.copy(label)}
+        copiedMessage={dictionary.dashboard.copied(label)}
+      />
     </>
   );
 }
@@ -509,7 +544,7 @@ export function ConnectionCard({ report, locale, className }: CardProps) {
         {service == null ? (
           <Unreadable />
         ) : (
-          <dl className="grid content-start grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs text-sm">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-lg gap-y-xs text-sm">
             {service.endpoint === null ? null : (
               <InfoRow label={text.mcp}>
                 <Address value={service.endpoint} label={text.mcp} />
@@ -600,7 +635,10 @@ function AgentTile({ row, seen }: { readonly row: AgentRow; readonly seen: strin
   const state = row.binding === null ? text.unbound : problem === null ? text.bound : text.broken;
 
   return (
-    <li title={`${row.label}\n${state}`} className="grid min-w-0 justify-items-center gap-xs rounded-md p-sm text-center">
+    <li
+      title={`${row.label}\n${state}`}
+      className="grid min-w-0 justify-items-center gap-xs rounded-md p-sm text-center"
+    >
       <AgentLogo icon={row.icon} large sound={row.binding === null ? undefined : problem === null} />
       <span className="sr-only">{state}</span>
       <span className="w-full truncate text-sm font-medium">{row.label}</span>
@@ -618,7 +656,11 @@ function AgentTile({ row, seen }: { readonly row: AgentRow; readonly seen: strin
 }
 
 /** A day as the date the service gave it, in the browser's own calendar: today, yesterday, or the date. */
-function seenText(day: string | null, locale: string, text: ReturnType<typeof useDictionary>["dashboard"]["agents"]): string {
+function seenText(
+  day: string | null,
+  locale: string,
+  text: ReturnType<typeof useDictionary>["dashboard"]["agents"],
+): string {
   if (day === null) {
     return text.neverSeen;
   }
@@ -633,7 +675,5 @@ function seenText(day: string | null, locale: string, text: ReturnType<typeof us
   if (day === dayOf(1)) {
     return text.yesterday;
   }
-  return text.lastSeen(
-    dayText(day, locale, { month: "short", day: "numeric" }),
-  );
+  return text.lastSeen(dayText(day, locale, { month: "short", day: "numeric" }));
 }

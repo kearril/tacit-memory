@@ -242,11 +242,16 @@ describe("secrets", () => {
 
     expect(bodyOf(modelled, draftsOf(modelled)).secrets).toEqual({});
     expect(bodyOf(modelled, draftsOf(modelled), secrets).secrets).toEqual(secrets);
-    expect(changedPaths(modelled, draftsOf(modelled), secrets)).toEqual(["models.decision.apiKey", "backup.webdav.password"]);
+    expect(changedPaths(modelled, draftsOf(modelled), secrets)).toEqual([
+      "models.decision.apiKey",
+      "backup.webdav.password",
+    ]);
   });
 
   it("are not rewritten to nothing", () => {
-    expect(bodyOf(view(), draftsOf(view()), { "backup.webdav.password": " " }).invalid).toEqual(["backup.webdav.password"]);
+    expect(bodyOf(view(), draftsOf(view()), { "backup.webdav.password": " " }).invalid).toEqual([
+      "backup.webdav.password",
+    ]);
   });
 
   it("place the service's problems on their own fields", () => {
@@ -257,20 +262,29 @@ describe("secrets", () => {
 describe("cloud backup", () => {
   it("is none once both its address and its user name are emptied, and is written once either is given", () => {
     const configured = view();
-    configured.file.backup = { keep: null, webDav: { url: "https://dav.example/tacit/", username: null, password: null } };
+    configured.file.backup = {
+      keep: null,
+      webDav: { url: "https://dav.example/tacit/", username: null, password: null },
+    };
 
     let drafts = edit(draftsOf(configured), "backup.webdav.url", "");
     expect(bodyOf(configured, drafts).config.backup.webDav).toBeNull();
 
     drafts = edit(draftsOf(view()), "backup.webdav.url", "https://dav.example/other/");
-    expect(bodyOf(view(), drafts).config.backup.webDav).toMatchObject({ url: "https://dav.example/other/", username: null });
+    expect(bodyOf(view(), drafts).config.backup.webDav).toMatchObject({
+      url: "https://dav.example/other/",
+      username: null,
+    });
   });
 });
 
 /** A view whose file configures the decision model. */
 function withDecision(): ConfigView {
   const base = view();
-  base.file.models = { ...base.file.models, decision: { provider: null, url: "http://127.0.0.1:9/judge", model: "judge", apiKey: null } };
+  base.file.models = {
+    ...base.file.models,
+    decision: { provider: null, url: "http://127.0.0.1:9/judge", model: "judge", apiKey: null },
+  };
   return base;
 }
 
@@ -294,8 +308,16 @@ describe("model toggles", () => {
 
     const { config } = bodyOf(view(), drafts);
 
-    expect(config.models.embedding).toMatchObject({ provider: null, url: "https://api.example/v1/embeddings", model: "embed-3" });
-    expect(changedPaths(view(), drafts)).toEqual(["models.embedding", "models.embedding.url", "models.embedding.model"]);
+    expect(config.models.embedding).toMatchObject({
+      provider: null,
+      url: "https://api.example/v1/embeddings",
+      model: "embed-3",
+    });
+    expect(changedPaths(view(), drafts)).toEqual([
+      "models.embedding",
+      "models.embedding.url",
+      "models.embedding.model",
+    ]);
   });
 
   it("leave out the secret of a model switched off", () => {

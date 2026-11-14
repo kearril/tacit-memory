@@ -72,7 +72,12 @@ export function PromptsPage() {
           <AlertDescription className="grid gap-sm">
             <p>{errorTextOf(prompts.error, dictionary)}</p>
             <div>
-              <Button type="button" variant="outline" disabled={prompts.isFetching} onClick={() => void prompts.refetch()}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={prompts.isFetching}
+                onClick={() => void prompts.refetch()}
+              >
                 <BusyIcon busy={prompts.isFetching} icon={RefreshCw} />
                 {dictionary.prompts.readAgain}
               </Button>
@@ -107,7 +112,11 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
     queryClient.setQueryData<PromptList>(PROMPTS_QUERY_KEY, (list) =>
       list === undefined
         ? list
-        : { documents: list.documents.map((candidate) => (candidate.name === saved.document.name ? saved.document : candidate)) },
+        : {
+            documents: list.documents.map((candidate) =>
+              candidate.name === saved.document.name ? saved.document : candidate,
+            ),
+          },
     );
     setNotices(saved.notices);
     showToast(message);
@@ -131,7 +140,10 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
           <Tooltip>
             <TooltipTrigger asChild>
               {/* Focusable, so the keyboard reaches what the badge means as well. */}
-              <span tabIndex={0} className="rounded-sm outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent">
+              <span
+                tabIndex={0}
+                className="rounded-sm outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+              >
                 {document.builtIn ? <Badge>{text.builtIn}</Badge> : <Badge tone="accent">{text.customized}</Badge>}
               </span>
             </TooltipTrigger>
@@ -150,9 +162,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
           </AlertDescription>
         </Alert>
       )}
-      {notices.length === 0 ? null : (
-        <ListAlert tone="warning" title={text.noticesTitle} items={notices} />
-      )}
+      {notices.length === 0 ? null : <ListAlert tone="warning" title={text.noticesTitle} items={notices} />}
       {/* A new hash is a new file: after a save, a return to the default or a reload the editor starts again from it. */}
       <PromptEditor
         key={document.hash ?? "built-in"}
@@ -178,7 +188,13 @@ function About({ document, stateNote }: { readonly document: PromptDocument; rea
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={text.aboutLabel(about.title)} className="text-ink-muted">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={text.aboutLabel(about.title)}
+          className="text-ink-muted"
+        >
           <Info aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -298,7 +314,14 @@ function PromptEditor({
   return (
     <div className="grid gap-md">
       {/* Until the editor's code arrives, an empty frame of its least height holds its place. */}
-      <Suspense fallback={<div aria-busy="true" className="min-h-(--tk-size-editor) rounded-md border-(length:--tk-border-thin) border-line" />}>
+      <Suspense
+        fallback={
+          <div
+            aria-busy="true"
+            className="min-h-(--tk-size-editor) rounded-md border-(length:--tk-border-thin) border-line"
+          />
+        }
+      >
         <MarkdownEditor
           value={draft}
           onChange={setDraft}
@@ -314,7 +337,11 @@ function PromptEditor({
         <ListAlert tone="warning" title={text.problemsTitle} items={problems} />
       )}
       {failure === null ? null : failure.kind === "rejected" ? (
-        <ListAlert tone="danger" title={text.rejectedTitle} items={failure.problems.map((problem) => problem.message)} />
+        <ListAlert
+          tone="danger"
+          title={text.rejectedTitle}
+          items={failure.problems.map((problem) => problem.message)}
+        />
       ) : (
         <Alert tone="danger">
           <AlertTitle>{failure.title}</AlertTitle>

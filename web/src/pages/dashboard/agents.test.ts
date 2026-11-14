@@ -26,7 +26,11 @@ describe("agentsOf", () => {
   });
 
   it("joins an unknown client to the binding its name goes by, but not to a binding that only shares letters", () => {
-    const rows = agentsOf([binding("omp"), binding("zed")], [client("omp-coding-agent", "2026-11-12"), client("zedd", "2026-11-11")], known);
+    const rows = agentsOf(
+      [binding("omp"), binding("zed")],
+      [client("omp-coding-agent", "2026-11-12"), client("zedd", "2026-11-11")],
+      known,
+    );
 
     expect(rows.map((row) => [row.label, row.binding?.client ?? null, row.lastSeen, row.icon])).toEqual([
       ["omp", "omp", "2026-11-12", null],
@@ -36,7 +40,11 @@ describe("agentsOf", () => {
   });
 
   it("takes the latest day of the clients that join one row", () => {
-    const rows = agentsOf([binding("claude")], [client("claude-code", "2026-11-10"), client("claude-desktop", "2026-11-12")], known);
+    const rows = agentsOf(
+      [binding("claude")],
+      [client("claude-code", "2026-11-10"), client("claude-desktop", "2026-11-12")],
+      known,
+    );
 
     expect(rows).toHaveLength(1);
     expect(rows[0].lastSeen).toBe("2026-11-12");

@@ -45,7 +45,10 @@ function Toaster({
           }}
           className="flex items-start gap-sm rounded-md bg-surface p-md text-sm text-ink shadow-raised data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x)"
         >
-          <CircleCheck aria-hidden className="mt-(--tk-border-thick) size-(--tk-font-size-base) shrink-0 text-success" />
+          <CircleCheck
+            aria-hidden
+            className="mt-(--tk-border-thick) size-(--tk-font-size-base) shrink-0 text-success"
+          />
           <ToastPrimitive.Description className="flex-1">{toast.message}</ToastPrimitive.Description>
           <ToastPrimitive.Close
             aria-label={closeLabel}

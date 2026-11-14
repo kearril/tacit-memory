@@ -27,7 +27,11 @@ export function dayTurned(page: ServiceLogDay): string | undefined {
 }
 
 /** Whether the view shows the end of the page, so new events should scroll into it. */
-export function isAtBottom(view: { readonly scrollTop: number; readonly clientHeight: number; readonly scrollHeight: number }): boolean {
+export function isAtBottom(view: {
+  readonly scrollTop: number;
+  readonly clientHeight: number;
+  readonly scrollHeight: number;
+}): boolean {
   return view.scrollHeight - view.scrollTop - view.clientHeight <= BOTTOM_TOLERANCE;
 }
 

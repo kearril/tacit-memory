@@ -176,7 +176,13 @@ export function SettingRow({
  * The settings whose names carry a mark that they explain themselves: only those whose explanation says something the name
  * and the input do not, so the marks stay few. Every name still explains itself on hover.
  */
-const EXPLAINED = new Set(["server.host", "server.port", "retrieval.minRerankScore", "consolidation.budgetSeconds", "backup.keep"]);
+const EXPLAINED = new Set([
+  "server.host",
+  "server.port",
+  "retrieval.minRerankScore",
+  "consolidation.budgetSeconds",
+  "backup.keep",
+]);
 
 /**
  * A setting's name: hovering it explains the setting and gives its key path in `config.yaml`; the few whose explanation
@@ -309,7 +315,11 @@ export function ReadOnlySetting({
     <SettingRow
       name={<SettingName form={form} path={path} text={text} />}
       control={
-        <p id={id} tabIndex={-1} className="flex min-h-control items-center text-sm break-all text-ink-muted outline-none">
+        <p
+          id={id}
+          tabIndex={-1}
+          className="flex min-h-control items-center text-sm break-all text-ink-muted outline-none"
+        >
           {value}
         </p>
       }
@@ -395,7 +405,15 @@ export function SettingInput({
 }
 
 /** Restores a setting's default, naming the default when it has one to show. */
-export function RestoreButton({ label, value, onClick }: { readonly label: string; readonly value: string | null; readonly onClick: () => void }) {
+export function RestoreButton({
+  label,
+  value,
+  onClick,
+}: {
+  readonly label: string;
+  readonly value: string | null;
+  readonly onClick: () => void;
+}) {
   const dictionary = useDictionary();
   return (
     <Button type="button" variant="ghost" aria-label={label} title={label} className="text-ink-muted" onClick={onClick}>
@@ -406,7 +424,15 @@ export function RestoreButton({ label, value, onClick }: { readonly label: strin
 }
 
 /** A name that explains itself on hover, with the key path in `config.yaml` under the explanation when there is one. */
-export function Explaining({ help, keyPath, children }: { readonly help: string; readonly keyPath?: string; readonly children: React.ReactNode }) {
+export function Explaining({
+  help,
+  keyPath,
+  children,
+}: {
+  readonly help: string;
+  readonly keyPath?: string;
+  readonly children: React.ReactNode;
+}) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>

@@ -44,7 +44,11 @@ const promptTheme = EditorView.theme({
     lineHeight: "var(--tk-line-height-normal)",
     overflow: "visible",
   },
-  ".cm-content": { minHeight: "var(--tk-size-editor)", padding: "var(--tk-space-md) 0", caretColor: "var(--tk-color-ink)" },
+  ".cm-content": {
+    minHeight: "var(--tk-size-editor)",
+    padding: "var(--tk-space-md) 0",
+    caretColor: "var(--tk-color-ink)",
+  },
   ".cm-line": { padding: "0 var(--tk-space-md)" },
   ".cm-gutters": {
     backgroundColor: "transparent",
@@ -137,7 +141,10 @@ export default function MarkdownEditor({
     const editor = view.current;
     const text = lf(value);
     if (editor !== null && editor.state.doc.toString() !== text) {
-      editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text }, annotations: fromValue.of(true) });
+      editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: text },
+        annotations: fromValue.of(true),
+      });
     }
   }, [value]);
 

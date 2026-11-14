@@ -48,16 +48,14 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
   const pair =
     "grid grid-cols-[minmax(0,calc((var(--tk-size-tile)-var(--tk-space-sm))/2))_minmax(0,calc((var(--tk-size-tile)-var(--tk-space-sm))/2))_minmax(0,1fr)] items-center gap-x-sm";
   const shared = BOUNDS.map((bound) => {
-    const values = new Set(JUDGMENTS.map((judgment) => textOf(valueAt(form.view.defaults, `decision.${judgment}.${bound}`))));
+    const values = new Set(
+      JUDGMENTS.map((judgment) => textOf(valueAt(form.view.defaults, `decision.${judgment}.${bound}`))),
+    );
     return values.size === 1 ? [...values][0] : null;
   });
 
   return (
-    <div
-      role="table"
-      aria-label={text.thresholds}
-      className="grid gap-sm"
-    >
+    <div role="table" aria-label={text.thresholds} className="grid gap-sm">
       <div role="row" className={`${columns} text-xs text-ink-muted`}>
         <span role="columnheader">
           <span className="sr-only">{text.thresholds}</span>
@@ -78,9 +76,14 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
         const differs = differsFromDefault(form.view, form.drafts, group);
         const ranges = BOUNDS.flatMap((bound) => {
           const range = outOfRange(form.view, form.drafts, `${group}.${bound}`);
-          return range === null ? [] : [`${text[bound]} ${dictionary.settings.outOfRange(String(range.min), String(range.max))}`];
+          return range === null
+            ? []
+            : [`${text[bound]} ${dictionary.settings.outOfRange(String(range.min), String(range.max))}`];
         });
-        const errors = [...ranges, ...[group, `${group}.certain`, `${group}.unlikely`].flatMap((path) => form.problems.byField[path] ?? [])];
+        const errors = [
+          ...ranges,
+          ...[group, `${group}.certain`, `${group}.unlikely`].flatMap((path) => form.problems.byField[path] ?? []),
+        ];
         const errorId = `${inputIdOf(group)}-error`;
         return (
           <div key={judgment} role="row" className="grid gap-xs">
@@ -93,35 +96,35 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
                 </Explaining>
               </div>
               <div className={pair}>
-              {BOUNDS.map((bound) => {
-                const path = `${group}.${bound}`;
-                return (
-                  <div key={bound} role="cell">
-                    <SettingInput
-                      form={form}
-                      path={path}
-                      id={`setting-${path.replaceAll(".", "-")}`}
-                      label={`${explained.label} ${text[bound]}`}
-                      help={explained.help}
-                      errors={errors}
-                      errorId={errorId}
+                {BOUNDS.map((bound) => {
+                  const path = `${group}.${bound}`;
+                  return (
+                    <div key={bound} role="cell">
+                      <SettingInput
+                        form={form}
+                        path={path}
+                        id={`setting-${path.replaceAll(".", "-")}`}
+                        label={`${explained.label} ${text[bound]}`}
+                        help={explained.help}
+                        errors={errors}
+                        errorId={errorId}
+                      />
+                    </div>
+                  );
+                })}
+                <div role="cell">
+                  {differs ? (
+                    <RestoreButton
+                      label={`${dictionary.settings.restoreDefault}: ${explained.label}`}
+                      value={
+                        shared.every((value) => value !== null)
+                          ? null
+                          : BOUNDS.map((bound) => textOf(valueAt(form.view.defaults, `${group}.${bound}`))).join(" / ")
+                      }
+                      onClick={() => form.restore(group)}
                     />
-                  </div>
-                );
-              })}
-              <div role="cell">
-                {differs ? (
-                  <RestoreButton
-                    label={`${dictionary.settings.restoreDefault}: ${explained.label}`}
-                    value={
-                      shared.every((value) => value !== null)
-                        ? null
-                        : BOUNDS.map((bound) => textOf(valueAt(form.view.defaults, `${group}.${bound}`))).join(" / ")
-                    }
-                    onClick={() => form.restore(group)}
-                  />
-                ) : null}
-              </div>
+                  ) : null}
+                </div>
               </div>
             </div>
             <Problems id={errorId} messages={errors} />

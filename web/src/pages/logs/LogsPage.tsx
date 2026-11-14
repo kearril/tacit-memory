@@ -1,5 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, CalendarDays, Check, ChevronDown, Pause, Radio, RefreshCw, ScrollText, Search, X } from "lucide-react";
+import {
+  ArrowDown,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Pause,
+  Radio,
+  RefreshCw,
+  ScrollText,
+  Search,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
@@ -9,7 +20,12 @@ import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
@@ -20,7 +36,9 @@ import { isAtBottom, unseenOf } from "./follow";
 import { useFollowedLog } from "./use-followed-log";
 
 /** The colour of each level's code; a warning or an error also tints its whole row. */
-const LEVEL_STYLES: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly row: string; readonly on: string }>> = {
+const LEVEL_STYLES: Readonly<
+  Record<ServiceLogLevel, { readonly code: string; readonly row: string; readonly on: string }>
+> = {
   information: { code: "text-ink-muted", row: "", on: "bg-surface-raised text-ink" },
   warning: { code: "text-warning", row: "bg-warning-soft", on: "bg-warning-soft text-warning" },
   error: { code: "text-danger", row: "bg-danger-soft", on: "bg-danger-soft text-danger" },
@@ -56,7 +74,12 @@ export function LogsPage() {
         <div aria-busy="true" className="min-h-dvh" />
       ) : (
         <Card>
-          <LogHeader days={days.data} date={date ?? param ?? days.data.today} following={following} onFollowing={setFollowing} />
+          <LogHeader
+            days={days.data}
+            date={date ?? param ?? days.data.today}
+            following={following}
+            onFollowing={setFollowing}
+          />
           {date === undefined ? (
             <NoLog today={days.data.today} date={param ?? ""} />
           ) : (
@@ -97,7 +120,11 @@ function LogHeader({
   const { search } = useLocation();
   // An address that names no calendar day is shown as written.
   const label = (day: string) =>
-    logDateOf(day) === undefined ? day : day === days.today ? `${text.today} · ${dayLabel(day, locale)}` : dayLabel(day, locale);
+    logDateOf(day) === undefined
+      ? day
+      : day === days.today
+        ? `${text.today} · ${dayLabel(day, locale)}`
+        : dayLabel(day, locale);
 
   return (
     <header className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-sm">
@@ -130,7 +157,10 @@ function LogHeader({
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {dateOptions(days).map((day) => (
-            <DropdownMenuItem key={day} onSelect={() => void navigate({ pathname: logPathOf(day, days.today), search })}>
+            <DropdownMenuItem
+              key={day}
+              onSelect={() => void navigate({ pathname: logPathOf(day, days.today), search })}
+            >
               {day === date ? <Check aria-hidden /> : <span aria-hidden className="size-(--tk-font-size-sm)" />}
               {label(day)}
             </DropdownMenuItem>
@@ -181,7 +211,10 @@ function LogDay({
     [following],
   );
   // The service's today has moved on: reading the days again moves the page, which shows today, to the new day.
-  const onDayTurned = useCallback(() => void queryClient.invalidateQueries({ queryKey: [...LOGS_QUERY_KEY, "days"] }), [queryClient]);
+  const onDayTurned = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: [...LOGS_QUERY_KEY, "days"] }),
+    [queryClient],
+  );
   const { held, offline } = useFollowedLog(day.data, following, onFresh, onDayTurned);
   const count = held?.entries.length ?? 0;
 
@@ -227,7 +260,9 @@ function LogDay({
     return (
       <>
         {offlineLine}
-        <p className="text-sm text-ink-muted">{date === today ? dictionary.logs.emptyToday : dictionary.logs.emptyDay}</p>
+        <p className="text-sm text-ink-muted">
+          {date === today ? dictionary.logs.emptyToday : dictionary.logs.emptyDay}
+        </p>
       </>
     );
   }
@@ -246,7 +281,12 @@ function LogDay({
         </div>
       ) : (
         <div className="relative">
-          <div ref={setView} tabIndex={0} aria-label={dictionary.logs.entriesLabel} className="max-h-(--tk-size-log-view) overflow-y-auto rounded-sm outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent">
+          <div
+            ref={setView}
+            tabIndex={0}
+            aria-label={dictionary.logs.entriesLabel}
+            className="max-h-(--tk-size-log-view) overflow-y-auto rounded-sm outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+          >
             <EntryList entries={shown} query={filters.query} />
           </div>
           {view !== null && following && unseen > 0 && !atBottom ? (
@@ -312,7 +352,7 @@ function FilterBar({
               aria-pressed={on}
               aria-label={text.levelToggle(text.levels[level].name, counts[level])}
               onClick={() => toggle(level)}
-              className={`lift inline-flex h-control cursor-pointer items-center gap-xs rounded-md px-sm font-mono text-xs font-semibold outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+              className={`inline-flex h-control lift cursor-pointer items-center gap-xs rounded-md px-sm font-mono text-xs font-semibold outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
                 on ? LEVEL_STYLES[level].on : "text-ink-muted line-through"
               }`}
             >
@@ -323,7 +363,10 @@ function FilterBar({
         })}
       </div>
       <div className="relative min-w-0 flex-1 basis-(--tk-size-tile)">
-        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-md size-(--tk-font-size-sm) -translate-y-1/2 text-ink-muted" />
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-md size-(--tk-font-size-sm) -translate-y-1/2 text-ink-muted"
+        />
         <Input
           type="search"
           aria-label={text.keywordLabel}
@@ -391,7 +434,15 @@ function NoLog({ today, date }: { readonly today: string; readonly date: string 
 }
 
 /** A read that failed: the service's explanation, and a button to read again. */
-function LoadFailed({ error, busy, onRetry }: { readonly error: unknown; readonly busy: boolean; readonly onRetry: () => void }) {
+function LoadFailed({
+  error,
+  busy,
+  onRetry,
+}: {
+  readonly error: unknown;
+  readonly busy: boolean;
+  readonly onRetry: () => void;
+}) {
   const dictionary = useDictionary();
   return (
     <Alert tone="danger">

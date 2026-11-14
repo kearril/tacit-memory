@@ -6,9 +6,12 @@ describe("logDateOf", () => {
     expect(logDateOf(value)).toBe(value);
   });
 
-  it.each([undefined, "", "20261114", "2026-13-01", "2026-02-30", "2025-02-29", "today", "2026-11-14x"])("refuses %s", (value) => {
-    expect(logDateOf(value)).toBeUndefined();
-  });
+  it.each([undefined, "", "20261114", "2026-13-01", "2026-02-30", "2025-02-29", "today", "2026-11-14x"])(
+    "refuses %s",
+    (value) => {
+      expect(logDateOf(value)).toBeUndefined();
+    },
+  );
 });
 
 describe("logPathOf", () => {
@@ -23,11 +26,18 @@ describe("logPathOf", () => {
 
 describe("dateOptions", () => {
   it("puts today first even before its file exists", () => {
-    expect(dateOptions({ today: "2026-11-14", dates: ["2026-11-13", "2026-11-10"] })).toEqual(["2026-11-14", "2026-11-13", "2026-11-10"]);
+    expect(dateOptions({ today: "2026-11-14", dates: ["2026-11-13", "2026-11-10"] })).toEqual([
+      "2026-11-14",
+      "2026-11-13",
+      "2026-11-10",
+    ]);
   });
 
   it("lists today once when it has a file", () => {
-    expect(dateOptions({ today: "2026-11-14", dates: ["2026-11-14", "2026-11-13"] })).toEqual(["2026-11-14", "2026-11-13"]);
+    expect(dateOptions({ today: "2026-11-14", dates: ["2026-11-14", "2026-11-13"] })).toEqual([
+      "2026-11-14",
+      "2026-11-13",
+    ]);
   });
 });
 

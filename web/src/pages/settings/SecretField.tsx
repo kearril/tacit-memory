@@ -14,7 +14,15 @@ import { inputIdOf } from "./form";
  * until "Show" fetches it; it can be changed (an input takes the new value) and one in the file can be cleared, either
  * counting as a change of the page until saved or undone.
  */
-export function SecretField({ form, path, text }: { readonly form: SettingsForm; readonly path: string; readonly text: Explained }) {
+export function SecretField({
+  form,
+  path,
+  text,
+}: {
+  readonly form: SettingsForm;
+  readonly path: string;
+  readonly text: Explained;
+}) {
   const dictionary = useDictionary();
   const words = dictionary.settings.secret;
   const id = inputIdOf(path);
@@ -49,7 +57,11 @@ export function SecretField({ form, path, text }: { readonly form: SettingsForm;
         name={<SettingName form={form} path={path} text={text} id={`${id}-label`} />}
         control={
           <Explaining help={words.environmentNote(variable)}>
-            <p id={id} tabIndex={0} className="flex min-h-control w-fit items-center gap-sm text-sm text-ink-muted outline-none">
+            <p
+              id={id}
+              tabIndex={0}
+              className="flex min-h-control w-fit items-center gap-sm text-sm text-ink-muted outline-none"
+            >
               <Lock aria-hidden className="size-(--tk-font-size-sm)" />
               {words.fromEnvironment(variable)}
             </p>
@@ -94,7 +106,13 @@ export function SecretField({ form, path, text }: { readonly form: SettingsForm;
           }`}
         >
           <span className="min-w-0 break-all">
-            {edit === null ? words.willClear : shown !== null ? shown || words.unset : source === null ? words.unset : "••••••••"}
+            {edit === null
+              ? words.willClear
+              : shown !== null
+                ? shown || words.unset
+                : source === null
+                  ? words.unset
+                  : "••••••••"}
           </span>
         </p>
         {source === null || edit === null ? null : (
@@ -134,8 +152,12 @@ export function SecretField({ form, path, text }: { readonly form: SettingsForm;
 
   return (
     <SettingRow name={<SettingName form={form} path={path} text={text} id={`${id}-label`} />} control={control}>
-      {edit === undefined && source === null ? <p className="text-xs text-ink-muted">{words.unsetNote(variable)}</p> : null}
-      {source === "configFile" || typeof edit === "string" ? <p className="text-xs text-ink-muted">{words.fileNote(variable)}</p> : null}
+      {edit === undefined && source === null ? (
+        <p className="text-xs text-ink-muted">{words.unsetNote(variable)}</p>
+      ) : null}
+      {source === "configFile" || typeof edit === "string" ? (
+        <p className="text-xs text-ink-muted">{words.fileNote(variable)}</p>
+      ) : null}
       {failure === null ? null : (
         <p role="alert" className="text-sm text-danger">
           {failure}

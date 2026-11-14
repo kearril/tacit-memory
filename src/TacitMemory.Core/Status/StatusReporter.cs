@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using TacitMemory.Core.Backup;
 using TacitMemory.Core.ClientRecords;
-using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Logging;
 

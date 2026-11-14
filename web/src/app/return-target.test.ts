@@ -10,9 +10,12 @@ describe("UI_BASE", () => {
 });
 
 describe("safeReturnTarget", () => {
-  it.each(["/ui/settings", "/ui/settings?tab=access", "/ui/logs#today", "/ui/"])("accepts the in-site path %s", (value) => {
-    expect(safeReturnTarget(value)).toBe(value);
-  });
+  it.each(["/ui/settings", "/ui/settings?tab=access", "/ui/logs#today", "/ui/"])(
+    "accepts the in-site path %s",
+    (value) => {
+      expect(safeReturnTarget(value)).toBe(value);
+    },
+  );
 
   it.each([
     ["an absolute URL to another site", "https://evil.example/ui/settings"],

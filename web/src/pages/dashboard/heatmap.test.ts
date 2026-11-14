@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { type ActivityReport, calendarColumns, dayLevel, fillWindow, type HeatDay, monthLabels, statsOf } from "./heatmap";
+import {
+  type ActivityReport,
+  calendarColumns,
+  dayLevel,
+  fillWindow,
+  type HeatDay,
+  monthLabels,
+  statsOf,
+} from "./heatmap";
 
 /** A short window of whole weeks ending on Wednesday 2026-11-11: from Monday 2026-05-18, 26 weeks in all. */
 function report(overrides: Partial<ActivityReport> = {}): ActivityReport {
@@ -128,8 +136,23 @@ describe("statsOf", () => {
 
   it("names the workstream with the most activities over the window, a tie going to the first name", () => {
     const days: HeatDay[] = [
-      { date: "a", total: 3, workstreams: [{ workstream: "mac-mini", count: 2 }, { workstream: "tacit-memory", count: 1 }], unlabeled: 0, consolidated: false },
-      { date: "b", total: 9, workstreams: [{ workstream: "tacit-memory", count: 1 }], unlabeled: 8, consolidated: false },
+      {
+        date: "a",
+        total: 3,
+        workstreams: [
+          { workstream: "mac-mini", count: 2 },
+          { workstream: "tacit-memory", count: 1 },
+        ],
+        unlabeled: 0,
+        consolidated: false,
+      },
+      {
+        date: "b",
+        total: 9,
+        workstreams: [{ workstream: "tacit-memory", count: 1 }],
+        unlabeled: 8,
+        consolidated: false,
+      },
     ];
 
     // Unlabeled activities never make a top workstream; mac-mini and tacit-memory tie at 2.

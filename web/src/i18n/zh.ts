@@ -53,7 +53,8 @@ export const zh: Dictionary = {
     cancel: "取消",
     cleared: "访问密码已清除。",
     clearFailed: "未能清除访问密码",
-    clearBlocked: (address) => `额外监听（${address}）开着时不能清除访问密码，否则其他设备会在没有密码的情况下连上服务。要清除，先在 config.yaml 中删去 server.host 并重启服务。`,
+    clearBlocked: (address) =>
+      `额外监听（${address}）开着时不能清除访问密码，否则其他设备会在没有密码的情况下连上服务。要清除，先在 config.yaml 中删去 server.host 并重启服务。`,
   },
   prompts: {
     documentsNav: "提示词文档",
@@ -226,7 +227,8 @@ export const zh: Dictionary = {
       clear: "清除",
       undo: "撤销",
       fromEnvironment: (variable) => `来自环境变量 ${variable}`,
-      environmentNote: (variable) => `环境变量 ${variable} 优先于 config.yaml。要修改，请改这个环境变量并重启 tacit serve。`,
+      environmentNote: (variable) =>
+        `环境变量 ${variable} 优先于 config.yaml。要修改，请改这个环境变量并重启 tacit serve。`,
       fileNote: (variable) => `以明文写在 config.yaml 中；也可以改用环境变量 ${variable}。`,
       unsetNote: (variable) => `填在这里会以明文写入 config.yaml；也可以改用环境变量 ${variable}。`,
       willClear: "保存后从 config.yaml 中删除",
@@ -238,10 +240,19 @@ export const zh: Dictionary = {
       fields: {
         remindAfterDays: { label: "提醒天数", help: "距上次整理达到该天数时，服务端说明中出现整理提示。" },
         remindCandidates: { label: "提醒候选数", help: "画像候选达到该个数时，服务端说明中出现整理提示。" },
-        budgetSeconds: { label: "时限（秒）", help: "一次整理最多等模型的秒数；到点照常出报告，没算完的项下次接着算。" },
+        budgetSeconds: {
+          label: "时限（秒）",
+          help: "一次整理最多等模型的秒数；到点照常出报告，没算完的项下次接着算。",
+        },
         maxConcurrency: { label: "并发判断数", help: "同时进行的模型判断数，由服务内的多次整理共享。" },
-        hintItemLength: { label: "条目篇幅提示", help: "画像条目或新增活动超过该字符数时，整理报告的篇幅提示列出它。只提示，不拒绝写入。" },
-        hintResidentLength: { label: "常驻区块篇幅提示", help: "常驻区块总长超过该字符数时，整理报告给出一行说明。只提示，不拒绝写入。" },
+        hintItemLength: {
+          label: "条目篇幅提示",
+          help: "画像条目或新增活动超过该字符数时，整理报告的篇幅提示列出它。只提示，不拒绝写入。",
+        },
+        hintResidentLength: {
+          label: "常驻区块篇幅提示",
+          help: "常驻区块总长超过该字符数时，整理报告给出一行说明。只提示，不拒绝写入。",
+        },
       },
     },
     bindings: {
@@ -251,7 +262,8 @@ export const zh: Dictionary = {
       sharedWith: (names) => `与 ${names} 共用`,
       unbind: "解除绑定",
       unbindTitle: (client) => `解除 ${client} 的绑定？`,
-      unbindBody: "删除它上下文文件中的常驻块，以及 skill 目录中指向 tacit 的链接，再删除这条绑定。其他绑定仍在使用的文件与链接保留。",
+      unbindBody:
+        "删除它上下文文件中的常驻块，以及 skill 目录中指向 tacit 的链接，再删除这条绑定。其他绑定仍在使用的文件与链接保留。",
       unbound: (client) => `已解除 ${client} 的绑定。`,
       unbindFailed: "解除绑定没有完成",
       add: "新增绑定",
@@ -283,7 +295,11 @@ export const zh: Dictionary = {
       enable: (model) => `启用${model}`,
       edit: "编辑",
       collapse: "收起",
-      uses: { embedding: "把记忆转成向量，用于语义检索", reranker: "给检索结果重新排序", decision: "写入时判断是否重复或冲突" },
+      uses: {
+        embedding: "把记忆转成向量，用于语义检索",
+        reranker: "给检索结果重新排序",
+        decision: "写入时判断是否重复或冲突",
+      },
       offLine: (use) => `未启用 · ${use}`,
       offHint: "未启用：可以先填好，打开开关并保存后生效。",
       noModel: "未填模型 ID",
@@ -305,7 +321,10 @@ export const zh: Dictionary = {
       },
       urlExamples: {
         embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
-        reranker: { generic: "https://api.jina.ai/v1/rerank", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<账户 ID>/ai/run/<模型>" },
+        reranker: {
+          generic: "https://api.jina.ai/v1/rerank",
+          cloudflare: "https://api.cloudflare.com/client/v4/accounts/<账户 ID>/ai/run/<模型>",
+        },
         decision: { generic: "", cloudflare: "https://api.cloudflare.com/client/v4/accounts/<账户 ID>/ai/run/<模型>" },
       },
       fields: {
@@ -382,7 +401,11 @@ export const zh: Dictionary = {
     calm: "一切安好",
     pending: (count) => `有 ${count} 件事等你处理`,
     uptime: ({ days, hours, minutes }) =>
-      days > 0 ? `已运行 ${days} 天 ${hours} 小时` : hours > 0 ? `已运行 ${hours} 小时 ${minutes} 分` : `已运行 ${minutes} 分钟`,
+      days > 0
+        ? `已运行 ${days} 天 ${hours} 小时`
+        : hours > 0
+          ? `已运行 ${hours} 小时 ${minutes} 分`
+          : `已运行 ${minutes} 分钟`,
     consolidated: (days) => (days === 0 ? "今天整理过" : `上次整理在 ${days} 天前`),
     neverConsolidated: "还没有整理过",
     cards: {
@@ -506,7 +529,8 @@ export const zh: Dictionary = {
     },
     todos: {
       empty: "没有需要处理的事",
-      modelsUnconfigured: (models) => (models.length === 1 ? `${models[0]}未配置` : `${models.length} 个辅助模型未配置`),
+      modelsUnconfigured: (models) =>
+        models.length === 1 ? `${models[0]}未配置` : `${models.length} 个辅助模型未配置`,
       modelsUnconfiguredDetail: (models) => (models.length === 1 ? "在设置的「模型」一节填写" : models.join("、")),
       noBindings: "还没有绑定任何客户端",
       noBindingsDetail: "客户端还读不到画像与规则",

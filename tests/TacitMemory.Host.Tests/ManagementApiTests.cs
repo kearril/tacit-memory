@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host.Api;

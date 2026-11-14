@@ -1,5 +1,5 @@
-using ModelContextProtocol.Client;
 using System.Text.Json.Nodes;
+using ModelContextProtocol.Client;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host.Mcp;

@@ -90,7 +90,9 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
     setOpen(next);
     if (next) {
       const newest = list.local[0];
-      setChoice(newest !== undefined ? { kind: "local", path: newest.path } : list.remoteConfigured ? { kind: "cloud" } : null);
+      setChoice(
+        newest !== undefined ? { kind: "local", path: newest.path } : list.remoteConfigured ? { kind: "cloud" } : null,
+      );
       setConfig(false);
       restore.reset();
     }
@@ -111,7 +113,13 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
               <DialogTitle>{text.title}</DialogTitle>
               <DialogDescription>{text.description}</DialogDescription>
             </DialogHeader>
-            <BackupChoices list={list} locale={locale} choice={choice} disabled={restore.isPending} onChoose={setChoice} />
+            <BackupChoices
+              list={list}
+              locale={locale}
+              choice={choice}
+              disabled={restore.isPending}
+              onChoose={setChoice}
+            />
             {choice === null ? null : (
               <PreviewPanel
                 preview={preview.data}
@@ -216,10 +224,10 @@ function BackupChoices({
               value={key}
               checked={chosen}
               onChange={() => onChoose(item.choice)}
-            className="size-(--tk-font-size-sm) accent-accent"
-          />
-          {item.cloud ? <Cloud aria-hidden className="size-(--tk-font-size-sm) text-ink-muted" /> : null}
-          <span className="flex-1 truncate font-medium">{item.label}</span>
+              className="size-(--tk-font-size-sm) accent-accent"
+            />
+            {item.cloud ? <Cloud aria-hidden className="size-(--tk-font-size-sm) text-ink-muted" /> : null}
+            <span className="flex-1 truncate font-medium">{item.label}</span>
             {item.detail === null ? null : <span className="text-xs text-ink-muted">{item.detail}</span>}
           </label>
         );
@@ -318,7 +326,9 @@ function RestoreDone({ result }: { readonly result: RestoreResult }) {
           <CircleCheck aria-hidden />
           {text.reindexed}
         </Badge>
-        <span className="text-ink-muted">{dictionary.dashboard.reindex.done(result.reindex.files, result.reindex.units)}</span>
+        <span className="text-ink-muted">
+          {dictionary.dashboard.reindex.done(result.reindex.files, result.reindex.units)}
+        </span>
       </p>
       {result.notices.map((notice) => (
         <Alert key={notice} tone="warning">

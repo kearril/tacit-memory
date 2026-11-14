@@ -18,7 +18,14 @@ function healthy(): StatusReport {
     bindings: {
       ...columns,
       items: [
-        { client: "claude", contextFile: "C:/c.md", skillsFolder: "C:/s", problem: null, skillLink: null, sharedWith: [] },
+        {
+          client: "claude",
+          contextFile: "C:/c.md",
+          skillsFolder: "C:/s",
+          problem: null,
+          skillLink: null,
+          sharedWith: [],
+        },
       ],
     },
     service: {
@@ -154,7 +161,9 @@ describe("targetOf", () => {
   it("leads each kind to where it is fixed", () => {
     expect(targetOf({ kind: "modelsUnconfigured", roles: ["decision"] })).toBe("/settings#settings-models");
     expect(targetOf({ kind: "noBindings" })).toBe("/settings#settings-bindings");
-    expect(targetOf({ kind: "bindingProblem", client: "claude", problem: "markersIncomplete" })).toBe("/settings#settings-bindings");
+    expect(targetOf({ kind: "bindingProblem", client: "claude", problem: "markersIncomplete" })).toBe(
+      "/settings#settings-bindings",
+    );
     expect(targetOf({ kind: "promptProblem", name: "resident", problem: "x" })).toBe("/prompts/resident");
     expect(targetOf({ kind: "extraListenerFailed", address: "x", reason: "y" })).toBe("/settings#settings-access");
     expect(targetOf({ kind: "cloudBackupFailed", at: "x", error: null })).toBe("/dashboard#backups");

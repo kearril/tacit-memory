@@ -28,7 +28,12 @@ describe("measureLines", () => {
   });
 
   it("gives the criteria the items of each section as well, marking a full one only when past its limit", () => {
-    const measure: PromptMeasure = { length: 2100, limit: 3000, activityRoom: 1900, items: { worthRecording: 10, notRecorded: 11, limit: 10 } };
+    const measure: PromptMeasure = {
+      length: 2100,
+      limit: 3000,
+      activityRoom: 1900,
+      items: { worthRecording: 10, notRecorded: 11, limit: 10 },
+    };
 
     expect(measureLines(measure, words).slice(2)).toEqual([
       { text: "值得记 10 / 10 条", over: false },

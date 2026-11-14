@@ -5,7 +5,12 @@ import { appendPage, dayTurned, isAtBottom, unseenOf } from "./follow";
 
 const entry = (level: ServiceLogEntry["level"], message: string): ServiceLogEntry => ({ time: null, level, message });
 
-const page = (entries: readonly ServiceLogEntry[], next: number, date = "2026-11-14", today = "2026-11-14"): ServiceLogDay => ({
+const page = (
+  entries: readonly ServiceLogEntry[],
+  next: number,
+  date = "2026-11-14",
+  today = "2026-11-14",
+): ServiceLogDay => ({
   date,
   today,
   entries: [...entries],

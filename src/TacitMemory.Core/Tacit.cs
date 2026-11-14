@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Clients;
 using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Localization;
 using TacitMemory.Core.Models;
 using TacitMemory.Core.Setup;
-using TacitMemory.Core.Skills;
-using TacitMemory.Core.Localization;
 using TacitMemory.Core.Show;
+using TacitMemory.Core.Skills;
 using TacitMemory.Core.Status;
 
 namespace TacitMemory.Core;

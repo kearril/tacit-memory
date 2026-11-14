@@ -111,80 +111,86 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
           </>
         }
       >
-      <form className="grid gap-md" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-        {session.local ? null : (
+        <form className="grid gap-md" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+          {session.local ? null : (
+            <PasswordField
+              id="access-current-password"
+              label={dictionary.access.currentPassword}
+              placeholder={dictionary.access.currentPlaceholder}
+              registration={form.register("current")}
+              error={errors.current?.message}
+            />
+          )}
           <PasswordField
-            id="access-current-password"
-            label={dictionary.access.currentPassword}
-            placeholder={dictionary.access.currentPlaceholder}
-            registration={form.register("current")}
-            error={errors.current?.message}
+            id="access-new-password"
+            label={dictionary.access.newPassword}
+            placeholder={dictionary.access.newPlaceholder}
+            registration={form.register("password")}
+            error={errors.password?.message}
           />
-        )}
-        <PasswordField
-          id="access-new-password"
-          label={dictionary.access.newPassword}
-          placeholder={dictionary.access.newPlaceholder}
-          registration={form.register("password")}
-          error={errors.password?.message}
-        />
-        <SettingRow name={null} control={
-        <div className="flex flex-wrap gap-sm">
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending
-              ? dictionary.access.saving
-              : session.passwordSet
-                ? dictionary.access.changePassword
-                : dictionary.access.setPassword}
-          </Button>
-          {session.local && session.passwordSet && blockingAddress !== null ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-disabled="true"
-                  onClick={() =>
-                    setFailure({ title: dictionary.access.clearFailed, message: dictionary.access.clearBlocked(blockingAddress) })
-                  }
-                >
-                  {dictionary.access.clearPassword}
+          <SettingRow
+            name={null}
+            control={
+              <div className="flex flex-wrap gap-sm">
+                <Button type="submit" disabled={save.isPending}>
+                  {save.isPending
+                    ? dictionary.access.saving
+                    : session.passwordSet
+                      ? dictionary.access.changePassword
+                      : dictionary.access.setPassword}
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>{dictionary.access.clearBlocked(blockingAddress)}</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {session.local && session.passwordSet && blockingAddress === null ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="outline" disabled={clear.isPending}>
-                  {dictionary.access.clearPassword}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{dictionary.access.clearTitle}</AlertDialogTitle>
-                  <AlertDialogDescription>{dictionary.access.clearBody}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{dictionary.access.cancel}</AlertDialogCancel>
-                  <AlertDialogAction variant="destructive" onClick={() => clear.mutate()}>
-                    {dictionary.access.clearConfirm}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : null}
-        </div>
-        } />
-      </form>
+                {session.local && session.passwordSet && blockingAddress !== null ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-disabled="true"
+                        onClick={() =>
+                          setFailure({
+                            title: dictionary.access.clearFailed,
+                            message: dictionary.access.clearBlocked(blockingAddress),
+                          })
+                        }
+                      >
+                        {dictionary.access.clearPassword}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{dictionary.access.clearBlocked(blockingAddress)}</TooltipContent>
+                  </Tooltip>
+                ) : null}
+                {session.local && session.passwordSet && blockingAddress === null ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="outline" disabled={clear.isPending}>
+                        {dictionary.access.clearPassword}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{dictionary.access.clearTitle}</AlertDialogTitle>
+                        <AlertDialogDescription>{dictionary.access.clearBody}</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{dictionary.access.cancel}</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={() => clear.mutate()}>
+                          {dictionary.access.clearConfirm}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : null}
+              </div>
+            }
+          />
+        </form>
 
-      {failure === null ? null : (
-        <Alert tone="danger">
-          <AlertTitle>{failure.title}</AlertTitle>
-          <AlertDescription>{failure.message}</AlertDescription>
-        </Alert>
-      )}
+        {failure === null ? null : (
+          <Alert tone="danger">
+            <AlertTitle>{failure.title}</AlertTitle>
+            <AlertDescription>{failure.message}</AlertDescription>
+          </Alert>
+        )}
       </SettingsGroup>
 
       <SettingsGroup title={text.listener}>
@@ -220,20 +226,23 @@ function PasswordField({ id, label, placeholder, registration, error }: Password
   const dictionary = useDictionary();
   const errorId = `${id}-error`;
   return (
-    <SettingRow name={<Label htmlFor={id}>{label}</Label>} control={
-      <div className="w-(--tk-size-tile) max-w-full">
-      <PasswordInput
-        id={id}
-        autoComplete="off"
-        placeholder={placeholder}
-        showLabel={dictionary.showPassword}
-        hideLabel={dictionary.hidePassword}
-        aria-invalid={error !== undefined}
-        aria-describedby={error === undefined ? undefined : errorId}
-        {...registration}
-      />
-      </div>
-    }>
+    <SettingRow
+      name={<Label htmlFor={id}>{label}</Label>}
+      control={
+        <div className="w-(--tk-size-tile) max-w-full">
+          <PasswordInput
+            id={id}
+            autoComplete="off"
+            placeholder={placeholder}
+            showLabel={dictionary.showPassword}
+            hideLabel={dictionary.hidePassword}
+            aria-invalid={error !== undefined}
+            aria-describedby={error === undefined ? undefined : errorId}
+            {...registration}
+          />
+        </div>
+      }
+    >
       {error === undefined ? null : (
         <p id={errorId} role="alert" className="text-sm text-danger">
           {error}

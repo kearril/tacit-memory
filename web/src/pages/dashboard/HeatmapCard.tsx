@@ -222,14 +222,19 @@ function DayDetail({ day, locale }: { readonly day: HeatDay; readonly locale: st
     <div className="flex h-control min-w-0 flex-1 items-center gap-md overflow-hidden text-sm whitespace-nowrap">
       <span className="font-medium">{dateText(day.date, locale)}</span>
       <span className="text-ink-muted">{day.total === 0 ? text.none : text.activities(day.total)}</span>
-      {day.consolidated ? <Badge tone="success">
+      {day.consolidated ? (
+        <Badge tone="success">
           <Star aria-hidden fill="currentColor" strokeWidth={0} />
           {text.consolidated}
-        </Badge> : null}
+        </Badge>
+      ) : null}
       <span className="flex min-w-0 items-center gap-md overflow-hidden">
         {rows.map((row) => (
           <span key={row.name} className="flex items-center gap-xs">
-            <span aria-hidden className={`size-(--tk-space-sm) shrink-0 rounded-full ${row.muted ? "bg-heat-1" : "bg-heat-3"}`} />
+            <span
+              aria-hidden
+              className={`size-(--tk-space-sm) shrink-0 rounded-full ${row.muted ? "bg-heat-1" : "bg-heat-3"}`}
+            />
             <span className={row.muted ? "text-ink-muted" : ""}>{row.name}</span>
             <span className="font-medium tabular-nums">{row.count}</span>
           </span>

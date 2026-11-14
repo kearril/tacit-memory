@@ -26,7 +26,10 @@ export function measureLines(measure: PromptMeasure, words: Dictionary["prompts"
   const items = measure.items;
   if (items !== null) {
     lines.push(
-      { text: words.items(words.worthRecording, items.worthRecording, items.limit), over: items.worthRecording > items.limit },
+      {
+        text: words.items(words.worthRecording, items.worthRecording, items.limit),
+        over: items.worthRecording > items.limit,
+      },
       { text: words.items(words.notRecorded, items.notRecorded, items.limit), over: items.notRecorded > items.limit },
     );
   }

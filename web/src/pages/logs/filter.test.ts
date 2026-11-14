@@ -34,7 +34,9 @@ describe("searchOf", () => {
   });
 
   it("writes the levels in their order and the keyword", () => {
-    expect(searchOf({ levels: new Set(["error", "warning"]), query: "re call" })).toBe("?level=warning%2Cerror&q=re+call");
+    expect(searchOf({ levels: new Set(["error", "warning"]), query: "re call" })).toBe(
+      "?level=warning%2Cerror&q=re+call",
+    );
   });
 
   it("reads back what it writes", () => {
@@ -47,15 +49,23 @@ describe("searchOf", () => {
 
 describe("applyFilters", () => {
   it("keeps the chosen levels", () => {
-    expect(applyFilters(ENTRIES, { levels: new Set(["warning", "error"]), query: "" }).map((e) => e.level)).toEqual(["warning", "error"]);
+    expect(applyFilters(ENTRIES, { levels: new Set(["warning", "error"]), query: "" }).map((e) => e.level)).toEqual([
+      "warning",
+      "error",
+    ]);
   });
 
   it("matches the keyword in any case, in the lines that follow the first", () => {
-    expect(applyFilters(ENTRIES, { levels: ALL_LEVELS, query: "RECALL" }).map((e) => e.message.slice(0, 4))).toEqual(["工具 r", "备份失败"]);
+    expect(applyFilters(ENTRIES, { levels: ALL_LEVELS, query: "RECALL" }).map((e) => e.message.slice(0, 4))).toEqual([
+      "工具 r",
+      "备份失败",
+    ]);
   });
 
   it("takes the keyword literally", () => {
-    expect(applyFilters([entry("information", "a.b"), entry("information", "axb")], { levels: ALL_LEVELS, query: "a.b" })).toHaveLength(1);
+    expect(
+      applyFilters([entry("information", "a.b"), entry("information", "axb")], { levels: ALL_LEVELS, query: "a.b" }),
+    ).toHaveLength(1);
   });
 
   it("ignores a keyword of spaces only", () => {

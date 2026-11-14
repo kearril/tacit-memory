@@ -70,7 +70,11 @@ export const FIELDS: readonly Field[] = [
       group: `decision.${judgment}`,
     })),
   ),
-  ...CONSOLIDATION.map((key) => ({ path: `consolidation.${key}`, section: "consolidation" as const, kind: "integer" as const })),
+  ...CONSOLIDATION.map((key) => ({
+    path: `consolidation.${key}`,
+    section: "consolidation" as const,
+    kind: "integer" as const,
+  })),
   { path: "backup.keep", section: "backup", kind: "integer" },
   { path: "backup.webdav.url", section: "backup", kind: "text" },
   { path: "backup.webdav.username", section: "backup", kind: "text" },
@@ -104,7 +108,11 @@ export function draftsOf(view: ConfigView): Drafts {
   return Object.fromEntries(
     FIELDS.map((field) => [
       field.path,
-      field.kind === "toggle" ? (present(view.file, field.path) ? ON : "") : textOf(effective(view, "file", field.path)),
+      field.kind === "toggle"
+        ? present(view.file, field.path)
+          ? ON
+          : ""
+        : textOf(effective(view, "file", field.path)),
     ]),
   );
 }
@@ -145,7 +153,11 @@ export function differsFromDefault(view: ConfigView, drafts: Drafts, path: strin
  * The limits of the number at `path` when its input holds a number outside them; `null` for one inside, for an input that
  * is empty or not a number yet, and for a setting without limits. The service checks the same limits when saving.
  */
-export function outOfRange(view: ConfigView, drafts: Drafts, path: string): { readonly min: number; readonly max: number } | null {
+export function outOfRange(
+  view: ConfigView,
+  drafts: Drafts,
+  path: string,
+): { readonly min: number; readonly max: number } | null {
   const key = view.keys.find((item) => item.path === path);
   const value = parse(drafts[path] ?? "", "number");
   if (key?.min == null || key.max == null || typeof value !== "number") {

@@ -266,9 +266,13 @@ export interface Dictionary {
       readonly probeNote: string;
       readonly providers: Readonly<Record<"generic" | "cloudflare", string>>;
       /** What each protocol means for each model, in one line under the protocol. */
-      readonly protocols: Readonly<Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>>;
+      readonly protocols: Readonly<
+        Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>
+      >;
       /** An example of the URL for each model and protocol, as the placeholder of an empty URL; empty for none. */
-      readonly urlExamples: Readonly<Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>>;
+      readonly urlExamples: Readonly<
+        Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>
+      >;
       readonly fields: Readonly<Record<"provider" | "url" | "model" | "apiKey", Explained>>;
       readonly probeDirty: string;
     };
