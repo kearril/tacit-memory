@@ -53,7 +53,7 @@ internal static class Initializer
             return true;
         }
 
-        Write(configPath, Templates.Config(language, requestedMemory));
+        Write(configPath, ConfigWriter.Render(new ConfigFile { Language = language.Code(), Memory = new MemoryFile(requestedMemory) }, options));
         Write(rulesPath, Templates.Rules(language));
 
         Directory.CreateDirectory(memory);

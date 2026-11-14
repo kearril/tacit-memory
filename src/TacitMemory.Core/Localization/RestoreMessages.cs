@@ -70,9 +70,18 @@ internal static class RestoreMessages
 
     public static readonly Localized Restored = new("已恢复记忆仓库，HEAD：{0}", "Restored the memory repository; HEAD: {0}");
     public static readonly Localized SafetyBackup = new("保险备份：{0}", "Safety backup: {0}");
-    public static readonly Localized ConfigNotice = new(
-        "config.yaml 已恢复，重启 tacit serve 后生效；运行中的服务继续使用当前配置。",
-        "config.yaml is restored; it takes effect when tacit serve restarts. The running service keeps the config it has.");
+    public static readonly Localized ConfigApplied = new(
+        "config.yaml 已恢复，服务已按它重新加载。",
+        "config.yaml is restored, and the service has reloaded with it.");
+    public static readonly Localized ConfigNotApplied = new(
+        "config.yaml 已恢复，但服务没能按它重新加载，继续使用原来的配置：{0}",
+        "config.yaml is restored, but the service could not reload with it and keeps the config it had: {0}");
+    public static readonly Localized RestartPending = new(
+        "以下设置要重启 tacit serve 后才生效：",
+        "These settings take effect when tacit serve restarts:");
+    public static readonly Localized RestartPendingItem = new(
+        "  {0}：运行中为 {1}，恢复后为 {2}",
+        "  {0}: {1} while running, {2} as restored");
     public static readonly Localized PromptsApplied = new(
         "prompts/ 已恢复并立即生效。",
         "prompts/ is restored and takes effect now.");
@@ -97,8 +106,8 @@ internal static class RestoreMessages
         "云端备份只能先预览：预览会把备份下载到本地，之后以预览返回的路径恢复。",
         "A cloud backup can only be previewed: the preview downloads it, and the restore then takes the downloaded file.");
     public static readonly Localized ConfigProblem = new(
-        "恢复回来的 config.yaml 有错误，重启 tacit serve 前需修正：\n{0}",
-        "The restored config.yaml has errors; fix them before tacit serve restarts:\n{0}");
+        "恢复回来的 config.yaml 有错误，服务继续使用原来的配置；修正后在设置页保存一次或重启 tacit serve 才会生效：\n{0}",
+        "The restored config.yaml has errors, so the service keeps the config it had; fix them, then save on the settings page or restart tacit serve:\n{0}");
     public static readonly Localized PreviewConfigProblem = new(
         "注意：备份中的 config.yaml 有错误，恢复后需修正才能重启 tacit serve：\n{0}",
         "Note: the config.yaml in the backup has errors; they must be fixed before tacit serve can restart with it:\n{0}");

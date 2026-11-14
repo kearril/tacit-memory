@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Logging;
@@ -32,6 +34,12 @@ namespace TacitMemory.Core;
 /// <c>persona.md</c>, <c>workstreams.md</c>, the activity log or a workstream folder changes and again at each local midnight,
 /// syncs the index when page, activity or persona files change, and a watcher that reloads the prompt
 /// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
+/// <para>
+/// It has two layers. The shell lives as long as the process: the lock that orders the work, the start time, the extra
+/// listener's outcome, the access control, the client records and the timers. The runtime is everything the config decides
+/// (the index, the auxiliary models, the tools, the backups and the file watchers); <see cref="OpenRuntime"/> is the one path
+/// that builds it, at the start and again on each <see cref="ReloadAsync"/>.
+/// </para>
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
@@ -43,12 +51,12 @@ public sealed class MemoryService : IDisposable
 
     private readonly TacitOptions _options;
     private readonly DateTimeOffset _startedAt;
-    private readonly AutomaticBackup _backup;
-    private readonly ManualBackup _manual;
-    private readonly CloudBackup _remote;
+    private AutomaticBackup _backup = null!;
+    private ManualBackup _manual = null!;
+    private CloudBackup _remote = null!;
     private readonly ServiceLog _log;
     private readonly ClientRecordStore _clients;
-    private readonly FileSystemWatcher _watcher;
+    private FileSystemWatcher _watcher = null!;
     private FileSystemWatcher? _promptsWatcher;
     private readonly Timer _renderTimer;
     private readonly Timer _promptsTimer;
@@ -70,21 +78,27 @@ public sealed class MemoryService : IDisposable
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
-    private readonly PageTools _pages;
-    private readonly RecentTools _recent;
-    private readonly PersonaTools _persona;
-    private readonly AuxiliaryModels _models;
-    private readonly MemoryIndex _index;
-    private readonly VectorSync _vectors;
-    private readonly JudgmentPool _judgments;
-    private readonly ConsolidationServices _consolidation;
-    private readonly RecallTool _recall;
+    private PageTools _pages = null!;
+    private RecentTools _recent = null!;
+    private PersonaTools _persona = null!;
+    private AuxiliaryModels _models = null!;
+    private MemoryIndex _index = null!;
+    private VectorSync _vectors = null!;
+    private JudgmentPool _judgments = null!;
+    private ConsolidationServices _consolidation = null!;
+    private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
-    private PromptDocuments _prompts;
+    private PromptDocuments _prompts = null!;
     private string? _instructions;
     private string? _instructionsStatus;
     private int _instructionsVersion;
     private volatile bool _disposed;
+
+    /// <summary>Whether a runtime is open; false only after a reload could open none, which ends the service.</summary>
+    private bool _runtimeOpen;
+
+    /// <summary>Completes when a reload has failed with both the new config and the old one: the service can no longer run.</summary>
+    private readonly TaskCompletionSource<Exception> _failed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     internal MemoryService(TacitOptions options, TacitConfig config, Action<string> notice, ILogger logger)
     {
@@ -93,52 +107,166 @@ public sealed class MemoryService : IDisposable
         Config = config;
         _log = new ServiceLog(logger, config.Language, notice);
         Access = new AccessControl(options, config, logger);
-        _prompts = config.Prompts;
         SkillSet.Write(options.TacitHome, config.Language, config.Prompts.Skill);
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _log.Record(LogLevel.Information, LogMessages.Started, ProductVersion.Current, config.Port, config.MemoryPath);
         foreach (var render in StartupRender)
             _log.Record(LevelOf(render), render.Message);
-        _models = new AuxiliaryModels(config, options.Time, _log);
-        if (_models.Unconfigured is { Count: > 0 } unconfigured)
-            _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
-        _index = new MemoryIndex(
-            config.MemoryPath, config.Models.Embedding?.Model, config.Language,
-            () => options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
-        _index.SyncAll();
-        _vectors = new VectorSync(_index, _models.Embedding);
-        _judgments = new JudgmentPool(_index, _models.Decision, options.Time, config.Consolidation.MaxConcurrency);
-        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
-        _vectors.FillInBackground();
-        _pages = new PageTools(
-            options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recent = new RecentTools(options, config, _log, _models.Decision);
-        _persona = new PersonaTools(
-            options, config, _log,
-            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
-            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
-        _backup = new AutomaticBackup(options, config, _log, _gate);
-        _manual = new ManualBackup(options, config, _log);
-        _remote = new CloudBackup(options, config, _log);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _renderTimer = new Timer(_ => RenderNow());
         _promptsTimer = new Timer(_ => ReloadPrompts());
         _indexTimer = new Timer(_ => SyncIndexNow());
         _dayTimer = ArmDayTimer();
-        _watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
+        OpenRuntime(config);
+    }
+
+    /// <summary>
+    /// Builds the runtime from <paramref name="config"/>: the auxiliary models, the index (synced with the files), the tools,
+    /// the backups and the two file watchers. The parts that can fail are built before any is put in place, so a failure
+    /// leaves nothing half open: what was built is let go, and the exception is raised.
+    /// </summary>
+    private void OpenRuntime(TacitConfig config)
+    {
+        AuxiliaryModels? models = null;
+        MemoryIndex? index = null;
+        FileSystemWatcher? watcher = null;
+        try
+        {
+            OnOpening?.Invoke(config);
+            models = new AuxiliaryModels(config, _options.Time, _log);
+            index = new MemoryIndex(
+                config.MemoryPath, config.Models.Embedding?.Model, config.Language,
+                () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
+            index.SyncAll();
+            watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
+        }
+        catch
+        {
+            watcher?.Dispose();
+            index?.Dispose();
+            models?.Dispose();
+            throw;
+        }
+
+        Config = config;
+        _prompts = config.Prompts;
+        _models = models;
+        if (_models.Unconfigured is { Count: > 0 } unconfigured)
+            _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
+        _index = index;
+        _vectors = new VectorSync(_index, _models.Embedding);
+        _judgments = new JudgmentPool(_index, _models.Decision, _options.Time, config.Consolidation.MaxConcurrency);
+        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
+        _vectors.FillInBackground();
+        _pages = new PageTools(
+            _options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+        _recent = new RecentTools(_options, config, _log, _models.Decision);
+        _persona = new PersonaTools(
+            _options, config, _log,
+            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
+            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
+        _backup = new AutomaticBackup(_options, config, _log, _gate);
+        _manual = new ManualBackup(_options, config, _log);
+        _remote = new CloudBackup(_options, config, _log);
+
+        _watcher = watcher;
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
         _watcher.Deleted += OnChange;
         _watcher.Renamed += OnChange;
         _watcher.Error += OnOverflow;
         _watcher.EnableRaisingEvents = true;
-
         WatchPrompts();
+        _runtimeOpen = true;
+        InvalidateInstructions();
     }
 
-    public TacitConfig Config { get; }
+    /// <summary>Lets go of the runtime's files and models: the watchers, the index and the model clients. Its background work has already settled.</summary>
+    private void CloseRuntime()
+    {
+        if (!_runtimeOpen)
+            return;
+        _runtimeOpen = false;
+        _watcher.Dispose();
+        lock (_renderGate)
+            _promptsWatcher?.Dispose();
+        _index.Dispose();
+        _models.Dispose();
+    }
+
+    /// <summary>Called with the config at the start of each runtime open; a test throws from it to make an open fail.</summary>
+    internal Action<TacitConfig>? OnOpening { get; set; }
+
+    /// <summary>
+    /// Opens the runtime again with <c>config.yaml</c> as it is now, as a maintenance operation: the reads and writes under
+    /// way finish first, and those that arrive meanwhile wait and then run with the new config. Five settings do not change
+    /// with a reload and keep their running values until the service restarts: <c>server.port</c>, <c>server.host</c>,
+    /// <c>memory.path</c>, <c>language</c> and <c>limits.page.minAliases</c>.
+    /// </summary>
+    /// <exception cref="TacitException">
+    /// The config does not load, and nothing changed; or the runtime could not be opened with it, and the service runs on
+    /// with the config it had (<see cref="TacitError.ReloadFailed"/>). When even that fails, <see cref="Failed"/> completes.
+    /// </exception>
+    /// <returns>The settings that wait for a restart and differ in the file from what the service runs.</returns>
+    public Task<IReadOnlyList<RestartChange>> ReloadAsync(CancellationToken cancellationToken = default) =>
+        RunMaintenanceAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
+
+    private IReadOnlyList<RestartChange> ReloadCore()
+    {
+        var running = Config;
+        var loaded = ConfigLoader.Read(_options);
+        var next = loaded with
+        {
+            Port = running.Port,
+            ExtraAddress = running.ExtraAddress,
+            MemoryPath = running.MemoryPath,
+            Language = running.Language,
+            Limits = loaded.Limits with { Page = running.Limits.Page },
+            Prompts = loaded.Language == running.Language ? loaded.Prompts : PromptFiles.Load(_options.TacitHome, running.Language),
+        };
+
+        CloseRuntime();
+        try
+        {
+            OpenRuntime(next);
+        }
+        catch (Exception failure)
+        {
+            try
+            {
+                OpenRuntime(running);
+            }
+            catch (Exception again)
+            {
+                _log.Record(LogLevel.Error, LogMessages.ReloadFatal, failure.Message, again.Message);
+                _failed.TrySetResult(again);
+                throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFatal.Format(running.Language, again.Message), again);
+            }
+
+            _log.Record(LogLevel.Warning, LogMessages.ReloadFailed, failure.Message);
+            throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFailed.Format(running.Language, failure.Message), failure);
+        }
+
+        // Under the render lock, as a binding and the timed render are: they write the same context files.
+        lock (_renderGate)
+        {
+            SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
+            foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
+                _log.Record(LevelOf(render), render.Message);
+        }
+        return RestartChange.Between(running, loaded);
+    }
+
+    /// <summary>
+    /// Completes, with the reason, when a reload could open the runtime neither with the new config nor with the old one. The
+    /// service cannot go on; whoever runs it stops it, and the next start reports the cause.
+    /// </summary>
+    public Task<Exception> Failed => _failed.Task;
+
+    /// <summary>The config the service runs with: the one it started with, or the one the last reload put in place.</summary>
+    public TacitConfig Config { get; private set; }
 
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
@@ -290,8 +418,34 @@ public sealed class MemoryService : IDisposable
     public BackupList Backups() => LocalBackups.List(_options, Config);
 
     /// <summary>
+    /// The bindings and what is wrong with each, as the status report's bindings column has them, with the MCP server a bound
+    /// client registers.
+    /// </summary>
+    /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
+    public BindingList Bindings() => new(BindingChecks.Produce(_options, Config.Language).Items, McpServer.On(Config.Port));
+
+    /// <summary>
+    /// Binds a client by the rules of <c>tacit connect</c>; a refusal changes no file. Holds the render lock, so the service
+    /// does not render the resident blocks while the binding is written.
+    /// </summary>
+    /// <exception cref="TacitException">A refusal, with the reason <c>tacit connect</c> gives.</exception>
+    public BindingDone Connect(ConnectRequest request)
+    {
+        lock (_renderGate)
+            return BindingDone.From(ClientName.Normalize(request.Client), Binder.Connect(_options, request));
+    }
+
+    /// <summary>Unbinds a client by the rules of <c>tacit disconnect</c>, under the render lock as <see cref="Connect"/>.</summary>
+    /// <exception cref="TacitException">No binding has that name.</exception>
+    public BindingDone Disconnect(string client)
+    {
+        lock (_renderGate)
+            return BindingDone.From(ClientName.Normalize(client), Binder.Disconnect(_options, client));
+    }
+
+    /// <summary>
     /// Probes the three auxiliary models as the saved <c>config.yaml</c> configures them, which is what <c>tacit probe</c>
-    /// reads; the running service keeps the configuration it started with. An unconfigured model is reported and skipped.
+    /// reads, which is also what the service runs once a save has reloaded it. An unconfigured model is reported and skipped.
     /// No model's health changes, and it does not wait for a maintenance operation.
     /// </summary>
     /// <exception cref="TacitException">The saved configuration cannot be loaded.</exception>
@@ -301,6 +455,151 @@ public sealed class MemoryService : IDisposable
         var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.Time, cancellationToken);
         return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets: false));
     }
+
+    /// <summary>
+    /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
+    /// each key accepts and the hash a save must name. Secrets carry no value. Reads the file only, so it does not wait for a
+    /// maintenance operation.
+    /// </summary>
+    /// <exception cref="TacitException">The file does not load, as when it was broken by hand after the service started.</exception>
+    public ConfigView ConfigView()
+    {
+        var path = ConfigFilePath;
+        var text = File.ReadAllText(path);
+        var loaded = ConfigLoader.Read(_options, path, text);
+        return new ConfigView(
+            Hash(text),
+            WithoutSecrets(ConfigFile.From(loaded)),
+            WithoutSecrets(ConfigFile.From(Config)),
+            ConfigSchema.Defaults(_options),
+            ConfigSchema.Keys,
+            ConfigSchema.SecretStates(loaded, _options));
+    }
+
+    /// <summary>
+    /// The value of the secret at <paramref name="path"/> as the service would use it with <c>config.yaml</c> as it is now:
+    /// the environment variable's, else the file's.
+    /// </summary>
+    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretUnknown"/>).</exception>
+    public SecretShown Secret(string path) =>
+        new(ConfigSchema.SecretValue(ConfigLoader.Read(_options, ConfigFilePath, File.ReadAllText(ConfigFilePath)), _options, path));
+
+    /// <summary>
+    /// Saves <paramref name="file"/> as <c>config.yaml</c> and reloads, as one maintenance operation. <paramref name="hash"/>
+    /// names the content the caller read the settings from; a file changed since is not overwritten. The secrets stay as the
+    /// file holds them. When the reload cannot open the new config, the file goes back to what it was.
+    /// </summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.ConfigChanged"/>, <see cref="TacitError.ConfigRejected"/> with every problem, or
+    /// <see cref="TacitError.ReloadFailed"/>; in each case <c>config.yaml</c> is as it was.
+    /// </exception>
+    public Task<ConfigSaved> SaveConfigAsync(
+        ConfigFile file, string hash, IReadOnlyDictionary<string, string?>? secrets = null, CancellationToken cancellationToken = default) =>
+        RunMaintenanceAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash, secrets ?? new Dictionary<string, string?>())), cancellationToken);
+
+    private ConfigSaved SaveConfigCore(ConfigFile file, string hash, IReadOnlyDictionary<string, string?> secrets)
+    {
+        var path = ConfigFilePath;
+        var current = File.ReadAllText(path);
+        if (Hash(current) != hash)
+            throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
+
+        var held = ConfigLoader.Read(_options, path, current);
+        var unknown = secrets.Keys.Where(key => ConfigSchema.Secrets.All(secret => secret.Path != key)).ToList();
+        if (unknown.Count > 0)
+        {
+            var refused = unknown.Select(key => new ConfigProblem(key, ManagementApiMessages.SecretNotSecret.In(Config.Language))).ToList();
+            throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
+        }
+
+        var content = ConfigWriter.Render(WithSecrets(WithSecretsOf(file, ConfigFile.From(held)), secrets), _options);
+        TacitConfig saved;
+        try
+        {
+            saved = ConfigLoader.Read(_options, path, content);
+        }
+        catch (TacitException e) when (e.Error == TacitError.ConfigInvalid)
+        {
+            throw new TacitException(TacitError.ConfigRejected, e.Message, e) { Problems = e.Problems };
+        }
+
+        var problems = new List<ConfigProblem>();
+        if (saved.MemoryPath != held.MemoryPath)
+            problems.Add(new ConfigProblem("memory.path", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
+        if (saved.Language != held.Language)
+            problems.Add(new ConfigProblem("language", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
+        if (saved.ExtraAddress is not null && !Access.PasswordSet)
+            problems.Add(new ConfigProblem("server.host", ManagementApiMessages.ConfigExtraNeedsPassword.In(Config.Language)));
+        if (problems.Count > 0)
+            throw new TacitException(TacitError.ConfigRejected, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
+
+        ConfigWriter.Replace(path, content);
+        IReadOnlyList<RestartChange> restart;
+        try
+        {
+            restart = ReloadCore();
+        }
+        catch
+        {
+            ConfigWriter.Replace(path, current);
+            throw;
+        }
+
+        return new ConfigSaved(Hash(content), restart);
+    }
+
+    private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
+
+    /// <summary>The hash that names one content of <c>config.yaml</c>.</summary>
+    private static string Hash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+
+    /// <summary>The settings with every secret left out, as they leave the service.</summary>
+    private static ConfigFile WithoutSecrets(ConfigFile file) => file with
+    {
+        Models = new ModelsFile(
+            file.Models.Embedding is { } embedding ? embedding with { ApiKey = null } : null,
+            file.Models.Reranker is { } reranker ? reranker with { ApiKey = null } : null,
+            file.Models.Decision is { } decision ? decision with { ApiKey = null } : null),
+        Backup = file.Backup with { WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = null } : null },
+    };
+
+    /// <summary>
+    /// <paramref name="file"/> with each secret <paramref name="secrets"/> names set to its value, or removed where the value
+    /// is <c>null</c>. A secret whose model or cloud backup <paramref name="file"/> does not configure is left out with it.
+    /// </summary>
+    private static ConfigFile WithSecrets(ConfigFile file, IReadOnlyDictionary<string, string?> secrets)
+    {
+        ModelFile? Model(ModelFile? model, string path) =>
+            model is not null && secrets.TryGetValue(path, out var key) ? model with { ApiKey = key } : model;
+
+        var webdav = file.Backup.WebDav;
+        return file with
+        {
+            Models = new ModelsFile(
+                Model(file.Models.Embedding, "models.embedding.apiKey"),
+                Model(file.Models.Reranker, "models.reranker.apiKey"),
+                Model(file.Models.Decision, "models.decision.apiKey")),
+            Backup = file.Backup with
+            {
+                WebDav = webdav is not null && secrets.TryGetValue("backup.webdav.password", out var password)
+                    ? webdav with { Password = password }
+                    : webdav,
+            },
+        };
+    }
+
+    /// <summary><paramref name="file"/> with each secret as <paramref name="held"/> holds it, for each model and cloud backup both have.</summary>
+    private static ConfigFile WithSecretsOf(ConfigFile file, ConfigFile held) => file with
+    {
+        Models = new ModelsFile(
+            file.Models.Embedding is { } embedding ? embedding with { ApiKey = held.Models.Embedding?.ApiKey } : null,
+            file.Models.Reranker is { } reranker ? reranker with { ApiKey = held.Models.Reranker?.ApiKey } : null,
+            file.Models.Decision is { } decision ? decision with { ApiKey = held.Models.Decision?.ApiKey } : null),
+        Backup = file.Backup with
+        {
+            WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = held.Backup.WebDav?.Password } : null,
+        },
+    };
 
     /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
     public TacitException InvalidRequestBody(string? jsonPath)
@@ -673,29 +972,53 @@ public sealed class MemoryService : IDisposable
         // Nothing is left to undo: the old content and the staged leftovers go, then the service picks the restored state up.
         install.Finish();
         StartWatching();
-        if (config)
+        // A restored config that loads is reloaded as a save on the settings page is, which also applies the prompts and
+        // renders the resident blocks; one that does not load leaves the service on the config it had.
+        IReadOnlyList<RestartChange> restart = [];
+        var reloaded = false;
+        if (config && restored.Problem is null)
+        {
+            try
+            {
+                restart = ReloadCore();
+                reloaded = true;
+                notices.Add(RestoreMessages.ConfigApplied.In(language));
+            }
+            catch (TacitException e) when (e.Error is TacitError.ReloadFailed or TacitError.ConfigInvalid)
+            {
+                notices.Add(RestoreMessages.ConfigNotApplied.Format(language, e.Message));
+            }
+        }
+        else if (config)
+            notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
+        if (config && !reloaded)
             ApplyPrompts();
         InvalidateInstructions();
 
         if (config)
         {
-            notices.Add(RestoreMessages.ConfigNotice.In(language));
             notices.Add(RestoreMessages.PromptsApplied.In(language));
-            if (restored.Problem is not null)
-                notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
-            else if (!string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
+            if (restart.Count > 0)
+                notices.Add(string.Join('\n', restart
+                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, change.Path, change.Running, change.Saved))
+                    .Prepend(RestoreMessages.RestartPending.In(language))));
+            if (restored.Problem is null
+                && !string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
                 notices.Add(RestoreMessages.MemoryPathNotice.Format(language, restored.MemoryPath, memory));
         }
 
-        try
+        if (!reloaded)
         {
-            foreach (var render in Binder.RenderAll(_options, Config, _prompts))
-                _log.Record(LevelOf(render), render.Message);
-        }
-        catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-        {
-            _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-            notices.Add(Messages.RenderFailed.Format(language, e.Message));
+            try
+            {
+                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
+                    _log.Record(LevelOf(render), render.Message);
+            }
+            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
+            {
+                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
+                notices.Add(Messages.RenderFailed.Format(language, e.Message));
+            }
         }
 
         _log.Record(LogLevel.Information, LogMessages.RestoreApplied, head, safety, reindex.Files);
@@ -705,7 +1028,7 @@ public sealed class MemoryService : IDisposable
             RestoreMessages.SafetyBackup.Format(language, safety),
             reindex.Report,
         }.Concat(notices));
-        return new RestoreResult(safety, head, reindex, notices, report);
+        return new RestoreResult(safety, head, reindex, notices, restart, report);
     }
 
     /// <summary>
@@ -757,10 +1080,8 @@ public sealed class MemoryService : IDisposable
     public void Dispose()
     {
         _disposed = true;
-        _watcher.Dispose();
         lock (_renderGate)
         {
-            _promptsWatcher?.Dispose();
             _renderTimer.Dispose();
             _promptsTimer.Dispose();
             _dayTimer?.Dispose();
@@ -770,8 +1091,7 @@ public sealed class MemoryService : IDisposable
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
-        _index.Dispose();
-        _models.Dispose();
+        CloseRuntime();
         _gate.Dispose();
         _instructionsBuild.Dispose();
     }

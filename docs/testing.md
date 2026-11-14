@@ -4,14 +4,16 @@
 
 ## 1. 三个测试接缝
 
-测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。读取使用次数时测试使用 internal 的 `PageUsages()`（返回 internal 的 `PageUsage`）与 `ActivityUsages()`（按短码返回活动的次数），它们也不属于公开契约。让自动备份停在打包阶段时，测试在 `TacitOptions` 上设置 internal 钩子 `BeforeBackupPack`（打包前等待），见 `BackupRaceTests`。
+测试只针对公开契约编写，不直接测试 `internal` 实现（读取 `internal` 类型的例外见第 3 节）。等待后台备份、向量补齐或整理判断写入缓存完成时，测试使用 `MemoryService` 的 internal 钩子 `BackupCompletion`、`VectorCompletion`、`JudgmentCompletion`，它们不属于公开契约。读取使用次数时测试使用 internal 的 `PageUsages()`（返回 internal 的 `PageUsage`）与 `ActivityUsages()`（按短码返回活动的次数），它们也不属于公开契约。让自动备份停在打包阶段时，测试在 `TacitOptions` 上设置 internal 钩子 `BeforeBackupPack`（打包前等待），见 `BackupRaceTests`。让重新加载打不开运行时，测试设置 `MemoryService` 的 internal 钩子 `OnOpening`（每次打开运行时先以配置调用它，从中抛出即打开失败），见 `ReloadTests`。
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
    - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
-     - `InitTests`：`init` 生成的文件与首个提交、拒绝与重复执行、与已有配置冲突、语言推断、末尾的 Web 界面地址（取自 `server.port`）。
-     - `ConfigTests`：配置的默认值（含主线简报上限 `limits.brief` 与别名最少个数的默认值；已删除的键（清单见 `docs/reference/configuration.md`）按未知键报错并点名键路径；`consolidation.hintItemLength` 与 `hintResidentLength` 的默认值与校验）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；中英模板的 `url` 与密钥变量名；`server.host`：IP 地址文字（含 `0.0.0.0`、`127.0.0.2`、IPv6）保留，`127.0.0.1` 与不设相同，主机名、带端口、方括号与 `1` 这类写法报错并点名键路径。
+     - `InitTests`：`init` 生成的文件与首个提交（`config.yaml` 只写 `language` 一行）、拒绝与重复执行、与已有配置冲突、语言推断、末尾的 Web 界面地址（取自 `server.port`）。
+     - `ConfigTests`：配置的默认值（含主线简报上限 `limits.brief` 与别名最少个数的默认值；已删除的键（清单见 `docs/reference/configuration.md`）按未知键报错并点名键路径；`consolidation.hintItemLength` 与 `hintResidentLength` 的默认值与校验）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；`server.host`：IP 地址文字（含 `0.0.0.0`、`127.0.0.2`、IPv6）保留，`127.0.0.1` 与不设相同，主机名、带端口、方括号与 `1` 这类写法报错并点名键路径。
+     - `ConfigWriterTests`：配置写出器：读出再保存的配置加载后与原来相同；只写与默认不同的键，按配置参考的顺序，不带注释；校验不通过的配置被拒绝，点名全部出错的键路径，文件保持原样。
+     - `ReloadTests`：重新加载：启动后保存的设置在重新加载后生效；需重启的项保留运行中的值；新配置打不开时以原配置继续；经保存打不开的配置使文件写回原样；保存保留文件中的密钥；重新加载期间到达的写入等它完成后执行；启动时间与额外监听的结果跨过重新加载保留；两种配置都打不开时服务报告无法继续。
      - `LocalizationTests`：中英文本表的完整性，以及 `init` 写出的标题是否属于对应语言（见第 3 节）。
      - `ShowTests`：`tacit show` 的输出：各段来源与长度、`--default` 内置文本、内置核心规则的三节顺序、标签随记忆语言；常驻区块各节的引导语；服务端说明的最近活动段不含主线列表；工具清单的标签取自已加载的配置语言，而非系统界面语言。
      - `CommandSkillTests`：两个记忆指令 skill 的成品：生成，frontmatter 含 `disable-model-invocation: true` 与简短的 `description`；服务启动写出全部 skill，内容不变时不重写；`tacit-remember` 不依赖记忆仓库；`tacit-consolidate` 指向资源 `tacit://consolidation-report`、`tacit serve` 与 `consolidate:`；主线条目（背景说明与近况两行）的示例、"只处理主线"的附加文字示例；中英两种记忆语言下的结构词与示例；`show remember` 与 `show consolidate` 的输出，以及 `--default` 被拒绝。
@@ -52,6 +54,7 @@
      - `BackupRaceTests`：自动备份在写入槽中打包：打包期间到达的写入排队等待，不与之争用文件。
      - `ManualBackupTests`：手动备份的位置与文件名（本地时间）、内容与清单（`kind`、`memoryHeadSubject`）、写入队列中排在其前的写入、不被自动清理、`--to` 创建目录、同秒重名拒绝且不覆盖、`keep: 0` 时照常、明文密钥提示、相对目录被拒。
      - `RestoreTests`：恢复的预览（备份信息与将被替换的内容，`--include-config` 时三项替换）、旧清单（无 `kind`、`memoryHeadSubject`）、无清单拒绝；清单与内容不符、条目位置越界（`..`、绝对路径、未列出的文件）各自拒绝且什么都不改、不生成保险备份；仅恢复记忆仓库；`--include-config` 替换配置与提示词并删除多余的提示词文件；`bindings.json` 永不恢复；恢复前先生成保险备份并记录日志；恢复后的检索、服务端说明与常驻区块反映备份内容；恢复回来的 `memory.path` 不同时的提示；换入失败时回滚（记忆仓库回到恢复前内容）；恢复期间到达的写入落在恢复后的仓库中；恢复回来的 `config.yaml` 不能加载（如含旧版 `apiKeyEnv`）时恢复照常完成、结果附错误说明，预览同样提示；恢复结束后记忆仓库内没有残留的 `.tacit-*` 暂存目录；`path` 与 `remote` 的来源校验、`remote` 只能预览的规则由门面拒绝。
+     - `RestoreTests` 另含带配置的恢复：恢复回来的配置立即重新加载，并列出等待重启的项；恢复回来的配置无法加载时服务按原配置继续、不列等待重启的项，结果中说明出错的键路径；不带配置的恢复不重新加载。
      - `RemoteBackupTests`：云端备份经 `WebDavDouble`：PUT `.part` 后 MOVE 覆盖（`Overwrite: T`，基本认证头）；第二次上传替换远端内容；父目录缺失时 MKCOL 后重试一次；MOVE 不支持（405）时报错、远端旧文件不变、`.part` 被删；上传中途断开时远端旧文件不变；认证与连接失败的阶段；错误与日志不含密码；`remote.json` 的记录与 `status` 的云端行（不访问网络）；未配置时的提示；目录被拒；无用户名时不发认证；配置中的明文密码提示；本地 `backups/` 中不留副本。
      - `RemoteRestoreTests`：恢复云端备份经 `WebDavDouble`：预览读取远端文件、下载文件位于 `backups/.download/` 且不计入最近的本地备份；确认的下载恢复为远端内容、生成保险备份并删除下载文件；远端没有备份时拒绝、什么都不改、不留下载文件；认证失败拒绝且不泄露密码；非备份的远端文件拒绝、什么都不改、保留下载文件；未配置时的提示。
      - `RecentActivityTests`：新增活动与 `replaces` 改写、回复只有一行（附新短码）、写入不改动 `workstreams.md`；已删除的 `op`、`items`、`hash` 与其他未知参数按名拒绝，下一步指向 `tacit-consolidate`。
@@ -86,6 +89,8 @@
      - `ProbeApiTests`：`POST /api/probe` 经真实 HTTP：按顺序探测三个模型，耗时以毫秒给出；某个模型失败只体现在结果中，请求本身成功；探测读取服务启动后保存的配置；保存的配置无法加载时返回 409（`ConfigInvalid`）；非本机未登录 401。
      - `RestoreApiTests`：`POST /api/restore` 经真实 HTTP：`preview` 为真时只返回预览且不改动；执行返回结果 JSON；无法恢复的 zip 返回 409（`RestoreInvalid`）且错误体含 `message`；缺少 `path`、相对路径与缺少 `preview` 返回 400；非 JSON 的 Content-Type 返回 415。
      - `RemoteRestoreApiTests`：`POST /api/restore` 的 `remote` 预览经真实 HTTP 返回下载文件路径与种类为 `remote` 的预览 JSON；`remote` 与 `path` 同时出现、或执行阶段带 `remote` 返回 400（`RequestInvalid`）且不下载；远端没有备份返回 500（`CloudBackupFailed`），错误体不含密码。
+     - `ConfigApiTests`：`/api/config` 经真实 HTTP：每一项的文件值、运行中的值与默认值；保存的设置立即生效、无需重启；校验不通过时返回全部问题且文件不变；基于已被改动的文件的保存被拒绝、改动保留；需重启的项保存后连同运行中的值一并报告；只读项不能从页面修改；额外监听地址要先设访问密码；手动编辑过的文件与运行中的值并列给出；只给出各密钥的来源而不给值，单独请求时给值（环境变量优先）；密钥省略即保留、给值即写入、`null` 即删除，非密钥的键不能按密钥改；关掉的模型从文件与运行中的服务中移除；不认识的 `provider` 在它自己的键上报错；没有会话的其他设备被拒绝。
+     - `BindingsApiTests`：`/api/bindings` 经真实 HTTP：绑定时展开用户主目录并给出要注册的 MCP 服务，绑定清单给出同一个 MCP 服务；拒绝时给出与命令相同的原因且什么都不改；不合规则的客户端名称为 400；列表说明绑定哪里有问题；解除绑定，未绑定的名称为 404；没有会话的其他设备被拒绝。
      - `WebInterfaceTests`：`/ui` 的托管（测试用自己的目录代替构建产物）：构建产物原样返回，`assets/` 下的文件长期缓存、入口页为 `no-store`；不带扩展名的路径返回入口页，带扩展名而找不到的路径 404 且不返回入口页；路径越出 `web/` 目录的请求不读取任何文件；产物未构建时返回「Web 界面未构建」；`/` 重定向到 `/ui/`；非本机连接无需登录即可打开界面，大小写不同的前缀同样适用。
      - `ToolCatalogTests`：`tacit show tools` 读取的工具定义，工具与参数的说明、参数类型，不含取消令牌；说明中的别名最少个数取自给定的 `LimitsConfig`，默认值与改动后的值都能填入；说明中不出现已删除的上限数字。
    - 工具的校验与拒绝规则由门面接缝覆盖；两个记忆指令 skill 的正文由 `CommandSkillTests` 覆盖，整理报告的内容由 `ConsolidationReportTests` 覆盖。
@@ -171,4 +176,4 @@ bun run build       # Vite 构建到 web/dist/
 bun run check       # 以上四项依次运行
 ```
 
-Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。
+Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）；错误说明的取用（`src/i18n/messages.test.ts`）。仪表盘的纯函数：时长、倒计时、大小与日期的格式（`src/pages/dashboard/format.test.ts`），热力图的窗口、周列、月份标签、深浅与统计（`heatmap.test.ts`），绑定与客户端合并为每个客户端一行（`agents.test.ts`），待处理的生成与去向（`todos.test.ts`）。设置页的表单模型（`src/pages/settings/form.test.ts`）：草稿、改动、恢复默认、请求体（等于默认的项省略、阈值成对写出、清空即默认）、问题的定位与各节计数、待重启与运行值不一致的项、超出范围与需重启的计数、密钥的改写与清除；绑定预设（`bindings.test.ts`）。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。

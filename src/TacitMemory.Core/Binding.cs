@@ -18,6 +18,31 @@ public sealed record BindingResult(string ContextFile, Uri? Endpoint, IReadOnlyL
     public string Report => string.Join(Environment.NewLine, Before.Concat(EndpointBlock).Concat(After));
 }
 
+/// <summary>What the management API returns for a bind or an unbind.</summary>
+/// <param name="Client">The client's name as recorded: lower-cased.</param>
+/// <param name="Lines">The summary lines in the memory language, without the endpoint block, which <paramref name="Mcp"/> carries.</param>
+/// <param name="Mcp">The MCP server the user registers in the client; <c>null</c> for an unbind.</param>
+public sealed record BindingDone(string Client, IReadOnlyList<string> Lines, McpServer? Mcp)
+{
+    internal static BindingDone From(string client, BindingResult result) =>
+        new(client, [.. result.Before, .. result.After], result.Endpoint is null ? null : new McpServer(result.Endpoint, McpServer.StreamableHttp, McpServer.SuggestedName));
+}
+
+/// <summary>Where a client reaches the MCP server: the endpoint, the transport and the suggested server name.</summary>
+public sealed record McpServer(Uri Url, string Transport, string Name)
+{
+    internal const string StreamableHttp = "Streamable HTTP";
+    internal const string SuggestedName = "tacit";
+
+    /// <summary>The MCP server on <paramref name="port"/>, which only takes connections from this machine.</summary>
+    internal static McpServer On(int port) => new(new Uri($"http://127.0.0.1:{port}/mcp"), StreamableHttp, SuggestedName);
+}
+
+/// <summary>What the management API returns for the bindings.</summary>
+/// <param name="Items">Each binding and what is wrong with it, as the status report's bindings column has them.</param>
+/// <param name="Mcp">The MCP server a bound client registers, as a bind returns it.</param>
+public sealed record BindingList(IReadOnlyList<BindingCheck> Items, McpServer Mcp);
+
 /// <summary>What happened to one bound context file when the resident blocks were rendered.</summary>
 public enum BlockState
 {

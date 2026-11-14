@@ -2,8 +2,15 @@ import { ApiError } from "../api/client";
 import type { BindingProblem } from "../api/status";
 import type { components } from "../api/schema";
 import type { Duration } from "../pages/dashboard/format";
+import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
 import { en } from "./en";
 import { zh } from "./zh";
+
+/** A setting's name and the sentence or two that explains it. */
+export interface Explained {
+  readonly label: string;
+  readonly help: string;
+}
 
 /**
  * The text of the interface, in both memory languages. Every dictionary is annotated with this type, so a dictionary that
@@ -44,11 +51,8 @@ export interface Dictionary {
     readonly passwordPlaceholder: string;
   };
   readonly access: {
-    readonly title: string;
-    readonly summary: string;
     readonly stateSet: string;
     readonly stateUnset: string;
-    readonly note: string;
     readonly newPassword: string;
     readonly currentPassword: string;
     readonly newPlaceholder: string;
@@ -67,6 +71,153 @@ export interface Dictionary {
     readonly clearFailed: string;
     readonly clearBlocked: (address: string) => string;
   };
+  readonly settings: {
+    readonly sections: Readonly<Record<SectionId, string>>;
+    readonly sectionsNav: string;
+    readonly problemsIn: (count: number) => string;
+    readonly loadFailed: string;
+    /** The title when `config.yaml` does not load, as when it was broken by hand or restored broken. */
+    readonly fileInvalid: string;
+    /** That the service runs on with the config it last loaded, and how to go on. */
+    readonly fileInvalidNote: string;
+    readonly readAgain: string;
+    readonly defaultValue: (value: string) => string;
+    readonly outOfRange: (min: string, max: string) => string;
+    readonly immediate: string;
+    readonly immediateHelp: string;
+    readonly restoreDefault: string;
+    readonly notANumber: string;
+    readonly notAWholeNumber: string;
+    readonly changes: (count: number) => string;
+    readonly changesRestart: (count: number) => string;
+    readonly discard: string;
+    readonly save: string;
+    readonly saving: string;
+    readonly saved: string;
+    readonly saveFailed: string;
+    readonly unplacedTitle: string;
+    readonly reload: string;
+    readonly cancel: string;
+    readonly discardTitle: string;
+    readonly discardBody: string;
+    readonly discardConfirm: string;
+    readonly leaveTitle: string;
+    readonly leaveBody: string;
+    readonly leaveConfirm: string;
+    readonly restartHelp: string;
+    readonly pendingBadge: (running: string) => string;
+    readonly readOnlyNote: string;
+    readonly required: string;
+    readonly restartTitle: string;
+    readonly restartBody: string;
+    readonly restartLine: (running: string, saved: string) => string;
+    readonly restartOk: string;
+    readonly driftTitle: string;
+    readonly driftBody: string;
+    readonly reloadTitle: string;
+    readonly reloadBody: string;
+    readonly reloadConfirm: string;
+    readonly secret: {
+      readonly unset: string;
+      readonly show: string;
+      readonly hide: string;
+      readonly rewrite: string;
+      readonly clear: string;
+      readonly undo: string;
+      readonly fromEnvironment: (variable: string) => string;
+      readonly environmentNote: (variable: string) => string;
+      readonly fileNote: (variable: string) => string;
+      readonly unsetNote: (variable: string) => string;
+      readonly willClear: string;
+      readonly newValue: string;
+      readonly emptyRewrite: string;
+    };
+    readonly consolidation: {
+      readonly summary: string;
+      readonly fields: Readonly<Record<(typeof CONSOLIDATION)[number], Explained>>;
+    };
+    readonly bindings: {
+      readonly summary: string;
+      readonly healthy: string;
+      readonly broken: string;
+      readonly sharedWith: (names: string) => string;
+      readonly unbind: string;
+      readonly unbindTitle: (client: string) => string;
+      readonly unbindBody: string;
+      readonly unbound: (client: string) => string;
+      readonly unbindFailed: string;
+      readonly add: string;
+      readonly addTile: string;
+      readonly choose: string;
+      readonly other: string;
+      readonly otherTitle: string;
+      readonly bindTitle: (name: string) => string;
+      readonly back: string;
+      readonly bindingName: (client: string) => string;
+      readonly close: string;
+      readonly done: string;
+      readonly pathsNote: string;
+      readonly fields: Readonly<Record<"client" | "contextFile" | "skillsFolder", Explained>>;
+      readonly bind: string;
+      readonly bindFailed: string;
+      readonly bound: (client: string) => string;
+      readonly mcpTitle: string;
+      readonly mcpNote: string;
+      readonly mcp: Readonly<Record<"url" | "transport" | "name", string>>;
+      readonly details: string;
+    };
+    readonly models: {
+      readonly summary: string;
+      readonly enable: (model: string) => string;
+      readonly edit: string;
+      readonly collapse: string;
+      readonly uses: Readonly<Record<"embedding" | "reranker" | "decision", string>>;
+      readonly offLine: (use: string) => string;
+      readonly offHint: string;
+      readonly noModel: string;
+      readonly probeNote: string;
+      readonly providers: Readonly<Record<"generic" | "cloudflare", string>>;
+      /** What each protocol means for each model, in one line under the protocol. */
+      readonly protocols: Readonly<Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>>;
+      /** An example of the URL for each model and protocol, as the placeholder of an empty URL; empty for none. */
+      readonly urlExamples: Readonly<Record<"embedding" | "reranker" | "decision", Readonly<Record<"generic" | "cloudflare", string>>>>;
+      readonly fields: Readonly<Record<"provider" | "url" | "model" | "apiKey", Explained>>;
+      readonly probeDirty: string;
+    };
+    readonly backup: {
+      readonly summary: string;
+      readonly local: string;
+      readonly cloud: string;
+      readonly urlDefault: string;
+      readonly usernameDefault: string;
+      readonly fields: Readonly<Record<"keep" | "url" | "username" | "password", Explained>>;
+    };
+    readonly access: {
+      readonly summary: string;
+      readonly password: string;
+      readonly listener: string;
+      readonly hostNeedsPassword: string;
+      readonly hostDefault: string;
+      readonly host: Explained;
+    };
+    readonly advanced: {
+      readonly summary: string;
+      readonly fileOnly: string;
+      readonly languages: Readonly<Record<string, string>>;
+      readonly fields: Readonly<Record<"port" | "memoryPath" | "language" | "brief" | "minAliases", Explained>>;
+    };
+    readonly judgment: {
+      readonly summary: string;
+      readonly calibration: string;
+      readonly retrieval: string;
+      readonly thresholds: string;
+      readonly certain: string;
+      readonly unlikely: string;
+      readonly thresholdsHelp: string;
+      readonly fields: Readonly<Record<"candidates" | "topK" | "minRerankScore", Explained>>;
+      readonly judgments: Readonly<Record<(typeof JUDGMENTS)[number], Explained>>;
+    };
+  };
   readonly dashboard: {
     readonly connectionLost: (time: string) => string;
     readonly connectionLostNever: string;
@@ -81,8 +232,7 @@ export interface Dictionary {
       readonly backups: string;
       readonly activity: string;
       readonly index: string;
-      readonly service: string;
-      readonly clients: string;
+      readonly connection: string;
     };
     readonly unreadable: string;
     readonly copy: (what: string) => string;
@@ -94,17 +244,16 @@ export interface Dictionary {
       readonly cooling: string;
     };
     readonly index: {
-      readonly lastConsolidation: (date: string) => string;
+      readonly lastConsolidation: string;
       readonly never: string;
       readonly daysAgo: (days: number) => string;
-      readonly candidates: string;
-      readonly formatProblems: string;
-      readonly unsummarizedWeeks: string;
+      readonly candidates: (count: number) => string;
+      readonly formatProblems: (count: number) => string;
+      readonly unsummarizedWeeks: (count: number) => string;
+      readonly clear: string;
     };
     readonly service: {
-      readonly uptime: string;
-      readonly duration: (duration: Duration) => string;
-      readonly version: string;
+      readonly version: (version: string) => string;
       readonly mcp: string;
       readonly web: string;
       readonly extraListener: string;
@@ -115,9 +264,11 @@ export interface Dictionary {
     readonly backups: {
       readonly none: string;
       readonly kinds: Readonly<Record<"auto" | "manual" | "preRestore", string>>;
+      readonly latest: (kind: string, size: string) => string;
       readonly count: (count: number) => string;
       readonly cloud: string;
       readonly cloudNotConfigured: string;
+      readonly configure: string;
       readonly cloudNever: string;
       readonly cloudSucceeded: string;
       readonly cloudFailed: string;
@@ -131,7 +282,6 @@ export interface Dictionary {
     };
     readonly probe: {
       readonly button: string;
-      readonly note: string;
       readonly succeeded: (milliseconds: number) => string;
       readonly failed: (reason: string, milliseconds: number) => string;
       readonly skipped: string;
@@ -174,8 +324,10 @@ export interface Dictionary {
       readonly failed: string;
     };
     readonly agents: {
+      readonly title: string;
       readonly bound: string;
       readonly unbound: string;
+      readonly unboundSeen: (seen: string) => string;
       readonly broken: string;
       readonly today: string;
       readonly yesterday: string;

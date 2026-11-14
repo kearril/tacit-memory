@@ -33,6 +33,25 @@ public sealed class Tacit(TacitOptions options)
     public TacitConfig LoadConfigFile() => ConfigLoader.Read(options);
 
     /// <summary>
+    /// <c>config.yaml</c> in its file form, validated like <see cref="LoadConfigFile"/>: each key at its value, each secret at
+    /// the plain text the file holds.
+    /// </summary>
+    public ConfigFile ReadConfigFile() => ConfigFile.From(ConfigLoader.Read(options));
+
+    /// <summary>
+    /// Validates <paramref name="file"/> and writes it whole as <c>config.yaml</c>: fixed key order, no comments, only the keys
+    /// that differ from their default. A config that does not validate is refused as <see cref="TacitError.ConfigInvalid"/>,
+    /// naming every wrong key path, and the file is left as it was. The running service does not see the change.
+    /// </summary>
+    public void SaveConfig(ConfigFile file)
+    {
+        var path = Path.Combine(options.TacitHome, "config.yaml");
+        var content = ConfigWriter.Render(file, options);
+        ConfigLoader.Read(options, path, content);
+        ConfigWriter.Replace(path, content);
+    }
+
+    /// <summary>
     /// Sends the built-in English probe, once, to each model in <paramref name="roles"/>, reading the models as <paramref name="config"/>
     /// configures them. A model that is not configured is reported as such and never called. Each probe is one attempt with a 20-second
     /// limit: no retry, no cooldown, and no change to any model's health. Nothing is logged or written, and no memory is read.

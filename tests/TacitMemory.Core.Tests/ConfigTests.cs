@@ -36,7 +36,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
         Assert.Equal("qwen3-reranker-0.6b", config.Models.Reranker!.Model);
         Assert.Equal(
-            new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), ModelProvider.Generic),
+            new ModelConfig(new Uri("https://api.typesafe.ai/v1/systemone"), "jev-latest", new SecretValue("test-key", SecretSource.ConfigFile, InConfig: "test-key"), ModelProvider.Generic),
             config.Models.Decision);
     }
 
@@ -53,18 +53,6 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void The_template_has_its_models_section_commented_out_with_its_setting_names_kept()
-    {
-        var lines = File.ReadAllLines(ConfigPath);
-
-        Assert.DoesNotContain(lines, line => line.StartsWith("models:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.StartsWith("# models:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("#     url:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("#     model:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("#     apiKey:", StringComparison.Ordinal));
-    }
-
-    [Fact]
     public void The_template_loads_once_models_are_filled_in_at_its_end()
     {
         WriteConfig(File.ReadAllText(ConfigPath) + "\n" + Models);
@@ -73,7 +61,6 @@ public sealed class ConfigTests : IDisposable
 
         Assert.Equal(new Uri("http://127.0.0.1:38417/v1/embeddings"), config.Models.Embedding!.Url);
     }
-
 
     [Fact]
     public void Configured_values_override_the_defaults()
@@ -100,7 +87,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
-        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, WrittenInConfig: true))), config.Backup);
+        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, InConfig: "pw"))), config.Backup);
     }
 
     [Theory]
@@ -222,7 +209,7 @@ public sealed class ConfigTests : IDisposable
 
         var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
-        Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: true), decision.ApiKey);
+        Assert.Equal(new SecretValue("env-key", SecretSource.Environment, InConfig: "test-key"), decision.ApiKey);
     }
 
     [Fact]
@@ -233,7 +220,7 @@ public sealed class ConfigTests : IDisposable
 
         var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
-        Assert.Equal(new SecretValue("env-key", SecretSource.Environment, WrittenInConfig: false), decision.ApiKey);
+        Assert.Equal(new SecretValue("env-key", SecretSource.Environment, InConfig: null), decision.ApiKey);
     }
 
     [Fact]
@@ -244,7 +231,7 @@ public sealed class ConfigTests : IDisposable
 
         var decision = _home.Tacit().LoadConfig().Models.Decision!;
 
-        Assert.Equal(new SecretValue("test-key", SecretSource.ConfigFile, WrittenInConfig: true), decision.ApiKey);
+        Assert.Equal(new SecretValue("test-key", SecretSource.ConfigFile, InConfig: "test-key"), decision.ApiKey);
     }
 
     [Fact]
@@ -257,8 +244,8 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new SecretValue("emb-env", SecretSource.Environment, WrittenInConfig: true), config.Models.Embedding!.ApiKey);
-        Assert.Equal(new SecretValue("rer-config", SecretSource.ConfigFile, WrittenInConfig: true), config.Models.Reranker!.ApiKey);
+        Assert.Equal(new SecretValue("emb-env", SecretSource.Environment, InConfig: "emb-config"), config.Models.Embedding!.ApiKey);
+        Assert.Equal(new SecretValue("rer-config", SecretSource.ConfigFile, InConfig: "rer-config"), config.Models.Reranker!.ApiKey);
     }
 
     [Fact]
@@ -269,7 +256,7 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new SecretValue("rer-env", SecretSource.Environment, WrittenInConfig: false), config.Models.Reranker!.ApiKey);
+        Assert.Equal(new SecretValue("rer-env", SecretSource.Environment, InConfig: null), config.Models.Reranker!.ApiKey);
     }
 
     [Fact]
@@ -341,7 +328,7 @@ public sealed class ConfigTests : IDisposable
     [Fact]
     public void The_secret_value_never_shows_in_its_text_form()
     {
-        var secret = new SecretValue("sk-visible-value", SecretSource.ConfigFile, WrittenInConfig: true);
+        var secret = new SecretValue("sk-visible-value", SecretSource.ConfigFile, InConfig: "sk-visible-value");
 
         Assert.DoesNotContain("sk-visible-value", secret.ToString());
     }
@@ -424,7 +411,7 @@ public sealed class ConfigTests : IDisposable
 
         var password = _home.Tacit().LoadConfig().Backup.WebDav!.Password;
 
-        Assert.Equal(new SecretValue("env-pw", SecretSource.Environment, WrittenInConfig: true), password);
+        Assert.Equal(new SecretValue("env-pw", SecretSource.Environment, InConfig: "pw"), password);
     }
 
     [Theory]
@@ -439,56 +426,6 @@ public sealed class ConfigTests : IDisposable
 
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
         Assert.Contains(keyPath, error.Message);
-    }
-
-    [Fact]
-    public void The_chinese_template_names_the_decision_key_variable_and_documents_webdav()
-    {
-        var lines = File.ReadAllLines(ConfigPath);
-
-        Assert.Contains(lines, line => line.Contains("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("可省略", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
-        Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task The_english_template_names_the_decision_key_variable_and_documents_webdav()
-    {
-        using var home = new TestHome();
-        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
-
-        var lines = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
-
-        Assert.Contains(lines, line => line.Contains("apiKey:", StringComparison.Ordinal) && line.Contains("TACIT_DECISION_API_KEY", StringComparison.Ordinal) && line.Contains("left out", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("# webdav:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("TACIT_WEBDAV_PASSWORD", StringComparison.Ordinal));
-        Assert.DoesNotContain(lines, line => line.Contains("apiKeyEnv", StringComparison.Ordinal) || line.Contains("remote", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void The_templates_name_each_model_url_as_a_complete_request_address_and_its_key_variable()
-    {
-        var zh = File.ReadAllLines(ConfigPath);
-
-        Assert.Contains(zh, line => line.Contains("url:", StringComparison.Ordinal) && line.Contains("完整请求地址", StringComparison.Ordinal));
-        Assert.Contains(zh, line => line.Contains("TACIT_EMBEDDING_API_KEY", StringComparison.Ordinal));
-        Assert.Contains(zh, line => line.Contains("TACIT_RERANKER_API_KEY", StringComparison.Ordinal));
-        Assert.DoesNotContain(zh, line => line.Contains("endpoint", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task The_english_template_names_each_model_url_as_a_complete_request_address_and_its_key_variable()
-    {
-        using var home = new TestHome();
-        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
-
-        var en = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
-
-        Assert.Contains(en, line => line.Contains("url:", StringComparison.Ordinal) && line.Contains("complete request address", StringComparison.Ordinal));
-        Assert.Contains(en, line => line.Contains("TACIT_EMBEDDING_API_KEY", StringComparison.Ordinal));
-        Assert.Contains(en, line => line.Contains("TACIT_RERANKER_API_KEY", StringComparison.Ordinal));
-        Assert.DoesNotContain(en, line => line.Contains("endpoint", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -689,26 +626,5 @@ public sealed class ConfigTests : IDisposable
 
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
         Assert.Contains($"consolidation.{key}", error.Message);
-    }
-
-    [Fact]
-    public void The_chinese_template_documents_the_consolidation_budget_and_concurrency()
-    {
-        var lines = File.ReadAllLines(ConfigPath);
-
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("budgetSeconds: 20", StringComparison.Ordinal) && line.Contains('#'));
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("maxConcurrency: 5", StringComparison.Ordinal) && line.Contains('#'));
-    }
-
-    [Fact]
-    public async Task The_english_template_documents_the_consolidation_budget_and_concurrency()
-    {
-        using var home = new TestHome();
-        await home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });
-
-        var lines = File.ReadAllLines(Path.Combine(home.TacitHome, "config.yaml"));
-
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("budgetSeconds: 20", StringComparison.Ordinal) && line.Contains("seconds", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.TrimStart().StartsWith("maxConcurrency: 5", StringComparison.Ordinal) && line.Contains("at once", StringComparison.Ordinal));
     }
 }

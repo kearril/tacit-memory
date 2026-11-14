@@ -52,7 +52,8 @@ function goesBy(name: string, stem: string): boolean {
   return name === stem || name.startsWith(`${stem}-`);
 }
 
-function knownAgentOf(name: string, known: readonly KnownAgent[]): KnownAgent | null {
+/** The known agent a binding or client name goes by, if any. */
+export function knownAgentOf(name: string, known: readonly KnownAgent[] = KNOWN_AGENTS): KnownAgent | null {
   return known.find((agent) => agent.names.some((stem) => goesBy(name, stem))) ?? null;
 }
 

@@ -11,14 +11,18 @@ namespace TacitMemory.Core.Configuration;
 /// </summary>
 internal sealed class ConfigReader(MemoryLanguage language)
 {
-    private readonly List<string> _errors = [];
+    private readonly List<ConfigProblem> _problems = [];
 
-    public IReadOnlyList<string> Errors => _errors;
+    /// <summary>Every problem found, in the order found, each with its key path.</summary>
+    public IReadOnlyList<ConfigProblem> Problems => _problems;
+
+    /// <summary>The problems as the lines of a report.</summary>
+    public IEnumerable<string> Errors => _problems.Select(problem => Messages.ConfigErrorLine.Format(language, problem.Path, problem.Message));
 
     public static string Join(string path, string key) => path.Length == 0 ? key : $"{path}.{key}";
 
     public void Error(string path, Localized message, params object?[] args) =>
-        _errors.Add(Messages.ConfigErrorLine.Format(language, path, message.Format(language, args)));
+        _problems.Add(new ConfigProblem(path, message.Format(language, args)));
 
     /// <summary>Reports keys of <paramref name="map"/> outside <paramref name="known"/>.</summary>
     public void OnlyKnown(YamlMappingNode? map, string path, params string[] known)

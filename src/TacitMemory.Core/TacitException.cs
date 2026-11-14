@@ -75,6 +75,18 @@ public enum TacitError
     /// <summary>A restore failed after it began. The memory repository is put back where it was, unless the message says the rollback failed too.</summary>
     RestoreFailed,
 
+    /// <summary>A config submitted to be saved does not validate; the problems name every key path at fault.</summary>
+    ConfigRejected,
+
+    /// <summary><c>config.yaml</c> changed after the config being saved was read from it; the save would overwrite that change.</summary>
+    ConfigChanged,
+
+    /// <summary>A reload could not open the service with the new config. It runs on with the config it had, unless the message says that failed too.</summary>
+    ReloadFailed,
+
+    /// <summary>A key path asked for as a secret that is not one.</summary>
+    SecretUnknown,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 
@@ -119,4 +131,7 @@ public sealed class TacitException(TacitError error, string message, Exception? 
 
     /// <summary>For a login pause: the whole seconds until logins from the address may be tried again.</summary>
     public int? RetryAfterSeconds { get; init; }
+
+    /// <summary>For a config that does not validate: every problem, each with its key path.</summary>
+    public IReadOnlyList<ConfigProblem>? Problems { get; init; }
 }

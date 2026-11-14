@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Info, KeyRound, ShieldCheck, ShieldOff } from "lucide-react";
+import { ShieldCheck, ShieldOff } from "lucide-react";
 import { useState } from "react";
 import { type UseFormRegisterReturn, useForm } from "react-hook-form";
 import { ApiError } from "../../api/client";
@@ -10,7 +10,6 @@ import { errorTextOf } from "../../i18n/messages";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +25,7 @@ import { Label } from "../../components/ui/label";
 import { PasswordInput } from "../../components/ui/password-input";
 import { useToast } from "../../components/ui/toast-context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
+import { Immediate, Setting, SettingRow, SettingsGroup, type SettingsForm, SettingsSection } from "./fields";
 
 interface PasswordValues {
   password: string;
@@ -38,14 +38,16 @@ interface Failure {
 }
 
 /**
- * The access section of the settings page: whether an access password is set, setting or changing it, and clearing it
- * from a local connection. The service's explanations for a refused field are shown beside that field; a success is shown
+ * The remote access section of the settings page: first the access password (whether one is set, setting or changing it,
+ * and clearing it from a local connection), which takes effect at once; then the extra listening address, a setting saved
+ * with the rest of the page, which needs the password first. The service's explanations for a refused field are shown beside that field; a success is shown
  * as a toast, and any other failure stays in the card as an alert. While an extra listener is configured the clear button
  * is unavailable: hovering or focusing it explains why, and clicking it (the only way on a touch screen) shows the same
  * explanation as an alert.
  */
-export function AccessSection() {
+export function RemoteAccessSection({ form: settings }: { readonly form: SettingsForm }) {
   const dictionary = useDictionary();
+  const text = dictionary.settings.access;
   const session = useSessionStatus();
   const queryClient = useQueryClient();
   const showToast = useToast();
@@ -89,28 +91,26 @@ export function AccessSection() {
   };
 
   return (
-    <Card aria-labelledby="access-title">
-      <header className="flex items-start gap-md">
-        <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-md bg-accent-soft text-accent">
-          <KeyRound aria-hidden className="size-(--tk-font-size-lg)" />
-        </span>
-        <div className="grid min-w-0 flex-1 gap-xs">
-          <CardTitle id="access-title">{dictionary.access.title}</CardTitle>
-          <CardDescription>{dictionary.access.summary}</CardDescription>
-        </div>
-        {session.passwordSet ? (
-          <Badge tone="success">
-            <ShieldCheck aria-hidden />
-            {dictionary.access.stateSet}
-          </Badge>
-        ) : (
-          <Badge>
-            <ShieldOff aria-hidden />
-            {dictionary.access.stateUnset}
-          </Badge>
-        )}
-      </header>
-
+    <SettingsSection section="access" summary={text.summary}>
+      <SettingsGroup
+        title={text.password}
+        aside={
+          <>
+            <Immediate />
+            {session.passwordSet ? (
+              <Badge tone="success">
+                <ShieldCheck aria-hidden />
+                {dictionary.access.stateSet}
+              </Badge>
+            ) : (
+              <Badge>
+                <ShieldOff aria-hidden />
+                {dictionary.access.stateUnset}
+              </Badge>
+            )}
+          </>
+        }
+      >
       <form className="grid gap-md" onSubmit={form.handleSubmit(onSubmit)} noValidate>
         {session.local ? null : (
           <PasswordField
@@ -128,6 +128,7 @@ export function AccessSection() {
           registration={form.register("password")}
           error={errors.password?.message}
         />
+        <SettingRow name={null} control={
         <div className="flex flex-wrap gap-sm">
           <Button type="submit" disabled={save.isPending}>
             {save.isPending
@@ -175,6 +176,7 @@ export function AccessSection() {
             </AlertDialog>
           ) : null}
         </div>
+        } />
       </form>
 
       {failure === null ? null : (
@@ -183,12 +185,20 @@ export function AccessSection() {
           <AlertDescription>{failure.message}</AlertDescription>
         </Alert>
       )}
+      </SettingsGroup>
 
-      <p className="flex gap-sm border-t-(length:--tk-border-thin) border-line pt-md text-xs text-ink-muted">
-        <Info aria-hidden className="size-(--tk-font-size-sm) shrink-0" />
-        {dictionary.access.note}
-      </p>
-    </Card>
+      <SettingsGroup title={text.listener}>
+        <Setting
+          form={settings}
+          path="server.host"
+          text={text.host}
+          placeholder={text.hostDefault}
+          disabled={!session.passwordSet && (settings.drafts["server.host"] ?? "") === ""}
+        >
+          {session.passwordSet ? null : <p className="text-xs text-ink-muted">{text.hostNeedsPassword}</p>}
+        </Setting>
+      </SettingsGroup>
+    </SettingsSection>
   );
 }
 
@@ -205,13 +215,13 @@ interface PasswordFieldProps {
   readonly error: string | undefined;
 }
 
-/** A password input with its visible label, the eye toggle inside it, and the service's explanation beside it when refused. */
+/** A password input as a row, its name on the left, the eye toggle inside it, and the service's explanation under it when refused. */
 function PasswordField({ id, label, placeholder, registration, error }: PasswordFieldProps) {
   const dictionary = useDictionary();
   const errorId = `${id}-error`;
   return (
-    <div className="grid gap-sm">
-      <Label htmlFor={id}>{label}</Label>
+    <SettingRow name={<Label htmlFor={id}>{label}</Label>} control={
+      <div className="w-(--tk-size-tile) max-w-full">
       <PasswordInput
         id={id}
         autoComplete="off"
@@ -222,11 +232,13 @@ function PasswordField({ id, label, placeholder, registration, error }: Password
         aria-describedby={error === undefined ? undefined : errorId}
         {...registration}
       />
+      </div>
+    }>
       {error === undefined ? null : (
         <p id={errorId} role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}
-    </div>
+    </SettingRow>
   );
 }

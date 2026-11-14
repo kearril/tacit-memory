@@ -3,7 +3,6 @@ import {
   Activity,
   Archive,
   ChevronDown,
-  Bot,
   CircleCheck,
   CloudUpload,
   HardDriveDownload,
@@ -14,16 +13,16 @@ import {
   Hourglass,
   Link2,
   type LucideIcon,
-  Server,
+  Cable,
   TriangleAlert,
-  Users,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups } from "../../api/backups";
-import { type ProbeResult, runProbe } from "../../api/probe";
+import { runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
+import { AgentLogo, LOGO_TILES } from "./AgentLogo";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -43,9 +42,9 @@ import { CopyButton } from "../../components/ui/copy-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
-import { type AgentIcon, type AgentRow, agentsOf } from "./agents";
-import { clockOf, dayText, durationOf, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, InfoRow } from "./parts";
+import { type AgentRow, agentsOf } from "./agents";
+import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
+import { BusyIcon, CardActions, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 
 interface CardProps {
@@ -114,49 +113,10 @@ function FailureAlert({ failure }: { readonly failure: Failure | null }) {
 }
 
 /**
- * The action bar at the bottom of a card that runs commands, under a divider. The cards of one row are as tall as the
- * tallest, so their bars line up; a short note can stand on the left of the buttons.
- */
-function CardActions({ note, children }: { readonly note?: string; readonly children: ReactNode }) {
-  return (
-    <footer className="mt-auto flex flex-wrap items-center justify-end gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-      {note === undefined ? null : <span className="mr-auto text-xs text-ink-muted">{note}</span>}
-      {children}
-    </footer>
-  );
-}
-
-/** What the last probe of one model found, on a small line under the model: success, a skip, or how it failed. */
-function ProbeLine({ result }: { readonly result: ProbeResult }) {
-  const dictionary = useDictionary();
-  const text = dictionary.dashboard.probe;
-  const milliseconds = result.elapsedMilliseconds ?? 0;
-  if (result.outcome === "succeeded") {
-    return <span className="text-xs text-success">{text.succeeded(milliseconds)}</span>;
-  }
-  if (result.outcome === "unconfigured") {
-    return <span className="text-xs text-ink-muted">{text.skipped}</span>;
-  }
-  const reason =
-    result.failure === "httpStatus" && result.statusCode !== null
-      ? text.httpStatus(result.statusCode)
-      : result.failure === "wrongFormat"
-        ? text.wrongFormat
-        : result.failure === "timeout"
-          ? text.timeout
-          : text.network;
-  return (
-    <span title={result.responseBody ?? undefined} className="truncate text-xs text-danger">
-      {text.failed(reason, milliseconds)}
-    </span>
-  );
-}
-
-/**
  * The three auxiliary models, each available, cooling down or not configured; the three look different in icon and words,
  * not only in colour, and not configured is not an error. A cooldown counts down every second from the report; when one
  * reaches zero the report is fetched again. While a model cools down, the card is outlined in the warning colour. The
- * models can be probed as the saved configuration has them; what each probe found shows under its model.
+ * models can be probed; what each probe found shows under its model.
  */
 export function ModelsCard({ report, fetchedAt, className }: Omit<CardProps, "locale"> & { readonly fetchedAt: number }) {
   const dictionary = useDictionary();
@@ -234,7 +194,7 @@ export function ModelsCard({ report, fetchedAt, className }: Omit<CardProps, "lo
         </ul>
       )}
       <FailureAlert failure={failure} />
-      <CardActions note={dictionary.dashboard.probe.note}>
+      <CardActions>
         <Button type="button" variant="outline" disabled={probe.isPending} onClick={() => probe.mutate()}>
           <BusyIcon busy={probe.isPending} icon={Activity} />
           {dictionary.dashboard.probe.button}
@@ -244,19 +204,10 @@ export function ModelsCard({ report, fetchedAt, className }: Omit<CardProps, "lo
   );
 }
 
-/** One figure of a card: a large number over its label. */
-function Figure({ label, value }: { readonly label: string; readonly value: number | null }) {
-  return (
-    <div className="grid gap-xs">
-      <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-lg leading-(--tk-line-height-tight) font-semibold tabular-nums">{value ?? "—"}</dd>
-    </div>
-  );
-}
-
 /**
- * How long ago the memory was last consolidated, with the day, and what waits for the next: candidates, format problems,
- * weeks to summarize. The index can be rebuilt from here after a confirmation; the result shows as a toast, a failure (a
+ * How long ago the memory was last consolidated, with the day once it is more than a day ago, and what waits for the next
+ * consolidation in words: candidates, files with format problems, weeks to summarize, each only when there is any, or one
+ * line that all is well. The index can be rebuilt from here after a confirmation; the result shows as a toast, a failure (a
  * maintenance operation already running among them) as the service's explanation in the card.
  */
 export function IndexCard({ report, locale, className }: CardProps) {
@@ -286,26 +237,49 @@ export function IndexCard({ report, locale, className }: CardProps) {
         <span className="text-lg font-semibold">{text.never}</span>
       ) : (
         <div className="grid gap-xs">
-          <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{text.daysAgo(consolidation.daysSince)}</span>
-          <span className="text-xs text-ink-muted">
-            {text.lastConsolidation(
-              dayText(consolidation.lastConsolidationDay, locale, { dateStyle: "medium" }),
-            )}
+          <span className="text-xs text-ink-muted">{text.lastConsolidation}</span>
+          <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
+            {text.daysAgo(consolidation.daysSince)}
+            {consolidation.daysSince > 1 ? (
+              <span className="ml-sm text-sm font-normal text-ink-muted">
+                {dayText(consolidation.lastConsolidationDay, locale, { dateStyle: "medium" })}
+              </span>
+            ) : null}
           </span>
         </div>
       )}
-      {pending == null ? null : (
-        <dl className="grid grid-cols-3 gap-md">
-          <Figure label={text.candidates} value={pending.candidates} />
-          <Figure label={text.formatProblems} value={pending.formatProblems} />
-          <Figure label={text.unsummarizedWeeks} value={pending.unsummarizedWeeks ?? null} />
-        </dl>
-      )}
+      {pending == null ? null : <Waiting pending={pending} />}
       <FailureAlert failure={failure} />
       <CardActions>
         <ReindexButton busy={reindex.isPending} onConfirm={() => reindex.mutate()} />
       </CardActions>
     </Card>
+  );
+}
+
+/** What waits for the next consolidation, a line for each kind there is any of; format problems in the warning colour. */
+function Waiting({ pending }: { readonly pending: NonNullable<StatusReport["pending"]> }) {
+  const dictionary = useDictionary();
+  const text = dictionary.dashboard.index;
+  const lines = [
+    { count: pending.candidates ?? 0, words: text.candidates, warn: false },
+    { count: pending.formatProblems ?? 0, words: text.formatProblems, warn: true },
+    { count: pending.unsummarizedWeeks ?? 0, words: text.unsummarizedWeeks, warn: false },
+  ].filter((line) => line.count > 0);
+
+  return lines.length === 0 ? (
+    <p className="flex items-center gap-xs text-sm text-ink-muted">
+      <CircleCheck aria-hidden className="size-(--tk-font-size-sm) text-success" />
+      {text.clear}
+    </p>
+  ) : (
+    <ul className="grid gap-xs text-sm">
+      {lines.map((line) => (
+        <li key={line.words(0)} className={line.warn ? "text-warning" : undefined}>
+          {line.words(line.count)}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -336,8 +310,8 @@ function ReindexButton({ busy, onConfirm }: { readonly busy: boolean; readonly o
 }
 
 /**
- * The backups: when the latest local backup was made, with its kind, its size and how many there are, and the last cloud
- * backup. The backup button opens a menu of the local and the cloud backup, the latter dimmed while it is not configured;
+ * The backups: when the latest local backup was made, with its kind and its size, how many there are, and the last cloud
+ * backup; while the cloud backup is not configured, a link leads to it in the settings. The backup button opens a menu of the local and the cloud backup, the latter dimmed while it is not configured;
  * the one chosen runs at once, without a confirmation. While it runs, the button waits; the result shows as a toast, a
  * failure as the service's explanation in the card. A backup can be restored from here, through the restore dialog.
  */
@@ -381,15 +355,19 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
           ) : (
             <div className="grid gap-xs">
               <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{timeText(latest.at, locale)}</span>
-              <span className="text-xs text-ink-muted">
-                {[text.kinds[latest.kind], sizeOf(latest.bytes, locale), text.count(list.local.length)].join(" · ")}
-              </span>
+              <span className="text-xs text-ink-muted">{text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}</span>
+              <span className="text-xs text-ink-muted">{text.count(list.local.length)}</span>
             </div>
           )}
           <div className="flex items-center justify-between gap-md text-sm">
             <span className="text-ink-muted">{text.cloud}</span>
             {!list.remoteConfigured ? (
-              <span className="text-ink-muted">{text.cloudNotConfigured}</span>
+              <span className="flex items-center gap-sm">
+                <span className="text-ink-muted">{text.cloudNotConfigured}</span>
+                <Link to="/settings#settings-backup" className="text-accent underline-offset-2 hover:underline">
+                  {text.configure}
+                </Link>
+              </span>
             ) : lastRemote === null ? (
               <span className="text-ink-muted">{text.cloudNever}</span>
             ) : (
@@ -442,7 +420,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   );
 }
 
-/** An address in the service card, with a button that copies it. */
+/** An address of the service, with a button that copies it. */
 function Address({ value, label }: { readonly value: string; readonly label: string }) {
   const dictionary = useDictionary();
   return (
@@ -456,81 +434,141 @@ function Address({ value, label }: { readonly value: string; readonly label: str
 }
 
 /**
- * The running service: how long it has run, its version, the MCP and web addresses, and the extra listener and whether
- * it started.
+ * How clients reach the memory, in one card: the service's version in the head; on the left its MCP and web addresses and
+ * the extra listener, whether it started; on the right the agents, each binding and each client that connected merged into
+ * one tile per agent with its logo, whether its binding is sound or broken on the logo's corner, and when it last
+ * connected. The addresses take only the width they need, up to half, and the agents the rest; on a narrow screen the
+ * agents go under the addresses. With no binding, a line says what that means and a
+ * button leads to the bindings in the settings.
  */
-export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
+export function ConnectionCard({ report, locale, className }: CardProps) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.service;
   const service = report.service;
 
   return (
-    <Card aria-labelledby="service-title" className={className}>
-      <CardHeading id="service-title" icon={Server} title={dictionary.dashboard.cards.service} />
-      {service == null ? (
-        <Unreadable />
-      ) : (
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs text-sm">
-          {service.uptimeSeconds === null ? null : (
-            <InfoRow label={text.uptime}>{text.duration(durationOf(service.uptimeSeconds))}</InfoRow>
-          )}
-          {service.version === null ? null : (
-            <InfoRow label={text.version}>
-              <span title={service.version} className="truncate">
-                {versionText(service.version)}
-              </span>
-            </InfoRow>
-          )}
-          {service.endpoint === null ? null : (
-            <InfoRow label={text.mcp}>
-              <Address value={service.endpoint} label={text.mcp} />
-            </InfoRow>
-          )}
-          <InfoRow label={text.web}>
-            <Address value={service.webAddress} label={text.web} />
-          </InfoRow>
-          <InfoRow label={text.extraListener}>
-            {service.extraListener === null ? (
-              <span className="text-ink-muted">{text.noExtraListener}</span>
-            ) : (
-              <>
-                <Address value={service.extraListener.address} label={text.extraListener} />
-                {service.extraListener.failureReason === null ? (
-                  <Badge tone="success">
-                    <CircleCheck aria-hidden />
-                    {text.listening}
-                  </Badge>
-                ) : (
-                  <Badge tone="danger" title={service.extraListener.failureReason}>
-                    <TriangleAlert aria-hidden />
-                    {text.listenFailed}
-                  </Badge>
-                )}
-              </>
+    <Card aria-labelledby="connection-title" className={className}>
+      <CardHeading
+        id="connection-title"
+        icon={Cable}
+        title={dictionary.dashboard.cards.connection}
+        badge={
+          service?.version == null ? null : (
+            <span title={service.version} className="truncate text-xs text-ink-muted">
+              {text.version(versionText(service.version))}
+            </span>
+          )
+        }
+      />
+      <div className="grid gap-lg lg:grid-cols-[fit-content(50%)_minmax(0,1fr)]">
+        {service == null ? (
+          <Unreadable />
+        ) : (
+          <dl className="grid content-start grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs text-sm">
+            {service.endpoint === null ? null : (
+              <InfoRow label={text.mcp}>
+                <Address value={service.endpoint} label={text.mcp} />
+              </InfoRow>
             )}
-          </InfoRow>
-        </dl>
-      )}
+            <InfoRow label={text.web}>
+              <Address value={service.webAddress} label={text.web} />
+            </InfoRow>
+            <InfoRow label={text.extraListener}>
+              {service.extraListener === null ? (
+                <span className="text-ink-muted">{text.noExtraListener}</span>
+              ) : (
+                <>
+                  <Address value={service.extraListener.address} label={text.extraListener} />
+                  {service.extraListener.failureReason === null ? (
+                    <Badge tone="success">
+                      <CircleCheck aria-hidden />
+                      {text.listening}
+                    </Badge>
+                  ) : (
+                    <Badge tone="danger" title={service.extraListener.failureReason}>
+                      <TriangleAlert aria-hidden />
+                      {text.listenFailed}
+                    </Badge>
+                  )}
+                </>
+              )}
+            </InfoRow>
+          </dl>
+        )}
+        <Agents report={report} locale={locale} />
+      </div>
     </Card>
   );
 }
 
-/** An agent's logo on a soft tile: its own colours, a one-colour shape in the colour of the text, or a plain robot. */
-function AgentLogo({ icon }: { readonly icon: AgentIcon | null }) {
+/** The agents of the connection card, under a small heading, beside the addresses on a wide screen. */
+function Agents({ report, locale }: { readonly report: StatusReport; readonly locale: string }) {
+  const dictionary = useDictionary();
+  const text = dictionary.dashboard.agents;
+  const bindings = report.bindings?.items;
+  const rows = agentsOf(bindings ?? [], report.clients?.items ?? []);
+
   return (
-    <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-md bg-surface-raised text-ink">
-      {icon === null ? (
-        <Bot aria-hidden className="size-(--tk-font-size-xl)" />
-      ) : icon.monochrome ? (
-        <span
-          aria-hidden
-          className="size-(--tk-font-size-xl) bg-current"
-          style={{ mask: `url("${icon.url}") center / contain no-repeat` }}
-        />
+    <section
+      aria-labelledby="agents-title"
+      className="grid content-start gap-sm lg:border-l-(length:--tk-border-thin) lg:border-line lg:pl-lg"
+    >
+      <h3 id="agents-title" className="text-xs text-ink-muted">
+        {text.title}
+      </h3>
+      {bindings === undefined && report.clients == null ? (
+        <Unreadable />
       ) : (
-        <img alt="" src={icon.url} className="size-(--tk-font-size-xl)" />
+        <>
+          {rows.length === 0 ? null : (
+            <ul className={LOGO_TILES}>
+              {rows.map((row) => (
+                <AgentTile key={row.key} row={row} seen={seenText(row.lastSeen, locale, text)} />
+              ))}
+            </ul>
+          )}
+          {bindings !== undefined && bindings.length === 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-sm">
+              <p className="text-sm text-ink-muted">{rows.length === 0 ? text.empty : text.noBindings}</p>
+              <Button asChild variant="outline">
+                <Link to="/settings#settings-bindings">
+                  <Link2 aria-hidden />
+                  {text.addBinding}
+                </Link>
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
-    </span>
+    </section>
+  );
+}
+
+/**
+ * One agent as a tile: its logo with the binding's state on the corner, its name, and when it last connected; a broken
+ * binding says what is wrong in that line instead, and an agent with no binding says so.
+ */
+function AgentTile({ row, seen }: { readonly row: AgentRow; readonly seen: string }) {
+  const dictionary = useDictionary();
+  const text = dictionary.dashboard.agents;
+  const problem = row.binding?.problem ?? null;
+  const state = row.binding === null ? text.unbound : problem === null ? text.bound : text.broken;
+
+  return (
+    <li title={`${row.label}\n${state}`} className="grid min-w-0 justify-items-center gap-xs rounded-md p-sm text-center">
+      <AgentLogo icon={row.icon} large sound={row.binding === null ? undefined : problem === null} />
+      <span className="sr-only">{state}</span>
+      <span className="w-full truncate text-sm font-medium">{row.label}</span>
+      <span className="w-full truncate text-xs text-ink-muted">
+        {problem !== null ? (
+          <span className="text-danger">{dictionary.dashboard.bindingProblems[problem]}</span>
+        ) : row.binding === null ? (
+          text.unboundSeen(seen)
+        ) : (
+          seen
+        )}
+      </span>
+    </li>
   );
 }
 
@@ -552,81 +590,5 @@ function seenText(day: string | null, locale: string, text: ReturnType<typeof us
   }
   return text.lastSeen(
     dayText(day, locale, { month: "short", day: "numeric" }),
-  );
-}
-
-/**
- * The agents: each binding and each client that connected, merged into one row per agent with its logo, whether its binding
- * is sound, broken or missing, and when it last connected. With no binding, a line says what that means and a button leads
- * to the bindings in the settings.
- */
-export function AgentsCard({ report, locale, className }: CardProps) {
-  const dictionary = useDictionary();
-  const text = dictionary.dashboard.agents;
-  const bindings = report.bindings?.items;
-  const rows = agentsOf(bindings ?? [], report.clients?.items ?? []);
-
-  return (
-    <Card aria-labelledby="agents-title" className={className}>
-      <CardHeading id="agents-title" icon={Users} title={dictionary.dashboard.cards.clients} />
-      {bindings === undefined && report.clients == null ? (
-        <Unreadable />
-      ) : (
-        <>
-          {rows.length === 0 ? null : (
-            <ul className="grid gap-sm">
-              {rows.map((row) => (
-                <AgentItem key={row.key} row={row} seen={seenText(row.lastSeen, locale, text)} />
-              ))}
-            </ul>
-          )}
-          {bindings !== undefined && bindings.length === 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-sm">
-              <p className="text-sm text-ink-muted">{rows.length === 0 ? text.empty : text.noBindings}</p>
-              <Button asChild variant="outline">
-                <Link to="/settings#bindings">
-                  <Link2 aria-hidden />
-                  {text.addBinding}
-                </Link>
-              </Button>
-            </div>
-          ) : null}
-        </>
-      )}
-    </Card>
-  );
-}
-
-function AgentItem({ row, seen }: { readonly row: AgentRow; readonly seen: string }) {
-  const dictionary = useDictionary();
-  const text = dictionary.dashboard.agents;
-  const problem = row.binding?.problem ?? null;
-
-  return (
-    <li className="flex items-center gap-md">
-      <AgentLogo icon={row.icon} />
-      <span className="grid min-w-0 flex-1 leading-(--tk-line-height-tight)">
-        <span className="truncate text-sm font-medium">{row.label}</span>
-        <span className="truncate text-xs text-ink-muted">
-          {problem === null ? seen : <span className="text-danger">{dictionary.dashboard.bindingProblems[problem]}</span>}
-        </span>
-      </span>
-      {row.binding === null ? (
-        <Badge>
-          <CircleDashed aria-hidden />
-          {text.unbound}
-        </Badge>
-      ) : problem === null ? (
-        <Badge tone="success">
-          <Link2 aria-hidden />
-          {text.bound}
-        </Badge>
-      ) : (
-        <Badge tone="danger">
-          <TriangleAlert aria-hidden />
-          {text.broken}
-        </Badge>
-      )}
-    </li>
   );
 }

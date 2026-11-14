@@ -83,7 +83,7 @@ internal static class Binder
             throw;
         }
 
-        var endpoint = new Uri($"http://127.0.0.1:{config.Port}/mcp");
+        var endpoint = McpServer.On(config.Port).Url;
         report.Add(Messages.Connected.Format(language, client));
         return new BindingResult(
             contextFile,

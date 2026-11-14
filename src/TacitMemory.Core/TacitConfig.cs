@@ -101,11 +101,15 @@ public enum SecretSource
 }
 
 /// <summary>
-/// A secret as loaded. <see cref="Source"/> says where <see cref="Value"/> came from; <see cref="WrittenInConfig"/> is
-/// true when <c>config.yaml</c> also holds it in plain text, even when the environment variable overrides it.
+/// A secret as loaded. <see cref="Source"/> says where <see cref="Value"/> came from; <see cref="InConfig"/> is the
+/// plain text <c>config.yaml</c> holds for it, even when the environment variable overrides it, or <c>null</c> when the
+/// file holds none.
 /// </summary>
-public sealed record SecretValue(string Value, SecretSource Source, bool WrittenInConfig)
+public sealed record SecretValue(string Value, SecretSource Source, string? InConfig)
 {
+    /// <summary>Whether <c>config.yaml</c> holds the secret in plain text.</summary>
+    public bool WrittenInConfig => InConfig is not null;
+
     /// <summary>Never includes the value: configuration records are printed and logged.</summary>
     public override string ToString() => $"secret from {Source}";
 }

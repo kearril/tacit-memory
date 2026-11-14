@@ -11,7 +11,7 @@ namespace TacitMemory.Core.Configuration;
 internal static class ConfigLoader
 {
     /// <summary>The port the service listens on when <c>server.port</c> is not given.</summary>
-    internal const int DefaultPort = 18888;
+    internal const int DefaultPort = ConfigDefaults.Port;
 
     public static TacitConfig Load(TacitOptions options)
     {
@@ -35,7 +35,20 @@ internal static class ConfigLoader
         if (!File.Exists(path))
             throw new TacitException(TacitError.NotInitialized, Messages.NotInitializedConfig.Format(fallbackLanguage, path));
 
-        var root = Parse(path, fallbackLanguage);
+        string text;
+        using (var file = new StreamReader(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            text = file.ReadToEnd();
+        return Read(options, path, text);
+    }
+
+    /// <summary>
+    /// Validates <paramref name="text"/> as the content of <c>config.yaml</c>, naming the file <paramref name="path"/> in
+    /// messages; its prompt documents come from <c>TACIT_HOME</c>. Lets a config be checked before it is written.
+    /// </summary>
+    internal static TacitConfig Read(TacitOptions options, string path, string text)
+    {
+        var fallbackLanguage = LanguageCodes.FromUiCulture(options.UiCulture);
+        var root = Parse(new StringReader(text), path, fallbackLanguage);
         var languageText = root.Children.TryGetValue(new YamlScalarNode("language"), out var languageNode)
             ? (languageNode as YamlScalarNode)?.Value
             : null;
@@ -55,7 +68,7 @@ internal static class ConfigLoader
         reader.OnlyKnown(memory, "memory", "path");
         var memoryPath = reader.Text(memory, "memory", "path") is { } configured
             ? HomePaths.Expand(configured, options.UserHome)
-            : Path.Combine(options.TacitHome, "memory");
+            : ConfigDefaults.MemoryPath(options.TacitHome);
 
         var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
@@ -64,12 +77,12 @@ internal static class ConfigLoader
         var retrieval = ReadRetrieval(reader, root);
         var backup = ReadBackup(reader, root, options.Secrets);
 
-        if (reader.Errors.Count > 0)
+        if (reader.Problems.Count > 0)
         {
             var message = new StringBuilder(Messages.ConfigErrors.Format(language, path));
             foreach (var error in reader.Errors)
                 message.Append('\n').Append(error);
-            throw new TacitException(TacitError.ConfigInvalid, message.ToString());
+            throw new TacitException(TacitError.ConfigInvalid, message.ToString()) { Problems = reader.Problems };
         }
 
         var prompts = PromptFiles.Load(options.TacitHome, language);
@@ -118,7 +131,8 @@ internal static class ConfigLoader
             var path = Path.Combine(options.TacitHome, "config.yaml");
             if (!File.Exists(path))
                 return new LooseSettings(DefaultPort, fallbackLanguage);
-            root = Parse(path, fallbackLanguage);
+            using var file = new StreamReader(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            root = Parse(file, path, fallbackLanguage);
         }
         catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
         {
@@ -137,13 +151,12 @@ internal static class ConfigLoader
     private static string? Scalar(YamlMappingNode? map, string key) =>
         map is not null && map.Children.TryGetValue(new YamlScalarNode(key), out var node) ? (node as YamlScalarNode)?.Value : null;
 
-    private static YamlMappingNode Parse(string path, MemoryLanguage language)
+    private static YamlMappingNode Parse(TextReader text, string path, MemoryLanguage language)
     {
         var yaml = new YamlStream();
         try
         {
-            using var file = new StreamReader(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            yaml.Load(file);
+            yaml.Load(text);
         }
         catch (YamlDotNet.Core.YamlException e)
         {
@@ -253,8 +266,8 @@ internal static class ConfigLoader
         reader.OnlyKnown(page, "limits.page", "minAliases");
 
         return new LimitsConfig(
-            Count(reader, limits, "limits", "brief", 3000),
-            new PageLimits(Count(reader, page, "limits.page", "minAliases", 2)));
+            Count(reader, limits, "limits", "brief", ConfigDefaults.Brief),
+            new PageLimits(Count(reader, page, "limits.page", "minAliases", ConfigDefaults.MinAliases)));
     }
 
     private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)
@@ -263,12 +276,12 @@ internal static class ConfigLoader
         reader.OnlyKnown(
             consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintItemLength", "hintResidentLength");
         return new ConsolidationConfig(
-            Count(reader, consolidation, "consolidation", "remindAfterDays", 7),
-            Count(reader, consolidation, "consolidation", "budgetSeconds", 20),
-            Count(reader, consolidation, "consolidation", "maxConcurrency", 5),
-            Count(reader, consolidation, "consolidation", "remindCandidates", 5),
-            Count(reader, consolidation, "consolidation", "hintItemLength", 200),
-            Count(reader, consolidation, "consolidation", "hintResidentLength", 6000));
+            Count(reader, consolidation, "consolidation", "remindAfterDays", ConfigDefaults.RemindAfterDays),
+            Count(reader, consolidation, "consolidation", "budgetSeconds", ConfigDefaults.BudgetSeconds),
+            Count(reader, consolidation, "consolidation", "maxConcurrency", ConfigDefaults.MaxConcurrency),
+            Count(reader, consolidation, "consolidation", "remindCandidates", ConfigDefaults.RemindCandidates),
+            Count(reader, consolidation, "consolidation", "hintItemLength", ConfigDefaults.HintItemLength),
+            Count(reader, consolidation, "consolidation", "hintResidentLength", ConfigDefaults.HintResidentLength));
     }
 
     private static DecisionThresholds ReadDecision(ConfigReader reader, YamlMappingNode root)
@@ -300,8 +313,8 @@ internal static class ConfigLoader
         var retrieval = reader.Mapping(root, "", "retrieval");
         reader.OnlyKnown(retrieval, "retrieval", "candidates", "topK", "minRerankScore");
         return new RetrievalConfig(
-            Count(reader, retrieval, "retrieval", "candidates", 30),
-            Count(reader, retrieval, "retrieval", "topK", 5),
+            Count(reader, retrieval, "retrieval", "candidates", ConfigDefaults.Candidates),
+            Count(reader, retrieval, "retrieval", "topK", ConfigDefaults.TopK),
             reader.Probability(retrieval, "retrieval", "minRerankScore"));
     }
 
@@ -309,7 +322,7 @@ internal static class ConfigLoader
     {
         var backup = reader.Mapping(root, "", "backup");
         reader.OnlyKnown(backup, "backup", "keep", "webdav");
-        return new BackupConfig(reader.Integer(backup, "backup", "keep", 7, 0, 1000), ReadWebDav(reader, backup, secrets));
+        return new BackupConfig(reader.Integer(backup, "backup", "keep", ConfigDefaults.Keep, 0, 1000), ReadWebDav(reader, backup, secrets));
     }
 
     /// <summary>The <c>backup.webdav</c> section, or <c>null</c> when absent or wrong (all reported).</summary>
@@ -338,9 +351,9 @@ internal static class ConfigLoader
     {
         var configured = reader.Text(map, path, key);
         if (secrets.TryGetValue(variable, out var fromEnvironment) && !string.IsNullOrWhiteSpace(fromEnvironment))
-            return new SecretValue(fromEnvironment.Trim(), SecretSource.Environment, WrittenInConfig: configured is not null);
+            return new SecretValue(fromEnvironment.Trim(), SecretSource.Environment, configured);
         if (configured is not null)
-            return new SecretValue(configured, SecretSource.ConfigFile, WrittenInConfig: true);
+            return new SecretValue(configured, SecretSource.ConfigFile, configured);
         if (required)
             reader.Error(ConfigReader.Join(path, key), Messages.ConfigSecretMissing, variable);
         return null;

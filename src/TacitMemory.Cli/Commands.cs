@@ -89,16 +89,13 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
                 log.Output.LogInformation("{Text}", extraLine);
                 console.Out.WriteLine(extraLine);
             }
-            try
-            {
-                await Task.Delay(Timeout.Infinite, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // Ctrl+C: stop the host and leave.
-            }
-
-            return 0;
+            // Ctrl+C stops the host and leaves; so does a reload that could open the service with neither config, which the
+            // service has logged, and then the exit says the run failed.
+            var stopped = Task.Delay(Timeout.Infinite, cancellationToken);
+            if (await Task.WhenAny(stopped, service.Failed) == stopped)
+                return 0;
+            console.Error.WriteLine((await service.Failed).Message);
+            return 1;
         }
     });
 

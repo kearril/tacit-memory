@@ -1,21 +1,25 @@
 import type { components } from "./schema";
 
 type ErrorBody = components["schemas"]["ApiError"];
+type ConfigProblem = components["schemas"]["ConfigProblem"];
 
 /**
  * A failed call to the management API. `error` is the service's TacitError name; `message` is the explanation in the memory
  * language, shown to the user as it is. It is empty when the answer carried no explanation, and then the text to show
- * comes from the dictionary (see `errorTextOf`).
+ * comes from the dictionary (see `errorTextOf`). `problems` lists each place a refused config or document went wrong, and is
+ * empty for every other refusal.
  */
 export class ApiError extends Error {
   readonly status: number;
   readonly error: string;
+  readonly problems: readonly ConfigProblem[];
 
   constructor(status: number, body: ErrorBody) {
     super(body.message);
     this.name = "ApiError";
     this.status = status;
     this.error = body.error;
+    this.problems = body.problems ?? [];
   }
 }
 

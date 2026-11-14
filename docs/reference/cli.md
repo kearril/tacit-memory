@@ -147,7 +147,7 @@ tacit restore --remote [--include-config] [--yes]
 - 先显示预览：备份的生成时间、tacit 版本、种类（清单里的原始值 `auto`、`manual`、`pre-restore` 或 `remote`，旧版备份没有记录时显示"未知（旧版备份未记录）"）、记忆仓库 HEAD 的提交号与说明、文件数，以及将被替换的内容。
 - 输入 `y` 才开始，其余输入一律取消（退出码 1）；`--yes`（短写 `-y`）跳过确认。标准输入不是终端且未带 `--yes` 时，显示预览后以退出码 2 结束，不挂起等待，也不恢复。
 - 默认只恢复记忆仓库；`--include-config` 一并恢复 `config.yaml` 与 `prompts/`。`bindings.json` 永不恢复，绑定请重新执行 `tacit connect`。
-- 结果给出保险备份 `pre-restore-*.zip` 的路径、恢复后的 HEAD 与索引重建的数量。恢复回来的 `config.yaml` 需要重启 `tacit serve` 才生效；`prompts/` 恢复后立即生效；`memory.path` 变化时给出提示。
+- 结果给出保险备份 `pre-restore-*.zip` 的路径、恢复后的 HEAD 与索引重建的数量。恢复回来的 `config.yaml` 能加载时服务立即按它重新加载，需重启才生效的项（`server.port`、`server.host`、`memory.path`、`language`、`limits.page.minAliases`）与运行中不同时逐项列出；不能加载时服务继续使用原来的配置并给出错误。`prompts/` 恢复后立即生效；`memory.path` 变化时给出提示。
 
 执行顺序、拒绝条件与失败时的回退见 `docs/design.md` 第 12 节「备份与恢复」。
 

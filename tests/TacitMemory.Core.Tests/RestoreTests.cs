@@ -287,6 +287,52 @@ public sealed class RestoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_restored_config_is_reloaded_at_once_and_what_waits_for_a_restart_is_listed()
+    {
+        File.AppendAllText(ConfigYaml, "retrieval:\n  topK: 7\nlimits:\n  page:\n    minAliases: 4\n");
+        var backup = await _service.BackupAsync(BackupTarget.Local);
+
+        var result = await _service.RestoreAsync(backup.Location, config: true);
+
+        Assert.Equal(7, _service.Config.Retrieval.TopK);
+        Assert.Equal(2, _service.Config.Limits.Page.MinAliases);
+        Assert.Equal([new RestartChange("limits.page.minAliases", "2", "4")], result.Restart);
+        Assert.Contains(result.Notices, notice => notice.Contains("limits.page.minAliases", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Notices, notice => notice.Contains("重启后生效", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_restored_config_that_does_not_load_leaves_the_service_on_the_config_it_had_and_says_why()
+    {
+        var running = _service.Config;
+        var valid = File.ReadAllText(ConfigYaml);
+        File.AppendAllText(ConfigYaml, "retrieval:\n  topK: lots\n");
+        var backup = await _service.BackupAsync(BackupTarget.Local);
+        File.WriteAllText(ConfigYaml, valid);
+
+        var result = await _service.RestoreAsync(backup.Location, config: true);
+
+        Assert.Same(running, _service.Config);
+        Assert.Empty(result.Restart);
+        Assert.Contains("topK: lots", File.ReadAllText(ConfigYaml));
+        Assert.Contains(result.Notices, notice => notice.StartsWith("恢复回来的 config.yaml 有错误", StringComparison.Ordinal)
+            && notice.Contains("retrieval.topK", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_restore_without_the_config_does_not_reload()
+    {
+        var running = _service.Config;
+        File.AppendAllText(ConfigYaml, "retrieval:\n  topK: 7\n");
+        var backup = await _service.BackupAsync(BackupTarget.Local);
+
+        var result = await _service.RestoreAsync(backup.Location, config: false);
+
+        Assert.Same(running, _service.Config);
+        Assert.Empty(result.Restart);
+    }
+
+    [Fact]
     public async Task Bindings_json_is_never_restored()
     {
         _home.Bind();
@@ -440,9 +486,12 @@ public sealed class RestoreTests : IDisposable
         File.AppendAllText(ConfigYaml, "apiKeyEnv: ''\n");
         var backup = await _service.BackupAsync(BackupTarget.Local);
         await _service.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
+        var running = _service.Config;
 
         var result = await _service.RestoreAsync(backup.Location, config: true);
 
+        Assert.Same(running, _service.Config);
+        Assert.Empty(result.Restart);
         Assert.Equal(TestHome.Git(Memory, "rev-parse", "HEAD").Trim(), result.MemoryHead);
         Assert.True(File.Exists(PagePath("old-page")));
         Assert.False(File.Exists(PagePath("new-page")));
