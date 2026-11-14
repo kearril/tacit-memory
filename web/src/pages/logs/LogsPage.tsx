@@ -357,7 +357,7 @@ function FilterBar({
               }`}
             >
               {text.levels[level].code}
-              <span className="font-normal tabular-nums">{counts[level]}</span>
+              <span className="font-regular tabular-nums">{counts[level]}</span>
             </button>
           );
         })}

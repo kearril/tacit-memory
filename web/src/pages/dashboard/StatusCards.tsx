@@ -274,7 +274,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
           <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
             {text.daysAgo(consolidation.daysSince)}
             {consolidation.daysSince > 1 ? (
-              <span className="font-normal ml-sm text-sm text-ink-muted">
+              <span className="ml-sm text-sm font-regular text-ink-muted">
                 {dayText(consolidation.lastConsolidationDay, locale, { dateStyle: "medium" })}
               </span>
             ) : null}
@@ -442,7 +442,8 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
                     type="button"
                     label={text.backUpNow}
                     variant="default"
-                    className="w-auto gap-xs px-sm"
+                    size="default"
+                    className="gap-xs px-sm"
                     disabled={backup.isPending}
                   >
                     <BusyIcon busy={backup.isPending} icon={HardDriveDownload} />
@@ -607,8 +608,9 @@ const BINDINGS_PATH = "/settings#settings-bindings";
 /** How many chips the clients card shows; past it, the last chip counts the rest. */
 const SHOWN_CLIENTS = 12;
 
-/** What a client's binding is: sound, broken, or none (it only connected). */
-type ClientState = "bound" | "broken" | "unbound";
+/** What a client's binding is: sound, broken, or none (it only connected); in the order the legend lists them. */
+const CLIENT_STATES = ["bound", "broken", "unbound"] as const;
+type ClientState = (typeof CLIENT_STATES)[number];
 
 function stateOf(row: AgentRow): ClientState {
   return row.binding === null ? "unbound" : row.binding.problem === null ? "bound" : "broken";
@@ -620,12 +622,18 @@ const STATE_DOTS: Record<ClientState, string> = {
   unbound: "bg-ink-muted",
 };
 
+/** The dot of a binding's state, on a chip and in the legend; what it means is in the words beside it. */
+function StateDot({ state }: { readonly state: ClientState }) {
+  return <span aria-hidden className={`size-(--tk-space-sm) shrink-0 rounded-full ${STATE_DOTS[state]}`} />;
+}
+
 /**
  * The clients: every binding and every client that connected, merged into one chip per agent with its logo and name, the
  * bound ones first and then those that only connected, the most recent first. A dot on the chip tells the binding's
  * state, and a legend under the chips names the states that occur; the state and when the client last connected are in
  * the chip's tooltip and read out with it. Past twelve, the last chip counts the rest and leads to the bindings in the
- * settings, as does the link in the head. With no binding, a line says what that means and a button leads there.
+ * settings, as does the link in the head. With no binding, a line says what that means and a button leads there. When
+ * the bindings cannot be read, the chips have no dot and a line says so, rather than showing every client as not bound.
  */
 export function ClientsCard({ report, locale, className }: CardProps) {
   const dictionary = useDictionary();
@@ -633,9 +641,8 @@ export function ClientsCard({ report, locale, className }: CardProps) {
   const bindings = report.bindings?.items;
   const rows = agentsOf(bindings ?? [], report.clients?.items ?? []);
   const shown = rows.length > SHOWN_CLIENTS ? rows.slice(0, SHOWN_CLIENTS - 1) : rows;
-  const states = (["bound", "broken", "unbound"] as const).filter((state) =>
-    rows.some((row) => stateOf(row) === state),
-  );
+  const known = bindings !== undefined;
+  const states = known ? CLIENT_STATES.filter((state) => rows.some((row) => stateOf(row) === state)) : [];
   const stateText: Record<ClientState, string> = { bound: text.bound, broken: text.broken, unbound: text.seenOnly };
 
   return (
@@ -663,7 +670,10 @@ export function ClientsCard({ report, locale, className }: CardProps) {
               {shown.map((row) => {
                 const state = stateOf(row);
                 const problem = row.binding?.problem ?? null;
-                const detail = `${problem === null ? stateText[state] : dictionary.dashboard.bindingProblems[problem]} · ${seenText(row.lastSeen, locale, text)}`;
+                const seen = seenText(row.lastSeen, locale, text);
+                const detail = !known
+                  ? seen
+                  : `${problem === null ? stateText[state] : dictionary.dashboard.bindingProblems[problem]} · ${seen}`;
                 return (
                   <li
                     key={row.key}
@@ -672,7 +682,7 @@ export function ClientsCard({ report, locale, className }: CardProps) {
                   >
                     <AgentLogo icon={row.icon} />
                     <span className="truncate">{row.label}</span>
-                    <span aria-hidden className={`size-(--tk-space-sm) shrink-0 rounded-full ${STATE_DOTS[state]}`} />
+                    {known ? <StateDot state={state} /> : null}
                     <span className="sr-only">{detail}</span>
                   </li>
                 );
@@ -694,12 +704,13 @@ export function ClientsCard({ report, locale, className }: CardProps) {
             <ul aria-label={text.legend} className="flex flex-wrap gap-x-md gap-y-xs text-xs text-ink-muted">
               {states.map((state) => (
                 <li key={state} className="flex items-center gap-xs">
-                  <span aria-hidden className={`size-(--tk-space-sm) rounded-full ${STATE_DOTS[state]}`} />
+                  <StateDot state={state} />
                   {stateText[state]}
                 </li>
               ))}
             </ul>
           )}
+          {known ? null : <p className="text-sm text-ink-muted">{text.bindingsUnreadable}</p>}
           {bindings !== undefined && bindings.length === 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-sm">
               <p className="text-sm text-ink-muted">{rows.length === 0 ? text.empty : text.noBindings}</p>

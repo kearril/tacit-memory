@@ -379,7 +379,7 @@ function SaveBar({
         <p aria-live="polite" className="grid text-sm font-medium">
           {text.changes(count)}
           {restarts === 0 ? null : (
-            <span className="font-normal text-xs text-ink-muted">{text.changesRestart(restarts)}</span>
+            <span className="text-xs font-regular text-ink-muted">{text.changesRestart(restarts)}</span>
           )}
         </p>
         <div className="flex gap-sm">

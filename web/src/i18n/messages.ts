@@ -426,7 +426,6 @@ export interface Dictionary {
     readonly agents: {
       readonly title: string;
       readonly bound: string;
-      readonly unbound: string;
       readonly broken: string;
       readonly today: string;
       readonly yesterday: string;
@@ -436,6 +435,7 @@ export interface Dictionary {
       readonly noBindings: string;
       readonly addBinding: string;
       readonly seenOnly: string;
+      readonly bindingsUnreadable: string;
       readonly legend: string;
       readonly manage: string;
       readonly more: (count: number) => string;

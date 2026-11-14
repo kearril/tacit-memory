@@ -516,7 +516,6 @@ export const zh: Dictionary = {
     agents: {
       title: "客户端",
       bound: "已绑定",
-      unbound: "未绑定",
       broken: "绑定有问题",
       today: "今天连接过",
       yesterday: "昨天连接过",
@@ -526,6 +525,7 @@ export const zh: Dictionary = {
       noBindings: "还没有绑定，客户端读不到画像与规则。",
       addBinding: "去添加绑定",
       seenOnly: "未绑定，只连接过",
+      bindingsUnreadable: "读不了绑定，无法标出各客户端是否已绑定，详见服务日志。",
       legend: "圆点的含义",
       manage: "管理绑定",
       more: (count) => `+${count}`,

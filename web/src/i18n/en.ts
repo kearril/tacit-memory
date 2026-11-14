@@ -586,7 +586,6 @@ export const en: Dictionary = {
     agents: {
       title: "Clients",
       bound: "Bound",
-      unbound: "Not bound",
       broken: "Binding broken",
       today: "Seen today",
       yesterday: "Seen yesterday",
@@ -596,6 +595,8 @@ export const en: Dictionary = {
       noBindings: "No bindings yet, so clients cannot read the persona and rules.",
       addBinding: "Add a binding",
       seenOnly: "Not bound, only connected",
+      bindingsUnreadable:
+        "The bindings cannot be read, so whether each client is bound is unknown; see the service log.",
       legend: "What the dots mean",
       manage: "Manage bindings",
       more: (count) => `+${count}`,

@@ -25,8 +25,9 @@ export function InfoRow({ label, children }: { readonly label: string; readonly 
 
 /**
  * A command in the head of a dashboard card: a square button with only its icon, whose name shows in a tooltip on hover
- * or focus and is read out as the button's name. It takes the props of a button, so a dialog's or a menu's trigger can
- * wrap it, and `asChild` for a link.
+ * or keyboard focus and is read out as the button's name. It takes the props of a button, so a dialog's or a menu's
+ * trigger can wrap it, and `asChild` for a link. A dialog or menu it opened hands the focus back when it closes; after a
+ * click that focus is not a keyboard one, so the tooltip stays shut rather than popping up on its own.
  */
 export function IconAction({
   label,
@@ -36,7 +37,14 @@ export function IconAction({
 }: ComponentProps<typeof Button> & { readonly label: string }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
+      <TooltipTrigger
+        asChild
+        onFocus={(event) => {
+          if (!event.currentTarget.matches(":focus-visible")) {
+            event.preventDefault();
+          }
+        }}
+      >
         <Button variant={variant} size={size} aria-label={label} {...props} />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
