@@ -114,9 +114,11 @@
   --tk-color-heat-3: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-3), var(--tk-color-surface));
   --tk-color-heat-4: var(--tk-color-accent);
 
-  /* Typography. Inter is bundled with the interface; Chinese text falls back to the system's own sans-serif face. */
+  /* Typography. Inter is bundled with the interface; Chinese text falls back to the system's own sans-serif face. The
+     monospace face prefers a Chinese monospace font where one is installed, so Chinese takes two Latin widths; elsewhere
+     Chinese falls back to the same system face as the interface. No monospace font is bundled. */
   --tk-font-sans: "Inter Variable", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
-  --tk-font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --tk-font-mono: "Maple Mono NF CN", "Sarasa Mono SC", ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", monospace;
   --tk-font-size-xs: 0.8125rem;
   --tk-font-size-sm: 0.875rem;
   --tk-font-size-base: 1rem;
