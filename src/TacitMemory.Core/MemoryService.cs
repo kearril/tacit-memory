@@ -87,6 +87,8 @@ public sealed class MemoryService : IDisposable
     private VectorSync _vectors = null!;
     private JudgmentPool _judgments = null!;
     private ConsolidationServices _consolidation = null!;
+    private RecallPipeline _pipeline = null!;
+    private WorkstreamBrief _brief = null!;
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
     private PromptDocuments _prompts = null!;
@@ -175,7 +177,9 @@ public sealed class MemoryService : IDisposable
             _options, config, _log,
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
+        _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
+        _brief = new WorkstreamBrief(config, _index);
+        _recall = new RecallTool(config, _index, _pages, _pipeline, _brief);
         _backup = new AutomaticBackup(_options, config, _log, _gate);
         _manual = new ManualBackup(_options, config, _log);
         _remote = new CloudBackup(_options, config, _log);
@@ -287,7 +291,7 @@ public sealed class MemoryService : IDisposable
     /// Refuses to start a service that listens beside loopback without an access password: <c>server.host</c> names an
     /// address that is not loopback, and no password is set. Called by the host before it binds anything.
     /// </summary>
-    /// <exception cref="TacitException">A <c>server.host</c> that names an extra listening address, with no access password set.</exception>
+    /// <exception cref="TacitException">A <c>server.host</c> that names an extra listener, with no access password set.</exception>
     public void CheckExtraListenerAllowed()
     {
         if (Config.ExtraAddress is { } extra && !Access.PasswordSet)
@@ -376,7 +380,7 @@ public sealed class MemoryService : IDisposable
     /// <param name="failure">The error the bind failed with; <c>null</c> when the address answers.</param>
     public void RecordExtraListener(IPAddress address, int port, Exception? failure)
     {
-        var listener = new ExtraListenerStatus(new Uri($"http://{HostText(address)}:{port}/"), failure is null ? null : FailureReason(address, port, failure));
+        var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failure is null ? null : FailureReason(address, port, failure));
         _extraListener = listener;
         if (listener.FailureReason is null)
             _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language));
@@ -392,10 +396,6 @@ public sealed class MemoryService : IDisposable
             _ => socket.Message,
         }
         : failure.Message;
-
-    /// <summary>An IP address as it goes into a URL: an IPv6 address in brackets.</summary>
-    private static string HostText(IPAddress address) =>
-        address.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{address}]" : address.ToString();
 
     /// <summary>The line to show when <see cref="TacitConfig.Port"/> is taken by another program.</summary>
     public string PortInUseMessage() =>
@@ -887,13 +887,19 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
 
+    /// <summary>The route of the recall trace, which reads like a GET though it is a POST.</summary>
+    public const string RecallTracePath = "/api/recall/trace";
+
     /// <summary>
-    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful GET is not
-    /// written: it changed nothing, and the Web UI's polling would otherwise fill the log.
+    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful read is not
+    /// written: a GET, or a recall trace, changed nothing, and the Web UI's polling or a user trying query after query would
+    /// otherwise fill the log. The event never holds a request body, so a trace's query is never written.
     /// </summary>
     public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed)
     {
-        if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && statusCode is >= 200 and < 300)
+        var read = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(route, RecallTracePath, StringComparison.OrdinalIgnoreCase));
+        if (read && statusCode is >= 200 and < 300)
             return;
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
     }
@@ -906,6 +912,100 @@ public sealed class MemoryService : IDisposable
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
         return await _recall.RunAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// A recall trace for the management API: the search <c>recall</c> runs for the same parameters, stage by stage, with
+    /// up to three retrieval values replaced. Counts no return and changes no file.
+    /// </summary>
+    /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with every problem of the request.</exception>
+    public async Task<RecallTraceReport> TraceRecallAsync(RecallTraceRequest request, CancellationToken cancellationToken = default)
+    {
+        var search = RecallTraceRun.Check(request, Config.Language);
+        var trace = await TraceRecallAsync(search.Query, search.Filter, search.Overrides, cancellationToken);
+        return RecallTraceRun.Report(trace, Config);
+    }
+
+    /// <summary>The search <c>recall</c> runs, stage by stage; counts no return.</summary>
+    internal async Task<RecallTrace> TraceRecallAsync(
+        string query, IndexFilter filter, RetrievalOverrides overrides, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return await _pipeline.RunAsync(query, filter, overrides, cancellationToken);
+    }
+
+    /// <summary>Everything a workstream's brief lists, whole; counts no return. <c>null</c> when the workstream has nothing.</summary>
+    internal async Task<WorkstreamBrief.Parts?> GatherBriefAsync(string workstream, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return _brief.Gather(workstream, null, null);
+    }
+
+    /// <summary>
+    /// The persona and its candidates for the memory page, with the two files' paths and problems. Reads the files only:
+    /// counts nothing and changes nothing.
+    /// </summary>
+    public async Task<PersonaReport> PersonaAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return PersonaBrowse.Read(Config);
+    }
+
+    /// <summary>The established workstreams and the names in use that are not, for the memory page. Reads files only.</summary>
+    public async Task<WorkstreamList> WorkstreamsAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return WorkstreamBrowse.List(Config);
+    }
+
+    /// <summary>A workstream's brief, whole and structured, gathered as <c>recall</c> gathers it. Counts nothing.</summary>
+    /// <exception cref="TacitException"><see cref="TacitError.MemoryNotFound"/> when there is no such workstream.</exception>
+    public async Task<WorkstreamBriefView> WorkstreamBriefAsync(string workstream, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return WorkstreamBrowse.Brief(Config, _brief, workstream);
+    }
+
+    /// <summary>The months of the activity log that have a file, newest first, and the current month. Reads files only.</summary>
+    public async Task<ActivityMonths> ActivityMonthsAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return ActivityBrowse.Months(Config.MemoryPath, _options.Today);
+    }
+
+    /// <summary>One month of the activity log by day, with its summaries and the file's problems. Counts nothing.</summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.RequestInvalid"/> when the month is not written yyyy-MM; <see cref="TacitError.MemoryNotFound"/>
+    /// when it has no file and is not the current month.
+    /// </exception>
+    public async Task<ActivityMonthView> ActivityMonthAsync(string month, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return ActivityBrowse.Month(Config, _options.Today, month);
+    }
+
+    /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
+    public async Task<PageList> PagesAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return PageBrowse.List(Config, _index);
+    }
+
+    /// <summary>One detail page for the memory page, with its sections' dates and counts. Counts nothing.</summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.RequestInvalid"/> for a page ID that is not valid; <see cref="TacitError.MemoryNotFound"/> when there is no such page.
+    /// </exception>
+    public async Task<PageView> PageAsync(string workstream, string slug, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return PageBrowse.Read(Config, _index, workstream, slug);
+    }
+
+    /// <summary>A whole page; counts no return. <c>null</c> when it does not exist or cannot be read.</summary>
+    internal async Task<PageDocument?> FetchPageAsync(PageId id, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return _pages.Fetch(id, _index).Document;
     }
 
     /// <summary>

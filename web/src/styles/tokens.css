@@ -146,7 +146,8 @@
      smallest heatmap cell, the narrowest compact tile in a grid of tiles, and a small icon tile; of the settings column
      and the names on its left, of a client's logo tile, of the prompts column, the least height of a prompt document's
      editor, and the most height of the log's scrolling area, which fills the window below the card's head and filters
-     but never drops below a readable height; they sit with the spacing scale */
+     but never drops below a readable height, of the list column of a list beside its detail, and of the narrow screens' top bar, under which sticky headings stop; they sit with the
+     spacing scale */
   --tk-size-control: 2.5rem;
   --tk-size-content: 32rem;
   --tk-size-sidebar: 15rem;
@@ -162,6 +163,8 @@
   --tk-size-editor: 28rem;
   --tk-size-log-view: max(20rem, calc(100dvh - 17rem));
   --tk-size-scrollbar: 0.75rem;
+  --tk-size-master: 20rem;
+  --tk-size-nav-bar: calc(var(--tk-size-control) + 2 * var(--tk-space-sm) + var(--tk-border-thin));
 
   /* Shape */
   --tk-radius-xs: 0.25rem;

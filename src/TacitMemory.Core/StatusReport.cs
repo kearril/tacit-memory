@@ -80,7 +80,7 @@ public sealed record ConfigStatus(string Title, IReadOnlyList<string> Lines) : I
 /// <param name="UptimeSeconds">How long the service has run; <c>null</c> when it does not run.</param>
 /// <param name="OtherProgramAnswered">Another program answered on the configured port, so the service is not running.</param>
 /// <param name="WebAddress">The address of the Web interface on loopback, where the service serves it.</param>
-/// <param name="ExtraListener">The extra listener <c>server.host</c> names while the service runs; <c>null</c> when none is named or the service does not run.</param>
+/// <param name="ExtraListener">The extra listener <c>server.host</c> names; <c>null</c> when none is named. While the service does not run it is where the service would listen.</param>
 public sealed record ServiceStatus(
     string Title,
     IReadOnlyList<string> Lines,
@@ -95,7 +95,7 @@ public sealed record ServiceStatus(
     /// <summary>
     /// The lines are the state, the MCP address, and while running the version and uptime; then the Web address, which is
     /// plain, and the extra listener last when there is one. Every line is ok while the service runs and attention while it
-    /// does not, except the extra listener, which is a problem when it did not bind.
+    /// does not, except the extra listener: a problem when it did not bind, and plain while the service does not run.
     /// </summary>
     public IReadOnlyList<StatusLevel?> LineLevels()
     {
@@ -104,7 +104,7 @@ public sealed record ServiceStatus(
         if (webIndex >= 0 && webIndex < levels.Count)
             levels[webIndex] = null;
         if (ExtraListener is not null && levels.Count > 0)
-            levels[^1] = ExtraListener.FailureReason is null ? StatusLevel.Ok : StatusLevel.Problem;
+            levels[^1] = !Running ? null : ExtraListener.FailureReason is null ? StatusLevel.Ok : StatusLevel.Problem;
         return levels;
     }
 }
@@ -114,7 +114,12 @@ public sealed record ServiceStatus(
 /// </summary>
 /// <param name="Address">The base address, such as <c>http://192.168.1.10:18888/</c>.</param>
 /// <param name="FailureReason">Why the address could not be bound, in the memory language; <c>null</c> when the listener answers.</param>
-public sealed record ExtraListenerStatus(Uri Address, string? FailureReason);
+public sealed record ExtraListenerStatus(Uri Address, string? FailureReason)
+{
+    /// <summary>The base address of an extra listener on <paramref name="address"/> and <paramref name="port"/>; an IPv6 address goes in brackets.</summary>
+    internal static Uri AddressOf(System.Net.IPAddress address, int port) =>
+        new($"http://{(address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? $"[{address}]" : address.ToString())}:{port}/");
+}
 
 /// <summary>The auxiliary models, one line each; <paramref name="Items"/> carries the same states as data. Offline, only the unconfigured models are listed.</summary>
 public sealed record ModelsStatus(string Title, IReadOnlyList<string> Lines, IReadOnlyList<ModelStatus> Items) : IStatusColumn

@@ -13,8 +13,8 @@ namespace TacitMemory.Core.Retrieval;
 /// line when it is established, then gathers the workstream's conventions (its workstream-scope
 /// persona entries), its open items (the leftovers of its work pages), a page index grouped by type, its last three
 /// activities and the latest weekly summary of a week it had activity in. The text is capped at <c>limits.brief</c>; only the
-/// page index is shortened, oldest entry first, and the omission is said. It reads files and counts a return for each page it
-/// lists; it never changes a file.
+/// page index is shortened, oldest entry first, and the omission is said. <see cref="Compose"/> counts a return for each page it
+/// lists; <see cref="Gather"/> returns the same parts whole and counts nothing. Neither changes a file.
 /// </summary>
 internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
 {
@@ -31,28 +31,15 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     /// <summary>The brief for <paramref name="workstream"/>, or <see cref="RecallTool.NoMemory"/> when it has no pages and no activities.</summary>
     public string Compose(string workstream, DateOnly? from, DateOnly? to)
     {
-        var pages = PageEntries(workstream, from, to);
-        var activities = ActivitiesOf(workstream, from, to);
-        // An established workstream has its background to say even when it has no pages or activities yet.
-        var established = WorkstreamFile.Established(config.MemoryPath).FirstOrDefault(entry => entry.Name == workstream);
-        if (pages.Count == 0 && activities.Count == 0 && established is null)
+        if (Gather(workstream, from, to) is not { } parts)
             return RecallTool.NoMemory;
 
-        // Overturned decisions are identifiers only: they are never listed as entries, so truncation does not touch them.
-        var entries = pages.Where(entry => !IsOverturned(entry)).ToList();
-        var overturned = pages.Where(IsOverturned).Select(entry => entry.Id).ToList();
-        var conventions = Conventions(workstream);
-        var openItems = OpenItems(pages);
-        var recent = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).Take(ListedActivities).ToList();
-        var summary = LatestWeekSummary(activities);
-
-        var parts = new Parts(workstream, established?.Background, established?.Recent, conventions, openItems, entries, overturned, recent, summary);
         var limit = config.Limits.Brief;
-        var shown = new HashSet<Entry>(entries);
+        var shown = new HashSet<Entry>(parts.Entries);
         var omitted = 0;
         var text = Render(parts, shown, omitted, limit);
         // Only the page index is shortened: the oldest entries go first, until the brief fits or none is left.
-        foreach (var oldest in entries.AsEnumerable().Reverse())
+        foreach (var oldest in parts.Entries.AsEnumerable().Reverse())
         {
             if (text.Length <= limit)
                 break;
@@ -62,28 +49,50 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
         }
 
         text = CutAtLimit(text, limit);
-        var listed = shown.Select(entry => entry.Id).Concat(overturned).Concat(openItems.Select(item => item.Id)).Distinct().ToList();
+        var listed = shown.Select(entry => entry.Id).Concat(parts.Overturned).Concat(parts.OpenItems.Select(item => item.Id)).Distinct().ToList();
         index.RecordPagesListed(listed);
         return text;
     }
 
-    /// <summary>A page of the workstream as the brief sees it: its identifier, its document, its last changed date and its use count.</summary>
-    private sealed record Entry(PageId Id, PageDocument Document, DateOnly? Changed, long Uses);
+    /// <summary>
+    /// Everything the brief lists for <paramref name="workstream"/>, whole and in the brief's order, without counting a return;
+    /// <c>null</c> when the workstream is not established and has no pages and no activities.
+    /// </summary>
+    public Parts? Gather(string workstream, DateOnly? from, DateOnly? to)
+    {
+        var pages = PageEntries(workstream, from, to);
+        var activities = ActivitiesOf(workstream, from, to);
+        // An established workstream has its background to say even when it has no pages or activities yet.
+        var established = WorkstreamFile.Established(config.MemoryPath).FirstOrDefault(entry => entry.Name == workstream);
+        if (pages.Count == 0 && activities.Count == 0 && established is null)
+            return null;
+
+        // Overturned decisions are identifiers only: they are never listed as entries, so truncation does not touch them.
+        var entries = pages.Where(entry => !IsOverturned(entry)).ToList();
+        var overturned = pages.Where(IsOverturned).Select(entry => entry.Id).ToList();
+        var recent = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).Take(ListedActivities).ToList();
+        return new Parts(
+            workstream, established?.Background, established?.Recent, Conventions(workstream), OpenItems(pages), entries, overturned, recent,
+            LatestWeekSummary(activities));
+    }
+
+    /// <summary>A page of the workstream as the brief sees it: its identifier, its document, its last changed date, its use count and the last day it was returned (yyyy-MM-dd).</summary>
+    public sealed record Entry(PageId Id, PageDocument Document, DateOnly? Changed, long Uses, string? LastUse);
 
     /// <summary>An open item: a work page and the non-blank lines of its leftovers.</summary>
-    private sealed record OpenItem(PageId Id, IReadOnlyList<string> Lines);
+    public sealed record OpenItem(PageId Id, IReadOnlyList<string> Lines);
 
     /// <summary>Everything the brief lists, gathered before any of it is shortened.</summary>
-    private sealed record Parts(
+    public sealed record Parts(
         string Workstream,
         string? Background,
         string? Recent,
-        IReadOnlyList<string> Conventions,
+        PersonaBlock? Conventions,
         IReadOnlyList<OpenItem> OpenItems,
         IReadOnlyList<Entry> Entries,
         IReadOnlyList<PageId> Overturned,
         IReadOnlyList<RecentFile.Activity> Activities,
-        string? Summary);
+        Summary? Summary);
 
     /// <summary>
     /// The workstream's pages within the date range, newest first: by the latest date among their sections, then by how often
@@ -95,7 +104,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
         if (!Directory.Exists(folder))
             return [];
 
-        var uses = index.PageUsages().ToDictionary(row => row.Page, row => row.Count, StringComparer.Ordinal);
+        var uses = index.PageUsages().ToDictionary(row => row.Page, StringComparer.Ordinal);
         var entries = new List<Entry>();
         foreach (var file in Directory.EnumerateFiles(folder, "*.md", SearchOption.TopDirectoryOnly))
         {
@@ -107,7 +116,8 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
             index.SyncPage(id);
             var changes = index.SectionChanges(id);
             var changed = changes.Count > 0 ? changes.Values.Max() : document.Header.Last;
-            entries.Add(new Entry(id, document, changed, uses.GetValueOrDefault(id.ToString())));
+            var use = uses.GetValueOrDefault(id.ToString());
+            entries.Add(new Entry(id, document, changed, use?.Count ?? 0, use?.Last));
         }
 
         return entries
@@ -133,17 +143,17 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
             .ToList();
     }
 
-    /// <summary>The workstream-scope persona entries, each with its non-comment continuation lines.</summary>
-    private IReadOnlyList<string> Conventions(string workstream)
-    {
-        var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
-        if (persona?.BlockOf(new PersonaScope(PersonaScopeKind.Workstream, workstream)) is not { } block)
-            return [];
+    /// <summary>The workstream-scope block of the persona; <c>null</c> when it has none.</summary>
+    private PersonaBlock? Conventions(string workstream) =>
+        PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona))?.BlockOf(new PersonaScope(PersonaScopeKind.Workstream, workstream));
 
-        return block.Entries
-            .SelectMany(item => new[] { "- " + item.Text }.Concat(item.ContinuationWithoutComments.Select(line => "  " + line.Trim())))
-            .ToList();
-    }
+    /// <summary>The conventions as the brief lists them: each entry with its non-comment continuation lines.</summary>
+    private static List<string> ConventionLines(PersonaBlock? block) =>
+        block is null
+            ? []
+            : block.Entries
+                .SelectMany(item => new[] { "- " + item.Text }.Concat(item.ContinuationWithoutComments.Select(line => "  " + line.Trim())))
+                .ToList();
 
     /// <summary>The non-blank lines of the "leftovers" section of each work page, in the page order.</summary>
     private static IReadOnlyList<OpenItem> OpenItems(IEnumerable<Entry> entries) =>
@@ -168,7 +178,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     };
 
     /// <summary>The latest week summary of a week in which the workstream had activity; null when none has one.</summary>
-    private string? LatestWeekSummary(IReadOnlyList<RecentFile.Activity> activities)
+    private Summary? LatestWeekSummary(IReadOnlyList<RecentFile.Activity> activities)
     {
         var weeks = activities.Select(activity => SummaryLines.WeekOf(activity.Day).Label).ToHashSet(StringComparer.Ordinal);
         Summary? latest = null;
@@ -183,7 +193,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
             }
         }
 
-        return latest?.Text;
+        return latest;
     }
 
     /// <summary>The brief as text. The page index keeps only the entries in <paramref name="shown"/>; <paramref name="omitted"/> says how many were left out.</summary>
@@ -195,8 +205,9 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
         if (parts.Recent is not null)
             header += "\nRecent: " + parts.Recent;
         var blocks = new List<string> { header };
-        if (parts.Conventions.Count > 0)
-            blocks.Add(Block("Conventions:", parts.Conventions));
+        var conventions = ConventionLines(parts.Conventions);
+        if (conventions.Count > 0)
+            blocks.Add(Block("Conventions:", conventions));
 
         if (parts.OpenItems.Count > 0)
         {
@@ -215,7 +226,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
                 $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} [{activity.Code}] {activity.Body}").ToList()));
 
         if (parts.Summary is not null)
-            blocks.Add(Block("Latest weekly summary:", ["- " + parts.Summary]));
+            blocks.Add(Block("Latest weekly summary:", ["- " + parts.Summary.Text]));
 
         return string.Join("\n\n", blocks);
     }

@@ -75,7 +75,7 @@ internal static class StatusReporter
         var shared = await SharedAsync(options, config, cancellationToken);
         return shared with
         {
-            Service = OfflineService(config.Language, config.Port, otherProgramAnswered),
+            Service = OfflineService(config.Language, config.Port, otherProgramAnswered, config.ExtraAddress),
             Models = OfflineModels(config.Language, config.Models),
         };
     }
@@ -92,24 +92,31 @@ internal static class StatusReporter
         return unconfigured.Count == 0 ? null : Models(language, unconfigured);
     }
 
-    /// <summary>The service column when nothing answers: not running, the endpoint it would listen on, and whether another program holds the port.</summary>
-    private static ServiceStatus OfflineService(MemoryLanguage language, int port, bool otherProgramAnswered)
+    /// <summary>
+    /// The service column when nothing answers: not running, the endpoint it would listen on, whether another program holds
+    /// the port, and the extra listener <c>server.host</c> names, said not to listen yet.
+    /// </summary>
+    private static ServiceStatus OfflineService(MemoryLanguage language, int port, bool otherProgramAnswered, System.Net.IPAddress? extra = null)
     {
         var endpoint = new Uri($"http://127.0.0.1:{port}/mcp");
         var line = otherProgramAnswered
             ? ManagementApiMessages.ServiceNotRunningOtherProgram.Format(language, port)
             : ManagementApiMessages.ServiceNotRunning.In(language);
         var web = WebAddress(endpoint);
+        var extraListener = extra is null ? null : new ExtraListenerStatus(ExtraListenerStatus.AddressOf(extra, port), null);
+        List<string> lines = [line, ManagementApiMessages.ServiceAddress.Format(language, endpoint), ManagementApiMessages.WebAddress.Format(language, web)];
+        if (extraListener is not null)
+            lines.Add(ManagementApiMessages.ExtraListenerNotRunning.Format(language, ManagementApiMessages.ExtraListenerName(extraListener.Address, language)));
         return new ServiceStatus(
             ManagementApiMessages.ServiceTitle.In(language),
-            [line, ManagementApiMessages.ServiceAddress.Format(language, endpoint), ManagementApiMessages.WebAddress.Format(language, web)],
+            lines,
             Running: false,
             Endpoint: endpoint,
             Version: null,
             UptimeSeconds: null,
             OtherProgramAnswered: otherProgramAnswered,
             WebAddress: web,
-            ExtraListener: null);
+            ExtraListener: extraListener);
     }
 
     /// <summary>

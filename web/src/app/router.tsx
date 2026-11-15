@@ -2,7 +2,13 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { LoginPage } from "../pages/login/LoginPage";
 import { LogsPage } from "../pages/logs/LogsPage";
-import { PlaceholderPage } from "../pages/PlaceholderPage";
+import { MemoryActivityPage } from "../pages/memory/MemoryActivityPage";
+import { MemoryPagePage } from "../pages/memory/MemoryPagePage";
+import { MemoryPagesPage } from "../pages/memory/MemoryPagesPage";
+import { MemoryPersonaPage } from "../pages/memory/MemoryPersonaPage";
+import { MemorySearchPage } from "../pages/memory/MemorySearchPage";
+import { MemoryWorkstreamsPage } from "../pages/memory/MemoryWorkstreamsPage";
+import { memoryPathOf } from "../pages/memory/views";
 import { DEFAULT_PROMPT, promptPathOf } from "../pages/prompts/names";
 import { PromptsPage } from "../pages/prompts/PromptsPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
@@ -27,7 +33,14 @@ export const router = createBrowserRouter(
             { path: "prompts/:name", Component: PromptsPage },
             { path: "logs", Component: LogsPage },
             { path: "logs/:date", Component: LogsPage },
-            { path: "memory", element: <PlaceholderPage section="memory" /> },
+            { path: "memory", element: <Navigate to={memoryPathOf("persona")} replace /> },
+            { path: "memory/persona", Component: MemoryPersonaPage },
+            { path: "memory/workstreams", Component: MemoryWorkstreamsPage },
+            { path: "memory/workstreams/:name", Component: MemoryWorkstreamsPage },
+            { path: "memory/pages", Component: MemoryPagesPage },
+            { path: "memory/pages/:workstream/:slug", Component: MemoryPagePage },
+            { path: "memory/activity", Component: MemoryActivityPage },
+            { path: "memory/search", Component: MemorySearchPage },
           ],
         },
         { path: "*", element: <Navigate to="/dashboard" replace /> },

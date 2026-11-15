@@ -36,6 +36,25 @@ internal sealed record JudgmentHit(string Kind, PersonaSection? Section, string 
 /// </summary>
 internal sealed record IndexFilter(string? Workstream, DateOnly? From, DateOnly? To, bool? Activities = null);
 
+/// <summary>A unit a search returned, with the score the search ordered it by: BM25 (lower is better) or cosine distance; <c>null</c> when the search had none.</summary>
+internal sealed record ScoredHit(IndexHit Hit, double? Score);
+
+/// <summary>How a full-text search matched the query.</summary>
+public enum FullTextMethod
+{
+    /// <summary>The query's words and character pairs matched through the full-text index, ranked by BM25.</summary>
+    Phrase,
+
+    /// <summary>The query held only single CJK characters, matched as substrings and ranked by date, with no score.</summary>
+    Substring,
+
+    /// <summary>The query held nothing to search for.</summary>
+    None,
+}
+
+/// <summary>The units a full-text search returned, best first, and how it matched.</summary>
+internal sealed record FullTextSearch(FullTextMethod Method, IReadOnlyList<ScoredHit> Hits);
+
 /// <summary>A unit that has no vector yet, with the text to embed.</summary>
 internal sealed record PendingUnit(long Id, string Text);
 
@@ -254,24 +273,29 @@ internal sealed class MemoryIndex : IDisposable
                 new { kind = SourceKinds.Page, workstream = except.Workstream, id = except.ToString() }) > 0;
     }
 
-    /// <summary>The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first.</summary>
-    public IReadOnlyList<IndexHit> Search(string query, IndexFilter filter, int limit)
+    /// <summary>
+    /// The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first, each with its BM25 value;
+    /// a query of single CJK characters falls back to substring matching, which has no score.
+    /// </summary>
+    public FullTextSearch Search(string query, IndexFilter filter, int limit)
     {
         var match = IndexText.ForQuery(query);
         lock (_gate)
         {
             if (match is not null)
             {
-                return _connection.Query<IndexHit>($"""
-                    SELECT {HitColumns}
+                var rows = _connection.Query<ScoredRow>($"""
+                    SELECT {HitColumns}, bm25(units_fts) AS Score
                     FROM units_fts JOIN units u ON u.id = units_fts.rowid
                     WHERE units_fts MATCH @match AND {Filters}
                     ORDER BY bm25(units_fts) LIMIT @limit
-                    """, Parameters(filter, limit, new { match })).ToList();
+                    """, Parameters(filter, limit, new { match }));
+                return new FullTextSearch(FullTextMethod.Phrase, rows.Select(row => row.ToHit()).ToList());
             }
 
+            var characters = IndexText.SingleCharacters(query);
             var hits = new List<IndexHit>();
-            foreach (var character in IndexText.SingleCharacters(query))
+            foreach (var character in characters)
             {
                 hits.AddRange(_connection.Query<IndexHit>($"""
                     SELECT {HitColumns}
@@ -281,26 +305,27 @@ internal sealed class MemoryIndex : IDisposable
                     """, Parameters(filter, limit, new { character })));
             }
 
-            return hits.Distinct().Take(limit).ToList();
+            var method = characters.Count == 0 ? FullTextMethod.None : FullTextMethod.Substring;
+            return new FullTextSearch(method, hits.Distinct().Take(limit).Select(hit => new ScoredHit(hit, null)).ToList());
         }
     }
 
     /// <summary>
-    /// The <paramref name="limit"/> units nearest to <paramref name="vector"/> by cosine distance, best first; empty
-    /// when no vectors of that length are stored.
+    /// The <paramref name="limit"/> units nearest to <paramref name="vector"/> by cosine distance, best first, each with its
+    /// distance; empty when no vectors of that length are stored.
     /// </summary>
-    public IReadOnlyList<IndexHit> SearchVector(float[] vector, IndexFilter filter, int limit)
+    public IReadOnlyList<ScoredHit> SearchVector(float[] vector, IndexFilter filter, int limit)
     {
         lock (_gate)
         {
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
-            return _connection.Query<IndexHit>($"""
-                SELECT {HitColumns}
+            return _connection.Query<ScoredRow>($"""
+                SELECT {HitColumns}, vec_distance_cosine(v.embedding, @vector) AS Score
                 FROM units_vec v JOIN units u ON u.id = v.rowid
                 WHERE {Filters}
                 ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
-                """, Parameters(filter, limit, new { vector = Blob(vector) })).ToList();
+                """, Parameters(filter, limit, new { vector = Blob(vector) })).Select(row => row.ToHit()).ToList();
         }
     }
 
@@ -455,6 +480,17 @@ internal sealed class MemoryIndex : IDisposable
                 dates[row.Section] = DateOnly.ParseExact(row.Changed, "yyyy-MM-dd", CultureInfo.InvariantCulture);
             return dates;
         }
+    }
+
+    /// <summary>How often <c>recall</c> has returned each section of a page, by section name; empty when the page is not indexed.</summary>
+    public IReadOnlyDictionary<string, long> SectionReturns(PageId id)
+    {
+        lock (_gate)
+            return _connection.Query<(string Section, long Returns)>(
+                "SELECT section AS Section, returns AS Returns FROM units WHERE source_id = @source AND kind = @kind",
+                new { source = id.ToString(), kind = UnitKinds.Section })
+                .GroupBy(row => row.Section, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Sum(row => row.Returns), StringComparer.Ordinal);
     }
 
     /// <summary>Counts one return of each of the units, and records today as their last return.</summary>
@@ -637,6 +673,25 @@ internal sealed class MemoryIndex : IDisposable
     };
 
     /// <summary>A unit's usage counts as <see cref="UsageStates"/> reads them.</summary>
+    /// <summary>
+    /// A search row: the hit's columns and the score the search ordered by. Mapped by property, because SQLite reports no type
+    /// for a computed column of an empty result, so no constructor would match.
+    /// </summary>
+    private sealed class ScoredRow
+    {
+        public long Id { get; init; }
+        public string Source { get; init; } = "";
+        public string Kind { get; init; } = "";
+        public string? Section { get; init; }
+        public string Text { get; init; } = "";
+        public string Workstream { get; init; } = "";
+        public string? Date { get; init; }
+        public string? Code { get; init; }
+        public double Score { get; init; }
+
+        public ScoredHit ToHit() => new(new IndexHit(Id, Source, Kind, Section, Text, Workstream, Date, Code), Score);
+    }
+
     private sealed record UsageState(long Returns, string? Returned);
 
     /// <summary>A unit's identity and usage counts, as <see cref="UsageStates"/> reads them.</summary>

@@ -45,8 +45,8 @@ public static class ManagementApiJson
 
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
-/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path;
-/// other errors leave the field out.
+/// memory language, ready to show as it is. A config that does not validate, and a recall trace with bad parameters, also
+/// list every problem with its key path or parameter name; other errors leave the field out.
 /// </summary>
 public sealed record ApiError(
     string Error,
@@ -239,6 +239,63 @@ internal static class ManagementApi
         })
             .Produces<ProbeReport>()
             .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapPost("/recall/trace", async (HttpContext context) =>
+        {
+            var body = await ReadBody<RecallTraceRequest>(context, service);
+            return Json(await service.TraceRecallAsync(body, context.RequestAborted));
+        })
+            .Accepts<RecallTraceRequest>("application/json")
+            .Produces<RecallTraceReport>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status415UnsupportedMediaType);
+        api.MapGet("/memory/persona", async (HttpContext context) =>
+        {
+            var report = await service.PersonaAsync(context.RequestAborted);
+            return Json(report);
+        })
+            .Produces<PersonaReport>()
+            .ProducesErrors();
+        api.MapGet("/memory/workstreams", async (HttpContext context) =>
+        {
+            var list = await service.WorkstreamsAsync(context.RequestAborted);
+            return Json(list);
+        })
+            .Produces<WorkstreamList>()
+            .ProducesErrors();
+        api.MapGet("/memory/workstreams/{name}", async (string name, HttpContext context) =>
+        {
+            var brief = await service.WorkstreamBriefAsync(name, context.RequestAborted);
+            return Json(brief);
+        })
+            .Produces<WorkstreamBriefView>()
+            .ProducesErrors(StatusCodes.Status404NotFound);
+        api.MapGet("/memory/activity", async (HttpContext context) =>
+        {
+            var months = await service.ActivityMonthsAsync(context.RequestAborted);
+            return Json(months);
+        })
+            .Produces<ActivityMonths>()
+            .ProducesErrors();
+        api.MapGet("/memory/activity/{month}", async (string month, HttpContext context) =>
+        {
+            var view = await service.ActivityMonthAsync(month, context.RequestAborted);
+            return Json(view);
+        })
+            .Produces<ActivityMonthView>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
+        api.MapGet("/memory/pages", async (HttpContext context) =>
+        {
+            var list = await service.PagesAsync(context.RequestAborted);
+            return Json(list);
+        })
+            .Produces<PageList>()
+            .ProducesErrors();
+        api.MapGet("/memory/pages/{workstream}/{slug}", async (string workstream, string slug, HttpContext context) =>
+        {
+            var page = await service.PageAsync(workstream, slug, context.RequestAborted);
+            return Json(page);
+        })
+            .Produces<PageView>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/config", () => Json(service.ConfigView()))
             .Produces<ConfigView>()
             .ProducesErrors(StatusCodes.Status409Conflict);
@@ -527,7 +584,7 @@ internal static class ManagementApi
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
         TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown
-            or TacitError.LogDateNotFound => StatusCodes.Status404NotFound,
+            or TacitError.LogDateNotFound or TacitError.MemoryNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

@@ -752,6 +752,576 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recall/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecallTraceRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecallTraceReport"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/persona": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PersonaReport"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/workstreams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkstreamList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/workstreams/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkstreamBriefView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityMonths"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/activity/{month}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    month: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityMonthView"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/pages/{workstream}/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workstream: string;
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageView"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config": {
         parameters: {
             query?: never;
@@ -1863,6 +2433,26 @@ export interface components {
             /** Format: int32 */
             unlabeled: number;
         };
+        ActivityDayView: {
+            date: string;
+            activities: components["schemas"]["ActivityItemView"][];
+        };
+        ActivityItemView: {
+            code: string;
+            workstream: null | string;
+            text: string;
+            continuation: string[];
+        };
+        ActivityMonths: {
+            months: string[];
+            current: string;
+        };
+        ActivityMonthView: {
+            month: string;
+            file: components["schemas"]["MemoryFileInfo"];
+            days: components["schemas"]["ActivityDayView"][];
+            summaries: components["schemas"]["ActivitySummaryView"][];
+        };
         ActivityReport: {
             /** Format: date */
             from: string;
@@ -1872,6 +2462,13 @@ export interface components {
             consolidationDays: string[];
             skippedFiles: string[];
             historyUnreadable: boolean;
+        };
+        ActivitySummaryView: {
+            kind: string;
+            label: string;
+            first: string;
+            last: string;
+            text: string;
         };
         ApiError: {
             error: string;
@@ -1932,6 +2529,41 @@ export interface components {
             title: string;
             lines: string[];
             items: components["schemas"]["BindingCheck"][];
+        };
+        BriefActivity: {
+            date: string;
+            code: string;
+            text: string;
+        };
+        BriefPage: {
+            id: string;
+            title: string;
+            aliases: string[];
+            changed: null | string;
+            /** Format: int64 */
+            uses: number;
+            lastUse: null | string;
+        };
+        BriefPageGroup: {
+            type: null | string;
+            pages: components["schemas"]["BriefPage"][];
+        };
+        BriefSummary: {
+            label: string;
+            first: string;
+            last: string;
+            text: string;
+        };
+        CandidateOccurrenceView: {
+            date: string;
+            quote: string;
+            rejected: boolean;
+        };
+        CandidateView: {
+            title: string;
+            section: components["schemas"]["PersonaSection"];
+            scope: string;
+            occurrences: components["schemas"]["CandidateOccurrenceView"][];
         };
         ClientsStatus: {
             title: string;
@@ -2038,6 +2670,15 @@ export interface components {
             address: string;
             failureReason: null | string;
         };
+        FileProblem: {
+            /** Format: int32 */
+            line: null | number;
+            location: string;
+            kind: string;
+            description: string;
+        };
+        /** @enum {unknown} */
+        FullTextMethod: "phrase" | "substring" | "none";
         LimitsFile: {
             /** Format: int32 */
             brief?: null | number;
@@ -2072,6 +2713,10 @@ export interface components {
         MemoryFile: {
             path?: null | string;
         };
+        MemoryFileInfo: {
+            path: string;
+            problems: components["schemas"]["FileProblem"][];
+        };
         /** @enum {unknown} */
         MemoryLanguage: "zh" | "en";
         ModelFile: {
@@ -2100,9 +2745,50 @@ export interface components {
             /** Format: int32 */
             coolingSeconds: null | number;
         };
+        OpenItemView: {
+            page: string;
+            lines: string[];
+        };
         PageLimitsFile: {
             /** Format: int32 */
             minAliases?: null | number;
+        };
+        PageList: {
+            pages: components["schemas"]["PageListItem"][];
+        };
+        PageListItem: {
+            id: string;
+            workstream: string;
+            title: string;
+            aliases: string[];
+            type: null | string;
+            first: null | string;
+            last: null | string;
+            changed: null | string;
+            /** Format: int64 */
+            uses: number;
+        };
+        PageSectionView: {
+            name: string;
+            code: string;
+            changed: null | string;
+            /** Format: int64 */
+            uses: number;
+            body: string;
+        };
+        PageView: {
+            id: string;
+            workstream: string;
+            title: string;
+            aliases: string[];
+            type: null | string;
+            first: null | string;
+            last: null | string;
+            related: components["schemas"]["RelatedPage"][];
+            file: components["schemas"]["MemoryFileInfo"];
+            /** Format: int64 */
+            uses: number;
+            sections: components["schemas"]["PageSectionView"][];
         };
         PasswordBody: {
             password: string;
@@ -2117,6 +2803,36 @@ export interface components {
             workstreamEmpty: null | boolean;
             /** Format: int32 */
             unsummarizedWeeks?: null | number;
+        };
+        PersonaBlockView: {
+            name: string;
+            /** Format: int32 */
+            line: number;
+            trigger: null | string;
+            sections: components["schemas"]["PersonaSectionView"][];
+        };
+        PersonaEntryView: {
+            /** Format: int32 */
+            line: number;
+            code: null | string;
+            text: string;
+            continuation: string[];
+        };
+        PersonaReport: {
+            personaFile: components["schemas"]["MemoryFileInfo"];
+            global: components["schemas"]["PersonaSectionView"][];
+            domains: components["schemas"]["PersonaBlockView"][];
+            workstreams: components["schemas"]["PersonaBlockView"][];
+            candidatesFile: components["schemas"]["MemoryFileInfo"];
+            candidates: components["schemas"]["CandidateView"][];
+            rejectionList: components["schemas"]["CandidateView"][];
+        };
+        /** @enum {unknown} */
+        PersonaSection: "redLines" | "workingRules" | "preferences" | "profile" | null;
+        PersonaSectionView: {
+            section: null | components["schemas"]["PersonaSection"];
+            heading: null | string;
+            entries: components["schemas"]["PersonaEntryView"][];
         };
         PreviewLine: {
             text: string;
@@ -2198,6 +2914,30 @@ export interface components {
             lines: string[];
             items: components["schemas"]["PromptProblem"][];
         };
+        RecallTraceReport: {
+            settings: components["schemas"]["TraceSettings"];
+            fullText: components["schemas"]["FullTextMethod"];
+            embedding: components["schemas"]["TraceModel"];
+            reranker: components["schemas"]["TraceModel"];
+            counts: components["schemas"]["TraceCounts"];
+            results: components["schemas"]["TraceResult"][];
+            text: string;
+            notes: string[];
+            units: components["schemas"]["TraceUnit"][];
+        };
+        RecallTraceRequest: {
+            query: null | string;
+            workstream?: null | string;
+            from?: null | string;
+            to?: null | string;
+            kind?: null | string;
+            /** Format: double */
+            minRerankScore?: null | number;
+            /** Format: int32 */
+            topK?: null | number;
+            /** Format: int32 */
+            candidates?: null | number;
+        };
         ReindexResult: {
             /** Format: int32 */
             files: number;
@@ -2210,6 +2950,10 @@ export interface components {
             /** Format: int64 */
             elapsedMilliseconds: number;
             report: string;
+        };
+        RelatedPage: {
+            id: string;
+            exists: boolean;
         };
         RestartChange: {
             path: string;
@@ -2337,15 +3081,113 @@ export interface components {
             /** Format: double */
             unlikely: null | number;
         };
+        TraceCounts: {
+            /** Format: int32 */
+            fullText: number;
+            /** Format: int32 */
+            vector: number;
+            /** Format: int32 */
+            fused: number;
+            /** Format: int32 */
+            reranked: number;
+            /** Format: int32 */
+            passed: number;
+            /** Format: int32 */
+            results: number;
+        };
+        TraceModel: {
+            configured: boolean;
+            answered: boolean;
+            coolingDown: boolean;
+            /** Format: double */
+            milliseconds: null | number;
+        };
+        TraceResult: {
+            /** Format: int32 */
+            number: number;
+            kind: string;
+            page: null | string;
+            title: null | string;
+            date: null | string;
+            code: null | string;
+            period: null | string;
+            workstream: string;
+            sections: string[];
+            text: null | string;
+        };
+        TraceSetting: {
+            /** Format: double */
+            value: number;
+            /** Format: double */
+            configured: number;
+        };
+        TraceSettings: {
+            minRerankScore: components["schemas"]["TraceSetting"];
+            topK: components["schemas"]["TraceSetting"];
+            candidates: components["schemas"]["TraceSetting"];
+        };
+        TraceUnit: {
+            kind: string;
+            source: string;
+            section: null | string;
+            code: null | string;
+            date: null | string;
+            workstream: string;
+            text: string;
+            /** Format: int32 */
+            fullTextRank: null | number;
+            /** Format: double */
+            bm25: null | number;
+            /** Format: int32 */
+            vectorRank: null | number;
+            /** Format: double */
+            distance: null | number;
+            /** Format: double */
+            rrf: number;
+            /** Format: int32 */
+            fusedRank: number;
+            /** Format: double */
+            rerankScore: null | number;
+            fate: components["schemas"]["UnitFate"];
+            /** Format: int32 */
+            result: null | number;
+        };
+        /** @enum {unknown} */
+        UnitFate: "shown" | "beyondTopK" | "belowThreshold" | "beyondCandidates" | "unreadable";
         WebDavFile: {
             url: null | string;
             username: null | string;
             password: null | string;
         };
+        WorkstreamBriefView: {
+            name: string;
+            established: boolean;
+            background: null | string;
+            recent: null | string;
+            conventions: components["schemas"]["PersonaSectionView"][];
+            openItems: components["schemas"]["OpenItemView"][];
+            groups: components["schemas"]["BriefPageGroup"][];
+            overturned: string[];
+            activities: components["schemas"]["BriefActivity"][];
+            summary: null | components["schemas"]["BriefSummary"];
+        };
         WorkstreamCount: {
             workstream: string;
             /** Format: int32 */
             count: number;
+        };
+        WorkstreamList: {
+            established: components["schemas"]["WorkstreamListItem"][];
+            unestablished: components["schemas"]["WorkstreamListItem"][];
+            file: components["schemas"]["MemoryFileInfo"];
+        };
+        WorkstreamListItem: {
+            name: string;
+            background: null | string;
+            recent: null | string;
+            /** Format: int32 */
+            pages: number;
+            lastActivity: null | string;
         };
     };
     responses: never;

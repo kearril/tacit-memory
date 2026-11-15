@@ -57,7 +57,7 @@ internal static partial class ConfigWriter
         retrieval.Add("topK", Unless(file.Retrieval.TopK, ConfigDefaults.TopK));
         retrieval.Add(
             "minRerankScore",
-            file.Retrieval.MinRerankScore == RecallTool.DefaultMinRerankScore ? null : Number(file.Retrieval.MinRerankScore));
+            file.Retrieval.MinRerankScore == RecallPipeline.DefaultMinRerankScore ? null : Number(file.Retrieval.MinRerankScore));
 
         var backup = root.Section("backup");
         backup.Add("keep", Unless(file.Backup.Keep, ConfigDefaults.Keep));

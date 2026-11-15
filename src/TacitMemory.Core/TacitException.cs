@@ -99,6 +99,9 @@ public enum TacitError
     /// <summary>A day the service log has no file for, other than today.</summary>
     LogDateNotFound,
 
+    /// <summary>A page, workstream or month of the activity log that the memory has nothing for.</summary>
+    MemoryNotFound,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 
@@ -129,7 +132,7 @@ public enum TacitError
     /// <summary>Too many wrong passwords came from this address; logins from it wait until the pause ends.</summary>
     LoginLimited,
 
-    /// <summary>The access password cannot be cleared while <c>server.host</c> names an extra listening address.</summary>
+    /// <summary>The access password cannot be cleared while <c>server.host</c> names an extra listener.</summary>
     PasswordClearRefused,
 
     /// <summary>The access password can only be cleared from this machine.</summary>

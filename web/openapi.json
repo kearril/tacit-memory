@@ -705,6 +705,516 @@
         }
       }
     },
+    "/api/recall/trace": {
+      "post": {
+        "tags": [
+          "management"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallTraceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallTraceReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/persona": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/workstreams": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkstreamList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/workstreams/{name}": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkstreamBriefView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/activity": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityMonths"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/activity/{month}": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityMonthView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/pages": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/pages/{workstream}/{slug}": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "parameters": [
+          {
+            "name": "workstream",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/config": {
       "get": {
         "tags": [
@@ -1964,6 +2474,100 @@
           }
         }
       },
+      "ActivityDayView": {
+        "required": [
+          "date",
+          "activities"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "activities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityItemView"
+            }
+          }
+        }
+      },
+      "ActivityItemView": {
+        "required": [
+          "code",
+          "workstream",
+          "text",
+          "continuation"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "workstream": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "continuation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ActivityMonths": {
+        "required": [
+          "months",
+          "current"
+        ],
+        "type": "object",
+        "properties": {
+          "months": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "current": {
+            "type": "string"
+          }
+        }
+      },
+      "ActivityMonthView": {
+        "required": [
+          "month",
+          "file",
+          "days",
+          "summaries"
+        ],
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string"
+          },
+          "file": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityDayView"
+            }
+          },
+          "summaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivitySummaryView"
+            }
+          }
+        }
+      },
       "ActivityReport": {
         "required": [
           "from",
@@ -2004,6 +2608,33 @@
           },
           "historyUnreadable": {
             "type": "boolean"
+          }
+        }
+      },
+      "ActivitySummaryView": {
+        "required": [
+          "kind",
+          "label",
+          "first",
+          "last",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },
@@ -2298,6 +2929,155 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/BindingCheck"
+            }
+          }
+        }
+      },
+      "BriefActivity": {
+        "required": [
+          "date",
+          "code",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "BriefPage": {
+        "required": [
+          "id",
+          "title",
+          "aliases",
+          "changed",
+          "uses",
+          "lastUse"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "changed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastUse": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BriefPageGroup": {
+        "required": [
+          "type",
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefPage"
+            }
+          }
+        }
+      },
+      "BriefSummary": {
+        "required": [
+          "label",
+          "first",
+          "last",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "CandidateOccurrenceView": {
+        "required": [
+          "date",
+          "quote",
+          "rejected"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "rejected": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CandidateView": {
+        "required": [
+          "title",
+          "section",
+          "scope",
+          "occurrences"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "section": {
+            "$ref": "#/components/schemas/PersonaSection"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateOccurrenceView"
             }
           }
         }
@@ -2750,6 +3530,40 @@
           }
         }
       },
+      "FileProblem": {
+        "required": [
+          "line",
+          "location",
+          "kind",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "location": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "FullTextMethod": {
+        "enum": [
+          "phrase",
+          "substring",
+          "none"
+        ]
+      },
       "LimitsFile": {
         "type": "object",
         "properties": {
@@ -2874,6 +3688,24 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "MemoryFileInfo": {
+        "required": [
+          "path",
+          "problems"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileProblem"
+            }
           }
         }
       },
@@ -3015,6 +3847,24 @@
           }
         }
       },
+      "OpenItemView": {
+        "required": [
+          "page",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "PageLimitsFile": {
         "type": "object",
         "properties": {
@@ -3024,6 +3874,180 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "PageList": {
+        "required": [
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageListItem"
+            }
+          }
+        }
+      },
+      "PageListItem": {
+        "required": [
+          "id",
+          "workstream",
+          "title",
+          "aliases",
+          "type",
+          "first",
+          "last",
+          "changed",
+          "uses"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "first": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "changed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PageSectionView": {
+        "required": [
+          "name",
+          "code",
+          "changed",
+          "uses",
+          "body"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "changed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "PageView": {
+        "required": [
+          "id",
+          "workstream",
+          "title",
+          "aliases",
+          "type",
+          "first",
+          "last",
+          "related",
+          "file",
+          "uses",
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "first": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelatedPage"
+            }
+          },
+          "file": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageSectionView"
+            }
           }
         }
       },
@@ -3083,6 +4107,157 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "PersonaBlockView": {
+        "required": [
+          "name",
+          "line",
+          "trigger",
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trigger": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaSectionView"
+            }
+          }
+        }
+      },
+      "PersonaEntryView": {
+        "required": [
+          "line",
+          "code",
+          "text",
+          "continuation"
+        ],
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "continuation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PersonaReport": {
+        "required": [
+          "personaFile",
+          "global",
+          "domains",
+          "workstreams",
+          "candidatesFile",
+          "candidates",
+          "rejectionList"
+        ],
+        "type": "object",
+        "properties": {
+          "personaFile": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "global": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaSectionView"
+            }
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaBlockView"
+            }
+          },
+          "workstreams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaBlockView"
+            }
+          },
+          "candidatesFile": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            }
+          },
+          "rejectionList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            }
+          }
+        }
+      },
+      "PersonaSection": {
+        "enum": [
+          "redLines",
+          "workingRules",
+          "preferences",
+          "profile",
+          null
+        ]
+      },
+      "PersonaSectionView": {
+        "required": [
+          "section",
+          "heading",
+          "entries"
+        ],
+        "type": "object",
+        "properties": {
+          "section": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonaSection"
+              }
+            ]
+          },
+          "heading": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaEntryView"
+            }
           }
         }
       },
@@ -3427,6 +4602,117 @@
           }
         }
       },
+      "RecallTraceReport": {
+        "required": [
+          "settings",
+          "fullText",
+          "embedding",
+          "reranker",
+          "counts",
+          "results",
+          "text",
+          "notes",
+          "units"
+        ],
+        "type": "object",
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/TraceSettings"
+          },
+          "fullText": {
+            "$ref": "#/components/schemas/FullTextMethod"
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/TraceModel"
+          },
+          "reranker": {
+            "$ref": "#/components/schemas/TraceModel"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/TraceCounts"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceResult"
+            }
+          },
+          "text": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceUnit"
+            }
+          }
+        }
+      },
+      "RecallTraceRequest": {
+        "required": [
+          "query"
+        ],
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workstream": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minRerankScore": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "topK": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "candidates": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "ReindexResult": {
         "required": [
           "files",
@@ -3466,6 +4752,21 @@
           },
           "report": {
             "type": "string"
+          }
+        }
+      },
+      "RelatedPage": {
+        "required": [
+          "id",
+          "exists"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
           }
         }
       },
@@ -4053,6 +5354,290 @@
           }
         }
       },
+      "TraceCounts": {
+        "required": [
+          "fullText",
+          "vector",
+          "fused",
+          "reranked",
+          "passed",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "fullText": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vector": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fused": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reranked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "results": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TraceModel": {
+        "required": [
+          "configured",
+          "answered",
+          "coolingDown",
+          "milliseconds"
+        ],
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "answered": {
+            "type": "boolean"
+          },
+          "coolingDown": {
+            "type": "boolean"
+          },
+          "milliseconds": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "TraceResult": {
+        "required": [
+          "number",
+          "kind",
+          "page",
+          "title",
+          "date",
+          "code",
+          "period",
+          "workstream",
+          "sections",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "page": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "period": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TraceSetting": {
+        "required": [
+          "value",
+          "configured"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "configured": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "TraceSettings": {
+        "required": [
+          "minRerankScore",
+          "topK",
+          "candidates"
+        ],
+        "type": "object",
+        "properties": {
+          "minRerankScore": {
+            "$ref": "#/components/schemas/TraceSetting"
+          },
+          "topK": {
+            "$ref": "#/components/schemas/TraceSetting"
+          },
+          "candidates": {
+            "$ref": "#/components/schemas/TraceSetting"
+          }
+        }
+      },
+      "TraceUnit": {
+        "required": [
+          "kind",
+          "source",
+          "section",
+          "code",
+          "date",
+          "workstream",
+          "text",
+          "fullTextRank",
+          "bm25",
+          "vectorRank",
+          "distance",
+          "rrf",
+          "fusedRank",
+          "rerankScore",
+          "fate",
+          "result"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "fullTextRank": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "bm25": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "vectorRank": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "distance": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "rrf": {
+            "type": "number",
+            "format": "double"
+          },
+          "fusedRank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rerankScore": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "fate": {
+            "$ref": "#/components/schemas/UnitFate"
+          },
+          "result": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "UnitFate": {
+        "enum": [
+          "shown",
+          "beyondTopK",
+          "belowThreshold",
+          "beyondCandidates",
+          "unreadable"
+        ]
+      },
       "WebDavFile": {
         "required": [
           "url",
@@ -4081,6 +5666,81 @@
           }
         }
       },
+      "WorkstreamBriefView": {
+        "required": [
+          "name",
+          "established",
+          "background",
+          "recent",
+          "conventions",
+          "openItems",
+          "groups",
+          "overturned",
+          "activities",
+          "summary"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "established": {
+            "type": "boolean"
+          },
+          "background": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recent": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "conventions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaSectionView"
+            }
+          },
+          "openItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpenItemView"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefPageGroup"
+            }
+          },
+          "overturned": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "activities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefActivity"
+            }
+          },
+          "summary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BriefSummary"
+              }
+            ]
+          }
+        }
+      },
       "WorkstreamCount": {
         "required": [
           "workstream",
@@ -4094,6 +5754,68 @@
           "count": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "WorkstreamList": {
+        "required": [
+          "established",
+          "unestablished",
+          "file"
+        ],
+        "type": "object",
+        "properties": {
+          "established": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkstreamListItem"
+            }
+          },
+          "unestablished": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkstreamListItem"
+            }
+          },
+          "file": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          }
+        }
+      },
+      "WorkstreamListItem": {
+        "required": [
+          "name",
+          "background",
+          "recent",
+          "pages",
+          "lastActivity"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "background": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recent": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastActivity": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }

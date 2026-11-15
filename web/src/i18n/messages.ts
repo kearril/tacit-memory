@@ -3,6 +3,8 @@ import type { ServiceLogLevel } from "../api/logs";
 import type { BindingProblem } from "../api/status";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
+import type { FullTextMethod } from "../api/memory";
+import type { MemoryView } from "../pages/memory/views";
 import type { Duration } from "../pages/dashboard/format";
 import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
 import { en } from "./en";
@@ -28,7 +30,6 @@ export interface Dictionary {
     readonly logs: string;
     readonly memory: string;
   };
-  readonly notImplemented: string;
   readonly unreachable: string;
   readonly unexpectedAnswer: string;
   readonly menuOpen: string;
@@ -359,6 +360,7 @@ export interface Dictionary {
       readonly extraListener: string;
       readonly listening: string;
       readonly listenFailed: string;
+      readonly serviceNotRunning: string;
       readonly noExtraListener: string;
     };
     readonly backups: {
@@ -473,6 +475,184 @@ export interface Dictionary {
       readonly noWorkstream: string;
       readonly skipped: (files: string) => string;
       readonly historyUnreadable: string;
+    };
+  };
+  readonly memory: {
+    /** The five views under 记忆 in the sidebar, by their address segment. */
+    readonly views: Readonly<Record<MemoryView, string>>;
+    readonly viewsNav: string;
+    readonly search: {
+      readonly queryLabel: string;
+      readonly workstreamLabel: string;
+      readonly workstreamAll: string;
+      readonly fromLabel: string;
+      readonly toLabel: string;
+      readonly kindLabel: string;
+      readonly kinds: { readonly all: string; readonly pages: string; readonly activities: string };
+      readonly run: string;
+      readonly idle: string;
+      readonly failed: string;
+      readonly resultsTitle: (count: number) => string;
+      readonly noResults: string;
+      readonly unitsTitle: string;
+      readonly columns: { readonly fullText: string; readonly vector: string; readonly reranker: string };
+      readonly fates: {
+        readonly shown: string;
+        readonly beyondTopK: string;
+        readonly belowThreshold: (score: string) => string;
+        readonly beyondCandidates: (candidates: number) => string;
+      };
+      readonly shownSummary: (units: number, results: number) => string;
+      readonly unitCount: (count: number) => string;
+      readonly notReranked: string;
+      readonly share: (percent: number) => string;
+      readonly none: string;
+      /** How a unit or result is named: a page's title and aliases are its clue. */
+      readonly unitKinds: {
+        readonly clue: string;
+        readonly activity: string;
+        readonly summary: string;
+        readonly week: string;
+        readonly month: string;
+      };
+      readonly fullTextMethods: Readonly<Record<FullTextMethod, string>>;
+      readonly timing: (method: string, embedding: string | null, reranker: string | null) => string;
+      /** The three retrieval values a trace may replace for itself alone. */
+      readonly overrides: {
+        readonly title: string;
+        readonly help: string;
+        readonly labels: { readonly minRerankScore: string; readonly topK: string; readonly candidates: string };
+        readonly differs: string;
+        readonly configured: (value: string) => string;
+      };
+      /**
+       * A configured model that did not answer: why, in the interface language (`cooling` says it was skipped); the
+       * notes themselves are `recall`'s own, shown as the agent receives them.
+       */
+      readonly degraded: {
+        readonly title: string;
+        readonly embedding: (cooling: boolean) => string;
+        readonly reranker: (cooling: boolean) => string;
+        readonly notes: string;
+      };
+      /** The two ways to show the results: as cards, or as the text the agent receives. */
+      readonly view: { readonly label: string; readonly cards: string; readonly raw: string };
+      readonly unfold: (count: number) => string;
+    };
+    /** The small parts the memory views share. */
+    readonly parts: {
+      /** What a copied short code is called, in the copy button's label and its toast. */
+      readonly code: (code: string) => string;
+      /** What a copied file path is called. */
+      readonly path: string;
+      readonly quote: (words: string) => string;
+      readonly pageTypes: {
+        readonly incident: string;
+        readonly decision: string;
+        readonly entity: string;
+        readonly work: string;
+      };
+      readonly untyped: string;
+      /** What the topic pages' workstream is called. */
+      readonly topics: string;
+      readonly uses: (count: number) => string;
+      readonly changed: (day: string) => string;
+      readonly problemsTitle: (count: number) => string;
+    };
+    readonly pages: {
+      readonly keyword: string;
+      readonly keywordPlaceholder: string;
+      readonly workstream: string;
+      readonly workstreamAll: string;
+      readonly type: string;
+      readonly typeAll: string;
+      readonly failed: string;
+      readonly noPages: string;
+      readonly noMatch: string;
+      readonly count: (count: number) => string;
+      /** The trail from the list to the page, for screen readers. */
+      readonly trail: string;
+      readonly notFound: string;
+      readonly contents: string;
+      readonly noSections: string;
+      readonly emptySection: string;
+      readonly dates: (first: string, last: string) => string;
+      readonly related: string;
+      readonly missing: string;
+    };
+    readonly workstreams: {
+      readonly failed: string;
+      readonly listLabel: string;
+      readonly established: string;
+      readonly unestablished: string;
+      readonly unestablishedHint: string;
+      readonly none: string;
+      readonly pages: (count: number) => string;
+      readonly lastActivity: (day: string) => string;
+      /** The mini activity bar's label, for screen readers and the tooltip. */
+      readonly weeks: (count: number) => string;
+      readonly week: (monday: string, count: number) => string;
+      readonly pick: string;
+      readonly back: string;
+      readonly notFound: string;
+      readonly briefFailed: string;
+      readonly background: string;
+      readonly recent: string;
+      readonly notEstablished: string;
+      readonly conventions: string;
+      readonly openItems: string;
+      readonly directory: string;
+      readonly overturned: string;
+      readonly activities: string;
+      readonly summary: (label: string) => string;
+      readonly viewAll: string;
+      readonly empty: string;
+      readonly lastUse: (day: string) => string;
+    };
+    readonly activity: {
+      readonly failed: string;
+      readonly notFound: string;
+      readonly month: string;
+      readonly previous: string;
+      readonly next: string;
+      readonly workstream: string;
+      readonly workstreamAll: string;
+      readonly calendar: string;
+      /** The weekdays from Monday, as the mini calendar heads its columns. */
+      readonly weekdays: readonly string[];
+      readonly day: (date: string, count: number) => string;
+      readonly timeline: string;
+      readonly empty: string;
+      readonly noMatch: string;
+      readonly count: (count: number) => string;
+      readonly weekSummary: (label: string) => string;
+      readonly monthSummary: (label: string) => string;
+      readonly showQuote: string;
+      readonly hideQuote: string;
+    };
+    readonly persona: {
+      readonly failed: string;
+      readonly globalTitle: string;
+      readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;
+      /** A section whose heading is not one of the four; `null` for text before the first heading. */
+      readonly otherSection: (heading: string | null) => string;
+      readonly beforeHeadings: string;
+      readonly count: (count: number) => string;
+      readonly empty: string;
+      readonly notEntry: string;
+      readonly domainTitle: (name: string) => string;
+      readonly workstreamTitle: (name: string) => string;
+      readonly trigger: (trigger: string) => string;
+      readonly noTrigger: string;
+      readonly candidatesTitle: string;
+      readonly candidateCount: (count: number) => string;
+      readonly noCandidates: string;
+      readonly rejectedTitle: (count: number) => string;
+      readonly noRejected: string;
+      readonly rejectedMark: string;
+      readonly days: (count: number) => string;
+      readonly quote: (words: string) => string;
+      readonly scopeGlobal: string;
     };
   };
 }

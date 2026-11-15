@@ -19,6 +19,15 @@ export interface HeatDay {
 /** A shade of the heatmap: 0 is an empty cell, 1 to 4 ever more activities. */
 export type HeatLevel = 0 | 1 | 2 | 3 | 4;
 
+/** The background class of each shade, for every place that shades by the heatmap's colours. */
+export const HEAT_LEVEL_CLASS: Readonly<Record<HeatLevel, string>> = {
+  0: "bg-heat-0",
+  1: "bg-heat-1",
+  2: "bg-heat-2",
+  3: "bg-heat-3",
+  4: "bg-heat-4",
+};
+
 const MS_PER_DAY = 86_400_000;
 
 /** The day count since the epoch of a `yyyy-MM-dd` date, read as a calendar date with no time zone. */

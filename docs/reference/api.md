@@ -75,7 +75,7 @@
 
 校验配置或提示词文档不通过时返回 400，错误体的 `problems` 逐条给出出错位置与说明（`{path, message}`，配置为键路径，如 `retrieval.topK`），一次给出全部问题，供界面标到对应字段。
 
-每次调用记一条日志（方法、路径、状态码、耗时），不含请求体与密钥。
+调用记一条日志（方法、路径、状态码、耗时），不含请求体与密钥；成功的读取不记：成功的 `GET` 与成功的 `POST /api/recall/trace`。检索追踪被拒或失败时照常记录，但只有路径与状态码，查询文本从不写入日志。
 
 ## 4. 端点
 
@@ -110,6 +110,15 @@
 | `POST /api/prompts/<文档名>/check` | 请求体 `{text}`，不写文件：返回 `{measure, problems}`。`measure` 为 `{length, limit, activityRoom, items}`：`resident`、`skill` 为该文本的字符数与上限；`instructions`、`rules` 为与另一份运行中的文档合计的服务端说明固定部分长度与上限 3000，`activityRoom` 为总长上限 4000 减去它（可为负）；`rules` 的 `items` 为两节的条目数与上限 10。长度按下发后的文本计。`problems` 为保存时会给出的全部拒绝，文本违反规则时仍为 200。未知文档名 404 | 已实现 |
 | `PUT /api/prompts/<文档名>` | 请求体 `{hash, text}`：按读取时的哈希（文件不存在时为空）比对，校验后以 LF 换行写文件并立即生效；返回 `{document, notices}`（新状态与常驻区块渲染失败的说明）。校验不通过 400（`PromptRejected`，`problems` 列出全部错误）；文件已在别处改动 409（`PromptChanged`）；未知文档名 404（`PromptUnknown`） | 已实现 |
 | `DELETE /api/prompts/<文档名>` | 删除文件，回到内置默认并立即生效，返回同上；文件不存在时直接返回当前状态；内置文本放不下时 400 并保留文件；未知文档名 404 | 已实现 |
+| **记忆** | | |
+| `GET /api/memory/persona` | 画像与画像候选，从文件现读，不计入使用统计，不改动任何文件；文件不存在时为空 | 已实现 |
+| `GET /api/memory/workstreams` | 已成立的主线与未成立的主线名两组，从文件现读，不计入使用统计 | 已实现 |
+| `GET /api/memory/workstreams/<名>` | 一条主线的结构化简报，取数与排序同 `recall` 的主线简报，不截断、不计入使用统计。既未成立、也没有细节页或活动时 404（`MemoryNotFound`） | 已实现 |
+| `GET /api/memory/activity` | 有活动文件的月份（最新在前）与服务所在机器的当月，不计入使用统计 | 已实现 |
+| `GET /api/memory/activity/<yyyy-MM>` | 某月的活动按天分组，附该月的汇总与文件的路径和格式问题；不计入使用统计。月份不是 `yyyy-MM` 时 400（`RequestInvalid`）；当月没有文件时为空，其他月份没有文件时 404（`MemoryNotFound`） | 已实现 |
+| `GET /api/memory/pages` | 全部细节页的清单，从文件现读，不计入使用统计 | 已实现 |
+| `GET /api/memory/pages/<主线>/<slug>` | 一个细节页：页头、文件、小节与各自的修改日期和召回次数；不计入使用统计。页面不存在 404（`MemoryNotFound`），页面标识不合规 400（`RequestInvalid`） | 已实现 |
+| `POST /api/recall/trace` | 检索追踪：执行一次与 `recall` 等价的检索，逐阶段返回每个检索单元的名次、分数与去向；不计入使用统计，不改动任何文件。请求体 `{query, workstream, from, to, kind, minRerankScore, topK, candidates}`，除 `query` 外均可省略 | 已实现 |
 | **日志** | | |
 | `GET /api/logs` | `{today, dates}`：服务所在机器的今天，与有日志文件的日期（`yyyy-MM-dd`，最新在前）；今天可能还没有文件 | 已实现 |
 | `GET /api/logs/<日期>` | `{date, today, entries, next}`：某天的服务日志，从旧到新。`entries` 每项 `{time, level, message}`：`time` 为带时区偏移的 ISO 8601（文件开头不带时间的行为 `null`），`level` 为 `information`、`warning`、`error`，`message` 含该条之后的续行（多条原因、异常堆栈），以换行连接；文件末尾尚未写完的一行不返回。`next` 为文件当前的总条数。查询参数 `after`（缺省 0）只返回第 `after` 条之后的条目，供页面跟随时取增量：文件只追加，条目的序号不变；`after` 大于现有条数时返回空的 `entries`，`next` 仍为现有条数；`after` 不是非负整数时 400（`RequestInvalid`）。日期不是 `yyyy-MM-dd` 的日历日期时 400（`RequestInvalid`）；今天没有文件时返回空的 `entries`，其他日期没有文件时 404（`LogDateNotFound`） | 已实现 |
@@ -118,6 +127,14 @@
 
 - `GET /api/activity`：窗口为本周（周一开始，按服务的本地日期）及之前 52 周，截至今天，`from` 与 `to` 给出起止日期。`days` 只列出有活动的日子，每天给出各主线的条数（`workstreams`，按写下时的主线标注，多者在前）与未归属的条数（`unlabeled`）；日期标题下每条活动计一次，续行、来源注释与汇总节不计。`consolidationDays` 是窗口内有整理提交的日子，判定与状态报告的「上次整理」相同。某个月份文件不是有效 UTF-8 或读不了时跳过并列入 `skippedFiles`；记忆仓库的历史读不了时 `historyUnreadable` 为真、整理日为空。两者都不使请求失败。只读，不等待维护操作。
 
+- `GET /api/memory/persona`：返回 `personaFile` 与 `candidatesFile`（`{path, problems}`：文件的完整路径，与整理报告对该文件列出的格式问题，每条为 `{line, location, kind, description}`，`line` 为所在行号，问题不在某一行时为空）；`global`（四节依次为 `redLines`、`workingRules`、`preferences`、`profile`，没有条目时也列出，其后是标题不是这四节的部分，`section` 为空）；`domains` 与 `workstreams`（按标签与名称排序，每块为 `{name, line, trigger, sections}`，`trigger` 只有领域有）。每节为 `{section, heading, entries}`，每条为 `{line, code, text, continuation}`：`code` 为 `write_persona` 所用的短码，不是条目的行为空；`continuation` 为续行，来源注释照原文保留。`candidates` 与 `rejectionList` 每条为 `{title, section, scope, occurrences}`，`scope` 为 `global`、`workstream:<名>` 或 `domain:<标签>`，出现记录为 `{date, quote, rejected}`。
+- `GET /api/memory/workstreams`：返回 `{established, unestablished, file}`，每项为 `{name, background, recent, pages, lastActivity}`。`established` 按 `workstreams.md` 中的顺序；`unestablished` 是细节页文件夹或活动标注用到、但没有成立的主线名，按名称排序，`background` 与 `recent` 为空。`pages` 为该主线文件夹中的页数，`lastActivity` 为最近一条标注该主线的活动的日期，没有时为空。`file` 为 `workstreams.md` 的 `{path, problems}`，同画像；没有背景说明的主线不算成立，不在 `established` 中，问题落在它的标题行。
+- `GET /api/memory/workstreams/<名>`：返回 `{name, established, background, recent, conventions, openItems, groups, overturned, activities, summary}`。`conventions` 为画像中该主线作用域的各节，形状同 `GET /api/memory/persona` 的节；`openItems` 每项为 `{page, lines}`，即工作页「遗留」一节的非空行；`groups` 按决策、故障、工作、实体的顺序，没有有效类型的页 `type` 为空、排在最后，每组的 `pages` 为 `{id, title, aliases, changed, uses, lastUse}`，排序同简报，被推翻的决定不在其中而列入 `overturned`；`activities` 为最近的活动 `{date, code, text}`，条数同简报；`summary` 为该主线有活动的最近一周的汇总 `{label, first, last, text}`，没有时为空。
+- `GET /api/memory/activity`：返回 `{months, current}`：`months` 为 `recent/` 下月份文件的月份（`yyyy-MM`），最新在前；`current` 为服务所在机器今天的月份，可能还没有文件。
+- `GET /api/memory/activity/<yyyy-MM>`：返回 `{month, file, days, summaries}`。`file` 为 `{path, problems}`，同画像；`days` 只列有活动的日子，从旧到新，每天为 `{date, activities}`，活动按文件顺序，每条为 `{code, workstream, text, continuation}`：`code` 为 `write_recent` 替换时所用的短码，`workstream` 为主线标注（没有时为空），`text` 不含标注，`continuation` 为其下缩进的各行原文（原话在其中的来源注释里）。`summaries` 为该月文件「汇总」一节中的汇总，按文件顺序，每条为 `{kind, label, first, last, text}`，`kind` 为 `week` 或 `month`。文件有格式问题时照常返回能读出的部分；不在日期标题下的条目不列出。
+- `GET /api/memory/pages`：`pages` 按页面标识排序，每项为 `{id, workstream, title, aliases, type, first, last, changed, uses}`：专题的 `workstream` 为 `_topics`；`type` 照原文（没有时为空）；`first`、`last` 为页头的首末日期；`changed` 为各小节最近的修改日期，没有时取 `last`；`uses` 为页面各单元被 `recall` 返回的次数之和。非 UTF-8 的页也列出，标题为 slug。
+- `GET /api/memory/pages/<主线>/<slug>`：返回 `{id, workstream, title, aliases, type, first, last, related, file, uses, sections}`：`related` 每项为 `{id, exists}`；`file` 为 `{path, problems}`，同画像；`sections` 按文件顺序，每节为 `{name, code, changed, uses, body}`，`body` 为不含标题的 Markdown 原文。非 UTF-8 时没有小节、标题为 slug，`problems` 写明原因；页头读不出时标题为 slug，小节照常返回。
+- `POST /api/recall/trace`：`workstream`、`from`、`to`、`kind` 的含义与校验同 `recall` 带 `query` 的检索（`kind` 只接受 `pages`、`activities`；`workstream` 不校验写法，与检索一样只用于筛选）；`minRerankScore`、`topK`、`candidates` 临时替换 `config.yaml` 中 `retrieval` 的同名值，范围与配置相同。参数有误时 400（`RequestInvalid`），`problems` 逐条给出参数名与说明，一次给出全部问题。返回 `settings`（三个值本次所用的 `value` 与配置中的 `configured`，未写时为内置默认）、`fullText`（`phrase` 短语匹配、`substring` 单字子串匹配、`none` 没有可检索的文本）、`embedding` 与 `reranker`（`{configured, answered, coolingDown, milliseconds}`：是否配置、是否作答、是否因冷却被跳过、耗时）、`counts`（全文与向量各返回的单元数、融合后的单元数、送 reranker 的数量、进入分组的数量、结果数）、`results`（与 `recall` 相同的分组与顺序：`number`、`kind` 为 `page`、`activity` 或 `summary`，页面带 `page`、`title` 与显示的 `sections`，活动带 `date`、`code` 与 `text`，汇总带 `date`、`period` 与 `text`）、`text`（Agent 从 `recall` 收到的原文，逐字相同）、`notes`（`recall` 附在原文末尾的降级说明，逐字相同，没有降级时为空）与 `units`（两路返回的全部单元，按融合名次：`kind` 为 `section`、`clue`（标题与别名，界面称线索）、`activity` 或 `summary`，`source`、`section`、`code`、`date`、`workstream`、`text`，`fullTextRank` 与 `bm25`（单字子串匹配时没有 BM25 值）、`vectorRank` 与 `distance`、`rrf` 与 `fusedRank`、`rerankScore`，`fate` 为 `shown`、`beyondTopK`、`belowThreshold`、`beyondCandidates` 或 `unreadable`（结果在前 topK 内、但页面已读不出），`result` 为所在结果的序号）。与 `recall` 共用辅助模型的冷却状态：追踪中失败的模型进入冷却，冷却中的模型在追踪中同样被跳过。
 - `GET /api/backups`：`local` 只列出按备份命名的文件（`auto-*`、`manual-*`、`pre-restore-*`，种类为 `auto`、`manual`、`preRestore`），按文件的最后写入时间从新到旧；`backups/` 不存在时为空。`remoteConfigured` 表示配置了 `backup.webdav`；`lastRemote` 取自 `backups/remote.json`，没有记录或读不了时为 `null`。不联网，不列出云端的文件，不等待维护操作。
 - `GET /api/config`：`file` 为 `config.yaml` 中写下的值，未写的项为 `null`；`running` 为运行中的服务所用的值，需重启的项在重启前与文件不同；`defaults` 为各项未写时的取值，含内置的判断阈值；`keys` 逐键给出 `min`、`max`、可选值 `choices`、需重启 `restart` 与只读 `readOnly`（`memory.path`、`language`）。密钥（`apiKey`、`password`）在三者中都为 `null`；`secrets` 逐个给出四个密钥的键路径、来源（`environment`、`configFile`，或未设置时为 `null`）与对应的环境变量名。`config.yaml` 无法加载时（如被手动改坏，或从备份恢复回来就有错误）409（`ConfigInvalid`），`problems` 逐个给出出错的键路径与原因；服务仍按上次加载的配置运行。只读，不等待维护操作。
 - `GET /api/config/secrets/<键路径>`：键路径为 `models.<模型>.apiKey` 或 `backup.webdav.password`，返回 `{value}`：环境变量的值，否则 `config.yaml` 中的值，都没有时为 `null`。不是密钥的键路径 404（`SecretUnknown`）。日志只记路径，不记值。

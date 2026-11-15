@@ -372,6 +372,20 @@ public sealed class StatusTests : IDisposable
     }
 
     [Fact]
+    public async Task The_offline_report_names_the_configured_extra_listener_as_not_running_on_a_plain_line()
+    {
+        File.AppendAllText(ConfigPath, "server:\n  host: 192.168.1.10\n");
+        var tacit = _home.Tacit();
+
+        var column = Assert.IsType<ServiceStatus>((await tacit.OfflineStatus(tacit.LoadConfig())).Service);
+
+        Assert.False(column.Running);
+        Assert.Equal("额外监听：http://192.168.1.10:18888/（服务未运行）", column.Lines[^1]);
+        Assert.Equal(new ExtraListenerStatus(new Uri("http://192.168.1.10:18888/"), null), column.ExtraListener);
+        Assert.Equal([StatusLevel.Attention, StatusLevel.Attention, null, null], column.LineLevels());
+    }
+
+    [Fact]
     public async Task Without_an_extra_listener_the_service_column_has_no_extra_line_and_names_the_web_address()
     {
         var column = Assert.IsType<ServiceStatus>((await Service.StatusAsync(Endpoint)).Service);

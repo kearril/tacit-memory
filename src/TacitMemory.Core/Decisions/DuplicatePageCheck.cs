@@ -91,7 +91,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
     /// </summary>
     public static IReadOnlyList<PageId> Nearest(MemoryIndex index, PageId id, float[] vector) =>
         index.SearchVector(vector, new IndexFilter(id.Workstream, null, null), int.MaxValue)
-            .Select(hit => hit.Source)
+            .Select(scored => scored.Hit.Source)
             .Where(page => page != id.ToString())
             .Distinct()
             .Take(OtherOptions)
