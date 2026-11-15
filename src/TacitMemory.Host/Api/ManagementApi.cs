@@ -254,6 +254,20 @@ internal static class ManagementApi
         })
             .Produces<PersonaReport>()
             .ProducesErrors();
+        api.MapGet("/memory/pages", async (HttpContext context) =>
+        {
+            var list = await service.PagesAsync(context.RequestAborted);
+            return Json(list);
+        })
+            .Produces<PageList>()
+            .ProducesErrors();
+        api.MapGet("/memory/pages/{workstream}/{slug}", async (string workstream, string slug, HttpContext context) =>
+        {
+            var page = await service.PageAsync(workstream, slug, context.RequestAborted);
+            return Json(page);
+        })
+            .Produces<PageView>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/config", () => Json(service.ConfigView()))
             .Produces<ConfigView>()
             .ProducesErrors(StatusCodes.Status409Conflict);
@@ -542,7 +556,7 @@ internal static class ManagementApi
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
         TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown
-            or TacitError.LogDateNotFound => StatusCodes.Status404NotFound,
+            or TacitError.LogDateNotFound or TacitError.MemoryNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,
     };

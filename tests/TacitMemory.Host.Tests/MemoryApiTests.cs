@@ -81,9 +81,48 @@ public sealed class MemoryApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Another_device_without_a_session_is_refused()
+    public async Task The_pages_answer_with_the_list_and_one_page_with_its_sections()
     {
-        using var response = await _remote.GetAsync(Url("/api/memory/persona"));
+        var created = await _service.WritePageAsync(new WritePageRequest
+        {
+            Op = "create",
+            Type = ToolValues.PageTypes.Work,
+            Page = "ops/rollback",
+            Title = "部署回滚",
+            Aliases = ["回滚方案", "部署失败回滚"],
+            Sections = [new PageSectionInput("产出", "回滚脚本。")],
+        });
+        Assert.False(created.IsError, created.Text);
+
+        var list = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/pages")))!;
+        var page = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/pages/ops/rollback")))!;
+
+        Assert.Equal("ops/rollback", list["pages"]![0]!["id"]!.GetValue<string>());
+        Assert.Equal("work", list["pages"]![0]!["type"]!.GetValue<string>());
+        Assert.Equal("部署回滚", page["title"]!.GetValue<string>());
+        var section = page["sections"]![0]!;
+        Assert.Equal(("产出", "回滚脚本。"), (section["name"]!.GetValue<string>(), section["body"]!.GetValue<string>().Trim()));
+        Assert.EndsWith("rollback.md", page["file"]!["path"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("/api/memory/pages/ops/nothing", HttpStatusCode.NotFound, "MemoryNotFound")]
+    [InlineData("/api/memory/pages/Ops!/x", HttpStatusCode.BadRequest, "RequestInvalid")]
+    public async Task A_missing_page_is_404_and_a_bad_id_400(string path, HttpStatusCode status, string code)
+    {
+        using var response = await _local.GetAsync(Url(path));
+
+        Assert.Equal(status, response.StatusCode);
+        Assert.Contains(code, await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/api/memory/persona")]
+    [InlineData("/api/memory/pages")]
+    [InlineData("/api/memory/pages/ops/rollback")]
+    public async Task Another_device_without_a_session_is_refused(string path)
+    {
+        using var response = await _remote.GetAsync(Url(path));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -96,5 +135,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.NotNull(document["paths"]?["/api/memory/persona"]?["get"]);
         Assert.NotNull(document["components"]?["schemas"]?["PersonaReport"]);
         Assert.NotNull(document["components"]?["schemas"]?["PersonaSection"]);
+        Assert.NotNull(document["paths"]?["/api/memory/pages"]?["get"]);
+        Assert.NotNull(document["paths"]?["/api/memory/pages/{workstream}/{slug}"]?["get"]?["responses"]?["404"]);
+        Assert.NotNull(document["components"]?["schemas"]?["PageView"]);
     }
 }

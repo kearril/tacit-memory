@@ -99,6 +99,9 @@ public enum TacitError
     /// <summary>A day the service log has no file for, other than today.</summary>
     LogDateNotFound,
 
+    /// <summary>A page, workstream or month of the activity log that the memory has nothing for.</summary>
+    MemoryNotFound,
+
     /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
     VectorExtensionInvalid,
 

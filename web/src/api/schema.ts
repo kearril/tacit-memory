@@ -898,6 +898,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memory/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/pages/{workstream}/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    workstream: string;
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageView"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config": {
         parameters: {
             query?: never;
@@ -2274,6 +2419,43 @@ export interface components {
             /** Format: int32 */
             minAliases?: null | number;
         };
+        PageList: {
+            pages: components["schemas"]["PageListItem"][];
+        };
+        PageListItem: {
+            id: string;
+            workstream: string;
+            title: string;
+            aliases: string[];
+            type: null | string;
+            first: null | string;
+            last: null | string;
+            changed: null | string;
+            /** Format: int64 */
+            uses: number;
+        };
+        PageSectionView: {
+            name: string;
+            code: string;
+            changed: null | string;
+            /** Format: int64 */
+            uses: number;
+            body: string;
+        };
+        PageView: {
+            id: string;
+            workstream: string;
+            title: string;
+            aliases: string[];
+            type: null | string;
+            first: null | string;
+            last: null | string;
+            related: components["schemas"]["RelatedPage"][];
+            file: components["schemas"]["MemoryFileInfo"];
+            /** Format: int64 */
+            uses: number;
+            sections: components["schemas"]["PageSectionView"][];
+        };
         PasswordBody: {
             password: string;
         };
@@ -2433,6 +2615,10 @@ export interface components {
             /** Format: int64 */
             elapsedMilliseconds: number;
             report: string;
+        };
+        RelatedPage: {
+            id: string;
+            exists: boolean;
         };
         RestartChange: {
             path: string;

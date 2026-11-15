@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
-using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Formats;
 using TacitMemory.Core.Injection;
 
@@ -10,7 +8,7 @@ namespace TacitMemory.Core.Persona;
 /// The persona and its candidates for the memory page, read from the files as they are now, with the problems
 /// consolidation reports for them.
 /// </summary>
-internal static partial class PersonaBrowse
+internal static class PersonaBrowse
 {
     public static PersonaReport Read(TacitConfig config)
     {
@@ -22,26 +20,14 @@ internal static partial class PersonaBrowse
 
         var blocks = persona.Blocks.OrderBy(block => block.Scope, Comparer<PersonaScope>.Create(PersonaScope.Compare)).ToList();
         return new PersonaReport(
-            FileOf(config, PersonaFiles.Persona),
+            MemoryFileReport.Of(config, PersonaFiles.Persona),
             Sections(persona.Parts, codes, everyKind: true),
             [.. blocks.Where(block => block.Scope.Kind == PersonaScopeKind.Domain).Select(block => Block(block, codes))],
             [.. blocks.Where(block => block.Scope.Kind == PersonaScopeKind.Workstream).Select(block => Block(block, codes))],
-            FileOf(config, PersonaFiles.Candidates),
+            MemoryFileReport.Of(config, PersonaFiles.Candidates),
             [.. candidates.Candidates.Select(Candidate)],
             [.. candidates.RejectionList.Select(Candidate)]);
     }
-
-    /// <summary>A memory file's path and the problems consolidation reports for it; a missing file has none.</summary>
-    internal static MemoryFileInfo FileOf(TacitConfig config, string relative)
-    {
-        var path = Path.GetFullPath(Path.Combine(config.MemoryPath, relative));
-        var problems = File.Exists(path) ? FormatViolations.FileIssues(config, relative).Select(Problem).ToList() : [];
-        return new MemoryFileInfo(path, problems);
-    }
-
-    private static FileProblem Problem(FormatIssue issue) =>
-        new(LineLocation().Match(issue.Location) is { Success: true } match ? int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) : null,
-            issue.Location, issue.Kind, issue.Description);
 
     /// <summary>
     /// The sections of the four kinds in their order, an entry of a kind written under two headings merged into one, then
@@ -70,7 +56,4 @@ internal static partial class PersonaBrowse
     private static CandidateView Candidate(PersonaCandidate candidate) =>
         new(candidate.Text, candidate.Section, candidate.Scope.ToString(),
             [.. candidate.Occurrences.Select(occurrence => new CandidateOccurrenceView(occurrence.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), occurrence.Quote, occurrence.Rejected))]);
-
-    [GeneratedRegex(@"^line (\d+)$")]
-    private static partial Regex LineLocation();
 }

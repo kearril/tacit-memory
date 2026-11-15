@@ -833,6 +833,142 @@
         }
       }
     },
+    "/api/memory/pages": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/pages/{workstream}/{slug}": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "parameters": [
+          {
+            "name": "workstream",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/config": {
       "get": {
         "tags": [
@@ -3252,6 +3388,180 @@
           }
         }
       },
+      "PageList": {
+        "required": [
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageListItem"
+            }
+          }
+        }
+      },
+      "PageListItem": {
+        "required": [
+          "id",
+          "workstream",
+          "title",
+          "aliases",
+          "type",
+          "first",
+          "last",
+          "changed",
+          "uses"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "first": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "changed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PageSectionView": {
+        "required": [
+          "name",
+          "code",
+          "changed",
+          "uses",
+          "body"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "changed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "PageView": {
+        "required": [
+          "id",
+          "workstream",
+          "title",
+          "aliases",
+          "type",
+          "first",
+          "last",
+          "related",
+          "file",
+          "uses",
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "first": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelatedPage"
+            }
+          },
+          "file": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageSectionView"
+            }
+          }
+        }
+      },
       "PasswordBody": {
         "required": [
           "password"
@@ -3946,6 +4256,21 @@
           },
           "report": {
             "type": "string"
+          }
+        }
+      },
+      "RelatedPage": {
+        "required": [
+          "id",
+          "exists"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
           }
         }
       },

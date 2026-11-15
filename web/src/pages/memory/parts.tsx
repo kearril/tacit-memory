@@ -1,11 +1,15 @@
 import { cn } from "cn";
-import { Check } from "lucide-react";
+import { Box, Check, CircleHelp, FolderGit2, Gavel, Hammer, type LucideIcon, Siren } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { useDictionary } from "../../app/session-context";
+import { Badge } from "../../components/ui/badge";
 import { CopyButton } from "../../components/ui/copy-button";
 import { copyText } from "../../components/ui/copy-text";
 import { useToast } from "../../components/ui/toast-context";
+import { PAGE_TYPES, type PageType, TOPICS } from "./pages";
 import type { Source } from "./sources";
+import { memoryPathOf } from "./views";
 
 /** How long a code pill shows its check mark after a copy. */
 const COPIED_MILLISECONDS = 1500;
@@ -51,15 +55,16 @@ export function CodePill({ code, className }: { readonly code: string; readonly 
   );
 }
 
-/** Where an entry came from, in small muted type: the day, then the user's words when they were kept. */
-export function SourceNote({ source }: { readonly source: Source }) {
+/** Where an entry came from, in small muted type on a line of its own: the day, then the user's words when they were kept. */
+export function SourceNote({ source, inline = false }: { readonly source: Source; readonly inline?: boolean }) {
   const text = useDictionary().memory.parts;
+  const Tag = inline ? "span" : "p";
   return (
-    <p className="text-xs text-ink-muted">
+    <Tag className="block text-xs text-ink-muted">
       {source.date === null ? null : <span className="tabular-nums">{source.date}</span>}
       {source.date !== null && source.quote !== null ? " · " : null}
       {source.quote === null ? null : text.quote(source.quote)}
-    </p>
+    </Tag>
   );
 }
 
@@ -78,5 +83,48 @@ export function FilePath({ path }: { readonly path: string }) {
         copiedMessage={dictionary.dashboard.copied(label)}
       />
     </div>
+  );
+}
+
+/** Each page type's icon; the types are told apart by icon and name, never by a state colour. */
+const PAGE_TYPE_ICONS: Readonly<Record<PageType, LucideIcon>> = {
+  incident: Siren,
+  decision: Gavel,
+  entity: Box,
+  work: Hammer,
+};
+
+/** A page's type as a neutral badge with its icon; a type that is not one of the four is shown as written. */
+export function PageTypeBadge({ type }: { readonly type: string | null }) {
+  const text = useDictionary().memory.parts;
+  const known = (PAGE_TYPES as readonly string[]).includes(type ?? "") ? (type as PageType) : null;
+  const Icon = known === null ? CircleHelp : PAGE_TYPE_ICONS[known];
+  return (
+    <Badge>
+      <Icon aria-hidden />
+      {known === null ? (type ?? text.untyped) : text.pageTypes[known]}
+    </Badge>
+  );
+}
+
+/** A workstream's name in a pill on the soft accent colour, the same for every workstream; it leads to the workstream. */
+export function WorkstreamPill({ name }: { readonly name: string }) {
+  const text = useDictionary().memory.parts;
+  const label = name === TOPICS ? text.topics : name;
+  const className =
+    "inline-flex shrink-0 items-center gap-xs rounded-full bg-accent-soft px-sm py-xs text-xs leading-(--tk-line-height-tight) font-medium text-accent [&_svg]:size-(--tk-font-size-sm)";
+  return name === TOPICS ? (
+    <span className={className}>{label}</span>
+  ) : (
+    <Link
+      to={`${memoryPathOf("workstreams")}/${encodeURIComponent(name)}`}
+      className={cn(
+        className,
+        "outline-none hover:underline focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
+      )}
+    >
+      <FolderGit2 aria-hidden />
+      {label}
+    </Link>
   );
 }

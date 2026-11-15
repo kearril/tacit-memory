@@ -17,6 +17,10 @@ export type CandidateView = components["schemas"]["CandidateView"];
 export type CandidateOccurrenceView = components["schemas"]["CandidateOccurrenceView"];
 export type MemoryFileInfo = components["schemas"]["MemoryFileInfo"];
 export type FileProblem = components["schemas"]["FileProblem"];
+export type PageList = components["schemas"]["PageList"];
+export type PageListItem = components["schemas"]["PageListItem"];
+export type PageView = components["schemas"]["PageView"];
+export type PageSectionView = components["schemas"]["PageSectionView"];
 
 export const RECALL_TRACE_QUERY_KEY = ["recall-trace"] as const;
 
@@ -54,4 +58,35 @@ export function getPersona(): Promise<PersonaReport> {
 /** The persona, fetched when the view opens and again when the window regains focus; never polled. */
 export function usePersona() {
   return useQuery({ queryKey: PERSONA_QUERY_KEY, queryFn: getPersona, refetchOnWindowFocus: true });
+}
+
+/** The query key of the page list; one page's key adds its ID. */
+export const PAGES_QUERY_KEY = ["memory", "pages"] as const;
+
+/** Every detail page, for the list. Counts nothing. */
+export function getPages(): Promise<PageList> {
+  return apiFetch<PageList>("/api/memory/pages");
+}
+
+/** One detail page with its sections. Counts nothing; a page that does not exist is refused with `MemoryNotFound`. */
+export function getPage(id: string): Promise<PageView> {
+  const [workstream, slug] = id.split("/");
+  return apiFetch<PageView>(
+    `/api/memory/pages/${encodeURIComponent(workstream ?? "")}/${encodeURIComponent(slug ?? "")}`,
+  );
+}
+
+/** The page list, fetched when the view opens and again when the window regains focus; never polled. */
+export function usePages() {
+  return useQuery({ queryKey: PAGES_QUERY_KEY, queryFn: getPages, refetchOnWindowFocus: true });
+}
+
+/** One page, fetched as the list is; a missing page is not asked for again. */
+export function usePage(id: string) {
+  return useQuery({
+    queryKey: [...PAGES_QUERY_KEY, id],
+    queryFn: () => getPage(id),
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
 }

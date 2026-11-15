@@ -482,6 +482,17 @@ internal sealed class MemoryIndex : IDisposable
         }
     }
 
+    /// <summary>How often <c>recall</c> has returned each section of a page, by section name; empty when the page is not indexed.</summary>
+    public IReadOnlyDictionary<string, long> SectionReturns(PageId id)
+    {
+        lock (_gate)
+            return _connection.Query<(string Section, long Returns)>(
+                "SELECT section AS Section, returns AS Returns FROM units WHERE source_id = @source AND kind = @kind",
+                new { source = id.ToString(), kind = UnitKinds.Section })
+                .GroupBy(row => row.Section, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Sum(row => row.Returns), StringComparer.Ordinal);
+    }
+
     /// <summary>Counts one return of each of the units, and records today as their last return.</summary>
     public void RecordReturns(IReadOnlyCollection<long> unitIds)
     {

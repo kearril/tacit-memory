@@ -951,6 +951,23 @@ public sealed class MemoryService : IDisposable
         return PersonaBrowse.Read(Config);
     }
 
+    /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
+    public async Task<PageList> PagesAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return PageBrowse.List(Config, _index);
+    }
+
+    /// <summary>One detail page for the memory page, with its sections' dates and counts. Counts nothing.</summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.RequestInvalid"/> for a page ID that is not valid; <see cref="TacitError.MemoryNotFound"/> when there is no such page.
+    /// </exception>
+    public async Task<PageView> PageAsync(string workstream, string slug, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return PageBrowse.Read(Config, _index, workstream, slug);
+    }
+
     /// <summary>A whole page; counts no return. <c>null</c> when it does not exist or cannot be read.</summary>
     internal async Task<PageDocument?> FetchPageAsync(PageId id, CancellationToken cancellationToken = default)
     {

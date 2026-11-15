@@ -543,6 +543,39 @@ export interface Dictionary {
       /** What a copied file path is called. */
       readonly path: string;
       readonly quote: (words: string) => string;
+      readonly pageTypes: {
+        readonly incident: string;
+        readonly decision: string;
+        readonly entity: string;
+        readonly work: string;
+      };
+      readonly untyped: string;
+      /** What the topic pages' workstream is called. */
+      readonly topics: string;
+      readonly uses: (count: number) => string;
+      readonly changed: (day: string) => string;
+    };
+    readonly pages: {
+      readonly keyword: string;
+      readonly keywordPlaceholder: string;
+      readonly workstream: string;
+      readonly workstreamAll: string;
+      readonly type: string;
+      readonly typeAll: string;
+      readonly failed: string;
+      readonly noPages: string;
+      readonly noMatch: string;
+      readonly count: (count: number) => string;
+      /** The trail from the list to the page, for screen readers. */
+      readonly trail: string;
+      readonly notFound: string;
+      readonly contents: string;
+      readonly noSections: string;
+      readonly emptySection: string;
+      readonly dates: (first: string, last: string) => string;
+      readonly related: string;
+      readonly missing: string;
+      readonly problemsTitle: (count: number) => string;
     };
     readonly persona: {
       readonly failed: string;

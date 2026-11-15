@@ -9,7 +9,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { type RecallTraceReport, type TraceResult, type TraceUnit, useRecallTrace } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
@@ -20,8 +20,10 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
+import { sectionAnchor } from "./pages";
 import { hasOverrides, requestOf, type SearchFields, searchFieldsOf, searchParamsOf } from "./search";
 import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
+import { memoryPathOf } from "./views";
 
 /** Each fate's icon and colour: the label beside it says the fate, so the colour is never the only sign. */
 const FATE_STYLES: Readonly<
@@ -364,7 +366,12 @@ function ResultRow({ result }: { readonly result: TraceResult }) {
         <span className="font-mono text-xs text-ink-muted">{result.number}</span>
         {result.kind === "page" ? (
           <>
-            <span className="font-mono text-sm break-all">{result.page}</span>
+            <Link
+              to={`${memoryPathOf("pages")}/${result.page}`}
+              className="font-mono text-sm break-all text-accent underline-offset-2 hover:underline"
+            >
+              {result.page}
+            </Link>
             <span className="text-sm">{result.title}</span>
           </>
         ) : (
@@ -378,7 +385,17 @@ function ResultRow({ result }: { readonly result: TraceResult }) {
       </div>
       {result.kind === "page" ? (
         result.sections.length === 0 ? null : (
-          <p className="text-xs text-ink-muted">{result.sections.map((name) => `§${name}`).join(" · ")}</p>
+          <p className="flex flex-wrap gap-x-sm text-xs text-ink-muted">
+            {result.sections.map((name) => (
+              <Link
+                key={name}
+                to={`${memoryPathOf("pages")}/${result.page}#${encodeURIComponent(sectionAnchor(name))}`}
+                className="hover:text-ink hover:underline"
+              >
+                §{name}
+              </Link>
+            ))}
+          </p>
         )
       ) : (
         <p className="text-sm">{result.text}</p>
