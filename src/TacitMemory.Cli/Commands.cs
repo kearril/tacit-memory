@@ -312,13 +312,15 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
 
     /// <summary>
     /// Asks the service for its status report. A report that names no service is not this service's answer, so it counts
-    /// as another program holding the port.
+    /// as another program holding the port. A service that is not running refuses the connection at once; the timeout only
+    /// bounds a program that accepts it and never answers, and is generous because a busy machine can take seconds to build
+    /// the report.
     /// </summary>
     private static async Task<Probe> ProbeAsync(ManagementApiClient api, CancellationToken cancellationToken)
     {
         try
         {
-            var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(2), cancellationToken);
+            var report = await api.GetAsync<StatusReport>("status", TimeSpan.FromSeconds(10), cancellationToken);
             return report.Service is null ? new Probe.NotAnswered(OtherProgram: true) : new Probe.Answered(report);
         }
         catch (ServiceNotRunningException)

@@ -120,12 +120,17 @@ internal static class StyledOutput
 
     private static Style StyleOf(Color? colour) => colour is { } value ? new Style(value) : Style.Plain;
 
-    /// <summary>A console that writes to <paramref name="writer"/>, whatever the process's own console is.</summary>
+    /// <summary>
+    /// A console that writes to <paramref name="writer"/>, whatever the process's own console is. Spectre's default
+    /// enrichers are off: they turn interaction off when they see a CI variable such as <c>GITHUB_ACTIONS</c>, overriding
+    /// the terminal checks this class already made.
+    /// </summary>
     private static IAnsiConsole Create(TextWriter writer, bool interactive = false) => AnsiConsole.Create(new AnsiConsoleSettings
     {
         Ansi = AnsiSupport.Yes,
         ColorSystem = ColorSystemSupport.Standard,
         Interactive = interactive ? InteractionSupport.Yes : InteractionSupport.No,
         Out = new AnsiConsoleOutput(writer),
+        Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
     });
 }

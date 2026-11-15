@@ -79,11 +79,14 @@ internal sealed class TestHome : IDisposable
         File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Quiet).ModelsYaml(decisionKey: "test-key") + extraConfig).ReplaceLineEndings("\n"));
     }
 
-    /// <summary>Runs <c>git</c> in <paramref name="directory"/> and returns its standard output.</summary>
+    /// <summary>
+    /// Runs <c>git</c> in <paramref name="directory"/> and returns its standard output. A commit gets the same author the
+    /// service uses, so a test never depends on the identity configured on the machine it runs on.
+    /// </summary>
     public static string Git(string directory, params string[] args)
     {
         var start = new ProcessStartInfo("git") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
-        foreach (var arg in (string[])["-c", "core.quotepath=off", .. args])
+        foreach (var arg in (string[])["-c", "core.quotepath=off", "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", .. args])
             start.ArgumentList.Add(arg);
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEnd();

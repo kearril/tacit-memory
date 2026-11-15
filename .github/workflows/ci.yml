@@ -24,6 +24,7 @@ jobs:
   check:
     # vec0.dll is Windows-only, so the index tests run on Windows.
     runs-on: windows-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
         with:
