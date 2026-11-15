@@ -8,7 +8,7 @@
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试；
-   - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`；密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
+   - 每个测试使用独立的临时用户主目录、临时 `TACIT_HOME` 与临时记忆仓库（`TestHome`），真实文件、真实 `git`。`InitReady` 不在每个测试里运行 `init`（它要启动三个 `git` 进程，Windows 上这占了测试的大部分时间），而是在每个测试进程里按记忆语言做一次 `init` 作模板，之后复制；`TACIT_HOME` 已存在时照常运行 `init`，因为那时它要读已有的配置。密钥环境变量由 `TestHome.EnvironmentVariables` 注入，测试不读取开发机的真实环境变量；绑定只写入临时用户主目录，从不碰真实的客户端配置。
    - 测试类索引（每个测试类一行，按模块分组）：
      - `InitTests`：`init` 生成的文件与首个提交（`config.yaml` 只写 `language` 一行）、拒绝与重复执行、与已有配置冲突、语言推断、末尾的 Web 界面地址（取自 `server.port`）。
      - `ConfigTests`：配置的默认值（含主线简报上限 `limits.brief` 与别名最少个数的默认值；已删除的键（清单见 `docs/reference/configuration.md`）按未知键报错并点名键路径；`consolidation.hintItemLength` 与 `hintResidentLength` 的默认值与校验）、校验错误与定位、未初始化提示、`rules.md` 的生成与超限；模型映射只认 `provider`、`url`、`model`、`apiKey`，`endpoint` 等其他键按未知键报错并点名键路径；`provider` 缺省为通用协议，`cloudflare` 不区分大小写，其他值报错并列出取值；`url` 必须为 http 或 https 绝对地址、原样保存；`model` 为空报错；三个模型的密钥各自的环境变量优先、配置值与都没有；以及 `backup.webdav` 的校验；`server.host`：IP 地址文字（含 `0.0.0.0`、`127.0.0.2`、IPv6）保留，`127.0.0.1` 与不设相同，主机名、带端口、方括号与 `1` 这类写法报错并点名键路径。
@@ -197,10 +197,10 @@ Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）�
 
 ## 8. 发行包的冒烟
 
-`build/smoke.ps1` 检查一个发布目录能否运行，覆盖"测试在源码构建下通过、发行包里却少了东西"这类问题。它不属于三个测试接缝：作用于打好的产物，以独立进程运行。
+`build/smoke.ps1` 检查一个发布目录能否运行，覆盖"测试在源码构建下通过、发行包里却少了东西"这类问题。发行包经过裁剪，测试却跑在未裁剪的构建上，所以它也是裁剪是否删掉了用得到的东西的唯一检查。它不属于三个测试接缝：作用于打好的产物，以独立进程运行。
 
 ```powershell
 ./build/smoke.ps1 -PublishDir <发布目录> [-ExpectedVersion 0.1.0]
 ```
 
-使用临时的 `TACIT_HOME` 与空闲端口，不配置辅助模型：运行 `--version`（给了期望版本时必须一致）与 `init`，后台启动 `serve`，检查 `/api/status` 报告服务运行且版本与可执行文件一致、`/mcp` 的 `tools/list` 恰为四个记忆工具、`/ui/` 返回 Web 界面。任何一项失败以退出码 1 结束，并输出服务的标准输出与日志；无论成败都停止服务、删除临时目录。发布工作流在打包后、创建 Release 前运行它，期望版本取自 tag。
+使用临时的 `TACIT_HOME` 与空闲端口，不配置辅助模型：运行 `--version`（给了期望版本时必须一致）与 `init`，后台启动 `serve`，检查 `/api/status` 报告服务运行且版本与可执行文件一致；经管理 API 读取活动、绑定、备份清单、日志、OpenAPI 文档，并原样保存配置与 `resident` 提示词（含其 check）；经 `/mcp` 确认 `tools/list` 恰为四个记忆工具，用 `write_page` 写一页、`write_recent` 写一条活动，再用 `recall` 读回那一页并检索一次；重建索引，做一次本地备份并预览恢复它；运行 `tacit status`；最后确认 `/ui/` 返回 Web 界面。每种请求与应答的 JSON 都走过一遍。任何一项失败以退出码 1 结束，并输出服务的标准输出与日志；无论成败都停止服务、删除临时目录。发布工作流在打包后、创建 Release 前运行它，期望版本取自 tag。
