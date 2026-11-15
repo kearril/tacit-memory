@@ -146,7 +146,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ## 5. 运行方式
 
-默认只运行与当前变更直接相关的测试，不自动运行全量测试。全量测试、C# 格式检查与第 7 节的前端检查由 GitHub Actions 在推送到 `main` 与推送 `v*` tag 时运行（Windows 运行器；只改文档的推送不运行），也可以手动触发。测试使用真实 `git`，需要它在 `PATH` 中。
+默认只运行与当前变更直接相关的测试，不自动运行全量测试。全量测试、C# 格式检查与第 7 节的前端检查由 GitHub Actions 运行，触发条件见 `docs/operations.md` 第 6 节。测试使用真实 `git`，需要它在 `PATH` 中。
 
 ```powershell
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝

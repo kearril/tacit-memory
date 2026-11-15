@@ -24,31 +24,41 @@ $PSNativeCommandUseErrorActionPreference = $true
 
 $root = Split-Path $PSScriptRoot -Parent
 $runtime = 'win-x64'
+$Output = [System.IO.Path]::GetFullPath($Output)
 
 if (Test-Path $Output) { Remove-Item $Output -Recurse -Force }
 $publish = Join-Path $Output 'tacit'
 New-Item -ItemType Directory -Force $publish | Out-Null
 
-dotnet publish (Join-Path $root 'src/TacitMemory.Cli') -c Release -r $runtime --self-contained true -o $publish -nologo
+# The tools' own output goes to the host, so the build log shows it and the script's output stays the one result object.
+dotnet publish (Join-Path $root 'src/TacitMemory.Cli') -c Release -r $runtime --self-contained true -o $publish -nologo | Out-Host
 
 # The notices list what the package carries: the NuGet packages of the CLI project with their whole dependency graph,
-# the web packages the frontend build recorded, and the parts that come from neither.
+# the web packages the frontend build recorded, and the parts that come from neither. Only licenses whose full text the
+# notices carry are allowed (SQLite's blessing is a public-domain dedication and has none to carry).
 $nugetJson = Join-Path $Output 'nuget-licenses.json'
-dotnet tool run nuget-license `
-    -i (Join-Path $root 'src/TacitMemory.Cli/TacitMemory.Cli.csproj') `
-    -t `
-    -a 'MIT;Apache-2.0;BSD-3-Clause;blessing' `
-    -ignore 'MinVer' `
-    -override (Join-Path $PSScriptRoot 'nuget-license-overrides.json') `
-    -o Json `
-    -fo $nugetJson
+# dotnet finds the local tool manifest from the working directory, so the tool runs from the repository root.
+Push-Location $root
+try {
+    dotnet tool run nuget-license `
+        -i (Join-Path $root 'src/TacitMemory.Cli/TacitMemory.Cli.csproj') `
+        -t `
+        -a 'MIT;Apache-2.0;blessing' `
+        -ignore 'MinVer' `
+        -override (Join-Path $PSScriptRoot 'nuget-license-overrides.json') `
+        -o Json `
+        -fo $nugetJson | Out-Host
+}
+finally { Pop-Location }
 $nuget = Get-Content $nugetJson -Raw | ConvertFrom-Json
 $web = Get-Content (Join-Path $root 'web/licenses/third-party.json') -Raw | ConvertFrom-Json
 
 $apache = Get-Content (Join-Path $root 'LICENSE') -Raw
 $sqliteVecMit = Get-Content (Join-Path $root 'lib/sqlite-vec/LICENSE-MIT') -Raw
 # The MIT text without its title and copyright line, for the packages whose metadata carries only a copyright statement.
-$mit = ($sqliteVecMit -split "`n" | Select-Object -Skip 4) -join "`n"
+$permission = $sqliteVecMit.IndexOf('Permission is hereby granted')
+if ($permission -lt 0) { throw 'lib/sqlite-vec/LICENSE-MIT no longer holds the MIT permission text.' }
+$mit = $sqliteVecMit.Substring($permission)
 
 $notices = [System.Text.StringBuilder]::new()
 function Line([string] $text = '') { [void]$notices.Append($text).Append("`n") }
@@ -92,7 +102,9 @@ Heading 'License texts of the web interface packages'
 foreach ($package in $web | Sort-Object name) {
     Line "---- $($package.name) $($package.version) ----"
     Line
-    if ($package.licenseText) { Line $package.licenseText.TrimEnd() } else { Line "$($package.license); the package ships no license file." }
+    if ($package.licenseText) { Line $package.licenseText.TrimEnd() }
+    elseif ($package.license -in 'MIT', 'Apache-2.0') { Line "$($package.license); the package ships no license file, so the $($package.license) text at the end applies." }
+    else { throw "$($package.name) is under $($package.license) but ships no license text to include." }
     if ($package.noticeText) { Line; Line $package.noticeText.TrimEnd() }
     Line
 }
@@ -112,7 +124,7 @@ Copy-Item (Join-Path $root 'LICENSE') $publish
 Copy-Item (Join-Path $root 'NOTICE') $publish
 Remove-Item $nugetJson
 
-$version = (& (Join-Path $publish 'tacit.exe') --version).Trim()
+$version = "$(& (Join-Path $publish 'tacit.exe') --version)".Trim()
 $zip = Join-Path $Output "tacit-$version-$runtime.zip"
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip -CompressionLevel Optimal
 $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()

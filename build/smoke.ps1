@@ -41,7 +41,7 @@ try {
     New-Item -ItemType Directory -Force $work | Out-Null
     $env:TACIT_HOME = $tacitHome
 
-    $version = (& $tacit --version).Trim()
+    $version = "$(& $tacit --version)".Trim()
     if ($LASTEXITCODE -ne 0) { Fail "tacit --version exited with $LASTEXITCODE" }
     if (-not $version) { Fail 'tacit --version printed nothing' }
     if ($ExpectedVersion -and $version -ne $ExpectedVersion) { Fail "tacit --version printed '$version', expected '$ExpectedVersion'" }
@@ -54,6 +54,8 @@ try {
 
     $service = Start-Process $tacit -ArgumentList 'serve' -PassThru -NoNewWindow `
         -RedirectStandardOutput (Join-Path $work 'serve.out') -RedirectStandardError (Join-Path $work 'serve.err')
+    # Taking the handle now keeps the exit code readable once the process has exited.
+    $null = $service.Handle
     $base = "http://127.0.0.1:$port"
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     $status = $null
