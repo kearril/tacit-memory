@@ -108,7 +108,7 @@
 
 ### 打包与发布流程
 
-GitHub Actions 在 Windows 运行器上运行（`vec0.dll` 只有 Windows 版）。推送到 `main` 时运行格式检查、全量测试与前端检查，只改文档的推送不运行，也可以手动触发；其他分支的推送不运行。推送 `v*` tag 后，先运行同样的检查，再用 `build/package.ps1` 打包，用 `build/smoke.ps1` 冒烟，最后创建 Release；手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
+GitHub Actions 在 Windows 运行器上运行（`vec0.dll` 只有 Windows 版）。推送到 `main` 时运行格式检查、全量测试与前端检查，只改文档的推送不运行，也可以手动触发；其他分支的推送不运行。一次检查约 20 分钟，大部分是测试：运行器只有 2 个核心，测试又频繁启动 git 进程。推送 `v*` tag 后，先运行同样的检查，再用 `build/package.ps1` 打包，用 `build/smoke.ps1` 冒烟，最后创建 Release；手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
 
 在本机打包（需要 .NET 11 SDK 与 Bun）：
 
