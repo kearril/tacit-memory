@@ -15,7 +15,7 @@ namespace TacitMemory.Core.Backup;
 /// </summary>
 internal sealed class CloudBackup(TacitOptions options, TacitConfig config, ServiceLog log)
 {
-    private static readonly JsonSerializerOptions RecordJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly JsonSerializerOptions RecordJson = new(JsonSerializerDefaults.Web) { WriteIndented = true, TypeInfoResolver = CoreJson.Default };
 
     private readonly BackupArchive _archive = new(options, config);
 
@@ -25,7 +25,7 @@ internal sealed class CloudBackup(TacitOptions options, TacitConfig config, Serv
     public static CloudBackupRecord? ReadLast(TacitOptions options)
     {
         var path = RecordPath(options);
-        return File.Exists(path) ? JsonSerializer.Deserialize<CloudBackupRecord>(File.ReadAllText(path), RecordJson) : null;
+        return File.Exists(path) ? JsonSerializer.Deserialize(File.ReadAllText(path), RecordJson.For<CloudBackupRecord>()) : null;
     }
 
     /// <summary>Makes a cloud backup and replaces the remote one with it.</summary>
@@ -96,7 +96,7 @@ internal sealed class CloudBackup(TacitOptions options, TacitConfig config, Serv
             var path = RecordPath(options);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var temporary = path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(record, RecordJson));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(record, RecordJson.For<CloudBackupRecord>()));
             File.Move(temporary, path, overwrite: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

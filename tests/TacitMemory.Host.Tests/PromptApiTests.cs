@@ -97,7 +97,7 @@ public sealed class PromptApiTests : IAsyncLifetime
     }
 
     private static JsonContent Draft(string text) =>
-        JsonContent.Create(new PromptDraft(text), options: ManagementApiJson.Options);
+        JsonContent.Create(new PromptDraft(text), options: RequestJson.Options);
 
     [Fact]
     public async Task Each_document_carries_its_measure()
@@ -165,7 +165,7 @@ public sealed class PromptApiTests : IAsyncLifetime
     }
 
     private static JsonContent Body(string? hash, string text) =>
-        JsonContent.Create(new PromptSave(hash, text), options: ManagementApiJson.Options);
+        JsonContent.Create(new PromptSave(hash, text), options: RequestJson.Options);
 
     private static async Task<T> Read<T>(HttpResponseMessage response) =>
         JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;

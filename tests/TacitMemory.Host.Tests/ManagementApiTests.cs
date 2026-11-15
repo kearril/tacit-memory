@@ -306,7 +306,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
     public async Task A_backup_with_a_directory_is_written_into_that_directory()
     {
         var directory = Path.Combine(_home.Root, "usb");
-        var json = JsonSerializer.Serialize(new BackupBody { Target = BackupTarget.Local, To = directory }, ManagementApiJson.Options);
+        var json = JsonSerializer.Serialize(new BackupBody { Target = BackupTarget.Local, To = directory }, RequestJson.Options);
         using var request = Post("/api/backup", json);
 
         var (status, text) = await Send(request);

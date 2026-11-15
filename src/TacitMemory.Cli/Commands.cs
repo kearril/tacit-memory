@@ -344,7 +344,7 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         RejectArguments(context);
         return WithServiceAsync(async api =>
         {
-            var result = await WaitingAsync(() => api.PostAsync<ReindexResult>("reindex", new { }, cancellationToken));
+            var result = await WaitingAsync(() => api.PostAsync<ReindexResult>("reindex", cancellationToken: cancellationToken));
             console.Out.WriteLine(result.Report);
             return 0;
         });

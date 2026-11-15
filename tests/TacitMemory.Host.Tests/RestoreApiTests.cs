@@ -45,7 +45,7 @@ public sealed class RestoreApiTests : IAsyncLifetime
     private string BackupsDirectory => Path.Combine(_home.TacitHome, "backups");
 
     private Task<HttpResponseMessage> PostRestore(object body) =>
-        _http.PostAsync(Url("/api/restore"), new StringContent(JsonSerializer.Serialize(body, ManagementApiJson.Options), Encoding.UTF8, "application/json"));
+        _http.PostAsync(Url("/api/restore"), new StringContent(JsonSerializer.Serialize(body, RequestJson.Options), Encoding.UTF8, "application/json"));
 
     [Fact]
     public async Task The_preview_answers_with_the_manifest_as_json_and_changes_nothing()

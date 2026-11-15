@@ -78,8 +78,8 @@ internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? co
         ModelProvider provider, HttpResponseMessage response, Func<JsonObject, IReadOnlyDictionary<string, double>?> read, CancellationToken cancellationToken)
     {
         var reply = provider == ModelProvider.Cloudflare
-            ? (await response.Content.ReadFromJsonAsync<CloudflareEnvelope<JsonObject>>(cancellationToken))?.Answer
-            : await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken);
+            ? (await response.Content.ReadFromJsonAsync(ModelRequest.Json.For<CloudflareEnvelope<JsonObject>>(), cancellationToken))?.Answer
+            : await response.Content.ReadFromJsonAsync(ModelRequest.Json.For<JsonObject>(), cancellationToken);
         return reply?["answers"]?[QuestionId] is JsonObject answer ? read(answer) : null;
     }
 

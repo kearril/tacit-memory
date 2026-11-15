@@ -16,5 +16,5 @@ internal sealed record BackupManifest(
     IReadOnlyList<string>? Files)
 {
     /// <summary>The JSON of the manifest, in both directions: camelCase names, indented for a person to read.</summary>
-    public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, TypeInfoResolver = CoreJson.Default };
 }

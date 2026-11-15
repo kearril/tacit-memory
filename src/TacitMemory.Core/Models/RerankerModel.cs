@@ -22,7 +22,7 @@ internal sealed class RerankerModel(ModelClient client, ModelConfig? config, Mod
     public static Task<ProbeResult> ProbeAsync(ModelProbe probe, ModelConfig settings, CancellationToken cancellationToken) =>
         probe.SendAsync(
             ModelRole.Reranker,
-            () => ModelRequest.Post(settings, RequestBody(settings, ProbeInputs.RerankQuery, ProbeInputs.RerankDocuments)),
+            () => Post(settings, ProbeInputs.RerankQuery, ProbeInputs.RerankDocuments),
             (response, token) => ReadScoresAsync(settings.Provider, response, ProbeInputs.RerankDocuments.Count, token),
             cancellationToken);
 
@@ -39,26 +39,26 @@ internal sealed class RerankerModel(ModelClient client, ModelConfig? config, Mod
 
         return await client.SendAsync(
             health,
-            () => ModelRequest.Post(settings, RequestBody(settings, query, documents)),
+            () => Post(settings, query, documents),
             (response, token) => ReadScoresAsync(settings.Provider, response, documents.Count, token),
             cancellationToken);
     }
 
-    private static object RequestBody(ModelConfig settings, string query, IReadOnlyList<string> documents) => settings.Provider switch
+    private static HttpRequestMessage Post(ModelConfig settings, string query, IReadOnlyList<string> documents) => settings.Provider switch
     {
-        ModelProvider.Cloudflare => new CloudflareRequest(query, documents.Select(text => new Context(text)).ToList()),
-        _ => new Request(settings.Model, query, documents),
+        ModelProvider.Cloudflare => ModelRequest.Post(settings, new CloudflareRequest(query, documents.Select(text => new Context(text)).ToList())),
+        _ => ModelRequest.Post(settings, new Request(settings.Model, query, documents)),
     };
 
     private static async Task<double[]?> ReadScoresAsync(ModelProvider provider, HttpResponseMessage response, int count, CancellationToken cancellationToken)
     {
         if (provider == ModelProvider.Cloudflare)
         {
-            var answer = (await response.Content.ReadFromJsonAsync<CloudflareEnvelope<CloudflareResult>>(cancellationToken))?.Answer;
+            var answer = (await response.Content.ReadFromJsonAsync(ModelRequest.Json.For<CloudflareEnvelope<CloudflareResult>>(), cancellationToken))?.Answer;
             return Scores((answer?.Response ?? []).Select(item => (item?.Id, item?.Score)), count);
         }
 
-        var body = await response.Content.ReadFromJsonAsync<Response>(cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync(ModelRequest.Json.For<Response>(), cancellationToken);
         return Scores((body?.Results ?? []).Select(item => (item?.Index, item?.RelevanceScore)), count);
     }
 
@@ -80,26 +80,26 @@ internal sealed class RerankerModel(ModelClient client, ModelConfig? config, Mod
         return scored.Any(done => !done) ? null : scores;
     }
 
-    private sealed record Request(
+    internal sealed record Request(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("query")] string Query,
         [property: JsonPropertyName("documents")] IReadOnlyList<string> Documents);
 
-    private sealed record Response([property: JsonPropertyName("results")] IReadOnlyList<Item>? Results);
+    internal sealed record Response([property: JsonPropertyName("results")] IReadOnlyList<RerankItem>? Results);
 
-    private sealed record Item(
+    internal sealed record RerankItem(
         [property: JsonPropertyName("index")] int? Index,
         [property: JsonPropertyName("relevance_score")] double? RelevanceScore);
 
-    private sealed record CloudflareRequest(
+    internal sealed record CloudflareRequest(
         [property: JsonPropertyName("query")] string Query,
         [property: JsonPropertyName("contexts")] IReadOnlyList<Context> Contexts);
 
-    private sealed record Context([property: JsonPropertyName("text")] string Text);
+    internal sealed record Context([property: JsonPropertyName("text")] string Text);
 
-    private sealed record CloudflareResult([property: JsonPropertyName("response")] IReadOnlyList<CloudflareItem>? Response);
+    internal sealed record CloudflareResult([property: JsonPropertyName("response")] IReadOnlyList<CloudflareItem>? Response);
 
-    private sealed record CloudflareItem(
+    internal sealed record CloudflareItem(
         [property: JsonPropertyName("id")] int? Id,
         [property: JsonPropertyName("score")] double? Score);
 }

@@ -45,7 +45,7 @@ public sealed class BindingsApiTests : IAsyncLifetime
     private static readonly ConnectRequest Omp = new("Omp", "~/.omp/agent/AGENTS.md", "~/.omp/agent/skills");
 
     private Task<HttpResponseMessage> PostAsync(ConnectRequest body) =>
-        _local.PostAsync(Url(), JsonContent.Create(body, options: ManagementApiJson.Options));
+        _local.PostAsync(Url(), JsonContent.Create(body, options: RequestJson.Options));
 
     private static async Task<T> Read<T>(HttpResponseMessage response) =>
         JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
@@ -133,7 +133,7 @@ public sealed class BindingsApiTests : IAsyncLifetime
     public async Task Another_device_without_a_session_is_refused()
     {
         using var list = await _remote.GetAsync(Url());
-        using var bind = await _remote.PostAsync(Url(), JsonContent.Create(Omp, options: ManagementApiJson.Options));
+        using var bind = await _remote.PostAsync(Url(), JsonContent.Create(Omp, options: RequestJson.Options));
         using var unbind = await _remote.DeleteAsync(Url("/omp"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, list.StatusCode);

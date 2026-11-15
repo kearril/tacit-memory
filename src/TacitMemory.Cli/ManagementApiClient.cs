@@ -30,18 +30,20 @@ internal sealed class ManagementApiClient(int port, MemoryLanguage language, Tac
     }
 
     /// <summary>
-    /// Sends POST with <paramref name="body"/> as JSON to <c>api/{route}</c> and reads the JSON reply. There is no timeout:
+    /// Sends POST with <paramref name="body"/> as JSON, or an empty object without one, to <c>api/{route}</c> and reads the
+    /// JSON reply. There is no timeout:
     /// a maintenance operation answers once it has finished, however long that takes.
     /// </summary>
     /// <exception cref="ServiceNotRunningException">Nothing answered the connection.</exception>
     /// <exception cref="ForeignServiceException">Something answered on the port, but not with the management API.</exception>
     /// <exception cref="ServiceRefusedException">The service refused the call; the exception carries its error body.</exception>
-    public async Task<T> PostAsync<T>(string route, object body, CancellationToken cancellationToken = default)
+    public async Task<T> PostAsync<T>(string route, object? body = null, CancellationToken cancellationToken = default)
         where T : class
     {
+        var json = body is null ? "{}" : JsonSerializer.Serialize(body, ManagementApiJson.Options.GetTypeInfo(body.GetType()));
         using var request = new HttpRequestMessage(HttpMethod.Post, $"api/{route}")
         {
-            Content = new StringContent(JsonSerializer.Serialize(body, ManagementApiJson.Options), Encoding.UTF8, "application/json"),
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
         return await SendAsync<T>(request, timeout: null, cancellationToken);
     }
@@ -89,7 +91,7 @@ internal sealed class ManagementApiClient(int port, MemoryLanguage language, Tac
     {
         try
         {
-            return JsonSerializer.Deserialize<T>(text, ManagementApiJson.Options);
+            return JsonSerializer.Deserialize(text, ManagementApiJson.Options.For<T>());
         }
         catch (JsonException)
         {

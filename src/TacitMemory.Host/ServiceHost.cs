@@ -254,7 +254,7 @@ public sealed class ServiceHost : IAsyncDisposable
         if (request.Method == RequestMethods.Initialize)
         {
             var initialize = request.Params is { } parameters
-                ? JsonSerializer.Deserialize<InitializeRequestParams>(parameters.ToJsonString(), McpJsonUtilities.DefaultOptions)
+                ? JsonSerializer.Deserialize(parameters.ToJsonString(), McpJsonUtilities.DefaultOptions.For<InitializeRequestParams>())
                 : null;
             if (initialize?.ClientInfo is { } info)
                 service.RecordClient(Observation(info, initialize.ProtocolVersion, initialize.Capabilities));

@@ -93,7 +93,7 @@ internal sealed class BackupArchive(TacitOptions options, TacitConfig config)
 
                 var manifest = new BackupManifest(options.Time.GetUtcNow(), ProductVersion.Current, KindName(kind), commit.Hash, commit.Subject, entries);
                 using var manifestStream = zip.CreateEntry("manifest.json").Open();
-                JsonSerializer.Serialize(manifestStream, manifest, BackupManifest.Json);
+                JsonSerializer.Serialize(manifestStream, manifest, BackupManifest.Json.For<BackupManifest>());
             }
 
             File.Move(partial, destination, overwrite: false);

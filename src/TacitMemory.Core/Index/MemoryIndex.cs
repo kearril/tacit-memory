@@ -362,7 +362,7 @@ internal sealed class MemoryIndex : IDisposable
         lock (_gate)
         {
             var stored = _connection.QuerySingleOrDefault<string>("SELECT probabilities FROM judgment_cache WHERE cache_key = @cacheKey", new { cacheKey });
-            return stored is null ? null : JsonSerializer.Deserialize<Dictionary<string, double>>(stored);
+            return stored is null ? null : JsonSerializer.Deserialize(stored, CoreJson.Default.DictionaryStringDouble);
         }
     }
 
@@ -373,7 +373,7 @@ internal sealed class MemoryIndex : IDisposable
             _connection.Execute(
                 "INSERT INTO judgment_cache (cache_key, probabilities, written) VALUES (@cacheKey, @probabilities, @written) "
                 + "ON CONFLICT (cache_key) DO UPDATE SET probabilities = excluded.probabilities, written = excluded.written",
-                new { cacheKey, probabilities = JsonSerializer.Serialize(probabilities), written = writtenAt.ToString("O", CultureInfo.InvariantCulture) });
+                new { cacheKey, probabilities = JsonSerializer.Serialize(probabilities.ToDictionary(), CoreJson.Default.DictionaryStringDouble), written = writtenAt.ToString("O", CultureInfo.InvariantCulture) });
     }
 
     /// <summary>Up to <paramref name="limit"/> units that still need a vector.</summary>

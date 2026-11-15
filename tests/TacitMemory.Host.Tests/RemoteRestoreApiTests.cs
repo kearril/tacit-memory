@@ -55,7 +55,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
     private string DownloadFile => Path.Combine(_home.TacitHome, "backups", ".download", "tacit-backup.zip");
 
     private Task<HttpResponseMessage> PostRestore(object body) =>
-        _http.PostAsync(Url("/api/restore"), new StringContent(JsonSerializer.Serialize(body, ManagementApiJson.Options), Encoding.UTF8, "application/json"));
+        _http.PostAsync(Url("/api/restore"), new StringContent(JsonSerializer.Serialize(body, RequestJson.Options), Encoding.UTF8, "application/json"));
 
     [Fact]
     public async Task The_remote_preview_answers_with_the_downloaded_path_as_json()

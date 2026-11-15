@@ -17,6 +17,11 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
+  <!-- The release is trimmed. The analyzer reports, at every build of the product, code that trimming could break. -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('\src\'))">
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all" />
   </ItemGroup>

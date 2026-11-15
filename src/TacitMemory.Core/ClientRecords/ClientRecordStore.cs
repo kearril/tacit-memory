@@ -20,7 +20,7 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
     /// <summary>The longest text kept from one declared value; a longer one is cut.</summary>
     private const int MaxLength = 200;
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true, TypeInfoResolver = CoreJson.Default };
 
     private readonly Lock _gate = new();
     private List<ClientStatus>? _clients;
@@ -93,7 +93,7 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
     {
         if (!File.Exists(path))
             return [];
-        var file = JsonSerializer.Deserialize<ClientRecordFile>(File.ReadAllText(path), Json);
+        var file = JsonSerializer.Deserialize(File.ReadAllText(path), Json.For<ClientRecordFile>());
         // A file edited by hand can hold null where a record or a value belongs; those are left out, not failed on.
         return (file?.Clients ?? [])
             .Where(client => client is not null)
@@ -132,7 +132,7 @@ internal sealed class ClientRecordStore(string path, TimeProvider time, ServiceL
         var temporary = path + ".tmp";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(new ClientRecordFile(clients), Json));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(new ClientRecordFile(clients), Json.For<ClientRecordFile>()));
             File.Move(temporary, path, overwrite: true);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

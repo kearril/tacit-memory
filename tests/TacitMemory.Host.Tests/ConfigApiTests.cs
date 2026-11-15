@@ -49,7 +49,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
     }
 
     private Task<HttpResponseMessage> PutAsync(ConfigSave body, HttpClient? client = null) =>
-        (client ?? _local).PutAsync(Url, JsonContent.Create(body, options: ManagementApiJson.Options));
+        (client ?? _local).PutAsync(Url, JsonContent.Create(body, options: RequestJson.Options));
 
     private static async Task<T> Read<T>(HttpResponseMessage response) =>
         JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;

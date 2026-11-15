@@ -61,20 +61,20 @@ internal sealed class EmbeddingModel(ModelClient client, ModelConfig? config, Mo
 
     private static async Task<List<float[]>?> ReadVectorsAsync(HttpResponseMessage response, int count, CancellationToken cancellationToken)
     {
-        var body = await response.Content.ReadFromJsonAsync<Response>(cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync(ModelRequest.Json.For<Response>(), cancellationToken);
         var data = body?.Data?.OrderBy(item => item.Index).Select(item => item.Embedding).ToList();
         if (data is null || data.Count != count || data.Any(vector => vector is not { Length: > 0 } || vector.Length != data[0]!.Length))
             return null;
         return data!;
     }
 
-    private sealed record Request(
+    internal sealed record Request(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("input")] IReadOnlyList<string> Input);
 
-    private sealed record Response([property: JsonPropertyName("data")] IReadOnlyList<Item>? Data);
+    internal sealed record Response([property: JsonPropertyName("data")] IReadOnlyList<EmbeddingItem>? Data);
 
-    private sealed record Item(
+    internal sealed record EmbeddingItem(
         [property: JsonPropertyName("index")] int Index,
         [property: JsonPropertyName("embedding")] float[]? Embedding);
 }

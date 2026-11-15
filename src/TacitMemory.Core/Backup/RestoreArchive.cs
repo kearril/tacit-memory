@@ -138,7 +138,7 @@ internal sealed class RestoreArchive : IDisposable
 
         try
         {
-            var manifest = JsonSerializer.Deserialize<BackupManifest>(ReadAll(entry), BackupManifest.Json)
+            var manifest = JsonSerializer.Deserialize(ReadAll(entry), BackupManifest.Json.For<BackupManifest>())
                 ?? throw new JsonException("the manifest is empty");
             if (manifest.MemoryHead is null)
                 throw new JsonException("the manifest has no memory head");

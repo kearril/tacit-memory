@@ -19,7 +19,7 @@ internal sealed class ConfiguredTool(McpServerTool inner, LimitsConfig limits) :
     /// <summary>The tool with its placeholders filled, in its description and in its parameters' descriptions alike.</summary>
     private static Tool Filled(Tool tool, LimitsConfig limits)
     {
-        var json = JsonSerializer.Serialize(tool, McpJsonUtilities.DefaultOptions);
-        return JsonSerializer.Deserialize<Tool>(ToolCatalog.Fill(json, limits), McpJsonUtilities.DefaultOptions)!;
+        var contract = McpJsonUtilities.DefaultOptions.For<Tool>();
+        return JsonSerializer.Deserialize(ToolCatalog.Fill(JsonSerializer.Serialize(tool, contract), limits), contract)!;
     }
 }

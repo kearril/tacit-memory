@@ -49,7 +49,7 @@ public sealed class ManagementErrorTests : IAsyncLifetime
         var blocker = Path.Combine(_home.Root, "not-a-directory");
         File.WriteAllText(blocker, "occupied");
 
-        using var response = await Post("/api/backup", JsonSerializer.Serialize(new { target = "local", to = blocker }, ManagementApiJson.Options));
+        using var response = await Post("/api/backup", JsonSerializer.Serialize(new { target = "local", to = blocker }, RequestJson.Options));
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         Assert.Equal("application/json; charset=utf-8", response.Content.Headers.ContentType?.ToString());
@@ -64,7 +64,7 @@ public sealed class ManagementErrorTests : IAsyncLifetime
     {
         var missing = Path.Combine(_home.Root, "missing.zip");
 
-        using var response = await Post("/api/restore", JsonSerializer.Serialize(new { path = missing, config = false, preview = true }, ManagementApiJson.Options));
+        using var response = await Post("/api/restore", JsonSerializer.Serialize(new { path = missing, config = false, preview = true }, RequestJson.Options));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;

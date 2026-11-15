@@ -105,7 +105,7 @@ public sealed class AccessApiTests : IAsyncLifetime
     {
         using var request = new HttpRequestMessage(method, url);
         if (body is not null)
-            request.Content = new StringContent(JsonSerializer.Serialize(body, ManagementApiJson.Options), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(JsonSerializer.Serialize(body, RequestJson.Options), Encoding.UTF8, "application/json");
         if (cookie is not null)
             request.Headers.TryAddWithoutValidation("Cookie", $"{CookieName}={cookie}");
         if (origin is not null)

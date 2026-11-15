@@ -261,7 +261,7 @@ public sealed class AccessControl
             return null;
         try
         {
-            var stored = JsonSerializer.Deserialize<StoredState>(File.ReadAllText(_path), StateJson);
+            var stored = JsonSerializer.Deserialize(File.ReadAllText(_path), StateJson.For<StoredState>());
             if (stored?.PasswordHash is null || stored.Salt is null || stored.SigningKey is null || stored.Iterations is not { } iterations)
                 return null;
             if (iterations is < MinimumIterations or > MaximumIterations)
@@ -296,13 +296,13 @@ public sealed class AccessControl
         var stored = new StoredState(
             Convert.ToBase64String(state.Hash), Convert.ToBase64String(state.Salt), state.Iterations, Convert.ToBase64String(state.Key));
         var temporary = _path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(stored, StateJson));
+        File.WriteAllText(temporary, JsonSerializer.Serialize(stored, StateJson.For<StoredState>()));
         File.Move(temporary, _path, overwrite: true);
     }
 
     private static string Address(IPAddress? peer) => peer?.ToString() ?? "";
 
-    private static readonly JsonSerializerOptions StateJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly JsonSerializerOptions StateJson = new(JsonSerializerDefaults.Web) { WriteIndented = true, TypeInfoResolver = CoreJson.Default };
 
     /// <summary>The state as the file holds it. Each member is nullable, so a file missing one reads as no state, not as an exception.</summary>
     internal sealed record StoredState(string? PasswordHash, string? Salt, int? Iterations, string? SigningKey);

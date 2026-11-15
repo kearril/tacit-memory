@@ -27,6 +27,7 @@ public static class ManagementApiJson
     /// </summary>
     public static void Apply(JsonSerializerOptions options)
     {
+        options.TypeInfoResolverChain.Insert(0, HostJson.Default);
         options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
         options.NumberHandling = JsonNumberHandling.Strict;
@@ -36,6 +37,8 @@ public static class ManagementApiJson
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         Apply(options);
+        // Only the generated contracts: a type the API reads or writes must be listed in HostJson.
+        options.TypeInfoResolver = HostJson.Default;
         return options;
     }
 }
@@ -423,7 +426,7 @@ internal static class ManagementApi
     {
         try
         {
-            return await JsonSerializer.DeserializeAsync<T>(context.Request.Body, ManagementApiJson.Options, context.RequestAborted)
+            return await JsonSerializer.DeserializeAsync(context.Request.Body, ManagementApiJson.Options.For<T>(), context.RequestAborted)
                 ?? throw new JsonException();
         }
         catch (JsonException e)
@@ -476,7 +479,7 @@ internal static class ManagementApi
 
     /// <summary>A JSON response, serialized here with <see cref="ManagementApiJson.Options"/>.</summary>
     internal static IResult Json<T>(T value, int statusCode = StatusCodes.Status200OK) =>
-        Results.Text(JsonSerializer.Serialize(value, ManagementApiJson.Options), "application/json; charset=utf-8", statusCode: statusCode);
+        Results.Text(JsonSerializer.Serialize(value, ManagementApiJson.Options.For<T>()), "application/json; charset=utf-8", statusCode: statusCode);
 
     /// <summary>
     /// The guard that refuses the request, with its status code; <c>null</c> when the request may pass. The Origin rule

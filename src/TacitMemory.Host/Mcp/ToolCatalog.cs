@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
@@ -29,8 +32,17 @@ public static class ToolCatalog
     /// <summary>The memory tools as the MCP server publishes them, each with its descriptions filled in from <paramref name="limits"/>.</summary>
     internal static IReadOnlyList<McpServerTool> Tools(MemoryTools target, LimitsConfig limits) =>
         MemberTools()
-            .Select(tool => (McpServerTool)new ConfiguredTool(McpServerTool.Create(tool.Method, target), limits))
+            .Select(tool => (McpServerTool)new ConfiguredTool(McpServerTool.Create(tool.Method, target, new() { SerializerOptions = ArgumentJson }), limits))
             .ToList();
+
+    /// <summary>
+    /// The SDK's JSON with the contracts of the tools' own parameter types added, which the SDK's alone do not have; the
+    /// release reads no JSON by reflection.
+    /// </summary>
+    private static readonly JsonSerializerOptions ArgumentJson = new(McpJsonUtilities.DefaultOptions)
+    {
+        TypeInfoResolver = JsonTypeInfoResolver.Combine(HostJson.Default, McpJsonUtilities.DefaultOptions.TypeInfoResolver),
+    };
 
     /// <summary>
     /// Replaces the placeholders that name a configured limit with its value: <c>{minAliases}</c>.

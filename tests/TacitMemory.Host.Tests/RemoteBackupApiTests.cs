@@ -51,7 +51,7 @@ public sealed class RemoteBackupApiTests : IAsyncLifetime
 
     private async Task<(HttpStatusCode Status, string Text)> PostBackup(BackupBody body)
     {
-        var json = JsonSerializer.Serialize(body, ManagementApiJson.Options);
+        var json = JsonSerializer.Serialize(body, RequestJson.Options);
         using var response = await _http.PostAsync(Url("/api/backup"), new StringContent(json, Encoding.UTF8, "application/json"));
         return (response.StatusCode, await response.Content.ReadAsStringAsync());
     }

@@ -21,6 +21,7 @@ internal sealed class BindingStore(string tacitHome, MemoryLanguage language)
         WriteIndented = true,
         NewLine = "\n",
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = CoreJson.Default,
     };
 
     private string FilePath => Path.Combine(tacitHome, "bindings.json");
@@ -32,7 +33,7 @@ internal sealed class BindingStore(string tacitHome, MemoryLanguage language)
             return [];
         try
         {
-            return JsonSerializer.Deserialize<BindingsFile>(File.ReadAllText(FilePath), Json)?.Bindings ?? [];
+            return JsonSerializer.Deserialize(File.ReadAllText(FilePath), Json.For<BindingsFile>())?.Bindings ?? [];
         }
         catch (JsonException e)
         {
@@ -50,8 +51,8 @@ internal sealed class BindingStore(string tacitHome, MemoryLanguage language)
     private void Save(List<BindingRecord> bindings)
     {
         Directory.CreateDirectory(tacitHome);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(new BindingsFile(bindings), Json) + "\n");
+        File.WriteAllText(FilePath, JsonSerializer.Serialize(new BindingsFile(bindings), Json.For<BindingsFile>()) + "\n");
     }
 
-    private sealed record BindingsFile([property: JsonPropertyName("bindings")] List<BindingRecord> Bindings);
+    internal sealed record BindingsFile([property: JsonPropertyName("bindings")] List<BindingRecord> Bindings);
 }

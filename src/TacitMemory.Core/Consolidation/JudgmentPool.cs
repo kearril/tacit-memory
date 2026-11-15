@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -169,13 +170,18 @@ internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, T
     /// </summary>
     internal static string CacheKey(string state, string instructions, IReadOnlyDictionary<string, string> options)
     {
-        var content = JsonSerializer.Serialize(new
-        {
-            type = "choice",
-            state,
-            instructions,
-            options = options.OrderBy(option => option.Key, StringComparer.Ordinal).Select(option => new[] { option.Key, option.Value }).ToArray(),
-        });
+        var content = JsonSerializer.Serialize(
+            new CacheKeyContent(
+                "choice", state, instructions,
+                options.OrderBy(option => option.Key, StringComparer.Ordinal).Select(option => new[] { option.Key, option.Value }).ToArray()),
+            CoreJson.Default.CacheKeyContent);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
     }
+
+    /// <summary>What a cache key hashes, as JSON with these member names in this order.</summary>
+    internal sealed record CacheKeyContent(
+        [property: JsonPropertyName("type")] string Type,
+        [property: JsonPropertyName("state")] string State,
+        [property: JsonPropertyName("instructions")] string Instructions,
+        [property: JsonPropertyName("options")] string[][] Options);
 }

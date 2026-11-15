@@ -389,11 +389,12 @@ internal sealed partial class PageDocument
     private static string Scalar(string value, bool inFlow) =>
         PlainScalar().IsMatch(value) && (!inFlow || value.IndexOfAny([',', '[', ']', '{', '}']) < 0)
             ? value
-            : System.Text.Json.JsonSerializer.Serialize(value, JsonOptions);
+            : System.Text.Json.JsonSerializer.Serialize(value, JsonOptions.For<string>());
 
     private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
     {
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = CoreJson.Default,
     };
 
     [GeneratedRegex(@"^## (.+)$")]
