@@ -26,7 +26,7 @@ internal static class ConfigSchema
             ConfigDefaults.MaxConcurrency, ConfigDefaults.HintItemLength, ConfigDefaults.HintResidentLength),
         Decision = new DecisionFile(
             File(Judgment.SamePreference), File(Judgment.SamePage), File(Judgment.SameTopic), File(Judgment.RuleConflict)),
-        Retrieval = new RetrievalFile(ConfigDefaults.Candidates, ConfigDefaults.TopK, RecallTool.DefaultMinRerankScore),
+        Retrieval = new RetrievalFile(ConfigDefaults.Candidates, ConfigDefaults.TopK, RecallPipeline.DefaultMinRerankScore),
         Backup = new BackupFile(ConfigDefaults.Keep),
     };
 

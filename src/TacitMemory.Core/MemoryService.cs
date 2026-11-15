@@ -87,6 +87,8 @@ public sealed class MemoryService : IDisposable
     private VectorSync _vectors = null!;
     private JudgmentPool _judgments = null!;
     private ConsolidationServices _consolidation = null!;
+    private RecallPipeline _pipeline = null!;
+    private WorkstreamBrief _brief = null!;
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
     private PromptDocuments _prompts = null!;
@@ -175,7 +177,9 @@ public sealed class MemoryService : IDisposable
             _options, config, _log,
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recall = new RecallTool(config, _index, _pages, _models.Embedding, _models.Reranker, _vectors);
+        _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
+        _brief = new WorkstreamBrief(config, _index);
+        _recall = new RecallTool(config, _index, _pages, _pipeline, _brief);
         _backup = new AutomaticBackup(_options, config, _log, _gate);
         _manual = new ManualBackup(_options, config, _log);
         _remote = new CloudBackup(_options, config, _log);
@@ -906,6 +910,28 @@ public sealed class MemoryService : IDisposable
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
         return await _recall.RunAsync(request, cancellationToken);
+    }
+
+    /// <summary>The search <c>recall</c> runs, stage by stage; counts no return.</summary>
+    internal async Task<RecallTrace> TraceRecallAsync(
+        string query, IndexFilter filter, RetrievalOverrides overrides, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return await _pipeline.RunAsync(query, filter, overrides, cancellationToken);
+    }
+
+    /// <summary>Everything a workstream's brief lists, whole; counts no return. <c>null</c> when the workstream has nothing.</summary>
+    internal async Task<WorkstreamBrief.Parts?> GatherBriefAsync(string workstream, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return _brief.Gather(workstream, null, null);
+    }
+
+    /// <summary>A whole page; counts no return. <c>null</c> when it does not exist or cannot be read.</summary>
+    internal async Task<PageDocument?> FetchPageAsync(PageId id, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return _pages.Fetch(id, _index).Document;
     }
 
     /// <summary>

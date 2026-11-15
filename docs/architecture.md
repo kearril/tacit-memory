@@ -114,7 +114,8 @@ flowchart LR
 2. 全文：FTS5（unicode61）。中文切分由 `IndexText` 在写入与查询前完成，匹配规则见 `docs/design.md` 第 7 节；按 BM25 排序。
 3. 向量：`vec0`（余弦距离），单元与筛选规则同全文；缺向量的单元按批补齐：启动与监听同步后在后台进行，每次写入后与模型恢复后的第一次检索时则在本次调用中完成。
 4. 两路各取候选，RRF 合并后交 reranker，按阈值过滤并截取（数量见 `docs/design.md` 第 7 节）。
-5. 主线简报（`Retrieval/WorkstreamBrief`）：`recall` 只给 `workstream` 时由 `RecallTool` 交给它。它直接读取该主线的页面文件、主线作用域的画像与月文件，经索引同步页面并计入使用统计，不经全文与向量检索。
+5. 以上由 `Retrieval/RecallPipeline` 完成：它返回各阶段的明细（每个检索单元的全文名次与 BM25 值、向量名次与余弦距离、RRF 分与融合名次、reranker 分，以及去向：显示、超出 topK、低于阈值、在候选数之外）、两个模型的耗时与降级说明，以及 Agent 读到的文本；它不计使用统计。`RecallTool` 在其上计入显示的单元，检索追踪则不计入。
+6. 主线简报（`Retrieval/WorkstreamBrief`）：`recall` 只给 `workstream` 时由 `RecallTool` 交给它。它直接读取该主线的页面文件、主线作用域的画像与月文件，经索引同步页面，不经全文与向量检索。`Gather` 只取数据、不截断、不计数；`Compose` 在其上截断、格式化并计入使用统计。整页读取同样分为不计数的 `PageTools.Fetch` 与计数的 `Read`。
 
 ### 整理
 
