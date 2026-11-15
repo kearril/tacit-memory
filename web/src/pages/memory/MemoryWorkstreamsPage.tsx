@@ -358,7 +358,7 @@ function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
           >
             <h3 className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
               {text.summary(brief.summary.label)}
-              <span className="font-regular text-xs text-ink-muted tabular-nums">
+              <span className="text-xs font-regular text-ink-muted tabular-nums">
                 {`${brief.summary.first} – ${brief.summary.last}`}
               </span>
             </h3>

@@ -312,7 +312,7 @@ function DaySection({ date, activities }: { readonly date: string; readonly acti
       <h2 className="sticky top-(--tk-size-nav-bar) z-(--tk-layer-base) flex items-baseline gap-sm border-b-(length:--tk-border-thin) border-line bg-surface py-xs text-sm font-semibold lg:top-0">
         <span className="tabular-nums">{date}</span>
         <span className="font-regular text-ink-muted">{dayText(date, locale, { weekday: "short" })}</span>
-        <span className="font-regular text-xs text-ink-muted">{text.count(activities.length)}</span>
+        <span className="text-xs font-regular text-ink-muted">{text.count(activities.length)}</span>
       </h2>
       <ul className="grid gap-md">
         {activities.map((item) => (
@@ -380,7 +380,7 @@ function SummaryBar({ summary }: { readonly summary: ActivitySummaryView }) {
     >
       <p className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
         {title}
-        <span className="font-regular text-xs text-ink-muted tabular-nums">{`${summary.first} – ${summary.last}`}</span>
+        <span className="text-xs font-regular text-ink-muted tabular-nums">{`${summary.first} – ${summary.last}`}</span>
       </p>
       <p className="text-sm leading-(--tk-line-height-normal)">{summary.text}</p>
     </aside>

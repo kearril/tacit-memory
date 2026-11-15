@@ -194,7 +194,7 @@ export function SectionGroup({
           className={`size-(--tk-font-size-base) ${kind === null ? "text-warning" : "text-ink-muted"}`}
         />
         {kind === null ? text.otherSection(section.heading) : text.sections[kind]}
-        <span className="font-regular text-xs text-ink-muted">{text.count(count)}</span>
+        <span className="text-xs font-regular text-ink-muted">{text.count(count)}</span>
       </h3>
       {section.entries.length === 0 ? (
         <p className="text-sm text-ink-muted">{text.empty}</p>
@@ -230,7 +230,9 @@ function EntryRow({
       }`}
     >
       <div className="grid min-w-0 gap-xs">
-        <p className={`leading-(--tk-line-height-normal) ${entry.code === null ? "text-ink-muted" : ""}`}>{entry.text}</p>
+        <p className={`leading-(--tk-line-height-normal) ${entry.code === null ? "text-ink-muted" : ""}`}>
+          {entry.text}
+        </p>
         {lines.map((line, index) => (
           <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
             {line}

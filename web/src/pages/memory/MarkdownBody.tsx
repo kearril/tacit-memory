@@ -42,13 +42,7 @@ function Block({ block }: { readonly block: MdBlock }) {
       const items = block.items.map((item, index) => (
         <li key={index} className={item.task === null ? "pl-xs" : "flex list-none items-start gap-sm"}>
           {item.task === null ? null : (
-            <input
-              type="checkbox"
-              checked={item.task}
-              readOnly
-              disabled
-              className="mt-xs accent-(--tk-color-accent)"
-            />
+            <input type="checkbox" checked={item.task} readOnly disabled className="mt-xs accent-(--tk-color-accent)" />
           )}
           <div className="grid min-w-0 gap-xs">
             <Blocks blocks={item.blocks} />
