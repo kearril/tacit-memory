@@ -311,8 +311,8 @@ function DaySection({ date, activities }: { readonly date: string; readonly acti
     >
       <h2 className="sticky top-(--tk-size-nav-bar) z-(--tk-layer-base) flex items-baseline gap-sm border-b-(length:--tk-border-thin) border-line bg-surface py-xs text-sm font-semibold lg:top-0">
         <span className="tabular-nums">{date}</span>
-        <span className="font-normal text-ink-muted">{dayText(date, locale, { weekday: "short" })}</span>
-        <span className="font-normal text-xs text-ink-muted">{text.count(activities.length)}</span>
+        <span className="font-regular text-ink-muted">{dayText(date, locale, { weekday: "short" })}</span>
+        <span className="font-regular text-xs text-ink-muted">{text.count(activities.length)}</span>
       </h2>
       <ul className="grid gap-md">
         {activities.map((item) => (
@@ -331,7 +331,7 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-md gap-y-xs">
       <div className="grid min-w-0 gap-xs">
-        <p className="leading-(--tk-line-height-body)">
+        <p className="leading-(--tk-line-height-normal)">
           {item.workstream === null ? null : (
             <span className="mr-sm inline-flex align-middle">
               <WorkstreamPill name={item.workstream} />
@@ -340,7 +340,7 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
           {item.text}
         </p>
         {lines.map((line, index) => (
-          <p key={index} className="text-sm leading-(--tk-line-height-body) text-ink-muted">
+          <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
             {line.trim()}
           </p>
         ))}
@@ -380,9 +380,9 @@ function SummaryBar({ summary }: { readonly summary: ActivitySummaryView }) {
     >
       <p className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
         {title}
-        <span className="font-normal text-xs text-ink-muted tabular-nums">{`${summary.first} – ${summary.last}`}</span>
+        <span className="font-regular text-xs text-ink-muted tabular-nums">{`${summary.first} – ${summary.last}`}</span>
       </p>
-      <p className="text-sm leading-(--tk-line-height-body)">{summary.text}</p>
+      <p className="text-sm leading-(--tk-line-height-normal)">{summary.text}</p>
     </aside>
   );
 }

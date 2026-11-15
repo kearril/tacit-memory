@@ -194,7 +194,7 @@ export function SectionGroup({
           className={`size-(--tk-font-size-base) ${kind === null ? "text-warning" : "text-ink-muted"}`}
         />
         {kind === null ? text.otherSection(section.heading) : text.sections[kind]}
-        <span className="font-normal text-xs text-ink-muted">{text.count(count)}</span>
+        <span className="font-regular text-xs text-ink-muted">{text.count(count)}</span>
       </h3>
       {section.entries.length === 0 ? (
         <p className="text-sm text-ink-muted">{text.empty}</p>
@@ -230,9 +230,9 @@ function EntryRow({
       }`}
     >
       <div className="grid min-w-0 gap-xs">
-        <p className={`leading-(--tk-line-height-body) ${entry.code === null ? "text-ink-muted" : ""}`}>{entry.text}</p>
+        <p className={`leading-(--tk-line-height-normal) ${entry.code === null ? "text-ink-muted" : ""}`}>{entry.text}</p>
         {lines.map((line, index) => (
-          <p key={index} className="text-sm leading-(--tk-line-height-body) text-ink-muted">
+          <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
             {line}
           </p>
         ))}
@@ -241,7 +241,7 @@ function EntryRow({
         ))}
         {problems.map((problem) => (
           <p key={problem.kind} className="flex items-start gap-xs text-xs text-warning">
-            <TriangleAlert aria-hidden className="mt-[0.15em] size-(--tk-font-size-xs) shrink-0" />
+            <TriangleAlert aria-hidden className="mt-xs size-(--tk-font-size-xs) shrink-0" />
             {`${problem.kind}: ${problem.description}`}
           </p>
         ))}
@@ -359,7 +359,7 @@ function CandidateRow({ candidate, quotes = false }: { readonly candidate: Candi
   const section = candidate.section as SectionKind;
   return (
     <li className="grid gap-xs">
-      <p className="leading-(--tk-line-height-body)">{candidate.title}</p>
+      <p className="leading-(--tk-line-height-normal)">{candidate.title}</p>
       <div className="flex flex-wrap items-center gap-sm">
         <SectionBadge section={section} />
         <ScopeBadge scope={candidate.scope} />

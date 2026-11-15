@@ -265,9 +265,9 @@ function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
         {brief.established ? (
           <dl className="grid gap-sm text-sm sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-md">
             <dt className="text-ink-muted">{text.background}</dt>
-            <dd className="leading-(--tk-line-height-body)">{brief.background ?? text.empty}</dd>
+            <dd className="leading-(--tk-line-height-normal)">{brief.background ?? text.empty}</dd>
             <dt className="text-ink-muted">{text.recent}</dt>
-            <dd className="leading-(--tk-line-height-body)">{brief.recent ?? text.empty}</dd>
+            <dd className="leading-(--tk-line-height-normal)">{brief.recent ?? text.empty}</dd>
           </dl>
         ) : (
           <p className="text-sm text-ink-muted">{text.unestablishedHint}</p>
@@ -296,7 +296,7 @@ function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
                   {item.page}
                 </Link>
                 {item.lines.map((line, index) => (
-                  <p key={index} className="text-sm leading-(--tk-line-height-body)">
+                  <p key={index} className="text-sm leading-(--tk-line-height-normal)">
                     {line}
                   </p>
                 ))}
@@ -343,7 +343,7 @@ function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
             {brief.activities.map((activity) => (
               <li key={activity.code} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-md gap-y-xs">
                 <div className="grid min-w-0 gap-xs">
-                  <p className="leading-(--tk-line-height-body)">{activity.text}</p>
+                  <p className="leading-(--tk-line-height-normal)">{activity.text}</p>
                   <p className="text-xs text-ink-muted tabular-nums">{activity.date}</p>
                 </div>
                 <CodePill code={activity.code} />
@@ -358,11 +358,11 @@ function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
           >
             <h3 className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
               {text.summary(brief.summary.label)}
-              <span className="font-normal text-xs text-ink-muted tabular-nums">
+              <span className="font-regular text-xs text-ink-muted tabular-nums">
                 {`${brief.summary.first} – ${brief.summary.last}`}
               </span>
             </h3>
-            <p className="text-sm leading-(--tk-line-height-body) whitespace-pre-line">{brief.summary.text}</p>
+            <p className="text-sm leading-(--tk-line-height-normal) whitespace-pre-line">{brief.summary.text}</p>
           </section>
         )}
       </Card>

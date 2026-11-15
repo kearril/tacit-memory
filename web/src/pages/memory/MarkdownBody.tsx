@@ -9,7 +9,7 @@ import { SourceNote } from "./parts";
 export default function MarkdownBody({ text }: { readonly text: string }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (
-    <div className="grid gap-sm leading-(--tk-line-height-body)">
+    <div className="grid gap-sm leading-(--tk-line-height-normal)">
       <Blocks blocks={blocks} />
     </div>
   );
@@ -47,7 +47,7 @@ function Block({ block }: { readonly block: MdBlock }) {
               checked={item.task}
               readOnly
               disabled
-              className="mt-[0.4em] accent-(--tk-color-accent)"
+              className="mt-xs accent-(--tk-color-accent)"
             />
           )}
           <div className="grid min-w-0 gap-xs">
@@ -71,7 +71,7 @@ function Block({ block }: { readonly block: MdBlock }) {
       );
     case "code":
       return (
-        <pre className="overflow-x-auto rounded-md bg-surface-raised p-md font-mono text-xs leading-(--tk-line-height-body)">
+        <pre className="overflow-x-auto rounded-md bg-surface-raised p-md font-mono text-xs leading-(--tk-line-height-normal)">
           <code>{block.text}</code>
         </pre>
       );
@@ -141,7 +141,7 @@ function Inline({ inline }: { readonly inline: MdInline }) {
         </s>
       );
     case "code":
-      return <code className="rounded-sm bg-surface-raised px-xs font-mono text-[0.875em]">{inline.text}</code>;
+      return <code className="rounded-sm bg-surface-raised px-xs font-mono text-sm">{inline.text}</code>;
     case "link":
       return inline.href === null ? (
         <Inlines inlines={inline.children} />
