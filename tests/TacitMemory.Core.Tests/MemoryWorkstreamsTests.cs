@@ -63,6 +63,19 @@ public sealed class MemoryWorkstreamsTests : IDisposable
     }
 
     [Fact]
+    public async Task The_list_gives_the_workstreams_file_with_its_problems()
+    {
+        Setup();
+        Establish("## 主线\n\n### my-app\n背景：一个应用。\n\n### no-background\n近况：缺背景。\n");
+
+        var list = await Service.WorkstreamsAsync();
+
+        Assert.Equal(Path.Combine(Memory, "workstreams.md"), list.File.Path);
+        Assert.Equal(6, Assert.Single(list.File.Problems).Line);
+        Assert.Equal(["my-app"], list.Established.Select(item => item.Name));
+    }
+
+    [Fact]
     public async Task The_brief_holds_what_recall_lists_whole_by_type_with_uses_and_counts_nothing()
     {
         Setup();

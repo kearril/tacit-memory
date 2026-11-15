@@ -7,18 +7,9 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
-import { activityParams } from "../memory/timeline";
-import { memoryPathOf } from "../memory/views";
+import { activityPathOf } from "../memory/timeline";
 import { dayText } from "./format";
-import { calendarColumns, dayLevel, fillWindow, type HeatDay, type HeatLevel, monthLabels, statsOf } from "./heatmap";
-
-const levelClass: Record<HeatLevel, string> = {
-  0: "bg-heat-0",
-  1: "bg-heat-1",
-  2: "bg-heat-2",
-  3: "bg-heat-3",
-  4: "bg-heat-4",
-};
+import { calendarColumns, dayLevel, fillWindow, HEAT_LEVEL_CLASS, type HeatDay, monthLabels, statsOf } from "./heatmap";
 
 /** A `yyyy-MM-dd` date as the interface shows it: month, day and weekday, in the memory language. */
 function dateText(date: string, locale: string): string {
@@ -178,15 +169,13 @@ function Heatmap({
                   onClick={() =>
                     day.total === 0
                       ? setSelected(index)
-                      : navigate(
-                          `${memoryPathOf("activity")}?${activityParams({ month: day.date.slice(0, 7), day: day.date, workstream: null })}`,
-                        )
+                      : navigate(activityPathOf({ month: day.date.slice(0, 7), day: day.date, workstream: null }))
                   }
                   onFocus={() => setSelected(index)}
                   onMouseEnter={() => setHovered(index)}
                   style={{ gridColumn: column + 2, gridRow: row + 2 }}
                   className={`grid aspect-square w-full cursor-pointer place-items-center rounded-xs transition-shadow outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
-                    levelClass[dayLevel(day.total)]
+                    HEAT_LEVEL_CLASS[dayLevel(day.total)]
                   } ${isSelected ? "ring-(length:--tk-border-thick) ring-ink" : "hover:ring-(length:--tk-border-thin) hover:ring-ink-muted"}`}
                 >
                   {day.consolidated ? <ConsolidationStar /> : null}
@@ -275,7 +264,7 @@ function Legend() {
       <span className="flex items-center gap-xs">
         {text.less}
         {([0, 1, 2, 3, 4] as const).map((level) => (
-          <span key={level} className={`size-(--tk-size-heat-cell) rounded-xs ${levelClass[level]}`} />
+          <span key={level} className={`size-(--tk-size-heat-cell) rounded-xs ${HEAT_LEVEL_CLASS[level]}`} />
         ))}
         {text.more}
       </span>

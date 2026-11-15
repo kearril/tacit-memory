@@ -15,10 +15,11 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Label } from "../../components/ui/label";
+import { NativeSelect } from "../../components/ui/native-select";
 import { errorTextOf } from "../../i18n/messages";
 import { dayText } from "../dashboard/format";
-import { dayLevel, type HeatLevel } from "../dashboard/heatmap";
-import { CodePill, FilePath, SourceNote, WorkstreamPill } from "./parts";
+import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
+import { CodePill, FilePath, FileProblems, SourceNote, WorkstreamPill } from "./parts";
 import { splitSources } from "./sources";
 import {
   type ActivityQuery,
@@ -29,18 +30,6 @@ import {
   type TimelineEntry,
   timelineOf,
 } from "./timeline";
-
-/** A native select in the look of the inputs. */
-const SELECT_CLASS =
-  "h-control w-full min-w-0 rounded-md border-(length:--tk-border-thin) border-line bg-surface-raised px-md text-base text-ink outline-none focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
-
-const levelClass: Record<HeatLevel, string> = {
-  0: "bg-heat-0",
-  1: "bg-heat-1",
-  2: "bg-heat-2",
-  3: "bg-heat-3",
-  4: "bg-heat-4",
-};
 
 /** Scrolls a day of the timeline to the top, below the sticky bars. */
 function scrollToDay(date: string) {
@@ -126,9 +115,8 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
               >
                 <ChevronLeft aria-hidden />
               </Button>
-              <select
+              <NativeSelect
                 id="activity-month"
-                className={SELECT_CLASS}
                 value={query.month}
                 onChange={(event) => update({ month: event.target.value, day: null })}
               >
@@ -137,7 +125,7 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
                     {month}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               <Button
                 variant="ghost"
                 size="icon"
@@ -151,9 +139,8 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
           </div>
           <div className="grid content-start gap-xs">
             <Label htmlFor="activity-workstream">{text.workstream}</Label>
-            <select
+            <NativeSelect
               id="activity-workstream"
-              className={SELECT_CLASS}
               value={query.workstream ?? ""}
               onChange={(event) => update({ workstream: event.target.value || null })}
             >
@@ -163,13 +150,13 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
                   {name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
         {view.data === undefined ? null : (
           <>
             <FilePath path={view.data.file.path} />
-            <Problems view={view.data} />
+            <FileProblems problems={view.data.file.problems} />
             <MiniCalendar
               view={view.data}
               workstream={query.workstream}
@@ -193,29 +180,6 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
         <Timeline view={view.data} workstream={query.workstream} />
       )}
     </>
-  );
-}
-
-/** The month file's problems, in the report's words. */
-function Problems({ view }: { readonly view: ActivityMonthView }) {
-  const text = useDictionary().memory.activity;
-  const problems = view.file.problems;
-  if (problems.length === 0) {
-    return null;
-  }
-  return (
-    <Alert tone="warning">
-      <AlertTitle>{text.problemsTitle(problems.length)}</AlertTitle>
-      <AlertDescription>
-        <ul className="grid gap-xs">
-          {problems.map((problem) => (
-            <li key={`${problem.location}-${problem.kind}`}>
-              {`${problem.location} · ${problem.kind}: ${problem.description}`}
-            </li>
-          ))}
-        </ul>
-      </AlertDescription>
-    </Alert>
   );
 }
 
@@ -261,7 +225,7 @@ function MiniCalendar({
             onClick={() => onPick(day.date)}
             className={cn(
               "grid size-(--tk-size-control) place-items-center rounded-xs text-xs tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-              levelClass[dayLevel(day.count)],
+              HEAT_LEVEL_CLASS[dayLevel(day.count)],
               day.count === 0
                 ? "text-ink-muted"
                 : "cursor-pointer hover:ring-(length:--tk-border-thin) hover:ring-ink-muted",

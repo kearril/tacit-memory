@@ -1,4 +1,5 @@
 using System.Globalization;
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
@@ -32,7 +33,8 @@ internal static class WorkstreamBrowse
             [.. pages.Keys.Union(latest.Keys, StringComparer.Ordinal)
                 .Where(name => !names.Contains(name) && PageId.IsWorkstreamName(name))
                 .Order(StringComparer.Ordinal)
-                .Select(name => Item(name, null, null))]);
+                .Select(name => Item(name, null, null))],
+            MemoryFileReport.Of(config, WorkstreamFile.RelativePath));
     }
 
     /// <summary>The brief of <paramref name="workstream"/>.</summary>

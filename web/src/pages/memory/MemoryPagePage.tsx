@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
 import { sectionAnchor, TOPICS } from "./pages";
-import { CodePill, FilePath, PageTypeBadge, WorkstreamPill } from "./parts";
+import { CodePill, FilePath, FileProblems, PageTypeBadge, WorkstreamPill } from "./parts";
 import { memoryPathOf } from "./views";
 
 const MarkdownBody = lazy(() => import("./MarkdownBody"));
@@ -134,20 +134,7 @@ function PageHead({ page }: { readonly page: PageView }) {
         )}
         <FilePath path={page.file.path} />
       </div>
-      {page.file.problems.length === 0 ? null : (
-        <Alert tone="warning">
-          <AlertTitle>{text.problemsTitle(page.file.problems.length)}</AlertTitle>
-          <AlertDescription>
-            <ul className="grid gap-xs">
-              {page.file.problems.map((problem) => (
-                <li key={`${problem.location}-${problem.kind}`}>
-                  {`${problem.location} · ${problem.kind}: ${problem.description}`}
-                </li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      )}
+      <FileProblems problems={page.file.problems} />
     </Card>
   );
 }

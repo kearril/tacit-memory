@@ -704,10 +704,9 @@ export const en: Dictionary = {
       },
       degraded: {
         title: "The search degraded",
-        embedding: (cooling) =>
-          `The embedding model ${cooling ? "is cooling down" : "failed"}: results come from full-text search only and may miss memories worded differently.`,
-        reranker: (cooling) =>
-          `The reranker ${cooling ? "is cooling down" : "failed"}: the fused order is kept and no minimum score applies.`,
+        embedding: (cooling) => `Embedding model: ${cooling ? "cooling down" : "call failed"}`,
+        reranker: (cooling) => `Reranker: ${cooling ? "cooling down" : "call failed"}`,
+        notes: "What the agent is told",
       },
       view: { label: "How to show the results", cards: "Cards", raw: "Raw text" },
       unfold: (count) => `Show the other ${count}`,
@@ -721,6 +720,7 @@ export const en: Dictionary = {
       topics: "Topics",
       uses: (count) => (count === 1 ? "recalled once" : `recalled ${count} times`),
       changed: (day) => `changed ${day}`,
+      problemsTitle: (count) => (count === 1 ? "1 format problem" : `${count} format problems`),
     },
     pages: {
       keyword: "Keyword",
@@ -741,7 +741,6 @@ export const en: Dictionary = {
       dates: (first, last) => (first === last ? first : `${first} – ${last}`),
       related: "Related",
       missing: "page does not exist",
-      problemsTitle: (count) => (count === 1 ? "1 format problem" : `${count} format problems`),
     },
     activity: {
       failed: "Could not read the activities",
@@ -762,7 +761,6 @@ export const en: Dictionary = {
       monthSummary: (label) => `Month summary · ${label}`,
       showQuote: "Show the user's words",
       hideQuote: "Hide the user's words",
-      problemsTitle: (count) => (count === 1 ? "1 format problem" : `${count} format problems`),
     },
     workstreams: {
       failed: "Could not read the workstreams",
@@ -808,7 +806,6 @@ export const en: Dictionary = {
       count: (count) => (count === 1 ? "1 entry" : `${count} entries`),
       empty: "No entries yet",
       notEntry: "This line is not an entry and is not read",
-      problemsTitle: (count) => (count === 1 ? "1 format problem" : `${count} format problems`),
       domainTitle: (name) => `Domain · ${name}`,
       workstreamTitle: (name) => `Workstream · ${name}`,
       trigger: (trigger) => `Trigger: ${trigger}`,

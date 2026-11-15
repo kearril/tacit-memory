@@ -2,7 +2,9 @@ import { cn } from "cn";
 import { Box, Check, CircleHelp, FolderGit2, Gavel, Hammer, type LucideIcon, Siren } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import type { FileProblem } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
+import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { CopyButton } from "../../components/ui/copy-button";
 import { copyText } from "../../components/ui/copy-text";
@@ -126,5 +128,27 @@ export function WorkstreamPill({ name }: { readonly name: string }) {
       <FolderGit2 aria-hidden />
       {label}
     </Link>
+  );
+}
+
+/** A memory file's problems in a warning, each on a line in the consolidation report's words: where, what kind, what is wrong. */
+export function FileProblems({ problems }: { readonly problems: readonly FileProblem[] }) {
+  const text = useDictionary().memory.parts;
+  if (problems.length === 0) {
+    return null;
+  }
+  return (
+    <Alert tone="warning">
+      <AlertTitle>{text.problemsTitle(problems.length)}</AlertTitle>
+      <AlertDescription>
+        <ul className="grid gap-xs">
+          {problems.map((problem) => (
+            <li key={`${problem.location}-${problem.kind}`}>
+              {`${problem.location} · ${problem.kind}: ${problem.description}`}
+            </li>
+          ))}
+        </ul>
+      </AlertDescription>
+    </Alert>
   );
 }

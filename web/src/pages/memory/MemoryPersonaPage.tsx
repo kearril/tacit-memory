@@ -1,25 +1,11 @@
-import {
-  ChevronDown,
-  CircleUserRound,
-  Compass,
-  FolderGit2,
-  Heart,
-  type LucideIcon,
-  ShieldAlert,
-  Globe,
-  Tag,
-  TriangleAlert,
-} from "lucide-react";
+import { ChevronDown, FolderGit2, Globe, Tag } from "lucide-react";
 import { useState } from "react";
 import {
   type CandidateView,
   type FileProblem,
   type MemoryFileInfo,
   type PersonaBlockView,
-  type PersonaEntryView,
   type PersonaReport,
-  type PersonaSection,
-  type PersonaSectionView,
   usePersona,
 } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
@@ -29,20 +15,10 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
-import { CodePill, FilePath, SourceNote } from "./parts";
+import { FilePath, FileProblems } from "./parts";
+import { SECTION_ICONS, SectionGroup, type SectionKind } from "./PersonaSections";
 import { CANDIDATES_ANCHOR } from "./views";
-import { occurrenceDaysOf, splitSources } from "./sources";
-
-/** The four persona sections. */
-type SectionKind = NonNullable<PersonaSection>;
-
-/** Each section's icon: a red line is told apart by its icon, never by the error colour. */
-const SECTION_ICONS: Readonly<Record<SectionKind, LucideIcon>> = {
-  redLines: ShieldAlert,
-  workingRules: Compass,
-  preferences: Heart,
-  profile: CircleUserRound,
-};
+import { occurrenceDaysOf } from "./sources";
 
 /**
  * The persona view of the memory page, in a reading column: the global persona in one card with its four sections, a
@@ -69,7 +45,7 @@ export function MemoryPersonaPage() {
         <>
           <Card aria-labelledby="persona-global">
             <CardHead id="persona-global" title={text.globalTitle} file={persona.data.personaFile} />
-            <Problems file={persona.data.personaFile} only={unplaced(persona.data)} />
+            <FileProblems problems={persona.data.personaFile.problems.filter(unplaced(persona.data))} />
             {persona.data.global.map((section, index) => (
               <SectionGroup
                 key={`${section.section ?? "other"}-${index}`}
@@ -134,126 +110,6 @@ function CardHead({
   );
 }
 
-/** A file's problems that are not on a line an entry shows, listed in the report's words. */
-function Problems({
-  file,
-  only,
-}: {
-  readonly file: MemoryFileInfo;
-  readonly only?: (problem: FileProblem) => boolean;
-}) {
-  const text = useDictionary().memory.persona;
-  const problems = only === undefined ? file.problems : file.problems.filter(only);
-  if (problems.length === 0) {
-    return null;
-  }
-  return (
-    <Alert tone="warning">
-      <AlertTitle>{text.problemsTitle(problems.length)}</AlertTitle>
-      <AlertDescription>
-        <ul className="grid gap-xs">
-          {problems.map((problem) => (
-            <li key={`${problem.location}-${problem.kind}`}>{problemText(problem)}</li>
-          ))}
-        </ul>
-      </AlertDescription>
-    </Alert>
-  );
-}
-
-/** A problem as one line: where, what kind, what is wrong. */
-function problemText(problem: FileProblem): string {
-  return `${problem.location} · ${problem.kind}: ${problem.description}`;
-}
-
-/** One section: its icon, name and entry count, then its entries; an empty one of the four says so. */
-export function SectionGroup({
-  section,
-  problems,
-  showEmpty = false,
-}: {
-  readonly section: PersonaSectionView;
-  readonly problems: readonly FileProblem[];
-  readonly showEmpty?: boolean;
-}) {
-  const text = useDictionary().memory.persona;
-  const kind = section.section;
-  const Icon = kind === null ? TriangleAlert : SECTION_ICONS[kind];
-  const count = section.entries.filter((entry) => entry.code !== null).length;
-  if (!showEmpty && section.entries.length === 0) {
-    return null;
-  }
-  return (
-    <section
-      aria-label={kind === null ? (section.heading ?? text.beforeHeadings) : text.sections[kind]}
-      className="grid gap-sm border-t-(length:--tk-border-thin) border-line pt-md first-of-type:border-t-0 first-of-type:pt-0"
-    >
-      <h3 className="flex items-center gap-sm text-sm font-semibold">
-        <Icon
-          aria-hidden
-          className={`size-(--tk-font-size-base) ${kind === null ? "text-warning" : "text-ink-muted"}`}
-        />
-        {kind === null ? text.otherSection(section.heading) : text.sections[kind]}
-        <span className="text-xs font-regular text-ink-muted">{text.count(count)}</span>
-      </h3>
-      {section.entries.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.empty}</p>
-      ) : (
-        <ul className="grid gap-sm">
-          {section.entries.map((entry) => (
-            <EntryRow
-              key={entry.line}
-              entry={entry}
-              problems={problems.filter((problem) => problem.line === entry.line)}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-/** One entry: its text and continuation lines, its sources in small type, its short code; a problem with it under it. */
-function EntryRow({
-  entry,
-  problems,
-}: {
-  readonly entry: PersonaEntryView;
-  readonly problems: readonly FileProblem[];
-}) {
-  const text = useDictionary().memory.persona;
-  const { lines, sources } = splitSources(entry.continuation);
-  return (
-    <li
-      className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-md gap-y-xs rounded-md ${
-        problems.length > 0 ? "bg-warning-soft px-sm py-xs" : ""
-      }`}
-    >
-      <div className="grid min-w-0 gap-xs">
-        <p className={`leading-(--tk-line-height-normal) ${entry.code === null ? "text-ink-muted" : ""}`}>
-          {entry.text}
-        </p>
-        {lines.map((line, index) => (
-          <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
-            {line}
-          </p>
-        ))}
-        {sources.map((source, index) => (
-          <SourceNote key={index} source={source} />
-        ))}
-        {problems.map((problem) => (
-          <p key={problem.kind} className="flex items-start gap-xs text-xs text-warning">
-            <TriangleAlert aria-hidden className="mt-xs size-(--tk-font-size-xs) shrink-0" />
-            {`${problem.kind}: ${problem.description}`}
-          </p>
-        ))}
-        {entry.code === null && problems.length === 0 ? <p className="text-xs text-warning">{text.notEntry}</p> : null}
-      </div>
-      {entry.code === null ? null : <CodePill code={entry.code} />}
-    </li>
-  );
-}
-
 /** A domain's or a workstream's block: its name, the domain's trigger and the entry count, then its sections. */
 function BlockCard({
   kind,
@@ -314,7 +170,7 @@ function CandidatesCard({
         detail={<span className="text-xs text-ink-muted">{text.candidateCount(candidates.length)}</span>}
         file={file}
       />
-      <Problems file={file} />
+      <FileProblems problems={file.problems} />
       {candidates.length === 0 ? (
         <p className="text-sm text-ink-muted">{text.noCandidates}</p>
       ) : (

@@ -4611,6 +4611,7 @@
           "counts",
           "results",
           "text",
+          "notes",
           "units"
         ],
         "type": "object",
@@ -4638,6 +4639,12 @@
           },
           "text": {
             "type": "string"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "units": {
             "type": "array",
@@ -5753,7 +5760,8 @@
       "WorkstreamList": {
         "required": [
           "established",
-          "unestablished"
+          "unestablished",
+          "file"
         ],
         "type": "object",
         "properties": {
@@ -5768,6 +5776,9 @@
             "items": {
               "$ref": "#/components/schemas/WorkstreamListItem"
             }
+          },
+          "file": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
           }
         }
       },

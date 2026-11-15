@@ -3,7 +3,11 @@ namespace TacitMemory.Core;
 /// <summary>The workstreams, as the memory page lists them. Reading counts nothing and changes no file.</summary>
 /// <param name="Established">The workstreams <c>workstreams.md</c> establishes, in file order.</param>
 /// <param name="Unestablished">The names a page folder or an activity label uses that are not established, by name.</param>
-public sealed record WorkstreamList(IReadOnlyList<WorkstreamListItem> Established, IReadOnlyList<WorkstreamListItem> Unestablished);
+/// <param name="File"><c>workstreams.md</c>: its path and the problems consolidation reports for it.</param>
+public sealed record WorkstreamList(
+    IReadOnlyList<WorkstreamListItem> Established,
+    IReadOnlyList<WorkstreamListItem> Unestablished,
+    MemoryFileInfo File);
 
 /// <summary>A workstream in the list.</summary>
 /// <param name="Background">What the workstream is; <c>null</c> for a name that is not established.</param>

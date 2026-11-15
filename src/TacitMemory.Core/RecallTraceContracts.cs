@@ -34,6 +34,7 @@ public sealed record RecallTraceRequest(
 /// <param name="Counts">How many units each stage held.</param>
 /// <param name="Results">The results <c>recall</c> shows, in its order.</param>
 /// <param name="Text">The text the agent receives from <c>recall</c>, word for word.</param>
+/// <param name="Notes">The degradation notes <c>recall</c> appends to that text, word for word; empty when nothing degraded.</param>
 /// <param name="Units">Every unit either search returned, in fused order, with what became of it.</param>
 public sealed record RecallTraceReport(
     TraceSettings Settings,
@@ -43,6 +44,7 @@ public sealed record RecallTraceReport(
     TraceCounts Counts,
     IReadOnlyList<TraceResult> Results,
     string Text,
+    IReadOnlyList<string> Notes,
     IReadOnlyList<TraceUnit> Units);
 
 /// <summary>The three retrieval values of a trace; a value differs from its configured one when the request replaced it.</summary>

@@ -2922,6 +2922,7 @@ export interface components {
             counts: components["schemas"]["TraceCounts"];
             results: components["schemas"]["TraceResult"][];
             text: string;
+            notes: string[];
             units: components["schemas"]["TraceUnit"][];
         };
         RecallTraceRequest: {
@@ -3178,6 +3179,7 @@ export interface components {
         WorkstreamList: {
             established: components["schemas"]["WorkstreamListItem"][];
             unestablished: components["schemas"]["WorkstreamListItem"][];
+            file: components["schemas"]["MemoryFileInfo"];
         };
         WorkstreamListItem: {
             name: string;

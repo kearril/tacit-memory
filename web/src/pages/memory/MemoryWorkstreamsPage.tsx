@@ -16,19 +16,11 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
-import type { ActivityReport, HeatLevel } from "../dashboard/heatmap";
-import { SectionGroup } from "./MemoryPersonaPage";
-import { CodePill, PageTypeBadge } from "./parts";
+import { type ActivityReport, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
+import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
+import { SectionGroup } from "./PersonaSections";
 import { memoryPathOf } from "./views";
 import { MINI_WEEKS, weekLevel, workstreamWeeks } from "./workstreams";
-
-const levelClass: Record<HeatLevel, string> = {
-  0: "bg-heat-0",
-  1: "bg-heat-1",
-  2: "bg-heat-2",
-  3: "bg-heat-3",
-  4: "bg-heat-4",
-};
 
 /** The address of one workstream's brief. */
 function briefPathOf(name: string): string {
@@ -107,6 +99,10 @@ function WorkstreamList({ selected }: { readonly selected: string | null }) {
           faint
         />
       )}
+      <div className="grid gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
+        <FilePath path={list.data.file.path} />
+        <FileProblems problems={list.data.file.problems} />
+      </div>
     </Card>
   );
 }
@@ -214,7 +210,7 @@ function MiniBar({
           style={{ gridColumn: MINI_WEEKS - weeks.length + index + 1 }}
           className={cn(
             "h-sm rounded-xs",
-            onAccent && week.count === 0 ? "bg-surface" : levelClass[weekLevel(week.count)],
+            onAccent && week.count === 0 ? "bg-surface" : HEAT_LEVEL_CLASS[weekLevel(week.count)],
           )}
         />
       ))}

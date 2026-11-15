@@ -1,4 +1,5 @@
 import type { ActivityDayView, ActivityMonthView, ActivitySummaryView } from "../../api/memory";
+import { memoryPathOf } from "./views";
 
 /** One entry of a month's timeline: a day with its activities, or a summary between the days. */
 export type TimelineEntry =
@@ -111,6 +112,11 @@ export function activityParams(query: ActivityQuery): URLSearchParams {
   if (query.day !== null) params.set("day", query.day);
   if (query.workstream !== null) params.set("workstream", query.workstream);
   return params;
+}
+
+/** The address of the activity view showing a query, for links from the other pages. */
+export function activityPathOf(query: ActivityQuery): string {
+  return `${memoryPathOf("activity")}?${activityParams(query)}`;
 }
 
 /** The anchor of a day on the timeline. */

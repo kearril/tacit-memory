@@ -139,8 +139,34 @@ public sealed class RecallTraceTests : IDisposable
             new RecallTraceRequest(" ", "Bad Name", "2026-13-01", "2026-11-01", "persona", MinRerankScore: 2, TopK: 0, Candidates: 3)));
 
         Assert.Equal(TacitError.RequestInvalid, refusal.Error);
-        Assert.Equal(["query", "from", "workstream", "kind", "minRerankScore", "topK"], refusal.Problems!.Select(problem => problem.Path));
+        Assert.Equal(["query", "from", "kind", "minRerankScore", "topK"], refusal.Problems!.Select(problem => problem.Path));
         Assert.Contains("0 到 1", refusal.Problems!.Single(problem => problem.Path == "minRerankScore").Message);
+    }
+
+    [Fact]
+    public async Task A_workstream_name_recall_searches_with_is_traced_as_recall_searches_with_it()
+    {
+        await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
+
+        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", "Bad Name"));
+        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署", Workstream = "Bad Name" });
+
+        Assert.False(recall.IsError, recall.Text);
+        Assert.Equal(recall.Text, report.Text);
+    }
+
+    [Fact]
+    public async Task A_degraded_trace_reports_the_notes_recall_appends()
+    {
+        await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
+        _models.EmbeddingDown = true;
+        _models.RerankDown = true;
+
+        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署"));
+        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+
+        Assert.Equal(2, report.Notes.Count);
+        Assert.All(report.Notes, note => Assert.Contains(note, recall.Text));
     }
 
     [Fact]

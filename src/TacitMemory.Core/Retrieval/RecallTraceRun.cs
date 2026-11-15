@@ -28,14 +28,6 @@ internal static class RecallTraceRun
         if (from > to)
             problems.Add(new ConfigProblem("to", ManagementApiMessages.TraceDatesReversed.In(language)));
 
-        string? workstream = null;
-        if (!string.IsNullOrWhiteSpace(request.Workstream))
-        {
-            workstream = request.Workstream.Trim().ToLowerInvariant();
-            if (workstream != PageId.Topics && !PageId.IsWorkstreamName(workstream))
-                problems.Add(new ConfigProblem("workstream", ManagementApiMessages.TraceWorkstreamInvalid.Format(language, request.Workstream.Trim())));
-        }
-
         var kind = string.IsNullOrWhiteSpace(request.Kind) ? null : request.Kind.Trim();
         if (kind is not (null or ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
             problems.Add(new ConfigProblem("kind", ManagementApiMessages.TraceKindInvalid.Format(language, kind)));
@@ -46,6 +38,7 @@ internal static class RecallTraceRun
         if (problems.Count > 0)
             throw new TacitException(TacitError.RequestInvalid, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
 
+        var workstream = string.IsNullOrWhiteSpace(request.Workstream) ? null : request.Workstream.Trim().ToLowerInvariant();
         var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
         return new Search(
             request.Query!,
@@ -73,6 +66,7 @@ internal static class RecallTraceRun
             new TraceCounts(fullText, vector, trace.Units.Count, reranked, passed, trace.Results.Count),
             [.. trace.Results.Select(Result)],
             trace.Text,
+            trace.Notes,
             [.. trace.Units.Select(Unit)]);
     }
 

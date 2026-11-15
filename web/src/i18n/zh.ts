@@ -624,9 +624,9 @@ export const zh: Dictionary = {
       },
       degraded: {
         title: "检索已降级",
-        embedding: (cooling) =>
-          `嵌入模型${cooling ? "冷却中" : "调用失败"}：结果只来自全文检索，换了说法的记忆可能找不到。`,
-        reranker: (cooling) => `reranker ${cooling ? "冷却中" : "调用失败"}：保留融合后的顺序，不按最低分数过滤。`,
+        embedding: (cooling) => `嵌入模型：${cooling ? "冷却中" : "调用失败"}`,
+        reranker: (cooling) => `reranker：${cooling ? "冷却中" : "调用失败"}`,
+        notes: "Agent 收到的说明",
       },
       view: { label: "结果的显示方式", cards: "卡片", raw: "原文" },
       unfold: (count) => `展开其余 ${count} 个`,
@@ -640,6 +640,7 @@ export const zh: Dictionary = {
       topics: "专题",
       uses: (count) => `召回 ${count} 次`,
       changed: (day) => `修改于 ${day}`,
+      problemsTitle: (count) => `${count} 处格式问题`,
     },
     pages: {
       keyword: "关键字",
@@ -660,7 +661,6 @@ export const zh: Dictionary = {
       dates: (first, last) => (first === last ? first : `${first} – ${last}`),
       related: "相关",
       missing: "页面不存在",
-      problemsTitle: (count) => `${count} 处格式问题`,
     },
     workstreams: {
       failed: "读取主线失败",
@@ -709,7 +709,6 @@ export const zh: Dictionary = {
       monthSummary: (label) => `月汇总 · ${label}`,
       showQuote: "展开原话",
       hideQuote: "收起原话",
-      problemsTitle: (count) => `${count} 处格式问题`,
     },
     persona: {
       failed: "读取画像失败",
@@ -720,7 +719,6 @@ export const zh: Dictionary = {
       count: (count) => `${count} 条`,
       empty: "暂无条目",
       notEntry: "这一行不是条目，不会被读取",
-      problemsTitle: (count) => `${count} 处格式问题`,
       domainTitle: (name) => `领域 · ${name}`,
       workstreamTitle: (name) => `主线 · ${name}`,
       trigger: (trigger) => `触发：${trigger}`,

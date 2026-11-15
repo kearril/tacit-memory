@@ -104,9 +104,6 @@ internal static class ManagementApiMessages
     public static readonly Localized TraceQueryMissing = new("请填写查询。", "Enter a query.");
     public static readonly Localized TraceDateInvalid = new("{0} 不是 YYYY-MM-DD 格式的日期。", "{0} is not a date written YYYY-MM-DD.");
     public static readonly Localized TraceDatesReversed = new("起始日期晚于结束日期。", "The start date is later than the end date.");
-    public static readonly Localized TraceWorkstreamInvalid = new(
-        "主线名 {0} 只能用 a-z、0-9、.、_ 与 -，且不能以 . 或 _ 开头（_topics 除外）。",
-        "Workstream {0} may only use a-z, 0-9, '.', '_' and '-', and must not start with '.' or '_' (except _topics).");
     public static readonly Localized TraceKindInvalid = new("范围只能是 pages 或 activities，不能是 {0}。", "The kind must be pages or activities, not {0}.");
     public static readonly Localized TraceValueOutOfRange = new("{0} 应在 {1} 到 {2} 之间。", "{0} must be between {1} and {2}.");
     public static readonly Localized ApiBodyInvalid = new(

@@ -7,14 +7,11 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { NativeSelect } from "../../components/ui/native-select";
 import { errorTextOf } from "../../i18n/messages";
 import { PAGE_TYPES, filterPages, groupPages, pageFilterOf, pageFilterParams, TOPICS } from "./pages";
 import { PageTypeBadge } from "./parts";
 import { memoryPathOf } from "./views";
-
-/** A native select in the look of the inputs. */
-const SELECT_CLASS =
-  "h-control w-full min-w-0 rounded-md border-(length:--tk-border-thin) border-line bg-surface-raised px-md text-base text-ink outline-none focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
 
 /**
  * The pages view of the memory page: every detail page, grouped by workstream with the topics last. The workstream and
@@ -66,9 +63,8 @@ export function MemoryPagesPage() {
           </div>
           <div className="grid content-start gap-xs">
             <Label htmlFor="pages-workstream">{text.workstream}</Label>
-            <select
+            <NativeSelect
               id="pages-workstream"
-              className={SELECT_CLASS}
               value={filter.workstream}
               onChange={(event) => update({ workstream: event.target.value })}
             >
@@ -78,13 +74,12 @@ export function MemoryPagesPage() {
                   {name === TOPICS ? dictionary.memory.parts.topics : name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="grid content-start gap-xs">
             <Label htmlFor="pages-type">{text.type}</Label>
-            <select
+            <NativeSelect
               id="pages-type"
-              className={SELECT_CLASS}
               value={filter.type}
               onChange={(event) => update({ type: event.target.value as typeof filter.type })}
             >
@@ -94,7 +89,7 @@ export function MemoryPagesPage() {
                   {dictionary.memory.parts.pageTypes[type]}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
       </Card>

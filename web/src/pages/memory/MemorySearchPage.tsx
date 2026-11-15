@@ -18,10 +18,12 @@ import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { NativeSelect } from "../../components/ui/native-select";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { sectionAnchor } from "./pages";
 import { hasOverrides, requestOf, type SearchFields, searchFieldsOf, searchParamsOf } from "./search";
+import { activityPathOf } from "./timeline";
 import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
 import { memoryPathOf } from "./views";
 
@@ -37,10 +39,6 @@ const FATE_STYLES: Readonly<
 
 /** How many units the two long segments show before the rest is unfolded. */
 const FOLDED_UNITS = 5;
-
-/** A native select in the look of the inputs. */
-const SELECT_CLASS =
-  "h-control w-full min-w-0 rounded-md border-(length:--tk-border-thin) border-line bg-surface-raised px-md text-base text-ink outline-none focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
 
 /** The three retrieval values a trace may replace. */
 const OVERRIDES = ["minRerankScore", "topK", "candidates"] as const;
@@ -160,16 +158,15 @@ function SearchForm({
           />
         </FormField>
         <FormField id="trace-kind" label={text.kindLabel} problem={problemOf("kind")}>
-          <select
+          <NativeSelect
             id="trace-kind"
-            className={SELECT_CLASS}
             value={fields.kind}
             onChange={(event) => field("kind", event.target.value as SearchFields["kind"])}
           >
             <option value="">{text.kinds.all}</option>
             <option value="pages">{text.kinds.pages}</option>
             <option value="activities">{text.kinds.activities}</option>
-          </select>
+          </NativeSelect>
         </FormField>
         <FormField id="trace-from" label={text.fromLabel} problem={problemOf("from")}>
           <Input
@@ -295,9 +292,17 @@ function TraceView({ report }: { readonly report: RecallTraceReport }) {
         <Alert tone="warning">
           <AlertTitle>{text.degraded.title}</AlertTitle>
           <AlertDescription>
-            {degraded.map((note) => (
-              <p key={note}>{note}</p>
-            ))}
+            <p>{degraded.join(" · ")}</p>
+            {report.notes.length === 0 ? null : (
+              <div className="mt-xs grid gap-xs">
+                <p className="text-xs">{text.degraded.notes}</p>
+                {report.notes.map((note) => (
+                  <p key={note} className="font-mono text-xs">
+                    {note}
+                  </p>
+                ))}
+              </div>
+            )}
           </AlertDescription>
         </Alert>
       )}
@@ -376,9 +381,16 @@ function ResultRow({ result }: { readonly result: TraceResult }) {
           </>
         ) : (
           <>
-            <span className="text-sm text-ink-muted">
+            <Link
+              to={activityPathOf({
+                month: (result.date ?? "").slice(0, 7),
+                day: result.kind === "activity" ? result.date : null,
+                workstream: null,
+              })}
+              className="text-sm text-accent underline-offset-2 hover:underline"
+            >
               {result.kind === "activity" ? text.unitKinds.activity : text.unitKinds.summary} {result.date}
-            </span>
+            </Link>
             {result.code === null ? null : <span className="font-mono text-xs text-ink-muted">{result.code}</span>}
           </>
         )}

@@ -525,11 +525,15 @@ export interface Dictionary {
         readonly differs: string;
         readonly configured: (value: string) => string;
       };
-      /** A configured model that did not answer, and how the search degraded; `cooling` says it was skipped. */
+      /**
+       * A configured model that did not answer: why, in the interface language (`cooling` says it was skipped); the
+       * notes themselves are `recall`'s own, shown as the agent receives them.
+       */
       readonly degraded: {
         readonly title: string;
         readonly embedding: (cooling: boolean) => string;
         readonly reranker: (cooling: boolean) => string;
+        readonly notes: string;
       };
       /** The two ways to show the results: as cards, or as the text the agent receives. */
       readonly view: { readonly label: string; readonly cards: string; readonly raw: string };
@@ -553,6 +557,7 @@ export interface Dictionary {
       readonly topics: string;
       readonly uses: (count: number) => string;
       readonly changed: (day: string) => string;
+      readonly problemsTitle: (count: number) => string;
     };
     readonly pages: {
       readonly keyword: string;
@@ -574,7 +579,6 @@ export interface Dictionary {
       readonly dates: (first: string, last: string) => string;
       readonly related: string;
       readonly missing: string;
-      readonly problemsTitle: (count: number) => string;
     };
     readonly workstreams: {
       readonly failed: string;
@@ -625,7 +629,6 @@ export interface Dictionary {
       readonly monthSummary: (label: string) => string;
       readonly showQuote: string;
       readonly hideQuote: string;
-      readonly problemsTitle: (count: number) => string;
     };
     readonly persona: {
       readonly failed: string;
@@ -637,7 +640,6 @@ export interface Dictionary {
       readonly count: (count: number) => string;
       readonly empty: string;
       readonly notEntry: string;
-      readonly problemsTitle: (count: number) => string;
       readonly domainTitle: (name: string) => string;
       readonly workstreamTitle: (name: string) => string;
       readonly trigger: (trigger: string) => string;
