@@ -75,6 +75,8 @@ flowchart LR
 | 画像读取 | `recall` 的 `kind=persona` 与 `rules`：`PersonaReading` 渲染整份画像或领域规则，每条附短码，原话注释不输出；不经派生索引、不计使用统计。行为见 `docs/design.md` 第 7 节 | 已实现 |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、主线与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存整理判断的概率，键为提问内容的哈希，三档在读取时按阈值计算；小节保存内容哈希与最后变化日期，单元保存返回次数与最近返回日期（使用统计，见 `docs/design.md` 第 7 节） | 已实现 |
 | 主线简报 | `Retrieval/WorkstreamBrief`：`recall` 只给 `workstream` 时由 `RecallTool` 交给它。读取该主线的页面文件、主线作用域的画像与月文件，组装主线名、主线约定、未决事项、页目录（按类型分组）、最近 3 条活动与最近一次周汇总；超出 `limits.brief` 时截断页目录；经索引同步页面并计入使用统计，不经全文与向量检索。行为见 `docs/design.md` 第 7 节 | 已实现 |
+| 检索追踪 | `Retrieval/RecallTraceRun`：管理 API `/api/recall/trace` 的来源。按 `recall` 带 `query` 的检索规则校验参数（一次给出全部问题），临时替换的三个检索值只用于这一次；在 `RecallPipeline` 上运行同一次检索但不计返回，把各阶段的明细、Agent 读到的原文与降级说明排成报告。与 `recall` 共用辅助模型的冷却状态 | 已实现 |
+| 记忆浏览 | Web 界面记忆页的结构化读取，只读、不计使用统计，经 `MaintenanceGate` 的读取模式：`Persona/PersonaBrowse`（画像各节、领域块与主线块，候选与拒绝列表）、`Pages/PageBrowse`（细节页清单与单页，小节带修改日期与返回次数，`related` 标出指向的页是否存在）、`Workstreams/WorkstreamBrowse`（主线清单与结构化简报，简报经 `WorkstreamBrief.Gather` 与 `recall` 取同样的内容，不截断）、`Recent/ActivityBrowse`（有文件的月份与某月按天分组的活动和汇总）。各视图对应文件的路径与格式问题由 `Formats/MemoryFileReport` 给出，问题文字与整理报告同源（`FormatViolations`） | 已实现 |
 | 汇总 | `Recent/Summary`、`SummaryCalendar`、`SummaryMaterial`：汇总行的解析与写法（周按 ISO 周、月按自然月）、已结束且未汇总的周期的判定，以及整理报告中的汇总材料。服务不写汇总，汇总由整理时的主会话直接编辑活动记录文件；汇总节不参与活动的短码与同主题判断 | 已实现 |
 | 活动统计 | `Recent/ActivityCounts`：管理 API `/api/activity` 的来源，供仪表盘的热力图使用。窗口为含本周在内的 53 周，只读窗口涉及的月文件，按日统计活动条数（按主线标签分开，没有标签的计为未归属）；整理日取窗口内的 `consolidate:` 提交，与状态报告的上次整理同一判定。不是 UTF-8 或读不了的月文件被跳过并点名，历史读不了时整理日为空并注明，都不使调用失败；只读，不取锁、不写文件 | 已实现 |
 | 判断 | 各判断的问题模板（英文）与候选筛选；三档阈值与内置默认值；凭据正则；降级 | 已实现 |
@@ -163,7 +165,7 @@ flowchart LR
 | 查询与映射 | `Dapper` | 已引入 |
 | 版本号 | `MinVer`（只在构建时使用，不进入产物） | 已引入 |
 | 许可清单 | `nuget-license`（dotnet 本地工具，清单为仓库根目录的 `dotnet-tools.json`）读取 NuGet 依赖；`rollup-plugin-license`（前端开发依赖）在 Vite 构建中收集打进产物的包。SQLite 的许可在 NuGet 元数据中只是一个文件，其 SPDX 标识 `blessing` 写在 `build/nuget-license-overrides.json`，按确切版本匹配，升级后要重新核对 | 已引入 |
-| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；表单用 React Hook Form，组件用 `radix-ui`（无样式的交互原语）、`class-variance-authority`（组件变体）与 `cn`（合并类名）；提示词页的编辑器用 CodeMirror（`@codemirror/*` 与 `@lezer/highlight`）。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
+| 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；表单用 React Hook Form，组件用 `radix-ui`（无样式的交互原语）、`class-variance-authority`（组件变体）与 `cn`（合并类名）；提示词页的编辑器用 CodeMirror（`@codemirror/*` 与 `@lezer/highlight`）；记忆页的细节页正文用 `@lezer/markdown` 解析后自行渲染。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
 | 嵌入 | `HttpClient`，按 OpenAI Embeddings 协议请求配置的完整 URL；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
 | reranker | `HttpClient` 类型化客户端，按 Cohere/Jina Rerank 协议请求配置的完整 URL | 已引入 |
 | 决策模型 | `HttpClient`，实现 System One 协议，请求配置的完整 URL | 已引入 |
@@ -191,14 +193,15 @@ flowchart LR
 | `web/src/pages/login/` | 登录页与其状态机（`login-attempt.ts`，429 时锁住提交直到密码被改动） |
 | `web/src/pages/dashboard/` | 仪表盘：页面与网格（`DashboardPage.tsx`）、状态卡片（`StatusCards.tsx`）、热力图（`HeatmapCard.tsx`）与恢复对话框（`RestoreDialog.tsx`）；不含界面的逻辑各在一个可单测的模块中：待处理事项及其去处（`todos.ts`）、热力图的周列与月份标签（`heatmap.ts`）、按名称认出常见客户端及其图标（`agents.ts`）、时长、大小、日期与版本的格式化（`format.ts`）；几张卡片共用的小部件在 `parts.tsx`。功能见 `docs/web.md` 第 3 节 |
 | `web/src/pages/prompts/` | 提示词页（`PromptsPage.tsx`）与懒加载的 Markdown 编辑器（`MarkdownEditor.tsx`，CodeMirror，语法高亮的颜色取自令牌）；不含界面的逻辑：地址与文档名的互转（`names.ts`）、编辑状态（`editor.ts`）、长度信息的显示文字（`measure.ts`）。功能见 `docs/web.md` 第 3 节 |
+| `web/src/api/memory.ts` | 记忆页用到的端点：画像、细节页清单与单页、主线清单与简报、活动的月份与某月，各一个查询（窗口重新获得焦点时刷新，从不轮询）；检索追踪一个查询，同一组条件只执行一次，不自动刷新 |
+| `web/src/pages/memory/` | 记忆页的五个视图（`MemoryPersonaPage.tsx`、`MemoryWorkstreamsPage.tsx`、`MemoryPagesPage.tsx` 与单页 `MemoryPagePage.tsx`、`MemoryActivityPage.tsx`、`MemorySearchPage.tsx`），几个视图共用的小部件在 `parts.tsx`（短码胶囊、来源小字、文件路径、格式问题、页面类型徽标、主线胶囊）与 `PersonaSections.tsx`（画像小节与条目），懒加载的正文渲染在 `MarkdownBody.tsx`。不含界面的逻辑各在一个可单测的模块中：视图与地址（`views.ts`）、检索条件与地址的互转（`search.ts`）、检索单元按去向分段（`trace.ts`）、来源注释的解析（`sources.ts`）、细节页清单的筛选与分组（`pages.ts`）、Markdown 解析为块（`markdown.ts`，`@lezer/markdown`，HTML 按文字处理）、主线的迷你活动条（`workstreams.ts`）、活动时间线与迷你日历（`timeline.ts`）。功能见 `docs/web.md` 第 3 节 |
 | `web/src/assets/agents/` | 图标库中没有的客户端图标，自己绘制的 SVG |
 | `web/src/pages/settings/` | 设置页与各节（如「远程访问」一节的 `RemoteAccessSection.tsx`），各节的功能见 `docs/web.md` 第 3 节 |
-| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
+| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、原生下拉框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
 | `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
 | `web/src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |
 | `web/src/app/router.tsx` | 路由以基准 `UI_BASE`（`web/src/app/return-target.ts`，即 `/ui`）为 basename，Vite 的 `base` 由同一个值构建（`web/vite.config.ts`）：登录页在外壳之外，其余五页在外壳之内；`*` 回到仪表盘 |
-| `web/src/pages/PlaceholderPage.tsx` | 尚未实现的页面，只显示名称与「尚未实现」 |
 
 脚本（在 `web/` 下用 `bun run` 执行）：`dev` 启动开发服务器；`build` 构建到 `web/dist/`；`typecheck`、`lint`、`test` 为三项检查；`check` 依次运行类型检查、ESLint、Vitest 与构建；`generate` 由快照生成类型。
 
