@@ -1,0 +1,51 @@
+# Build, the whole test suite, the format checks and the web checks. Runs when main moves and on demand; branch pushes do
+# not run it. The release workflow calls it before it packages anything.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - LICENSE
+      - NOTICE
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # vec0.dll is Windows-only, so the index tests run on Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # MinVer reads the version from the tags in the history.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: C# format
+        run: dotnet format --verify-no-changes TacitMemory.slnx
+
+      - name: Tests
+        run: dotnet test TacitMemory.slnx -c Release
+
+      - name: Web checks
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun run check

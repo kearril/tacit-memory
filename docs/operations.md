@@ -1,6 +1,6 @@
 # TacitMemory 运维
 
-本文档说明日常运维怎么做：文件在哪、怎么备份与恢复、日志看哪里、出了问题怎么排查。命令的完整选项见 `docs/reference/cli.md`，配置项见 `docs/reference/configuration.md`。
+本文档说明日常运维怎么做：文件在哪、怎么备份与恢复、日志看哪里、出了问题怎么排查、怎么安装与升级。命令的完整选项见 `docs/reference/cli.md`，配置项见 `docs/reference/configuration.md`。
 
 ## 1. 文件在哪
 
@@ -85,7 +85,46 @@
 
 ## 6. 发布
 
-`dotnet publish src/TacitMemory.Cli` 需要 Bun，它在 `web/` 下按锁文件安装依赖并构建 Web 界面，产物复制到输出目录的 `web/` 子目录。服务只读取这个目录，不写入。找不到 Bun 时发布失败。`dotnet build` 与 `dotnet test` 不构建 Web 界面，也不需要 Bun。
+### 发行包
+
+每个版本在 GitHub Releases 上有一个 `tacit-<版本>-win-x64.zip` 与它的 `.sha256`。zip 是自包含的：解压即可运行，不需要预装 .NET；内含 `tacit.exe`、运行时与依赖、`vec0.dll`、`web/`、tacit 自己的 pdb，以及 `LICENSE`、`NOTICE` 与 `THIRD-PARTY-NOTICES.txt`。
+
+校验下载：
+
+```powershell
+(Get-FileHash tacit-<版本>-win-x64.zip -Algorithm SHA256).Hash.ToLower()   # 与 .sha256 文件中的值比对
+```
+
+安装与升级都是"放进一个干净的目录"，数据目录 `~/.tacit` 不受影响：
+
+1. 停止服务（由托管工具运行时，从托管工具停止）；
+2. 清空安装目录。不要把新版本解压到旧文件上：同名文件会被覆盖，但旧版本独有的文件会留下；
+3. 把 zip 解压到安装目录；
+4. 启动服务，用 `tacit status` 确认版本。
+
+### 版本号
+
+版本号由带 `v` 前缀的 git tag 决定（`v0.1.0` 对应 `0.1.0`）。从源码构建、且当前提交不在 tag 上时，版本为预发布版本，如 `0.1.1-alpha.0.3`：最近的 tag 之后的第 3 个提交。构建需要完整的 git 历史，浅克隆得到的版本是 `0.0.0-alpha.0.N`。
+
+### 打包与发布流程
+
+推送 `v*` tag 后，GitHub Actions 依次运行格式检查、全量测试与前端检查，用 `build/package.ps1` 打包，用 `build/smoke.ps1` 冒烟，最后创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
+
+在本机打包（需要 .NET 11 SDK 与 Bun）：
+
+```powershell
+dotnet tool restore
+./build/package.ps1 -Output <输出目录>          # 输出目录会先被清空
+./build/smoke.ps1 -PublishDir <输出目录>/tacit
+```
+
+冒烟使用临时的 `TACIT_HOME` 与空闲端口，不碰本机的记忆与运行中的服务。
+
+发行包把 .NET 运行时固定在构建时的补丁版本，运行时的安全补丁随 tacit 的新版本生效。
+
+### 从源码构建
+
+`dotnet publish src/TacitMemory.Cli` 默认得到依赖框架的产物，运行时需要预装 ASP.NET Core 11。它需要 Bun，它在 `web/` 下按锁文件安装依赖并构建 Web 界面，产物复制到输出目录的 `web/` 子目录。服务只读取这个目录，不写入。找不到 Bun 时发布失败。`dotnet build` 与 `dotnet test` 不构建 Web 界面，也不需要 Bun。
 
 - 不需要 Web 界面时，发布加上 `/p:TacitSkipWebBuild=true`：不需要 Bun，输出目录没有 `web/`，访问 `/ui` 得到「Web 界面未构建」，服务的其余部分照常。
 - 发布先删除输出目录下的 `web/`，旧版本的前端资源不会留下；输出目录中的其他文件只覆盖同名文件，不删除。需要完全干净的输出时，发布前删除输出目录。

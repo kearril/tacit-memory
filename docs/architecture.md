@@ -160,6 +160,8 @@ flowchart LR
 | 索引驱动 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建索引文件） | 已引入 |
 | 向量 | `sqlite-vec` 官方发布的 Windows x64 可加载扩展 `vec0.dll`（v0.1.9），连同上游 LICENSE 存于仓库 `lib/sqlite-vec/`，构建时复制到输出目录；每次加载前校验代码中记录的 SHA-256，不符则拒绝启动；不使用 NuGet 上的第三方包 | 已引入 |
 | 查询与映射 | `Dapper` | 已引入 |
+| 版本号 | `MinVer`（只在构建时使用，不进入产物） | 已引入 |
+| 许可清单 | `nuget-license`（dotnet 本地工具，清单为仓库根目录的 `dotnet-tools.json`）读取 NuGet 依赖；`rollup-plugin-license`（前端开发依赖）在 Vite 构建中收集打进产物的包。SQLite 的许可在 NuGet 元数据中只是一个文件，其 SPDX 标识 `blessing` 写在 `build/nuget-license-overrides.json`，按确切版本匹配，升级后要重新核对 | 已引入 |
 | 前端工程（`web/`） | Bun（只装依赖与运行脚本）、Vite（打包）、React、React Router、TanStack Query、Tailwind（经 `@tailwindcss/vite`）、TypeScript、Vitest、ESLint、`openapi-typescript`；表单用 React Hook Form，组件用 `radix-ui`（无样式的交互原语）、`class-variance-authority`（组件变体）与 `cn`（合并类名）；提示词页的编辑器用 CodeMirror（`@codemirror/*` 与 `@lezer/highlight`）。依赖锁定确切版本，`bun.lock` 进 Git | 已引入 |
 | 嵌入 | `HttpClient`，按 OpenAI Embeddings 协议请求配置的完整 URL；请求与响应只有几个字段，不为此引入 SDK | 已引入 |
 | reranker | `HttpClient` 类型化客户端，按 Cohere/Jina Rerank 协议请求配置的完整 URL | 已引入 |
@@ -168,7 +170,7 @@ flowchart LR
 | 日志 | `Serilog`（`Serilog.Sinks.File` 写文件，`Serilog.Extensions.Logging` 接入 `Microsoft.Extensions.Logging`）；Core 只引用 `Microsoft.Extensions.Logging.Abstractions` | 已引入 |
 | 云端备份 | 不引入第三方包：`HttpClient` 只发送 WebDAV 的通用方法（PUT、MOVE、MKCOL、GET、DELETE）并使用 HTTP 基本认证，不依赖任何平台的专有接口；单次请求超时 10 分钟，请求本身不重试（父目录缺失时的 MKCOL 与重传规则见 `docs/design.md` 第 12 节） | 已实现 |
 
-依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各主线文件为准；尚未引入的依赖在引入时锁定版本。
+依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包；进入发行包的依赖须为与 Apache-2.0 相容的宽松许可，打包时按允许的许可清单校验，不合即失败。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。Markdown 只按行识别 `##` 小节与代码围栏，不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。版本以各主线文件为准；尚未引入的依赖在引入时锁定版本。
 
 ## 7. 前端工程（`web/`）
 
@@ -199,6 +201,8 @@ flowchart LR
 
 脚本（在 `web/` 下用 `bun run` 执行）：`dev` 启动开发服务器；`build` 构建到 `web/dist/`；`typecheck`、`lint`、`test` 为三项检查；`check` 依次运行类型检查、ESLint、Vitest 与构建；`generate` 由快照生成类型。
 
-**构建与托管。** `dotnet publish`（`Cli` 项目）时，`web/` 按锁文件安装依赖并构建，`web/dist/` 复制到发布目录的 `web/` 子目录；服务从可执行文件旁的 `web/` 托管它（见第 5 节）。`dotnet build` 与 `dotnet test` 不触发前端构建。
+**构建与托管。** `dotnet publish`（`Cli` 项目）时，`web/` 按锁文件安装依赖并构建，`web/dist/` 复制到发布目录的 `web/` 子目录；服务从可执行文件旁的 `web/` 托管它（见第 5 节）。`dotnet build` 与 `dotnet test` 不触发前端构建。前端构建同时把实际打进产物的包及其许可文本写到 `web/licenses/third-party.json`（不在 `dist/` 中，不被托管），供发行包的第三方许可声明使用；经 CSS 引入的包（Inter 字体、Tailwind 的基础样式）不在插件的视野里，由 `vite.config.ts` 中的清单补上。
+
+**版本与发行包。** 版本号由 MinVer 从带 `v` 前缀的 git tag 推出，两个 tag 之间的构建为预发布版本（如 `0.1.1-alpha.0.3`）；信息版本不附提交号，`--version`、状态报告、`/api/session`、MCP 服务信息与备份清单显示同一个值（均取自 `ProductVersion`）。发行包由 `build/package.ps1` 生成：自包含 `win-x64` 发布，附 `LICENSE`、`NOTICE` 与第三方许可声明 `THIRD-PARTY-NOTICES.txt`（NuGet 依赖由 `nuget-license` 读取 `Cli` 项目的完整依赖图并按允许的许可校验，前端取上述 JSON，另有 .NET 运行时与 `sqlite-vec` 两段固定内容），打成 `tacit-<版本>-win-x64.zip` 并附 SHA-256。`build/smoke.ps1` 对发布目录做冒烟。两个 GitHub Actions 工作流：`ci.yml` 在推送到 `main`（只改文档时跳过）与手动触发时运行格式检查、全量测试与前端检查；`release.yml` 在推送 `v*` tag 时先调用 `ci.yml`，再打包、冒烟并创建 Release，手动触发时只打包与冒烟、保留构件。都运行在 Windows 上，因为 `vec0.dll` 只有 Windows 版。
 
 **开发。** `bun run dev` 启动 Vite 开发服务器（默认 5173，有热更新）。`/api` 经代理转给 `127.0.0.1` 上运行中的常驻服务，端口取环境变量 `TACIT_SERVICE_PORT`，缺省为 18888。代理转发时去掉 `Origin` 头，并把 `Host` 改为目标地址，因为服务只接受回环主机名的本机请求。

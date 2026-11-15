@@ -1,0 +1,9 @@
+[
+  {
+    "Id": "SQLite",
+    "Version": "3.53.4",
+    "License": "blessing",
+    "Copyright": "SQLite is in the public domain.",
+    "ProjectUrl": "https://sqlite.org/copyright.html"
+  }
+]

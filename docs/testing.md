@@ -146,7 +146,7 @@ Cloudflare 格式的路由：`CloudflareRerankUrl`（`/ai/run/@cf/baai/bge-reran
 
 ## 5. 运行方式
 
-默认只运行与当前变更直接相关的测试，不自动运行全量测试。测试使用真实 `git`，需要它在 `PATH` 中。
+默认只运行与当前变更直接相关的测试，不自动运行全量测试。全量测试、C# 格式检查与第 7 节的前端检查由 GitHub Actions 在推送到 `main` 与推送 `v*` tag 时运行（Windows 运行器；只改文档的推送不运行），也可以手动触发。测试使用真实 `git`，需要它在 `PATH` 中。
 
 ```powershell
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝
@@ -194,3 +194,13 @@ bun run check       # 类型检查、ESLint、格式检查、Vitest 与构建依
 格式由 `web/.prettierrc.json` 规定：120 列，其余取 Prettier 默认；`prettier-plugin-tailwindcss` 按 Tailwind 的顺序排列类名（包括 `cn`、`cva` 中的字符串），主题与自定义工具类从 `src/styles/index.css` 读取。生成的 `openapi.json` 与 `src/api/schema.ts` 不经 Prettier。缩进、换行符与文件末尾换行由根目录 `.editorconfig` 统一。
 
 Vitest 只测有逻辑的部分：接口调用层（`src/api/client.test.ts`）对 `ApiError` 的取值、会话缺失的 401 信号的发出与退订（其他 401 不发出）、无正文或非 JSON 应答的处理；登录后回跳地址的判断（`src/app/return-target.test.ts`，含拒绝站外地址）；登录表单的状态（`src/pages/login/login-attempt.test.ts`，429 锁住提交直到密码被改动）；错误说明的取用（`src/i18n/messages.test.ts`）。仪表盘的纯函数：时长、倒计时、大小与日期的格式（`src/pages/dashboard/format.test.ts`），热力图的窗口、周列、月份标签、深浅与统计（`heatmap.test.ts`），绑定与客户端合并为每个客户端一行（`agents.test.ts`），待处理的生成与去向（`todos.test.ts`，含每份有误的提示词文档一条、链接到该文档）。设置页的表单模型（`src/pages/settings/form.test.ts`）：草稿、改动、恢复默认、请求体（等于默认的项省略、阈值成对写出、清空即默认）、问题的定位与各节计数、待重启与运行值不一致的项、超出范围与需重启的计数、密钥的改写与清除；绑定预设（`bindings.test.ts`）。提示词页的地址与文档名的互转（`src/pages/prompts/names.test.ts`，未知或大小写不同的名称不算）；编辑状态（`editor.test.ts`）：内置默认在开始自定义前只读、开始后不改动也可保存，写法约定直接可编辑，已自定义时可恢复默认，文件有误时标出且仍可编辑；长度信息的显示文字（`measure.test.ts`）：自身上限的字数、固定部分与最近活动余量、两节条目数（满额不算超出）、超出时的标记与余量为负时的说法。日志页的日期（`src/pages/logs/day.test.ts`）：地址中的日期只认日历日期，今天不写进地址，日期清单含今天且最新在前，时钟取文件中写下的时间；筛选（`filter.test.ts`）：地址与筛选的互转（未知级别忽略、全开时省略），级别与关键字（不分大小写、按字面、含续行）的过滤、各级条数与高亮的切分；跟随（`follow.test.ts`）：增量的追加、跨日的判断、贴底的容差与新条目中通过筛选的条数。不测样式，不做浏览器端到端测试。字典的键一致由类型检查保证，不另写测试。
+
+## 8. 发行包的冒烟
+
+`build/smoke.ps1` 检查一个发布目录能否运行，覆盖"测试在源码构建下通过、发行包里却少了东西"这类问题。它不属于三个测试接缝：作用于打好的产物，以独立进程运行。
+
+```powershell
+./build/smoke.ps1 -PublishDir <发布目录> [-ExpectedVersion 0.1.0]
+```
+
+使用临时的 `TACIT_HOME` 与空闲端口，不配置辅助模型：运行 `--version`（给了期望版本时必须一致）与 `init`，后台启动 `serve`，检查 `/api/status` 报告服务运行且版本与可执行文件一致、`/mcp` 的 `tools/list` 恰为四个记忆工具、`/ui/` 返回 Web 界面。任何一项失败以退出码 1 结束，并输出服务的标准输出与日志；无论成败都停止服务、删除临时目录。发布工作流在打包后、创建 Release 前运行它，期望版本取自 tag。

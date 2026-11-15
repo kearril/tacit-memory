@@ -5,8 +5,6 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
 ## 前提
 
-- **.NET 11 SDK**：用于构建。
-- **Bun**：仅 `dotnet publish` 构建 Web 界面时需要，详见 [`docs/operations.md`](docs/operations.md) 第 6 节。
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
 - **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
 - **三个辅助模型**（可选，均为 HTTP 端点，需自行准备；不配置的模型即未配置，服务照常运行，依赖它的功能按降级规则处理）：
@@ -16,15 +14,21 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
   目前支持 Cloudflare Workers AI 的提供方适配（reranker、决策模型）。密钥可不配。内置的判断阈值是用某一个决策模型实测标定的，换用其他决策模型前请先读 [`docs/reference/configuration.md`](docs/reference/configuration.md)「`decision` 与 `retrieval`」。
 
-## 构建
+## 安装
+
+从 GitHub Releases 下载 `tacit-<版本>-win-x64.zip`，解压到一个空目录。发行包是自包含的，不需要预装 .NET。`tacit.exe`、`vec0.dll` 与 Web 界面的 `web/` 子目录须留在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。
+
+校验下载与升级的步骤见 [`docs/operations.md`](docs/operations.md) 第 6 节。
+
+### 从源码构建
+
+需要 .NET 11 SDK 与 Bun（构建 Web 界面），以及完整的 git 历史（版本号取自 tag）：
 
 ```powershell
 dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 ```
 
-输出目录中的可执行文件为 `tacit.exe`，并附带 `vec0.dll` 与 Web 界面的 `web/` 子目录，它们须放在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。CLI 未打包为 dotnet tool。
-
-发布的前提与不构建 Web 界面的方法见 [`docs/operations.md`](docs/operations.md) 第 6 节。
+这样得到的是依赖框架的产物，运行时需要预装 ASP.NET Core 11。打出与发行包相同的自包含产物、以及不构建 Web 界面的方法，见 [`docs/operations.md`](docs/operations.md) 第 6 节。CLI 未打包为 dotnet tool。
 
 ## 快速开始
 
@@ -96,9 +100,13 @@ MCP 端点仍只接受本机连接。连接不加密，访问密码以明文传�
 | [`docs/reference/mcp.md`](docs/reference/mcp.md) | MCP 端点、工具参数、返回格式与资源 |
 | [`docs/reference/api.md`](docs/reference/api.md) | 管理 API 的端点、访问规则与错误 |
 | [`docs/web.md`](docs/web.md) | Web 界面的页面与流程 |
-| [`docs/operations.md`](docs/operations.md) | 文件位置、备份与恢复、日志、排障 |
+| [`docs/operations.md`](docs/operations.md) | 文件位置、备份与恢复、日志、排障、发行包与升级 |
 | [`docs/design.md`](docs/design.md) | 记忆如何分层、写入、检索与注入 |
 | [`docs/prompts.md`](docs/prompts.md) | 发给模型的每段文字负责什么 |
 | [`docs/architecture.md`](docs/architecture.md) | 代码结构与各模块的实现状况 |
 | [`docs/testing.md`](docs/testing.md) | 测试方式 |
 | [`GLOSSARY.md`](GLOSSARY.md) | 术语 |
+
+## 许可
+
+TacitMemory 以 [Apache License 2.0](LICENSE) 发布。发行包附带的第三方组件及其许可列在包内的 `THIRD-PARTY-NOTICES.txt` 中。
