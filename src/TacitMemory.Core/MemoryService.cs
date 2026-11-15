@@ -951,6 +951,21 @@ public sealed class MemoryService : IDisposable
         return PersonaBrowse.Read(Config);
     }
 
+    /// <summary>The established workstreams and the names in use that are not, for the memory page. Reads files only.</summary>
+    public async Task<WorkstreamList> WorkstreamsAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return WorkstreamBrowse.List(Config);
+    }
+
+    /// <summary>A workstream's brief, whole and structured, gathered as <c>recall</c> gathers it. Counts nothing.</summary>
+    /// <exception cref="TacitException"><see cref="TacitError.MemoryNotFound"/> when there is no such workstream.</exception>
+    public async Task<WorkstreamBriefView> WorkstreamBriefAsync(string workstream, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return WorkstreamBrowse.Brief(Config, _brief, workstream);
+    }
+
     /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
     public async Task<PageList> PagesAsync(CancellationToken cancellationToken = default)
     {

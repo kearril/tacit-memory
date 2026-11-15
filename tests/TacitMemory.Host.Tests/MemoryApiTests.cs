@@ -105,7 +105,33 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.EndsWith("rollback.md", page["file"]!["path"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task The_workstreams_answer_with_the_list_and_a_brief()
+    {
+        Write("workstreams.md", "## 主线\n\n### ops\n背景：运维。\n");
+        var created = await _service.WritePageAsync(new WritePageRequest
+        {
+            Op = "create",
+            Type = ToolValues.PageTypes.Decision,
+            Page = "ops/rollback",
+            Title = "部署回滚",
+            Aliases = ["回滚方案", "部署失败回滚"],
+            Sections = [new PageSectionInput("决定", "先回滚。")],
+        });
+        Assert.False(created.IsError, created.Text);
+
+        var list = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/workstreams")))!;
+        var brief = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/workstreams/ops")))!;
+
+        Assert.Equal("ops", list["established"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal(1, list["established"]![0]!["pages"]!.GetValue<int>());
+        Assert.Equal("运维。", brief["background"]!.GetValue<string>());
+        Assert.Equal("decision", brief["groups"]![0]!["type"]!.GetValue<string>());
+        Assert.Equal("ops/rollback", brief["groups"]![0]!["pages"]![0]!["id"]!.GetValue<string>());
+    }
+
     [Theory]
+    [InlineData("/api/memory/workstreams/nothing", HttpStatusCode.NotFound, "MemoryNotFound")]
     [InlineData("/api/memory/pages/ops/nothing", HttpStatusCode.NotFound, "MemoryNotFound")]
     [InlineData("/api/memory/pages/Ops!/x", HttpStatusCode.BadRequest, "RequestInvalid")]
     public async Task A_missing_page_is_404_and_a_bad_id_400(string path, HttpStatusCode status, string code)
@@ -120,6 +146,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
     [InlineData("/api/memory/persona")]
     [InlineData("/api/memory/pages")]
     [InlineData("/api/memory/pages/ops/rollback")]
+    [InlineData("/api/memory/workstreams")]
+    [InlineData("/api/memory/workstreams/ops")]
     public async Task Another_device_without_a_session_is_refused(string path)
     {
         using var response = await _remote.GetAsync(Url(path));
@@ -138,5 +166,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.NotNull(document["paths"]?["/api/memory/pages"]?["get"]);
         Assert.NotNull(document["paths"]?["/api/memory/pages/{workstream}/{slug}"]?["get"]?["responses"]?["404"]);
         Assert.NotNull(document["components"]?["schemas"]?["PageView"]);
+        Assert.NotNull(document["paths"]?["/api/memory/workstreams"]?["get"]);
+        Assert.NotNull(document["paths"]?["/api/memory/workstreams/{name}"]?["get"]?["responses"]?["404"]);
+        Assert.NotNull(document["components"]?["schemas"]?["WorkstreamBriefView"]);
     }
 }

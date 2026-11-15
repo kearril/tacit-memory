@@ -42,6 +42,8 @@ namespace TacitMemory.Host;
 [JsonSerializable(typeof(PersonaReport))]
 [JsonSerializable(typeof(PageList))]
 [JsonSerializable(typeof(PageView))]
+[JsonSerializable(typeof(WorkstreamList))]
+[JsonSerializable(typeof(WorkstreamBriefView))]
 [JsonSerializable(typeof(PageSectionInput[]))]
 [JsonSerializable(typeof(string[]))]
 public sealed partial class HostJson : JsonSerializerContext;

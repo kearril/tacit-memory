@@ -898,6 +898,141 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memory/workstreams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkstreamList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/workstreams/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkstreamBriefView"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/memory/pages": {
         parameters: {
             query?: never;
@@ -2224,6 +2359,30 @@ export interface components {
             lines: string[];
             items: components["schemas"]["BindingCheck"][];
         };
+        BriefActivity: {
+            date: string;
+            code: string;
+            text: string;
+        };
+        BriefPage: {
+            id: string;
+            title: string;
+            aliases: string[];
+            changed: null | string;
+            /** Format: int64 */
+            uses: number;
+            lastUse: null | string;
+        };
+        BriefPageGroup: {
+            type: null | string;
+            pages: components["schemas"]["BriefPage"][];
+        };
+        BriefSummary: {
+            label: string;
+            first: string;
+            last: string;
+            text: string;
+        };
         CandidateOccurrenceView: {
             date: string;
             quote: string;
@@ -2414,6 +2573,10 @@ export interface components {
             state: components["schemas"]["ModelState"];
             /** Format: int32 */
             coolingSeconds: null | number;
+        };
+        OpenItemView: {
+            page: string;
+            lines: string[];
         };
         PageLimitsFile: {
             /** Format: int32 */
@@ -2824,10 +2987,34 @@ export interface components {
             username: null | string;
             password: null | string;
         };
+        WorkstreamBriefView: {
+            name: string;
+            established: boolean;
+            background: null | string;
+            recent: null | string;
+            conventions: components["schemas"]["PersonaSectionView"][];
+            openItems: components["schemas"]["OpenItemView"][];
+            groups: components["schemas"]["BriefPageGroup"][];
+            overturned: string[];
+            activities: components["schemas"]["BriefActivity"][];
+            summary: null | components["schemas"]["BriefSummary"];
+        };
         WorkstreamCount: {
             workstream: string;
             /** Format: int32 */
             count: number;
+        };
+        WorkstreamList: {
+            established: components["schemas"]["WorkstreamListItem"][];
+            unestablished: components["schemas"]["WorkstreamListItem"][];
+        };
+        WorkstreamListItem: {
+            name: string;
+            background: null | string;
+            recent: null | string;
+            /** Format: int32 */
+            pages: number;
+            lastActivity: null | string;
         };
     };
     responses: never;

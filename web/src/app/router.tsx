@@ -7,6 +7,7 @@ import { MemoryPagesPage } from "../pages/memory/MemoryPagesPage";
 import { MemoryPersonaPage } from "../pages/memory/MemoryPersonaPage";
 import { MemoryPlaceholder } from "../pages/memory/MemoryPlaceholder";
 import { MemorySearchPage } from "../pages/memory/MemorySearchPage";
+import { MemoryWorkstreamsPage } from "../pages/memory/MemoryWorkstreamsPage";
 import { memoryPathOf } from "../pages/memory/views";
 import { DEFAULT_PROMPT, promptPathOf } from "../pages/prompts/names";
 import { PromptsPage } from "../pages/prompts/PromptsPage";
@@ -34,8 +35,8 @@ export const router = createBrowserRouter(
             { path: "logs/:date", Component: LogsPage },
             { path: "memory", element: <Navigate to={memoryPathOf("persona")} replace /> },
             { path: "memory/persona", Component: MemoryPersonaPage },
-            { path: "memory/workstreams", element: <MemoryPlaceholder view="workstreams" /> },
-            { path: "memory/workstreams/:name", element: <MemoryPlaceholder view="workstreams" /> },
+            { path: "memory/workstreams", Component: MemoryWorkstreamsPage },
+            { path: "memory/workstreams/:name", Component: MemoryWorkstreamsPage },
             { path: "memory/pages", Component: MemoryPagesPage },
             { path: "memory/pages/:workstream/:slug", Component: MemoryPagePage },
             { path: "memory/activity", element: <MemoryPlaceholder view="activity" /> },

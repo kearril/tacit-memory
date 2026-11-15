@@ -21,6 +21,11 @@ export type PageList = components["schemas"]["PageList"];
 export type PageListItem = components["schemas"]["PageListItem"];
 export type PageView = components["schemas"]["PageView"];
 export type PageSectionView = components["schemas"]["PageSectionView"];
+export type WorkstreamList = components["schemas"]["WorkstreamList"];
+export type WorkstreamListItem = components["schemas"]["WorkstreamListItem"];
+export type WorkstreamBriefView = components["schemas"]["WorkstreamBriefView"];
+export type BriefPageGroup = components["schemas"]["BriefPageGroup"];
+export type BriefPage = components["schemas"]["BriefPage"];
 
 export const RECALL_TRACE_QUERY_KEY = ["recall-trace"] as const;
 
@@ -86,6 +91,35 @@ export function usePage(id: string) {
   return useQuery({
     queryKey: [...PAGES_QUERY_KEY, id],
     queryFn: () => getPage(id),
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+}
+
+/** The query key of the workstream list; one workstream's brief adds its name. */
+export const WORKSTREAMS_QUERY_KEY = ["memory", "workstreams"] as const;
+
+/** The established workstreams and the names in use that are not. Reads files only; counts nothing. */
+export function getWorkstreams(): Promise<WorkstreamList> {
+  return apiFetch<WorkstreamList>("/api/memory/workstreams");
+}
+
+/** A workstream's brief, whole. Counts nothing; a name with nothing behind it is refused with `MemoryNotFound`. */
+export function getWorkstreamBrief(name: string): Promise<WorkstreamBriefView> {
+  return apiFetch<WorkstreamBriefView>(`/api/memory/workstreams/${encodeURIComponent(name)}`);
+}
+
+/** The workstream list, fetched when the view opens and again when the window regains focus; never polled. */
+export function useWorkstreams() {
+  return useQuery({ queryKey: WORKSTREAMS_QUERY_KEY, queryFn: getWorkstreams, refetchOnWindowFocus: true });
+}
+
+/** One workstream's brief, fetched as the list is; `null` fetches nothing, and a missing one is not asked for again. */
+export function useWorkstreamBrief(name: string | null) {
+  return useQuery({
+    queryKey: [...WORKSTREAMS_QUERY_KEY, name],
+    queryFn: () => getWorkstreamBrief(name!),
+    enabled: name !== null,
     refetchOnWindowFocus: true,
     retry: false,
   });

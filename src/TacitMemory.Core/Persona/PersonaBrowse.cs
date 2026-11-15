@@ -48,7 +48,11 @@ internal static class PersonaBrowse
     }
 
     private static PersonaBlockView Block(PersonaBlock block, IReadOnlyDictionary<int, string> codes) =>
-        new(block.Scope.Name, block.HeadingLine + 1, string.IsNullOrWhiteSpace(block.Trigger) ? null : block.Trigger.Trim(), Sections(block.Parts, codes, everyKind: false));
+        new(block.Scope.Name, block.HeadingLine + 1, string.IsNullOrWhiteSpace(block.Trigger) ? null : block.Trigger.Trim(), BlockSections(block, codes));
+
+    /// <summary>A scope block's sections as the persona view gives them; <paramref name="codes"/> are the persona's codes by line.</summary>
+    internal static List<PersonaSectionView> BlockSections(PersonaBlock block, IReadOnlyDictionary<int, string> codes) =>
+        Sections(block.Parts, codes, everyKind: false);
 
     private static PersonaEntryView Entry(PersonaItem item, IReadOnlyDictionary<int, string> codes) =>
         new(item.Line + 1, item.IsListItem ? codes[item.Line] : null, item.Text, [.. item.Continuation.Select(line => line.Trim())]);

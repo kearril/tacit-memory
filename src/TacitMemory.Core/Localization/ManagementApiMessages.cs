@@ -88,6 +88,7 @@ internal static class ManagementApiMessages
         "prompts/{0} was changed after you opened the prompts page, and saving would overwrite that change. Load it again, then make your changes.");
     public static readonly Localized LogDateInvalid = new("{0} 不是日期，请写成 2026-11-14 这样的形式。", "{0} is not a date; write it like 2026-11-14.");
     public static readonly Localized LogAfterInvalid = new("after 应为已读到的条数（0 或正整数），而不是 {0}。", "after is the number of events already read (0 or more), not {0}.");
+    public static readonly Localized WorkstreamNotFound = new("没有主线 {0}：它既未成立，也没有细节页或活动。", "There is no workstream {0}: it is not established and has no pages or activities.");
     public static readonly Localized PageNotFound = new("没有细节页 {0}。", "There is no page {0}.");
     public static readonly Localized PageIdInvalid = new("{0} 不是有效的页面标识：{1}", "{0} is not a valid page ID: {1}");
     public static readonly Localized LogDateNotFound = new("{0} 没有日志。", "There is no log for {0}.");

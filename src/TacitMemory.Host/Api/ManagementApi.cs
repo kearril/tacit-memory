@@ -254,6 +254,20 @@ internal static class ManagementApi
         })
             .Produces<PersonaReport>()
             .ProducesErrors();
+        api.MapGet("/memory/workstreams", async (HttpContext context) =>
+        {
+            var list = await service.WorkstreamsAsync(context.RequestAborted);
+            return Json(list);
+        })
+            .Produces<WorkstreamList>()
+            .ProducesErrors();
+        api.MapGet("/memory/workstreams/{name}", async (string name, HttpContext context) =>
+        {
+            var brief = await service.WorkstreamBriefAsync(name, context.RequestAborted);
+            return Json(brief);
+        })
+            .Produces<WorkstreamBriefView>()
+            .ProducesErrors(StatusCodes.Status404NotFound);
         api.MapGet("/memory/pages", async (HttpContext context) =>
         {
             var list = await service.PagesAsync(context.RequestAborted);

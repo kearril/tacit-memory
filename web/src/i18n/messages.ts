@@ -577,6 +577,35 @@ export interface Dictionary {
       readonly missing: string;
       readonly problemsTitle: (count: number) => string;
     };
+    readonly workstreams: {
+      readonly failed: string;
+      readonly listLabel: string;
+      readonly established: string;
+      readonly unestablished: string;
+      readonly unestablishedHint: string;
+      readonly none: string;
+      readonly pages: (count: number) => string;
+      readonly lastActivity: (day: string) => string;
+      /** The mini activity bar's label, for screen readers and the tooltip. */
+      readonly weeks: (count: number) => string;
+      readonly week: (monday: string, count: number) => string;
+      readonly pick: string;
+      readonly back: string;
+      readonly notFound: string;
+      readonly briefFailed: string;
+      readonly background: string;
+      readonly recent: string;
+      readonly notEstablished: string;
+      readonly conventions: string;
+      readonly openItems: string;
+      readonly directory: string;
+      readonly overturned: string;
+      readonly activities: string;
+      readonly summary: (label: string) => string;
+      readonly viewAll: string;
+      readonly empty: string;
+      readonly lastUse: (day: string) => string;
+    };
     readonly persona: {
       readonly failed: string;
       readonly globalTitle: string;

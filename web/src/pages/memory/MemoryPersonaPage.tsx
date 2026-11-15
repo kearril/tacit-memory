@@ -167,7 +167,7 @@ function problemText(problem: FileProblem): string {
 }
 
 /** One section: its icon, name and entry count, then its entries; an empty one of the four says so. */
-function SectionGroup({
+export function SectionGroup({
   section,
   problems,
   showEmpty = false,

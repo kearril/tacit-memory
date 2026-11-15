@@ -833,6 +833,124 @@
         }
       }
     },
+    "/api/memory/workstreams": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkstreamList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/workstreams/{name}": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkstreamBriefView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/memory/pages": {
       "get": {
         "tags": [
@@ -2566,6 +2684,110 @@
           }
         }
       },
+      "BriefActivity": {
+        "required": [
+          "date",
+          "code",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "BriefPage": {
+        "required": [
+          "id",
+          "title",
+          "aliases",
+          "changed",
+          "uses",
+          "lastUse"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "changed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastUse": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BriefPageGroup": {
+        "required": [
+          "type",
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefPage"
+            }
+          }
+        }
+      },
+      "BriefSummary": {
+        "required": [
+          "label",
+          "first",
+          "last",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "first": {
+            "type": "string"
+          },
+          "last": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
       "CandidateOccurrenceView": {
         "required": [
           "date",
@@ -3373,6 +3595,24 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "OpenItemView": {
+        "required": [
+          "page",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -5170,6 +5410,81 @@
           }
         }
       },
+      "WorkstreamBriefView": {
+        "required": [
+          "name",
+          "established",
+          "background",
+          "recent",
+          "conventions",
+          "openItems",
+          "groups",
+          "overturned",
+          "activities",
+          "summary"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "established": {
+            "type": "boolean"
+          },
+          "background": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recent": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "conventions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaSectionView"
+            }
+          },
+          "openItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpenItemView"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefPageGroup"
+            }
+          },
+          "overturned": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "activities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefActivity"
+            }
+          },
+          "summary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BriefSummary"
+              }
+            ]
+          }
+        }
+      },
       "WorkstreamCount": {
         "required": [
           "workstream",
@@ -5183,6 +5498,64 @@
           "count": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "WorkstreamList": {
+        "required": [
+          "established",
+          "unestablished"
+        ],
+        "type": "object",
+        "properties": {
+          "established": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkstreamListItem"
+            }
+          },
+          "unestablished": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkstreamListItem"
+            }
+          }
+        }
+      },
+      "WorkstreamListItem": {
+        "required": [
+          "name",
+          "background",
+          "recent",
+          "pages",
+          "lastActivity"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "background": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recent": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastActivity": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }
