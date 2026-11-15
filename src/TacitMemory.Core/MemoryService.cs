@@ -908,6 +908,18 @@ public sealed class MemoryService : IDisposable
         return await _recall.RunAsync(request, cancellationToken);
     }
 
+    /// <summary>
+    /// A recall trace for the management API: the search <c>recall</c> runs for the same parameters, stage by stage, with
+    /// up to three retrieval values replaced. Counts no return and changes no file.
+    /// </summary>
+    /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with every problem of the request.</exception>
+    public async Task<RecallTraceReport> TraceRecallAsync(RecallTraceRequest request, CancellationToken cancellationToken = default)
+    {
+        var search = RecallTraceRun.Check(request, Config.Language);
+        var trace = await TraceRecallAsync(search.Query, search.Filter, search.Overrides, cancellationToken);
+        return RecallTraceRun.Report(trace, Config);
+    }
+
     /// <summary>The search <c>recall</c> runs, stage by stage; counts no return.</summary>
     internal async Task<RecallTrace> TraceRecallAsync(
         string query, IndexFilter filter, RetrievalOverrides overrides, CancellationToken cancellationToken = default)

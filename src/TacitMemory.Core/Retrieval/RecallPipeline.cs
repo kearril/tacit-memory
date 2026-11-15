@@ -11,7 +11,7 @@ namespace TacitMemory.Core.Retrieval;
 internal sealed record RetrievalOverrides(double? MinRerankScore = null, int? TopK = null, int? Candidates = null);
 
 /// <summary>What became of a retrieval unit in a search.</summary>
-internal enum UnitFate
+public enum UnitFate
 {
     /// <summary>The result the unit belongs to was shown.</summary>
     Shown,
@@ -53,11 +53,15 @@ internal sealed record UnitTrace(
 /// <summary>How one model took part in a search.</summary>
 /// <param name="Configured">Whether the model is configured.</param>
 /// <param name="Answered">Whether it answered; <c>false</c> when it is not configured, cooling down or failed.</param>
+/// <param name="CoolingDown">Whether it was cooling down from an earlier failure, so it was not called.</param>
 /// <param name="Elapsed">How long the call took; <c>null</c> when the model is not configured.</param>
-internal sealed record ModelStage(bool Configured, bool Answered, TimeSpan? Elapsed);
+internal sealed record ModelStage(bool Configured, bool Answered, bool CoolingDown, TimeSpan? Elapsed);
 
-/// <summary>A result as the agent sees it: its number and the units it is made of, best first.</summary>
-internal sealed record ShownResult(int Number, IReadOnlyList<IndexHit> Units);
+/// <summary>
+/// A result as the agent sees it: its number and the units it is made of, best first. A page's result also has the page's
+/// title and the sections the text shows.
+/// </summary>
+internal sealed record ShownResult(int Number, IReadOnlyList<IndexHit> Units, string? Title = null, IReadOnlyList<string>? Sections = null);
 
 /// <summary>
 /// A whole search, stage by stage: the values it ran with, how each model took part, every unit either search returned and
@@ -117,9 +121,10 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
 
         IReadOnlyList<ScoredHit> nearest = [];
         var notes = new List<string>();
+        var embeddingCooling = embedding.Configured && embedding.Health.CoolingDown;
         var clock = Stopwatch.StartNew();
         var queryVector = await embedding.EmbedAsync([query], cancellationToken);
-        var embeddingStage = new ModelStage(embedding.Configured, queryVector is not null, embedding.Configured ? clock.Elapsed : null);
+        var embeddingStage = new ModelStage(embedding.Configured, queryVector is not null, embeddingCooling, embedding.Configured ? clock.Elapsed : null);
         if (queryVector is null)
         {
             if (embedding.Configured)
@@ -133,9 +138,10 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
 
         var fused = Fuse([fullText.Hits, nearest]);
         var kept = fused.Take(candidates).Select(unit => unit.Hit).ToList();
+        var rerankerCooling = reranker.Configured && reranker.Health.CoolingDown;
         clock.Restart();
         var scores = await reranker.ScoreAsync(query, kept.Select(unit => unit.Text).ToList(), cancellationToken);
-        var rerankerStage = new ModelStage(reranker.Configured, scores is not null, reranker.Configured ? clock.Elapsed : null);
+        var rerankerStage = new ModelStage(reranker.Configured, scores is not null, rerankerCooling, reranker.Configured ? clock.Elapsed : null);
         var scoreOf = new Dictionary<IndexHit, double>();
         List<IndexHit> ranked;
         if (scores is null)
@@ -239,7 +245,7 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
             var others = document.Sections.Except(sections).Select(section => section.Name).ToList();
             var changed = index.SectionChanges(id);
 
-            results.Add(new ShownResult(results.Count + 1, [.. result]));
+            results.Add(new ShownResult(results.Count + 1, [.. result], document.Header.Title, [.. sections.Select(section => section.Name)]));
             text.Append(CultureInfo.InvariantCulture, $"\n[{results.Count}] page {id}: {document.Header.Title}\n");
             if (document.Header.First is { } first && document.Header.Last is { } last)
                 text.Append(CultureInfo.InvariantCulture, $"Dates: {first:yyyy-MM-dd} to {last:yyyy-MM-dd}\n");

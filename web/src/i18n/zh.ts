@@ -577,4 +577,45 @@ export const zh: Dictionary = {
       historyUnreadable: "记忆仓库的历史读不了，整理日没有标出。",
     },
   },
+  memory: {
+    views: { persona: "画像", workstreams: "主线", pages: "细节页", activity: "活动", search: "检索" },
+    viewsNav: "记忆视图",
+    search: {
+      queryLabel: "查询",
+      workstreamLabel: "主线",
+      workstreamAll: "全部主线",
+      fromLabel: "起始日期",
+      toLabel: "结束日期",
+      kindLabel: "范围",
+      kinds: { all: "页面与活动", pages: "只看页面", activities: "只看活动" },
+      run: "检索",
+      idle: "输入查询后点「检索」，看 Agent 用同样的参数调用 recall 时会得到什么、每个检索单元去了哪里。",
+      failed: "检索失败",
+      resultsTitle: (count) => `结果 · ${count}`,
+      noResults: "没有结果：Agent 会收到「No relevant memory.」",
+      unitsTitle: "检索单元的去向",
+      columns: { fullText: "全文", vector: "向量", reranker: "reranker" },
+      fates: {
+        shown: "显示",
+        beyondTopK: "超出 topK",
+        belowThreshold: (score) => `低于阈值 ${score}`,
+        beyondCandidates: (candidates) => `融合后在 ${candidates} 之外`,
+      },
+      shownSummary: (units, results) => `${units} 个单元 → ${results} 条结果`,
+      unitCount: (count) => `${count} 个单元`,
+      notReranked: "未送 reranker",
+      share: (percent) => `占全部单元的 ${percent}%`,
+      none: "无",
+      unitKinds: { clue: "线索", activity: "活动", summary: "汇总", week: "周", month: "月" },
+      fullTextMethods: { phrase: "短语匹配", substring: "单字子串匹配", none: "没有可检索的文本" },
+      timing: (method, embedding, reranker) =>
+        [
+          `全文：${method}`,
+          embedding === null ? null : `嵌入 ${embedding}`,
+          reranker === null ? null : `reranker ${reranker}`,
+        ]
+          .filter((part) => part !== null)
+          .join(" · "),
+    },
+  },
 };

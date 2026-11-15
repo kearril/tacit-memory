@@ -653,4 +653,49 @@ export const en: Dictionary = {
       historyUnreadable: "The memory repository's history cannot be read, so consolidation days are not marked.",
     },
   },
+  memory: {
+    views: { persona: "Persona", workstreams: "Workstreams", pages: "Pages", activity: "Activity", search: "Search" },
+    viewsNav: "Memory views",
+    search: {
+      queryLabel: "Query",
+      workstreamLabel: "Workstream",
+      workstreamAll: "All workstreams",
+      fromLabel: "From",
+      toLabel: "To",
+      kindLabel: "Kind",
+      kinds: { all: "Pages and activities", pages: "Pages only", activities: "Activities only" },
+      run: "Search",
+      idle: "Enter a query and press Search to see what an agent gets from recall with the same parameters, and where each retrieval unit went.",
+      failed: "The search failed",
+      resultsTitle: (count) => `Results · ${count}`,
+      noResults: 'No results: the agent gets "No relevant memory."',
+      unitsTitle: "Where the retrieval units went",
+      columns: { fullText: "Full text", vector: "Vector", reranker: "Reranker" },
+      fates: {
+        shown: "Shown",
+        beyondTopK: "Beyond topK",
+        belowThreshold: (score) => `Below the threshold ${score}`,
+        beyondCandidates: (candidates) => `Fused after the first ${candidates}`,
+      },
+      shownSummary: (units, results) => `${units} units → ${results} results`,
+      unitCount: (count) => (count === 1 ? "1 unit" : `${count} units`),
+      notReranked: "not sent to the reranker",
+      share: (percent) => `${percent}% of all units`,
+      none: "none",
+      unitKinds: { clue: "clue", activity: "activity", summary: "summary", week: "week", month: "month" },
+      fullTextMethods: {
+        phrase: "phrase match",
+        substring: "single-character substring match",
+        none: "nothing to search for",
+      },
+      timing: (method, embedding, reranker) =>
+        [
+          `Full text: ${method}`,
+          embedding === null ? null : `embedding ${embedding}`,
+          reranker === null ? null : `reranker ${reranker}`,
+        ]
+          .filter((part) => part !== null)
+          .join(" · "),
+    },
+  },
 };

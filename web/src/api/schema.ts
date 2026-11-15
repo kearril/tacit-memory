@@ -752,6 +752,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recall/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecallTraceRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecallTraceReport"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config": {
         parameters: {
             query?: never;
@@ -2038,6 +2122,8 @@ export interface components {
             address: string;
             failureReason: null | string;
         };
+        /** @enum {unknown} */
+        FullTextMethod: "phrase" | "substring" | "none";
         LimitsFile: {
             /** Format: int32 */
             brief?: null | number;
@@ -2198,6 +2284,29 @@ export interface components {
             lines: string[];
             items: components["schemas"]["PromptProblem"][];
         };
+        RecallTraceReport: {
+            settings: components["schemas"]["TraceSettings"];
+            fullText: components["schemas"]["FullTextMethod"];
+            embedding: components["schemas"]["TraceModel"];
+            reranker: components["schemas"]["TraceModel"];
+            counts: components["schemas"]["TraceCounts"];
+            results: components["schemas"]["TraceResult"][];
+            text: string;
+            units: components["schemas"]["TraceUnit"][];
+        };
+        RecallTraceRequest: {
+            query: null | string;
+            workstream?: null | string;
+            from?: null | string;
+            to?: null | string;
+            kind?: null | string;
+            /** Format: double */
+            minRerankScore?: null | number;
+            /** Format: int32 */
+            topK?: null | number;
+            /** Format: int32 */
+            candidates?: null | number;
+        };
         ReindexResult: {
             /** Format: int32 */
             files: number;
@@ -2337,6 +2446,79 @@ export interface components {
             /** Format: double */
             unlikely: null | number;
         };
+        TraceCounts: {
+            /** Format: int32 */
+            fullText: number;
+            /** Format: int32 */
+            vector: number;
+            /** Format: int32 */
+            fused: number;
+            /** Format: int32 */
+            reranked: number;
+            /** Format: int32 */
+            passed: number;
+            /** Format: int32 */
+            results: number;
+        };
+        TraceModel: {
+            configured: boolean;
+            answered: boolean;
+            coolingDown: boolean;
+            /** Format: double */
+            milliseconds: null | number;
+        };
+        TraceResult: {
+            /** Format: int32 */
+            number: number;
+            kind: string;
+            page: null | string;
+            title: null | string;
+            date: null | string;
+            code: null | string;
+            period: null | string;
+            workstream: string;
+            sections: string[];
+            text: null | string;
+        };
+        TraceSetting: {
+            /** Format: double */
+            value: number;
+            /** Format: double */
+            configured: number;
+        };
+        TraceSettings: {
+            minRerankScore: components["schemas"]["TraceSetting"];
+            topK: components["schemas"]["TraceSetting"];
+            candidates: components["schemas"]["TraceSetting"];
+        };
+        TraceUnit: {
+            kind: string;
+            source: string;
+            section: null | string;
+            code: null | string;
+            date: null | string;
+            workstream: string;
+            text: string;
+            /** Format: int32 */
+            fullTextRank: null | number;
+            /** Format: double */
+            bm25: null | number;
+            /** Format: int32 */
+            vectorRank: null | number;
+            /** Format: double */
+            distance: null | number;
+            /** Format: double */
+            rrf: number;
+            /** Format: int32 */
+            fusedRank: number;
+            /** Format: double */
+            rerankScore: null | number;
+            fate: components["schemas"]["UnitFate"];
+            /** Format: int32 */
+            result: null | number;
+        };
+        /** @enum {unknown} */
+        UnitFate: "shown" | "beyondTopK" | "belowThreshold" | "beyondCandidates" | "unreadable";
         WebDavFile: {
             url: null | string;
             username: null | string;

@@ -705,6 +705,85 @@
         }
       }
     },
+    "/api/recall/trace": {
+      "post": {
+        "tags": [
+          "management"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallTraceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallTraceReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/config": {
       "get": {
         "tags": [
@@ -2750,6 +2829,13 @@
           }
         }
       },
+      "FullTextMethod": {
+        "enum": [
+          "phrase",
+          "substring",
+          "none"
+        ]
+      },
       "LimitsFile": {
         "type": "object",
         "properties": {
@@ -3427,6 +3513,110 @@
           }
         }
       },
+      "RecallTraceReport": {
+        "required": [
+          "settings",
+          "fullText",
+          "embedding",
+          "reranker",
+          "counts",
+          "results",
+          "text",
+          "units"
+        ],
+        "type": "object",
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/TraceSettings"
+          },
+          "fullText": {
+            "$ref": "#/components/schemas/FullTextMethod"
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/TraceModel"
+          },
+          "reranker": {
+            "$ref": "#/components/schemas/TraceModel"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/TraceCounts"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceResult"
+            }
+          },
+          "text": {
+            "type": "string"
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceUnit"
+            }
+          }
+        }
+      },
+      "RecallTraceRequest": {
+        "required": [
+          "query"
+        ],
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workstream": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minRerankScore": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "topK": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "candidates": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "ReindexResult": {
         "required": [
           "files",
@@ -4052,6 +4242,290 @@
             "format": "double"
           }
         }
+      },
+      "TraceCounts": {
+        "required": [
+          "fullText",
+          "vector",
+          "fused",
+          "reranked",
+          "passed",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "fullText": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vector": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fused": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reranked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "results": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TraceModel": {
+        "required": [
+          "configured",
+          "answered",
+          "coolingDown",
+          "milliseconds"
+        ],
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "answered": {
+            "type": "boolean"
+          },
+          "coolingDown": {
+            "type": "boolean"
+          },
+          "milliseconds": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "TraceResult": {
+        "required": [
+          "number",
+          "kind",
+          "page",
+          "title",
+          "date",
+          "code",
+          "period",
+          "workstream",
+          "sections",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "page": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "period": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TraceSetting": {
+        "required": [
+          "value",
+          "configured"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "configured": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "TraceSettings": {
+        "required": [
+          "minRerankScore",
+          "topK",
+          "candidates"
+        ],
+        "type": "object",
+        "properties": {
+          "minRerankScore": {
+            "$ref": "#/components/schemas/TraceSetting"
+          },
+          "topK": {
+            "$ref": "#/components/schemas/TraceSetting"
+          },
+          "candidates": {
+            "$ref": "#/components/schemas/TraceSetting"
+          }
+        }
+      },
+      "TraceUnit": {
+        "required": [
+          "kind",
+          "source",
+          "section",
+          "code",
+          "date",
+          "workstream",
+          "text",
+          "fullTextRank",
+          "bm25",
+          "vectorRank",
+          "distance",
+          "rrf",
+          "fusedRank",
+          "rerankScore",
+          "fate",
+          "result"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workstream": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "fullTextRank": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "bm25": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "vectorRank": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "distance": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "rrf": {
+            "type": "number",
+            "format": "double"
+          },
+          "fusedRank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rerankScore": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "fate": {
+            "$ref": "#/components/schemas/UnitFate"
+          },
+          "result": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "UnitFate": {
+        "enum": [
+          "shown",
+          "beyondTopK",
+          "belowThreshold",
+          "beyondCandidates",
+          "unreadable"
+        ]
       },
       "WebDavFile": {
         "required": [

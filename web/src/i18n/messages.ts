@@ -3,6 +3,8 @@ import type { ServiceLogLevel } from "../api/logs";
 import type { BindingProblem } from "../api/status";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
+import type { FullTextMethod } from "../api/memory";
+import type { MemoryView } from "../pages/memory/views";
 import type { Duration } from "../pages/dashboard/format";
 import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
 import { en } from "./en";
@@ -474,6 +476,48 @@ export interface Dictionary {
       readonly noWorkstream: string;
       readonly skipped: (files: string) => string;
       readonly historyUnreadable: string;
+    };
+  };
+  readonly memory: {
+    /** The five views under 记忆 in the sidebar, by their address segment. */
+    readonly views: Readonly<Record<MemoryView, string>>;
+    readonly viewsNav: string;
+    readonly search: {
+      readonly queryLabel: string;
+      readonly workstreamLabel: string;
+      readonly workstreamAll: string;
+      readonly fromLabel: string;
+      readonly toLabel: string;
+      readonly kindLabel: string;
+      readonly kinds: { readonly all: string; readonly pages: string; readonly activities: string };
+      readonly run: string;
+      readonly idle: string;
+      readonly failed: string;
+      readonly resultsTitle: (count: number) => string;
+      readonly noResults: string;
+      readonly unitsTitle: string;
+      readonly columns: { readonly fullText: string; readonly vector: string; readonly reranker: string };
+      readonly fates: {
+        readonly shown: string;
+        readonly beyondTopK: string;
+        readonly belowThreshold: (score: string) => string;
+        readonly beyondCandidates: (candidates: number) => string;
+      };
+      readonly shownSummary: (units: number, results: number) => string;
+      readonly unitCount: (count: number) => string;
+      readonly notReranked: string;
+      readonly share: (percent: number) => string;
+      readonly none: string;
+      /** How a unit or result is named: a page's title and aliases are its clue. */
+      readonly unitKinds: {
+        readonly clue: string;
+        readonly activity: string;
+        readonly summary: string;
+        readonly week: string;
+        readonly month: string;
+      };
+      readonly fullTextMethods: Readonly<Record<FullTextMethod, string>>;
+      readonly timing: (method: string, embedding: string | null, reranker: string | null) => string;
     };
   };
 }

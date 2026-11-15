@@ -105,6 +105,75 @@ public sealed class RecallTraceTests : IDisposable
         Assert.Equal(recall.Text, trace.Text);
     }
 
+    [Theory]
+    [InlineData(null, null, null, null)]
+    [InlineData("ops", null, null, null)]
+    [InlineData(null, null, null, "activities")]
+    [InlineData(null, null, null, "pages")]
+    [InlineData(null, "2026-11-01", "2026-11-30", null)]
+    public async Task A_trace_shows_the_results_and_text_recall_answers_for_the_same_parameters(string? workstream, string? from, string? to, string? kind)
+    {
+        await Create("ops/rollback", "部署回滚", new("回滚步骤", "部署失败时先回滚。"), new("回滚记录", "部署回滚做过两次。"));
+        await Create("web/deploy", "前端部署", new PageSectionInput("步骤", "部署前端前先构建。"));
+        Assert.False((await Service.WriteRecentAsync(new WriteRecentRequest { Text = "部署流程改为先备份再上线。", Workstream = "ops" })).IsError);
+
+        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", workstream, from, to, kind));
+        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署", Workstream = workstream, From = from, To = to, Kind = kind });
+
+        Assert.Equal(recall.Text, report.Text);
+        Assert.Equal(Enumerable.Range(1, report.Results.Count), report.Results.Select(result => result.Number));
+        foreach (var result in report.Results)
+        {
+            var marker = result.Kind == "page" ? $"[{result.Number}] page {result.Page}: {result.Title}" : $"[{result.Number}] activity {result.Date} [{result.Code}]";
+            Assert.Contains(marker, recall.Text);
+        }
+
+        Assert.Equal(report.Results.Count, report.Counts.Results);
+        Assert.Equal(report.Units.Count, report.Counts.Fused);
+    }
+
+    [Fact]
+    public async Task A_trace_request_with_several_problems_is_refused_with_every_one()
+    {
+        var refusal = await Assert.ThrowsAsync<TacitException>(() => Service.TraceRecallAsync(
+            new RecallTraceRequest(" ", "Bad Name", "2026-13-01", "2026-11-01", "persona", MinRerankScore: 2, TopK: 0, Candidates: 3)));
+
+        Assert.Equal(TacitError.RequestInvalid, refusal.Error);
+        Assert.Equal(["query", "from", "workstream", "kind", "minRerankScore", "topK"], refusal.Problems!.Select(problem => problem.Path));
+        Assert.Contains("0 到 1", refusal.Problems!.Single(problem => problem.Path == "minRerankScore").Message);
+    }
+
+    [Fact]
+    public async Task Replaced_values_are_reported_beside_the_configured_ones()
+    {
+        await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
+
+        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", TopK: 2));
+
+        Assert.Equal(2, report.Settings.TopK.Value);
+        Assert.NotEqual(report.Settings.TopK.Value, report.Settings.TopK.Configured);
+        Assert.Equal(report.Settings.Candidates.Configured, report.Settings.Candidates.Value);
+        Assert.Equal(0.001, report.Settings.MinRerankScore.Configured);
+    }
+
+    [Fact]
+    public async Task A_reranker_failure_in_a_trace_cools_it_down_for_the_next_recall()
+    {
+        await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
+        _models.RerankDown = true;
+        await Service.TraceRecallAsync(new RecallTraceRequest("部署"));
+        _models.RerankDown = false;
+        var calls = _models.RerankCalls;
+
+        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署"));
+
+        Assert.Equal(calls, _models.RerankCalls);
+        Assert.Contains("reranker model is unavailable", recall.Text);
+        Assert.True(report.Reranker.CoolingDown);
+        Assert.False(report.Reranker.Answered);
+    }
+
     [Fact]
     public async Task A_single_character_query_matches_substrings_with_no_bm25_value()
     {

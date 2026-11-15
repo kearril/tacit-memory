@@ -22,6 +22,7 @@ import { usePrompts } from "../api/prompts";
 import { logout, SESSION_QUERY_KEY } from "../api/session";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet";
+import { MEMORY_PATH, MEMORY_VIEWS, memoryPathOf } from "../pages/memory/views";
 import { PROMPT_NAMES, promptPathOf } from "../pages/prompts/names";
 import { SECTIONS, sectionIdOf } from "../pages/settings/form";
 import { useSectionNav } from "../pages/settings/section-nav";
@@ -41,7 +42,8 @@ const navItems: readonly {
 
 /**
  * The frame of every page once the session allows it: a sidebar on the left with the brand, the five navigation items
- * (on the settings page, the list of its sections under its name; on the prompts page, the list of its documents) and who
+ * (on the settings page, the list of its sections under its name; on the prompts page, the list of its documents; on the
+ * memory page, the list of its views) and who
  * the connection is, and the page centred in the
  * space to its right. On a narrow screen the sidebar becomes a drawer
  * that a menu button in the page header opens.
@@ -111,12 +113,48 @@ function SidebarBody({ onNavigate }: { readonly onNavigate: () => void }) {
               </NavLink>
               {item.key === "settings" ? <SettingsSections onNavigate={onNavigate} /> : null}
               {item.key === "prompts" ? <PromptDocuments onNavigate={onNavigate} /> : null}
+              {item.key === "memory" ? <MemoryViews onNavigate={onNavigate} /> : null}
             </li>
           ))}
         </ul>
       </nav>
       <Connection />
     </div>
+  );
+}
+
+/** On the memory page, the list of its five views under its name in the sidebar: each opens its view, the open one is marked. */
+function MemoryViews({ onNavigate }: { readonly onNavigate: () => void }) {
+  const dictionary = useDictionary();
+  const { pathname } = useLocation();
+  if (!pathname.startsWith(MEMORY_PATH)) {
+    return null;
+  }
+
+  return (
+    <ul
+      aria-label={dictionary.memory.viewsNav}
+      className="mt-xs ml-lg grid gap-xs border-l-(length:--tk-border-thin) border-line"
+    >
+      {MEMORY_VIEWS.map((view) => {
+        const path = memoryPathOf(view);
+        const active = pathname === path || pathname.startsWith(`${path}/`);
+        return (
+          <li key={view}>
+            <Link
+              to={path}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
+              className={`-ml-(--tk-border-thin) flex items-center gap-sm border-l-(length:--tk-border-thick) py-xs pr-sm pl-md text-sm transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+                active ? "border-accent font-medium text-accent" : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {dictionary.memory.views[view]}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

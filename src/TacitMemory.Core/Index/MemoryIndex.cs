@@ -40,7 +40,7 @@ internal sealed record IndexFilter(string? Workstream, DateOnly? From, DateOnly?
 internal sealed record ScoredHit(IndexHit Hit, double? Score);
 
 /// <summary>How a full-text search matched the query.</summary>
-internal enum FullTextMethod
+public enum FullTextMethod
 {
     /// <summary>The query's words and character pairs matched through the full-text index, ranked by BM25.</summary>
     Phrase,

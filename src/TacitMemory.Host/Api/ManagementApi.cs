@@ -45,8 +45,8 @@ public static class ManagementApiJson
 
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
-/// memory language, ready to show as it is. A config that does not validate also lists every problem with its key path;
-/// other errors leave the field out.
+/// memory language, ready to show as it is. A config that does not validate, and a recall trace with bad parameters, also
+/// list every problem with its key path or parameter name; other errors leave the field out.
 /// </summary>
 public sealed record ApiError(
     string Error,
@@ -239,6 +239,14 @@ internal static class ManagementApi
         })
             .Produces<ProbeReport>()
             .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapPost("/recall/trace", async (HttpContext context) =>
+        {
+            var body = await ReadBody<RecallTraceRequest>(context, service);
+            return Json(await service.TraceRecallAsync(body, context.RequestAborted));
+        })
+            .Accepts<RecallTraceRequest>("application/json")
+            .Produces<RecallTraceReport>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status415UnsupportedMediaType);
         api.MapGet("/config", () => Json(service.ConfigView()))
             .Produces<ConfigView>()
             .ProducesErrors(StatusCodes.Status409Conflict);
