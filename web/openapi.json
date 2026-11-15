@@ -784,6 +784,55 @@
         }
       }
     },
+    "/api/memory/persona": {
+      "get": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/config": {
       "get": {
         "tags": [
@@ -2381,6 +2430,51 @@
           }
         }
       },
+      "CandidateOccurrenceView": {
+        "required": [
+          "date",
+          "quote",
+          "rejected"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "rejected": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CandidateView": {
+        "required": [
+          "title",
+          "section",
+          "scope",
+          "occurrences"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "section": {
+            "$ref": "#/components/schemas/PersonaSection"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateOccurrenceView"
+            }
+          }
+        }
+      },
       "ClientsStatus": {
         "required": [
           "title",
@@ -2829,6 +2923,33 @@
           }
         }
       },
+      "FileProblem": {
+        "required": [
+          "line",
+          "location",
+          "kind",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "location": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
       "FullTextMethod": {
         "enum": [
           "phrase",
@@ -2960,6 +3081,24 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "MemoryFileInfo": {
+        "required": [
+          "path",
+          "problems"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileProblem"
+            }
           }
         }
       },
@@ -3169,6 +3308,157 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "PersonaBlockView": {
+        "required": [
+          "name",
+          "line",
+          "trigger",
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trigger": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaSectionView"
+            }
+          }
+        }
+      },
+      "PersonaEntryView": {
+        "required": [
+          "line",
+          "code",
+          "text",
+          "continuation"
+        ],
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "continuation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PersonaReport": {
+        "required": [
+          "personaFile",
+          "global",
+          "domains",
+          "workstreams",
+          "candidatesFile",
+          "candidates",
+          "rejectionList"
+        ],
+        "type": "object",
+        "properties": {
+          "personaFile": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "global": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaSectionView"
+            }
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaBlockView"
+            }
+          },
+          "workstreams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaBlockView"
+            }
+          },
+          "candidatesFile": {
+            "$ref": "#/components/schemas/MemoryFileInfo"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            }
+          },
+          "rejectionList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            }
+          }
+        }
+      },
+      "PersonaSection": {
+        "enum": [
+          "redLines",
+          "workingRules",
+          "preferences",
+          "profile",
+          null
+        ]
+      },
+      "PersonaSectionView": {
+        "required": [
+          "section",
+          "heading",
+          "entries"
+        ],
+        "type": "object",
+        "properties": {
+          "section": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonaSection"
+              }
+            ]
+          },
+          "heading": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonaEntryView"
+            }
           }
         }
       },

@@ -941,6 +941,16 @@ public sealed class MemoryService : IDisposable
         return _brief.Gather(workstream, null, null);
     }
 
+    /// <summary>
+    /// The persona and its candidates for the memory page, with the two files' paths and problems. Reads the files only:
+    /// counts nothing and changes nothing.
+    /// </summary>
+    public async Task<PersonaReport> PersonaAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return PersonaBrowse.Read(Config);
+    }
+
     /// <summary>A whole page; counts no return. <c>null</c> when it does not exist or cannot be read.</summary>
     internal async Task<PageDocument?> FetchPageAsync(PageId id, CancellationToken cancellationToken = default)
     {

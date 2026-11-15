@@ -45,7 +45,7 @@ internal static class FormatViolations
     {
         var issues = new List<FormatIssue>();
         foreach (var relative in MemoryFiles(context.Config.MemoryPath))
-            issues.AddRange(FileIssues(context, relative).Select(issue => issue with { File = relative }));
+            issues.AddRange(FileIssues(context.Config, relative).Select(issue => issue with { File = relative }));
         return issues;
     }
 
@@ -80,18 +80,18 @@ internal static class FormatViolations
             .Select(file => Path.GetRelativePath(memoryPath, file).Replace('\\', '/')));
     }
 
-    /// <summary>The issues of one file, with an empty <see cref="FormatIssue.File"/>.</summary>
-    private static List<FormatIssue> FileIssues(ConsolidationContext context, string relative)
+    /// <summary>The issues of one file, <paramref name="relative"/> to the repository, with an empty <see cref="FormatIssue.File"/>.</summary>
+    internal static List<FormatIssue> FileIssues(TacitConfig config, string relative)
     {
-        var read = TextFile.Read(Path.Combine(context.Config.MemoryPath, relative));
+        var read = TextFile.Read(Path.Combine(config.MemoryPath, relative));
         if (read is not { } text)
             return [new FormatIssue("", "file", "encoding", "The file is not valid UTF-8, so the service skips it. Re-save it as UTF-8 without changing its text.", FormatHandling.FixDirectly)];
 
         var issues = new List<FormatIssue>(MixedStructureWords(text.Text));
         if (relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal))
-            issues.AddRange(PageFormatCheck.Check(context.Config.MemoryPath, relative, text.Text, context.Config.Limits.Page));
+            issues.AddRange(PageFormatCheck.Check(config.MemoryPath, relative, text.Text, config.Limits.Page));
         if (relative == PersonaFiles.Persona)
-            issues.AddRange(PersonaFormatCheck.Check(text.Text, context.Config));
+            issues.AddRange(PersonaFormatCheck.Check(text.Text, config));
         if (relative == PersonaFiles.Candidates)
             issues.AddRange(CandidatesFormatCheck.Check(text.Text));
         if (relative == WorkstreamFile.RelativePath)

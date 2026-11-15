@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { LoginPage } from "../pages/login/LoginPage";
 import { LogsPage } from "../pages/logs/LogsPage";
+import { MemoryPersonaPage } from "../pages/memory/MemoryPersonaPage";
 import { MemoryPlaceholder } from "../pages/memory/MemoryPlaceholder";
 import { MemorySearchPage } from "../pages/memory/MemorySearchPage";
 import { memoryPathOf } from "../pages/memory/views";
@@ -30,7 +31,7 @@ export const router = createBrowserRouter(
             { path: "logs", Component: LogsPage },
             { path: "logs/:date", Component: LogsPage },
             { path: "memory", element: <Navigate to={memoryPathOf("persona")} replace /> },
-            { path: "memory/persona", element: <MemoryPlaceholder view="persona" /> },
+            { path: "memory/persona", Component: MemoryPersonaPage },
             { path: "memory/workstreams", element: <MemoryPlaceholder view="workstreams" /> },
             { path: "memory/pages", element: <MemoryPlaceholder view="pages" /> },
             { path: "memory/activity", element: <MemoryPlaceholder view="activity" /> },

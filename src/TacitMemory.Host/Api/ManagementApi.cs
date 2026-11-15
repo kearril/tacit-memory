@@ -247,6 +247,13 @@ internal static class ManagementApi
             .Accepts<RecallTraceRequest>("application/json")
             .Produces<RecallTraceReport>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status415UnsupportedMediaType);
+        api.MapGet("/memory/persona", async (HttpContext context) =>
+        {
+            var report = await service.PersonaAsync(context.RequestAborted);
+            return Json(report);
+        })
+            .Produces<PersonaReport>()
+            .ProducesErrors();
         api.MapGet("/config", () => Json(service.ConfigView()))
             .Produces<ConfigView>()
             .ProducesErrors(StatusCodes.Status409Conflict);

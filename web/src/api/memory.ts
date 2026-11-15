@@ -8,6 +8,15 @@ export type TraceUnit = components["schemas"]["TraceUnit"];
 export type TraceResult = components["schemas"]["TraceResult"];
 export type UnitFate = components["schemas"]["UnitFate"];
 export type FullTextMethod = components["schemas"]["FullTextMethod"];
+export type PersonaReport = components["schemas"]["PersonaReport"];
+export type PersonaSection = components["schemas"]["PersonaSection"];
+export type PersonaSectionView = components["schemas"]["PersonaSectionView"];
+export type PersonaEntryView = components["schemas"]["PersonaEntryView"];
+export type PersonaBlockView = components["schemas"]["PersonaBlockView"];
+export type CandidateView = components["schemas"]["CandidateView"];
+export type CandidateOccurrenceView = components["schemas"]["CandidateOccurrenceView"];
+export type MemoryFileInfo = components["schemas"]["MemoryFileInfo"];
+export type FileProblem = components["schemas"]["FileProblem"];
 
 export const RECALL_TRACE_QUERY_KEY = ["recall-trace"] as const;
 
@@ -32,4 +41,17 @@ export function useRecallTrace(request: RecallTraceRequest | null) {
     refetchOnWindowFocus: false,
     staleTime: Infinity,
   });
+}
+
+/** The query key of the persona view. */
+export const PERSONA_QUERY_KEY = ["memory", "persona"] as const;
+
+/** The persona and its candidates, with the two files' paths and problems. Reads files only; counts nothing. */
+export function getPersona(): Promise<PersonaReport> {
+  return apiFetch<PersonaReport>("/api/memory/persona");
+}
+
+/** The persona, fetched when the view opens and again when the window regains focus; never polled. */
+export function usePersona() {
+  return useQuery({ queryKey: PERSONA_QUERY_KEY, queryFn: getPersona, refetchOnWindowFocus: true });
 }

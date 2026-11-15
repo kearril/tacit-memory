@@ -836,6 +836,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memory/persona": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PersonaReport"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config": {
         parameters: {
             query?: never;
@@ -2017,6 +2079,17 @@ export interface components {
             lines: string[];
             items: components["schemas"]["BindingCheck"][];
         };
+        CandidateOccurrenceView: {
+            date: string;
+            quote: string;
+            rejected: boolean;
+        };
+        CandidateView: {
+            title: string;
+            section: components["schemas"]["PersonaSection"];
+            scope: string;
+            occurrences: components["schemas"]["CandidateOccurrenceView"][];
+        };
         ClientsStatus: {
             title: string;
             lines: string[];
@@ -2122,6 +2195,13 @@ export interface components {
             address: string;
             failureReason: null | string;
         };
+        FileProblem: {
+            /** Format: int32 */
+            line: null | number;
+            location: string;
+            kind: string;
+            description: string;
+        };
         /** @enum {unknown} */
         FullTextMethod: "phrase" | "substring" | "none";
         LimitsFile: {
@@ -2157,6 +2237,10 @@ export interface components {
         };
         MemoryFile: {
             path?: null | string;
+        };
+        MemoryFileInfo: {
+            path: string;
+            problems: components["schemas"]["FileProblem"][];
         };
         /** @enum {unknown} */
         MemoryLanguage: "zh" | "en";
@@ -2203,6 +2287,36 @@ export interface components {
             workstreamEmpty: null | boolean;
             /** Format: int32 */
             unsummarizedWeeks?: null | number;
+        };
+        PersonaBlockView: {
+            name: string;
+            /** Format: int32 */
+            line: number;
+            trigger: null | string;
+            sections: components["schemas"]["PersonaSectionView"][];
+        };
+        PersonaEntryView: {
+            /** Format: int32 */
+            line: number;
+            code: null | string;
+            text: string;
+            continuation: string[];
+        };
+        PersonaReport: {
+            personaFile: components["schemas"]["MemoryFileInfo"];
+            global: components["schemas"]["PersonaSectionView"][];
+            domains: components["schemas"]["PersonaBlockView"][];
+            workstreams: components["schemas"]["PersonaBlockView"][];
+            candidatesFile: components["schemas"]["MemoryFileInfo"];
+            candidates: components["schemas"]["CandidateView"][];
+            rejectionList: components["schemas"]["CandidateView"][];
+        };
+        /** @enum {unknown} */
+        PersonaSection: "redLines" | "workingRules" | "preferences" | "profile" | null;
+        PersonaSectionView: {
+            section: null | components["schemas"]["PersonaSection"];
+            heading: null | string;
+            entries: components["schemas"]["PersonaEntryView"][];
         };
         PreviewLine: {
             text: string;

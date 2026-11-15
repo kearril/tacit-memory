@@ -54,6 +54,7 @@ import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionTex
 import { BusyIcon, IconAction, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 import { LOGS_PATH } from "../logs/day";
+import { CANDIDATES_ANCHOR, memoryPathOf } from "../memory/views";
 import { searchOf } from "../logs/filter";
 
 interface CardProps {
@@ -341,14 +342,20 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
   );
 }
 
-/** What waits for the next consolidation, a line for each kind there is any of; format problems in the warning colour. */
+/** Where the candidates line leads: the candidates on the persona view. */
+const CANDIDATES_PATH = `${memoryPathOf("persona")}#${CANDIDATES_ANCHOR}`;
+
+/**
+ * What waits for the next consolidation, a line for each kind there is any of; format problems in the warning colour.
+ * The candidates line leads to the candidates on the persona view.
+ */
 function Waiting({ pending }: { readonly pending: NonNullable<StatusReport["pending"]> }) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.index;
   const lines = [
-    { count: pending.candidates ?? 0, words: text.candidates, warn: false },
-    { count: pending.formatProblems ?? 0, words: text.formatProblems, warn: true },
-    { count: pending.unsummarizedWeeks ?? 0, words: text.unsummarizedWeeks, warn: false },
+    { count: pending.candidates ?? 0, words: text.candidates, warn: false, to: CANDIDATES_PATH },
+    { count: pending.formatProblems ?? 0, words: text.formatProblems, warn: true, to: null },
+    { count: pending.unsummarizedWeeks ?? 0, words: text.unsummarizedWeeks, warn: false, to: null },
   ].filter((line) => line.count > 0);
 
   return lines.length === 0 ? (
@@ -360,7 +367,13 @@ function Waiting({ pending }: { readonly pending: NonNullable<StatusReport["pend
     <ul className="grid gap-xs text-sm">
       {lines.map((line) => (
         <li key={line.words(0)} className={line.warn ? "text-warning" : undefined}>
-          {line.words(line.count)}
+          {line.to === null ? (
+            line.words(line.count)
+          ) : (
+            <Link to={line.to} className="text-accent underline-offset-2 hover:underline">
+              {line.words(line.count)}
+            </Link>
+          )}
         </li>
       ))}
     </ul>

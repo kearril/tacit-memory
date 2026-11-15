@@ -5,7 +5,7 @@ using TacitMemory.Core.Pages;
 namespace TacitMemory.Core.Persona;
 
 /// <summary>The four persona sections, in rendering order.</summary>
-internal enum PersonaSection
+public enum PersonaSection
 {
     RedLines,
     WorkingRules,

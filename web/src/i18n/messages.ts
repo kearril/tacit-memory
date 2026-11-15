@@ -536,6 +536,39 @@ export interface Dictionary {
       readonly view: { readonly label: string; readonly cards: string; readonly raw: string };
       readonly unfold: (count: number) => string;
     };
+    /** The small parts the memory views share. */
+    readonly parts: {
+      /** What a copied short code is called, in the copy button's label and its toast. */
+      readonly code: (code: string) => string;
+      /** What a copied file path is called. */
+      readonly path: string;
+      readonly quote: (words: string) => string;
+    };
+    readonly persona: {
+      readonly failed: string;
+      readonly globalTitle: string;
+      readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;
+      /** A section whose heading is not one of the four; `null` for text before the first heading. */
+      readonly otherSection: (heading: string | null) => string;
+      readonly beforeHeadings: string;
+      readonly count: (count: number) => string;
+      readonly empty: string;
+      readonly notEntry: string;
+      readonly problemsTitle: (count: number) => string;
+      readonly domainTitle: (name: string) => string;
+      readonly workstreamTitle: (name: string) => string;
+      readonly trigger: (trigger: string) => string;
+      readonly noTrigger: string;
+      readonly candidatesTitle: string;
+      readonly candidateCount: (count: number) => string;
+      readonly noCandidates: string;
+      readonly rejectedTitle: (count: number) => string;
+      readonly noRejected: string;
+      readonly rejectedMark: string;
+      readonly days: (count: number) => string;
+      readonly quote: (words: string) => string;
+      readonly scopeGlobal: string;
+    };
   };
 }
 

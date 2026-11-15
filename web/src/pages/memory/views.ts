@@ -9,3 +9,6 @@ export const MEMORY_PATH = "/memory";
 export function memoryPathOf(view: MemoryView): string {
   return `${MEMORY_PATH}/${view}`;
 }
+
+/** The anchor of the candidates card on the persona view, which the dashboard links to. */
+export const CANDIDATES_ANCHOR = "candidates";

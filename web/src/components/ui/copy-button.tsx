@@ -1,37 +1,11 @@
 import * as React from "react";
 import { cn } from "cn";
 import { Check, Copy } from "lucide-react";
+import { copyText } from "./copy-text";
 import { useToast } from "./toast-context";
 
 /** How long the button shows its check mark after a copy. */
 const COPIED_MILLISECONDS = 1500;
-
-/**
- * Puts text on the clipboard. The clipboard interface exists only in a secure context, which a page opened from another
- * device over plain HTTP is not; there the text is copied through a hidden text field instead.
- */
-async function copyText(text: string): Promise<boolean> {
-  if (window.isSecureContext && navigator.clipboard !== undefined) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fall through to the text field.
-    }
-  }
-  const field = document.createElement("textarea");
-  field.value = text;
-  field.setAttribute("readonly", "");
-  field.style.position = "fixed";
-  field.style.opacity = "0";
-  document.body.append(field);
-  field.select();
-  try {
-    return document.execCommand("copy");
-  } finally {
-    field.remove();
-  }
-}
 
 /**
  * A small icon button that copies a value. A copy that worked turns the icon into a check mark for a moment and shows a

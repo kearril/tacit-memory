@@ -39,6 +39,7 @@ namespace TacitMemory.Host;
 [JsonSerializable(typeof(RestoreResult))]
 [JsonSerializable(typeof(RecallTraceRequest))]
 [JsonSerializable(typeof(RecallTraceReport))]
+[JsonSerializable(typeof(PersonaReport))]
 [JsonSerializable(typeof(PageSectionInput[]))]
 [JsonSerializable(typeof(string[]))]
 public sealed partial class HostJson : JsonSerializerContext;
