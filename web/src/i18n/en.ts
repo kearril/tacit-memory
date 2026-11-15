@@ -696,6 +696,22 @@ export const en: Dictionary = {
         ]
           .filter((part) => part !== null)
           .join(" · "),
+      overrides: {
+        title: "Replace retrieval values",
+        help: "For this search only; the config stays as it is. Leave a value empty to use the configured one.",
+        labels: { minRerankScore: "Minimum rerank score", topK: "topK", candidates: "Candidates" },
+        differs: "Differs from the config",
+        configured: (value) => `The config sets ${value}`,
+      },
+      degraded: {
+        title: "The search degraded",
+        embedding: (cooling) =>
+          `The embedding model ${cooling ? "is cooling down" : "failed"}: results come from full-text search only and may miss memories worded differently.`,
+        reranker: (cooling) =>
+          `The reranker ${cooling ? "is cooling down" : "failed"}: the fused order is kept and no minimum score applies.`,
+      },
+      view: { label: "How to show the results", cards: "Cards", raw: "Raw text" },
+      unfold: (count) => `Show the other ${count}`,
     },
   },
 };

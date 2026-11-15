@@ -144,6 +144,27 @@ public sealed class RecallTraceTests : IDisposable
     }
 
     [Fact]
+    public async Task Replaced_values_give_what_recall_gives_with_the_same_values_in_the_config()
+    {
+        await Create("ops/rollback", "部署回滚", new("回滚步骤", "部署失败时先回滚。"), new("回滚记录", "部署回滚做过两次。"));
+        await Create("ops/health", "部署健康检查", new PageSectionInput("检查", "部署后检查健康状况。"));
+        await Create("web/deploy", "前端部署", new PageSectionInput("步骤", "部署前端前先构建。"));
+        _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9 : document.Contains("健康", StringComparison.Ordinal) ? 0.4 : 0.1;
+
+        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", MinRerankScore: 0.3, TopK: 1, Candidates: 3));
+        _service!.Dispose();
+        _service = null;
+        File.WriteAllText(
+            Path.Combine(_home.TacitHome, "config.yaml"),
+            (_models.ModelsYaml() + "retrieval: { minRerankScore: 0.3, topK: 1, candidates: 3 }\n").ReplaceLineEndings("\n"));
+        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+
+        Assert.Equal(recall.Text, report.Text);
+        Assert.Contains("ops/rollback", recall.Text);
+        Assert.DoesNotContain("ops/health", recall.Text);
+    }
+
+    [Fact]
     public async Task Replaced_values_are_reported_beside_the_configured_ones()
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));

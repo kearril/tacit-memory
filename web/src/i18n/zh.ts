@@ -616,6 +616,21 @@ export const zh: Dictionary = {
         ]
           .filter((part) => part !== null)
           .join(" · "),
+      overrides: {
+        title: "临时替换检索参数",
+        help: "只对这次检索生效，不改配置。留空则用配置中的值。",
+        labels: { minRerankScore: "最低 rerank 分数", topK: "topK", candidates: "候选数" },
+        differs: "与配置不同",
+        configured: (value) => `配置中为 ${value}`,
+      },
+      degraded: {
+        title: "检索已降级",
+        embedding: (cooling) =>
+          `嵌入模型${cooling ? "冷却中" : "调用失败"}：结果只来自全文检索，换了说法的记忆可能找不到。`,
+        reranker: (cooling) => `reranker ${cooling ? "冷却中" : "调用失败"}：保留融合后的顺序，不按最低分数过滤。`,
+      },
+      view: { label: "结果的显示方式", cards: "卡片", raw: "原文" },
+      unfold: (count) => `展开其余 ${count} 个`,
     },
   },
 };

@@ -15,6 +15,7 @@ namespace TacitMemory.Host.Tests;
 public sealed class RecallTraceApiTests : IAsyncLifetime
 {
     private readonly TestHome _home = new();
+    private readonly CapturingLoggerFactory _logs = new();
     private MemoryService _service = null!;
     private ServiceHost _host = null!;
     private HttpClient _local = null!;
@@ -23,7 +24,7 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _home.InitReady();
-        _service = _home.Tacit().OpenService(_ => { }, new CapturingLoggerFactory());
+        _service = _home.Tacit().OpenService(_ => { }, _logs);
         _host = await ServiceHost.TryStartAsync(_service, port: 0, NullLoggerProvider.Instance, PeerClients.OnlyLoopbackIsLocal)
             ?? throw new InvalidOperationException("Port 0 is never in use.");
         _local = PeerClients.Local();
@@ -84,6 +85,19 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
         Assert.Equal(nameof(TacitError.RequestInvalid), error.Error);
         Assert.Equal(["query", "from", "candidates"], error.Problems!.Select(problem => problem.Path));
+    }
+
+    [Fact]
+    public async Task A_successful_trace_is_not_logged_and_a_refused_one_is_logged_without_its_query()
+    {
+        using var ok = await _local.PostAsync(Url("/api/recall/trace"), Body(new { query = "部署回滚的秘密查询" }));
+        using var refused = await _local.PostAsync(Url("/api/recall/trace"), Body(new { query = "另一条秘密查询", topK = 0 }));
+
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        var traced = _logs.Entries.Where(entry => entry.Message.Contains("/api/recall/trace", StringComparison.Ordinal)).ToList();
+        Assert.Contains("400", Assert.Single(traced).Message);
+        Assert.DoesNotContain(_logs.Entries, entry => entry.Message.Contains("秘密查询", StringComparison.Ordinal));
     }
 
     [Fact]

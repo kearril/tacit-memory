@@ -887,13 +887,19 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
 
+    /// <summary>The route of the recall trace, which reads like a GET though it is a POST.</summary>
+    public const string RecallTracePath = "/api/recall/trace";
+
     /// <summary>
-    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful GET is not
-    /// written: it changed nothing, and the Web UI's polling would otherwise fill the log.
+    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful read is not
+    /// written: a GET, or a recall trace, changed nothing, and the Web UI's polling or a user trying query after query would
+    /// otherwise fill the log. The event never holds a request body, so a trace's query is never written.
     /// </summary>
     public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed)
     {
-        if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) && statusCode is >= 200 and < 300)
+        var read = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(route, RecallTracePath, StringComparison.OrdinalIgnoreCase));
+        if (read && statusCode is >= 200 and < 300)
             return;
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
     }

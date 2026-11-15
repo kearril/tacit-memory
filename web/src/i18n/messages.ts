@@ -518,6 +518,23 @@ export interface Dictionary {
       };
       readonly fullTextMethods: Readonly<Record<FullTextMethod, string>>;
       readonly timing: (method: string, embedding: string | null, reranker: string | null) => string;
+      /** The three retrieval values a trace may replace for itself alone. */
+      readonly overrides: {
+        readonly title: string;
+        readonly help: string;
+        readonly labels: { readonly minRerankScore: string; readonly topK: string; readonly candidates: string };
+        readonly differs: string;
+        readonly configured: (value: string) => string;
+      };
+      /** A configured model that did not answer, and how the search degraded; `cooling` says it was skipped. */
+      readonly degraded: {
+        readonly title: string;
+        readonly embedding: (cooling: boolean) => string;
+        readonly reranker: (cooling: boolean) => string;
+      };
+      /** The two ways to show the results: as cards, or as the text the agent receives. */
+      readonly view: { readonly label: string; readonly cards: string; readonly raw: string };
+      readonly unfold: (count: number) => string;
     };
   };
 }
