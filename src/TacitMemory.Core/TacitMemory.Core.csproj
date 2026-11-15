@@ -12,8 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The official sqlite-vec release; its SHA-256 is checked before every load. -->
-    <None Include="..\..\lib\sqlite-vec\vec0.dll" Link="vec0.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <!--
+      The official sqlite-vec release; its SHA-256 is checked before every load. SQLite loads it by its path, so the
+      single-file release keeps it beside the executable instead of bundling it.
+    -->
+    <None Include="..\..\lib\sqlite-vec\vec0.dll" Link="vec0.dll" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
   </ItemGroup>
 
 </Project>

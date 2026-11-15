@@ -26,6 +26,55 @@
   </ItemGroup>
 
   <!--
+    A publish for a runtime, as the release package is made, gives one executable that carries the runtime, with the
+    framework's unused code trimmed away and the bundle compressed. Only the framework is trimmed (partial): the product's
+    own assemblies and the packages that do not declare themselves trimmable stay whole. Native libraries stay beside the
+    executable, as does vec0.dll, which is loaded by its path.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!--
+      Dapper and YamlDotNet use reflection, which the trimmer reports as one warning per assembly (IL2104). They are kept
+      whole, and what they reflect on is the product's own types, which are kept whole too. The analyzer that checks the
+      product's code at every build never reports IL2104, so this hides nothing of the product's.
+    -->
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
+    <_ExtraTrimmerArgs>$(_ExtraTrimmerArgs) --link-attributes "$(MSBuildProjectDirectory)\TrimSuppressions.xml"</_ExtraTrimmerArgs>
+  </PropertyGroup>
+
+  <!--
+    Parts of ASP.NET Core that do not declare themselves trimmable, so partial trimming would keep them whole although
+    the service uses none of them: MVC, Razor, server-side Blazor and localization. Declared trimmable here, they are
+    dropped, and with them the trim warnings of their own reflection.
+  -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <TrimmableAssembly Include="Microsoft.AspNetCore.Components.Endpoints;Microsoft.AspNetCore.Components.Server" />
+    <TrimmableAssembly Include="Microsoft.AspNetCore.Mvc;Microsoft.AspNetCore.Mvc.Cors;Microsoft.AspNetCore.Mvc.DataAnnotations" />
+    <TrimmableAssembly Include="Microsoft.AspNetCore.Mvc.Formatters.Json;Microsoft.AspNetCore.Mvc.Formatters.Xml;Microsoft.AspNetCore.Mvc.Localization" />
+    <TrimmableAssembly Include="Microsoft.AspNetCore.Mvc.Razor;Microsoft.AspNetCore.Mvc.RazorPages;Microsoft.AspNetCore.Mvc.TagHelpers;Microsoft.AspNetCore.Mvc.ViewFeatures" />
+    <TrimmableAssembly Include="Microsoft.AspNetCore.Razor;Microsoft.AspNetCore.Razor.Runtime" />
+    <TrimmableAssembly Include="Microsoft.Extensions.Configuration.KeyPerFile;Microsoft.Extensions.Localization" />
+  </ItemGroup>
+
+  <!--
+    Microsoft.OpenApi declares itself trimmable, but writing the document fails once it is trimmed (a type it loads is
+    gone), so it is kept whole. The smoke check fetches the document from the release.
+  -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <TrimmerRootAssembly Include="Microsoft.OpenApi" />
+  </ItemGroup>
+
+  <!-- ASP.NET Core's module for hosting inside IIS, which the service never is. -->
+  <Target Name="TacitDropIisModule" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'aspnetcorev2_inprocess.dll'" />
+    </ItemGroup>
+  </Target>
+
+  <!--
     The web interface is built only when the project is published, and only then does it need Bun. Setting
     TacitSkipWebBuild=true publishes without it: no Bun is needed, and the publish directory has no web folder.
     The built files are copied to the web folder beside the executable, where the service reads them.

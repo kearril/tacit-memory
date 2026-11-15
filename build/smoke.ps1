@@ -1,14 +1,16 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-    Checks that a published tacit folder runs: the version, the service, the management API, the MCP tools and the web
-    interface.
+    Checks that a published tacit folder runs: the version, the service, the management API, the MCP tools, backup and
+    restore, the CLI's own calls to the service and the web interface.
 
 .DESCRIPTION
     Uses a throwaway TACIT_HOME and a free port, so it never touches the user's memory or a running service. It runs
-    init, starts serve in the background, waits for it, checks what it answers, then stops it and removes the throwaway
-    folder whatever happened. No auxiliary model is configured. Exits non-zero on the first failed check, after printing
-    the service's output and log.
+    init, starts serve in the background, waits for it, then reads and writes through every kind of request: the
+    management API's reads and saves, a page and an activity written and read back through MCP, a reindex, a backup and
+    the preview of restoring it, and tacit status. The release is trimmed, so this is where a part it lost would show.
+    It stops the service and removes the throwaway folder whatever happened. No auxiliary model is configured. Exits
+    non-zero on the first failed check, after printing the service's output and log.
 
 .PARAMETER PublishDir
     The folder holding tacit.exe.
@@ -67,18 +69,71 @@ try {
 
     if (-not $status.service.running) { Fail '/api/status does not report the service as running' }
     if ($status.service.version -ne $version) { Fail "/api/status reports version '$($status.service.version)', the executable '$version'" }
+
+    # The release is trimmed and reads JSON only through generated contracts, so every kind of request and answer is
+    # exercised once: a type that went missing fails here rather than for a user.
+    function Api([string] $method, [string] $path, $body) {
+        $arguments = @{ Uri = "$base/api/$path"; Method = $method }
+        if ($null -ne $body) { $arguments.ContentType = 'application/json'; $arguments.Body = $body | ConvertTo-Json -Depth 20 -Compress }
+        try { return Invoke-RestMethod @arguments } catch { Fail "$method /api/$path failed: $($_.ErrorDetails.Message ?? $_.Exception.Message)" }
+    }
+
+    $null = Api GET 'activity'
+    $null = Api GET 'bindings'
+    $null = Api GET 'backups'
+    $null = Api GET 'openapi.json'
+    $logs = Api GET 'logs'
+    $null = Api GET "logs/$($logs.today)"
+    $config = Api GET 'config'
+    $null = Api PUT 'config' @{ hash = $config.hash; config = $config.file }
+    $resident = (Api GET 'prompts').documents | Where-Object name -EQ 'resident'
+    $null = Api POST 'prompts/resident/check' @{ text = $resident.text }
+    $null = Api PUT 'prompts/resident' @{ hash = $resident.hash; text = $resident.text }
     Write-Host 'management API: ok'
 
-    $listing = Invoke-WebRequest "$base/mcp" -Method Post -ContentType 'application/json' -Headers @{
-        Accept                 = 'application/json, text/event-stream'
-        'MCP-Protocol-Version' = '2025-11-25'
-    } -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-    # The answer is one server-sent event; its data line is the JSON-RPC response.
-    $data = ($listing.Content -split "`n" | Where-Object { $_.StartsWith('data:') } | Select-Object -First 1)
-    if (-not $data) { Fail 'tools/list returned no event' }
-    $tools = (($data.Substring(5) | ConvertFrom-Json).result.tools.name | Sort-Object) -join ','
+    $rpc = 0
+    function Mcp([string] $method, $params) {
+        $request = @{ jsonrpc = '2.0'; id = ++$script:rpc; method = $method; params = $params } | ConvertTo-Json -Depth 20 -Compress
+        $answer = Invoke-WebRequest "$base/mcp" -Method Post -ContentType 'application/json' -Body $request -Headers @{
+            Accept                 = 'application/json, text/event-stream'
+            'MCP-Protocol-Version' = '2025-11-25'
+        }
+        # The answer is one server-sent event; its data line is the JSON-RPC response.
+        $data = ($answer.Content -split "`n" | Where-Object { $_.StartsWith('data:') } | Select-Object -First 1)
+        if (-not $data) { Fail "$method returned no event" }
+        $response = $data.Substring(5) | ConvertFrom-Json
+        if ($response.error) { Fail "$method failed: $($response.error.message)" }
+        return $response.result
+    }
+    function Tool([string] $name, $arguments) {
+        $result = Mcp 'tools/call' @{ name = $name; arguments = $arguments }
+        $text = ($result.content | ForEach-Object text) -join "`n"
+        if ($result.isError) { Fail "$name refused: $text" }
+        return $text
+    }
+
+    $tools = ((Mcp 'tools/list' @{}).tools.name | Sort-Object) -join ','
     if ($tools -ne 'recall,write_page,write_persona,write_recent') { Fail "tools/list returned '$tools'" }
+    $null = Tool 'write_page' @{
+        op       = 'create'; page = 'smoke/check'; title = 'Smoke check'; type = 'work'
+        aliases  = @('smoke page', 'release check')
+        sections = @(@{ name = 'Output'; body = 'The release package answers every kind of request.' })
+    }
+    $null = Tool 'write_recent' @{ text = 'The smoke check wrote a page.'; workstream = 'smoke' }
+    $read = Tool 'recall' @{ page = 'smoke/check' }
+    if ($read -notmatch 'every kind of request') { Fail "recall did not return the page it wrote: $read" }
+    $null = Tool 'recall' @{ query = 'release package' }
     Write-Host "MCP tools: $tools"
+
+    $null = Api POST 'reindex' @{}
+    $backup = Api POST 'backup' @{ target = 'local' }
+    $preview = Api POST 'restore' @{ path = $backup.location; preview = $true }
+    if (-not $preview.memoryHead) { Fail 'the restore preview of the new backup names no commit' }
+    Write-Host 'index, backup and restore preview: ok'
+
+    & $tacit status | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail "tacit status exited with $LASTEXITCODE" }
+    Write-Host 'tacit status: ok'
 
     $page = Invoke-WebRequest "$base/ui/"
     if ($page.StatusCode -ne 200 -or $page.Content -notmatch '<html') { Fail '/ui/ did not return the web interface' }

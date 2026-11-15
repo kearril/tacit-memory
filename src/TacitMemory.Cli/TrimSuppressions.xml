@@ -1,0 +1,21 @@
+<!--
+  Trim warnings in the framework that the release accepts, each on the one member it is about, so any other warning still
+  fails the publish. Passed to the trimmer by TacitMemory.Cli.csproj.
+-->
+<linker>
+  <!--
+    The OpenAPI document describes the endpoints through MVC's model metadata, whose constructor reads the described type by
+    reflection. The types it describes are the management API's, in the product's own assemblies, which are not trimmed;
+    the smoke check fetches the document from the release.
+  -->
+  <assembly fullname="Microsoft.AspNetCore.Mvc.Abstractions">
+    <type fullname="Microsoft.AspNetCore.Mvc.ModelBinding.ModelMetadata">
+      <method signature="System.Void .ctor(Microsoft.AspNetCore.Mvc.ModelBinding.Metadata.ModelMetadataIdentity)">
+        <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+          <argument>Trimming</argument>
+          <argument>IL2026</argument>
+        </attribute>
+      </method>
+    </type>
+  </assembly>
+</linker>
