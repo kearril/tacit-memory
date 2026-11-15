@@ -39,7 +39,7 @@ interface Failure {
 
 /**
  * The remote access section of the settings page: first the access password (whether one is set, setting or changing it,
- * and clearing it from a local connection), which takes effect at once; then the extra listening address, a setting saved
+ * and clearing it from a local connection), which takes effect at once; then the extra listener, a setting saved
  * with the rest of the page, which needs the password first. The service's explanations for a refused field are shown beside that field; a success is shown
  * as a toast, and any other failure stays in the card as an alert. While an extra listener is configured the clear button
  * is unavailable: hovering or focusing it explains why, and clicking it (the only way on a touch screen) shows the same

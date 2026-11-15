@@ -359,6 +359,7 @@ export interface Dictionary {
       readonly extraListener: string;
       readonly listening: string;
       readonly listenFailed: string;
+      readonly serviceNotRunning: string;
       readonly noExtraListener: string;
     };
     readonly backups: {

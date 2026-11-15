@@ -129,7 +129,7 @@ public enum TacitError
     /// <summary>Too many wrong passwords came from this address; logins from it wait until the pause ends.</summary>
     LoginLimited,
 
-    /// <summary>The access password cannot be cleared while <c>server.host</c> names an extra listening address.</summary>
+    /// <summary>The access password cannot be cleared while <c>server.host</c> names an extra listener.</summary>
     PasswordClearRefused,
 
     /// <summary>The access password can only be cleared from this machine.</summary>

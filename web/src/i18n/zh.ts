@@ -449,6 +449,7 @@ export const zh: Dictionary = {
       extraListener: "额外监听",
       listening: "已监听",
       listenFailed: "未能启动",
+      serviceNotRunning: "服务未运行",
       noExtraListener: "未设置",
     },
     backups: {

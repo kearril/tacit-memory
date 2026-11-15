@@ -593,7 +593,12 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
               <span className="text-ink-muted">{text.noExtraListener}</span>
             ) : (
               <Address value={service.extraListener.address} label={text.extraListener}>
-                {service.extraListener.failureReason === null ? (
+                {!service.running ? (
+                  <Badge>
+                    <CircleDashed aria-hidden />
+                    {text.serviceNotRunning}
+                  </Badge>
+                ) : service.extraListener.failureReason === null ? (
                   <Badge tone="success">
                     <CircleCheck aria-hidden />
                     {text.listening}

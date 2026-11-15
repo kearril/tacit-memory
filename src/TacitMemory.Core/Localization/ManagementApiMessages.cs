@@ -73,6 +73,7 @@ internal static class ManagementApiMessages
     public static readonly Localized ExtraListenerAddress = new("额外监听：{0}", "Extra listener: {0}");
     public static readonly Localized ExtraListenerAllInterfaces = new("所有网络接口，端口 {0}", "all network interfaces, port {0}");
     public static readonly Localized ExtraListenerFailed = new("额外监听失败：{0}，{1}", "Extra listener failed: {0}, {1}");
+    public static readonly Localized ExtraListenerNotRunning = new("额外监听：{0}（服务未运行）", "Extra listener: {0} (the service is not running)");
     public static readonly Localized ExtraPortInUse = new("端口 {0} 已被占用", "port {0} is already in use");
     public static readonly Localized ExtraAddressUnavailable = new("{0} 不是本机的地址", "{0} is not an address of this machine");
     public static readonly Localized ConfigChanged = new(
@@ -94,7 +95,7 @@ internal static class ManagementApiMessages
         "The settings page cannot change this: edit it in config.yaml, and it takes effect when tacit serve restarts.");
     public static readonly Localized ConfigExtraNeedsPassword = new(
         "额外监听地址让其他设备能连上服务，必须先在「访问」一节设置访问密码。",
-        "An extra listening address lets other devices reach the service; set an access password in the Access section first.");
+        "An extra listener lets other devices reach the service; set an access password in the Access section first.");
     public static readonly Localized ApiBodyInvalid = new(
         "请求体无效：应为 JSON 对象，格式见管理 API 说明。",
         "The request body is invalid: it must be a JSON object, as the management API describes.");

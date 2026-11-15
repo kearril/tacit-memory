@@ -291,7 +291,7 @@ public sealed class MemoryService : IDisposable
     /// Refuses to start a service that listens beside loopback without an access password: <c>server.host</c> names an
     /// address that is not loopback, and no password is set. Called by the host before it binds anything.
     /// </summary>
-    /// <exception cref="TacitException">A <c>server.host</c> that names an extra listening address, with no access password set.</exception>
+    /// <exception cref="TacitException">A <c>server.host</c> that names an extra listener, with no access password set.</exception>
     public void CheckExtraListenerAllowed()
     {
         if (Config.ExtraAddress is { } extra && !Access.PasswordSet)
@@ -380,7 +380,7 @@ public sealed class MemoryService : IDisposable
     /// <param name="failure">The error the bind failed with; <c>null</c> when the address answers.</param>
     public void RecordExtraListener(IPAddress address, int port, Exception? failure)
     {
-        var listener = new ExtraListenerStatus(new Uri($"http://{HostText(address)}:{port}/"), failure is null ? null : FailureReason(address, port, failure));
+        var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failure is null ? null : FailureReason(address, port, failure));
         _extraListener = listener;
         if (listener.FailureReason is null)
             _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language));
@@ -396,10 +396,6 @@ public sealed class MemoryService : IDisposable
             _ => socket.Message,
         }
         : failure.Message;
-
-    /// <summary>An IP address as it goes into a URL: an IPv6 address in brackets.</summary>
-    private static string HostText(IPAddress address) =>
-        address.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{address}]" : address.ToString();
 
     /// <summary>The line to show when <see cref="TacitConfig.Port"/> is taken by another program.</summary>
     public string PortInUseMessage() =>

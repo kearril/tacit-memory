@@ -397,10 +397,10 @@ export const en: Dictionary = {
         "Let other devices on your network open this interface with a password. MCP still accepts only this machine.",
       password: "Access password",
       listener: "Listening",
-      hostNeedsPassword: "Set an access password before opening an extra listening address.",
+      hostNeedsPassword: "Set an access password before opening an extra listener.",
       hostDefault: "Empty: this machine only",
       host: {
-        label: "Extra listening address",
+        label: "Extra listener",
         help: "One IP address to listen on besides 127.0.0.1, so other devices can open the web interface; 0.0.0.0 means every address. MCP still accepts only this machine.",
       },
     },
@@ -519,6 +519,7 @@ export const en: Dictionary = {
       extraListener: "Extra listener",
       listening: "Listening",
       listenFailed: "Failed to start",
+      serviceNotRunning: "Service not running",
       noExtraListener: "Not set",
     },
     backups: {

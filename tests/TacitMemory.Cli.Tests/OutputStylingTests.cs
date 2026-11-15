@@ -62,6 +62,21 @@ public sealed class OutputStylingTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_names_the_configured_extra_listener_while_the_service_is_not_running_at_a_terminal_and_in_a_pipe()
+    {
+        _cli.InitReady();
+        // The server section is the last in the config, so the host goes under it.
+        File.AppendAllText(_cli.ConfigPath, "  host: 192.168.1.10\n");
+
+        var pipe = await _cli.RunAsync(["status"]);
+        var styled = await _cli.RunAsync(["status"], stdoutIsTerminal: true);
+
+        Assert.Equal(4, pipe.ExitCode);
+        Assert.Contains($"额外监听：http://192.168.1.10:{_cli.Port}/（服务未运行）", pipe.Stdout, StringComparison.Ordinal);
+        Assert.Equal(OutputWords.Of(pipe.Stdout), OutputWords.Of(styled.Stdout));
+    }
+
+    [Fact]
     public async Task Status_at_a_terminal_with_NO_COLOR_is_the_same_plain_text()
     {
         _cli.InitReady();
