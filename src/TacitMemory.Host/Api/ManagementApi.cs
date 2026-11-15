@@ -268,6 +268,20 @@ internal static class ManagementApi
         })
             .Produces<WorkstreamBriefView>()
             .ProducesErrors(StatusCodes.Status404NotFound);
+        api.MapGet("/memory/activity", async (HttpContext context) =>
+        {
+            var months = await service.ActivityMonthsAsync(context.RequestAborted);
+            return Json(months);
+        })
+            .Produces<ActivityMonths>()
+            .ProducesErrors();
+        api.MapGet("/memory/activity/{month}", async (string month, HttpContext context) =>
+        {
+            var view = await service.ActivityMonthAsync(month, context.RequestAborted);
+            return Json(view);
+        })
+            .Produces<ActivityMonthView>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/memory/pages", async (HttpContext context) =>
         {
             var list = await service.PagesAsync(context.RequestAborted);

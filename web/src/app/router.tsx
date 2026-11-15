@@ -2,10 +2,10 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { DashboardPage } from "../pages/dashboard/DashboardPage";
 import { LoginPage } from "../pages/login/LoginPage";
 import { LogsPage } from "../pages/logs/LogsPage";
+import { MemoryActivityPage } from "../pages/memory/MemoryActivityPage";
 import { MemoryPagePage } from "../pages/memory/MemoryPagePage";
 import { MemoryPagesPage } from "../pages/memory/MemoryPagesPage";
 import { MemoryPersonaPage } from "../pages/memory/MemoryPersonaPage";
-import { MemoryPlaceholder } from "../pages/memory/MemoryPlaceholder";
 import { MemorySearchPage } from "../pages/memory/MemorySearchPage";
 import { MemoryWorkstreamsPage } from "../pages/memory/MemoryWorkstreamsPage";
 import { memoryPathOf } from "../pages/memory/views";
@@ -39,7 +39,7 @@ export const router = createBrowserRouter(
             { path: "memory/workstreams/:name", Component: MemoryWorkstreamsPage },
             { path: "memory/pages", Component: MemoryPagesPage },
             { path: "memory/pages/:workstream/:slug", Component: MemoryPagePage },
-            { path: "memory/activity", element: <MemoryPlaceholder view="activity" /> },
+            { path: "memory/activity", Component: MemoryActivityPage },
             { path: "memory/search", Component: MemorySearchPage },
           ],
         },

@@ -30,7 +30,6 @@ export interface Dictionary {
     readonly logs: string;
     readonly memory: string;
   };
-  readonly notImplemented: string;
   readonly unreachable: string;
   readonly unexpectedAnswer: string;
   readonly menuOpen: string;
@@ -605,6 +604,28 @@ export interface Dictionary {
       readonly viewAll: string;
       readonly empty: string;
       readonly lastUse: (day: string) => string;
+    };
+    readonly activity: {
+      readonly failed: string;
+      readonly notFound: string;
+      readonly month: string;
+      readonly previous: string;
+      readonly next: string;
+      readonly workstream: string;
+      readonly workstreamAll: string;
+      readonly calendar: string;
+      /** The weekdays from Monday, as the mini calendar heads its columns. */
+      readonly weekdays: readonly string[];
+      readonly day: (date: string, count: number) => string;
+      readonly timeline: string;
+      readonly empty: string;
+      readonly noMatch: string;
+      readonly count: (count: number) => string;
+      readonly weekSummary: (label: string) => string;
+      readonly monthSummary: (label: string) => string;
+      readonly showQuote: string;
+      readonly hideQuote: string;
+      readonly problemsTitle: (count: number) => string;
     };
     readonly persona: {
       readonly failed: string;

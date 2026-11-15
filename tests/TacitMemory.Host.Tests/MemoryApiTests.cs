@@ -130,7 +130,27 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.Equal("ops/rollback", brief["groups"]![0]!["pages"]![0]!["id"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task The_activity_answers_with_the_months_and_a_month_by_day()
+    {
+        Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
+        Write("recent/2026-10.md", "## 2026-10-05\n- [ops] 回滚演练完成\n  <!-- 原话「演练一下」 -->\n## 汇总\n- 2026-W41：演练\n");
+
+        var months = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/activity")))!;
+        var month = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/activity/2026-10")))!;
+
+        Assert.Equal("2026-10", months["months"]![0]!.GetValue<string>());
+        Assert.NotNull(months["current"]);
+        var activity = month["days"]![0]!["activities"]![0]!;
+        Assert.Equal(("ops", "回滚演练完成"), (activity["workstream"]!.GetValue<string>(), activity["text"]!.GetValue<string>()));
+        Assert.Equal("  <!-- 原话「演练一下」 -->", activity["continuation"]![0]!.GetValue<string>());
+        Assert.Equal("week", month["summaries"]![0]!["kind"]!.GetValue<string>());
+        Assert.EndsWith("2026-10.md", month["file"]!["path"]!.GetValue<string>());
+    }
+
     [Theory]
+    [InlineData("/api/memory/activity/2025-01", HttpStatusCode.NotFound, "MemoryNotFound")]
+    [InlineData("/api/memory/activity/2025-13", HttpStatusCode.BadRequest, "RequestInvalid")]
     [InlineData("/api/memory/workstreams/nothing", HttpStatusCode.NotFound, "MemoryNotFound")]
     [InlineData("/api/memory/pages/ops/nothing", HttpStatusCode.NotFound, "MemoryNotFound")]
     [InlineData("/api/memory/pages/Ops!/x", HttpStatusCode.BadRequest, "RequestInvalid")]
@@ -148,6 +168,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
     [InlineData("/api/memory/pages/ops/rollback")]
     [InlineData("/api/memory/workstreams")]
     [InlineData("/api/memory/workstreams/ops")]
+    [InlineData("/api/memory/activity")]
+    [InlineData("/api/memory/activity/2026-10")]
     public async Task Another_device_without_a_session_is_refused(string path)
     {
         using var response = await _remote.GetAsync(Url(path));
@@ -169,5 +191,9 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.NotNull(document["paths"]?["/api/memory/workstreams"]?["get"]);
         Assert.NotNull(document["paths"]?["/api/memory/workstreams/{name}"]?["get"]?["responses"]?["404"]);
         Assert.NotNull(document["components"]?["schemas"]?["WorkstreamBriefView"]);
+        Assert.NotNull(document["paths"]?["/api/memory/activity"]?["get"]);
+        Assert.NotNull(document["paths"]?["/api/memory/activity/{month}"]?["get"]?["responses"]?["400"]);
+        Assert.NotNull(document["paths"]?["/api/memory/activity/{month}"]?["get"]?["responses"]?["404"]);
+        Assert.NotNull(document["components"]?["schemas"]?["ActivityMonthView"]);
     }
 }

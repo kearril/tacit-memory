@@ -966,6 +966,24 @@ public sealed class MemoryService : IDisposable
         return WorkstreamBrowse.Brief(Config, _brief, workstream);
     }
 
+    /// <summary>The months of the activity log that have a file, newest first, and the current month. Reads files only.</summary>
+    public async Task<ActivityMonths> ActivityMonthsAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return ActivityBrowse.Months(Config.MemoryPath, _options.Today);
+    }
+
+    /// <summary>One month of the activity log by day, with its summaries and the file's problems. Counts nothing.</summary>
+    /// <exception cref="TacitException">
+    /// <see cref="TacitError.RequestInvalid"/> when the month is not written yyyy-MM; <see cref="TacitError.MemoryNotFound"/>
+    /// when it has no file and is not the current month.
+    /// </exception>
+    public async Task<ActivityMonthView> ActivityMonthAsync(string month, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        return ActivityBrowse.Month(Config, _options.Today, month);
+    }
+
     /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
     public async Task<PageList> PagesAsync(CancellationToken cancellationToken = default)
     {

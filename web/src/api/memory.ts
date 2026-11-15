@@ -26,6 +26,11 @@ export type WorkstreamListItem = components["schemas"]["WorkstreamListItem"];
 export type WorkstreamBriefView = components["schemas"]["WorkstreamBriefView"];
 export type BriefPageGroup = components["schemas"]["BriefPageGroup"];
 export type BriefPage = components["schemas"]["BriefPage"];
+export type ActivityMonths = components["schemas"]["ActivityMonths"];
+export type ActivityMonthView = components["schemas"]["ActivityMonthView"];
+export type ActivityDayView = components["schemas"]["ActivityDayView"];
+export type ActivityItemView = components["schemas"]["ActivityItemView"];
+export type ActivitySummaryView = components["schemas"]["ActivitySummaryView"];
 
 export const RECALL_TRACE_QUERY_KEY = ["recall-trace"] as const;
 
@@ -120,6 +125,37 @@ export function useWorkstreamBrief(name: string | null) {
     queryKey: [...WORKSTREAMS_QUERY_KEY, name],
     queryFn: () => getWorkstreamBrief(name!),
     enabled: name !== null,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+}
+
+/** The query key of the activity months; one month's key adds the month. */
+export const ACTIVITY_MONTHS_QUERY_KEY = ["memory", "activity"] as const;
+
+/** The months of the activity log that have a file, newest first, and the current month. Counts nothing. */
+export function getActivityMonths(): Promise<ActivityMonths> {
+  return apiFetch<ActivityMonths>("/api/memory/activity");
+}
+
+/**
+ * One `yyyy-MM` month of the activity log by day. Counts nothing; a month with no file is refused with `MemoryNotFound`,
+ * unless it is the current one.
+ */
+export function getActivityMonth(month: string): Promise<ActivityMonthView> {
+  return apiFetch<ActivityMonthView>(`/api/memory/activity/${encodeURIComponent(month)}`);
+}
+
+/** The activity months, fetched when the view opens and again when the window regains focus; never polled. */
+export function useActivityMonths() {
+  return useQuery({ queryKey: ACTIVITY_MONTHS_QUERY_KEY, queryFn: getActivityMonths, refetchOnWindowFocus: true });
+}
+
+/** One month, fetched as the months are; a missing one is not asked for again. */
+export function useActivityMonth(month: string) {
+  return useQuery({
+    queryKey: [...ACTIVITY_MONTHS_QUERY_KEY, month],
+    queryFn: () => getActivityMonth(month),
     refetchOnWindowFocus: true,
     retry: false,
   });

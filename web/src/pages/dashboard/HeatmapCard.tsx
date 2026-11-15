@@ -1,11 +1,14 @@
 import { Star } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { useActivity } from "../../api/activity";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
+import { activityParams } from "../memory/timeline";
+import { memoryPathOf } from "../memory/views";
 import { dayText } from "./format";
 import { calendarColumns, dayLevel, fillWindow, type HeatDay, type HeatLevel, monthLabels, statsOf } from "./heatmap";
 
@@ -26,8 +29,8 @@ function dateText(date: string, locale: string): string {
  * The memory activity card, in three compact rows: the title with the four numbers of the window; a calendar of the last
  * year in the manner of GitHub's contribution graph, one column per week and one cell per day across the whole width,
  * shaded by how many activities the day has, with the consolidation days marked; and one line with the activities of the
- * day in view beside the legend. Hovering, clicking or focusing a cell puts that day in view; the arrow keys move between
- * days.
+ * day in view beside the legend. Hovering or focusing a cell puts that day in view; the arrow keys move between days.
+ * Clicking a day with activities opens it in the memory page's activity view.
  */
 export function HeatmapCard({ className }: { readonly className: string }) {
   const dictionary = useDictionary();
@@ -77,6 +80,7 @@ function Heatmap({
   const months = useMemo(() => monthLabels(columns), [columns]);
   const stats = useMemo(() => statsOf(days), [days]);
 
+  const navigate = useNavigate();
   const [selected, setSelected] = useState(days.length - 1);
   const [hovered, setHovered] = useState<number | null>(null);
   const cells = useRef(new Map<number, HTMLButtonElement>());
@@ -171,7 +175,13 @@ function Heatmap({
                   tabIndex={isSelected ? 0 : -1}
                   aria-pressed={isSelected}
                   aria-label={text.cell(dateText(day.date, locale), day.total, day.consolidated)}
-                  onClick={() => setSelected(index)}
+                  onClick={() =>
+                    day.total === 0
+                      ? setSelected(index)
+                      : navigate(
+                          `${memoryPathOf("activity")}?${activityParams({ month: day.date.slice(0, 7), day: day.date, workstream: null })}`,
+                        )
+                  }
                   onFocus={() => setSelected(index)}
                   onMouseEnter={() => setHovered(index)}
                   style={{ gridColumn: column + 2, gridRow: row + 2 }}
