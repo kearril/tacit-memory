@@ -70,13 +70,56 @@ internal sealed class TestHome : IDisposable
         """;
 
     /// <summary>
-    /// Runs <c>init</c> in Chinese and replaces the config with one that loads, with every model at
-    /// <paramref name="models"/>, or at <see cref="ModelDouble.Quiet"/> when none is given; the decision model has a key.
+    /// Initializes the home in <paramref name="language"/>, Chinese by default, and replaces the config with one that loads,
+    /// with every model at <paramref name="models"/>, or at <see cref="ModelDouble.Quiet"/> when none is given; the
+    /// decision model has a key. A fresh home gets a copy of what <c>init</c> makes; a home that already has a
+    /// <c>TACIT_HOME</c> runs <c>init</c> itself, which then reads what is there.
     /// </summary>
     public void InitReady(string extraConfig = "", ModelDouble? models = null, MemoryLanguage language = MemoryLanguage.Zh)
     {
-        Tacit().InitAsync(new InitRequest { Language = language }).GetAwaiter().GetResult();
+        if (Directory.Exists(TacitHome))
+            Tacit().InitAsync(new InitRequest { Language = language }).GetAwaiter().GetResult();
+        else
+            CopyDirectory(InitializedTemplate(language), TacitHome);
         File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Quiet).ModelsYaml(decisionKey: "test-key") + extraConfig).ReplaceLineEndings("\n"));
+    }
+
+    private static readonly Dictionary<MemoryLanguage, TestHome> InitTemplates = [];
+
+    /// <summary>
+    /// A <c>TACIT_HOME</c> that <c>init</c> has made in <paramref name="language"/>, made once per test process and copied
+    /// by <see cref="InitReady"/>. Most of a test's time otherwise goes on the three git processes <c>init</c> starts.
+    /// Nothing <c>init</c> writes names the home it was made in, except the config, which <see cref="InitReady"/> replaces.
+    /// </summary>
+    private static string InitializedTemplate(MemoryLanguage language)
+    {
+        lock (InitTemplates)
+        {
+            if (!InitTemplates.TryGetValue(language, out var template))
+            {
+                template = new TestHome();
+                template.Tacit().InitAsync(new InitRequest { Language = language }).GetAwaiter().GetResult();
+                InitTemplates.Add(language, template);
+                if (InitTemplates.Count == 1)
+                {
+                    AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+                    {
+                        foreach (var made in InitTemplates.Values)
+                            made.Dispose();
+                    };
+                }
+            }
+            return template.TacitHome;
+        }
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+            Directory.CreateDirectory(Path.Combine(target, Path.GetRelativePath(source, directory)));
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+            File.Copy(file, Path.Combine(target, Path.GetRelativePath(source, file)));
     }
 
     /// <summary>
