@@ -71,11 +71,6 @@ export function searchParamsOf(fields: SearchFields): URLSearchParams {
   return params;
 }
 
-/** Whether any of the three retrieval values is replaced. */
-export function hasOverrides(fields: SearchFields): boolean {
-  return fields.minRerankScore !== "" || fields.topK !== "" || fields.candidates !== "";
-}
-
 /** The trace request for the conditions: the query as typed, an empty condition left out, a value sent as a number. */
 export function requestOf(fields: SearchFields): RecallTraceRequest {
   const text = (value: string) => (value.trim() === "" ? null : value.trim());

@@ -494,6 +494,7 @@ export interface Dictionary {
     readonly viewsNav: string;
     readonly search: {
       readonly queryLabel: string;
+      readonly queryPlaceholder: string;
       readonly workstreamLabel: string;
       readonly workstreamAll: string;
       readonly fromLabel: string;
@@ -506,6 +507,23 @@ export interface Dictionary {
       readonly resultsTitle: (count: number) => string;
       readonly noResults: string;
       readonly unitsTitle: string;
+      /** How a result and its units light each other up. */
+      readonly linkHint: string;
+      /** The number of the result a unit became part of. */
+      readonly partOf: (number: number) => string;
+      /** Lit rows scrolled out of their column, and the button that brings the first into view. */
+      readonly offscreen: { readonly above: (count: number) => string; readonly below: (count: number) => string };
+      /** The trace's funnel: what each step kept, then a bar of the units by fate. */
+      readonly funnel: {
+        readonly label: string;
+        readonly fullText: string;
+        readonly vector: string;
+        readonly fused: string;
+        readonly reranked: string;
+        readonly passed: string;
+        readonly results: string;
+        readonly jump: (fate: string, count: number) => string;
+      };
       readonly columns: { readonly fullText: string; readonly vector: string; readonly reranker: string };
       readonly fates: {
         readonly shown: string;

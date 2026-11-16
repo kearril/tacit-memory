@@ -667,6 +667,7 @@ export const en: Dictionary = {
     viewsNav: "Memory views",
     search: {
       queryLabel: "Query",
+      queryPlaceholder: "Ask as an agent would, and see what recall gives it",
       workstreamLabel: "Workstream",
       workstreamAll: "All workstreams",
       fromLabel: "From",
@@ -679,6 +680,19 @@ export const en: Dictionary = {
       resultsTitle: (count) => `Results · ${count}`,
       noResults: 'No results: the agent gets "No relevant memory."',
       unitsTitle: "Where the retrieval units went",
+      linkHint: "Hover a result to see the units it was made from",
+      partOf: (number) => `Part of result ${number}`,
+      offscreen: { above: (count) => `${count} more above`, below: (count) => `${count} more below` },
+      funnel: {
+        label: "Search funnel",
+        fullText: "Full text",
+        vector: "Vector",
+        fused: "Fused",
+        reranked: "Reranked",
+        passed: "Passed",
+        results: "Results",
+        jump: (fate, count) => `${fate}: ${count} units, jump to them`,
+      },
       columns: { fullText: "Full text", vector: "Vector", reranker: "Reranker" },
       fates: {
         shown: "Shown",

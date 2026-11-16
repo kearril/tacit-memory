@@ -590,6 +590,7 @@ export const zh: Dictionary = {
     viewsNav: "记忆视图",
     search: {
       queryLabel: "查询",
+      queryPlaceholder: "像 Agent 一样问一句，看 recall 会给它什么",
       workstreamLabel: "主线",
       workstreamAll: "全部主线",
       fromLabel: "起始日期",
@@ -602,6 +603,19 @@ export const zh: Dictionary = {
       resultsTitle: (count) => `结果 · ${count}`,
       noResults: "没有结果：Agent 会收到「No relevant memory.」",
       unitsTitle: "检索单元的去向",
+      linkHint: "悬停一条结果，看它由哪些单元组成",
+      partOf: (number) => `属于第 ${number} 条结果`,
+      offscreen: { above: (count) => `上方还有 ${count} 个`, below: (count) => `下方还有 ${count} 个` },
+      funnel: {
+        label: "检索漏斗",
+        fullText: "全文",
+        vector: "向量",
+        fused: "融合",
+        reranked: "送 reranker",
+        passed: "过阈值",
+        results: "结果",
+        jump: (fate, count) => `${fate}：${count} 个单元，跳到这一段`,
+      },
       columns: { fullText: "全文", vector: "向量", reranker: "reranker" },
       fates: {
         shown: "显示",
