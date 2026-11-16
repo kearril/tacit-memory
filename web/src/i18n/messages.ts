@@ -632,7 +632,14 @@ export interface Dictionary {
     };
     readonly persona: {
       readonly failed: string;
-      readonly globalTitle: string;
+      readonly scopes: string;
+      readonly scopeAll: string;
+      readonly globalHint: string;
+      readonly workstreamHint: string;
+      readonly otherTitle: string;
+      readonly quoteToggle: string;
+      readonly candidatesWaiting: (count: number) => string;
+      readonly sourceFiles: string;
       readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;
       /** A section whose heading is not one of the four; `null` for text before the first heading. */
       readonly otherSection: (heading: string | null) => string;

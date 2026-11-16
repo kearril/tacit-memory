@@ -793,7 +793,17 @@ export const en: Dictionary = {
     },
     persona: {
       failed: "The persona could not be read",
-      globalTitle: "Global persona",
+      scopes: "Scopes",
+      scopeAll: "All",
+      globalHint: "Read in every session",
+      workstreamHint: "Read in this workstream",
+      otherTitle: "Other content",
+      quoteToggle: "Quote",
+      candidatesWaiting: (count) =>
+        count === 1
+          ? "1 candidate waits for the next consolidation"
+          : `${count} candidates wait for the next consolidation`,
+      sourceFiles: "Source files",
       sections: {
         redLines: "Red lines",
         workingRules: "Working rules",
