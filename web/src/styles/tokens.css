@@ -163,7 +163,6 @@
   --tk-size-editor: 28rem;
   --tk-size-log-view: max(20rem, calc(100dvh - 17rem));
   --tk-size-scrollbar: 0.75rem;
-  --tk-size-master: 20rem;
   --tk-size-nav-bar: calc(var(--tk-size-control) + 2 * var(--tk-space-sm) + var(--tk-border-thin));
 
   /* Shape */

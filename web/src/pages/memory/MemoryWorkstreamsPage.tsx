@@ -1,14 +1,24 @@
 import { cn } from "cn";
-import { ArrowRight, ChevronLeft, FolderGit2, MousePointerClick } from "lucide-react";
+import {
+  ArrowRight,
+  FolderGit2,
+  History,
+  ListChecks,
+  MousePointerClick,
+  ScrollText,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useActivity } from "../../api/activity";
 import { ApiError } from "../../api/client";
 import {
-  type BriefPage,
   type BriefPageGroup,
   useWorkstreamBrief,
   useWorkstreams,
   type WorkstreamBriefView,
+  type WorkstreamList,
   type WorkstreamListItem,
 } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
@@ -16,11 +26,11 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
-import { type ActivityReport, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
+import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
-import { SectionGroup } from "./PersonaSections";
+import { PersonaEntryCard, SectionChip } from "./PersonaSections";
 import { memoryPathOf } from "./views";
-import { MINI_WEEKS, weekLevel, workstreamWeeks } from "./workstreams";
+import { type DirectorySort, directoryRows, MINI_WEEKS, openItemText, weekLevel, workstreamWeeks } from "./workstreams";
 
 /** The address of one workstream's brief. */
 function briefPathOf(name: string): string {
@@ -32,175 +42,205 @@ function pagePathOf(id: string): string {
   return `${memoryPathOf("pages")}/${id}`;
 }
 
+/** The dashed box an entry of the brief sits in, as the persona's entries do. */
+const ENTRY_BOX = "rounded-md border-(length:--tk-border-thin) border-dashed px-md py-sm";
+
 /**
- * The workstreams view of the memory page, a list beside its detail. On wide screens the list sits on the left and the
- * chosen workstream's brief on the right; on narrow ones they are two addresses, the list alone and the brief alone
- * with a way back.
+ * The workstreams view of the memory page, in a reading column. A sticky strip above holds every workstream as a small
+ * card (name, pages, last activity, weekly bar) that folds to a pill once the strip sticks; the chosen workstream's
+ * brief follows, and the path of `workstreams.md` closes the page.
  */
 export function MemoryWorkstreamsPage() {
   const dictionary = useDictionary();
+  const text = dictionary.memory.workstreams;
   const name = useParams().name ?? null;
+  const list = useWorkstreams();
 
   return (
-    <div className="mx-auto grid w-full items-start gap-lg xl:grid-cols-[var(--tk-size-master)_minmax(0,1fr)]">
+    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) grid-cols-1 gap-lg">
       <h1 className="sr-only">{dictionary.memory.views.workstreams}</h1>
-      <div className={cn("xl:sticky xl:top-lg", name === null ? "grid" : "hidden xl:grid")}>
-        <WorkstreamList selected={name} />
-      </div>
-      {name === null ? (
-        <p className="hidden items-center gap-sm pt-md text-sm text-ink-muted xl:flex">
-          <MousePointerClick aria-hidden className="size-(--tk-font-size-base)" />
-          {dictionary.memory.workstreams.pick}
-        </p>
+      {list.isError ? (
+        <Alert tone="danger">
+          <AlertTitle>{text.failed}</AlertTitle>
+          <AlertDescription>{errorTextOf(list.error, dictionary)}</AlertDescription>
+        </Alert>
+      ) : list.data === undefined ? (
+        <div aria-busy="true" />
       ) : (
-        <Brief key={name} name={name} />
+        <>
+          <WorkstreamStrip list={list.data} selected={name} />
+          {name === null ? (
+            <p className="flex items-center gap-sm text-sm text-ink-muted">
+              <MousePointerClick aria-hidden className="size-(--tk-font-size-base)" />
+              {list.data.established.length === 0 && list.data.unestablished.length === 0 ? text.none : text.pick}
+            </p>
+          ) : (
+            <Brief
+              key={name}
+              name={name}
+              item={[...list.data.established, ...list.data.unestablished].find((item) => item.name === name)}
+            />
+          )}
+          <footer className="grid gap-xs px-md text-xs text-ink-muted">
+            <span>{text.sourceFile}</span>
+            <FilePath path={list.data.file.path} />
+            <FileProblems problems={list.data.file.problems} />
+          </footer>
+        </>
       )}
     </div>
   );
 }
 
-/** The list: the established workstreams in file order, then the names in use that are not, fainter. */
-function WorkstreamList({ selected }: { readonly selected: string | null }) {
-  const dictionary = useDictionary();
-  const text = dictionary.memory.workstreams;
-  const list = useWorkstreams();
+/**
+ * Whether the sticky element has stuck: the sentinel just above it has left the band the element sticks below. The band
+ * is read from the element's own `top`, so it follows the narrow screen's top bar.
+ */
+function useStuck(sentinel: RefObject<HTMLElement | null>, sticky: RefObject<HTMLElement | null>): boolean {
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const target = sentinel.current;
+    const element = sticky.current;
+    if (target === null || element === null) {
+      return;
+    }
+    let observer: IntersectionObserver | null = null;
+    const observe = () => {
+      observer?.disconnect();
+      const top = Number.parseFloat(getComputedStyle(element).top) || 0;
+      observer = new IntersectionObserver(([entry]) => setStuck(entry !== undefined && !entry.isIntersecting), {
+        rootMargin: `${-Math.ceil(top) - 1}px 0px 0px 0px`,
+      });
+      observer.observe(target);
+    };
+    observe();
+    window.addEventListener("resize", observe);
+    return () => {
+      window.removeEventListener("resize", observe);
+      observer?.disconnect();
+    };
+  }, [sentinel, sticky]);
+  return stuck;
+}
+
+/**
+ * Every workstream in a strip, the established ones in file order, then the names in use that are not, dashed. Before
+ * one is chosen the cards wrap to show them all; after, they keep to one row that scrolls sideways. Once the strip
+ * sticks they fold to pills.
+ */
+function WorkstreamStrip({ list, selected }: { readonly list: WorkstreamList; readonly selected: string | null }) {
+  const text = useDictionary().memory.workstreams;
   const activity = useActivity();
-
-  if (list.isError) {
-    return (
-      <Alert tone="danger">
-        <AlertTitle>{text.failed}</AlertTitle>
-        <AlertDescription>{errorTextOf(list.error, dictionary)}</AlertDescription>
-      </Alert>
-    );
-  }
-  if (list.data === undefined) {
-    return <div aria-busy="true" />;
-  }
+  const sentinel = useRef<HTMLDivElement>(null);
+  const sticky = useRef<HTMLElement>(null);
+  const stuck = useStuck(sentinel, sticky);
+  const items = [
+    ...list.established.map((item) => ({ item, faint: false })),
+    ...list.unestablished.map((item) => ({ item, faint: true })),
+  ];
   return (
-    <Card aria-label={text.listLabel}>
-      {list.data.established.length === 0 && list.data.unestablished.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.none}</p>
-      ) : null}
-      {list.data.established.length === 0 ? null : (
-        <ListGroup
-          title={text.established}
-          items={list.data.established}
-          selected={selected}
-          activity={activity.data}
-        />
-      )}
-      {list.data.unestablished.length === 0 ? null : (
-        <ListGroup
-          title={text.unestablished}
-          items={list.data.unestablished}
-          selected={selected}
-          activity={activity.data}
-          faint
-        />
-      )}
-      <div className="grid gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-        <FilePath path={list.data.file.path} />
-        <FileProblems problems={list.data.file.problems} />
-      </div>
-    </Card>
+    <>
+      <div ref={sentinel} aria-hidden className="-mb-lg h-0" />
+      <nav
+        ref={sticky}
+        aria-label={text.listLabel}
+        className={cn(
+          "sticky top-(--tk-size-nav-bar) z-(--tk-layer-nav) -mx-md -mb-md bg-canvas px-md py-sm lg:top-0",
+          stuck && "border-b-(length:--tk-border-thin) border-line",
+        )}
+      >
+        <ul className={cn("-m-xs flex gap-sm p-xs", selected === null ? "flex-wrap" : "overflow-x-auto")}>
+          {items.map(({ item, faint }) => (
+            <StripItem
+              key={item.name}
+              item={item}
+              current={item.name === selected}
+              faint={faint}
+              compact={stuck}
+              weeks={activity.data === undefined ? null : workstreamWeeks(activity.data, item.name)}
+            />
+          ))}
+        </ul>
+      </nav>
+    </>
   );
 }
 
-function ListGroup({
-  title,
-  items,
-  selected,
-  activity,
-  faint = false,
-}: {
-  readonly title: string;
-  readonly items: readonly WorkstreamListItem[];
-  readonly selected: string | null;
-  readonly activity: ActivityReport | undefined;
-  readonly faint?: boolean;
-}) {
-  return (
-    <section
-      aria-label={title}
-      className="grid gap-xs border-t-(length:--tk-border-thin) border-line pt-md first-of-type:border-t-0 first-of-type:pt-0"
-    >
-      <h2 className="px-sm text-xs font-semibold text-ink-muted">{title}</h2>
-      <ul className="grid gap-xs">
-        {items.map((item) => (
-          <ListRow key={item.name} item={item} current={item.name === selected} activity={activity} faint={faint} />
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** A workstream in the list: its name, background and recent phase, its mini activity bar, page count and last activity. */
-function ListRow({
+/** A workstream in the strip: a small card with its name, pages, last activity and weekly bar, or a pill once stuck. */
+function StripItem({
   item,
   current,
-  activity,
   faint,
+  compact,
+  weeks,
 }: {
   readonly item: WorkstreamListItem;
   readonly current: boolean;
-  readonly activity: ActivityReport | undefined;
   readonly faint: boolean;
+  readonly compact: boolean;
+  readonly weeks: ReturnType<typeof workstreamWeeks> | null;
 }) {
   const text = useDictionary().memory.workstreams;
+  const tone = current
+    ? "bg-accent-soft text-accent ring-(length:--tk-border-thick) ring-accent"
+    : faint
+      ? "border-(length:--tk-border-thin) border-dashed border-ink-muted/40 text-ink-muted hover:text-ink"
+      : "bg-surface shadow-rest hover:shadow-hover";
+  const link = "outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent transition-shadow";
   return (
-    <li>
-      <Link
-        to={briefPathOf(item.name)}
-        aria-current={current ? "page" : undefined}
-        className={cn(
-          "grid gap-xs rounded-md px-sm py-sm outline-none hover:bg-surface-raised focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-          current && "bg-accent-soft hover:bg-accent-soft",
-        )}
-      >
-        <span
+    <li className="shrink-0">
+      {compact ? (
+        <Link
+          to={briefPathOf(item.name)}
+          aria-current={current ? "page" : undefined}
           className={cn(
-            "flex items-center gap-sm font-medium break-all",
-            current ? "text-accent" : faint && "text-ink-muted",
+            "inline-flex items-center gap-xs rounded-full px-md py-xs text-sm whitespace-nowrap",
+            tone,
+            link,
           )}
         >
-          <FolderGit2 aria-hidden className="size-(--tk-font-size-base) shrink-0" />
+          <FolderGit2 aria-hidden className="size-(--tk-font-size-sm)" />
           {item.name}
-        </span>
-        {item.background === null ? null : (
-          <span className="line-clamp-2 text-sm text-ink-muted">{item.background}</span>
-        )}
-        {item.recent === null ? null : <span className="line-clamp-2 text-xs text-ink-muted">{item.recent}</span>}
-        {activity === undefined ? null : <MiniBar report={activity} workstream={item.name} onAccent={current} />}
-        <span className="flex flex-wrap gap-x-sm text-xs text-ink-muted tabular-nums">
-          <span>{text.pages(item.pages)}</span>
-          {item.lastActivity === null ? null : <span>{text.lastActivity(item.lastActivity)}</span>}
-        </span>
-      </Link>
+        </Link>
+      ) : (
+        <Link
+          to={briefPathOf(item.name)}
+          aria-current={current ? "page" : undefined}
+          title={item.background ?? undefined}
+          className={cn("grid w-(--tk-size-sidebar) gap-xs rounded-md px-md py-sm", tone, link)}
+        >
+          <span className="flex min-w-0 items-center gap-xs font-medium">
+            <FolderGit2 aria-hidden className="size-(--tk-font-size-base) shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{item.name}</span>
+          </span>
+          <span className="flex flex-wrap gap-x-sm text-xs text-ink-muted tabular-nums">
+            <span>{text.pages(item.pages)}</span>
+            {item.lastActivity === null ? null : <span>{text.lastActivity(item.lastActivity.slice(5))}</span>}
+          </span>
+          {weeks === null ? null : <WeekBar weeks={weeks} onAccent={current} />}
+        </Link>
+      )}
     </li>
   );
 }
 
 /**
- * A workstream's activities per week over about half a year, one cell a week, on the dashboard heatmap's colours. On the
- * chosen row's accent background an empty week takes the surface colour, so it still shows.
+ * A workstream's activities per week over about half a year, one cell a week packed tight to fit a card, on the
+ * dashboard heatmap's colours. On the chosen card's accent background an empty week takes the surface colour.
  */
-function MiniBar({
-  report,
-  workstream,
+function WeekBar({
+  weeks,
   onAccent,
 }: {
-  readonly report: ActivityReport;
-  readonly workstream: string;
+  readonly weeks: ReturnType<typeof workstreamWeeks>;
   readonly onAccent: boolean;
 }) {
   const text = useDictionary().memory.workstreams;
-  const weeks = workstreamWeeks(report, workstream);
   return (
     <span
       role="img"
       aria-label={text.weeks(MINI_WEEKS)}
-      className="grid gap-xs"
+      className="grid gap-(--tk-border-thin)"
       style={{ gridTemplateColumns: `repeat(${MINI_WEEKS}, minmax(0, 1fr))` }}
     >
       {weeks.map((week, index) => (
@@ -218,131 +258,142 @@ function MiniBar({
   );
 }
 
-/** The chosen workstream's brief, whole; on narrow screens with a way back to the list. */
-function Brief({ name }: { readonly name: string }) {
+/** The chosen workstream's brief, whole. */
+function Brief({ name, item }: { readonly name: string; readonly item: WorkstreamListItem | undefined }) {
   const dictionary = useDictionary();
   const text = dictionary.memory.workstreams;
   const brief = useWorkstreamBrief(name);
   const missing = brief.error instanceof ApiError && brief.error.status === 404;
 
+  if (brief.isError) {
+    return (
+      <Alert tone={missing ? "warning" : "danger"}>
+        <AlertTitle>{missing ? text.notFound : text.briefFailed}</AlertTitle>
+        <AlertDescription>{errorTextOf(brief.error, dictionary)}</AlertDescription>
+      </Alert>
+    );
+  }
+  if (brief.data === undefined) {
+    return <div aria-busy="true" />;
+  }
+  return <BriefBody brief={brief.data} item={item} />;
+}
+
+/** A card's head: the section's icon in the accent colour, its name, then what goes beside it. */
+function CardHead({
+  id,
+  icon: Icon,
+  title,
+  children,
+}: {
+  readonly id: string;
+  readonly icon: typeof Sparkles;
+  readonly title: string;
+  readonly children?: React.ReactNode;
+}) {
   return (
-    <div className="grid min-w-0 gap-lg">
-      <Link
-        to={memoryPathOf("workstreams")}
-        className="flex items-center gap-xs text-sm text-ink-muted hover:text-ink hover:underline xl:hidden"
-      >
-        <ChevronLeft aria-hidden className="size-(--tk-font-size-sm)" />
-        {text.back}
-      </Link>
-      {brief.isError ? (
-        <Alert tone={missing ? "warning" : "danger"}>
-          <AlertTitle>{missing ? text.notFound : text.briefFailed}</AlertTitle>
-          <AlertDescription>{errorTextOf(brief.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : brief.data === undefined ? (
-        <div aria-busy="true" />
-      ) : (
-        <BriefBody brief={brief.data} />
-      )}
+    <div className="flex flex-wrap items-center gap-sm">
+      <Icon aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-accent" />
+      <CardTitle id={id}>{title}</CardTitle>
+      {children}
     </div>
   );
 }
 
-function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
+function BriefBody({
+  brief,
+  item,
+}: {
+  readonly brief: WorkstreamBriefView;
+  readonly item: WorkstreamListItem | undefined;
+}) {
   const text = useDictionary().memory.workstreams;
+  const pages = brief.groups.reduce((sum, group) => sum + group.pages.length, 0);
+  const lastActivity = item?.lastActivity ?? null;
   return (
     <>
       <Card aria-labelledby="brief-name">
-        <div className="flex flex-wrap items-center gap-sm">
-          <FolderGit2 aria-hidden className="size-(--tk-font-size-lg) text-ink-muted" />
-          <CardTitle id="brief-name">{brief.name}</CardTitle>
-          {brief.established ? null : <Badge>{text.notEstablished}</Badge>}
+        <div className="grid gap-xs">
+          <div className="flex flex-wrap items-center gap-sm">
+            <FolderGit2 aria-hidden className="size-(--tk-font-size-xl) shrink-0 text-accent" />
+            <h2 id="brief-name" className="text-xl leading-(--tk-line-height-tight) font-semibold break-all">
+              {brief.name}
+            </h2>
+            {brief.established ? null : <Badge>{text.notEstablished}</Badge>}
+          </div>
+          {brief.established ? (
+            brief.background === null ? null : (
+              <p className="leading-(--tk-line-height-normal) text-ink-muted">{brief.background}</p>
+            )
+          ) : (
+            <p className="text-sm text-ink-muted">{text.unestablishedHint}</p>
+          )}
         </div>
-        {brief.established ? (
-          <dl className="grid gap-sm text-sm sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-md">
-            <dt className="text-ink-muted">{text.background}</dt>
-            <dd className="leading-(--tk-line-height-normal)">{brief.background ?? text.empty}</dd>
-            <dt className="text-ink-muted">{text.recent}</dt>
-            <dd className="leading-(--tk-line-height-normal)">{brief.recent ?? text.empty}</dd>
-          </dl>
-        ) : (
-          <p className="text-sm text-ink-muted">{text.unestablishedHint}</p>
+        {brief.recent === null ? null : (
+          <div className="grid gap-xs rounded-md bg-accent-soft px-md py-sm">
+            <span className="flex items-center gap-xs text-xs font-medium text-accent">
+              <Sparkles aria-hidden className="size-(--tk-font-size-sm)" />
+              {text.recent}
+            </span>
+            <p className="leading-(--tk-line-height-normal)">{brief.recent}</p>
+          </div>
         )}
+        <p className="flex flex-wrap gap-x-lg gap-y-xs text-sm text-ink-muted tabular-nums">
+          <span>{text.pages(item?.pages ?? pages + brief.overturned.length)}</span>
+          <span>{text.openCount(brief.openItems.length)}</span>
+          {lastActivity === null ? null : <span>{text.lastActivity(lastActivity)}</span>}
+        </p>
       </Card>
-
-      {brief.conventions.length === 0 ? null : (
-        <Card aria-labelledby="brief-conventions">
-          <CardTitle id="brief-conventions">{text.conventions}</CardTitle>
-          {brief.conventions.map((section, index) => (
-            <SectionGroup key={`${section.section ?? "other"}-${index}`} section={section} problems={[]} />
-          ))}
-        </Card>
-      )}
 
       {brief.openItems.length === 0 ? null : (
         <Card aria-labelledby="brief-open">
-          <CardTitle id="brief-open">{text.openItems}</CardTitle>
+          <CardHead id="brief-open" icon={TriangleAlert} title={text.openItems} />
           <ul className="grid gap-sm">
             {brief.openItems.map((item) => (
-              <li key={item.page} className="grid gap-xs rounded-md bg-warning-soft px-md py-sm">
+              <li key={item.page} className={cn("grid gap-xs border-warning bg-warning-soft", ENTRY_BOX)}>
                 <Link
                   to={pagePathOf(item.page)}
                   className="w-fit font-mono text-xs text-ink-muted hover:text-ink hover:underline"
                 >
                   {item.page}
                 </Link>
-                {item.lines.map((line, index) => (
-                  <p key={index} className="text-sm leading-(--tk-line-height-normal)">
-                    {line}
-                  </p>
-                ))}
+                <ul className="grid gap-xs">
+                  {item.lines.map((line, index) => (
+                    <li key={index} className="text-sm leading-(--tk-line-height-normal)">
+                      {openItemText(line)}
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
         </Card>
       )}
 
-      {brief.groups.length === 0 && brief.overturned.length === 0 ? null : (
-        <Card aria-labelledby="brief-directory">
-          <CardTitle id="brief-directory">{text.directory}</CardTitle>
-          {brief.groups.map((group) => (
-            <PageGroup key={group.type ?? "untyped"} group={group} />
-          ))}
-          {brief.overturned.length === 0 ? null : (
-            <p className="flex flex-wrap items-baseline gap-x-sm gap-y-xs border-t-(length:--tk-border-thin) border-line pt-md text-sm text-ink-muted">
-              <span>{text.overturned}</span>
-              {brief.overturned.map((id) => (
-                <Link key={id} to={pagePathOf(id)} className="font-mono text-xs line-through hover:text-ink">
-                  {id}
-                </Link>
-              ))}
-            </p>
-          )}
-        </Card>
-      )}
-
       <Card aria-labelledby="brief-activities">
-        <div className="flex flex-wrap items-baseline justify-between gap-sm">
-          <CardTitle id="brief-activities">{text.activities}</CardTitle>
+        <CardHead id="brief-activities" icon={History} title={text.activities}>
           <Link
             to={`${memoryPathOf("activity")}?workstream=${encodeURIComponent(brief.name)}`}
-            className="flex items-center gap-xs text-sm text-accent hover:underline"
+            className="ml-auto flex items-center gap-xs text-sm text-accent hover:underline"
           >
             {text.viewAll}
             <ArrowRight aria-hidden className="size-(--tk-font-size-sm)" />
           </Link>
-        </div>
+        </CardHead>
         {brief.activities.length === 0 ? (
           <p className="text-sm text-ink-muted">{text.empty}</p>
         ) : (
           <ul className="grid gap-sm">
             {brief.activities.map((activity) => (
-              <li key={activity.code} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-md gap-y-xs">
-                <div className="grid min-w-0 gap-xs">
-                  <p className="leading-(--tk-line-height-normal)">{activity.text}</p>
-                  <p className="text-xs text-ink-muted tabular-nums">{activity.date}</p>
+              <li key={activity.code} className={cn("group grid gap-xs border-ink-muted/40", ENTRY_BOX)}>
+                <div className="flex items-center gap-sm text-xs text-ink-muted">
+                  <span className="tabular-nums">{activity.date}</span>
+                  <CodePill
+                    code={activity.code}
+                    className="ml-auto opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+                  />
                 </div>
-                <CodePill code={activity.code} />
+                <p className="leading-(--tk-line-height-normal)">{activity.text}</p>
               </li>
             ))}
           </ul>
@@ -350,59 +401,111 @@ function BriefBody({ brief }: { readonly brief: WorkstreamBriefView }) {
         {brief.summary === null ? null : (
           <section
             aria-label={text.summary(brief.summary.label)}
-            className="grid gap-xs border-t-(length:--tk-border-thin) border-line pt-md"
+            className="grid gap-xs rounded-md bg-surface-raised px-md py-sm"
           >
-            <h3 className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
-              {text.summary(brief.summary.label)}
-              <span className="text-xs font-regular text-ink-muted tabular-nums">
-                {`${brief.summary.first} – ${brief.summary.last}`}
-              </span>
+            <h3 className="flex flex-wrap items-baseline gap-x-sm text-xs text-ink-muted">
+              <span className="font-semibold text-ink">{text.summary(brief.summary.label)}</span>
+              <span className="tabular-nums">{`${brief.summary.first} – ${brief.summary.last}`}</span>
             </h3>
             <p className="text-sm leading-(--tk-line-height-normal) whitespace-pre-line">{brief.summary.text}</p>
           </section>
         )}
       </Card>
+
+      {brief.conventions.length === 0 ? null : (
+        <Card aria-labelledby="brief-conventions">
+          <CardHead id="brief-conventions" icon={ListChecks} title={text.conventions} />
+          <ul className="grid gap-sm">
+            {brief.conventions.flatMap((section) =>
+              section.entries.map((entry) => (
+                <PersonaEntryCard
+                  key={entry.line}
+                  entry={entry}
+                  problems={[]}
+                  lead={<SectionChip section={section.section} heading={section.heading} />}
+                />
+              )),
+            )}
+          </ul>
+        </Card>
+      )}
+
+      {brief.groups.length === 0 && brief.overturned.length === 0 ? null : (
+        <Card aria-labelledby="brief-directory">
+          <CardHead id="brief-directory" icon={ScrollText} title={text.directory}>
+            <span className="text-sm text-ink-muted tabular-nums">{pages}</span>
+          </CardHead>
+          {brief.groups.length === 0 ? null : <Directory groups={brief.groups} />}
+          {brief.overturned.length === 0 ? null : (
+            <p className="flex flex-wrap items-baseline gap-x-sm gap-y-xs border-t-(length:--tk-border-thin) border-line px-sm pt-md text-xs text-ink-muted">
+              <span>{text.overturned}</span>
+              {brief.overturned.map((id) => (
+                <Link key={id} to={pagePathOf(id)} className="font-mono line-through hover:text-ink">
+                  {id}
+                </Link>
+              ))}
+            </p>
+          )}
+        </Card>
+      )}
     </>
   );
 }
 
-/** The pages of one type, newest first: each with its title, aliases, the day it changed and how often it was recalled. */
-function PageGroup({ group }: { readonly group: BriefPageGroup }) {
+/**
+ * The page directory as a table that a click on a column head sorts: by type as the brief groups it, by the day
+ * changed, or by uses. Each row opens its page; its aliases show on hover. On a narrow screen only the title and uses
+ * stay.
+ */
+function Directory({ groups }: { readonly groups: readonly BriefPageGroup[] }) {
+  const dictionary = useDictionary();
+  const text = dictionary.memory.workstreams;
+  const [sort, setSort] = useState<DirectorySort>("type");
+  const head = (key: DirectorySort, className?: string) => (
+    <button
+      type="button"
+      aria-pressed={sort === key}
+      onClick={() => setSort(key)}
+      className={cn(
+        "cursor-pointer text-left outline-none hover:text-ink focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
+        sort === key && "font-medium text-accent hover:text-accent",
+        className,
+      )}
+    >
+      {text.sortBy[key]}
+    </button>
+  );
   return (
-    <section className="grid gap-xs border-t-(length:--tk-border-thin) border-line pt-md first-of-type:border-t-0 first-of-type:pt-0">
-      <h3>
-        <PageTypeBadge type={group.type} />
-      </h3>
-      <ul className="grid">
-        {group.pages.map((page) => (
-          <PageRow key={page.id} page={page} />
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-md md:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+      <div className="col-span-2 grid grid-cols-subgrid px-sm pb-xs text-xs text-ink-muted md:col-span-4">
+        {head("type", "hidden md:block")}
+        <span>{text.columnTitle}</span>
+        {head("changed", "hidden md:block")}
+        {head("uses")}
+      </div>
+      <ul className="col-span-2 grid grid-cols-subgrid divide-y divide-line md:col-span-4">
+        {directoryRows(groups, sort).map(({ type, page }) => (
+          <li key={page.id} className="col-span-2 grid grid-cols-subgrid md:col-span-4">
+            <Link
+              to={pagePathOf(page.id)}
+              title={page.aliases.length === 0 ? undefined : page.aliases.join(" · ")}
+              className="col-span-2 grid grid-cols-subgrid items-center rounded-sm px-sm py-sm text-sm outline-none hover:bg-surface-raised focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent md:col-span-4"
+            >
+              <span className="hidden md:block">
+                <PageTypeBadge type={type} />
+              </span>
+              <span className="min-w-0 truncate">{page.title}</span>
+              <span className="hidden text-xs text-ink-muted tabular-nums md:block">{page.changed ?? "—"}</span>
+              <span
+                title={page.lastUse === null ? undefined : text.lastUse(page.lastUse)}
+                className="text-right text-xs text-ink-muted tabular-nums"
+              >
+                {page.uses}
+              </span>
+            </Link>
+          </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-function PageRow({ page }: { readonly page: BriefPage }) {
-  const dictionary = useDictionary();
-  const parts = dictionary.memory.parts;
-  const text = dictionary.memory.workstreams;
-  return (
-    <li>
-      <Link
-        to={pagePathOf(page.id)}
-        className="grid gap-xs rounded-md px-sm py-sm outline-none hover:bg-surface-raised focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-md"
-      >
-        <span className="grid min-w-0 gap-xs">
-          <span className="font-medium break-words">{page.title}</span>
-          {page.aliases.length === 0 ? null : (
-            <span className="truncate text-xs text-ink-muted">{page.aliases.join(" · ")}</span>
-          )}
-        </span>
-        <span className="flex flex-wrap items-center gap-x-sm text-xs text-ink-muted tabular-nums">
-          {page.changed === null ? null : <span>{parts.changed(page.changed)}</span>}
-          <span title={page.lastUse === null ? undefined : text.lastUse(page.lastUse)}>{parts.uses(page.uses)}</span>
-        </span>
-      </Link>
-    </li>
+    </div>
   );
 }

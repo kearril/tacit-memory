@@ -12,7 +12,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
-import type { FileProblem, PersonaEntryView, PersonaSection, PersonaSectionView } from "../../api/memory";
+import type { FileProblem, PersonaEntryView, PersonaSection } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import type { PersonaScope } from "./persona";
 import { CodePill } from "./parts";
@@ -35,53 +35,6 @@ export const SCOPE_ICONS: Readonly<Record<PersonaScope["kind"], LucideIcon>> = {
   domain: Tag,
   workstream: FolderGit2,
 };
-
-/** One section: its icon, name and entry count, then its entries; an empty one of the four says so. */
-export function SectionGroup({
-  section,
-  problems,
-  showEmpty = false,
-}: {
-  readonly section: PersonaSectionView;
-  readonly problems: readonly FileProblem[];
-  readonly showEmpty?: boolean;
-}) {
-  const text = useDictionary().memory.persona;
-  const kind = section.section;
-  const Icon = kind === null ? TriangleAlert : SECTION_ICONS[kind];
-  const count = section.entries.filter((entry) => entry.code !== null).length;
-  if (!showEmpty && section.entries.length === 0) {
-    return null;
-  }
-  return (
-    <section
-      aria-label={kind === null ? (section.heading ?? text.beforeHeadings) : text.sections[kind]}
-      className="grid gap-sm"
-    >
-      <h3 className="flex items-center gap-sm text-sm font-semibold">
-        <Icon
-          aria-hidden
-          className={`size-(--tk-font-size-base) ${kind === null ? "text-warning" : "text-ink-muted"}`}
-        />
-        {kind === null ? text.otherSection(section.heading) : text.sections[kind]}
-        <span className="text-xs font-regular text-ink-muted">{text.count(count)}</span>
-      </h3>
-      {section.entries.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.empty}</p>
-      ) : (
-        <ul className="grid gap-sm">
-          {section.entries.map((entry) => (
-            <PersonaEntryCard
-              key={entry.line}
-              entry={entry}
-              problems={problems.filter((problem) => problem.line === entry.line)}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
 
 /**
  * One entry in a dashed box. Above its text, a line of what is known about it: what `lead` gives (its scope), the day it
@@ -177,6 +130,28 @@ export function ScopeChip({ scope }: { readonly scope: PersonaScope }) {
     <span className="inline-flex items-center gap-xs rounded-full bg-surface-raised px-sm py-xs leading-(--tk-line-height-tight)">
       <Icon aria-hidden className="size-(--tk-font-size-xs)" />
       {scope.name ?? text.scopeGlobal}
+    </span>
+  );
+}
+
+/** The persona section an entry is under as a small neutral chip with its icon; one that is not of the four by heading. */
+export function SectionChip({
+  section,
+  heading,
+}: {
+  readonly section: PersonaSection;
+  readonly heading: string | null;
+}) {
+  const text = useDictionary().memory.persona;
+  const Icon = section === null ? TriangleAlert : SECTION_ICONS[section];
+  return (
+    <span
+      className={`inline-flex items-center gap-xs rounded-full bg-surface-raised px-sm py-xs leading-(--tk-line-height-tight) ${
+        section === null ? "text-warning" : ""
+      }`}
+    >
+      <Icon aria-hidden className="size-(--tk-font-size-xs)" />
+      {section === null ? text.otherSection(heading) : text.sections[section]}
     </span>
   );
 }

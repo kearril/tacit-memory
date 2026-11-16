@@ -583,8 +583,6 @@ export interface Dictionary {
     readonly workstreams: {
       readonly failed: string;
       readonly listLabel: string;
-      readonly established: string;
-      readonly unestablished: string;
       readonly unestablishedHint: string;
       readonly none: string;
       readonly pages: (count: number) => string;
@@ -593,10 +591,8 @@ export interface Dictionary {
       readonly weeks: (count: number) => string;
       readonly week: (monday: string, count: number) => string;
       readonly pick: string;
-      readonly back: string;
       readonly notFound: string;
       readonly briefFailed: string;
-      readonly background: string;
       readonly recent: string;
       readonly notEstablished: string;
       readonly conventions: string;
@@ -608,6 +604,10 @@ export interface Dictionary {
       readonly viewAll: string;
       readonly empty: string;
       readonly lastUse: (day: string) => string;
+      readonly openCount: (count: number) => string;
+      readonly sourceFile: string;
+      readonly columnTitle: string;
+      readonly sortBy: Readonly<Record<"type" | "changed" | "uses", string>>;
     };
     readonly activity: {
       readonly failed: string;
@@ -643,8 +643,6 @@ export interface Dictionary {
       readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;
       /** A section whose heading is not one of the four; `null` for text before the first heading. */
       readonly otherSection: (heading: string | null) => string;
-      readonly beforeHeadings: string;
-      readonly count: (count: number) => string;
       readonly empty: string;
       readonly notEntry: string;
       readonly domainTitle: (name: string) => string;

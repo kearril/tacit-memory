@@ -765,8 +765,6 @@ export const en: Dictionary = {
     workstreams: {
       failed: "Could not read the workstreams",
       listLabel: "Workstreams",
-      established: "Established",
-      unestablished: "Not established",
       unestablishedHint:
         "Pages or activities use this name, but it is not established as a workstream; consolidation can propose establishing it.",
       none: "No workstreams yet",
@@ -774,11 +772,9 @@ export const en: Dictionary = {
       lastActivity: (day) => `Last activity ${day}`,
       weeks: (count) => `Activity over the last ${count} weeks`,
       week: (monday, count) => `Week of ${monday}: ${count === 1 ? "1 activity" : `${count} activities`}`,
-      pick: "Pick a workstream on the left to see its brief.",
-      back: "Workstreams",
+      pick: "Pick a workstream above to see its brief.",
       notFound: "There is no such workstream",
       briefFailed: "Could not read the workstream brief",
-      background: "Background",
       recent: "Recent",
       notEstablished: "Not established",
       conventions: "Conventions",
@@ -790,6 +786,10 @@ export const en: Dictionary = {
       viewAll: "See all in activity",
       empty: "None",
       lastUse: (day) => `Last recalled ${day}`,
+      openCount: (count) => (count === 1 ? "1 open item" : `${count} open items`),
+      sourceFile: "Source file",
+      columnTitle: "Title",
+      sortBy: { type: "Type", changed: "Changed", uses: "Recalled" },
     },
     persona: {
       failed: "The persona could not be read",
@@ -812,8 +812,6 @@ export const en: Dictionary = {
       },
       otherSection: (heading) =>
         heading === null ? "Text before the first heading" : `Unrecognized section "${heading}"`,
-      beforeHeadings: "Text before the first heading",
-      count: (count) => (count === 1 ? "1 entry" : `${count} entries`),
       empty: "No entries yet",
       notEntry: "This line is not an entry and is not read",
       domainTitle: (name) => `Domain · ${name}`,
