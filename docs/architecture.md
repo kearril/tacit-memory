@@ -65,12 +65,14 @@ flowchart LR
 | 初始化 | 生成 `config.yaml` 与空的 `prompts/` 目录，创建记忆仓库骨架 | 已实现 |
 | 配置 | 逐项读取并校验 `config.yaml`，一次报告全部出错的键路径；三个模型各为一个可空的 `ModelConfig`（`provider`、`url`、`model`、可选的 `apiKey`），`provider` 缺省为通用协议（`ModelProvider.Generic`），`cloudflare` 不区分大小写（`ModelProvider.Cloudflare`），其他值报错并列出可用取值；`null` 即未配置（`models` 段或某个映射缺失，不报错；映射存在而 `url` 或 `model` 为空则报错），`url` 原样保存；密钥（`models.{embedding,reranker,decision}.apiKey`、`backup.webdav.password`）在加载时解析，环境变量优先，结果保存值与来源；读取并校验 `prompts/` 下的提示词文档（规则见 `docs/reference/configuration.md`「提示词文档」）；校验服务端说明的固定部分长度（见 `docs/design.md` 第 8 节）。配置写出器 `ConfigWriter` 把 `ConfigFile`（文件形态、未经校验，文件省略的键为 `null`）整份写出：键按配置参考的顺序，不带注释，只写与默认不同的键（默认值集中在 `ConfigDefaults`），以替换的方式写入，写到一半失败时保留原文件。`ConfigSchema` 描述每个键接受什么（数值范围、可选值、是否要重启、是否只读）与各密钥的来源，供设置页显示；是否有效仍由加载器判定 | 已实现 |
 | 重新加载 | `MemoryService` 分两层：外壳随进程存在（排序工作的锁、启动时间、额外监听的结果、访问控制、客户端记录与定时器）；运行时由配置决定（派生索引、辅助模型、记忆工具、备份与文件监听），只经 `OpenRuntime` 建立，启动与每次重新加载走同一条路径。`ReloadCore` 关闭运行时后按新配置重开，五个需重启的项保留运行中的值，失败时按原配置重开（再失败则 `Failed` 完成，`serve` 随之退出）；之后重新生成 skill、重渲染各绑定的常驻区块，并返回文件与运行中不同的需重启项（`RestartChange`）。`SaveConfigAsync` 比对设置页读取时的文件哈希（文件已被改动则拒绝）、并入文件中的密钥与本次改写的密钥、校验后写出并重新加载，重新加载失败时写回原文件；带配置的恢复在恢复完成后调用同一个 `ReloadCore` | 已实现 |
-| 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享；每次写入：校验 → 凭据检测 → 判断 → 改文件 → Git 提交 → 同步索引 → 必要时补齐向量、重渲染常驻区块、自动备份 | 已实现 |
+| 串行写入 | 写入与后台任务经 `MaintenanceGate` 的写入模式依次进行（同一时间一个），读取经读取模式与之共享。写入锁由 `MemoryService` 的三个写入入口取得，包住写入工具的校验、凭据检测、判断与写入，因此判断读到的状态与写入时一致 | 已实现 |
+| 记忆写入 | `MemoryWriter`：三个写入工具都把改好的文件交给它，一次一个文件（相对路径、新文本、是否带 BOM、提交标题与来源种类：细节页、活动、画像、候选）。内容没变就不写；文件已存在时以一次 `git status --porcelain` 判断已提交、有改动或未跟踪，后两种在提交标题后加 `(with user edits)`；以替换的方式写入，保持 BOM；已跟踪的文件一次 `git commit -- <路径>`，未跟踪与新文件先 `add`，都只提交这一个文件。提交失败时通知用户，回复中说明文件已保存、下次写这个文件时一并提交，工具结果标为错误。只要文件写入了，不论提交是否成功：按来源种类同步派生索引（该页、活动、画像与候选的判断单元），细节页与活动补齐向量（嵌入模型不可用时回复附提示），再通知 `MemoryService` 哪类来源已写入，由它使服务端说明缓存失效、安排自动备份，画像另安排重渲染常驻区块。工具在 `WriteOutcome.Reply` 上组装回复 | 已实现 |
+| 仓库布局 | `MemoryLayout`：记忆仓库里每种文件与目录的相对路径（画像、候选、主线文件，活动目录与月文件，细节页目录、主线页目录与单页，派生索引目录与数据库文件）与由相对路径得到的完整路径；只给路径，不读不解析。读写两侧的路径都经它取得 | 已实现 |
 | 维护操作 | `MemoryService.RunMaintenanceAsync`：独占 `MaintenanceGate`，先等在途的向量补齐、判断与自动备份结束，再执行；期间其他读写与后台任务排队（范围见 `docs/design.md` 第 12 节「服务运行」）。`reindex`（`ReindexAsync`）、`restore`（`RestoreAsync`）与设置页的保存（`SaveConfigAsync`）都是维护操作；恢复的校验在 `Backup/RestoreArchive`，换入与回退在 `Backup/RestoreInstall`（`Maintenance/MoveJournal` 记录每次移动并逆序撤销）。 | 已实现 |
 | 主线文件 | `Workstreams/WorkstreamFile`：解析 `workstreams.md`，给出已成立的主线（名字、背景说明、近期摘要）与格式问题；常驻区块与主线简报读取它 | 已实现 |
-| 近期活动 | 写入活动（`text`、`replaces`）：按日定位标题并保留其余字节、计算活动短码；回复只附新短码。主线不经写入路径，由整理直接编辑 `workstreams.md` | 已实现 |
-| 画像写入 | `write_persona` 的四个操作：参数按 `op` 校验，经校验与判断（画像冲突、同一偏好）后按行修改画像或候选文件，经串行队列写入并提交；画像变化时重渲染常驻区块。行为见 `docs/design.md` 第 6 节 | 已实现 |
-| 细节页写入 | `write_page` 的四个操作（`create`、`upsert_section`、`delete_section`、`update_header`）：参数按 `op` 校验，凭据检测，小节以短码定位，只改写本次文件并提交，写入后同步该页的索引 | 已实现 |
+| 近期活动 | 写入活动（`text`、`replaces`）：按日定位标题并保留其余字节、计算活动短码，改好的月文件交给 `MemoryWriter`；回复只附新短码。主线不经写入路径，由整理直接编辑 `workstreams.md` | 已实现 |
+| 画像写入 | `write_persona` 的四个操作：参数按 `op` 校验，经校验与判断（画像冲突、同一偏好）后按行修改画像或候选文件，交给 `MemoryWriter`；判断前 `MemoryService` 先同步画像与候选的判断单元，使手动编辑也被判断看到。行为见 `docs/design.md` 第 6 节 | 已实现 |
+| 细节页写入 | `write_page` 的四个操作（`create`、`upsert_section`、`delete_section`、`update_header`）：参数按 `op` 校验，凭据检测，小节以短码定位，改好的页交给 `MemoryWriter` | 已实现 |
 | Markdown 读写 | 解析各文件格式（识别所有语言的结构词）、按行定位修改、计算短码；解析时同时返回格式问题（文件、位置、说明），由整理报告生成时当场使用；解析 `candidates.md` 的候选与拒绝列表及其出现记录，并按行追加出现记录 | 已实现 |
 | 画像读取 | `recall` 的 `kind=persona` 与 `rules`：`PersonaReading` 渲染整份画像或领域规则，每条附短码，原话注释不输出；不经派生索引、不计使用统计。行为见 `docs/design.md` 第 7 节 | 已实现 |
 | 派生索引与检索 | SQLite FTS5 与 `vec0` 建表与增量同步；索引按来源（细节页、活动记录、画像与候选文件）组织，单元携带类型、主线与日期；画像每条与每个候选各为一个单元，供判断按来源取嵌入近邻（写入前后与手动编辑后同步），检索永不返回；中文两字切分；RRF 合并；reranker 精排；索引版本校验；`Rebuild` 删除并重建索引文件，全文、单元、向量与判断缓存一并清空，之后按文件重新同步；`judgment_cache` 表保存整理判断的概率，键为提问内容的哈希，三档在读取时按阈值计算；小节保存内容哈希与最后变化日期，单元保存返回次数与最近返回日期（使用统计，见 `docs/design.md` 第 7 节） | 已实现 |
@@ -88,7 +90,7 @@ flowchart LR
 | 整理报告 | 现场计算报告（`Consolidation/`），由 `ConsolidationResource` 作为资源 `tacit://consolidation-report` 的正文返回：前面加上今天的日期、记忆仓库绝对路径与 `git -C` 用法。报告内容包括上次整理基准（最近的 `consolidate:` 提交，否则 `init:`，都没有则从未整理）；疑似重复的页与互相冲突的画像条目经判断工作池与限时会话取得答案（`JudgmentPool`、`JudgmentSession`）；违反格式或规则（`FormatViolations`，生成报告时重新解析全部记忆文件）；待清理的画像候选；待汇总的周与月和主线材料（`SummaryMaterial`，读取活动记录的汇总行与 `workstreams.md` 中已成立主线的当前条目及其新活动）；B 部分的主线提案材料（`WorkstreamProposals`，确定性生成，不调用模型）、领域卫生（`DomainHygiene`）与篇幅提示（`LengthHints`，只提示不拒绝）。报告分 A、B 两部分，各类的计算方式、限时与缓存规则见 `docs/design.md` 第 9 节。`ConsolidationReport` 按两部分组装各类，无内容的类别写 `None.`；整理提示（`ConsolidationReminder`）复用其中不调模型的部分 | 已实现 |
 | 状态报告 | `Status/`：`tacit status` 与管理 API `/api/status` 共用的各栏生成代码，服务运行与否内容一致；只有辅助模型栏例外，离线时只列未配置的模型（`StatusReporter.OfflineAsync`）。配置无效时（`InvalidConfigStatus`）只产出配置栏、服务栏与日志栏，端口与语言由门面 `ReadLooseSettings` 宽松读取，CLI 探测服务，服务应答时并入其报告。绑定检查只读（上下文文件、UTF-8、起止标记、三个 skill 链接，缺哪个或指向别处就指出哪个，不渲染、不写任何文件）；共用的上下文文件或 skill 目录只检查一次，问题挂在第一个引用它的绑定上，`BindingCheck.SharedWith` 列出共用的其他绑定；上次整理与待处理问题复用 `ConsolidationSummary`，与整理提示同一入口，不调模型；最近本地备份取 `Backup/LocalBackups` 列出的第一份，云端备份一行读取 `backups/remote.json`，不访问网络；密钥只报来源，不显示值 | 已实现 |
 | 备份与恢复 | `Backup/`：`BackupArchive` 是所有备份共用的打包（同一份内容清单，清单类型为 `BackupManifest`，含 `kind` 与 `memoryHeadSubject`，HEAD 由 `MemoryCommit` 读取一次）；自动备份（`AutomaticBackup`，每日一份，在写入锁下打包（作为写入槽的后台任务），保留 `backup.keep`，只清理 `auto-*`）、手动备份（`ManualBackup`，在写入队列中打包，`--to` 指定目录，不清理）与保险备份（恢复前生成，不清理）已实现，时间戳与同秒重名拒绝由 `BackupNames` 统一。`LocalBackups` 列出 `backups/` 下的本地备份（按文件名前缀 `auto-`、`manual-`、`pre-restore-` 分出三种，按写入时间从新到旧），连同云端是否已配置与 `remote.json` 中的上次尝试（读不了时视为没有），供管理 API `/api/backups` 与状态报告的备份栏共用，不访问网络。云端备份（`CloudBackup`，`tacit backup --remote`）在写入锁下打包到临时目录，锁外由 `WebDavClient` 上传为 `.part` 再 MOVE 覆盖远端 `tacit-backup.zip`，每次尝试记入 `backups/remote.json`，不在本地留副本。恢复：`RestoreArchive` 打开并校验备份，`RestorePreviewBuilder` 生成预览（`--include-config` 时检查备份中的 `config.yaml`），`RestoreInstall` 负责文件操作（保险备份、暂存、交换、撤销，经 `Maintenance/MoveJournal`），`MemoryService` 只编排维护操作的门与后续步骤（索引、监听、常驻区块）。云端恢复（`CloudDownload`）先下载到 `backups/.download/`，之后走同一流程 | 已实现 |
-| Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、按文件提交、查询提交时间 | 已实现 |
+| Git | 经 `SimpleExec` 调用 `git` 命令行：初始化、单个文件的状态与提交、查询提交时间 | 已实现 |
 | 文件同步 | 运行时以 `FileSystemWatcher` 监听记忆仓库与 `TACIT_HOME/prompts/` 目录，去抖后按哈希同步索引、使服务端说明缓存失效或重渲染常驻区块；提示词文档逐个文件重读，校验与保留上一版的规则见 `docs/reference/configuration.md`「提示词文档」；监听出错或 `prompts/` 被删除时，下一次重读重建监听并重新生成文件；启动时按哈希增量同步索引；服务自身写入后立即同步，随后的监听事件因哈希相同不再处理；后台的索引同步、常驻区块重渲染与提示词重载与服务自身的写入经同一把写入模式串行执行，维护操作期间排队（写入以替换文件的方式完成，后台读取中的文件会使替换失败），后台读取以允许他人写入的方式打开文件，外部编辑器或手动修改不因此失败 | 已实现 |
 | 格式问题 | `Formats/`：`FormatIssue` 与 `FormatHandling`，记忆文件的各个解析器（细节页、画像、候选、活动记录、主线文件）报告格式问题时共用的类型。它位于这些模块之下，整理报告只是它的使用者之一，因此解析器不依赖 `Consolidation/` | 已实现 |
 | 客户端能力记录 | `ClientRecords/`：`ClientRecordStore` 的实现；`ClientObservation`（Core 根目录的契约）是核心的公开输入（名称、版本、协议版本、能力与扩展标识的普通值；版本只进日志，不保存）；`ClientRecordStore` 读写 `TACIT_HOME/clients.json`，按名称（忽略大小写）一条记录，能力与扩展取历次声明的并集，持有自己的锁，不经写入队列；只在新客户端、协议版本变了或并集变大时写一条日志，同一天的重复请求不写文件。入口为 `MemoryService.RecordClient`，状态报告的客户端栏经 `ReadFor` 读同一文件。读取 SDK 声明的入站过滤器在 `Mcp` 层（`ServiceHost.RecordClients`），2026-07-28 从请求的元数据取、旧版本从 `initialize` 参数取。行为见 `docs/design.md` 第 12 节 | 已实现 |
@@ -100,13 +102,13 @@ flowchart LR
 
 ### 写入
 
-1. MCP 工具调用进入常驻服务 `MemoryService`，按 `op` 校验参数，排入串行队列；
-2. 校验上限与必填线索；凭据检测；核对短码；
+1. MCP 工具调用进入常驻服务 `MemoryService`，取得写入锁，交给对应的写入工具；
+2. 写入工具按 `op` 校验参数，校验上限与必填线索；凭据检测；核对短码；
 3. 需要时由决策模型判断（重复页取嵌入近邻作候选，同主题取当天的活动，画像冲突取全局与同作用域条目的嵌入近邻，同一偏好取候选、拒绝列表与画像的嵌入近邻）；
-4. 按行修改 Markdown 文件；
-5. 用 `git` 只提交本次写入的文件；
-6. 同步受影响的索引条目（写入后立即同步，随后的文件监听事件因哈希相同而跳过）；
-7. 画像、主线、汇总或主线集合变化时重新渲染常驻区块；当天首次写入后触发自动备份。
+4. 按行算出 Markdown 文件的新文本，连同提交标题与来源种类交给 `MemoryWriter`；
+5. `MemoryWriter` 写入文件，用 `git` 只提交这一个文件；
+6. 同步受影响的索引条目，细节页与活动补齐向量（写入后立即同步，随后的文件监听事件因哈希相同而跳过）；提交失败时这一步与下一步照做；
+7. `MemoryService` 收到哪类来源已写入：使服务端说明缓存失效，当天首次写入后触发自动备份，画像变化时重新渲染常驻区块。主线、汇总或主线集合由整理手动编辑，经文件监听重新渲染。
 
 调用 `git` 一律加 `-c core.quotepath=off` 并以 UTF-8 读取输出，避免中文路径被转义或乱码。
 
