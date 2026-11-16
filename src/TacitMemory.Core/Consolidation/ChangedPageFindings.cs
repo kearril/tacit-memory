@@ -29,7 +29,7 @@ internal static class ChangedPageFindings
             var dates = services.Index.SectionChanges(id);
             var latest = dates.Count > 0 ? dates.Values.Max() : document.Header.Last ?? DateOnly.MinValue;
 
-            var size = new FileInfo(Path.Combine(memory, id.RelativePath)).Length;
+            var size = new FileInfo(MemoryLayout.Full(memory, id.RelativePath)).Length;
             var sections = document.Sections.Count == 0
                 ? "none"
                 : string.Join(", ", document.Sections.Select(section => dates.TryGetValue(section.Name, out var day) ? $"{section.Name} ({day:yyyy-MM-dd})" : section.Name));

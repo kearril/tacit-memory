@@ -18,7 +18,7 @@ internal static class ConflictingEntries
         ConsolidationContext context, ConsolidationServices services, JudgmentSession judgments, CancellationToken cancellationToken)
     {
         var config = context.Config;
-        var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
+        var persona = PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona));
         if (persona is null)
             return () => Task.FromResult(new ConsolidationSection(ConsolidationTitles.ConflictingEntries, [], NotReadable));
 
@@ -69,7 +69,7 @@ internal static class ConflictingEntries
     {
         if (context.Baseline.Commit is not { } commit)
             return null;
-        var text = await context.Git.ShowAsync(commit.Hash, PersonaFiles.Persona, cancellationToken);
+        var text = await context.Git.ShowAsync(commit.Hash, MemoryLayout.Persona, cancellationToken);
         return PersonaDocument.Parse(text ?? "").CodesByLine().Values.ToHashSet(StringComparer.Ordinal);
     }
 

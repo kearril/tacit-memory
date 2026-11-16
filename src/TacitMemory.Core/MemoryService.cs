@@ -143,7 +143,7 @@ public sealed class MemoryService : IDisposable
             models = new AuxiliaryModels(config, _options.Time, _log);
             index = new MemoryIndex(
                 config.MemoryPath, config.Models.Embedding?.Model, config.Language,
-                () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
+                () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
             index.SyncAll();
             watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         }
@@ -1464,13 +1464,13 @@ public sealed class MemoryService : IDisposable
             var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
             foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
             {
-                if (relative == PersonaFiles.Persona || AffectsResident(relative))
+                if (relative == MemoryLayout.Persona || AffectsResident(relative))
                     ScheduleRender();
-                if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
+                if (relative is MemoryLayout.Persona or MemoryLayout.Candidates)
                     ScheduleIndexSync();
                 if (AffectsInstructions(relative))
                     InvalidateInstructions();
-                if (relative == PageId.Folder || relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                if (relative == MemoryLayout.Pages || relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal))
                     ScheduleIndexSync();
             }
         }
@@ -1507,9 +1507,9 @@ public sealed class MemoryService : IDisposable
     /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
     /// </summary>
     private static bool AffectsResident(string relative) =>
-        relative == WorkstreamFile.RelativePath
-        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
-        || relative == PageId.Folder || (relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal) && relative.IndexOf('/', PageId.Folder.Length + 1) < 0);
+        relative == MemoryLayout.Workstreams
+        || relative == MemoryLayout.Recent || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal)
+        || relative == MemoryLayout.Pages || (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) && relative.IndexOf('/', MemoryLayout.Pages.Length + 1) < 0);
 
     /// <summary>Arms the timer for the next local midnight.</summary>
     private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
@@ -1536,9 +1536,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
     private static bool AffectsInstructions(string relative) =>
-        relative is PersonaFiles.Persona or PersonaFiles.Candidates or WorkstreamFile.RelativePath
-        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
-        || relative == PageId.Folder || relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal)
+        relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
+        || relative == MemoryLayout.Recent || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal)
+        || relative == MemoryLayout.Pages || relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal)
         || IsGitHistory(relative);
 
     /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>

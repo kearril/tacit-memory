@@ -479,6 +479,6 @@ internal sealed class PageTools(
     private static string SectionList(PageDocument document) =>
         string.Join('\n', document.Sections.Select(section => $"- {section.Name} [{section.Code}]"));
 
-    private string PathOf(PageId id) => Path.Combine(config.MemoryPath, PageId.Folder, id.Workstream, id.Slug + ".md");
+    private string PathOf(PageId id) => MemoryLayout.Full(config.MemoryPath, id.RelativePath);
 
 }

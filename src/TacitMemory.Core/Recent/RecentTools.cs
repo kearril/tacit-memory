@@ -78,8 +78,8 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         }
 
         var day = options.Today;
-        var relative = RecentFile.RelativePath(day);
-        var path = Path.Combine(config.MemoryPath, relative);
+        var relative = MemoryLayout.RecentMonth(day);
+        var path = MemoryLayout.Full(config.MemoryPath, relative);
         var read = TextFile.Read(path);
         if (read is null)
             return ToolText.Refuse(

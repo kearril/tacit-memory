@@ -69,7 +69,7 @@ public sealed class MemoryPersonaTests : IDisposable
     [Fact]
     public async Task Every_block_and_entry_is_read_with_its_continuation_code_and_sources()
     {
-        Write(PersonaFiles.Persona, Persona);
+        Write(MemoryLayout.Persona, Persona);
 
         var report = await Service.PersonaAsync();
 
@@ -102,7 +102,7 @@ public sealed class MemoryPersonaTests : IDisposable
     [Fact]
     public async Task Candidates_and_the_rejection_list_are_read_with_their_occurrences()
     {
-        Write(PersonaFiles.Candidates, Candidates);
+        Write(MemoryLayout.Candidates, Candidates);
 
         var report = await Service.PersonaAsync();
 
@@ -120,8 +120,8 @@ public sealed class MemoryPersonaTests : IDisposable
     [Fact]
     public async Task Missing_files_read_as_an_empty_persona_with_no_problem()
     {
-        File.Delete(Path.Combine(_home.DefaultMemory, PersonaFiles.Persona));
-        File.Delete(Path.Combine(_home.DefaultMemory, PersonaFiles.Candidates));
+        File.Delete(Path.Combine(_home.DefaultMemory, MemoryLayout.Persona));
+        File.Delete(Path.Combine(_home.DefaultMemory, MemoryLayout.Candidates));
 
         var report = await Service.PersonaAsync();
 
@@ -137,7 +137,7 @@ public sealed class MemoryPersonaTests : IDisposable
     [Fact]
     public async Task Format_problems_are_listed_by_line_and_the_rest_is_read_as_usual()
     {
-        Write(PersonaFiles.Persona, """
+        Write(MemoryLayout.Persona, """
             ## 红线
             - 不要删库
             - 不要强推；改为开分支
@@ -147,7 +147,7 @@ public sealed class MemoryPersonaTests : IDisposable
             - 沟通：先要结论
 
             """);
-        Write(PersonaFiles.Candidates, """
+        Write(MemoryLayout.Candidates, """
             ## 候选
 
             ### 没有归属的候选
@@ -172,7 +172,7 @@ public sealed class MemoryPersonaTests : IDisposable
     [Fact]
     public async Task A_persona_that_is_not_utf8_is_one_problem_and_no_entry()
     {
-        File.WriteAllBytes(Path.Combine(_home.DefaultMemory, PersonaFiles.Persona), [0xff, 0xfe, 0x41, 0x80]);
+        File.WriteAllBytes(Path.Combine(_home.DefaultMemory, MemoryLayout.Persona), [0xff, 0xfe, 0x41, 0x80]);
 
         var report = await Service.PersonaAsync();
 
@@ -185,7 +185,7 @@ public sealed class MemoryPersonaTests : IDisposable
     [Fact]
     public async Task Reading_the_persona_counts_nothing()
     {
-        Write(PersonaFiles.Persona, Persona);
+        Write(MemoryLayout.Persona, Persona);
         var pages = Service.PageUsages();
         var activities = Service.ActivityUsages();
 

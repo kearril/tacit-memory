@@ -63,17 +63,17 @@ internal static class FormatViolations
     private static IEnumerable<string> MemoryFiles(string memoryPath)
     {
         var files = new List<string>();
-        AddFiles(files, memoryPath, PageId.Folder, SearchOption.AllDirectories);
-        AddFiles(files, memoryPath, RecentFile.Folder, SearchOption.TopDirectoryOnly);
-        foreach (var file in new[] { PersonaFiles.Persona, PersonaFiles.Candidates, WorkstreamFile.RelativePath })
-            if (File.Exists(Path.Combine(memoryPath, file)))
+        AddFiles(files, memoryPath, MemoryLayout.Pages, SearchOption.AllDirectories);
+        AddFiles(files, memoryPath, MemoryLayout.Recent, SearchOption.TopDirectoryOnly);
+        foreach (var file in new[] { MemoryLayout.Persona, MemoryLayout.Candidates, MemoryLayout.Workstreams })
+            if (File.Exists(MemoryLayout.Full(memoryPath, file)))
                 files.Add(file);
         return files.Order(StringComparer.Ordinal);
     }
 
     private static void AddFiles(List<string> files, string memoryPath, string folder, SearchOption search)
     {
-        var directory = Path.Combine(memoryPath, folder);
+        var directory = MemoryLayout.Full(memoryPath, folder);
         if (!Directory.Exists(directory))
             return;
         files.AddRange(Directory.EnumerateFiles(directory, "*.md", search)
@@ -83,20 +83,20 @@ internal static class FormatViolations
     /// <summary>The issues of one file, <paramref name="relative"/> to the repository, with an empty <see cref="FormatIssue.File"/>.</summary>
     internal static List<FormatIssue> FileIssues(TacitConfig config, string relative)
     {
-        var read = TextFile.Read(Path.Combine(config.MemoryPath, relative));
+        var read = TextFile.Read(MemoryLayout.Full(config.MemoryPath, relative));
         if (read is not { } text)
             return [new FormatIssue("", "file", "encoding", "The file is not valid UTF-8, so the service skips it. Re-save it as UTF-8 without changing its text.", FormatHandling.FixDirectly)];
 
         var issues = new List<FormatIssue>(MixedStructureWords(text.Text));
-        if (relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal))
+        if (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal))
             issues.AddRange(PageFormatCheck.Check(config.MemoryPath, relative, text.Text, config.Limits.Page));
-        if (relative == PersonaFiles.Persona)
+        if (relative == MemoryLayout.Persona)
             issues.AddRange(PersonaFormatCheck.Check(text.Text, config));
-        if (relative == PersonaFiles.Candidates)
+        if (relative == MemoryLayout.Candidates)
             issues.AddRange(CandidatesFormatCheck.Check(text.Text));
-        if (relative == WorkstreamFile.RelativePath)
+        if (relative == MemoryLayout.Workstreams)
             issues.AddRange(WorkstreamFile.Parse(text.Text).Problems);
-        if (relative.StartsWith(RecentFile.Folder + "/", StringComparison.Ordinal))
+        if (relative.StartsWith(MemoryLayout.Recent + "/", StringComparison.Ordinal))
             issues.AddRange(RecentFormatCheck.Check(text.Text, relative));
         return issues;
     }

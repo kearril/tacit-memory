@@ -10,7 +10,7 @@ internal static partial class MemoryFileReport
     /// <summary>The file <paramref name="relative"/> to the repository; a missing file has no problem.</summary>
     public static MemoryFileInfo Of(TacitConfig config, string relative)
     {
-        var path = Path.GetFullPath(Path.Combine(config.MemoryPath, relative));
+        var path = Path.GetFullPath(MemoryLayout.Full(config.MemoryPath, relative));
         var problems = File.Exists(path) ? FormatViolations.FileIssues(config, relative).Select(Problem).ToList() : [];
         return new MemoryFileInfo(path, problems);
     }

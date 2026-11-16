@@ -34,7 +34,7 @@ internal static class WorkstreamBrowse
                 .Where(name => !names.Contains(name) && PageId.IsWorkstreamName(name))
                 .Order(StringComparer.Ordinal)
                 .Select(name => Item(name, null, null))],
-            MemoryFileReport.Of(config, WorkstreamFile.RelativePath));
+            MemoryFileReport.Of(config, MemoryLayout.Workstreams));
     }
 
     /// <summary>The brief of <paramref name="workstream"/>.</summary>
@@ -48,7 +48,7 @@ internal static class WorkstreamBrowse
 
         var established = WorkstreamFile.Established(config.MemoryPath).Any(entry => entry.Name == workstream);
         var conventions = parts.Conventions is { } block
-            ? PersonaBrowse.BlockSections(block, (PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona)) ?? new PersonaDocument([], [])).CodesByLine())
+            ? PersonaBrowse.BlockSections(block, (PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona)) ?? new PersonaDocument([], [])).CodesByLine())
             : [];
         var groups = GroupOrder
             .Select(type => new BriefPageGroup(type, [.. parts.Entries.Where(entry => TypeOf(entry) == type).Select(Page)]))
@@ -77,7 +77,7 @@ internal static class WorkstreamBrowse
     private static Dictionary<string, int> PageCounts(string memoryPath)
     {
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        var folder = Path.Combine(memoryPath, PageId.Folder);
+        var folder = MemoryLayout.Full(memoryPath, MemoryLayout.Pages);
         if (!Directory.Exists(folder))
             return counts;
         foreach (var directory in Directory.EnumerateDirectories(folder))

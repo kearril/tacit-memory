@@ -100,7 +100,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     /// </summary>
     private List<Entry> PageEntries(string workstream, DateOnly? from, DateOnly? to)
     {
-        var folder = Path.Combine(config.MemoryPath, PageId.Folder, workstream);
+        var folder = MemoryLayout.Full(config.MemoryPath, MemoryLayout.WorkstreamPages(workstream));
         if (!Directory.Exists(folder))
             return [];
 
@@ -145,7 +145,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
 
     /// <summary>The workstream-scope block of the persona; <c>null</c> when it has none.</summary>
     private PersonaBlock? Conventions(string workstream) =>
-        PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona))?.BlockOf(new PersonaScope(PersonaScopeKind.Workstream, workstream));
+        PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona))?.BlockOf(new PersonaScope(PersonaScopeKind.Workstream, workstream));
 
     /// <summary>The conventions as the brief lists them: each entry with its non-comment continuation lines.</summary>
     private static List<string> ConventionLines(PersonaBlock? block) =>

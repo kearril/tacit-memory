@@ -42,7 +42,7 @@ internal static class PageBrowse
         var raw = $"{workstream}/{slug}";
         if (!PageId.TryParse(raw, out var id, out var problem))
             throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.PageIdInvalid.Format(config.Language, raw, problem));
-        if (!File.Exists(Path.Combine(config.MemoryPath, id.RelativePath)))
+        if (!File.Exists(MemoryLayout.Full(config.MemoryPath, id.RelativePath)))
             throw new TacitException(TacitError.MemoryNotFound, ManagementApiMessages.PageNotFound.Format(config.Language, raw));
 
         var document = PageDocument.TryLoad(config.MemoryPath, id);
@@ -53,7 +53,7 @@ internal static class PageBrowse
         var returns = index.SectionReturns(id);
         var uses = index.PageUsages().FirstOrDefault(row => row.Page == id.ToString())?.Count ?? 0;
         var related = header.Related
-            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(Path.Combine(config.MemoryPath, target.RelativePath))))
+            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(MemoryLayout.Full(config.MemoryPath, target.RelativePath))))
             .ToList();
         var sections = (document?.Sections ?? [])
             .Select(section => new PageSectionView(
@@ -66,7 +66,7 @@ internal static class PageBrowse
 
     private static IEnumerable<PageId> PageIds(string memoryPath)
     {
-        var folder = Path.Combine(memoryPath, PageId.Folder);
+        var folder = MemoryLayout.Full(memoryPath, MemoryLayout.Pages);
         if (!Directory.Exists(folder))
             return [];
         return Directory.EnumerateFiles(folder, "*.md", SearchOption.AllDirectories)

@@ -126,7 +126,7 @@ internal sealed partial class PageDocument
     /// <summary>Reads and parses <paramref name="id"/> from <paramref name="memoryPath"/>, or <c>null</c> when missing or not UTF-8.</summary>
     public static PageDocument? TryLoad(string memoryPath, PageId id)
     {
-        var path = Path.Combine(memoryPath, id.RelativePath);
+        var path = MemoryLayout.Full(memoryPath, id.RelativePath);
         if (!File.Exists(path) || Injection.TextFile.Read(path) is not { } read)
             return null;
         return Parse(read.Text, read.HasBom, id.Slug);

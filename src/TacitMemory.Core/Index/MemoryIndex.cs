@@ -160,7 +160,7 @@ internal sealed class MemoryIndex : IDisposable
         Func<DateOnly> today, Func<IReadOnlyDictionary<string, DateOnly>> commitDays)
     {
         _memoryPath = memoryPath;
-        _databasePath = Path.Combine(memoryPath, ".cache", "index.db");
+        _databasePath = MemoryLayout.Full(memoryPath, MemoryLayout.IndexDatabase);
         _embeddingModel = embeddingModel;
         _today = today;
         _commitDays = commitDays;
@@ -226,8 +226,8 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
-            SyncJudgment(PersonaFiles.Persona, SourceKinds.Persona, KnownHash(PersonaFiles.Persona), PersonaUnits);
-            SyncJudgment(PersonaFiles.Candidates, SourceKinds.Candidates, KnownHash(PersonaFiles.Candidates), CandidateUnits);
+            SyncJudgment(MemoryLayout.Persona, SourceKinds.Persona, KnownHash(MemoryLayout.Persona), PersonaUnits);
+            SyncJudgment(MemoryLayout.Candidates, SourceKinds.Candidates, KnownHash(MemoryLayout.Candidates), CandidateUnits);
         }
     }
 
@@ -243,7 +243,7 @@ internal sealed class MemoryIndex : IDisposable
                 Remove(path);
             foreach (var (path, fullPath) in months)
                 SyncActivity(path, fullPath, known.GetValueOrDefault(path));
-            _skipped.RemoveWhere(path => path.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal) && !months.ContainsKey(path));
+            _skipped.RemoveWhere(path => path.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal) && !months.ContainsKey(path));
         }
     }
 
@@ -252,7 +252,7 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
-            var fullPath = Path.Combine(_memoryPath, id.RelativePath);
+            var fullPath = MemoryLayout.Full(_memoryPath, id.RelativePath);
             var known = _connection.QuerySingleOrDefault<string>("SELECT hash FROM sources WHERE path = @path", new { path = id.RelativePath });
             if (File.Exists(fullPath))
                 Sync(id, fullPath, known);
@@ -739,7 +739,7 @@ internal sealed class MemoryIndex : IDisposable
     /// </summary>
     private void SyncJudgment(string relativePath, string sourceKind, string? knownHash, Func<string, IReadOnlyList<JudgmentUnit>> unitsOf)
     {
-        var fullPath = Path.Combine(_memoryPath, relativePath);
+        var fullPath = MemoryLayout.Full(_memoryPath, relativePath);
         if (!File.Exists(fullPath))
         {
             Remove(relativePath);
@@ -794,7 +794,7 @@ internal sealed class MemoryIndex : IDisposable
     }
 
     /// <summary>Whether a source path is one of the two persona files.</summary>
-    private static bool IsJudgmentFile(string path) => path is PersonaFiles.Persona or PersonaFiles.Candidates;
+    private static bool IsJudgmentFile(string path) => path is MemoryLayout.Persona or MemoryLayout.Candidates;
 
     /// <summary>One unit of a persona file: its kind, the persona section it belongs to, its text, and the scope it is in.</summary>
     private sealed record JudgmentUnit(string Kind, PersonaSection Section, string Text, PersonaScope Scope);
@@ -868,7 +868,7 @@ internal sealed class MemoryIndex : IDisposable
     /// <summary>Page files named as page IDs: <c>pages/&lt;workstream&gt;/&lt;slug&gt;.md</c>. Other files are not pages.</summary>
     private IEnumerable<(PageId Id, string FullPath)> PageFiles()
     {
-        var pages = Path.Combine(_memoryPath, PageId.Folder);
+        var pages = MemoryLayout.Full(_memoryPath, MemoryLayout.Pages);
         if (!Directory.Exists(pages))
             yield break;
         foreach (var file in Directory.EnumerateFiles(pages, "*.md", SearchOption.AllDirectories))

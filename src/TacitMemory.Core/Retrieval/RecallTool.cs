@@ -139,11 +139,11 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         return ToolText.Ok(PersonaReading.Domains(persona, domains) ?? NoMemory);
     }
 
-    private string PersonaPath => Path.Combine(config.MemoryPath, PersonaFiles.Persona);
+    private string PersonaPath => MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona);
 
     private static ToolResult NotUtf8() => ToolText.Refuse(
-        $"{PersonaFiles.Persona} is not valid UTF-8, so it cannot be read.",
-        $"Save {PersonaFiles.Persona} as UTF-8, then call recall again with the same kind.");
+        $"{MemoryLayout.Persona} is not valid UTF-8, so it cannot be read.",
+        $"Save {MemoryLayout.Persona} as UTF-8, then call recall again with the same kind.");
 
     /// <summary>
     /// <c>recall</c> with only <c>workstream</c>: the workstream's brief. It takes <c>from</c> and <c>to</c> as its date range, and

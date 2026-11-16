@@ -33,7 +33,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
         ConsolidationContext context, ConsolidationServices services, JudgmentSession judgments, CancellationToken cancellationToken)
     {
         var config = context.Config;
-        var candidates = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Candidates));
+        var candidates = TextFile.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Candidates));
         if (candidates is null)
             return () => Task.FromResult<CandidateReview?>(null);
         // A manual edit may not have reached the index yet; the judgments search the index, so bring it up to date first.
@@ -43,7 +43,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
         var submitted = CandidatesDocument.Parse(candidates.Value.Text).Candidates
             .Select(candidate => (Candidate: candidate, Job: judgments.Submit(token => PrepareAsync(config.Language, services, candidate, token), threshold)))
             .ToList();
-        var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona)) ?? PersonaDocument.Parse("");
+        var persona = PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona)) ?? PersonaDocument.Parse("");
         var codes = PersonaCodesOf(persona);
 
         return async () =>

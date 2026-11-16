@@ -12,19 +12,19 @@ internal static class PersonaBrowse
 {
     public static PersonaReport Read(TacitConfig config)
     {
-        var personaPath = Path.Combine(config.MemoryPath, PersonaFiles.Persona);
-        var candidatesPath = Path.Combine(config.MemoryPath, PersonaFiles.Candidates);
+        var personaPath = MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona);
+        var candidatesPath = MemoryLayout.Full(config.MemoryPath, MemoryLayout.Candidates);
         var persona = PersonaDocument.Read(personaPath) ?? new PersonaDocument([], []);
         var candidates = TextFile.Read(candidatesPath) is var (text, _) ? CandidatesDocument.Parse(text) : new CandidatesDocument([], []);
         var codes = persona.CodesByLine();
 
         var blocks = persona.Blocks.OrderBy(block => block.Scope, Comparer<PersonaScope>.Create(PersonaScope.Compare)).ToList();
         return new PersonaReport(
-            MemoryFileReport.Of(config, PersonaFiles.Persona),
+            MemoryFileReport.Of(config, MemoryLayout.Persona),
             Sections(persona.Parts, codes, everyKind: true),
             [.. blocks.Where(block => block.Scope.Kind == PersonaScopeKind.Domain).Select(block => Block(block, codes))],
             [.. blocks.Where(block => block.Scope.Kind == PersonaScopeKind.Workstream).Select(block => Block(block, codes))],
-            MemoryFileReport.Of(config, PersonaFiles.Candidates),
+            MemoryFileReport.Of(config, MemoryLayout.Candidates),
             [.. candidates.Candidates.Select(Candidate)],
             [.. candidates.RejectionList.Select(Candidate)]);
     }

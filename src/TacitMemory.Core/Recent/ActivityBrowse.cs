@@ -23,8 +23,8 @@ internal static class ActivityBrowse
             || !DateOnly.TryParseExact(month + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var first))
             throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.ActivityMonthInvalid.Format(config.Language, month));
 
-        var relative = RecentFile.RelativePath(first);
-        var path = Path.Combine(config.MemoryPath, relative);
+        var relative = MemoryLayout.RecentMonth(first);
+        var path = MemoryLayout.Full(config.MemoryPath, relative);
         if (!File.Exists(path))
         {
             if (first.Year != today.Year || first.Month != today.Month)

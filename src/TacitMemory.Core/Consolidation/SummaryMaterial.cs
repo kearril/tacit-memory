@@ -33,7 +33,7 @@ internal static class SummaryMaterial
         {
             var lines = new List<string>
             {
-                $"- {period.Label} ({Day(period.First)} to {Day(period.Last)}): write its summary line in {RecentFile.RelativePath(period.First)}. Week summaries written in that month:",
+                $"- {period.Label} ({Day(period.First)} to {Day(period.Last)}): write its summary line in {MemoryLayout.RecentMonth(period.First)}. Week summaries written in that month:",
             };
             var weeks = summaries
                 .Where(summary => summary.Kind == SummaryKind.Week && SummaryLines.FileMonthOfWeek(summary.First) == period.First)
@@ -97,7 +97,7 @@ internal static class SummaryMaterial
     {
         var lines = new List<string>
         {
-            $"- {period.Label} ({Day(period.First)} to {Day(period.Last)}): write its summary line in {RecentFile.RelativePath(SummaryLines.FileMonthOfWeek(period.First))}. Activities ({period.Activities.Count}):",
+            $"- {period.Label} ({Day(period.First)} to {Day(period.Last)}): write its summary line in {MemoryLayout.RecentMonth(SummaryLines.FileMonthOfWeek(period.First))}. Activities ({period.Activities.Count}):",
         };
         var groups = period.Activities
             .GroupBy(activity => activity.Workstream)

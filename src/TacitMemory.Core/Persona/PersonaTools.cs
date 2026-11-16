@@ -114,8 +114,8 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (SecretCheck(request, text, source, ToolValues.WritePersonaOps.Add, trigger) is { } secret)
             return secret;
 
-        var relative = PersonaFiles.Persona;
-        var path = Path.Combine(config.MemoryPath, relative);
+        var relative = MemoryLayout.Persona;
+        var path = MemoryLayout.Full(config.MemoryPath, relative);
         var read = TextFile.Read(path);
         if (read is null)
             return NotUtf8(relative, "add");
@@ -215,8 +215,8 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (source.Length == 0)
             reasons.Add("Missing parameter source.");
 
-        var relative = PersonaFiles.Persona;
-        var path = Path.Combine(config.MemoryPath, relative);
+        var relative = MemoryLayout.Persona;
+        var path = MemoryLayout.Full(config.MemoryPath, relative);
         var read = TextFile.Read(path);
         if (read is null)
             return NotUtf8(relative, "replace");
@@ -263,8 +263,8 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     private async Task<ToolResult> DeleteAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
         var hash = (request.Hash ?? "").Trim();
-        var relative = PersonaFiles.Persona;
-        var path = Path.Combine(config.MemoryPath, relative);
+        var relative = MemoryLayout.Persona;
+        var path = MemoryLayout.Full(config.MemoryPath, relative);
         var read = TextFile.Read(path);
         if (read is null)
             return NotUtf8(relative, "delete");
@@ -321,8 +321,8 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (SecretCheck(request, text, source, ToolValues.WritePersonaOps.Propose) is { } secret)
             return secret;
 
-        var relative = PersonaFiles.Candidates;
-        var path = Path.Combine(config.MemoryPath, relative);
+        var relative = MemoryLayout.Candidates;
+        var path = MemoryLayout.Full(config.MemoryPath, relative);
         var read = TextFile.Read(path);
         if (read is null)
             return NotUtf8(relative, "propose");
@@ -409,7 +409,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// <summary>The answer for a proposal the persona already holds: the entry and its short code.</summary>
     private ToolResult? PersonaReply(PreferenceMatch same)
     {
-        var read = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
+        var read = TextFile.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona));
         if (read is null)
             return null;
         var persona = PersonaDocument.Parse(read.Value.Text);
