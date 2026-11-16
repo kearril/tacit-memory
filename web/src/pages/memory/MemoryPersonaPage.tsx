@@ -1,4 +1,4 @@
-import { ChevronDown, FolderGit2, Globe, Inbox, Tag, TriangleAlert } from "lucide-react";
+import { FolderGit2, Globe, Inbox, Tag, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import {
@@ -11,10 +11,10 @@ import {
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { BELOW_BARS } from "../../components/ui/sticky";
+import { Segmented } from "../../components/ui/segmented";
 import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
 import { FilePath, FileProblems } from "./parts";
@@ -33,7 +33,7 @@ import { CANDIDATES_ANCHOR } from "./views";
 /**
  * The persona view of the memory page, in a reading column, by section: a card for each of the four sections holding
  * the entries of every scope, each marked with its scope. A sticky bar of scopes above narrows the view to one, kept in
- * the address. The candidates follow, with the rejection list folded away, and the two files' paths close the page.
+ * the address. The candidates follow, with a switch to the rejection list, and the two files' paths close the page.
  * What a file holds in the wrong form is marked where it is; the rest reads as usual.
  */
 export function MemoryPersonaPage() {
@@ -238,7 +238,8 @@ function SectionCard({
 
 /**
  * The candidates: each in a dashed box with its section, scope and a dot for each day it was said on above its text.
- * The rejection list follows, folded away; unfolded, it shows each record's words and marks the day of the rejection.
+ * A switch in the head turns the card to the rejection list, which shows each record's words and marks the day of the
+ * rejection.
  */
 function CandidatesCard({
   file,
@@ -250,50 +251,34 @@ function CandidatesCard({
   readonly rejected: readonly CandidateView[];
 }) {
   const text = useDictionary().memory.persona;
-  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"waiting" | "rejected">("waiting");
+  const listed = view === "waiting" ? candidates : rejected;
   return (
     <Card id={CANDIDATES_ANCHOR} aria-labelledby="persona-candidates" className={BELOW_BARS}>
-      <div className="flex items-center gap-sm">
+      <div className="flex flex-wrap items-center gap-sm">
         <Inbox aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-accent" />
         <CardTitle id="persona-candidates">{text.candidatesTitle}</CardTitle>
-        <span className="text-sm text-ink-muted tabular-nums">{candidates.length}</span>
+        <Segmented
+          className="ml-auto"
+          label={text.candidateViews.label}
+          value={view}
+          onValueChange={setView}
+          options={[
+            { value: "waiting", label: text.candidateViews.waiting(candidates.length) },
+            { value: "rejected", label: text.candidateViews.rejected(rejected.length) },
+          ]}
+        />
       </div>
       <FileProblems problems={file.problems} />
-      {candidates.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.noCandidates}</p>
+      {listed.length === 0 ? (
+        <p className="text-sm text-ink-muted">{view === "waiting" ? text.noCandidates : text.noRejected}</p>
       ) : (
         <ul className="grid gap-sm">
-          {candidates.map((candidate, index) => (
-            <CandidateRow key={index} candidate={candidate} />
+          {listed.map((candidate, index) => (
+            <CandidateRow key={`${view}-${index}`} candidate={candidate} quotes={view === "rejected"} />
           ))}
         </ul>
       )}
-      <div className="grid gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-        <Button
-          type="button"
-          variant="ghost"
-          className="justify-self-start"
-          aria-expanded={open}
-          aria-controls="persona-rejected"
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronDown aria-hidden className={`transition-transform ${open ? "" : "-rotate-90"}`} />
-          {text.rejectedTitle(rejected.length)}
-        </Button>
-        {open ? (
-          <div id="persona-rejected">
-            {rejected.length === 0 ? (
-              <p className="text-sm text-ink-muted">{text.noRejected}</p>
-            ) : (
-              <ul className="grid gap-sm">
-                {rejected.map((candidate, index) => (
-                  <CandidateRow key={index} candidate={candidate} quotes />
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-      </div>
     </Card>
   );
 }

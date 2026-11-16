@@ -32,6 +32,7 @@ import { Card, CardTitle } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
+import { Segmented } from "../../components/ui/segmented";
 import { Select } from "../../components/ui/select";
 import { StickyBar } from "../../components/ui/sticky-bar";
 import { errorTextOf } from "../../i18n/messages";
@@ -689,22 +690,15 @@ function ResultsCard({
     <Card aria-labelledby="trace-results">
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <CardTitle id="trace-results">{text.resultsTitle(report.results.length)}</CardTitle>
-        <div role="group" aria-label={text.view.label} className="flex rounded-full bg-surface-raised p-xs">
-          {[false, true].map((option) => (
-            <button
-              key={String(option)}
-              type="button"
-              aria-pressed={raw === option}
-              onClick={() => setRaw(option)}
-              className={cn(
-                "cursor-pointer rounded-full px-sm py-xs text-xs transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-                raw === option ? "bg-surface font-medium text-ink shadow-rest" : "text-ink-muted hover:text-ink",
-              )}
-            >
-              {option ? text.view.raw : text.view.cards}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={text.view.label}
+          value={raw ? "raw" : "cards"}
+          onValueChange={(value) => setRaw(value === "raw")}
+          options={[
+            { value: "cards", label: text.view.cards },
+            { value: "raw", label: text.view.raw },
+          ]}
+        />
       </div>
       {raw ? (
         <pre className="overflow-auto rounded-md bg-surface-raised p-md font-mono text-xs break-words whitespace-pre-wrap">

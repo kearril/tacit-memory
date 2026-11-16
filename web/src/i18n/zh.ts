@@ -652,7 +652,7 @@ export const zh: Dictionary = {
         reranker: (cooling) => `reranker：${cooling ? "冷却中" : "调用失败"}`,
         notes: "Agent 收到的说明",
       },
-      view: { label: "结果的显示方式", cards: "卡片", raw: "原文" },
+      view: { label: "结果的显示方式", cards: "卡片", raw: "Agent 看到的原文" },
       unfold: (count) => `展开其余 ${count} 个`,
     },
     parts: {
@@ -758,8 +758,12 @@ export const zh: Dictionary = {
       candidatesTitle: "画像候选",
       candidateCount: (count) => `${count} 条`,
       noCandidates: "暂无候选",
-      rejectedTitle: (count) => `拒绝列表 · ${count}`,
-      noRejected: "拒绝列表为空",
+      candidateViews: {
+        label: "看待审的候选或拒绝列表",
+        waiting: (count) => `待审 ${count}`,
+        rejected: (count) => `已拒绝 ${count}`,
+      },
+      noRejected: "暂无拒绝记录",
       rejectedMark: "拒绝",
       days: (count) => `出现 ${count} 天`,
       quote: (words) => `「${words}」`,

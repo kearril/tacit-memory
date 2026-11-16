@@ -689,7 +689,12 @@ export interface Dictionary {
       readonly candidatesTitle: string;
       readonly candidateCount: (count: number) => string;
       readonly noCandidates: string;
-      readonly rejectedTitle: (count: number) => string;
+      /** The two views of the candidates card: the candidates waiting, and the rejection list. */
+      readonly candidateViews: {
+        readonly label: string;
+        readonly waiting: (count: number) => string;
+        readonly rejected: (count: number) => string;
+      };
       readonly noRejected: string;
       readonly rejectedMark: string;
       readonly days: (count: number) => string;

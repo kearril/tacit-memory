@@ -733,7 +733,7 @@ export const en: Dictionary = {
         reranker: (cooling) => `Reranker: ${cooling ? "cooling down" : "call failed"}`,
         notes: "What the agent is told",
       },
-      view: { label: "How to show the results", cards: "Cards", raw: "Raw text" },
+      view: { label: "How to show the results", cards: "Cards", raw: "What the agent sees" },
       unfold: (count) => `Show the other ${count}`,
     },
     parts: {
@@ -850,8 +850,12 @@ export const en: Dictionary = {
       candidatesTitle: "Persona candidates",
       candidateCount: (count) => (count === 1 ? "1 candidate" : `${count} candidates`),
       noCandidates: "No candidates",
-      rejectedTitle: (count) => `Rejection list · ${count}`,
-      noRejected: "The rejection list is empty",
+      candidateViews: {
+        label: "Show the candidates waiting or the rejection list",
+        waiting: (count) => `Waiting ${count}`,
+        rejected: (count) => `Rejected ${count}`,
+      },
+      noRejected: "No rejections yet",
       rejectedMark: "rejected",
       days: (count) => (count === 1 ? "said on 1 day" : `said on ${count} days`),
       quote: (words) => `"${words}"`,
