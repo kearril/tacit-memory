@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityMonthView } from "../../api/memory";
-import { activityParams, activityQueryOf, monthGrid, shiftMonth, timelineOf } from "./timeline";
+import { activityParams, activityQueryOf, monthDays, shiftMonth, timelineOf } from "./timeline";
 
 function item(code: string, workstream: string | null = null) {
   return { code, workstream, text: `活动 ${code}`, continuation: [] };
@@ -81,38 +81,19 @@ describe("timelineOf", () => {
   });
 });
 
-describe("monthGrid", () => {
-  it("lays the month out in weeks from Monday, with empty places before the first and after the last day", () => {
-    const grid = monthGrid("2026-10", new Map([["2026-10-05", 3]]));
+describe("monthDays", () => {
+  it("lists every day of the month from the first, with its count or none", () => {
+    const days = monthDays("2026-10", new Map([["2026-10-05", 3]]));
 
-    expect(grid).toHaveLength(5);
-    expect(grid[0]).toEqual([
-      null,
-      null,
-      null,
-      { date: "2026-10-01", count: 0 },
-      { date: "2026-10-02", count: 0 },
-      { date: "2026-10-03", count: 0 },
-      { date: "2026-10-04", count: 0 },
-    ]);
-    expect(grid[1]?.[0]).toEqual({ date: "2026-10-05", count: 3 });
-    expect(grid[4]).toEqual([
-      { date: "2026-10-26", count: 0 },
-      { date: "2026-10-27", count: 0 },
-      { date: "2026-10-28", count: 0 },
-      { date: "2026-10-29", count: 0 },
-      { date: "2026-10-30", count: 0 },
-      { date: "2026-10-31", count: 0 },
-      null,
-    ]);
+    expect(days).toHaveLength(31);
+    expect(days[0]).toEqual({ date: "2026-10-01", count: 0 });
+    expect(days[4]).toEqual({ date: "2026-10-05", count: 3 });
+    expect(days[30]).toEqual({ date: "2026-10-31", count: 0 });
   });
 
   it("knows February's length in a leap year", () => {
-    expect(
-      monthGrid("2028-02", new Map())
-        .flat()
-        .filter((cell) => cell !== null),
-    ).toHaveLength(29);
+    expect(monthDays("2028-02", new Map())).toHaveLength(29);
+    expect(monthDays("2027-02", new Map())).toHaveLength(28);
   });
 });
 

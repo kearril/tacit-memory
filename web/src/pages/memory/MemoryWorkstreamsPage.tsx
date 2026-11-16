@@ -358,10 +358,7 @@ function BriefBody({
               <li key={activity.code} className={cn("group grid gap-xs border-ink-muted/40", ENTRY_BOX)}>
                 <div className="flex items-center gap-sm text-xs text-ink-muted">
                   <span className="tabular-nums">{activity.date}</span>
-                  <CodePill
-                    code={activity.code}
-                    className="ml-auto opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-                  />
+                  <CodePill code={activity.code} reveal className="ml-auto" />
                 </div>
                 <p className="leading-(--tk-line-height-normal)">{activity.text}</p>
               </li>

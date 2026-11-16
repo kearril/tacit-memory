@@ -1,12 +1,10 @@
 import {
-  ChevronDown,
   CircleUserRound,
   Compass,
   FolderGit2,
   Globe,
   Heart,
   type LucideIcon,
-  MessageSquareQuote,
   ShieldAlert,
   Tag,
   TriangleAlert,
@@ -15,7 +13,7 @@ import { type ReactNode, useId, useState } from "react";
 import type { FileProblem, PersonaEntryView, PersonaSection } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import type { PersonaScope } from "./persona";
-import { CodePill } from "./parts";
+import { CodePill, QuoteList, QuoteToggle } from "./parts";
 import { splitSources } from "./sources";
 
 /** The four persona sections. */
@@ -54,7 +52,7 @@ export function PersonaEntryCard({
   const quotesId = useId();
   const [open, setOpen] = useState(false);
   const { lines, sources } = splitSources(entry.continuation);
-  const quoted = sources.filter((source) => source.quote !== null);
+  const quoted = sources.some((source) => source.quote !== null);
   const date = sources.find((source) => source.date !== null)?.date ?? null;
   return (
     <li
@@ -65,30 +63,8 @@ export function PersonaEntryCard({
       <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
         {lead}
         {date === null ? null : <span className="tabular-nums">{date}</span>}
-        {quoted.length === 0 ? null : (
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={quotesId}
-            onClick={() => setOpen(!open)}
-            className={`inline-flex cursor-pointer items-center gap-xs rounded-full px-sm py-xs leading-(--tk-line-height-tight) font-medium transition-colors outline-none hover:bg-accent hover:text-on-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
-              open ? "bg-accent text-on-accent" : "bg-accent-soft text-accent"
-            }`}
-          >
-            <MessageSquareQuote aria-hidden className="size-(--tk-font-size-sm)" />
-            {text.quoteToggle}
-            <ChevronDown
-              aria-hidden
-              className={`size-(--tk-font-size-sm) transition-transform ${open ? "rotate-180" : ""}`}
-            />
-          </button>
-        )}
-        {entry.code === null ? null : (
-          <CodePill
-            code={entry.code}
-            className="ml-auto opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-          />
-        )}
+        {quoted ? <QuoteToggle open={open} controls={quotesId} onToggle={() => setOpen(!open)} /> : null}
+        {entry.code === null ? null : <CodePill code={entry.code} reveal className="ml-auto" />}
       </div>
       <p className={`leading-(--tk-line-height-normal) ${entry.code === null ? "text-ink-muted" : ""}`}>{entry.text}</p>
       {lines.map((line, index) => (
@@ -96,21 +72,7 @@ export function PersonaEntryCard({
           {line}
         </p>
       ))}
-      {open ? (
-        <div id={quotesId} className="grid gap-xs">
-          {quoted.map((source, index) => (
-            <p
-              key={index}
-              className="border-l-(length:--tk-border-thick) border-line pl-sm text-sm leading-(--tk-line-height-normal) text-ink-muted"
-            >
-              {quoted.length > 1 && source.date !== null ? (
-                <span className="tabular-nums">{`${source.date} · `}</span>
-              ) : null}
-              {source.quote}
-            </p>
-          ))}
-        </div>
-      ) : null}
+      {open ? <QuoteList id={quotesId} sources={sources} /> : null}
       {problems.map((problem) => (
         <p key={problem.kind} className="flex items-start gap-xs text-xs text-warning">
           <TriangleAlert aria-hidden className="mt-xs size-(--tk-font-size-xs) shrink-0" />

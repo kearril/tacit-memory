@@ -180,10 +180,7 @@ function Section({ section, number }: { readonly section: PageSectionView; reado
         <span className="ml-auto flex items-center gap-sm text-xs text-ink-muted tabular-nums">
           {section.changed === null ? null : <span>{parts.changed(section.changed)}</span>}
           <span>{parts.uses(section.uses)}</span>
-          <CodePill
-            code={section.code}
-            className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-          />
+          <CodePill code={section.code} reveal />
         </span>
       </div>
       {section.body.trim() === "" ? (

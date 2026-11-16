@@ -546,6 +546,8 @@ export interface Dictionary {
       /** What a copied file path is called. */
       readonly path: string;
       readonly quote: (words: string) => string;
+      /** The button that opens the user's words kept with an entry. */
+      readonly quoteToggle: string;
       readonly pageTypes: {
         readonly incident: string;
         readonly decision: string;
@@ -623,17 +625,16 @@ export interface Dictionary {
       readonly workstream: string;
       readonly workstreamAll: string;
       readonly calendar: string;
-      /** The weekdays from Monday, as the mini calendar heads its columns. */
-      readonly weekdays: readonly string[];
       readonly day: (date: string, count: number) => string;
+      readonly totals: (days: number, count: number) => string;
       readonly timeline: string;
       readonly empty: string;
       readonly noMatch: string;
-      readonly count: (count: number) => string;
+      /** What an activity outside every workstream is marked with. */
+      readonly noWorkstream: string;
       readonly weekSummary: (label: string) => string;
       readonly monthSummary: (label: string) => string;
-      readonly showQuote: string;
-      readonly hideQuote: string;
+      readonly sourceFile: string;
     };
     readonly persona: {
       readonly failed: string;
@@ -642,7 +643,6 @@ export interface Dictionary {
       readonly globalHint: string;
       readonly workstreamHint: string;
       readonly otherTitle: string;
-      readonly quoteToggle: string;
       readonly candidatesWaiting: (count: number) => string;
       readonly sourceFiles: string;
       readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;

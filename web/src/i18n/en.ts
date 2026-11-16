@@ -715,6 +715,7 @@ export const en: Dictionary = {
       code: (code) => `short code ${code}`,
       path: "file path",
       quote: (words) => `quote "${words}"`,
+      quoteToggle: "Quote",
       pageTypes: { incident: "Incident", decision: "Decision", entity: "Entity", work: "Work" },
       untyped: "Untyped",
       topics: "Topics",
@@ -754,17 +755,17 @@ export const en: Dictionary = {
       next: "Next month",
       workstream: "Workstream",
       workstreamAll: "All workstreams",
-      calendar: "This month's calendar",
-      weekdays: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
+      calendar: "Days of this month",
       day: (date, count) => `${date}: ${count === 1 ? "1 activity" : `${count} activities`}`,
+      totals: (days, count) =>
+        `${days === 1 ? "1 day" : `${days} days`} · ${count === 1 ? "1 activity" : `${count} activities`}`,
       timeline: "Activity timeline",
       empty: "No activities this month yet",
       noMatch: "No activities of this workstream this month",
-      count: (count) => (count === 1 ? "1 activity" : `${count} activities`),
+      noWorkstream: "No workstream",
       weekSummary: (label) => `Week summary · ${label}`,
       monthSummary: (label) => `Month summary · ${label}`,
-      showQuote: "Show the user's words",
-      hideQuote: "Hide the user's words",
+      sourceFile: "Source file",
     },
     workstreams: {
       failed: "Could not read the workstreams",
@@ -802,7 +803,6 @@ export const en: Dictionary = {
       globalHint: "Read in every session",
       workstreamHint: "Read in this workstream",
       otherTitle: "Other content",
-      quoteToggle: "Quote",
       candidatesWaiting: (count) =>
         count === 1
           ? "1 candidate waits for the next consolidation"
