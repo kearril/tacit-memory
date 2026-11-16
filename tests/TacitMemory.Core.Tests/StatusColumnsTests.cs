@@ -397,7 +397,7 @@ public sealed class StatusColumnsTests : IDisposable
     [Fact]
     public async Task The_pending_counts_include_the_weeks_to_summarize_that_the_reminder_counts()
     {
-        var lastWeek = InitDay.AddDays(-14);
+        var lastWeek = TestHome.Today.AddDays(-14);
         Directory.CreateDirectory(Path.Combine(Memory, "recent"));
         File.WriteAllText(Path.Combine(Memory, "recent", lastWeek.ToString("yyyy-MM", CultureInfo.InvariantCulture) + ".md"),
             $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");

@@ -154,7 +154,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     {
         Ready();
         CommitOn(InitDay, "consolidate: pass");
-        var lastWeek = InitDay.AddDays(-14);
+        var lastWeek = TestHome.Today.AddDays(-14);
         Directory.CreateDirectory(Path.Combine(Memory, "recent"));
         File.WriteAllText(Path.Combine(Memory, "recent", lastWeek.ToString("yyyy-MM", CultureInfo.InvariantCulture) + ".md"),
             $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");
