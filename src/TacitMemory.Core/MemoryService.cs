@@ -1470,7 +1470,7 @@ public sealed class MemoryService : IDisposable
                     ScheduleIndexSync();
                 if (AffectsInstructions(relative))
                     InvalidateInstructions();
-                if (relative == MemoryLayout.Pages || relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal))
+                if (MemoryLayout.IsIn(relative, MemoryLayout.Pages) || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal))
                     ScheduleIndexSync();
             }
         }
@@ -1508,7 +1508,7 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private static bool AffectsResident(string relative) =>
         relative == MemoryLayout.Workstreams
-        || relative == MemoryLayout.Recent || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal)
+        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
         || relative == MemoryLayout.Pages || (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) && relative.IndexOf('/', MemoryLayout.Pages.Length + 1) < 0);
 
     /// <summary>Arms the timer for the next local midnight.</summary>
@@ -1537,8 +1537,8 @@ public sealed class MemoryService : IDisposable
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
     private static bool AffectsInstructions(string relative) =>
         relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
-        || relative == MemoryLayout.Recent || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal)
-        || relative == MemoryLayout.Pages || relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal)
+        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
+        || MemoryLayout.IsIn(relative, MemoryLayout.Pages)
         || IsGitHistory(relative);
 
     /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>
