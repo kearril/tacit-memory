@@ -23,6 +23,15 @@ export const zh: Dictionary = {
     remote: "其他设备",
     remoteNote: "已凭访问密码登录",
   },
+  datePicker: {
+    placeholder: "选择日期",
+    previous: "上个月",
+    next: "下个月",
+    today: "今天",
+    clear: "清除",
+    weekdays: ["一", "二", "三", "四", "五", "六", "日"],
+    month: (month) => `${month.slice(0, 4)} 年 ${Number(month.slice(5))} 月`,
+  },
   showPassword: "显示",
   hidePassword: "隐藏",
   login: {

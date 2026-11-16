@@ -23,6 +23,16 @@ export const en: Dictionary = {
     remote: "Another device",
     remoteNote: "Logged in with the access password",
   },
+  datePicker: {
+    placeholder: "Pick a date",
+    previous: "Previous month",
+    next: "Next month",
+    today: "Today",
+    clear: "Clear",
+    weekdays: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
+    month: (month) =>
+      new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en", { month: "long", year: "numeric", timeZone: "UTC" }),
+  },
   showPassword: "Show",
   hidePassword: "Hide",
   login: {

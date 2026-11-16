@@ -16,6 +16,7 @@ import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
+import { DatePicker } from "../../components/ui/date-picker";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Select } from "../../components/ui/select";
@@ -115,7 +116,8 @@ function SearchForm({
   readonly report: RecallTraceReport | undefined;
   readonly onSubmit: (fields: SearchFields) => void;
 }) {
-  const text = useDictionary().memory.search;
+  const dictionary = useDictionary();
+  const text = dictionary.memory.search;
   const [fields, setFields] = useState(applied);
   const [overridesOpen, setOverridesOpen] = useState(hasOverrides(applied));
   const problems = error instanceof ApiError ? error.problems : [];
@@ -170,21 +172,21 @@ function SearchForm({
           />
         </FormField>
         <FormField id="trace-from" label={text.fromLabel} problem={problemOf("from")}>
-          <Input
+          <DatePicker
             id="trace-from"
-            type="date"
             value={fields.from}
             aria-invalid={invalid("from")}
-            onChange={(event) => field("from", event.target.value)}
+            onValueChange={(value) => field("from", value)}
+            text={dictionary.datePicker}
           />
         </FormField>
         <FormField id="trace-to" label={text.toLabel} problem={problemOf("to")}>
-          <Input
+          <DatePicker
             id="trace-to"
-            type="date"
             value={fields.to}
             aria-invalid={invalid("to")}
-            onChange={(event) => field("to", event.target.value)}
+            onValueChange={(value) => field("to", value)}
+            text={dictionary.datePicker}
           />
         </FormField>
 

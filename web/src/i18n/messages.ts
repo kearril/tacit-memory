@@ -43,6 +43,17 @@ export interface Dictionary {
     readonly remote: string;
     readonly remoteNote: string;
   };
+  /** What the date field says. */
+  readonly datePicker: {
+    readonly placeholder: string;
+    readonly previous: string;
+    readonly next: string;
+    readonly today: string;
+    readonly clear: string;
+    /** The weekdays from Monday. */
+    readonly weekdays: readonly string[];
+    readonly month: (month: string) => string;
+  };
   readonly showPassword: string;
   readonly hidePassword: string;
   readonly login: {
