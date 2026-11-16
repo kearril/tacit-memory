@@ -668,6 +668,7 @@ export const en: Dictionary = {
     search: {
       queryLabel: "Query",
       queryPlaceholder: "Ask as an agent would, and see what recall gives it",
+      conditions: (count) => (count === 0 ? "Conditions" : `Conditions · ${count}`),
       workstreamLabel: "Workstream",
       workstreamAll: "All workstreams",
       fromLabel: "From",
@@ -723,7 +724,7 @@ export const en: Dictionary = {
         title: "Replace retrieval values",
         help: "For this search only; the config stays as it is. Leave a value empty to use the configured one.",
         labels: { minRerankScore: "Minimum rerank score", topK: "topK", candidates: "Candidates" },
-        differs: "Differs from the config",
+        pill: (replaced) => (replaced === 0 ? "Values" : `Values · ${replaced} replaced`),
         configured: (value) => `The config sets ${value}`,
       },
       degraded: {

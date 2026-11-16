@@ -3,9 +3,11 @@ import {
   ArrowDown,
   ArrowUp,
   Ban,
+  ChevronDown,
   ChevronRight,
   CircleCheck,
   CircleSlash,
+  ListFilter,
   type LucideIcon,
   Search,
   SkipForward,
@@ -29,6 +31,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Input } from "../../components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { Select } from "../../components/ui/select";
 import { StickyBar } from "../../components/ui/sticky-bar";
 import { errorTextOf } from "../../i18n/messages";
@@ -56,22 +59,22 @@ const FOLDED_UNITS = 5;
 /** The three retrieval values a trace may replace. */
 const OVERRIDES = ["minRerankScore", "topK", "candidates"] as const;
 
+/** The conditions besides the query, counted on the button that unfolds them while the bar is stuck. */
+const CONDITIONS = ["workstream", "kind", "from", "to", ...OVERRIDES] as const;
+
 /** The dashed box a result sits in, as the persona's entries and the detail page's sections do. */
 const RESULT_BOX = "rounded-md border-(length:--tk-border-thin) border-dashed border-ink-muted/40";
 
 /** The columns of a unit row: what it is, then the two searches' ranks and the reranker's score. */
 const UNIT_COLUMNS = "grid-cols-[minmax(0,1fr)_auto_auto_auto]";
 
-/**
- * Where a jump to a segment lands: below the sticky search bar, whose height the bar itself keeps in
- * `--trace-bar-height`, while the page scrolls; at the top of its column once the columns scroll on their own.
- */
-const BELOW_SEARCH_BAR =
-  "scroll-mt-[calc(var(--trace-bar-height)+var(--tk-size-nav-bar)+var(--tk-space-xl))] lg:scroll-mt-[calc(var(--trace-bar-height)+var(--tk-space-xl))] xl:scroll-mt-sm";
+/** A pill of the bar's second row: the kinds, and the button of the retrieval values. */
+const PILL =
+  "inline-flex cursor-pointer items-center gap-xs rounded-full px-md py-xs text-sm whitespace-nowrap transition-shadow outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
 
 /**
- * Whether the pointer itself moved: a column scrolled under a still pointer also reports it over a new row, which must
- * not take the light from the row it was scrolled to.
+ * Whether the pointer itself moved: a page scrolled under a still pointer also reports it over a new row, which must not
+ * take the light from the row it was scrolled to.
  */
 function moved(event: PointerEvent<HTMLElement>): boolean {
   return event.movementX !== 0 || event.movementY !== 0;
@@ -82,12 +85,34 @@ function fateAnchor(fate: SegmentFate): string {
   return `trace-fate-${fate}`;
 }
 
+/** Where on screen the floating search bar of a trace page ends, with the gap the page leaves under it. */
+function barBottomOf(page: HTMLElement): number {
+  const bar = page.querySelector<HTMLElement>('[role="search"]');
+  if (bar === null) {
+    return 0;
+  }
+  return (
+    (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + (parseFloat(getComputedStyle(page).rowGap) || 0)
+  );
+}
+
+/** Scrolls the page so that `element` starts under the floating search bar. */
+function scrollUnderBar(element: HTMLElement) {
+  const page = element.closest<HTMLElement>("[data-trace]");
+  if (page !== null) {
+    window.scrollTo({
+      top: element.getBoundingClientRect().top + window.scrollY - barBottomOf(page),
+      behavior: "smooth",
+    });
+  }
+}
+
 /**
  * The search view of the memory page: a recall trace. The conditions live in the address: submitting the bar writes them
  * there, and an address with a query runs the trace at once, so a bookmark or a link repeats it. The conditions and,
- * after a search, its funnel stay in a sticky bar; the results the agent gets sit beside every retrieval unit either
- * search returned, grouped by what became of it, and hovering one lights up the other. On the widest screens the page
- * fits the window and the two columns scroll on their own. A trace counts no return and changes no file.
+ * after a search, its funnel float in a sticky bar over the page; the results the agent gets sit beside every retrieval
+ * unit either search returned, grouped by what became of it, and hovering one lights up the other. The page scrolls as a
+ * whole. A trace counts no return and changes no file.
  */
 export function MemorySearchPage() {
   const dictionary = useDictionary();
@@ -95,12 +120,27 @@ export function MemorySearchPage() {
   const applied = searchFieldsOf(search);
   const request = applied.query.trim() === "" ? null : requestOf(applied);
   const trace = useRecallTrace(request);
+  const page = useRef<HTMLDivElement>(null);
+
+  // Keeps where the bar ends in `--trace-bar-bottom`, for the hints that float under it, as the bar folds and unfolds.
+  useEffect(() => {
+    const element = page.current;
+    const bar = element?.querySelector<HTMLElement>('[role="search"]');
+    if (element === null || bar === null || bar === undefined) {
+      return;
+    }
+    const measure = () => element.style.setProperty("--trace-bar-bottom", `${barBottomOf(element)}px`);
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
 
   return (
-    <div
-      data-trace
-      className="mx-auto grid w-full max-w-(--tk-size-page) grid-cols-1 content-start gap-md xl:h-[calc(100dvh-2*var(--tk-space-xl))] xl:grid-rows-[auto_minmax(0,1fr)]"
-    >
+    <div ref={page} data-trace className="mx-auto grid w-full max-w-(--tk-size-page) grid-cols-1 content-start gap-md">
       <h1 className="sr-only">{dictionary.memory.views.search}</h1>
       <SearchBar
         key={search.toString()}
@@ -141,11 +181,10 @@ function TraceAnswer({ trace }: { readonly trace: ReturnType<typeof useRecallTra
 }
 
 /**
- * The search conditions in a sticky bar: the query and its button, then the workstream, the kind, the dates and the
- * three retrieval values in a row of pills, then the funnel of the last search. The fields start from the address and
- * are sent to it on submit. A retrieval value that differs from the configured one turns its pill to the warning colour;
- * the configured value is its placeholder once a trace has said what that is. The service's problems with the fields
- * follow the rows.
+ * The search conditions in a sticky bar: the query and its button; the workstream, the kind, the dates and the button of
+ * the retrieval values; then the funnel of the last search. Once the bar floats, the second row folds away behind a
+ * button that counts the conditions set, so the bar keeps to the query and the funnel. The fields start from the address
+ * and are sent to it on submit. The service's problems with the fields follow the rows.
  */
 function SearchBar({
   applied,
@@ -163,26 +202,12 @@ function SearchBar({
   const dictionary = useDictionary();
   const text = dictionary.memory.search;
   const [fields, setFields] = useState(applied);
+  const [unfolded, setUnfolded] = useState(false);
   const workstreams = useWorkstreams();
-  const form = useRef<HTMLFormElement>(null);
   const problems = error instanceof ApiError ? error.problems : [];
   const invalid = (path: string) => (problems.some((problem) => problem.path === path) ? true : undefined);
   const field = <K extends keyof SearchFields>(key: K, value: SearchFields[K]) =>
     setFields({ ...fields, [key]: value });
-
-  // Keeps the bar's height where a jump to a segment reads it, since the bar grows when its rows wrap.
-  useEffect(() => {
-    const element = form.current;
-    const page = element?.closest<HTMLElement>("[data-trace]");
-    if (element === null || page === null || page === undefined) {
-      return;
-    }
-    const observer = new ResizeObserver(() =>
-      page.style.setProperty("--trace-bar-height", `${element.offsetHeight}px`),
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
 
   const names = [...(workstreams.data?.established ?? []), ...(workstreams.data?.unestablished ?? [])].map(
     (item) => item.name,
@@ -203,143 +228,195 @@ function SearchBar({
     to: text.toLabel,
     ...text.overrides.labels,
   };
-  const pill =
-    "inline-flex cursor-pointer items-center rounded-full px-md py-xs text-sm whitespace-nowrap outline-none";
+  const set = CONDITIONS.filter((key) => fields[key].trim() !== "").length;
 
   return (
     <StickyBar role="search" aria-label={text.queryLabel}>
-      <form
-        ref={form}
-        className="grid gap-sm"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit(fields);
-        }}
-      >
-        <div className="flex gap-sm">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-md size-(--tk-font-size-base) -translate-y-1/2 text-ink-muted"
-            />
-            <Input
-              type="search"
-              aria-label={text.queryLabel}
-              className="pl-xl"
-              placeholder={text.queryPlaceholder}
-              value={fields.query}
-              aria-invalid={invalid("query")}
-              onChange={(event) => field("query", event.target.value)}
-            />
-          </div>
-          <Button type="submit" disabled={busy}>
-            <BusyIcon busy={busy} icon={Search} />
-            {text.run}
-          </Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-sm">
-          <Select
-            aria-label={text.workstreamLabel}
-            className="w-auto"
-            value={fields.workstream}
-            aria-invalid={invalid("workstream")}
-            onValueChange={(value) => field("workstream", value)}
-            options={[{ value: "", label: text.workstreamAll }, ...names.map((name) => ({ value: name, label: name }))]}
-          />
-          <div role="group" aria-label={text.kindLabel} className="flex flex-wrap gap-xs">
-            {kinds.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={fields.kind === key}
-                onClick={() => field("kind", key)}
-                className={cn(
-                  pill,
-                  "transition-shadow focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-                  fields.kind === key
-                    ? "bg-accent text-on-accent"
-                    : "bg-surface text-ink-muted shadow-rest hover:text-ink hover:shadow-hover",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-xs text-ink-muted">
-            {(["from", "to"] as const).map((key, index) => (
-              <span key={key} className="contents">
-                {index === 0 ? null : <span aria-hidden>–</span>}
-                <DatePicker
-                  aria-label={labels[key]}
-                  className="w-auto"
-                  value={fields[key]}
-                  aria-invalid={invalid(key)}
-                  onValueChange={(value) => field(key, value)}
-                  text={{ ...dictionary.datePicker, placeholder: labels[key]! }}
-                />
-              </span>
-            ))}
-          </div>
-          <div
-            role="group"
-            aria-label={text.overrides.title}
-            title={text.overrides.help}
-            className="flex flex-wrap items-center gap-xs"
+      {(stuck) => {
+        const folded = stuck && !unfolded && problems.length === 0;
+        return (
+          <form
+            className="grid gap-sm"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSubmit(fields);
+            }}
           >
-            <SlidersHorizontal aria-hidden className="size-(--tk-font-size-base) text-ink-muted" />
-            {OVERRIDES.map((key) => {
-              const setting = report?.settings[key];
-              const differs = setting !== undefined && setting.value !== setting.configured;
-              return (
-                <label
-                  key={key}
-                  title={
-                    setting === undefined
-                      ? text.overrides.help
-                      : `${text.overrides.help} ${text.overrides.configured(scoreText(setting.configured))}`
-                  }
-                  className={cn(
-                    pill,
-                    "gap-xs pr-xs focus-within:ring-(length:--tk-border-thick) focus-within:ring-accent",
-                    invalid(key)
-                      ? "bg-danger-soft text-danger"
-                      : differs
-                        ? "bg-warning-soft text-warning"
-                        : "bg-surface text-ink-muted shadow-rest",
-                  )}
+            <div className="flex gap-sm">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 left-md size-(--tk-font-size-base) -translate-y-1/2 text-ink-muted"
+                />
+                <Input
+                  type="search"
+                  aria-label={text.queryLabel}
+                  className="pl-xl"
+                  placeholder={text.queryPlaceholder}
+                  value={fields.query}
+                  aria-invalid={invalid("query")}
+                  onChange={(event) => field("query", event.target.value)}
+                />
+              </div>
+              {stuck ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-expanded={!folded}
+                  aria-controls="trace-conditions"
+                  onClick={() => setUnfolded(folded)}
                 >
-                  {text.overrides.labels[key]}
-                  <input
-                    inputMode={key === "minRerankScore" ? "decimal" : "numeric"}
-                    value={fields[key]}
-                    placeholder={setting === undefined ? undefined : scoreText(setting.configured)}
-                    aria-invalid={invalid(key)}
-                    aria-describedby={differs ? `trace-${key}-differs` : undefined}
-                    onChange={(event) => field(key, event.target.value)}
-                    className="w-[calc(var(--tk-size-control)*1.5)] rounded-full bg-surface-raised px-sm text-center text-ink tabular-nums outline-none placeholder:text-ink-muted"
-                  />
-                  {differs ? (
-                    <span id={`trace-${key}-differs`} className="sr-only">
-                      {text.overrides.differs}
+                  <ListFilter aria-hidden />
+                  <span className="hidden sm:inline">{text.conditions(set)}</span>
+                  <ChevronDown aria-hidden className={cn("transition-transform", !folded && "rotate-180")} />
+                </Button>
+              ) : null}
+              <Button type="submit" disabled={busy}>
+                <BusyIcon busy={busy} icon={Search} />
+                {text.run}
+              </Button>
+            </div>
+            {folded ? null : (
+              <div id="trace-conditions" className="flex flex-wrap items-center gap-sm">
+                <Select
+                  aria-label={text.workstreamLabel}
+                  className="w-auto"
+                  value={fields.workstream}
+                  aria-invalid={invalid("workstream")}
+                  onValueChange={(value) => field("workstream", value)}
+                  options={[
+                    { value: "", label: text.workstreamAll },
+                    ...names.map((name) => ({ value: name, label: name })),
+                  ]}
+                />
+                <div role="group" aria-label={text.kindLabel} className="flex flex-wrap gap-xs">
+                  {kinds.map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={fields.kind === key}
+                      onClick={() => field("kind", key)}
+                      className={cn(
+                        PILL,
+                        fields.kind === key
+                          ? "bg-accent text-on-accent"
+                          : "bg-surface text-ink-muted shadow-rest hover:text-ink hover:shadow-hover",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-xs text-ink-muted">
+                  {(["from", "to"] as const).map((key, index) => (
+                    <span key={key} className="contents">
+                      {index === 0 ? null : <span aria-hidden>–</span>}
+                      <DatePicker
+                        aria-label={labels[key]}
+                        className="w-auto"
+                        value={fields[key]}
+                        aria-invalid={invalid(key)}
+                        onValueChange={(value) => field(key, value)}
+                        text={{ ...dictionary.datePicker, placeholder: labels[key]! }}
+                      />
                     </span>
-                  ) : null}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-        {problems.length === 0 ? null : (
-          <ul className="grid gap-xs text-sm text-danger">
-            {problems.map((problem) => (
-              <li key={`${problem.path}:${problem.message}`}>
-                {labels[problem.path] === undefined ? problem.message : `${labels[problem.path]}：${problem.message}`}
-              </li>
-            ))}
-          </ul>
-        )}
-        {report === undefined ? null : <Funnel report={report} />}
-      </form>
+                  ))}
+                </div>
+                <Overrides
+                  fields={fields}
+                  report={report}
+                  invalid={OVERRIDES.some((key) => invalid(key))}
+                  onChange={(key, value) => field(key, value)}
+                />
+              </div>
+            )}
+            {problems.length === 0 ? null : (
+              <ul className="grid gap-xs text-sm text-danger">
+                {problems.map((problem) => (
+                  <li key={`${problem.path}:${problem.message}`}>
+                    {labels[problem.path] === undefined
+                      ? problem.message
+                      : `${labels[problem.path]}：${problem.message}`}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {report === undefined ? null : <Funnel report={report} />}
+          </form>
+        );
+      }}
     </StickyBar>
+  );
+}
+
+/**
+ * The three retrieval values behind one pill that opens a panel: each value by name, its input with the configured value
+ * as placeholder, and the configured value under one that replaces it; what replacing means closes the panel. The pill
+ * counts the values replaced, in the warning colour, or turns to the danger colour when the service refused one.
+ */
+function Overrides({
+  fields,
+  report,
+  invalid,
+  onChange,
+}: {
+  readonly fields: SearchFields;
+  readonly report: RecallTraceReport | undefined;
+  readonly invalid: boolean;
+  readonly onChange: (key: (typeof OVERRIDES)[number], value: string) => void;
+}) {
+  const text = useDictionary().memory.search;
+  const replaced = OVERRIDES.filter((key) => fields[key].trim() !== "").length;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            PILL,
+            "group ml-auto",
+            invalid
+              ? "bg-danger-soft text-danger"
+              : replaced > 0
+                ? "bg-warning-soft text-warning"
+                : "bg-surface text-ink-muted shadow-rest hover:text-ink hover:shadow-hover",
+          )}
+        >
+          <SlidersHorizontal aria-hidden className="size-(--tk-font-size-sm)" />
+          {text.overrides.pill(replaced)}
+          <ChevronDown
+            aria-hidden
+            className="size-(--tk-font-size-sm) transition-transform group-data-[state=open]:rotate-180"
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" aria-label={text.overrides.title} className="w-max gap-md">
+        {OVERRIDES.map((key) => {
+          const setting = report?.settings[key];
+          const value = fields[key];
+          return (
+            <label key={key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-md gap-y-xs">
+              <span className="whitespace-nowrap">{text.overrides.labels[key]}</span>
+              <Input
+                inputMode={key === "minRerankScore" ? "decimal" : "numeric"}
+                className="w-[calc(var(--tk-size-control)*2)] text-right tabular-nums"
+                value={value}
+                placeholder={setting === undefined ? undefined : scoreText(setting.configured)}
+                onChange={(event) => onChange(key, event.target.value)}
+              />
+              {value.trim() === "" || setting === undefined ? null : (
+                <span className="col-span-2 text-right text-xs text-warning">
+                  {text.overrides.configured(scoreText(setting.configured))}
+                </span>
+              )}
+            </label>
+          );
+        })}
+        <p className="max-w-(--tk-size-sidebar) border-t-(length:--tk-border-thin) border-line pt-sm text-xs text-ink-muted">
+          {text.overrides.help}
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -359,8 +436,12 @@ function Funnel({ report }: { readonly report: RecallTraceReport }) {
     [text.funnel.passed, counts.passed, "beyondTopK"],
     [text.funnel.results, counts.results, "shown"],
   ];
-  const jump = (fate: SegmentFate) =>
-    document.getElementById(fateAnchor(fate))?.scrollIntoView({ block: "start", behavior: "smooth" });
+  const jump = (fate: SegmentFate) => {
+    const segment = document.getElementById(fateAnchor(fate));
+    if (segment !== null) {
+      scrollUnderBar(segment);
+    }
+  };
 
   return (
     <div
@@ -433,7 +514,7 @@ function fateTitleOf(
 /**
  * The answer of a trace: a note when a model did not answer, then the results and the units side by side, stacked below
  * the widest breakpoint. Hovering or focusing a result lights up the units it was made from, and a unit its result; the
- * light goes out when the pointer leaves both columns.
+ * light goes out when the pointer leaves both columns. Side by side, the results follow the page under the bar.
  */
 function TraceView({ report }: { readonly report: RecallTraceReport }) {
   const text = useDictionary().memory.search;
@@ -448,7 +529,7 @@ function TraceView({ report }: { readonly report: RecallTraceReport }) {
   ].filter((note) => note !== null);
 
   return (
-    <div className="flex min-h-0 flex-col gap-md">
+    <>
       {degraded.length === 0 ? null : (
         <Alert tone="warning">
           <AlertTitle>{text.degraded.title}</AlertTitle>
@@ -469,91 +550,117 @@ function TraceView({ report }: { readonly report: RecallTraceReport }) {
       )}
       <div
         onMouseLeave={() => setLit(null)}
-        className="grid grid-cols-1 gap-md xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
+        className="grid grid-cols-1 items-start gap-md xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
       >
-        <ScrollColumn lit={lit} toward="end">
+        <Column lit={lit} sticky toward="end">
           <ResultsCard report={report} lit={lit} onLight={setLit} />
-        </ScrollColumn>
-        <ScrollColumn lit={lit} toward="start">
+        </Column>
+        <Column lit={lit} sticky={false} toward="start">
           <UnitsCard report={report} lit={lit} onLight={setLit} />
-        </ScrollColumn>
+        </Column>
       </div>
-    </div>
+    </>
   );
 }
 
 /**
- * A column that scrolls on its own once the page fits the window, without passing the wheel on to the page at its ends.
- * When lit rows sit above or below what it shows, a pill at that edge says how many and brings the nearest into view.
- * The pills sit on the side `toward` the other column, where the pointer comes in from it.
+ * One column of the answer, in the page's own scroll. A sticky one, once the columns stand side by side, stays under the
+ * bar while it is shorter than the window; a taller one scrolls along until its end shows, then stays. When lit rows sit
+ * above the bar or below the window, a pill at that edge says how many and brings the nearest into view. The pills sit
+ * on the side `toward` the other column, where the pointer comes in from it.
  */
-function ScrollColumn({
+function Column({
   lit,
+  sticky,
   toward,
   children,
 }: {
   readonly lit: number | null;
+  readonly sticky: boolean;
   readonly toward: "start" | "end";
   readonly children: ReactNode;
 }) {
   const text = useDictionary().memory.search;
-  const scroller = useRef<HTMLDivElement>(null);
+  const column = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState({ above: 0, below: 0 });
 
+  useEffect(() => {
+    const element = column.current;
+    const page = element?.closest<HTMLElement>("[data-trace]");
+    if (!sticky || element === null || page === null || page === undefined) {
+      return;
+    }
+    const place = () => {
+      const gap = parseFloat(getComputedStyle(page).rowGap) || 0;
+      element.style.top = `${Math.min(barBottomOf(page), window.innerHeight - element.offsetHeight - gap)}px`;
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(element);
+    const bar = page.querySelector<HTMLElement>('[role="search"]');
+    if (bar !== null) {
+      observer.observe(bar);
+    }
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [sticky]);
+
   const outside = () => {
-    const element = scroller.current;
-    if (element === null) {
+    const element = column.current;
+    const page = element?.closest<HTMLElement>("[data-trace]");
+    if (element === null || page === null || page === undefined) {
       return { above: [], below: [] };
     }
-    const box = element.getBoundingClientRect();
+    const top = barBottomOf(page);
     const rows = [...element.querySelectorAll<HTMLElement>("[data-lit]")];
     return {
-      above: rows.filter((row) => row.getBoundingClientRect().bottom <= box.top + 1),
-      below: rows.filter((row) => row.getBoundingClientRect().top >= box.bottom - 1),
+      above: rows.filter((row) => row.getBoundingClientRect().bottom <= top),
+      below: rows.filter((row) => row.getBoundingClientRect().top >= window.innerHeight),
     };
   };
 
   useEffect(() => {
-    const element = scroller.current;
-    if (element === null) {
-      return;
-    }
     const measure = () => {
       const rows = outside();
       setHidden({ above: rows.above.length, below: rows.below.length });
     };
     measure();
-    element.addEventListener("scroll", measure, { passive: true });
-    return () => element.removeEventListener("scroll", measure);
+    window.addEventListener("scroll", measure, { passive: true });
+    return () => window.removeEventListener("scroll", measure);
   }, [lit]);
 
-  const bring = (edge: "above" | "below") => {
-    const rows = outside()[edge];
-    rows[edge === "above" ? rows.length - 1 : 0]?.scrollIntoView({ block: "center", behavior: "smooth" });
-  };
   const hint = (edge: "above" | "below") =>
     hidden[edge] === 0 ? null : (
-      <button
-        type="button"
-        onClick={() => bring(edge)}
-        className={cn(
-          "absolute z-(--tk-layer-nav) flex cursor-pointer items-center gap-xs rounded-full bg-accent px-sm py-xs text-xs text-on-accent shadow-raised outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-          edge === "above" ? "top-sm" : "bottom-sm",
-          toward === "start" ? "left-sm" : "right-sm",
-        )}
-      >
-        {edge === "above" ? <ArrowUp aria-hidden className="size-(--tk-font-size-sm)" /> : null}
-        {edge === "below" ? <ArrowDown aria-hidden className="size-(--tk-font-size-sm)" /> : null}
-        {text.offscreen[edge](hidden[edge])}
-      </button>
+      <div className={cn("sticky z-(--tk-layer-nav) h-0", edge === "above" ? "top-(--trace-bar-bottom)" : "bottom-md")}>
+        <button
+          type="button"
+          onClick={() => {
+            const rows = outside()[edge];
+            rows[edge === "above" ? rows.length - 1 : 0]?.scrollIntoView({ block: "center", behavior: "smooth" });
+          }}
+          className={cn(
+            "absolute flex cursor-pointer items-center gap-xs rounded-full bg-accent px-sm py-xs text-xs whitespace-nowrap text-on-accent shadow-raised outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
+            edge === "above" ? "top-0" : "bottom-0",
+            toward === "start" ? "left-sm" : "right-sm",
+          )}
+        >
+          {edge === "above" ? (
+            <ArrowUp aria-hidden className="size-(--tk-font-size-sm)" />
+          ) : (
+            <ArrowDown aria-hidden className="size-(--tk-font-size-sm)" />
+          )}
+          {text.offscreen[edge](hidden[edge])}
+        </button>
+      </div>
     );
 
   return (
-    <div className="relative xl:min-h-0">
-      <div ref={scroller} className="grid content-start xl:h-full xl:overflow-y-auto xl:overscroll-contain">
-        {children}
-      </div>
+    <div ref={column} className={cn("grid content-start", sticky && "xl:sticky")}>
       {hint("above")}
+      {children}
       {hint("below")}
     </div>
   );
@@ -775,10 +882,7 @@ function SegmentBlock({
 
   return (
     <section aria-label={title} className="col-span-4 grid grid-cols-subgrid">
-      <div
-        id={fateAnchor(segment.fate)}
-        className={cn(BELOW_SEARCH_BAR, "col-span-4 flex flex-wrap items-center gap-sm px-sm pt-md pb-xs")}
-      >
+      <div id={fateAnchor(segment.fate)} className="col-span-4 flex flex-wrap items-center gap-sm px-sm pt-md pb-xs">
         <span className={cn("flex items-center gap-xs text-sm font-semibold", style.text)}>
           <style.icon aria-hidden className="size-(--tk-font-size-base)" />
           {title}

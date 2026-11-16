@@ -591,6 +591,7 @@ export const zh: Dictionary = {
     search: {
       queryLabel: "查询",
       queryPlaceholder: "像 Agent 一样问一句，看 recall 会给它什么",
+      conditions: (count) => (count === 0 ? "条件" : `条件 · ${count}`),
       workstreamLabel: "主线",
       workstreamAll: "全部主线",
       fromLabel: "起始日期",
@@ -642,7 +643,7 @@ export const zh: Dictionary = {
         title: "临时替换检索参数",
         help: "只对这次检索生效，不改配置。留空则用配置中的值。",
         labels: { minRerankScore: "最低 rerank 分数", topK: "topK", candidates: "候选数" },
-        differs: "与配置不同",
+        pill: (replaced) => (replaced === 0 ? "参数" : `参数 · 已改 ${replaced}`),
         configured: (value) => `配置中为 ${value}`,
       },
       degraded: {

@@ -495,6 +495,8 @@ export interface Dictionary {
     readonly search: {
       readonly queryLabel: string;
       readonly queryPlaceholder: string;
+      /** The button that unfolds the conditions while the bar floats, with how many are set. */
+      readonly conditions: (count: number) => string;
       readonly workstreamLabel: string;
       readonly workstreamAll: string;
       readonly fromLabel: string;
@@ -551,7 +553,8 @@ export interface Dictionary {
         readonly title: string;
         readonly help: string;
         readonly labels: { readonly minRerankScore: string; readonly topK: string; readonly candidates: string };
-        readonly differs: string;
+        /** The pill that opens the values, with how many are replaced. */
+        readonly pill: (replaced: number) => string;
         readonly configured: (value: string) => string;
       };
       /**
