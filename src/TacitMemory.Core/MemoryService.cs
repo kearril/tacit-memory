@@ -170,8 +170,9 @@ public sealed class MemoryService : IDisposable
         _judgments = new JudgmentPool(_index, _models.Decision, _options.Time, config.Consolidation.MaxConcurrency);
         _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
         _vectors.FillInBackground();
+        var writer = new MemoryWriter(config, _log, _index, _vectors, OnWritten);
         _pages = new PageTools(
-            _options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+            _options, config, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision), writer);
         _recent = new RecentTools(_options, config, _log, _models.Decision);
         _persona = new PersonaTools(
             _options, config, _log,
@@ -1026,26 +1027,21 @@ public sealed class MemoryService : IDisposable
 
     private async Task<ToolResult> WritePageCoreAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            var result = await _pages.WriteAsync(request, cancellationToken);
-            // The index follows the file right away; the watcher's later event finds the hash unchanged.
-            if (PageId.TryParse(request.Page ?? "", out var id, out _))
-                _index.SyncPage(id);
-            // Page counts and format problems come from the pages, so the instructions are rebuilt on their next use.
-            InvalidateInstructions();
-            if (result.IsError)
-                return result;
-            _backup.ScheduleIfDue();
-            return await _vectors.FillAsync(cancellationToken)
-                ? result
-                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this page is found by full-text search only." };
-        }
-        finally
-        {
-            hold.Dispose();
-        }
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        return await _pages.WriteAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// What follows a write once its file is written and the index has it: page counts, format problems, recent activities
+    /// and the persona all feed the instructions, so they are rebuilt on their next use; the day's first write leaves a
+    /// backup; a written persona re-renders the bound resident blocks, while a candidate waits for confirmation first.
+    /// </summary>
+    private void OnWritten(WrittenSource source)
+    {
+        InvalidateInstructions();
+        _backup.ScheduleIfDue();
+        if (source == WrittenSource.Persona)
+            ScheduleRender();
     }
 
     /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>

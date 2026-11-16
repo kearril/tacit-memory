@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Text;
-using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Decisions;
-using TacitMemory.Core.Git;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Logging;
@@ -15,7 +13,7 @@ namespace TacitMemory.Core.Pages;
 /// writes; this class assumes it runs one write at a time.
 /// </summary>
 internal sealed class PageTools(
-    TacitOptions options, TacitConfig config, ServiceLog log, DuplicatePageCheck duplicates)
+    TacitOptions options, TacitConfig config, DuplicatePageCheck duplicates, MemoryWriter writer)
 {
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
@@ -30,8 +28,6 @@ internal sealed class PageTools(
 
     /// <summary>Every parameter <c>write_page</c> takes, listed when the op is missing or unknown.</summary>
     private static readonly string AllParameters = string.Join(", ", new[] { "op", "page" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
-
-    private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
     /// <summary>Reads a whole page. The index follows the file first, so the section dates are current, and each section counts as returned.</summary>
     public ToolResult Read(RecallRequest request, MemoryIndex index)
@@ -134,14 +130,12 @@ internal sealed class PageTools(
         }
 
         var text = PageDocument.Render(header, sections);
-        TextFile.Write(PathOf(id), text, hasBom: false);
-
-        var commitProblem = await CommitAsync($"pages: create {id}", id, cancellationToken);
+        var outcome = await writer.WriteAsync(new MemoryWrite(id.RelativePath, text, false, $"pages: create {id}", WrittenSource.Page, id), cancellationToken);
         var written = PageDocument.Parse(text, hasBom: false, id.Slug);
         var reply = $"Created page {id}.\nSections:\n{SectionList(written)}";
         if (check.Note is { } note)
             reply += $"\n\n{note}";
-        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
+        return outcome.Reply(reply);
     }
 
     private async Task<ToolResult> UpsertSectionAsync(PageId id, WritePageRequest request, CancellationToken cancellationToken)
@@ -324,11 +318,8 @@ internal sealed class PageTools(
             return ToolText.Ok("Nothing changed: the page already has this content.");
 
         var after = WithToday(changed);
-        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
-        var dirty = await _git.IsDirtyAsync(id.RelativePath, cancellationToken);
-        TextFile.Write(PathOf(id), after.Text, after.HasBom);
-        var commitProblem = await CommitAsync(dirty ? $"{message} (with user edits)" : message, id, cancellationToken);
-        return commitProblem is null ? ToolText.Ok(reply) with { Written = true } : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
+        var outcome = await writer.WriteAsync(new MemoryWrite(id.RelativePath, after.Text, after.HasBom, message, WrittenSource.Page, id), cancellationToken);
+        return outcome.Reply(reply);
     }
 
     /// <summary>The parameters that were given but the op does not take.</summary>
@@ -437,21 +428,6 @@ internal sealed class PageTools(
         if (TextFile.Read(path) is not { } read)
             return (null, ToolText.Refuse($"Page {id} is not UTF-8 encoded, so it is left alone.", "Ask the user to save the file as UTF-8."));
         return (PageDocument.Parse(read.Text, read.HasBom, id.Slug), null);
-    }
-
-    /// <summary>Commits the page; on failure, tells the user and returns the note for the agent. The file stays written.</summary>
-    private async Task<string?> CommitAsync(string message, PageId id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _git.CommitAsync(message, [id.RelativePath], cancellationToken);
-            return null;
-        }
-        catch (TacitException e) when (e.Error == TacitError.GitFailed)
-        {
-            log.Notify(LogLevel.Warning, e.Message);
-            return $"Not committed: the page is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this page.";
-        }
     }
 
     /// <summary>A page as the agent reads it: header facts, then every section with its short code.</summary>
