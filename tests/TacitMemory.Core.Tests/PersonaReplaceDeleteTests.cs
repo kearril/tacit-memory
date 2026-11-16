@@ -8,7 +8,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed partial class PersonaReplaceDeleteTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly MemoryService _service;
 
     public PersonaReplaceDeleteTests()
@@ -89,18 +89,6 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     private static partial Regex CodeInReply();
 
     private static string CodeOf(ToolResult result) => CodeInReply().Match(result.Text).Groups[1].Value;
-
-    private async Task<bool> EventuallyAsync(Func<bool> condition)
-    {
-        for (var attempt = 0; attempt < 100; attempt++)
-        {
-            if (condition())
-                return true;
-            await Task.Delay(50);
-        }
-
-        return condition();
-    }
 
     [Fact]
     public async Task Replacing_an_entry_rewrites_it_in_place_with_todays_quote_and_leaves_every_other_byte_alone()
@@ -347,7 +335,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var result = await _service.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "反感客套、铺垫和寒暄", "别绕弯子"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.True(await EventuallyAsync(() => File.ReadAllText(AgentsMd).Contains("- 反感客套、铺垫和寒暄\n", StringComparison.Ordinal)));
+        await _service.SettledAsync();
+        Assert.Contains("- 反感客套、铺垫和寒暄\n", File.ReadAllText(AgentsMd));
         Assert.DoesNotContain("反感客套和铺垫", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
     }
 
@@ -376,7 +365,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona(Fixture);
 
         var result = await _service.WritePersonaAsync(Delete(ShortOf("反感客套和铺垫")));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         Assert.False(result.IsError, result.Text);
         Assert.DoesNotContain("反感客套和铺垫", File.ReadAllText(PersonaMd));

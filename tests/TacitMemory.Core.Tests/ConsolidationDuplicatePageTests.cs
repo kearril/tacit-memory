@@ -304,6 +304,8 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
     [Fact]
     public async Task When_the_budget_runs_out_the_unanswered_pages_are_counted_as_not_checked()
     {
+        // Moving the budget must not end the held model request's own timeout as well.
+        _home.ModelClock = new FixedTime(_home.Clock.GetUtcNow());
         Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
         await Create("tacit-memory/db-upgrade", Db);
         await Create("tacit-memory/pg-search", Pg);

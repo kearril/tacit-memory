@@ -73,17 +73,17 @@ public sealed class ReindexTests : IDisposable
         Write("回答尽量简短");
         PickPersonaEntry();
         await Service.ConsolidationReportAsync().WaitAsync(Guard);
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var asked = _models.DecisionCalls;
         Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
 
         await Service.ConsolidationReportAsync().WaitAsync(Guard);
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         Assert.Equal(asked, _models.DecisionCalls);
 
         await Service.ReindexAsync().WaitAsync(Guard);
         await Service.ConsolidationReportAsync().WaitAsync(Guard);
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > asked);
     }

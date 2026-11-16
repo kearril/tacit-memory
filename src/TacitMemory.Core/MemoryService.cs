@@ -25,6 +25,7 @@ using TacitMemory.Core.Recent;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Status;
+using TacitMemory.Core.Upkeep;
 using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core;
@@ -44,9 +45,6 @@ namespace TacitMemory.Core;
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
-    /// <summary>How long file events must stay quiet before acting on them; editors save in several steps.</summary>
-    private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(300);
-
     /// <summary>The category the service's events are logged under.</summary>
     internal const string LogCategory = "TacitMemory";
 
@@ -57,27 +55,12 @@ public sealed class MemoryService : IDisposable
     private CloudBackup _remote = null!;
     private readonly ServiceLog _log;
     private readonly ClientRecordStore _clients;
-    private FileSystemWatcher _watcher = null!;
-    private FileSystemWatcher? _promptsWatcher;
-    private readonly Timer _renderTimer;
-    private readonly Timer _promptsTimer;
-    private readonly Timer _indexTimer;
+    private ISourceWatch _sources = null!;
 
-    /// <summary>Fires at each local midnight: the resident block shows dates, so it is rendered again then. Replaced each time it fires.</summary>
-    private ITimer? _dayTimer;
-    private readonly Lock _indexTimerGate = new();
-    private readonly Lock _renderGate = new();
+    /// <summary>Keeps the derived products in step with the memory files; it outlives every runtime.</summary>
+    private readonly DerivedUpkeep _upkeep;
 
-    /// <summary>How many debounced retries a render gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
-    private const int RenderRetryLimit = 5;
 
-    private int _renderRetries;
-
-    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
-    private int _promptsRetries;
-
-    private readonly Lock _instructionsGate = new();
-    private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
     private PageTools _pages = null!;
     private RecentTools _recent = null!;
@@ -91,14 +74,7 @@ public sealed class MemoryService : IDisposable
     private WorkstreamBrief _brief = null!;
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
-    private PromptDocuments _prompts = null!;
 
-    /// <summary>The refusal of each prompt document whose file the service does not run, keeping its previous text instead.</summary>
-    private IReadOnlyDictionary<PromptName, string> _promptProblems = new Dictionary<PromptName, string>();
-    private string? _instructions;
-    private string? _instructionsStatus;
-    private int _instructionsVersion;
-    private volatile bool _disposed;
 
     /// <summary>Whether a runtime is open; false only after a reload could open none, which ends the service.</summary>
     private bool _runtimeOpen;
@@ -117,51 +93,44 @@ public sealed class MemoryService : IDisposable
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _log.Record(LogLevel.Information, LogMessages.Started, ProductVersion.Current, config.Port, config.MemoryPath);
         foreach (var render in StartupRender)
-            _log.Record(LevelOf(render), render.Message);
+            _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
-        _renderTimer = new Timer(_ => RenderNow());
-        _promptsTimer = new Timer(_ => ReloadPrompts());
-        _indexTimer = new Timer(_ => SyncIndexNow());
-        _dayTimer = ArmDayTimer();
+        _upkeep = new DerivedUpkeep(
+            options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
         OpenRuntime(config);
     }
 
     /// <summary>
     /// Builds the runtime from <paramref name="config"/>: the auxiliary models, the index (synced with the files), the tools,
-    /// the backups and the two file watchers. The parts that can fail are built before any is put in place, so a failure
+    /// the backups and the watch of the sources. The parts that can fail are built before any is put in place, so a failure
     /// leaves nothing half open: what was built is let go, and the exception is raised.
     /// </summary>
     private void OpenRuntime(TacitConfig config)
     {
         AuxiliaryModels? models = null;
         MemoryIndex? index = null;
-        FileSystemWatcher? watcher = null;
+        ISourceWatch? sources = null;
         try
         {
             OnOpening?.Invoke(config);
-            models = new AuxiliaryModels(config, _options.Time, _log);
+            models = new AuxiliaryModels(config, _options.ModelClock, _log);
             index = new MemoryIndex(
                 config.MemoryPath, config.Models.Embedding?.Model, config.Language,
                 () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
             index.SyncAll();
-            watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
+            sources = _options.Sources?.Attach(_upkeep) ?? new FileSourceWatch(config.MemoryPath, _options.TacitHome, _upkeep, _log);
         }
         catch
         {
-            watcher?.Dispose();
+            sources?.Dispose();
             index?.Dispose();
             models?.Dispose();
             throw;
         }
 
         Config = config;
-        lock (_instructionsGate)
-        {
-            // A config that loads has every prompt document as its file holds it.
-            _prompts = config.Prompts;
-            _promptProblems = new Dictionary<PromptName, string>();
-        }
+        _upkeep.UsePrompts(config.Prompts);
         _models = models;
         if (_models.Unconfigured is { Count: > 0 } unconfigured)
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
@@ -186,16 +155,9 @@ public sealed class MemoryService : IDisposable
         _manual = new ManualBackup(_options, config, _log);
         _remote = new CloudBackup(_options, config, _log);
 
-        _watcher = watcher;
-        _watcher.Changed += OnChange;
-        _watcher.Created += OnChange;
-        _watcher.Deleted += OnChange;
-        _watcher.Renamed += OnChange;
-        _watcher.Error += OnOverflow;
-        _watcher.EnableRaisingEvents = true;
-        WatchPrompts();
+        _sources = sources;
         _runtimeOpen = true;
-        InvalidateInstructions();
+        _upkeep.InvalidateInstructions();
     }
 
     /// <summary>Lets go of the runtime's files and models: the watchers, the index and the model clients. Its background work has already settled.</summary>
@@ -204,9 +166,7 @@ public sealed class MemoryService : IDisposable
         if (!_runtimeOpen)
             return;
         _runtimeOpen = false;
-        _watcher.Dispose();
-        lock (_renderGate)
-            _promptsWatcher?.Dispose();
+        _sources.Dispose();
         _index.Dispose();
         _models.Dispose();
     }
@@ -264,13 +224,7 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFailed.Format(running.Language, failure.Message), failure);
         }
 
-        // Under the render lock, as a binding and the timed render are: they write the same context files.
-        lock (_renderGate)
-        {
-            SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
-            foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
-                _log.Record(LevelOf(render), render.Message);
-        }
+        _upkeep.RefreshNow(Refresh.Skills | Refresh.Resident);
         return RestartChange.Between(running, loaded);
     }
 
@@ -303,6 +257,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>What happened to each bound context file when the service started.</summary>
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
+
     /// <summary>
     /// The server instructions, generated on first use and kept until something they are built from may have changed: a
     /// prompt document, the persona or its candidates, a page or activity file, <c>workstreams.md</c> (which the consolidation
@@ -312,41 +267,7 @@ public sealed class MemoryService : IDisposable
     public async Task<string> ServerInstructionsAsync(CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        await _instructionsBuild.WaitAsync(cancellationToken);
-        try
-        {
-            var unavailable = _models.Unavailable;
-            var skipped = _index.SkippedFiles;
-            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped) + "\n" + _options.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-            int version;
-            PromptDocuments prompts;
-            lock (_instructionsGate)
-            {
-                if (_instructions is not null && _instructionsStatus == status)
-                    return _instructions;
-                version = _instructionsVersion;
-                prompts = _prompts;
-            }
-
-            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
-            var consolidation = await ConsolidationReminder.RenderAsync(Config, _options.Today, cancellationToken);
-            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, consolidation).Text;
-
-            lock (_instructionsGate)
-            {
-                // A change that arrived while the text was being built makes it stale, so it is not kept.
-                if (version == _instructionsVersion)
-                {
-                    _instructions = text;
-                    _instructionsStatus = status;
-                }
-            }
-            return text;
-        }
-        finally
-        {
-            _instructionsBuild.Release();
-        }
+        return await _upkeep.InstructionsAsync(cancellationToken);
     }
 
     /// <summary>
@@ -469,7 +390,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException">A refusal, with the reason <c>tacit connect</c> gives.</exception>
     public BindingDone Connect(ConnectRequest request)
     {
-        lock (_renderGate)
+        lock (_upkeep.RenderLock)
             return BindingDone.From(ClientName.Normalize(request.Client), Binder.Connect(_options, request));
     }
 
@@ -477,7 +398,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException">No binding has that name.</exception>
     public BindingDone Disconnect(string client)
     {
-        lock (_renderGate)
+        lock (_upkeep.RenderLock)
             return BindingDone.From(ClientName.Normalize(client), Binder.Disconnect(_options, client));
     }
 
@@ -490,7 +411,7 @@ public sealed class MemoryService : IDisposable
     public async Task<ProbeReport> ProbeAsync(CancellationToken cancellationToken = default)
     {
         var config = ConfigLoader.Read(_options);
-        var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.Time, cancellationToken);
+        var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.ModelClock, cancellationToken);
         return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets: false));
     }
 
@@ -513,11 +434,7 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>The prompt documents the service runs with now.</summary>
-    private PromptDocuments RunningPrompts()
-    {
-        lock (_instructionsGate)
-            return _prompts;
-    }
+    private PromptDocuments RunningPrompts() => _upkeep.PromptState.Running;
 
     /// <summary>
     /// The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with, and
@@ -525,21 +442,15 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private PromptDocumentView PromptView(PromptName name)
     {
-        PromptDocuments running;
-        string? problem;
-        lock (_instructionsGate)
-        {
-            running = _prompts;
-            problem = _promptProblems.GetValueOrDefault(name);
-        }
-        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problem);
+        var (running, problems) = _upkeep.PromptState;
+        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problems.GetValueOrDefault(name));
     }
 
     /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
     private IReadOnlyList<PromptProblem> PromptProblems()
     {
-        lock (_instructionsGate)
-            return [.. Enum.GetValues<PromptName>().Where(_promptProblems.ContainsKey).Select(name => new PromptProblem(name, _promptProblems[name]))];
+        var problems = _upkeep.PromptState.Problems;
+        return [.. Enum.GetValues<PromptName>().Where(problems.ContainsKey).Select(name => new PromptProblem(name, problems[name]))];
     }
 
     /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
@@ -617,7 +528,8 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private PromptSaved Applied(PromptName name)
     {
-        var notices = ApplyPromptsNow(name);
+        // The resident blocks show resident.md, so a change to it renders them now, and what went wrong is returned.
+        var notices = _upkeep.RefreshNow(Refresh.Prompts | (name == PromptName.Resident ? Refresh.Resident : Refresh.None));
         return new PromptSaved(PromptView(name), notices);
     }
 
@@ -632,39 +544,6 @@ public sealed class MemoryService : IDisposable
         {
             Problems = [.. refusals.Select(refusal => new ConfigProblem(file, refusal))],
         };
-    }
-
-    /// <summary>
-    /// Applies the prompt documents as a change to <c>prompts/</c> does, without waiting for the watcher; after a change to
-    /// <c>resident.md</c> it renders the resident blocks now as well. Returns what went wrong in the render.
-    /// </summary>
-    private IReadOnlyList<string> ApplyPromptsNow(PromptName name)
-    {
-        ApplyPrompts();
-        if (name != PromptName.Resident)
-            return [];
-
-        var notices = new List<string>();
-        lock (_renderGate)
-        {
-            // Applying a changed resident.md schedules a render, which this one makes needless.
-            _renderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-            try
-            {
-                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
-                {
-                    _log.Record(LevelOf(render), render.Message);
-                    if (LevelOf(render) != LogLevel.Information)
-                        notices.Add(render.Message);
-                }
-            }
-            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-            {
-                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-                notices.Add(Messages.RenderFailed.Format(Config.Language, e.Message));
-            }
-        }
-        return notices;
     }
 
     /// <summary>
@@ -873,14 +752,11 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    /// <summary>Completes when the backup started by the latest successful write has finished. Tests await it.</summary>
-    internal Task BackupCompletion => _backup.Completion;
-
-    /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
-    internal Task VectorCompletion => _vectors.Background;
-
-    /// <summary>Completes when the consolidation judgments started so far have finished and their answers are cached. Tests await it.</summary>
-    internal Task JudgmentCompletion => _judgments.Completion;
+    /// <summary>
+    /// Completes once the refreshes scheduled by a change have run and the background work has finished: the automatic
+    /// backup, the vector fill and the consolidation judgments. Tests settle the service with it before they look.
+    /// </summary>
+    internal Task SettledAsync() => _upkeep.SettledAsync();
 
     /// <summary>
     /// Records what a client declared on a request: its name, version, protocol revision, capabilities and extensions. It only
@@ -1033,16 +909,13 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
-    /// What follows a write once its file is written and the index has it: page counts, format problems, recent activities
-    /// and the persona all feed the instructions, so they are rebuilt on their next use; the day's first write leaves a
-    /// backup; a written persona re-renders the bound resident blocks, while a candidate waits for confirmation first.
+    /// What follows a write once its file is written and the index has it: the day's first write leaves a backup, and the
+    /// upkeep refreshes what the written source feeds.
     /// </summary>
     private void OnWritten(WrittenSource source)
     {
-        InvalidateInstructions();
         _backup.ScheduleIfDue();
-        if (source == WrittenSource.Persona)
-            ScheduleRender();
+        _upkeep.Written(source);
     }
 
     /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
@@ -1125,7 +998,8 @@ public sealed class MemoryService : IDisposable
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
         // An automatic backup takes the write slot, which this operation holds alone, so it is waited for before the gate.
-        await Settled(_backup.Completion);
+        // The refreshes scheduled before it run first, so none lands in the middle of the operation.
+        await _upkeep.SettledAsync();
         using var hold = await _gate.MaintenanceAsync(cancellationToken);
         await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion));
         _log.Record(LogLevel.Information, LogMessages.MaintenanceStarted, name);
@@ -1216,7 +1090,7 @@ public sealed class MemoryService : IDisposable
         _log.Record(LogLevel.Information, LogMessages.RestoreStarted, path, (config ? RestoreMessages.ScopeWithConfig : RestoreMessages.ScopeMemory).In(language));
 
         // The watchers and the index let go of the files the restore replaces; the index reopens once they are final.
-        StopWatching();
+        _sources.Pause();
         _index.Dispose();
 
         var notices = new List<string>();
@@ -1249,7 +1123,7 @@ public sealed class MemoryService : IDisposable
 
         // Nothing is left to undo: the old content and the staged leftovers go, then the service picks the restored state up.
         install.Finish();
-        StartWatching();
+        _sources.Resume();
         // A restored config that loads is reloaded as a save on the settings page is, which also applies the prompts and
         // renders the resident blocks; one that does not load leaves the service on the config it had.
         IReadOnlyList<RestartChange> restart = [];
@@ -1269,9 +1143,7 @@ public sealed class MemoryService : IDisposable
         }
         else if (config)
             notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
-        if (config && !reloaded)
-            ApplyPrompts();
-        InvalidateInstructions();
+        _upkeep.RefreshNow((config && !reloaded ? Refresh.Prompts : Refresh.None) | Refresh.Instructions);
 
         if (config)
         {
@@ -1286,18 +1158,7 @@ public sealed class MemoryService : IDisposable
         }
 
         if (!reloaded)
-        {
-            try
-            {
-                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
-                    _log.Record(LevelOf(render), render.Message);
-            }
-            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-            {
-                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-                notices.Add(Messages.RenderFailed.Format(language, e.Message));
-            }
-        }
+            notices.AddRange(_upkeep.RefreshNow(Refresh.Resident));
 
         _log.Record(LogLevel.Information, LogMessages.RestoreApplied, head, safety, reindex.Files);
         var report = string.Join('\n', new[]
@@ -1327,23 +1188,8 @@ public sealed class MemoryService : IDisposable
         }
         finally
         {
-            StartWatching();
+            _sources.Resume();
         }
-    }
-
-    /// <summary>Stops both file watchers, so the restore's own moves are not taken for edits by the user.</summary>
-    private void StopWatching()
-    {
-        _watcher.EnableRaisingEvents = false;
-        lock (_renderGate)
-            _promptsWatcher?.Dispose();
-    }
-
-    /// <summary>Arms both file watchers again: the memory repository and the prompts folder.</summary>
-    private void StartWatching()
-    {
-        _watcher.EnableRaisingEvents = true;
-        WatchPrompts();
     }
 
     private void RequireAbsolutePath(string path)
@@ -1357,21 +1203,12 @@ public sealed class MemoryService : IDisposable
 
     public void Dispose()
     {
-        _disposed = true;
-        lock (_renderGate)
-        {
-            _renderTimer.Dispose();
-            _promptsTimer.Dispose();
-            _dayTimer?.Dispose();
-        }
-        lock (_indexTimerGate)
-            _indexTimer.Dispose();
+        _upkeep.Dispose();
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
         CloseRuntime();
         _gate.Dispose();
-        _instructionsBuild.Dispose();
     }
 
     /// <summary>
@@ -1420,294 +1257,4 @@ public sealed class MemoryService : IDisposable
     private static readonly Regex OpShape = new("^[a-z_]{1,32}$", RegexOptions.CultureInvariant);
 
     private static string OpName(string? op) => op is not null && OpShape.IsMatch(op) ? op : "-";
-
-    private void OnChange(object sender, FileSystemEventArgs e)
-    {
-        try
-        {
-            var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
-            foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
-            {
-                if (relative == MemoryLayout.Persona || AffectsResident(relative))
-                    ScheduleRender();
-                if (relative is MemoryLayout.Persona or MemoryLayout.Candidates)
-                    ScheduleIndexSync();
-                if (AffectsInstructions(relative))
-                    InvalidateInstructions();
-                if (MemoryLayout.IsIn(relative, MemoryLayout.Pages) || MemoryLayout.IsIn(relative, MemoryLayout.Recent))
-                    ScheduleIndexSync();
-            }
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // An event handler must not throw into the watcher's thread; the overflow path or the next event catches up.
-            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, ex.Message);
-        }
-    }
-
-    /// <summary>Events were lost: assume anything may have changed.</summary>
-    private void OnOverflow(object sender, ErrorEventArgs e)
-    {
-        InvalidateInstructions();
-        ScheduleRender();
-        ScheduleIndexSync();
-    }
-
-    private void InvalidateInstructions()
-    {
-        lock (_instructionsGate)
-            ClearInstructionsLocked();
-    }
-
-    /// <summary>Drops the cached text. A build that started before this is not kept either.</summary>
-    private void ClearInstructionsLocked()
-    {
-        _instructions = null;
-        _instructionsVersion++;
-    }
-
-    /// <summary>
-    /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
-    /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
-    /// </summary>
-    private static bool AffectsResident(string relative) =>
-        relative == MemoryLayout.Workstreams
-        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
-        || relative == MemoryLayout.Pages || (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) && relative.IndexOf('/', MemoryLayout.Pages.Length + 1) < 0);
-
-    /// <summary>Arms the timer for the next local midnight.</summary>
-    private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
-
-    /// <summary>The time from now until the next local midnight; always positive.</summary>
-    private TimeSpan UntilNextMidnight()
-    {
-        var now = _options.Time.GetLocalNow().DateTime;
-        return now.Date.AddDays(1) - now;
-    }
-
-    /// <summary>Runs on the timer thread at midnight: the date has changed, so the resident blocks are rendered again.</summary>
-    private void OnDayChanged()
-    {
-        lock (_renderGate)
-        {
-            if (_disposed)
-                return;
-            _dayTimer?.Dispose();
-            _dayTimer = ArmDayTimer();
-        }
-        ScheduleRender();
-    }
-
-    /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
-    private static bool AffectsInstructions(string relative) =>
-        relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
-        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
-        || MemoryLayout.IsIn(relative, MemoryLayout.Pages)
-        || IsGitHistory(relative);
-
-    /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>
-    private static bool IsGitHistory(string relative) =>
-        relative is ".git/HEAD" or ".git/packed-refs"
-        || relative.StartsWith(".git/refs/", StringComparison.Ordinal)
-        || relative.StartsWith(".git/logs/", StringComparison.Ordinal);
-
-    private void OnPromptsChange(object sender, FileSystemEventArgs e) => SchedulePromptsReload();
-
-    /// <summary>Events were lost, or the watcher failed: reload, which also arms the watcher again.</summary>
-    private void OnPromptsError(object sender, ErrorEventArgs e) => SchedulePromptsReload();
-
-    private void SchedulePromptsReload()
-    {
-        lock (_renderGate)
-        {
-            if (!_disposed)
-                _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        }
-    }
-
-    /// <summary>
-    /// Watches <c>prompts/</c>, creating the folder when it is gone. Each reload arms a new watcher before it reads the
-    /// files, so a change made while reading is seen by the next reload.
-    /// </summary>
-    private void WatchPrompts()
-    {
-        var folder = PromptFiles.Folder(_options.TacitHome);
-        Directory.CreateDirectory(folder);
-        _promptsWatcher?.Dispose();
-        _promptsWatcher = new FileSystemWatcher(folder);
-        _promptsWatcher.Changed += OnPromptsChange;
-        _promptsWatcher.Created += OnPromptsChange;
-        _promptsWatcher.Deleted += OnPromptsChange;
-        _promptsWatcher.Renamed += OnPromptsChange;
-        _promptsWatcher.Error += OnPromptsError;
-        _promptsWatcher.EnableRaisingEvents = true;
-    }
-
-    /// <summary>
-    /// Runs on the timer thread. Each prompt document that fails its checks is reported and keeps its previous text; the
-    /// others take their new text.
-    /// </summary>
-    private void ReloadPrompts() => UnderWriteGate(ApplyPrompts);
-
-    /// <summary>
-    /// Reloads the prompt documents, as a change to <c>prompts/</c> does. It runs under the write gate, or while a
-    /// maintenance operation holds the gate: a restore applies the documents it has just put back through this as well.
-    /// </summary>
-    private void ApplyPrompts()
-    {
-        lock (_renderGate)
-        {
-            if (_disposed)
-                return;
-            try
-            {
-                WatchPrompts();
-                var problems = new Dictionary<PromptName, string>();
-                var prompts = PromptFiles.Reload(_options.TacitHome, Config.Language, _prompts, problems);
-                foreach (var problem in problems.Values.Distinct())
-                    _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
-                SkillSet.Write(_options.TacitHome, Config.Language, prompts.Skill);
-                _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
-                var residentChanged = prompts.Resident != _prompts.Resident;
-                lock (_instructionsGate)
-                {
-                    _prompts = prompts;
-                    _promptProblems = problems;
-                    ClearInstructionsLocked();
-                }
-                _promptsRetries = 0;
-                // The resident blocks show resident.md: render them with the new text, as a persona change does.
-                if (residentChanged)
-                    _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < RenderRetryLimit))
-            {
-                // The editor still holds a file, or the folder is busy; try again once it settles. Windows refuses a
-                // replacement it cannot make with UnauthorizedAccessException, which the render path retries the same way.
-                if (e is UnauthorizedAccessException)
-                    _promptsRetries++;
-                _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
-            {
-                _promptsRetries = 0;
-                _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, e.Message);
-            }
-        }
-    }
-
-    private void ScheduleRender()
-    {
-        lock (_renderGate)
-        {
-            if (!_disposed)
-                _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        }
-    }
-
-    /// <summary>
-    /// Runs on the timer thread, between writes: renders never overlap, and no failure may escape and end the process.
-    /// It reads <c>persona.md</c>, which a write replaces, so it reads only under the write gate.
-    /// </summary>
-    private void RenderNow() => UnderWriteGate(() =>
-    {
-        lock (_renderGate)
-        {
-            if (_disposed)
-                return;
-            try
-            {
-                foreach (var result in Binder.RenderAll(_options, Config, _prompts))
-                    _log.Notify(LevelOf(result), result.Message);
-                _renderRetries = 0;
-            }
-            catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && _renderRetries < RenderRetryLimit)
-            {
-                // The editor or another client still holds a file, which Windows refuses to replace; try again once it settles.
-                _renderRetries++;
-                _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-            {
-                _renderRetries = 0;
-                _log.Notify(LogLevel.Warning, Messages.RenderFailed, e.Message);
-            }
-        }
-    });
-
-    /// <summary>A render that wrote or left its file alone is information; one that failed is a warning.</summary>
-    private static LogLevel LevelOf(BlockRender render) =>
-        render.State is BlockState.Written or BlockState.Unchanged ? LogLevel.Information : LogLevel.Warning;
-
-    private void ScheduleIndexSync()
-    {
-        lock (_indexTimerGate)
-        {
-            if (!_disposed)
-                _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        }
-    }
-
-    /// <summary>
-    /// Runs a background read of the memory repository, such as an index sync or a render, between the writes. A write
-    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. The wait for
-    /// the write slot is asynchronous, so a timer thread is never blocked by a write in progress. Once the service is
-    /// disposed, the read does not run.
-    /// </summary>
-    private void UnderWriteGate(Action work) => _ = RunUnderWriteGateAsync(work);
-
-    private async Task RunUnderWriteGateAsync(Action work)
-    {
-        Hold hold;
-        try
-        {
-            hold = await _gate.WriteAsync(CancellationToken.None);
-        }
-        catch (ObjectDisposedException)
-        {
-            return;
-        }
-
-        try
-        {
-            work();
-        }
-        catch (Exception e)
-        {
-            // Nothing may escape a timer or watcher callback: the failure is reported, and the next event tries again.
-            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, e.Message);
-        }
-        finally
-        {
-            hold.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Runs on the timer thread, between writes: compares every page file's hash with the index, so missed events do no
-    /// harm. It reads the files only under the write gate, as a write replaces them.
-    /// </summary>
-    private void SyncIndexNow() => UnderWriteGate(() =>
-    {
-        lock (_indexTimerGate)
-        {
-            if (_disposed)
-                return;
-            try
-            {
-                _index.SyncAll();
-                _vectors.FillInBackground();
-            }
-            catch (IOException)
-            {
-                // The editor still holds a file; try again once it settles.
-                _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException or TacitException)
-            {
-                // A git process that cannot start surfaces as a TacitException from the full build's commit dates.
-                _log.Notify(LogLevel.Warning, Messages.IndexSyncFailed, e.Message);
-            }
-        }
-    });
 }

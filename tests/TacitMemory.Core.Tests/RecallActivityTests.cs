@@ -7,7 +7,7 @@ public sealed class RecallActivityTests : IDisposable
     private static readonly float[] Travel = Axis(0);
     private static readonly float[] Elsewhere = Axis(1);
 
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ModelDouble _models = new();
     private MemoryService? _service;
 
@@ -66,18 +66,6 @@ public sealed class RecallActivityTests : IDisposable
         var vector = new float[8];
         vector[index] = 1f;
         return vector;
-    }
-
-    private static async Task Eventually(Func<Task<bool>> condition)
-    {
-        for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
-        {
-            if (await condition())
-                return;
-            await Task.Delay(TimeSpan.FromMilliseconds(100));
-        }
-
-        Assert.Fail("The condition did not hold within 10 seconds.");
     }
 
     [Fact]
@@ -186,10 +174,14 @@ public sealed class RecallActivityTests : IDisposable
         Assert.Contains("旧的活动内容", (await Recall("旧的活动", kind: "activities")).Text);
 
         Month("## 2026-11-02\n- 新的活动关于证书过期\n");
-        await Eventually(async () => (await Recall("证书过期", kind: "activities")).Text.Contains("新的活动关于证书过期", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("recent/2026-11.md");
+        await Service.SettledAsync();
+        Assert.Contains("新的活动关于证书过期", (await Recall("证书过期", kind: "activities")).Text);
 
         File.Delete(MonthFile());
-        await Eventually(async () => (await Recall("证书过期", kind: "activities")).Text.StartsWith("No relevant memory.", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("recent/2026-11.md");
+        await Service.SettledAsync();
+        Assert.StartsWith("No relevant memory.", (await Recall("证书过期", kind: "activities")).Text);
     }
 
     [Fact]
@@ -223,7 +215,7 @@ public sealed class RecallActivityTests : IDisposable
         _models.EmbeddingDown = false;
         _home.Clock.Advance(TimeSpan.FromMinutes(1));
         await Recall("随便查一下");
-        await Service.VectorCompletion;
+        await Service.SettledAsync();
 
         Assert.Contains("差旅票据丢了", (await Recall("出差的钱怎么拿回来", kind: "activities")).Text);
     }

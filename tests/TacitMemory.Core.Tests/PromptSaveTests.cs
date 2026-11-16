@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core.Tests;
 
@@ -71,9 +72,24 @@ public sealed class PromptSaveTests : IDisposable
         _home.Bind();
 
         await _service.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        _home.Clock.Elapse(DerivedUpkeep.Debounce);
+        await _service.SettledAsync();
 
         Assert.Empty(_notices);
+    }
+
+    [Fact]
+    public async Task Saving_the_resident_document_while_a_context_file_is_held_returns_the_failed_render()
+    {
+        _home.Bind();
+        var context = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
+
+        PromptSaved saved;
+        using (new FileStream(context, FileMode.Open, FileAccess.Read, FileShare.Read))
+            saved = await _service.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
+
+        Assert.Contains(saved.Notices, notice => notice.StartsWith("渲染常驻区块失败", StringComparison.Ordinal));
+        Assert.DoesNotContain("外壳，自定义。", File.ReadAllText(context));
     }
 
     [Fact]

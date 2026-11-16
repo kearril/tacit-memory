@@ -3,6 +3,7 @@ namespace TacitMemory.Core.Tests;
 /// <summary>
 /// The consolidation's time budget, worker pool and model cooldown through the facade. The decision model holds its answers
 /// until the test releases them, and the budget is a timer on the test clock, so each test decides when the budget runs out.
+/// The model requests run on a clock of their own, so moving the budget does not end their timeouts or retry pauses.
 /// </summary>
 public sealed class ConsolidationBudgetTests : IDisposable
 {
@@ -34,7 +35,11 @@ public sealed class ConsolidationBudgetTests : IDisposable
     private const string PersonaWithPreference =
         "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n\n## 档案\n";
 
-    private void Configure(string extra = "") => _home.InitReady(extra, _models);
+    private void Configure(string extra = "")
+    {
+        _home.ModelClock = new FixedTime(_home.Clock.GetUtcNow());
+        _home.InitReady(extra, _models);
+    }
 
     private void Write(params string[] candidateTitles)
     {
@@ -89,6 +94,27 @@ public sealed class ConsolidationBudgetTests : IDisposable
     }
 
     [Fact]
+    public async Task Moving_the_consolidation_clock_does_not_time_out_a_model_request()
+    {
+        Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n  maxConcurrency: 1\n");
+        Write("回答尽量简短", "回复别太长");
+        PickPersonaEntry();
+        _models.HoldDecisions();
+        var report = await StartConsolidationAsync();
+        await _models.DecisionRequestsReached(1).WaitAsync(Guard);
+
+        // Well past the model client's own timeout and budget: on a shared clock the held request would be cancelled.
+        _home.Clock.Elapse(TimeSpan.FromMinutes(1));
+        await report;
+        _models.ReleaseDecisions();
+        await Service.SettledAsync().WaitAsync(Guard);
+        var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+
+        Assert.DoesNotContain("not checked yet", Section(complete, Removal));
+        Assert.Contains("回答尽量简短", Section(complete, Removal));
+    }
+
+    [Fact]
     public async Task The_report_returns_when_the_budget_runs_out_and_says_what_is_left_unchecked()
     {
         Configure($"consolidation:\n  budgetSeconds: {Budget.TotalSeconds}\n");
@@ -118,7 +144,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         await report;
 
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Equal(2, _models.DecisionCalls);
@@ -140,11 +166,8 @@ public sealed class ConsolidationBudgetTests : IDisposable
         _home.Clock.Elapse(Budget);
         var text = await report;
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
 
-        // A connection the client dropped would be retried on the frozen clock, and Elapse would fire that retry too:
-        // the test then names the dropped connection instead of reporting a second call.
-        Assert.Equal(0, _models.AbandonedRequests);
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("not checked yet", Section(text, Removal));
     }
@@ -190,7 +213,8 @@ public sealed class ConsolidationBudgetTests : IDisposable
         await Service.ConsolidationReportAsync().WaitAsync(Guard);
         var callsWhileCooling = _models.DecisionCalls;
 
-        _home.Clock.Elapse(TimeSpan.FromSeconds(30));
+        // The cooldown is the model's own, so it ends on the model clock.
+        _home.ModelClock!.Elapse(TimeSpan.FromSeconds(30));
         var text = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > callsWhileCooling);
@@ -223,7 +247,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         Assert.Contains("they ran out before all of them finished", text);
 
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));

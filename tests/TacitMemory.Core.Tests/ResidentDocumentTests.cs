@@ -2,12 +2,13 @@ using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core.Tests;
 
 public sealed class ResidentDocumentTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ConcurrentQueue<string> _notices = new();
 
     public ResidentDocumentTests() => _home.InitReady();
@@ -217,8 +218,10 @@ public sealed class ResidentDocumentTests : IDisposable
         using var service = Open();
 
         File.WriteAllText(ResidentMd, "SHELL-NEW\n\n## profile\nPROF-NEW\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => Agents().Contains("SHELL-NEW", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("SHELL-NEW", Agents());
         Assert.Contains("## Profile\nPROF-NEW\n- f1\n", Agents());
         Assert.Contains("## Red lines\n- r1\n", Agents());
         Assert.NotNull(service);
@@ -233,8 +236,10 @@ public sealed class ResidentDocumentTests : IDisposable
         using var service = Open();
 
         File.Delete(ResidentMd);
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => !Agents().Contains("SHELL-GONE", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.DoesNotContain("SHELL-GONE", Agents());
         Assert.Contains("Background on the user from earlier sessions.", Agents());
         Assert.NotNull(service);
     }
@@ -246,16 +251,66 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         using var service = Open();
 
-        // The debounced render runs while this reader holds AGENTS.md, so the replacement is refused.
+        // The render runs while this reader holds AGENTS.md, so the replacement is refused and tried again later.
         using (new FileStream(AgentsMd, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            File.WriteAllText(PersonaMd, File.ReadAllText(PersonaMd).Replace("- p1", "- p2", StringComparison.Ordinal));
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            await service.WritePersonaAsync(AddProfile("系统：Windows 11"));
+            await service.SettledAsync();
+            Assert.DoesNotContain("系统：Windows 11", Agents());
         }
 
-        await Eventually(() => Agents().Contains("p2", StringComparison.Ordinal));
-        Assert.NotNull(service);
+        _home.Clock.Elapse(DerivedUpkeep.Debounce);
+        await service.SettledAsync();
+
+        Assert.Contains("- 系统：Windows 11\n", Agents());
+        Assert.DoesNotContain(_notices, notice => notice.Contains("渲染常驻区块失败", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task A_render_still_refused_after_five_retries_is_reported_once_and_a_later_change_renders_again()
+    {
+        WriteFullPersona();
+        _home.Bind();
+        using var service = Open();
+
+        using (new FileStream(AgentsMd, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            await service.WritePersonaAsync(AddProfile("系统：Windows 11"));
+            await service.SettledAsync();
+            for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
+            {
+                Assert.DoesNotContain(_notices, notice => notice.Contains("渲染常驻区块失败", StringComparison.Ordinal));
+                _home.Clock.Elapse(DerivedUpkeep.Debounce);
+                await service.SettledAsync();
+            }
+        }
+
+        Assert.Single(_notices, notice => notice.Contains("渲染常驻区块失败", StringComparison.Ordinal));
+        Assert.DoesNotContain("系统：Windows 11", Agents());
+
+        await service.WritePersonaAsync(AddProfile("编辑器：VS Code"));
+        await service.SettledAsync();
+
+        Assert.Contains("- 系统：Windows 11\n", Agents());
+        Assert.Contains("- 编辑器：VS Code\n", Agents());
+    }
+
+    [Fact]
+    public async Task A_render_still_waiting_when_the_service_is_disposed_does_not_run()
+    {
+        WriteFullPersona();
+        _home.Bind();
+        var service = Open();
+
+        await service.WritePersonaAsync(AddProfile("系统：Windows 11"));
+        service.Dispose();
+        _home.Clock.Elapse(DerivedUpkeep.Debounce);
+
+        Assert.DoesNotContain("系统：Windows 11", Agents());
+    }
+
+    private static WritePersonaRequest AddProfile(string text) =>
+        new() { Op = "add", Section = "profile", Text = text, Source = text };
 
     [Fact]
     public async Task A_leftover_temporary_file_held_by_another_process_does_not_block_a_render()
@@ -267,8 +322,10 @@ public sealed class ResidentDocumentTests : IDisposable
         // Another renderer holds the old fixed temporary name; the render must not depend on that name.
         using var leftover = new FileStream(AgentsMd + ".tacit-tmp", FileMode.Create, FileAccess.Write, FileShare.None);
         File.WriteAllText(PersonaMd, File.ReadAllText(PersonaMd).Replace("- p1", "- p2", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("persona.md");
 
-        await Eventually(() => Agents().Contains("p2", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("p2", Agents());
         Assert.NotNull(service);
     }
 
@@ -281,8 +338,10 @@ public sealed class ResidentDocumentTests : IDisposable
         using var service = Open();
 
         File.WriteAllText(ResidentMd, "SHELL-BROKEN\n\n## red_line\nX\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("resident.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("resident.md", StringComparison.Ordinal));
         Assert.Contains("SHELL-OK", Agents());
         Assert.DoesNotContain("SHELL-BROKEN", Agents());
         Assert.NotNull(service);
@@ -549,10 +608,14 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.Contains("- fresh：说明。\n", Agents());
 
         WriteMonth("2026-11", "## 2026-11-02\n- [fresh] 今天的事\n");
-        await Eventually(() => Agents().Contains("- fresh：说明。 近况：在做。\n", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("recent/2026-11.md");
+        await service.SettledAsync();
+        Assert.Contains("- fresh：说明。 近况：在做。\n", Agents());
 
         File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：改过的说明。\n");
-        await Eventually(() => Agents().Contains("- fresh：改过的说明。\n", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("workstreams.md");
+        await service.SettledAsync();
+        Assert.Contains("- fresh：改过的说明。\n", Agents());
         Assert.NotNull(service);
     }
 
@@ -567,23 +630,15 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
 
         // Let the vector fill of the service's start finish first: Elapse would otherwise fire the timeout of a call still in flight.
-        await service.VectorCompletion;
+        await service.SettledAsync();
         _home.Clock.Elapse(TimeSpan.FromDays(1));
 
-        await Eventually(() => Agents().Contains("- alpha：一号主线。\n", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- alpha：一号主线。\n", Agents());
         Assert.NotNull(service);
     }
 
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value)).Count;
 
-    private static async Task Eventually(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

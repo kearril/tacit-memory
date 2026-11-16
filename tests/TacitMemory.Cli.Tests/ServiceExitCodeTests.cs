@@ -77,6 +77,8 @@ public sealed class ServiceExitCodeTests : IDisposable
         while (!result.Stdout.Contains("提示词文档有误", StringComparison.Ordinal))
         {
             Assert.True(DateTime.UtcNow < deadline, "the status did not name the document within 10 s");
+            // The reload waits for its debounce on the test clock, so each round lets that time pass.
+            _cli.Home.Clock.Elapse(TimeSpan.FromMilliseconds(300));
             await Task.Delay(100);
             result = await _cli.RunAsync(["status"]);
         }

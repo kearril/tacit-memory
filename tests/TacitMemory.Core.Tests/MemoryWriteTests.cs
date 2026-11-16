@@ -68,7 +68,7 @@ public sealed class MemoryWriteTests : IDisposable
         var found = await _service.RecallAsync(new RecallRequest { Query = "PGroonga" });
         Assert.Contains("tacit-memory/db-upgrade", found.Text);
 
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
         Assert.True(File.Exists(AutomaticBackup));
     }
 
@@ -123,7 +123,7 @@ public sealed class MemoryWriteTests : IDisposable
         var found = await _service.RecallAsync(new RecallRequest { Query = "PGroonga", Kind = "activities" });
         Assert.Contains("PGroonga", found.Text);
 
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
         Assert.True(File.Exists(AutomaticBackup));
     }
 
@@ -150,7 +150,7 @@ public sealed class MemoryWriteTests : IDisposable
         Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
         Assert.Single(_notices, notice => notice.Contains("git", StringComparison.OrdinalIgnoreCase));
 
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
         Assert.True(File.Exists(AutomaticBackup));
     }
 }

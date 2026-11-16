@@ -415,8 +415,7 @@ public sealed class StatusColumnsTests : IDisposable
     {
         File.WriteAllText(CandidatesMd, TwoDayCandidate.ReplaceLineEndings("\n"));
         var service = Service;
-        await service.VectorCompletion;
-        await service.JudgmentCompletion;
+        await service.SettledAsync();
         var calls = Calls();
 
         await service.StatusAsync(Endpoint);

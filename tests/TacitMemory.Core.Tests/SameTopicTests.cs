@@ -83,14 +83,14 @@ public sealed class SameTopicTests : IDisposable
     {
         var backup = Path.Combine(_home.TacitHome, "backups", "auto-2026-11-02.zip");
         await Service.WriteRecentAsync(Add("先查了索引"));
-        await Service.BackupCompletion;
+        await Service.SettledAsync();
         File.Delete(backup);
         Match("先查了索引", 0.95);
         var head = TestHome.Git(_home.DefaultMemory, "rev-parse", "HEAD");
 
         var result = await Service.WriteRecentAsync(Add("索引查完了，问题在分词器"));
 
-        await Service.BackupCompletion;
+        await Service.SettledAsync();
         Assert.False(result.IsError, result.Text);
         Assert.Equal(head, TestHome.Git(_home.DefaultMemory, "rev-parse", "HEAD"));
         Assert.False(File.Exists(backup));

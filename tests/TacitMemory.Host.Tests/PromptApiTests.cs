@@ -146,6 +146,8 @@ public sealed class PromptApiTests : IAsyncLifetime
         while ((resident = (await ReadAsync()).Documents.Single(document => document.Name == PromptName.Resident)).Problem is null)
         {
             Assert.True(DateTime.UtcNow < deadline, "the problem did not show within 10 s");
+            // The reload waits for its debounce on the test clock, so each round lets that time pass.
+            _home.Clock.Elapse(TimeSpan.FromMilliseconds(300));
             await Task.Delay(50);
         }
 

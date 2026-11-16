@@ -4,7 +4,7 @@ using System.Globalization;
 namespace TacitMemory.Core.Tests;
 
 /// <summary>A throwaway user home and <c>TACIT_HOME</c> under %TEMP%.</summary>
-internal sealed class TestHome : IDisposable
+internal sealed partial class TestHome : IDisposable
 {
     public TestHome()
     {
@@ -30,20 +30,35 @@ internal sealed class TestHome : IDisposable
     public FixedTime Clock { get; } = new(new DateTimeOffset(Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero));
 
     /// <summary>
+    /// The clock of the auxiliary model requests; null gives them <see cref="Clock"/>. A test that moves the consolidation
+    /// budget sets its own, so the move does not end a model request's timeout or retry pause as well.
+    /// </summary>
+    public FixedTime? ModelClock { get; set; }
+
+    /// <summary>
     /// The secret environment variables every <see cref="Tacit"/> made here sees. It starts empty, so the machine's own
     /// variables are never read; a test sets the ones it needs, e.g. <c>TACIT_DECISION_API_KEY</c>.
     /// </summary>
     public Dictionary<string, string> EnvironmentVariables { get; } = [];
 
     /// <summary>The options of every <see cref="Tacit"/> made here: this home, this clock and the secrets above.</summary>
-    public TacitOptions Options(string uiCulture = "zh-CN") => new()
+    public TacitOptions Options(string uiCulture = "zh-CN")
     {
-        TacitHome = TacitHome,
-        UserHome = UserHome,
-        UiCulture = CultureInfo.GetCultureInfo(uiCulture),
-        Time = Clock,
-        Secrets = EnvironmentVariables,
-    };
+        var options = new TacitOptions
+        {
+            TacitHome = TacitHome,
+            UserHome = UserHome,
+            UiCulture = CultureInfo.GetCultureInfo(uiCulture),
+            Time = Clock,
+            ModelTime = ModelClock,
+            Secrets = EnvironmentVariables,
+        };
+        WithSources(ref options);
+        return options;
+    }
+
+    /// <summary>Gives the options the changes a Core test tells the service of; the hosts' tests watch the files.</summary>
+    partial void WithSources(ref TacitOptions options);
 
     public Tacit Tacit(string uiCulture = "zh-CN") => new(Options(uiCulture));
 
@@ -156,8 +171,9 @@ internal sealed class TestHome : IDisposable
 
 /// <summary>
 /// A clock that stands still unless moved, in UTC. The code under test creates a timer for each attempt's timeout and
-/// for each pause between attempts. <see cref="Advance"/> moves the clock without firing timers; <see cref="Elapse"/>
-/// moves it and fires the timers now due, so a test decides when an attempt times out or a pause ends.
+/// for each pause between attempts, and the service a debounced timer for each refresh, which it schedules again with
+/// <see cref="ITimer.Change"/>. <see cref="Advance"/> moves the clock without firing timers; <see cref="Elapse"/> moves it
+/// and fires the timers now due, so a test decides when an attempt times out, a pause ends or a refresh runs.
 /// </summary>
 internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
 {
@@ -232,7 +248,10 @@ internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
             throw new NotSupportedException("Test timers fire once.");
         lock (_gate)
         {
-            var timer = new PendingTimer(this, callback, state, _now + dueTime);
+            var timer = new PendingTimer(this, callback, state);
+            if (dueTime == Timeout.InfiniteTimeSpan)
+                return timer;
+            timer.Due = _now + dueTime;
             _pending.Add(timer);
             _created.Add(dueTime);
             var waiter = _waiters.FirstOrDefault(candidate => candidate.Duration == dueTime);
@@ -252,13 +271,32 @@ internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
             _pending.Remove(timer);
     }
 
-    private sealed class PendingTimer(FixedTime clock, TimerCallback callback, object? state, DateTimeOffset due) : ITimer
+    /// <summary>Schedules <paramref name="timer"/> again; an infinite due time stops it.</summary>
+    private void Reschedule(PendingTimer timer, TimeSpan dueTime)
     {
-        public DateTimeOffset Due => due;
+        lock (_gate)
+        {
+            _pending.Remove(timer);
+            if (dueTime == Timeout.InfiniteTimeSpan)
+                return;
+            timer.Due = _now + dueTime;
+            _pending.Add(timer);
+        }
+    }
+
+    private sealed class PendingTimer(FixedTime clock, TimerCallback callback, object? state) : ITimer
+    {
+        public DateTimeOffset Due { get; set; }
 
         public void Fire() => callback(state);
 
-        public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException("Test timers are not rescheduled.");
+        public bool Change(TimeSpan dueTime, TimeSpan period)
+        {
+            if (period != Timeout.InfiniteTimeSpan)
+                throw new NotSupportedException("Test timers fire once.");
+            clock.Reschedule(this, dueTime);
+            return true;
+        }
 
         public void Dispose() => clock.Forget(this);
 

@@ -60,7 +60,7 @@ public sealed class Tacit(TacitOptions options)
     public async Task<ProbeReport> ProbeAsync(
         TacitConfig config, IReadOnlyList<ModelRole> roles, bool explicitTargets, CancellationToken cancellationToken = default)
     {
-        var results = await ModelProbe.RunAsync(config, roles, options.Time, cancellationToken);
+        var results = await ModelProbe.RunAsync(config, roles, options.ModelClock, cancellationToken);
         return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets));
     }
 

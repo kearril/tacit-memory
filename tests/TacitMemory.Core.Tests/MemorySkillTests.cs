@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 using TacitMemory.Core.Skills;
+using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core.Tests;
 
@@ -9,7 +10,7 @@ public sealed class MemorySkillTests : IDisposable
 {
     private const int PromptLimit = 3000;
 
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ConcurrentQueue<string> _notices = new();
 
     public MemorySkillTests() => _home.InitReady();
@@ -173,10 +174,13 @@ public sealed class MemorySkillTests : IDisposable
         using (new FileStream(SkillFile, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             File.WriteAllText(SkillPrompt, "- 新的写法约定\n");
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            _home.Sources!.PromptsChanged();
+            await service.SettledAsync();
         }
 
-        await Eventually(() => File.ReadAllText(SkillFile).Contains("- 新的写法约定", StringComparison.Ordinal));
+        _home.Clock.Elapse(DerivedUpkeep.Debounce);
+        await service.SettledAsync();
+        Assert.Contains("- 新的写法约定", File.ReadAllText(SkillFile));
     }
 
     [Fact]
@@ -186,8 +190,10 @@ public sealed class MemorySkillTests : IDisposable
         Directory.CreateDirectory(Prompts);
 
         File.WriteAllText(SkillPrompt, "- 新的写法约定\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => File.ReadAllText(SkillFile).Contains("- 新的写法约定", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- 新的写法约定", File.ReadAllText(SkillFile));
     }
 
     [Fact]
@@ -198,8 +204,10 @@ public sealed class MemorySkillTests : IDisposable
         using var service = Open();
 
         File.WriteAllText(SkillPrompt, "---\nname: 别的名字\n---\n- 不可用\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("skill.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("skill.md", StringComparison.Ordinal));
         var text = File.ReadAllText(SkillFile);
         Assert.Contains("- 可用的约定", text, StringComparison.Ordinal);
         Assert.DoesNotContain("- 不可用", text, StringComparison.Ordinal);
@@ -233,7 +241,7 @@ public sealed class MemorySkillTests : IDisposable
             Aliases = ["技能备份别名一", "技能备份别名二"],
             Sections = [new("现象", "用于检查备份内容。")],
         });
-        await service.BackupCompletion;
+        await service.SettledAsync();
 
         var backup = Path.Combine(_home.TacitHome, "backups", $"auto-{TestHome.Today:yyyy-MM-dd}.zip");
         using var archive = ZipFile.OpenRead(backup);
@@ -250,13 +258,4 @@ public sealed class MemorySkillTests : IDisposable
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value)).Count;
 
-    private static async Task Eventually(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

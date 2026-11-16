@@ -8,7 +8,7 @@ public sealed class PromptDocumentTests : IDisposable
 {
     private const int FixedLimit = 3000;
 
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ConcurrentQueue<string> _notices = new();
 
     public PromptDocumentTests() => _home.InitReady();
@@ -57,8 +57,10 @@ public sealed class PromptDocumentTests : IDisposable
         Assert.Contains("- 自定义的标准", await service.ServerInstructionsAsync());
 
         File.Delete(Path.Combine(Prompts, "rules.md"));
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 用户纠正或打断 Agent", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- 用户纠正或打断 Agent", (await service.ServerInstructionsAsync()));
         Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 
@@ -214,8 +216,10 @@ public sealed class PromptDocumentTests : IDisposable
 
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n- 新写的核心规则\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 新写的核心规则", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- 新写的核心规则", (await service.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -227,8 +231,10 @@ public sealed class PromptDocumentTests : IDisposable
         Assert.Contains("- 临时规则", await service.ServerInstructionsAsync());
 
         File.Delete(InstructionsMd);
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("## Recall", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("## Recall", (await service.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -240,8 +246,10 @@ public sealed class PromptDocumentTests : IDisposable
         var before = await service.ServerInstructionsAsync();
 
         File.WriteAllText(InstructionsMd, "## 核心\n" + new string('长', 2600) + "\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("instructions.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("instructions.md", StringComparison.Ordinal));
         Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
@@ -273,7 +281,7 @@ public sealed class PromptDocumentTests : IDisposable
             Aliases = ["提示词备份别名一", "提示词备份别名二"],
             Sections = [new("现象", "用于检查备份内容。")],
         });
-        await service.BackupCompletion;
+        await service.SettledAsync();
 
         var backup = Path.Combine(_home.TacitHome, "backups", $"auto-{TestHome.Today:yyyy-MM-dd}.zip");
         using var archive = ZipFile.OpenRead(backup);
@@ -315,23 +323,4 @@ public sealed class PromptDocumentTests : IDisposable
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value)).Count;
 
-    private static async Task Eventually(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
-
-    private static async Task Eventually(Func<Task<bool>> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!await condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

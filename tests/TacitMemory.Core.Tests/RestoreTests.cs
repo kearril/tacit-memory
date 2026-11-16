@@ -16,17 +16,6 @@ public sealed class RestoreTests : IDisposable
     /// <summary>A bound on each await: a wait that never ends fails here instead of hanging.</summary>
     private static readonly TimeSpan Guard = TimeSpan.FromSeconds(10);
 
-    /// <summary>Waits until the condition holds, as the service's own debounced renders take their time.</summary>
-    private static async Task Eventually(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + Guard;
-        while (!condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within the guard");
-            await Task.Delay(50);
-        }
-    }
-
     private readonly TestHome _home = new();
     private readonly CapturingLoggerFactory _logs = new();
     private readonly ModelDouble _models = new();
@@ -375,7 +364,7 @@ public sealed class RestoreTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n### new-workstream\n背景：新的主线。\n");
         await _service.WritePageAsync(Create("new-workstream/new-page", "新版本记录", "新版本内容"));
         // The service renders the resident block itself, after its debounce; no second renderer may run beside it.
-        await Eventually(() => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
+        await Watchers.Eventually(_service, () => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
 
         await _service.RestoreAsync(backup.Location, config: false);
 
@@ -383,7 +372,7 @@ public sealed class RestoreTests : IDisposable
         Assert.Contains("old-workstream/old-page", found.Text, StringComparison.Ordinal);
         var missing = await _service.RecallAsync(new RecallRequest { Query = "新版本记录" });
         Assert.DoesNotContain("new-workstream/new-page", missing.Text, StringComparison.Ordinal);
-        await Eventually(() => !File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
+        await Watchers.Eventually(_service, () => !File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
         var block = File.ReadAllText(AgentsMd);
         Assert.Contains("old-workstream", block, StringComparison.Ordinal);
     }
@@ -395,11 +384,11 @@ public sealed class RestoreTests : IDisposable
         _home.Bind();
         var backup = await _service.BackupAsync(BackupTarget.Local);
         File.WriteAllText(PersonaMd, PersonaWith("偏好乙"));
-        await Eventually(() => File.ReadAllText(AgentsMd).Contains("偏好乙", StringComparison.Ordinal));
+        await Watchers.Eventually(_service, () => File.ReadAllText(AgentsMd).Contains("偏好乙", StringComparison.Ordinal));
 
         await _service.RestoreAsync(backup.Location, config: false);
 
-        await Eventually(() => File.ReadAllText(AgentsMd).Contains("偏好甲", StringComparison.Ordinal));
+        await Watchers.Eventually(_service, () => File.ReadAllText(AgentsMd).Contains("偏好甲", StringComparison.Ordinal));
         Assert.DoesNotContain("偏好乙", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
     }
 

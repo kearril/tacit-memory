@@ -506,7 +506,7 @@ public sealed partial class RecentActivityTests : IDisposable
     public async Task A_successful_write_schedules_the_automatic_backup_for_the_day()
     {
         await _service.WriteRecentAsync(Add("第一条"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         Assert.True(File.Exists(Path.Combine(_home.TacitHome, "backups", "auto-2026-11-02.zip")));
     }

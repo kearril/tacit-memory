@@ -61,6 +61,6 @@ public sealed class BackupRaceTests : IDisposable
         _release.SetResult();
         var result = await second.WaitAsync(Guard);
         Assert.False(result.IsError, result.Text);
-        await Service.BackupCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
     }
 }
