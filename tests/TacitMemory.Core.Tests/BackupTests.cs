@@ -51,7 +51,7 @@ public sealed class BackupTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, ".cache", "scratch.bin"), "cache");
 
         await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         using var zip = ZipFile.OpenRead(BackupFor(_home.TacitHome, Today));
         var names = zip.Entries.Select(entry => entry.FullName).ToArray();
@@ -75,11 +75,11 @@ public sealed class BackupTests : IDisposable
     public async Task A_second_write_on_the_same_day_does_not_back_up_again()
     {
         await _service.WritePageAsync(Create("tacit-memory/first"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         _home.Clock.Advance(TimeSpan.FromHours(8));
         await _service.WritePageAsync(Create("tacit-memory/second"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         using var zip = ZipFile.OpenRead(BackupFor(_home.TacitHome, Today));
         using var manifestStream = zip.GetEntry("manifest.json")!.Open();
@@ -97,7 +97,7 @@ public sealed class BackupTests : IDisposable
         for (var day = 0; day < 3; day++)
         {
             await service.WritePageAsync(Create($"tacit-memory/day-{day}"));
-            await service.BackupCompletion;
+            await service.SettledAsync();
             home.Clock.Advance(TimeSpan.FromDays(1));
         }
 
@@ -115,7 +115,7 @@ public sealed class BackupTests : IDisposable
             using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
             await service.WritePageAsync(Create("tacit-memory/no-backup"));
-            await service.BackupCompletion;
+            await service.SettledAsync();
 
             Assert.Empty(AutomaticBackups(Path.Combine(home.TacitHome, "backups")));
         }
@@ -197,7 +197,7 @@ public sealed class BackupTests : IDisposable
         var notices = new List<string>();
         using var service = home.Tacit().OpenService(notices.Add, NullLoggerFactory.Instance);
         await service.WritePageAsync(Create("tacit-memory/plain-key"));
-        await service.BackupCompletion;
+        await service.SettledAsync();
         return notices;
     }
 
@@ -214,7 +214,7 @@ public sealed class BackupTests : IDisposable
         File.WriteAllText(BackupsDirectory, "not a directory");
 
         var result = await _service.WritePageAsync(Create("tacit-memory/backup-fails"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         Assert.False(result.IsError);
         Assert.Contains(_notices, notice => notice.Contains("自动备份失败", StringComparison.Ordinal));

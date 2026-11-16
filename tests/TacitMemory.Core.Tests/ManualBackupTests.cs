@@ -84,7 +84,7 @@ public sealed class ManualBackupTests : IDisposable
     public async Task An_automatic_backup_records_its_kind_and_the_subject_of_the_commit_it_holds()
     {
         await _service.WritePageAsync(Create("tacit-memory/auto-kind"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         using var zip = ZipFile.OpenRead(Path.Combine(BackupsDirectory, $"auto-{Today:yyyy-MM-dd}.zip"));
         using var manifestStream = zip.GetEntry("manifest.json")!.Open();
@@ -113,12 +113,12 @@ public sealed class ManualBackupTests : IDisposable
         home.InitReady("backup:\n  keep: 1\n");
         using var service = home.Tacit().OpenService(_ => { }, _logs);
         await service.WritePageAsync(Create("tacit-memory/first-day"));
-        await service.BackupCompletion;
+        await service.SettledAsync();
         var manual = await service.BackupAsync(BackupTarget.Local);
 
         home.Clock.Advance(TimeSpan.FromDays(1));
         await service.WritePageAsync(Create("tacit-memory/second-day"));
-        await service.BackupCompletion;
+        await service.SettledAsync();
 
         Assert.True(File.Exists(manual.Location));
         Assert.Equal(["auto-2026-11-03.zip"], AutomaticBackups(Path.Combine(home.TacitHome, "backups")));
@@ -159,7 +159,7 @@ public sealed class ManualBackupTests : IDisposable
         home.InitReady("backup:\n  keep: 0\n");
         using var service = home.Tacit().OpenService(_ => { }, _logs);
         await service.WritePageAsync(Create("tacit-memory/no-auto"));
-        await service.BackupCompletion;
+        await service.SettledAsync();
 
         var manual = await service.BackupAsync(BackupTarget.Local);
 

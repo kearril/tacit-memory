@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using TacitMemory.Core.Logging;
+using TacitMemory.Core.Maintenance;
 using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core.Tests;
@@ -10,7 +12,7 @@ namespace TacitMemory.Core.Tests;
 /// </summary>
 public sealed class DerivedUpkeepTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ConcurrentQueue<string> _notices = new();
 
     public DerivedUpkeepTests() => _home.InitReady();
@@ -47,7 +49,7 @@ public sealed class DerivedUpkeepTests : IDisposable
 
         using (new FileStream(PageFile, FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            service.MemoryChanged($"pages/{Page}.md");
+            _home.Sources!.MemoryChanged($"pages/{Page}.md");
             await service.SettledAsync();
             for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
             {
@@ -72,7 +74,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         {
             using (var writer = new StreamWriter(held, leaveOpen: true))
                 writer.Write(text);
-            service.MemoryChanged($"pages/{Page}.md");
+            _home.Sources!.MemoryChanged($"pages/{Page}.md");
             await service.SettledAsync();
         }
 
@@ -93,7 +95,7 @@ public sealed class DerivedUpkeepTests : IDisposable
 
         using (new FileStream(rules, FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            service.PromptsChanged();
+            _home.Sources!.PromptsChanged();
             await service.SettledAsync();
             for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
             {
@@ -107,6 +109,79 @@ public sealed class DerivedUpkeepTests : IDisposable
     }
 
     [Fact]
+    public async Task A_render_scheduled_before_a_maintenance_operation_runs_before_it()
+    {
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        _home.Bind();
+        using var service = Open();
+        var agents = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 12\n");
+        _home.Sources!.MemoryChanged("persona.md");
+
+        // The debounce has not passed on the test clock: only the maintenance operation can have run the render.
+        await service.ReindexAsync();
+
+        Assert.Contains("- 系统：Windows 12\n", File.ReadAllText(agents));
+    }
+
+    [Fact]
+    public async Task Lost_events_refresh_the_resident_blocks_the_index_and_the_instructions()
+    {
+        _home.Bind();
+        using var service = Open();
+        var agents = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        File.WriteAllText(
+            Path.Combine(Memory, "recent", $"{TestHome.Today:yyyy-MM}.md"),
+            $"## {TestHome.Today:yyyy-MM-dd}\n- 导出脚本改用按月分文件导出，因为单个文件太大。\n");
+
+        _home.Sources!.EventsLost();
+        await service.SettledAsync();
+
+        Assert.Contains("- 系统：Windows 11\n", File.ReadAllText(agents));
+        Assert.Contains("改用按月分文件导出", await service.ServerInstructionsAsync());
+        Assert.Contains("按月分文件导出", (await service.RecallAsync(new RecallRequest { Query = "按月分文件", Kind = "activities" })).Text);
+    }
+
+    [Fact]
+    public async Task A_change_the_upkeep_fails_to_take_is_reported_and_does_not_reach_the_watcher()
+    {
+        var notices = new ConcurrentQueue<string>();
+        var options = _home.Options() with { Time = new RefusingTime() };
+        var log = new ServiceLog(NullLogger.Instance, MemoryLanguage.Zh, notices.Enqueue);
+        using var gate = new MaintenanceGate();
+        using var upkeep = new DerivedUpkeep(options, log, gate, () => throw new InvalidOperationException("no runtime"));
+        using var watch = new FileSourceWatch(Memory, _home.TacitHome, upkeep, log);
+
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (!notices.Any(notice => notice.Contains("timer refused", StringComparison.Ordinal)))
+        {
+            Assert.True(DateTime.UtcNow < deadline, "the watcher did not report the failure within 10 s");
+            await Task.Delay(50);
+        }
+        Assert.StartsWith("后台任务失败：", notices.First(notice => notice.Contains("timer refused", StringComparison.Ordinal)));
+    }
+
+    /// <summary>A clock whose timers refuse to be set: a change the upkeep hears fails when it schedules the refresh.</summary>
+    private sealed class RefusingTime : TimeProvider
+    {
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) => new Refusing();
+
+        private sealed class Refusing : ITimer
+        {
+            public bool Change(TimeSpan dueTime, TimeSpan period) => throw new InvalidOperationException("timer refused");
+
+            public void Dispose()
+            {
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
     public async Task A_changed_activity_file_shows_in_the_next_server_instructions()
     {
         using var service = Open();
@@ -115,7 +190,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         File.WriteAllText(
             Path.Combine(Memory, "recent", $"{TestHome.Today:yyyy-MM}.md"),
             $"## {TestHome.Today:yyyy-MM-dd}\n- 导出脚本改用按月分文件导出，因为单个文件太大。\n");
-        service.MemoryChanged($"recent/{TestHome.Today:yyyy-MM}.md");
+        _home.Sources!.MemoryChanged($"recent/{TestHome.Today:yyyy-MM}.md");
 
         Assert.Contains("改用按月分文件导出", await service.ServerInstructionsAsync());
     }

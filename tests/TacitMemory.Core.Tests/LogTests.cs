@@ -174,7 +174,7 @@ public sealed class LogTests : IDisposable
         using var service = _home.Tacit().OpenService(notices.Add, _logs);
 
         await service.WritePageAsync(Create("my-app/plain-key"));
-        await service.BackupCompletion;
+        await service.SettledAsync();
 
         Assert.Contains(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));
         Assert.Contains(_logs.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("明文密钥", StringComparison.Ordinal));

@@ -8,7 +8,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed partial class PersonaProposeTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly MemoryService _service;
 
     public PersonaProposeTests()
@@ -60,19 +60,6 @@ public sealed partial class PersonaProposeTests : IDisposable
         Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: candidates baseline");
         File.WriteAllText(Path.Combine(Memory, "notes.txt"), "staged by the user\n");
         Git("add", "notes.txt");
-    }
-
-    private async Task<bool> EventuallyAsync(Func<bool> condition)
-    {
-        for (var attempt = 0; attempt < 100; attempt++)
-        {
-            await _service.SettledAsync();
-            if (condition())
-                return true;
-            await Task.Delay(50);
-        }
-
-        return condition();
     }
 
     [Fact]
@@ -271,7 +258,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         WriteCandidates("## 候选\n\n## 拒绝列表\n");
 
         var result = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         Assert.False(result.IsError, result.Text);
         Assert.True(File.Exists(Path.Combine(_home.TacitHome, "backups", $"auto-{Today}.zip")));
@@ -298,7 +285,8 @@ public sealed partial class PersonaProposeTests : IDisposable
         });
 
         Assert.False(added.IsError, added.Text);
-        Assert.True(await EventuallyAsync(() => !File.ReadAllText(AgentsMd).Contains("STALE", StringComparison.Ordinal)));
+        await _service.SettledAsync();
+        Assert.DoesNotContain("STALE", File.ReadAllText(AgentsMd));
     }
 
     [Theory]

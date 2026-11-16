@@ -8,7 +8,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed partial class PersonaAddTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly MemoryService _service;
 
     public PersonaAddTests()
@@ -51,19 +51,6 @@ public sealed partial class PersonaAddTests : IDisposable
     private static string CodeOf(ToolResult result) => CodeInReply().Match(result.Text).Groups[1].Value;
 
     private void WritePersona(string text) => File.WriteAllText(PersonaMd, text.ReplaceLineEndings("\n"));
-
-    private async Task<bool> EventuallyAsync(Func<bool> condition)
-    {
-        for (var attempt = 0; attempt < 100; attempt++)
-        {
-            await _service.SettledAsync();
-            if (condition())
-                return true;
-            await Task.Delay(50);
-        }
-
-        return condition();
-    }
 
     [Fact]
     public async Task Adding_a_red_line_appends_it_to_the_section_with_a_dated_source_comment_and_commits_only_persona()
@@ -317,7 +304,7 @@ public sealed partial class PersonaAddTests : IDisposable
     public async Task The_first_write_of_the_day_leaves_a_backup()
     {
         var result = await _service.WritePersonaAsync(Add("profile", "系统：Windows 11"));
-        await _service.BackupCompletion;
+        await _service.SettledAsync();
 
         Assert.False(result.IsError, result.Text);
         Assert.True(File.Exists(Path.Combine(_home.TacitHome, "backups", $"auto-{Today}.zip")));
@@ -331,7 +318,8 @@ public sealed partial class PersonaAddTests : IDisposable
         var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.True(await EventuallyAsync(() => File.ReadAllText(AgentsMd).Contains("- 沟通：先要结论\n", StringComparison.Ordinal)));
+        await _service.SettledAsync();
+        Assert.Contains("- 沟通：先要结论\n", File.ReadAllText(AgentsMd));
         Assert.DoesNotContain(ShortOf("沟通：先要结论"), File.ReadAllText(AgentsMd));
     }
 

@@ -55,8 +55,7 @@ public sealed class MemoryService : IDisposable
     private CloudBackup _remote = null!;
     private readonly ServiceLog _log;
     private readonly ClientRecordStore _clients;
-    private FileSystemWatcher _watcher = null!;
-    private FileSystemWatcher? _promptsWatcher;
+    private ISourceWatch _sources = null!;
 
     /// <summary>Keeps the derived products in step with the memory files; it outlives every runtime.</summary>
     private readonly DerivedUpkeep _upkeep;
@@ -98,8 +97,7 @@ public sealed class MemoryService : IDisposable
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _upkeep = new DerivedUpkeep(
-            options, _log, _gate, () => new UpkeepRuntime(Config, _index, _vectors, _models, _backup.Completion, _judgments.Completion),
-            WatchPrompts);
+            options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
         OpenRuntime(config);
     }
 
@@ -112,7 +110,7 @@ public sealed class MemoryService : IDisposable
     {
         AuxiliaryModels? models = null;
         MemoryIndex? index = null;
-        FileSystemWatcher? watcher = null;
+        ISourceWatch? sources = null;
         try
         {
             OnOpening?.Invoke(config);
@@ -121,11 +119,11 @@ public sealed class MemoryService : IDisposable
                 config.MemoryPath, config.Models.Embedding?.Model, config.Language,
                 () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
             index.SyncAll();
-            watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
+            sources = _options.Sources?.Attach(_upkeep) ?? new FileSourceWatch(config.MemoryPath, _options.TacitHome, _upkeep, _log);
         }
         catch
         {
-            watcher?.Dispose();
+            sources?.Dispose();
             index?.Dispose();
             models?.Dispose();
             throw;
@@ -157,14 +155,7 @@ public sealed class MemoryService : IDisposable
         _manual = new ManualBackup(_options, config, _log);
         _remote = new CloudBackup(_options, config, _log);
 
-        _watcher = watcher;
-        _watcher.Changed += OnChange;
-        _watcher.Created += OnChange;
-        _watcher.Deleted += OnChange;
-        _watcher.Renamed += OnChange;
-        _watcher.Error += OnOverflow;
-        _watcher.EnableRaisingEvents = true;
-        WatchPrompts();
+        _sources = sources;
         _runtimeOpen = true;
         _upkeep.InvalidateInstructions();
     }
@@ -175,9 +166,7 @@ public sealed class MemoryService : IDisposable
         if (!_runtimeOpen)
             return;
         _runtimeOpen = false;
-        _watcher.Dispose();
-        lock (_upkeep.Gate)
-            _promptsWatcher?.Dispose();
+        _sources.Dispose();
         _index.Dispose();
         _models.Dispose();
     }
@@ -763,23 +752,11 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    /// <summary>Completes when the backup started by the latest successful write has finished. Tests await it.</summary>
-    internal Task BackupCompletion => _backup.Completion;
-
-    /// <summary>Completes once the scheduled refreshes have run and the background work has finished.</summary>
+    /// <summary>
+    /// Completes once the refreshes scheduled by a change have run and the background work has finished: the automatic
+    /// backup, the vector fill and the consolidation judgments. Tests settle the service with it before they look.
+    /// </summary>
     internal Task SettledAsync() => _upkeep.SettledAsync();
-
-    /// <summary>Tells the upkeep that a file or folder in the memory repository changed, as the watcher does; for tests.</summary>
-    internal void MemoryChanged(string relative) => _upkeep.MemoryChanged(relative);
-
-    /// <summary>Tells the upkeep that a file in <c>prompts/</c> changed, as the watcher does; for tests.</summary>
-    internal void PromptsChanged() => _upkeep.PromptsChanged();
-
-    /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
-    internal Task VectorCompletion => _vectors.Background;
-
-    /// <summary>Completes when the consolidation judgments started so far have finished and their answers are cached. Tests await it.</summary>
-    internal Task JudgmentCompletion => _judgments.Completion;
 
     /// <summary>
     /// Records what a client declared on a request: its name, version, protocol revision, capabilities and extensions. It only
@@ -1021,7 +998,8 @@ public sealed class MemoryService : IDisposable
     private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
         // An automatic backup takes the write slot, which this operation holds alone, so it is waited for before the gate.
-        await Settled(_backup.Completion);
+        // The refreshes scheduled before it run first, so none lands in the middle of the operation.
+        await _upkeep.SettledAsync();
         using var hold = await _gate.MaintenanceAsync(cancellationToken);
         await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion));
         _log.Record(LogLevel.Information, LogMessages.MaintenanceStarted, name);
@@ -1112,7 +1090,7 @@ public sealed class MemoryService : IDisposable
         _log.Record(LogLevel.Information, LogMessages.RestoreStarted, path, (config ? RestoreMessages.ScopeWithConfig : RestoreMessages.ScopeMemory).In(language));
 
         // The watchers and the index let go of the files the restore replaces; the index reopens once they are final.
-        StopWatching();
+        _sources.Pause();
         _index.Dispose();
 
         var notices = new List<string>();
@@ -1145,7 +1123,7 @@ public sealed class MemoryService : IDisposable
 
         // Nothing is left to undo: the old content and the staged leftovers go, then the service picks the restored state up.
         install.Finish();
-        StartWatching();
+        _sources.Resume();
         // A restored config that loads is reloaded as a save on the settings page is, which also applies the prompts and
         // renders the resident blocks; one that does not load leaves the service on the config it had.
         IReadOnlyList<RestartChange> restart = [];
@@ -1210,23 +1188,8 @@ public sealed class MemoryService : IDisposable
         }
         finally
         {
-            StartWatching();
+            _sources.Resume();
         }
-    }
-
-    /// <summary>Stops both file watchers, so the restore's own moves are not taken for edits by the user.</summary>
-    private void StopWatching()
-    {
-        _watcher.EnableRaisingEvents = false;
-        lock (_upkeep.Gate)
-            _promptsWatcher?.Dispose();
-    }
-
-    /// <summary>Arms both file watchers again: the memory repository and the prompts folder.</summary>
-    private void StartWatching()
-    {
-        _watcher.EnableRaisingEvents = true;
-        WatchPrompts();
     }
 
     private void RequireAbsolutePath(string path)
@@ -1294,47 +1257,4 @@ public sealed class MemoryService : IDisposable
     private static readonly Regex OpShape = new("^[a-z_]{1,32}$", RegexOptions.CultureInvariant);
 
     private static string OpName(string? op) => op is not null && OpShape.IsMatch(op) ? op : "-";
-
-    private void OnChange(object sender, FileSystemEventArgs e)
-    {
-        try
-        {
-            var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
-            foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
-            {
-                _upkeep.MemoryChanged(relative);
-            }
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // An event handler must not throw into the watcher's thread; the overflow path or the next event catches up.
-            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, ex.Message);
-        }
-    }
-
-    /// <summary>Events were lost: assume anything may have changed.</summary>
-    private void OnOverflow(object sender, ErrorEventArgs e) => _upkeep.EventsLost();
-
-    private void OnPromptsChange(object sender, FileSystemEventArgs e) => _upkeep.PromptsChanged();
-
-    /// <summary>Events were lost, or the watcher failed: reload, which also arms the watcher again.</summary>
-    private void OnPromptsError(object sender, ErrorEventArgs e) => _upkeep.PromptsChanged();
-
-    /// <summary>
-    /// Watches <c>prompts/</c>, creating the folder when it is gone. Each reload arms a new watcher before it reads the
-    /// files, so a change made while reading is seen by the next reload.
-    /// </summary>
-    private void WatchPrompts()
-    {
-        var folder = PromptFiles.Folder(_options.TacitHome);
-        Directory.CreateDirectory(folder);
-        _promptsWatcher?.Dispose();
-        _promptsWatcher = new FileSystemWatcher(folder);
-        _promptsWatcher.Changed += OnPromptsChange;
-        _promptsWatcher.Created += OnPromptsChange;
-        _promptsWatcher.Deleted += OnPromptsChange;
-        _promptsWatcher.Renamed += OnPromptsChange;
-        _promptsWatcher.Error += OnPromptsError;
-        _promptsWatcher.EnableRaisingEvents = true;
-    }
 }

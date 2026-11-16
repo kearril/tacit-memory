@@ -56,12 +56,15 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public async Task Editing_rules_md_while_running_changes_the_next_instructions()
     {
+        _home.UseManualSources();
         using var service = Open();
         Assert.DoesNotContain("新加的一条", await service.ServerInstructionsAsync());
 
         File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- 新加的一条", (await service.ServerInstructionsAsync()));
     }
 
     [Theory]
@@ -93,12 +96,15 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public async Task Too_long_criteria_saved_while_running_are_reported_and_the_previous_ones_kept()
     {
+        _home.UseManualSources();
         using var service = Open();
         var before = await service.ServerInstructionsAsync();
 
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, () => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("rules.md", StringComparison.Ordinal));
         Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
@@ -191,20 +197,23 @@ public sealed class ServiceTests : IDisposable
 
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
 
-        await Eventually(service, () => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
-        await Eventually(service, () => _notices.Any(notice => notice.Contains("已写入常驻区块")));
+        await Watchers.Eventually(service, () => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
+        await Watchers.Eventually(service, () => _notices.Any(notice => notice.Contains("已写入常驻区块")));
     }
 
     [Fact]
     public async Task A_broken_bindings_json_is_reported_and_the_service_keeps_running()
     {
         _home.Bind();
+        _home.UseManualSources();
         using var service = Open();
         File.WriteAllText(Path.Combine(_home.TacitHome, "bindings.json"), "{ not json");
 
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        _home.Sources!.MemoryChanged("persona.md");
 
-        await Eventually(service, () => _notices.Any(notice => notice.Contains("bindings.json")));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("bindings.json"));
         File.Delete(Path.Combine(_home.TacitHome, "bindings.json"));
         Assert.Contains("Memory is written in Chinese.", await service.ServerInstructionsAsync());
     }
@@ -212,12 +221,16 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public async Task A_bad_skill_md_saved_while_running_does_not_hold_back_a_valid_rules_md()
     {
+        _home.UseManualSources();
         using var service = Open();
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), new string('长', 3001));
         File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
-        await Eventually(service, () => _notices.Any(notice => notice.Contains("skill.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains("- 新加的一条", (await service.ServerInstructionsAsync()));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("skill.md", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -225,13 +238,16 @@ public sealed class ServiceTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_home.TacitHome, "prompts"));
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n- 旧的核心规则\n");
+        _home.UseManualSources();
         using var service = Open();
         var before = await service.ServerInstructionsAsync();
 
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 2000) + "\n");
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, () => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("rules.md", StringComparison.Ordinal));
         Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
@@ -241,38 +257,11 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         Directory.Delete(Path.Combine(_home.TacitHome, "prompts"), recursive: true);
 
-        await Eventually(service, () => Directory.Exists(Path.Combine(_home.TacitHome, "prompts")));
+        await Watchers.Eventually(service, () => Directory.Exists(Path.Combine(_home.TacitHome, "prompts")));
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), "Use Chinese page titles.");
 
         var skill = Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");
-        await Eventually(service, () => File.ReadAllText(skill).Contains("Use Chinese page titles.", StringComparison.Ordinal));
-    }
-
-    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
-    private static async Task Eventually(MemoryService service, Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (true)
-        {
-            await service.SettledAsync();
-            if (condition())
-                return;
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
-    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
-    private static async Task Eventually(MemoryService service, Func<Task<bool>> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (true)
-        {
-            await service.SettledAsync();
-            if (await condition())
-                return;
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
+        await Watchers.Eventually(service, () => File.ReadAllText(skill).Contains("Use Chinese page titles.", StringComparison.Ordinal));
     }
 
 }

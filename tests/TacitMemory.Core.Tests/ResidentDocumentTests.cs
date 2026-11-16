@@ -8,7 +8,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed class ResidentDocumentTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ConcurrentQueue<string> _notices = new();
 
     public ResidentDocumentTests() => _home.InitReady();
@@ -218,8 +218,10 @@ public sealed class ResidentDocumentTests : IDisposable
         using var service = Open();
 
         File.WriteAllText(ResidentMd, "SHELL-NEW\n\n## profile\nPROF-NEW\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, () => Agents().Contains("SHELL-NEW", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("SHELL-NEW", Agents());
         Assert.Contains("## Profile\nPROF-NEW\n- f1\n", Agents());
         Assert.Contains("## Red lines\n- r1\n", Agents());
         Assert.NotNull(service);
@@ -234,8 +236,10 @@ public sealed class ResidentDocumentTests : IDisposable
         using var service = Open();
 
         File.Delete(ResidentMd);
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, () => !Agents().Contains("SHELL-GONE", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.DoesNotContain("SHELL-GONE", Agents());
         Assert.Contains("Background on the user from earlier sessions.", Agents());
         Assert.NotNull(service);
     }
@@ -318,8 +322,10 @@ public sealed class ResidentDocumentTests : IDisposable
         // Another renderer holds the old fixed temporary name; the render must not depend on that name.
         using var leftover = new FileStream(AgentsMd + ".tacit-tmp", FileMode.Create, FileAccess.Write, FileShare.None);
         File.WriteAllText(PersonaMd, File.ReadAllText(PersonaMd).Replace("- p1", "- p2", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("persona.md");
 
-        await Eventually(service, () => Agents().Contains("p2", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("p2", Agents());
         Assert.NotNull(service);
     }
 
@@ -332,8 +338,10 @@ public sealed class ResidentDocumentTests : IDisposable
         using var service = Open();
 
         File.WriteAllText(ResidentMd, "SHELL-BROKEN\n\n## red_line\nX\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(service, () => _notices.Any(notice => notice.Contains("resident.md", StringComparison.Ordinal)));
+        await service.SettledAsync();
+        Assert.Contains(_notices, notice => notice.Contains("resident.md", StringComparison.Ordinal));
         Assert.Contains("SHELL-OK", Agents());
         Assert.DoesNotContain("SHELL-BROKEN", Agents());
         Assert.NotNull(service);
@@ -600,10 +608,14 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.Contains("- fresh：说明。\n", Agents());
 
         WriteMonth("2026-11", "## 2026-11-02\n- [fresh] 今天的事\n");
-        await Eventually(service, () => Agents().Contains("- fresh：说明。 近况：在做。\n", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("recent/2026-11.md");
+        await service.SettledAsync();
+        Assert.Contains("- fresh：说明。 近况：在做。\n", Agents());
 
         File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：改过的说明。\n");
-        await Eventually(service, () => Agents().Contains("- fresh：改过的说明。\n", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("workstreams.md");
+        await service.SettledAsync();
+        Assert.Contains("- fresh：改过的说明。\n", Agents());
         Assert.NotNull(service);
     }
 
@@ -621,24 +633,12 @@ public sealed class ResidentDocumentTests : IDisposable
         await service.SettledAsync();
         _home.Clock.Elapse(TimeSpan.FromDays(1));
 
-        await Eventually(service, () => Agents().Contains("- alpha：一号主线。\n", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- alpha：一号主线。\n", Agents());
         Assert.NotNull(service);
     }
 
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value)).Count;
 
-    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
-    private static async Task Eventually(MemoryService service, Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (true)
-        {
-            await service.SettledAsync();
-            if (condition())
-                return;
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

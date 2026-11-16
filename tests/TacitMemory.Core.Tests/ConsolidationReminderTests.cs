@@ -10,7 +10,7 @@ public sealed class ConsolidationReminderTests : IDisposable
 
     private const string TwoDayCandidate = "## 候选\n\n### 回答尽量简短\n归属：偏好\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n";
 
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ModelDouble _models = new();
 
     public void Dispose()
@@ -69,17 +69,6 @@ public sealed class ConsolidationReminderTests : IDisposable
         var body = text[(start + title.Length + 5)..];
         var next = body.IndexOf("\n### ", StringComparison.Ordinal);
         return next < 0 ? body : body[..next];
-    }
-
-    private static async Task Eventually(Func<Task<bool>> condition)
-    {
-        for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
-        {
-            if (await condition())
-                return;
-            await Task.Delay(100);
-        }
-        Assert.Fail("condition not met within 10 s");
     }
 
     [Fact]
@@ -188,8 +177,10 @@ public sealed class ConsolidationReminderTests : IDisposable
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
 
         WriteCandidates(TwoDayCandidate);
+        _home.Sources!.MemoryChanged("candidates.md");
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- Persona candidates: 1.", StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.Contains("- Persona candidates: 1.", (await service.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -210,7 +201,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         Ready("consolidation:\n  remindCandidates: 1\n");
         WriteCandidates(TwoDayCandidate);
         using var service = Open();
-        await service.VectorCompletion;
+        await service.SettledAsync();
         var embeddings = _models.EmbeddingCalls;
         var decisions = _models.DecisionCalls;
 
@@ -232,8 +223,10 @@ public sealed class ConsolidationReminderTests : IDisposable
         Assert.Contains(Heading, await service.ServerInstructionsAsync());
 
         CommitOn(today, "consolidate: no changes");
+        _home.Sources!.MemoryChanged(".git/logs/HEAD");
 
-        await Eventually(async () => !(await service.ServerInstructionsAsync()).Contains(Heading, StringComparison.Ordinal));
+        await service.SettledAsync();
+        Assert.DoesNotContain(Heading, (await service.ServerInstructionsAsync()));
     }
 
     [Fact]

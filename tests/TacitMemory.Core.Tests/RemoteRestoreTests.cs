@@ -90,7 +90,7 @@ public sealed class RemoteRestoreTests : IDisposable
         Assert.Equal(_dav.FileAt(RemoteFile), File.ReadAllBytes(DownloadFile));
         Assert.Equal(localHead, Head());
 
-        await service.BackupCompletion;
+        await service.SettledAsync();
         var status = await _home.Tacit().OfflineStatus(_home.Tacit().LoadConfig());
         Assert.StartsWith("auto-", status.Backups!.Latest, StringComparison.Ordinal);
     }

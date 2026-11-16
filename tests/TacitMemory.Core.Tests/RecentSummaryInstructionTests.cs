@@ -4,7 +4,7 @@ namespace TacitMemory.Core.Tests;
 
 public sealed partial class RecentSummaryInstructionTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly List<MemoryService> _services = new();
 
     public RecentSummaryInstructionTests() => _home.InitReady();
@@ -31,26 +31,6 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
     [GeneratedRegex(@"\[[0-9a-f]{6}")]
     private static partial Regex ShortCode();
-
-    private static async Task Eventually(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
-
-    private static async Task Eventually(Func<Task<bool>> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!await condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 
     private void WriteMonth(string text)
     {
@@ -151,7 +131,9 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
 
         Directory.CreateDirectory(Memory);
         WriteMonth("## 2026-11-02\n- 手改的活动\n");
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("手改的活动", StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged("recent/2026-11.md");
+        await service.SettledAsync();
+        Assert.Contains("手改的活动", (await service.ServerInstructionsAsync()));
     }
 
     [Fact]

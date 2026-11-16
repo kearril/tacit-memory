@@ -107,7 +107,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         _home.Clock.Elapse(TimeSpan.FromMinutes(1));
         await report;
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
@@ -144,7 +144,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         await report;
 
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Equal(2, _models.DecisionCalls);
@@ -166,7 +166,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         _home.Clock.Elapse(Budget);
         var text = await report;
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("not checked yet", Section(text, Removal));
@@ -247,7 +247,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         Assert.Contains("they ran out before all of them finished", text);
 
         _models.ReleaseDecisions();
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));

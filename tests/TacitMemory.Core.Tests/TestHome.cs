@@ -4,7 +4,7 @@ using System.Globalization;
 namespace TacitMemory.Core.Tests;
 
 /// <summary>A throwaway user home and <c>TACIT_HOME</c> under %TEMP%.</summary>
-internal sealed class TestHome : IDisposable
+internal sealed partial class TestHome : IDisposable
 {
     public TestHome()
     {
@@ -42,15 +42,23 @@ internal sealed class TestHome : IDisposable
     public Dictionary<string, string> EnvironmentVariables { get; } = [];
 
     /// <summary>The options of every <see cref="Tacit"/> made here: this home, this clock and the secrets above.</summary>
-    public TacitOptions Options(string uiCulture = "zh-CN") => new()
+    public TacitOptions Options(string uiCulture = "zh-CN")
     {
-        TacitHome = TacitHome,
-        UserHome = UserHome,
-        UiCulture = CultureInfo.GetCultureInfo(uiCulture),
-        Time = Clock,
-        ModelTime = ModelClock,
-        Secrets = EnvironmentVariables,
-    };
+        var options = new TacitOptions
+        {
+            TacitHome = TacitHome,
+            UserHome = UserHome,
+            UiCulture = CultureInfo.GetCultureInfo(uiCulture),
+            Time = Clock,
+            ModelTime = ModelClock,
+            Secrets = EnvironmentVariables,
+        };
+        WithSources(ref options);
+        return options;
+    }
+
+    /// <summary>Gives the options the changes a Core test tells the service of; the hosts' tests watch the files.</summary>
+    partial void WithSources(ref TacitOptions options);
 
     public Tacit Tacit(string uiCulture = "zh-CN") => new(Options(uiCulture));
 

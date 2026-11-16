@@ -85,7 +85,7 @@ public sealed class VectorTests : IDisposable
         _models.EmbeddingDown = false;
         _home.Clock.Advance(TimeSpan.FromMinutes(1));
         await Recall("随便查一下");
-        await Service.VectorCompletion;
+        await Service.SettledAsync();
 
         Assert.Contains("company/reimburse", (await Recall("出差的钱怎么拿回来")).Text);
     }
@@ -100,7 +100,7 @@ public sealed class VectorTests : IDisposable
         var callsBefore = _models.EmbeddingCalls;
 
         _ = Service;
-        await Service.VectorCompletion;
+        await Service.SettledAsync();
 
         Assert.True(_models.EmbeddingCalls > callsBefore);
         Assert.Contains("company/reimburse", (await Recall("出差的钱怎么拿回来")).Text);
@@ -114,7 +114,7 @@ public sealed class VectorTests : IDisposable
         _models.Embed = text => [.. original(text), .. new float[8]];
 
         await Recall("出差");
-        await Service.VectorCompletion;
+        await Service.SettledAsync();
 
         Assert.Contains("company/reimburse", (await Recall("出差的钱怎么拿回来")).Text);
     }

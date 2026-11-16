@@ -287,11 +287,11 @@ public sealed class RecallTests : IDisposable
         Hand("tacit-memory", "db-upgrade", "数据库升级后扩展丢失", "## 现象\n改成了关于证书过期的内容。");
         Hand("tacit-memory", "cert", "证书", "## 现象\n证书续期失败。");
 
-        await Eventually(async () => (await Recall("证书过期")).Text.Contains("tacit-memory/db-upgrade", StringComparison.Ordinal));
-        await Eventually(async () => (await Recall("续期失败")).Text.Contains("tacit-memory/cert", StringComparison.Ordinal));
+        await Watchers.Eventually(Service, async () => (await Recall("证书过期")).Text.Contains("tacit-memory/db-upgrade", StringComparison.Ordinal));
+        await Watchers.Eventually(Service, async () => (await Recall("续期失败")).Text.Contains("tacit-memory/cert", StringComparison.Ordinal));
 
         File.Delete(PagePath("tacit-memory", "cert"));
-        await Eventually(async () => (await Recall("续期失败")).Text.StartsWith("No relevant memory.", StringComparison.Ordinal));
+        await Watchers.Eventually(Service, async () => (await Recall("续期失败")).Text.StartsWith("No relevant memory.", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -361,21 +361,6 @@ public sealed class RecallTests : IDisposable
 
         Assert.True(File.Exists(Path.Combine(_home.DefaultMemory, ".cache", "index.db")));
         Assert.DoesNotContain(".cache", TestHome.Git(_home.DefaultMemory, "status", "--porcelain", "--ignored=no"));
-    }
-
-    /// <summary>Waits until the condition holds, letting the open service run the refreshes it has scheduled on the test clock.</summary>
-    private async Task Eventually(Func<Task<bool>> condition)
-    {
-        for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
-        {
-            if (_service is { } service)
-                await service.SettledAsync();
-            if (await condition())
-                return;
-            await Task.Delay(100);
-        }
-
-        Assert.Fail("The condition did not hold within 10 seconds.");
     }
 
     [Fact]

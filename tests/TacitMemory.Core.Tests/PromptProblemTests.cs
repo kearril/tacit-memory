@@ -10,7 +10,7 @@ public sealed class PromptProblemTests : IDisposable
 {
     private static readonly Uri Endpoint = new("http://127.0.0.1:18888/mcp");
 
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ConcurrentQueue<string> _notices = new();
     private readonly MemoryService _service;
 
@@ -34,8 +34,10 @@ public sealed class PromptProblemTests : IDisposable
     public async Task A_file_broken_while_the_service_runs_shows_why_and_the_service_keeps_the_previous_text()
     {
         File.WriteAllText(FileOf("resident.md"), "外壳\n\n## mainline\n旧节名\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => ProblemOf(PromptName.Resident) is not null);
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Resident));
 
         var resident = _service.Prompts().Documents.Single(document => document.Name == PromptName.Resident);
         Assert.Contains("mainline", resident.Problem);
@@ -47,8 +49,10 @@ public sealed class PromptProblemTests : IDisposable
     public async Task Core_rules_broken_while_the_service_runs_leave_the_server_instructions_as_they_were()
     {
         File.WriteAllText(FileOf("instructions.md"), "## 核心\n" + new string('核', 3000));
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => ProblemOf(PromptName.Instructions) is not null);
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Instructions));
 
         Assert.Contains("## Recall", await _service.ServerInstructionsAsync());
     }
@@ -57,8 +61,10 @@ public sealed class PromptProblemTests : IDisposable
     public async Task Fixed_part_over_its_limit_marks_both_the_core_rules_and_the_criteria()
     {
         File.WriteAllText(FileOf("instructions.md"), "## 核心\n" + new string('核', 3000));
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => ProblemOf(PromptName.Rules) is not null);
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Rules));
 
         Assert.Equal(ProblemOf(PromptName.Instructions), ProblemOf(PromptName.Rules));
         Assert.Matches(@"超出 \d+ 字符", ProblemOf(PromptName.Rules));
@@ -68,18 +74,24 @@ public sealed class PromptProblemTests : IDisposable
     public async Task Fixing_the_file_clears_the_problem()
     {
         File.WriteAllText(FileOf("skill.md"), "---\nname: mine\n---\n");
-        await Eventually(() => ProblemOf(PromptName.Skill) is not null);
+        _home.Sources!.PromptsChanged();
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Skill));
 
         File.WriteAllText(FileOf("skill.md"), "页面标题用中文。\n");
+        _home.Sources!.PromptsChanged();
 
-        await Eventually(() => ProblemOf(PromptName.Skill) is null);
+        await _service.SettledAsync();
+        Assert.Null(ProblemOf(PromptName.Skill));
     }
 
     [Fact]
     public async Task Saving_from_the_page_clears_the_problem()
     {
         File.WriteAllText(FileOf("skill.md"), "---\nname: mine\n---\n");
-        await Eventually(() => ProblemOf(PromptName.Skill) is not null);
+        _home.Sources!.PromptsChanged();
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Skill));
         var hash = _service.Prompts().Documents.Single(document => document.Name == PromptName.Skill).Hash;
 
         var saved = await _service.SavePromptAsync(PromptName.Skill, hash, "页面标题用中文。\n");
@@ -93,7 +105,9 @@ public sealed class PromptProblemTests : IDisposable
     public async Task Restoring_the_default_clears_the_problem()
     {
         File.WriteAllText(FileOf("resident.md"), "外壳\n\n## mainline\n旧节名\n");
-        await Eventually(() => ProblemOf(PromptName.Resident) is not null);
+        _home.Sources!.PromptsChanged();
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Resident));
 
         var restored = await _service.RestorePromptDefaultAsync(PromptName.Resident);
 
@@ -107,7 +121,9 @@ public sealed class PromptProblemTests : IDisposable
         Assert.Null((await _service.StatusAsync(Endpoint)).Prompts);
 
         File.WriteAllText(FileOf("resident.md"), "外壳\n\n## mainline\n旧节名\n");
-        await Eventually(() => ProblemOf(PromptName.Resident) is not null);
+        _home.Sources!.PromptsChanged();
+        await _service.SettledAsync();
+        Assert.NotNull(ProblemOf(PromptName.Resident));
 
         var prompts = Assert.IsType<PromptsStatus>((await _service.StatusAsync(Endpoint)).Prompts);
         Assert.Equal("提示词文档有误", prompts.Title);
@@ -117,17 +133,4 @@ public sealed class PromptProblemTests : IDisposable
         Assert.Equal([StatusLevel.Attention], ((IStatusColumn)prompts).LineLevels());
     }
 
-    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
-    private async Task Eventually(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (true)
-        {
-            await _service.SettledAsync();
-            if (condition())
-                return;
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

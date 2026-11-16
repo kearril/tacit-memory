@@ -16,13 +16,14 @@ namespace TacitMemory.Core.Upkeep;
 
 /// <summary>What the derived products are made from in the runtime open now, read afresh each time it is asked for.</summary>
 /// <param name="Config">The config the runtime runs.</param>
+/// <param name="Sources">Where the runtime hears of changes to the sources.</param>
 /// <param name="Index">The derived index.</param>
 /// <param name="Vectors">The vector fill, which an index sync starts in the background.</param>
 /// <param name="Models">The auxiliary models, whose availability the server instructions report.</param>
 /// <param name="Backup">The automatic backup in progress, or a completed task.</param>
 /// <param name="Judgments">The consolidation judgments in progress, or a completed task.</param>
 internal sealed record UpkeepRuntime(
-    TacitConfig Config, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments);
+    TacitConfig Config, ISourceWatch Sources, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments);
 
 /// <summary>The derived products a refresh made now brings up to date; they combine.</summary>
 [Flags]
@@ -65,7 +66,6 @@ internal sealed class DerivedUpkeep : IDisposable
     private readonly ServiceLog _log;
     private readonly MaintenanceGate _gate;
     private readonly Func<UpkeepRuntime> _runtime;
-    private readonly Action _watchPrompts;
     private readonly Debounced _resident;
     private readonly Debounced _index;
     private readonly Debounced _prompts;
@@ -81,17 +81,15 @@ internal sealed class DerivedUpkeep : IDisposable
     private ITimer _dayTimer;
     private bool _disposed;
 
-    /// <param name="watchPrompts">Arms the watcher of <c>prompts/</c> again, creating the folder when it is gone; each prompt reload calls it first.</param>
-    public DerivedUpkeep(TacitOptions options, ServiceLog log, MaintenanceGate gate, Func<UpkeepRuntime> runtime, Action watchPrompts)
+    public DerivedUpkeep(TacitOptions options, ServiceLog log, MaintenanceGate gate, Func<UpkeepRuntime> runtime)
     {
         _options = options;
         _log = log;
         _gate = gate;
         _runtime = runtime;
-        _watchPrompts = watchPrompts;
         _resident = new Debounced(this, RenderResident, Messages.RenderFailed);
         _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed);
-        // Arming the watcher again throws ArgumentException while the folder is being replaced.
+        // Watching prompts/ afresh throws ArgumentException while the folder is being replaced.
         _prompts = new Debounced(this, ReloadPrompts, Messages.PromptsNotApplied, e => e is ArgumentException);
         _dayTimer = ArmDayTimer();
     }
@@ -241,13 +239,17 @@ internal sealed class DerivedUpkeep : IDisposable
     /// </summary>
     public async Task SettledAsync()
     {
-        _resident.Flush();
-        _index.Flush();
-        _prompts.Flush();
-        Task[] running;
-        lock (Gate)
-            running = [.. _running];
-        await Task.WhenAll(running);
+        // A refresh can schedule another, as a prompt reload that changed resident.md schedules a render: run until none is left.
+        bool started;
+        do
+        {
+            started = _prompts.Flush() | _resident.Flush() | _index.Flush();
+            Task[] running;
+            lock (Gate)
+                running = [.. _running];
+            await Task.WhenAll(running);
+        }
+        while (started);
         var runtime = _runtime();
         await Task.WhenAll(Settled(runtime.Backup), Settled(runtime.Vectors.Background), Settled(runtime.Judgments));
     }
@@ -331,11 +333,11 @@ internal sealed class DerivedUpkeep : IDisposable
 
     /// <summary>
     /// Reads the prompt documents again. Each one that fails its checks is reported and keeps its previous text; the others
-    /// take their new text. The watcher is armed again first, so a change made while reading is seen by the next reload.
+    /// take their new text. The folder is watched afresh first, so a change made while reading is seen by the next reload.
     /// </summary>
     private void ReloadPrompts()
     {
-        _watchPrompts();
+        _runtime().Sources.WatchPromptsAgain();
         var language = _runtime().Config.Language;
         var current = PromptState.Running;
         var problems = new Dictionary<PromptName, string>();
@@ -492,17 +494,18 @@ internal sealed class DerivedUpkeep : IDisposable
             Run();
         }
 
-        /// <summary>Starts a run scheduled by a change now instead of at the end of its wait; a retry keeps waiting.</summary>
-        public void Flush()
+        /// <summary>Starts a run scheduled by a change now instead of at the end of its wait, and says whether it did; a retry keeps waiting.</summary>
+        public bool Flush()
         {
             lock (_owner.Gate)
             {
                 if (!_pending || _retrying || _owner._disposed)
-                    return;
+                    return false;
                 _pending = false;
                 _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             }
             _owner.UnderWriteGate(Run);
+            return true;
         }
 
         private void OnTimer()

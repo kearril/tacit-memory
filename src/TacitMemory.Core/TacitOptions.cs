@@ -1,5 +1,6 @@
 using System.Globalization;
 using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core;
 
@@ -31,6 +32,9 @@ public sealed record TacitOptions
 
     /// <summary>The clock the auxiliary model requests run on.</summary>
     internal TimeProvider ModelClock => ModelTime ?? Time;
+
+    /// <summary>Tells the service of changes to its sources in place of the file watchers; for tests. Null watches the files.</summary>
+    internal ManualSources? Sources { get; init; }
 
     /// <summary>Today's date on this machine.</summary>
     internal DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);

@@ -19,7 +19,7 @@ public sealed class PersonaIndexTests : IDisposable
 
         """;
 
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ModelDouble _models = new();
     private MemoryService? _service;
 
@@ -46,33 +46,6 @@ public sealed class PersonaIndexTests : IDisposable
         var path = Path.Combine(Memory, "pages", "tacit-memory", "db-upgrade.md");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "---\ntitle: 数据库升级后扩展丢失\naliases: [别名一, 别名二]\ndates: { first: 2026-10-01, last: 2026-10-05 }\n---\n\n## 根因\n升级数据库后 PGroonga 扩展没有重装。\n");
-    }
-
-    private static async Task Eventually(Func<bool> condition)
-    {
-        for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
-        {
-            if (condition())
-                return;
-            await Task.Delay(TimeSpan.FromMilliseconds(100));
-        }
-
-        Assert.Fail("The condition did not hold within 10 seconds.");
-    }
-
-    /// <summary>Waits until the condition holds, letting the open service run the refreshes it has scheduled on the test clock.</summary>
-    private async Task Eventually(Func<Task<bool>> condition)
-    {
-        for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
-        {
-            if (_service is { } service)
-                await service.SettledAsync();
-            if (await condition())
-                return;
-            await Task.Delay(TimeSpan.FromMilliseconds(100));
-        }
-
-        Assert.Fail("The condition did not hold within 10 seconds.");
     }
 
     [Theory]
@@ -133,10 +106,14 @@ public sealed class PersonaIndexTests : IDisposable
         var path = Path.Combine(Memory, name);
 
         File.WriteAllBytes(path, [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains(name, StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged(name);
+        await service.SettledAsync();
+        Assert.Contains(name, (await service.ServerInstructionsAsync()));
 
         File.WriteAllText(path, "## 偏好\n- 先说结论\n");
-        await Eventually(async () => !(await service.ServerInstructionsAsync()).Contains(name, StringComparison.Ordinal));
+        _home.Sources!.MemoryChanged(name);
+        await service.SettledAsync();
+        Assert.DoesNotContain(name, (await service.ServerInstructionsAsync()));
     }
 
     [Theory]

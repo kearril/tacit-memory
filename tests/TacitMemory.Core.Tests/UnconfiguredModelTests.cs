@@ -236,21 +236,21 @@ public sealed class UnconfiguredModelTests : IDisposable
             Aliases = ["备份方式", "备份问题"],
             Sections = [new("要点", "每日自动备份到 zip")],
         }).WaitAsync(Guard);
-        await Service.VectorCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         StopService();
         var stored = StoredVectors("double-embedding");
         Assert.True(stored > 0);
 
         WriteModels();
         _ = Service;
-        await Service.VectorCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         StopService();
         Assert.Equal(stored, StoredVectors(null));
 
         var callsBefore = _models.EmbeddingCalls;
         WriteModels(EmbeddingLine);
         _ = Service;
-        await Service.VectorCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
 
         Assert.Equal(callsBefore, _models.EmbeddingCalls);
         Assert.Equal(stored, StoredVectors("double-embedding"));
@@ -269,13 +269,13 @@ public sealed class UnconfiguredModelTests : IDisposable
             Aliases = ["备份方式", "备份问题"],
             Sections = [new("要点", "每日自动备份到 zip")],
         }).WaitAsync(Guard);
-        await Service.VectorCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         StopService();
         var callsBefore = _models.EmbeddingCalls;
 
         WriteModels(EmbeddingLine.Replace("double-embedding", "another-embedding", StringComparison.Ordinal));
         _ = Service;
-        await Service.VectorCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
 
         Assert.True(_models.EmbeddingCalls > callsBefore);
         Assert.True(StoredVectors("another-embedding") > 0);
@@ -312,7 +312,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
         await Service.ConsolidationReportAsync().WaitAsync(Guard);
-        await Service.JudgmentCompletion.WaitAsync(Guard);
+        await Service.SettledAsync().WaitAsync(Guard);
         var asked = _models.DecisionCalls;
         Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
         StopService();
