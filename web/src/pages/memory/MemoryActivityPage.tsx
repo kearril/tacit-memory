@@ -47,8 +47,8 @@ function scrollToDay(date: string) {
  * The activity view of the memory page: one month at a time in a reading column. The month, the day to go to and the
  * workstream to keep are in the address, so the dashboard heatmap and the workstream briefs can link to them. A sticky
  * bar holds the month, the counts and the workstream above a strip of the month's days shaded as the heatmap shades
- * them; the month summary follows, then the timeline: each day's date beside a rail with a dot for every activity, and
- * each week summary after its week. The month's file closes it.
+ * them; the month summary follows, then the timeline newest first: each day's date beside a rail with a dot for every
+ * activity, and each week summary heading its week. The month's file closes it.
  */
 export function MemoryActivityPage() {
   const dictionary = useDictionary();
@@ -345,7 +345,7 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
   );
 }
 
-/** A summary: the month's on the accent above the timeline, a week's in a dashed box after its week. */
+/** A summary: the month's on the accent above the timeline, a week's in a dashed box heading its week. */
 function Summary({ summary }: { readonly summary: ActivitySummaryView }) {
   const text = useDictionary().memory.activity;
   const week = summary.kind === "week";

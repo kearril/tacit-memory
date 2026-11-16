@@ -7,9 +7,10 @@ export type TimelineEntry =
   | { readonly kind: "summary"; readonly summary: ActivitySummaryView };
 
 /**
- * A month's timeline, oldest first: the month summary at the start, then the days, each week summary right after the
- * last day of its week (or, when none of its days is listed, after every day before its end). With a workstream, only
- * its activities are kept and the days left empty are dropped; the summaries stay, as they speak for every workstream.
+ * A month's timeline: the month summary at the start, then the days newest first, each week summary right before the
+ * last day of its week (or, when none of its days is listed, before every day up to its end), so it heads its week.
+ * With a workstream, only its activities are kept and the days left empty are dropped; the summaries stay, as they
+ * speak for every workstream.
  */
 export function timelineOf(view: ActivityMonthView, workstream: string | null): TimelineEntry[] {
   const days = view.days
@@ -23,18 +24,19 @@ export function timelineOf(view: ActivityMonthView, workstream: string | null): 
   const months = view.summaries.filter((summary) => summary.kind !== "week");
   const weeks = view.summaries.filter((summary) => summary.kind === "week");
 
-  const timeline: TimelineEntry[] = months.map((summary) => ({ kind: "summary", summary }));
+  // Laid out oldest first, each week after its last day, then turned around.
+  const oldestFirst: TimelineEntry[] = [];
   let next = 0;
   for (const day of days) {
     while (next < weeks.length && weeks[next]!.last < day.date) {
-      timeline.push({ kind: "summary", summary: weeks[next++]! });
+      oldestFirst.push({ kind: "summary", summary: weeks[next++]! });
     }
-    timeline.push(day);
+    oldestFirst.push(day);
   }
   for (; next < weeks.length; next++) {
-    timeline.push({ kind: "summary", summary: weeks[next]! });
+    oldestFirst.push({ kind: "summary", summary: weeks[next]! });
   }
-  return timeline;
+  return [...months.map((summary): TimelineEntry => ({ kind: "summary", summary })), ...oldestFirst.reverse()];
 }
 
 /** A day of the day strip, with its activity count. */

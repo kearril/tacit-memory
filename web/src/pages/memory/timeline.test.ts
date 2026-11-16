@@ -21,7 +21,7 @@ function week(label: string, first: string, last: string) {
 }
 
 describe("timelineOf", () => {
-  it("puts the month summary first and each week summary after the last day of its week", () => {
+  it("puts the month summary first, then the days newest first, each week summary before the last day of its week", () => {
     const timeline = timelineOf(
       month({
         days: [
@@ -39,14 +39,14 @@ describe("timelineOf", () => {
 
     expect(timeline.map((entry) => (entry.kind === "day" ? entry.date : entry.summary.label))).toEqual([
       "2026-10",
-      "2026-10-05",
-      "2026-10-07",
-      "2026-W41",
       "2026-10-13",
+      "2026-W41",
+      "2026-10-07",
+      "2026-10-05",
     ]);
   });
 
-  it("puts a week summary whose days are outside the month after every day up to its last", () => {
+  it("puts a week summary whose days are outside the month before every day up to its last", () => {
     const timeline = timelineOf(
       month({
         days: [
@@ -59,10 +59,10 @@ describe("timelineOf", () => {
     );
 
     expect(timeline.map((entry) => (entry.kind === "day" ? entry.date : entry.summary.label))).toEqual([
-      "2026-10-01",
-      "2026-W40",
-      "2026-10-30",
       "2026-W44",
+      "2026-10-30",
+      "2026-W40",
+      "2026-10-01",
     ]);
   });
 
