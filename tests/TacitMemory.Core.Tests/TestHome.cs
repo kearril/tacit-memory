@@ -163,8 +163,9 @@ internal sealed class TestHome : IDisposable
 
 /// <summary>
 /// A clock that stands still unless moved, in UTC. The code under test creates a timer for each attempt's timeout and
-/// for each pause between attempts. <see cref="Advance"/> moves the clock without firing timers; <see cref="Elapse"/>
-/// moves it and fires the timers now due, so a test decides when an attempt times out or a pause ends.
+/// for each pause between attempts, and the service a debounced timer for each refresh, which it schedules again with
+/// <see cref="ITimer.Change"/>. <see cref="Advance"/> moves the clock without firing timers; <see cref="Elapse"/> moves it
+/// and fires the timers now due, so a test decides when an attempt times out, a pause ends or a refresh runs.
 /// </summary>
 internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
 {
@@ -239,7 +240,10 @@ internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
             throw new NotSupportedException("Test timers fire once.");
         lock (_gate)
         {
-            var timer = new PendingTimer(this, callback, state, _now + dueTime);
+            var timer = new PendingTimer(this, callback, state);
+            if (dueTime == Timeout.InfiniteTimeSpan)
+                return timer;
+            timer.Due = _now + dueTime;
             _pending.Add(timer);
             _created.Add(dueTime);
             var waiter = _waiters.FirstOrDefault(candidate => candidate.Duration == dueTime);
@@ -259,13 +263,32 @@ internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
             _pending.Remove(timer);
     }
 
-    private sealed class PendingTimer(FixedTime clock, TimerCallback callback, object? state, DateTimeOffset due) : ITimer
+    /// <summary>Schedules <paramref name="timer"/> again; an infinite due time stops it.</summary>
+    private void Reschedule(PendingTimer timer, TimeSpan dueTime)
     {
-        public DateTimeOffset Due => due;
+        lock (_gate)
+        {
+            _pending.Remove(timer);
+            if (dueTime == Timeout.InfiniteTimeSpan)
+                return;
+            timer.Due = _now + dueTime;
+            _pending.Add(timer);
+        }
+    }
+
+    private sealed class PendingTimer(FixedTime clock, TimerCallback callback, object? state) : ITimer
+    {
+        public DateTimeOffset Due { get; set; }
 
         public void Fire() => callback(state);
 
-        public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException("Test timers are not rescheduled.");
+        public bool Change(TimeSpan dueTime, TimeSpan period)
+        {
+            if (period != Timeout.InfiniteTimeSpan)
+                throw new NotSupportedException("Test timers fire once.");
+            clock.Reschedule(this, dueTime);
+            return true;
+        }
 
         public void Dispose() => clock.Forget(this);
 

@@ -25,6 +25,7 @@ using TacitMemory.Core.Recent;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Status;
+using TacitMemory.Core.Upkeep;
 using TacitMemory.Core.Workstreams;
 
 namespace TacitMemory.Core;
@@ -59,21 +60,14 @@ public sealed class MemoryService : IDisposable
     private readonly ClientRecordStore _clients;
     private FileSystemWatcher _watcher = null!;
     private FileSystemWatcher? _promptsWatcher;
-    private readonly Timer _renderTimer;
     private readonly Timer _promptsTimer;
     private readonly Timer _indexTimer;
-
-    /// <summary>Fires at each local midnight: the resident block shows dates, so it is rendered again then. Replaced each time it fires.</summary>
-    private ITimer? _dayTimer;
     private readonly Lock _indexTimerGate = new();
-    private readonly Lock _renderGate = new();
 
-    /// <summary>How many debounced retries a render gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
-    private const int RenderRetryLimit = 5;
+    /// <summary>Keeps the derived products in step with the memory files; it outlives every runtime.</summary>
+    private readonly DerivedUpkeep _upkeep;
 
-    private int _renderRetries;
-
-    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by <c>_renderGate</c>.</summary>
+    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by the upkeep's gate.</summary>
     private int _promptsRetries;
 
     private readonly Lock _instructionsGate = new();
@@ -117,13 +111,13 @@ public sealed class MemoryService : IDisposable
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _log.Record(LogLevel.Information, LogMessages.Started, ProductVersion.Current, config.Port, config.MemoryPath);
         foreach (var render in StartupRender)
-            _log.Record(LevelOf(render), render.Message);
+            _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
-        _renderTimer = new Timer(_ => RenderNow());
+        _upkeep = new DerivedUpkeep(
+            options, _log, _gate, () => new UpkeepRuntime(Config, _prompts, _backup.Completion, _vectors.Background, _judgments.Completion));
         _promptsTimer = new Timer(_ => ReloadPrompts());
         _indexTimer = new Timer(_ => SyncIndexNow());
-        _dayTimer = ArmDayTimer();
         OpenRuntime(config);
     }
 
@@ -205,7 +199,7 @@ public sealed class MemoryService : IDisposable
             return;
         _runtimeOpen = false;
         _watcher.Dispose();
-        lock (_renderGate)
+        lock (_upkeep.Gate)
             _promptsWatcher?.Dispose();
         _index.Dispose();
         _models.Dispose();
@@ -265,11 +259,11 @@ public sealed class MemoryService : IDisposable
         }
 
         // Under the render lock, as a binding and the timed render are: they write the same context files.
-        lock (_renderGate)
+        lock (_upkeep.Gate)
         {
             SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
-            foreach (var render in Binder.RenderAll(_options, next, next.Prompts))
-                _log.Record(LevelOf(render), render.Message);
+            foreach (var render in _upkeep.RenderNow(next, next.Prompts))
+                _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
         }
         return RestartChange.Between(running, loaded);
     }
@@ -469,7 +463,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException">A refusal, with the reason <c>tacit connect</c> gives.</exception>
     public BindingDone Connect(ConnectRequest request)
     {
-        lock (_renderGate)
+        lock (_upkeep.Gate)
             return BindingDone.From(ClientName.Normalize(request.Client), Binder.Connect(_options, request));
     }
 
@@ -477,7 +471,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException">No binding has that name.</exception>
     public BindingDone Disconnect(string client)
     {
-        lock (_renderGate)
+        lock (_upkeep.Gate)
             return BindingDone.From(ClientName.Normalize(client), Binder.Disconnect(_options, client));
     }
 
@@ -645,16 +639,15 @@ public sealed class MemoryService : IDisposable
             return [];
 
         var notices = new List<string>();
-        lock (_renderGate)
+        lock (_upkeep.Gate)
         {
-            // Applying a changed resident.md schedules a render, which this one makes needless.
-            _renderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             try
             {
-                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
+                // A render that applying a changed resident.md scheduled is dropped: this one makes it needless.
+                foreach (var render in _upkeep.RenderNow(Config, _prompts))
                 {
-                    _log.Record(LevelOf(render), render.Message);
-                    if (LevelOf(render) != LogLevel.Information)
+                    _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
+                    if (DerivedUpkeep.LevelOf(render) != LogLevel.Information)
                         notices.Add(render.Message);
                 }
             }
@@ -876,6 +869,9 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes when the backup started by the latest successful write has finished. Tests await it.</summary>
     internal Task BackupCompletion => _backup.Completion;
 
+    /// <summary>Completes once the scheduled refreshes have run and the background work has finished.</summary>
+    internal Task SettledAsync() => _upkeep.SettledAsync();
+
     /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
     internal Task VectorCompletion => _vectors.Background;
 
@@ -1041,8 +1037,7 @@ public sealed class MemoryService : IDisposable
     {
         InvalidateInstructions();
         _backup.ScheduleIfDue();
-        if (source == WrittenSource.Persona)
-            ScheduleRender();
+        _upkeep.Written(source);
     }
 
     /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
@@ -1289,8 +1284,8 @@ public sealed class MemoryService : IDisposable
         {
             try
             {
-                foreach (var render in Binder.RenderAll(_options, Config, _prompts))
-                    _log.Record(LevelOf(render), render.Message);
+                foreach (var render in _upkeep.RenderNow(Config, _prompts))
+                    _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
             }
             catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
             {
@@ -1335,7 +1330,7 @@ public sealed class MemoryService : IDisposable
     private void StopWatching()
     {
         _watcher.EnableRaisingEvents = false;
-        lock (_renderGate)
+        lock (_upkeep.Gate)
             _promptsWatcher?.Dispose();
     }
 
@@ -1358,12 +1353,9 @@ public sealed class MemoryService : IDisposable
     public void Dispose()
     {
         _disposed = true;
-        lock (_renderGate)
-        {
-            _renderTimer.Dispose();
+        _upkeep.Dispose();
+        lock (_upkeep.Gate)
             _promptsTimer.Dispose();
-            _dayTimer?.Dispose();
-        }
         lock (_indexTimerGate)
             _indexTimer.Dispose();
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
@@ -1428,8 +1420,7 @@ public sealed class MemoryService : IDisposable
             var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
             foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
             {
-                if (relative == MemoryLayout.Persona || AffectsResident(relative))
-                    ScheduleRender();
+                _upkeep.MemoryChanged(relative);
                 if (relative is MemoryLayout.Persona or MemoryLayout.Candidates)
                     ScheduleIndexSync();
                 if (AffectsInstructions(relative))
@@ -1449,7 +1440,7 @@ public sealed class MemoryService : IDisposable
     private void OnOverflow(object sender, ErrorEventArgs e)
     {
         InvalidateInstructions();
-        ScheduleRender();
+        _upkeep.EventsLost();
         ScheduleIndexSync();
     }
 
@@ -1464,38 +1455,6 @@ public sealed class MemoryService : IDisposable
     {
         _instructions = null;
         _instructionsVersion++;
-    }
-
-    /// <summary>
-    /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
-    /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
-    /// </summary>
-    private static bool AffectsResident(string relative) =>
-        relative == MemoryLayout.Workstreams
-        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
-        || relative == MemoryLayout.Pages || (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) && relative.IndexOf('/', MemoryLayout.Pages.Length + 1) < 0);
-
-    /// <summary>Arms the timer for the next local midnight.</summary>
-    private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
-
-    /// <summary>The time from now until the next local midnight; always positive.</summary>
-    private TimeSpan UntilNextMidnight()
-    {
-        var now = _options.Time.GetLocalNow().DateTime;
-        return now.Date.AddDays(1) - now;
-    }
-
-    /// <summary>Runs on the timer thread at midnight: the date has changed, so the resident blocks are rendered again.</summary>
-    private void OnDayChanged()
-    {
-        lock (_renderGate)
-        {
-            if (_disposed)
-                return;
-            _dayTimer?.Dispose();
-            _dayTimer = ArmDayTimer();
-        }
-        ScheduleRender();
     }
 
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
@@ -1518,7 +1477,7 @@ public sealed class MemoryService : IDisposable
 
     private void SchedulePromptsReload()
     {
-        lock (_renderGate)
+        lock (_upkeep.Gate)
         {
             if (!_disposed)
                 _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
@@ -1555,7 +1514,7 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private void ApplyPrompts()
     {
-        lock (_renderGate)
+        lock (_upkeep.Gate)
         {
             if (_disposed)
                 return;
@@ -1578,9 +1537,9 @@ public sealed class MemoryService : IDisposable
                 _promptsRetries = 0;
                 // The resident blocks show resident.md: render them with the new text, as a persona change does.
                 if (residentChanged)
-                    _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
+                    _upkeep.ResidentPromptChanged();
             }
-            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < RenderRetryLimit))
+            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < DerivedUpkeep.RetryLimit))
             {
                 // The editor still holds a file, or the folder is busy; try again once it settles. Windows refuses a
                 // replacement it cannot make with UnauthorizedAccessException, which the render path retries the same way.
@@ -1596,49 +1555,6 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    private void ScheduleRender()
-    {
-        lock (_renderGate)
-        {
-            if (!_disposed)
-                _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        }
-    }
-
-    /// <summary>
-    /// Runs on the timer thread, between writes: renders never overlap, and no failure may escape and end the process.
-    /// It reads <c>persona.md</c>, which a write replaces, so it reads only under the write gate.
-    /// </summary>
-    private void RenderNow() => UnderWriteGate(() =>
-    {
-        lock (_renderGate)
-        {
-            if (_disposed)
-                return;
-            try
-            {
-                foreach (var result in Binder.RenderAll(_options, Config, _prompts))
-                    _log.Notify(LevelOf(result), result.Message);
-                _renderRetries = 0;
-            }
-            catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && _renderRetries < RenderRetryLimit)
-            {
-                // The editor or another client still holds a file, which Windows refuses to replace; try again once it settles.
-                _renderRetries++;
-                _renderTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-            {
-                _renderRetries = 0;
-                _log.Notify(LogLevel.Warning, Messages.RenderFailed, e.Message);
-            }
-        }
-    });
-
-    /// <summary>A render that wrote or left its file alone is information; one that failed is a warning.</summary>
-    private static LogLevel LevelOf(BlockRender render) =>
-        render.State is BlockState.Written or BlockState.Unchanged ? LogLevel.Information : LogLevel.Warning;
-
     private void ScheduleIndexSync()
     {
         lock (_indexTimerGate)
@@ -1648,40 +1564,8 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Runs a background read of the memory repository, such as an index sync or a render, between the writes. A write
-    /// replaces the files it changes, and a read still holding one of them open makes that replacement fail. The wait for
-    /// the write slot is asynchronous, so a timer thread is never blocked by a write in progress. Once the service is
-    /// disposed, the read does not run.
-    /// </summary>
-    private void UnderWriteGate(Action work) => _ = RunUnderWriteGateAsync(work);
-
-    private async Task RunUnderWriteGateAsync(Action work)
-    {
-        Hold hold;
-        try
-        {
-            hold = await _gate.WriteAsync(CancellationToken.None);
-        }
-        catch (ObjectDisposedException)
-        {
-            return;
-        }
-
-        try
-        {
-            work();
-        }
-        catch (Exception e)
-        {
-            // Nothing may escape a timer or watcher callback: the failure is reported, and the next event tries again.
-            _log.Notify(LogLevel.Warning, Messages.BackgroundFailed, e.Message);
-        }
-        finally
-        {
-            hold.Dispose();
-        }
-    }
+    /// <summary>Runs <paramref name="work"/> under the write gate, as the upkeep runs its refreshes.</summary>
+    private void UnderWriteGate(Action work) => _ = _upkeep.UnderWriteGate(work);
 
     /// <summary>
     /// Runs on the timer thread, between writes: compares every page file's hash with the index, so missed events do no

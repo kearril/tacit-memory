@@ -66,6 +66,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         for (var attempt = 0; attempt < 100; attempt++)
         {
+            await _service.SettledAsync();
             if (condition())
                 return true;
             await Task.Delay(50);
@@ -283,7 +284,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         File.WriteAllText(AgentsMd, File.ReadAllText(AgentsMd).Replace("</user_memory>", "STALE\n</user_memory>", StringComparison.Ordinal));
 
         var proposed = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
-        await Task.Delay(1000);
+        await _service.SettledAsync();
 
         Assert.False(proposed.IsError, proposed.Text);
         Assert.Contains("STALE", File.ReadAllText(AgentsMd), StringComparison.Ordinal);

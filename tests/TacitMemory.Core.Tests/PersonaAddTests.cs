@@ -56,6 +56,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         for (var attempt = 0; attempt < 100; attempt++)
         {
+            await _service.SettledAsync();
             if (condition())
                 return true;
             await Task.Delay(50);

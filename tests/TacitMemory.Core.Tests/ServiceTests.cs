@@ -191,8 +191,8 @@ public sealed class ServiceTests : IDisposable
 
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
 
-        await Eventually(() => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
-        await Eventually(() => _notices.Any(notice => notice.Contains("已写入常驻区块")));
+        await Eventually(service, () => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
+        await Eventually(service, () => _notices.Any(notice => notice.Contains("已写入常驻区块")));
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public sealed class ServiceTests : IDisposable
 
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("bindings.json")));
+        await Eventually(service, () => _notices.Any(notice => notice.Contains("bindings.json")));
         File.Delete(Path.Combine(_home.TacitHome, "bindings.json"));
         Assert.Contains("Memory is written in Chinese.", await service.ServerInstructionsAsync());
     }
@@ -246,6 +246,20 @@ public sealed class ServiceTests : IDisposable
 
         var skill = Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");
         await Eventually(() => File.ReadAllText(skill).Contains("Use Chinese page titles.", StringComparison.Ordinal));
+    }
+
+    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
+    private static async Task Eventually(MemoryService service, Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (true)
+        {
+            await service.SettledAsync();
+            if (condition())
+                return;
+            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
+            await Task.Delay(50);
+        }
     }
 
     private static async Task Eventually(Func<bool> condition)
