@@ -95,14 +95,24 @@ internal sealed class FileSourceWatch : ISourceWatch
             Directory.CreateDirectory(_prompts);
             if (_disposed || _paused)
                 return;
+            // The new watcher is armed before the old one goes, so a failure leaves the folder watched as it was.
+            var next = new FileSystemWatcher(_prompts);
+            try
+            {
+                next.Changed += OnPromptsChange;
+                next.Created += OnPromptsChange;
+                next.Deleted += OnPromptsChange;
+                next.Renamed += OnPromptsChange;
+                next.Error += OnPromptsError;
+                next.EnableRaisingEvents = true;
+            }
+            catch
+            {
+                next.Dispose();
+                throw;
+            }
             _promptsWatcher?.Dispose();
-            _promptsWatcher = new FileSystemWatcher(_prompts);
-            _promptsWatcher.Changed += OnPromptsChange;
-            _promptsWatcher.Created += OnPromptsChange;
-            _promptsWatcher.Deleted += OnPromptsChange;
-            _promptsWatcher.Renamed += OnPromptsChange;
-            _promptsWatcher.Error += OnPromptsError;
-            _promptsWatcher.EnableRaisingEvents = true;
+            _promptsWatcher = next;
         }
     }
 
@@ -151,44 +161,62 @@ internal sealed class FileSourceWatch : ISourceWatch
 /// </summary>
 internal sealed class ManualSources
 {
-    private DerivedUpkeep? _upkeep;
+    private readonly Lock _gate = new();
+    private Attached? _current;
 
     /// <summary>The watch a runtime opens: it tells <paramref name="upkeep"/> of the changes named here until it is let go.</summary>
-    internal ISourceWatch Attach(DerivedUpkeep upkeep) => new Attached(this, upkeep);
+    internal ISourceWatch Attach(DerivedUpkeep upkeep)
+    {
+        lock (_gate)
+            return _current = new Attached(this, upkeep);
+    }
 
     /// <summary>The file at <paramref name="relative"/> in the memory repository changed.</summary>
-    public void MemoryChanged(string relative) => _upkeep?.MemoryChanged(relative);
+    public void MemoryChanged(string relative) => Listening()?.MemoryChanged(relative);
 
     /// <summary>A file in <c>prompts/</c> changed.</summary>
-    public void PromptsChanged() => _upkeep?.PromptsChanged();
+    public void PromptsChanged() => Listening()?.PromptsChanged();
 
     /// <summary>The watcher of the memory repository lost events.</summary>
-    public void EventsLost() => _upkeep?.EventsLost();
+    public void EventsLost() => Listening()?.EventsLost();
 
-    private sealed class Attached : ISourceWatch
+    /// <summary>The upkeep of the watch the latest runtime opened, unless that watch is paused or let go.</summary>
+    private DerivedUpkeep? Listening()
     {
-        private readonly ManualSources _owner;
-        private readonly DerivedUpkeep _upkeep;
+        lock (_gate)
+            return _current is { Paused: false } current ? current.Upkeep : null;
+    }
 
-        public Attached(ManualSources owner, DerivedUpkeep upkeep)
+    private sealed class Attached(ManualSources owner, DerivedUpkeep upkeep) : ISourceWatch
+    {
+        public DerivedUpkeep Upkeep => upkeep;
+
+        public bool Paused { get; private set; }
+
+        public void Pause()
         {
-            _owner = owner;
-            _upkeep = upkeep;
-            owner._upkeep = upkeep;
+            lock (owner._gate)
+                Paused = true;
         }
 
-        public void Pause() => _owner._upkeep = null;
-
-        public void Resume() => _owner._upkeep = _upkeep;
+        public void Resume()
+        {
+            lock (owner._gate)
+                Paused = false;
+        }
 
         public void WatchPromptsAgain()
         {
         }
 
+        /// <summary>Lets go of this watch only: a runtime opened since keeps its own.</summary>
         public void Dispose()
         {
-            if (_owner._upkeep == _upkeep)
-                _owner._upkeep = null;
+            lock (owner._gate)
+            {
+                if (owner._current == this)
+                    owner._current = null;
+            }
         }
     }
 }

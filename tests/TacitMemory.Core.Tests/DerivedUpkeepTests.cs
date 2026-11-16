@@ -63,6 +63,36 @@ public sealed class DerivedUpkeepTests : IDisposable
     }
 
     [Fact]
+    public async Task A_change_during_the_retries_starts_the_count_again()
+    {
+        using (var first = Open())
+            Assert.False((await first.WritePageAsync(Create())).IsError);
+        using var service = Open();
+
+        using (new FileStream(PageFile, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            _home.Sources!.MemoryChanged($"pages/{Page}.md");
+            await service.SettledAsync();
+            for (var retry = 1; retry < DerivedUpkeep.RetryLimit; retry++)
+            {
+                _home.Clock.Elapse(DerivedUpkeep.Debounce);
+                await service.SettledAsync();
+            }
+
+            _home.Sources!.MemoryChanged($"pages/{Page}.md");
+            await service.SettledAsync();
+            for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
+            {
+                Assert.False(IndexSyncReported());
+                _home.Clock.Elapse(DerivedUpkeep.Debounce);
+                await service.SettledAsync();
+            }
+        }
+
+        Assert.Single(_notices, notice => notice.Contains("同步检索索引失败", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task An_index_sync_that_meets_a_held_file_catches_up_once_the_file_is_let_go()
     {
         using (var first = Open())

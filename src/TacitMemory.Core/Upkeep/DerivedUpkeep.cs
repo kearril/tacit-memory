@@ -87,26 +87,31 @@ internal sealed class DerivedUpkeep : IDisposable
         _log = log;
         _gate = gate;
         _runtime = runtime;
-        _resident = new Debounced(this, RenderResident, Messages.RenderFailed);
-        _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed);
+        _resident = new Debounced(this, RenderResident, Messages.RenderFailed, RenderLock);
+        _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed, exclusive: null);
         // Watching prompts/ afresh throws ArgumentException while the folder is being replaced.
-        _prompts = new Debounced(this, ReloadPrompts, Messages.PromptsNotApplied, e => e is ArgumentException);
+        _prompts = new Debounced(this, ReloadPrompts, Messages.PromptsNotApplied, RenderLock, e => e is ArgumentException);
         _dayTimer = ArmDayTimer();
     }
 
     /// <summary>
-    /// The lock held by everything that writes the context files or the skills: the refreshes, a binding and a reload. A
-    /// timer or callback checks under it whether the service is disposed.
+    /// The lock held by everything that writes the context files or the skills: a render, a prompt reload, a refresh made
+    /// now and a binding. The index sync does not take it.
     /// </summary>
-    internal Lock Gate { get; } = new();
+    internal Lock RenderLock { get; } = new();
+
+    /// <summary>
+    /// Guards the state of the refreshes: what waits to run, the runs started, the retry counts and whether the upkeep is
+    /// disposed. It is held only briefly, never while a refresh runs, so a watcher's thread is not kept waiting.
+    /// </summary>
+    private readonly Lock _state = new();
 
     /// <summary>A file or folder in the memory repository changed; <paramref name="relative"/> uses forward slashes.</summary>
     public void MemoryChanged(string relative)
     {
-        if (relative == MemoryLayout.Persona || AffectsResident(relative))
+        if (AffectsResident(relative))
             _resident.Schedule();
-        if (relative is MemoryLayout.Persona or MemoryLayout.Candidates
-            || MemoryLayout.IsIn(relative, MemoryLayout.Pages) || MemoryLayout.IsIn(relative, MemoryLayout.Recent))
+        if (AffectsIndex(relative))
             _index.Schedule();
         if (AffectsInstructions(relative))
             InvalidateInstructions();
@@ -218,7 +223,7 @@ internal sealed class DerivedUpkeep : IDisposable
     public IReadOnlyList<string> RefreshNow(Refresh what)
     {
         var notices = new List<string>();
-        lock (Gate)
+        lock (RenderLock)
         {
             if (what.HasFlag(Refresh.Prompts))
                 _prompts.RunNow();
@@ -234,22 +239,24 @@ internal sealed class DerivedUpkeep : IDisposable
 
     /// <summary>
     /// Completes once the derived products have caught up: the refreshes a change scheduled run now rather than at the end
-    /// of their wait (a retry still waits for its interval, as only the file's holder can end it), and then the automatic backup, the vector fill and the consolidation judgments are waited for. Their
-    /// failures are reported where they happen, so they end the wait as success does.
+    /// of their wait, and the runs under way finish; a retry still waits for its interval, as only the file's holder can
+    /// end it. Then the automatic backup, the vector fill and the consolidation judgments are waited for. Their failures
+    /// are reported where they happen, so they end the wait as success does.
     /// </summary>
     public async Task SettledAsync()
     {
-        // A refresh can schedule another, as a prompt reload that changed resident.md schedules a render: run until none is left.
-        bool started;
-        do
+        // A refresh can schedule another, as a prompt reload that changed resident.md schedules a render: go on until no
+        // refresh starts and none runs.
+        while (true)
         {
-            started = _prompts.Flush() | _resident.Flush() | _index.Flush();
+            var started = _prompts.Flush() | _resident.Flush() | _index.Flush();
             Task[] running;
-            lock (Gate)
+            lock (_state)
                 running = [.. _running];
+            if (!started && running.Length == 0)
+                break;
             await Task.WhenAll(running);
         }
-        while (started);
         var runtime = _runtime();
         await Task.WhenAll(Settled(runtime.Backup), Settled(runtime.Vectors.Background), Settled(runtime.Judgments));
     }
@@ -261,13 +268,23 @@ internal sealed class DerivedUpkeep : IDisposable
     /// </summary>
     internal Task UnderWriteGate(Action work)
     {
-        var run = RunUnderWriteGateAsync(work);
-        lock (Gate)
-            _running.Add(run);
+        lock (_state)
+            return Start(work);
+    }
+
+    /// <summary>
+    /// Starts <paramref name="work"/> under the write gate and counts it among the runs under way, in the caller's hold on
+    /// <see cref="_state"/>: a refresh that leaves the waiting state is a run under way in the same step, so settling
+    /// cannot see it as neither.
+    /// </summary>
+    private Task Start(Action work)
+    {
+        var run = Task.Run(() => RunUnderWriteGateAsync(work));
+        _running.Add(run);
         _ = run.ContinueWith(
             done =>
             {
-                lock (Gate)
+                lock (_state)
                     _running.Remove(done);
             },
             TaskScheduler.Default);
@@ -304,9 +321,12 @@ internal sealed class DerivedUpkeep : IDisposable
     internal static LogLevel LevelOf(BlockRender render) =>
         render.State is BlockState.Written or BlockState.Unchanged ? LogLevel.Information : LogLevel.Warning;
 
+    /// <summary>Renders the resident blocks of every binding with the config and the prompt documents the service runs.</summary>
+    private IReadOnlyList<BlockRender> RenderAll() => Binder.RenderAll(_options, _runtime().Config, PromptState.Running);
+
     private void RenderResident()
     {
-        foreach (var result in Binder.RenderAll(_options, _runtime().Config, PromptState.Running))
+        foreach (var result in RenderAll())
             _log.Notify(LevelOf(result), result.Message);
     }
 
@@ -314,10 +334,9 @@ internal sealed class DerivedUpkeep : IDisposable
     private void RenderResidentNow(List<string> notices)
     {
         _resident.Cancel();
-        var language = _runtime().Config.Language;
         try
         {
-            foreach (var render in Binder.RenderAll(_options, _runtime().Config, PromptState.Running))
+            foreach (var render in RenderAll())
             {
                 _log.Record(LevelOf(render), render.Message);
                 if (LevelOf(render) != LogLevel.Information)
@@ -327,7 +346,7 @@ internal sealed class DerivedUpkeep : IDisposable
         catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
         {
             _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-            notices.Add(Messages.RenderFailed.Format(language, e.Message));
+            notices.Add(Messages.RenderFailed.Format(_runtime().Config.Language, e.Message));
         }
     }
 
@@ -337,8 +356,9 @@ internal sealed class DerivedUpkeep : IDisposable
     /// </summary>
     private void ReloadPrompts()
     {
-        _runtime().Sources.WatchPromptsAgain();
-        var language = _runtime().Config.Language;
+        var runtime = _runtime();
+        runtime.Sources.WatchPromptsAgain();
+        var language = runtime.Config.Language;
         var current = PromptState.Running;
         var problems = new Dictionary<PromptName, string>();
         var prompts = PromptFiles.Reload(_options.TacitHome, language, current, problems);
@@ -368,6 +388,12 @@ internal sealed class DerivedUpkeep : IDisposable
         runtime.Vectors.FillInBackground();
     }
 
+    /// <summary>Whether a change to this path (relative to the repository, with forward slashes) has entries in the derived index.</summary>
+    private static bool AffectsIndex(string relative) =>
+        relative is MemoryLayout.Persona or MemoryLayout.Candidates
+        || MemoryLayout.IsIn(relative, MemoryLayout.Pages)
+        || MemoryLayout.IsIn(relative, MemoryLayout.Recent);
+
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
     private static bool AffectsInstructions(string relative) =>
         relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
@@ -383,10 +409,10 @@ internal sealed class DerivedUpkeep : IDisposable
 
     /// <summary>
     /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
-    /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
+    /// persona, <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
     /// </summary>
     private static bool AffectsResident(string relative) =>
-        relative == MemoryLayout.Workstreams
+        relative is MemoryLayout.Persona or MemoryLayout.Workstreams
         || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
         || relative == MemoryLayout.Pages || (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) && relative.IndexOf('/', MemoryLayout.Pages.Length + 1) < 0);
 
@@ -404,7 +430,7 @@ internal sealed class DerivedUpkeep : IDisposable
     {
         try
         {
-            lock (Gate)
+            lock (_state)
             {
                 if (_disposed)
                     return;
@@ -424,7 +450,7 @@ internal sealed class DerivedUpkeep : IDisposable
 
     public void Dispose()
     {
-        lock (Gate)
+        lock (_state)
         {
             _disposed = true;
             _resident.Dispose();
@@ -436,7 +462,7 @@ internal sealed class DerivedUpkeep : IDisposable
 
     /// <summary>
     /// One refresh: a debounced timer, its retry count, and whether it waits to run. Its state is guarded by the owner's
-    /// <see cref="Gate"/>.
+    /// <see cref="_state"/>; its work runs outside that lock, under <see cref="RenderLock"/> when it writes context files.
     /// </summary>
     private sealed class Debounced : IDisposable
     {
@@ -444,6 +470,7 @@ internal sealed class DerivedUpkeep : IDisposable
         private readonly Action _work;
         private readonly Localized _failed;
         private readonly Func<Exception, bool> _alsoTransient;
+        private readonly Lock? _exclusive;
         private readonly ITimer _timer;
         private int _retries;
         private bool _pending;
@@ -454,12 +481,14 @@ internal sealed class DerivedUpkeep : IDisposable
         /// </summary>
         private bool _retrying;
 
+        /// <param name="exclusive">A lock the work runs under, when it writes files that others write too.</param>
         /// <param name="alsoTransient">Failures of this refresh tried again as a held file is, beside <see cref="IOException"/> and <see cref="UnauthorizedAccessException"/>.</param>
-        public Debounced(DerivedUpkeep owner, Action work, Localized failed, Func<Exception, bool>? alsoTransient = null)
+        public Debounced(DerivedUpkeep owner, Action work, Localized failed, Lock? exclusive, Func<Exception, bool>? alsoTransient = null)
         {
             _owner = owner;
             _work = work;
             _failed = failed;
+            _exclusive = exclusive;
             _alsoTransient = alsoTransient ?? (_ => false);
             _timer = owner._options.Time.CreateTimer(_ => OnTimer(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }
@@ -467,10 +496,12 @@ internal sealed class DerivedUpkeep : IDisposable
         /// <summary>Runs the refresh once the sources have been quiet for <see cref="Debounce"/>.</summary>
         public void Schedule()
         {
-            lock (_owner.Gate)
+            lock (_owner._state)
             {
                 if (_owner._disposed)
                     return;
+                // A new change starts the count again: the file that was held may not be the one that matters now.
+                _retries = 0;
                 _pending = true;
                 _retrying = false;
                 _timer.Change(Debounce, Timeout.InfiniteTimeSpan);
@@ -480,14 +511,16 @@ internal sealed class DerivedUpkeep : IDisposable
         /// <summary>Drops a scheduled run; a refresh made now replaces it.</summary>
         public void Cancel()
         {
-            lock (_owner.Gate)
+            lock (_owner._state)
             {
+                if (_owner._disposed)
+                    return;
                 _pending = false;
                 _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             }
         }
 
-        /// <summary>Runs the refresh now, in the caller's hold on the gate, in place of a scheduled run; failures are handled as a timed run's are.</summary>
+        /// <summary>Runs the refresh now, in the caller's hold on the write gate, in place of a scheduled run; failures are handled as a timed run's are.</summary>
         public void RunNow()
         {
             Cancel();
@@ -497,28 +530,28 @@ internal sealed class DerivedUpkeep : IDisposable
         /// <summary>Starts a run scheduled by a change now instead of at the end of its wait, and says whether it did; a retry keeps waiting.</summary>
         public bool Flush()
         {
-            lock (_owner.Gate)
+            lock (_owner._state)
             {
                 if (!_pending || _retrying || _owner._disposed)
                     return false;
                 _pending = false;
                 _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                _owner.Start(Run);
+                return true;
             }
-            _owner.UnderWriteGate(Run);
-            return true;
         }
 
         private void OnTimer()
         {
             try
             {
-                lock (_owner.Gate)
+                lock (_owner._state)
                 {
                     if (!_pending || _owner._disposed)
                         return;
                     _pending = false;
+                    _owner.Start(Run);
                 }
-                _owner.UnderWriteGate(Run);
             }
             catch (Exception e)
             {
@@ -528,28 +561,39 @@ internal sealed class DerivedUpkeep : IDisposable
 
         private void Run()
         {
-            lock (_owner.Gate)
+            lock (_owner._state)
             {
                 if (_owner._disposed)
                     return;
-                try
-                {
+            }
+            try
+            {
+                if (_exclusive is null)
                     _work();
+                else
+                    lock (_exclusive)
+                        _work();
+                lock (_owner._state)
+                    _retries = 0;
+            }
+            catch (Exception e)
+            {
+                lock (_owner._state)
+                {
+                    if (_owner._disposed)
+                        return;
+                    if ((e is IOException or UnauthorizedAccessException || _alsoTransient(e)) && _retries < RetryLimit)
+                    {
+                        // A file is still held open, which Windows refuses to replace; try again once it settles.
+                        _retries++;
+                        _pending = true;
+                        _retrying = true;
+                        _timer.Change(Debounce, Timeout.InfiniteTimeSpan);
+                        return;
+                    }
                     _retries = 0;
                 }
-                catch (Exception e) when ((e is IOException or UnauthorizedAccessException || _alsoTransient(e)) && _retries < RetryLimit)
-                {
-                    // A file is still held open, which Windows refuses to replace; try again once it settles.
-                    _retries++;
-                    _pending = true;
-                    _retrying = true;
-                    _timer.Change(Debounce, Timeout.InfiniteTimeSpan);
-                }
-                catch (Exception e)
-                {
-                    _retries = 0;
-                    _owner._log.Notify(LogLevel.Warning, _failed, e.Message);
-                }
+                _owner._log.Notify(LogLevel.Warning, _failed, e.Message);
             }
         }
 

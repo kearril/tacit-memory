@@ -103,7 +103,7 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// Builds the runtime from <paramref name="config"/>: the auxiliary models, the index (synced with the files), the tools,
-    /// the backups and the two file watchers. The parts that can fail are built before any is put in place, so a failure
+    /// the backups and the watch of the sources. The parts that can fail are built before any is put in place, so a failure
     /// leaves nothing half open: what was built is let go, and the exception is raised.
     /// </summary>
     private void OpenRuntime(TacitConfig config)
@@ -390,7 +390,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException">A refusal, with the reason <c>tacit connect</c> gives.</exception>
     public BindingDone Connect(ConnectRequest request)
     {
-        lock (_upkeep.Gate)
+        lock (_upkeep.RenderLock)
             return BindingDone.From(ClientName.Normalize(request.Client), Binder.Connect(_options, request));
     }
 
@@ -398,7 +398,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException">No binding has that name.</exception>
     public BindingDone Disconnect(string client)
     {
-        lock (_upkeep.Gate)
+        lock (_upkeep.RenderLock)
             return BindingDone.From(ClientName.Normalize(client), Binder.Disconnect(_options, client));
     }
 

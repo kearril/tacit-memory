@@ -22,7 +22,7 @@ internal static class Watchers
             await service.SettledAsync();
             if (await condition())
                 return;
-            Assert.True(DateTime.UtcNow < deadline, "the watcher's change did not show within 10 s");
+            Assert.True(DateTime.UtcNow < deadline, $"the watcher's change did not show within {Guard.TotalSeconds} s");
             await Task.Delay(50);
         }
     }
