@@ -34,9 +34,9 @@ import {
 /** The dashed box a week summary sits in, as the persona's entries do. */
 const DASHED = "rounded-md border-(length:--tk-border-thin) border-dashed";
 
-/** Where a day stops when it is scrolled to: below the narrow screen's bar and the two rows of the sticky month bar. */
+/** Where a day stops when it is scrolled to: below the narrow screen's bar and the floating month bar of two rows. */
 const BELOW_MONTH_BAR =
-  "scroll-mt-[calc(var(--tk-size-nav-bar)+2*var(--tk-size-control)+4*var(--tk-space-sm))] lg:scroll-mt-[calc(2*var(--tk-size-control)+4*var(--tk-space-sm))]";
+  "scroll-mt-[calc(var(--tk-size-nav-bar)+2*var(--tk-size-control)+5*var(--tk-space-sm))] lg:scroll-mt-[calc(2*var(--tk-size-control)+5*var(--tk-space-sm))]";
 
 /** Scrolls a day of the timeline to the top, below the sticky bars. */
 function scrollToDay(date: string) {
