@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { NativeSelect } from "../../components/ui/native-select";
+import { Select } from "../../components/ui/select";
 import { errorTextOf } from "../../i18n/messages";
 import { PAGE_TYPES, filterPages, groupPages, pageFilterOf, pageFilterParams, TOPICS } from "./pages";
 import { PageTypeBadge } from "./parts";
@@ -63,33 +63,30 @@ export function MemoryPagesPage() {
           </div>
           <div className="grid content-start gap-xs">
             <Label htmlFor="pages-workstream">{text.workstream}</Label>
-            <NativeSelect
+            <Select
               id="pages-workstream"
               value={filter.workstream}
-              onChange={(event) => update({ workstream: event.target.value })}
-            >
-              <option value="">{text.workstreamAll}</option>
-              {workstreams.map((name) => (
-                <option key={name} value={name}>
-                  {name === TOPICS ? dictionary.memory.parts.topics : name}
-                </option>
-              ))}
-            </NativeSelect>
+              onValueChange={(value) => update({ workstream: value })}
+              options={[
+                { value: "", label: text.workstreamAll },
+                ...workstreams.map((name) => ({
+                  value: name,
+                  label: name === TOPICS ? dictionary.memory.parts.topics : name,
+                })),
+              ]}
+            />
           </div>
           <div className="grid content-start gap-xs">
             <Label htmlFor="pages-type">{text.type}</Label>
-            <NativeSelect
+            <Select
               id="pages-type"
               value={filter.type}
-              onChange={(event) => update({ type: event.target.value as typeof filter.type })}
-            >
-              <option value="">{text.typeAll}</option>
-              {PAGE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {dictionary.memory.parts.pageTypes[type]}
-                </option>
-              ))}
-            </NativeSelect>
+              onValueChange={(value) => update({ type: value as typeof filter.type })}
+              options={[
+                { value: "", label: text.typeAll },
+                ...PAGE_TYPES.map((type) => ({ value: type, label: dictionary.memory.parts.pageTypes[type] })),
+              ]}
+            />
           </div>
         </div>
       </Card>

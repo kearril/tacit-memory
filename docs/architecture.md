@@ -197,7 +197,7 @@ flowchart LR
 | `web/src/pages/memory/` | 记忆页的五个视图（`MemoryPersonaPage.tsx`、`MemoryWorkstreamsPage.tsx`、`MemoryPagesPage.tsx` 与单页 `MemoryPagePage.tsx`、`MemoryActivityPage.tsx`、`MemorySearchPage.tsx`），几个视图共用的小部件在 `parts.tsx`（短码胶囊、来源小字、文件路径、格式问题、页面类型徽标、主线胶囊）与 `PersonaSections.tsx`（画像条目、作用域与小节的小标签，主线约定也用它），懒加载的正文渲染在 `MarkdownBody.tsx`。不含界面的逻辑各在一个可单测的模块中：视图与地址（`views.ts`）、检索条件与地址的互转（`search.ts`）、检索单元按去向分段（`trace.ts`）、来源注释的解析（`sources.ts`）、画像按小节汇集与作用域筛选（`persona.ts`）、细节页清单的筛选与分组（`pages.ts`）、Markdown 解析为块（`markdown.ts`，`@lezer/markdown`，HTML 按文字处理）、主线的活动条、页目录的排序与未决事项去掉列表标记（`workstreams.ts`）、活动时间线与迷你日历（`timeline.ts`）。功能见 `docs/web.md` 第 3 节 |
 | `web/src/assets/agents/` | 图标库中没有的客户端图标，自己绘制的 SVG |
 | `web/src/pages/settings/` | 设置页与各节（如「远程访问」一节的 `RemoteAccessSection.tsx`），各节的功能见 `docs/web.md` 第 3 节 |
-| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、原生下拉框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
+| `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、下拉框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮，结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
 | `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |
 | `web/src/styles/index.css` | Tailwind 的主题，只映射令牌；清空默认色板、字号、字重、圆角、阴影、尺寸与间距，界面只能使用令牌 |

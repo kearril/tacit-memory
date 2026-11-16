@@ -18,7 +18,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { NativeSelect } from "../../components/ui/native-select";
+import { Select } from "../../components/ui/select";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { sectionAnchor } from "./pages";
@@ -158,15 +158,16 @@ function SearchForm({
           />
         </FormField>
         <FormField id="trace-kind" label={text.kindLabel} problem={problemOf("kind")}>
-          <NativeSelect
+          <Select
             id="trace-kind"
             value={fields.kind}
-            onChange={(event) => field("kind", event.target.value as SearchFields["kind"])}
-          >
-            <option value="">{text.kinds.all}</option>
-            <option value="pages">{text.kinds.pages}</option>
-            <option value="activities">{text.kinds.activities}</option>
-          </NativeSelect>
+            onValueChange={(value) => field("kind", value as SearchFields["kind"])}
+            options={[
+              { value: "", label: text.kinds.all },
+              { value: "pages", label: text.kinds.pages },
+              { value: "activities", label: text.kinds.activities },
+            ]}
+          />
         </FormField>
         <FormField id="trace-from" label={text.fromLabel} problem={problemOf("from")}>
           <Input

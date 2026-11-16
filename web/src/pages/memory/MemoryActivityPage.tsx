@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Label } from "../../components/ui/label";
-import { NativeSelect } from "../../components/ui/native-select";
+import { Select } from "../../components/ui/select";
 import { errorTextOf } from "../../i18n/messages";
 import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
@@ -115,17 +115,12 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
               >
                 <ChevronLeft aria-hidden />
               </Button>
-              <NativeSelect
+              <Select
                 id="activity-month"
                 value={query.month}
-                onChange={(event) => update({ month: event.target.value, day: null })}
-              >
-                {choices.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </NativeSelect>
+                onValueChange={(value) => update({ month: value, day: null })}
+                options={choices.map((month) => ({ value: month, label: month }))}
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -139,18 +134,15 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
           </div>
           <div className="grid content-start gap-xs">
             <Label htmlFor="activity-workstream">{text.workstream}</Label>
-            <NativeSelect
+            <Select
               id="activity-workstream"
               value={query.workstream ?? ""}
-              onChange={(event) => update({ workstream: event.target.value || null })}
-            >
-              <option value="">{text.workstreamAll}</option>
-              {workstreams.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </NativeSelect>
+              onValueChange={(value) => update({ workstream: value || null })}
+              options={[
+                { value: "", label: text.workstreamAll },
+                ...workstreams.map((name) => ({ value: name, label: name })),
+              ]}
+            />
           </div>
         </div>
         {view.data === undefined ? null : (
