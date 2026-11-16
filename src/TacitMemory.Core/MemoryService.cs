@@ -45,9 +45,6 @@ namespace TacitMemory.Core;
 /// </summary>
 public sealed class MemoryService : IDisposable
 {
-    /// <summary>How long file events must stay quiet before acting on them; editors save in several steps.</summary>
-    private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(300);
-
     /// <summary>The category the service's events are logged under.</summary>
     internal const string LogCategory = "TacitMemory";
 
@@ -60,15 +57,11 @@ public sealed class MemoryService : IDisposable
     private readonly ClientRecordStore _clients;
     private FileSystemWatcher _watcher = null!;
     private FileSystemWatcher? _promptsWatcher;
-    private readonly Timer _promptsTimer;
 
     /// <summary>Keeps the derived products in step with the memory files; it outlives every runtime.</summary>
     private readonly DerivedUpkeep _upkeep;
 
-    /// <summary>How many debounced retries a prompt reload gets when a file it replaces is held open; guarded by the upkeep's gate.</summary>
-    private int _promptsRetries;
 
-    private readonly Lock _instructionsGate = new();
     private readonly MaintenanceGate _gate = new();
     private PageTools _pages = null!;
     private RecentTools _recent = null!;
@@ -82,11 +75,7 @@ public sealed class MemoryService : IDisposable
     private WorkstreamBrief _brief = null!;
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
-    private PromptDocuments _prompts = null!;
 
-    /// <summary>The refusal of each prompt document whose file the service does not run, keeping its previous text instead.</summary>
-    private IReadOnlyDictionary<PromptName, string> _promptProblems = new Dictionary<PromptName, string>();
-    private volatile bool _disposed;
 
     /// <summary>Whether a runtime is open; false only after a reload could open none, which ends the service.</summary>
     private bool _runtimeOpen;
@@ -109,8 +98,8 @@ public sealed class MemoryService : IDisposable
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _upkeep = new DerivedUpkeep(
-            options, _log, _gate, () => new UpkeepRuntime(Config, _prompts, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
-        _promptsTimer = new Timer(_ => ReloadPrompts());
+            options, _log, _gate, () => new UpkeepRuntime(Config, _index, _vectors, _models, _backup.Completion, _judgments.Completion),
+            WatchPrompts);
         OpenRuntime(config);
     }
 
@@ -143,12 +132,7 @@ public sealed class MemoryService : IDisposable
         }
 
         Config = config;
-        lock (_instructionsGate)
-        {
-            // A config that loads has every prompt document as its file holds it.
-            _prompts = config.Prompts;
-            _promptProblems = new Dictionary<PromptName, string>();
-        }
+        _upkeep.UsePrompts(config.Prompts);
         _models = models;
         if (_models.Unconfigured is { Count: > 0 } unconfigured)
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
@@ -251,13 +235,7 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ReloadFailed, MaintenanceMessages.ReloadFailed.Format(running.Language, failure.Message), failure);
         }
 
-        // Under the render lock, as a binding and the timed render are: they write the same context files.
-        lock (_upkeep.Gate)
-        {
-            SkillSet.Write(_options.TacitHome, next.Language, next.Prompts.Skill);
-            foreach (var render in _upkeep.RenderNow(next, next.Prompts))
-                _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
-        }
+        _upkeep.RefreshNow(Refresh.Skills | Refresh.Resident);
         return RestartChange.Between(running, loaded);
     }
 
@@ -467,11 +445,7 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>The prompt documents the service runs with now.</summary>
-    private PromptDocuments RunningPrompts()
-    {
-        lock (_instructionsGate)
-            return _prompts;
-    }
+    private PromptDocuments RunningPrompts() => _upkeep.PromptState.Running;
 
     /// <summary>
     /// The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with, and
@@ -479,21 +453,15 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private PromptDocumentView PromptView(PromptName name)
     {
-        PromptDocuments running;
-        string? problem;
-        lock (_instructionsGate)
-        {
-            running = _prompts;
-            problem = _promptProblems.GetValueOrDefault(name);
-        }
-        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problem);
+        var (running, problems) = _upkeep.PromptState;
+        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problems.GetValueOrDefault(name));
     }
 
     /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
     private IReadOnlyList<PromptProblem> PromptProblems()
     {
-        lock (_instructionsGate)
-            return [.. Enum.GetValues<PromptName>().Where(_promptProblems.ContainsKey).Select(name => new PromptProblem(name, _promptProblems[name]))];
+        var problems = _upkeep.PromptState.Problems;
+        return [.. Enum.GetValues<PromptName>().Where(problems.ContainsKey).Select(name => new PromptProblem(name, problems[name]))];
     }
 
     /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
@@ -571,7 +539,8 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     private PromptSaved Applied(PromptName name)
     {
-        var notices = ApplyPromptsNow(name);
+        // The resident blocks show resident.md, so a change to it renders them now, and what went wrong is returned.
+        var notices = _upkeep.RefreshNow(Refresh.Prompts | (name == PromptName.Resident ? Refresh.Resident : Refresh.None));
         return new PromptSaved(PromptView(name), notices);
     }
 
@@ -586,38 +555,6 @@ public sealed class MemoryService : IDisposable
         {
             Problems = [.. refusals.Select(refusal => new ConfigProblem(file, refusal))],
         };
-    }
-
-    /// <summary>
-    /// Applies the prompt documents as a change to <c>prompts/</c> does, without waiting for the watcher; after a change to
-    /// <c>resident.md</c> it renders the resident blocks now as well. Returns what went wrong in the render.
-    /// </summary>
-    private IReadOnlyList<string> ApplyPromptsNow(PromptName name)
-    {
-        ApplyPrompts();
-        if (name != PromptName.Resident)
-            return [];
-
-        var notices = new List<string>();
-        lock (_upkeep.Gate)
-        {
-            try
-            {
-                // A render that applying a changed resident.md scheduled is dropped: this one makes it needless.
-                foreach (var render in _upkeep.RenderNow(Config, _prompts))
-                {
-                    _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
-                    if (DerivedUpkeep.LevelOf(render) != LogLevel.Information)
-                        notices.Add(render.Message);
-                }
-            }
-            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-            {
-                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-                notices.Add(Messages.RenderFailed.Format(Config.Language, e.Message));
-            }
-        }
-        return notices;
     }
 
     /// <summary>
@@ -834,6 +771,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>Tells the upkeep that a file or folder in the memory repository changed, as the watcher does; for tests.</summary>
     internal void MemoryChanged(string relative) => _upkeep.MemoryChanged(relative);
+
+    /// <summary>Tells the upkeep that a file in <c>prompts/</c> changed, as the watcher does; for tests.</summary>
+    internal void PromptsChanged() => _upkeep.PromptsChanged();
 
     /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
     internal Task VectorCompletion => _vectors.Background;
@@ -1225,9 +1165,7 @@ public sealed class MemoryService : IDisposable
         }
         else if (config)
             notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
-        if (config && !reloaded)
-            ApplyPrompts();
-        _upkeep.InvalidateInstructions();
+        _upkeep.RefreshNow((config && !reloaded ? Refresh.Prompts : Refresh.None) | Refresh.Instructions);
 
         if (config)
         {
@@ -1242,18 +1180,7 @@ public sealed class MemoryService : IDisposable
         }
 
         if (!reloaded)
-        {
-            try
-            {
-                foreach (var render in _upkeep.RenderNow(Config, _prompts))
-                    _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
-            }
-            catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
-            {
-                _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
-                notices.Add(Messages.RenderFailed.Format(language, e.Message));
-            }
-        }
+            notices.AddRange(_upkeep.RefreshNow(Refresh.Resident));
 
         _log.Record(LogLevel.Information, LogMessages.RestoreApplied, head, safety, reindex.Files);
         var report = string.Join('\n', new[]
@@ -1313,10 +1240,7 @@ public sealed class MemoryService : IDisposable
 
     public void Dispose()
     {
-        _disposed = true;
         _upkeep.Dispose();
-        lock (_upkeep.Gate)
-            _promptsTimer.Dispose();
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
@@ -1391,19 +1315,10 @@ public sealed class MemoryService : IDisposable
     /// <summary>Events were lost: assume anything may have changed.</summary>
     private void OnOverflow(object sender, ErrorEventArgs e) => _upkeep.EventsLost();
 
-    private void OnPromptsChange(object sender, FileSystemEventArgs e) => SchedulePromptsReload();
+    private void OnPromptsChange(object sender, FileSystemEventArgs e) => _upkeep.PromptsChanged();
 
     /// <summary>Events were lost, or the watcher failed: reload, which also arms the watcher again.</summary>
-    private void OnPromptsError(object sender, ErrorEventArgs e) => SchedulePromptsReload();
-
-    private void SchedulePromptsReload()
-    {
-        lock (_upkeep.Gate)
-        {
-            if (!_disposed)
-                _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        }
-    }
+    private void OnPromptsError(object sender, ErrorEventArgs e) => _upkeep.PromptsChanged();
 
     /// <summary>
     /// Watches <c>prompts/</c>, creating the folder when it is gone. Each reload arms a new watcher before it reads the
@@ -1422,60 +1337,4 @@ public sealed class MemoryService : IDisposable
         _promptsWatcher.Error += OnPromptsError;
         _promptsWatcher.EnableRaisingEvents = true;
     }
-
-    /// <summary>
-    /// Runs on the timer thread. Each prompt document that fails its checks is reported and keeps its previous text; the
-    /// others take their new text.
-    /// </summary>
-    private void ReloadPrompts() => UnderWriteGate(ApplyPrompts);
-
-    /// <summary>
-    /// Reloads the prompt documents, as a change to <c>prompts/</c> does. It runs under the write gate, or while a
-    /// maintenance operation holds the gate: a restore applies the documents it has just put back through this as well.
-    /// </summary>
-    private void ApplyPrompts()
-    {
-        lock (_upkeep.Gate)
-        {
-            if (_disposed)
-                return;
-            try
-            {
-                WatchPrompts();
-                var problems = new Dictionary<PromptName, string>();
-                var prompts = PromptFiles.Reload(_options.TacitHome, Config.Language, _prompts, problems);
-                foreach (var problem in problems.Values.Distinct())
-                    _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
-                SkillSet.Write(_options.TacitHome, Config.Language, prompts.Skill);
-                _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
-                var residentChanged = prompts.Resident != _prompts.Resident;
-                lock (_instructionsGate)
-                {
-                    _prompts = prompts;
-                    _promptProblems = problems;
-                }
-                _upkeep.InvalidateInstructions();
-                _promptsRetries = 0;
-                // The resident blocks show resident.md: render them with the new text, as a persona change does.
-                if (residentChanged)
-                    _upkeep.ResidentPromptChanged();
-            }
-            catch (Exception e) when ((e is IOException or ArgumentException) || (e is UnauthorizedAccessException && _promptsRetries < DerivedUpkeep.RetryLimit))
-            {
-                // The editor still holds a file, or the folder is busy; try again once it settles. Windows refuses a
-                // replacement it cannot make with UnauthorizedAccessException, which the render path retries the same way.
-                if (e is UnauthorizedAccessException)
-                    _promptsRetries++;
-                _promptsTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when (e is TacitException or UnauthorizedAccessException)
-            {
-                _promptsRetries = 0;
-                _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, e.Message);
-            }
-        }
-    }
-
-    /// <summary>Runs <paramref name="work"/> under the write gate, as the upkeep runs its refreshes.</summary>
-    private void UnderWriteGate(Action work) => _ = _upkeep.UnderWriteGate(work);
 }

@@ -58,7 +58,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         File.Delete(Path.Combine(Prompts, "rules.md"));
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 用户纠正或打断 Agent", StringComparison.Ordinal));
+        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("- 用户纠正或打断 Agent", StringComparison.Ordinal));
         Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 
@@ -215,7 +215,7 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n- 新写的核心规则\n");
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 新写的核心规则", StringComparison.Ordinal));
+        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("- 新写的核心规则", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         File.Delete(InstructionsMd);
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("## Recall", StringComparison.Ordinal));
+        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("## Recall", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         File.WriteAllText(InstructionsMd, "## 核心\n" + new string('长', 2600) + "\n");
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("instructions.md", StringComparison.Ordinal)));
+        await Eventually(service, () => _notices.Any(notice => notice.Contains("instructions.md", StringComparison.Ordinal)));
         Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
@@ -315,23 +315,31 @@ public sealed class PromptDocumentTests : IDisposable
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value)).Count;
 
-    private static async Task Eventually(Func<bool> condition)
+    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
+    private static async Task Eventually(MemoryService service, Func<bool> condition)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
+        while (true)
         {
+            await service.SettledAsync();
+            if (condition())
+                return;
+            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
+            await Task.Delay(50);
+        }
+    }
+    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
+    private static async Task Eventually(MemoryService service, Func<Task<bool>> condition)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (true)
+        {
+            await service.SettledAsync();
+            if (await condition())
+                return;
             Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
             await Task.Delay(50);
         }
     }
 
-    private static async Task Eventually(Func<Task<bool>> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!await condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

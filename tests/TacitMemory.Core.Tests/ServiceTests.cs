@@ -61,7 +61,7 @@ public sealed class ServiceTests : IDisposable
 
         File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
+        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public sealed class ServiceTests : IDisposable
 
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
+        await Eventually(service, () => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
         Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
@@ -216,8 +216,8 @@ public sealed class ServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), new string('长', 3001));
         File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
 
-        await Eventually(async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
-        await Eventually(() => _notices.Any(notice => notice.Contains("skill.md", StringComparison.Ordinal)));
+        await Eventually(service, async () => (await service.ServerInstructionsAsync()).Contains("- 新加的一条", StringComparison.Ordinal));
+        await Eventually(service, () => _notices.Any(notice => notice.Contains("skill.md", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -231,7 +231,7 @@ public sealed class ServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 2000) + "\n");
         File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
 
-        await Eventually(() => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
+        await Eventually(service, () => _notices.Any(notice => notice.Contains("rules.md", StringComparison.Ordinal)));
         Assert.Equal(before, await service.ServerInstructionsAsync());
     }
 
@@ -241,11 +241,11 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         Directory.Delete(Path.Combine(_home.TacitHome, "prompts"), recursive: true);
 
-        await Eventually(() => Directory.Exists(Path.Combine(_home.TacitHome, "prompts")));
+        await Eventually(service, () => Directory.Exists(Path.Combine(_home.TacitHome, "prompts")));
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), "Use Chinese page titles.");
 
         var skill = Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");
-        await Eventually(() => File.ReadAllText(skill).Contains("Use Chinese page titles.", StringComparison.Ordinal));
+        await Eventually(service, () => File.ReadAllText(skill).Contains("Use Chinese page titles.", StringComparison.Ordinal));
     }
 
     /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
@@ -261,24 +261,18 @@ public sealed class ServiceTests : IDisposable
             await Task.Delay(50);
         }
     }
-
-    private static async Task Eventually(Func<bool> condition)
+    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
+    private static async Task Eventually(MemoryService service, Func<Task<bool>> condition)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
+        while (true)
         {
+            await service.SettledAsync();
+            if (await condition())
+                return;
             Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
             await Task.Delay(50);
         }
     }
 
-    private static async Task Eventually(Func<Task<bool>> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!await condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
-            await Task.Delay(50);
-        }
-    }
 }

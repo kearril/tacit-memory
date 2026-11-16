@@ -117,11 +117,15 @@ public sealed class PromptProblemTests : IDisposable
         Assert.Equal([StatusLevel.Attention], ((IStatusColumn)prompts).LineLevels());
     }
 
-    private static async Task Eventually(Func<bool> condition)
+    /// <summary>Waits until the condition holds, letting the service run the refreshes it has scheduled on the test clock.</summary>
+    private async Task Eventually(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
+        while (true)
         {
+            await _service.SettledAsync();
+            if (condition())
+                return;
             Assert.True(DateTime.UtcNow < deadline, "condition not met within 10 s");
             await Task.Delay(50);
         }

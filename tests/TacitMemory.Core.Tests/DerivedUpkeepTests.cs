@@ -85,6 +85,28 @@ public sealed class DerivedUpkeepTests : IDisposable
     }
 
     [Fact]
+    public async Task A_prompt_reload_that_meets_a_held_file_is_retried_five_times_then_reported_once()
+    {
+        var rules = Path.Combine(_home.TacitHome, "prompts", "rules.md");
+        File.WriteAllText(rules, "- 用户纠正或打断 Agent\n");
+        using var service = Open();
+
+        using (new FileStream(rules, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            service.PromptsChanged();
+            await service.SettledAsync();
+            for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
+            {
+                Assert.DoesNotContain(_notices, notice => notice.Contains("提示词文档的修改未生效", StringComparison.Ordinal));
+                _home.Clock.Elapse(DerivedUpkeep.Debounce);
+                await service.SettledAsync();
+            }
+        }
+
+        Assert.Single(_notices, notice => notice.Contains("提示词文档的修改未生效", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_changed_activity_file_shows_in_the_next_server_instructions()
     {
         using var service = Open();

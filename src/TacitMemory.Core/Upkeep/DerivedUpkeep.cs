@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Clients;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
@@ -9,19 +10,38 @@ using TacitMemory.Core.Logging;
 using TacitMemory.Core.Maintenance;
 using TacitMemory.Core.Models;
 using TacitMemory.Core.Recent;
+using TacitMemory.Core.Skills;
 
 namespace TacitMemory.Core.Upkeep;
 
 /// <summary>What the derived products are made from in the runtime open now, read afresh each time it is asked for.</summary>
 /// <param name="Config">The config the runtime runs.</param>
-/// <param name="Prompts">The prompt documents the service runs.</param>
 /// <param name="Index">The derived index.</param>
 /// <param name="Vectors">The vector fill, which an index sync starts in the background.</param>
 /// <param name="Models">The auxiliary models, whose availability the server instructions report.</param>
 /// <param name="Backup">The automatic backup in progress, or a completed task.</param>
 /// <param name="Judgments">The consolidation judgments in progress, or a completed task.</param>
 internal sealed record UpkeepRuntime(
-    TacitConfig Config, PromptDocuments Prompts, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments);
+    TacitConfig Config, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments);
+
+/// <summary>The derived products a refresh made now brings up to date; they combine.</summary>
+[Flags]
+internal enum Refresh
+{
+    None = 0,
+
+    /// <summary>Read the prompt documents again, as a change to <c>prompts/</c> does: the skills, the instructions and, when <c>resident.md</c> changed, a scheduled render follow.</summary>
+    Prompts = 1,
+
+    /// <summary>Write the skills from the prompt documents the service runs.</summary>
+    Skills = 2,
+
+    /// <summary>Render the resident blocks; what went wrong is returned.</summary>
+    Resident = 4,
+
+    /// <summary>Drop the cached server instructions.</summary>
+    Instructions = 8,
+}
 
 /// <summary>
 /// Keeps the products derived from the memory files in step with them: it hears which source changed, schedules the
@@ -45,8 +65,13 @@ internal sealed class DerivedUpkeep : IDisposable
     private readonly ServiceLog _log;
     private readonly MaintenanceGate _gate;
     private readonly Func<UpkeepRuntime> _runtime;
+    private readonly Action _watchPrompts;
     private readonly Debounced _resident;
     private readonly Debounced _index;
+    private readonly Debounced _prompts;
+    private readonly Lock _promptsGate = new();
+    private PromptDocuments _promptDocuments = null!;
+    private IReadOnlyDictionary<PromptName, string> _promptProblems = new Dictionary<PromptName, string>();
     private readonly Lock _instructionsGate = new();
     private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private string? _instructions;
@@ -56,14 +81,18 @@ internal sealed class DerivedUpkeep : IDisposable
     private ITimer _dayTimer;
     private bool _disposed;
 
-    public DerivedUpkeep(TacitOptions options, ServiceLog log, MaintenanceGate gate, Func<UpkeepRuntime> runtime)
+    /// <param name="watchPrompts">Arms the watcher of <c>prompts/</c> again, creating the folder when it is gone; each prompt reload calls it first.</param>
+    public DerivedUpkeep(TacitOptions options, ServiceLog log, MaintenanceGate gate, Func<UpkeepRuntime> runtime, Action watchPrompts)
     {
         _options = options;
         _log = log;
         _gate = gate;
         _runtime = runtime;
+        _watchPrompts = watchPrompts;
         _resident = new Debounced(this, RenderResident, Messages.RenderFailed);
         _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed);
+        // Arming the watcher again throws ArgumentException while the folder is being replaced.
+        _prompts = new Debounced(this, ReloadPrompts, Messages.PromptsNotApplied, e => e is ArgumentException);
         _dayTimer = ArmDayTimer();
     }
 
@@ -141,7 +170,7 @@ internal sealed class DerivedUpkeep : IDisposable
 
             var recent = RecentSummary.Read(runtime.Config.MemoryPath, today);
             var consolidation = await ConsolidationReminder.RenderAsync(runtime.Config, today, cancellationToken);
-            var text = ServerInstructionText.Assemble(runtime.Config.Language, runtime.Prompts, unavailable, skipped, recent, consolidation).Text;
+            var text = ServerInstructionText.Assemble(runtime.Config.Language, PromptState.Running, unavailable, skipped, recent, consolidation).Text;
 
             lock (_instructionsGate)
             {
@@ -160,20 +189,49 @@ internal sealed class DerivedUpkeep : IDisposable
         }
     }
 
-    /// <summary><c>resident.md</c> now has other text, which the resident blocks show.</summary>
-    public void ResidentPromptChanged() => _resident.Schedule();
+    /// <summary>A file in <c>prompts/</c> changed, or its watcher lost events or failed.</summary>
+    public void PromptsChanged() => _prompts.Schedule();
+
+    /// <summary>The prompt documents the service runs, and the refusal of each one whose file it does not run.</summary>
+    public (PromptDocuments Running, IReadOnlyDictionary<PromptName, string> Problems) PromptState
+    {
+        get
+        {
+            lock (_promptsGate)
+                return (_promptDocuments, _promptProblems);
+        }
+    }
+
+    /// <summary>Runs <paramref name="prompts"/>, as a runtime opened with a config that loads has every document as its file holds it.</summary>
+    public void UsePrompts(PromptDocuments prompts)
+    {
+        lock (_promptsGate)
+        {
+            _promptDocuments = prompts;
+            _promptProblems = new Dictionary<PromptName, string>();
+        }
+    }
 
     /// <summary>
-    /// Renders the resident blocks now with <paramref name="config"/> and <paramref name="prompts"/>, under <see cref="Gate"/>,
-    /// and drops a render already scheduled, which this one makes needless. Failures are raised to the caller.
+    /// Brings the derived products in <paramref name="what"/> up to date now, in the caller's hold on the gate, and drops
+    /// the refreshes of them already scheduled, which this makes needless. Returns what went wrong for the user to see: a
+    /// resident block not written, or a render that failed. A prompt reload reports its own problems as the timed one does.
     /// </summary>
-    public IReadOnlyList<BlockRender> RenderNow(TacitConfig config, PromptDocuments prompts)
+    public IReadOnlyList<string> RefreshNow(Refresh what)
     {
+        var notices = new List<string>();
         lock (Gate)
         {
-            _resident.Cancel();
-            return Binder.RenderAll(_options, config, prompts);
+            if (what.HasFlag(Refresh.Prompts))
+                _prompts.RunNow();
+            if (what.HasFlag(Refresh.Skills))
+                SkillSet.Write(_options.TacitHome, _runtime().Config.Language, PromptState.Running.Skill);
+            if (what.HasFlag(Refresh.Instructions))
+                InvalidateInstructions();
+            if (what.HasFlag(Refresh.Resident))
+                RenderResidentNow(notices);
         }
+        return notices;
     }
 
     /// <summary>
@@ -185,6 +243,7 @@ internal sealed class DerivedUpkeep : IDisposable
     {
         _resident.Flush();
         _index.Flush();
+        _prompts.Flush();
         Task[] running;
         lock (Gate)
             running = [.. _running];
@@ -245,9 +304,55 @@ internal sealed class DerivedUpkeep : IDisposable
 
     private void RenderResident()
     {
-        var runtime = _runtime();
-        foreach (var result in Binder.RenderAll(_options, runtime.Config, runtime.Prompts))
+        foreach (var result in Binder.RenderAll(_options, _runtime().Config, PromptState.Running))
             _log.Notify(LevelOf(result), result.Message);
+    }
+
+    /// <summary>Renders the resident blocks now, adding what went wrong to <paramref name="notices"/>; nothing is raised.</summary>
+    private void RenderResidentNow(List<string> notices)
+    {
+        _resident.Cancel();
+        var language = _runtime().Config.Language;
+        try
+        {
+            foreach (var render in Binder.RenderAll(_options, _runtime().Config, PromptState.Running))
+            {
+                _log.Record(LevelOf(render), render.Message);
+                if (LevelOf(render) != LogLevel.Information)
+                    notices.Add(render.Message);
+            }
+        }
+        catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
+        {
+            _log.Record(LogLevel.Warning, Messages.RenderFailed, e.Message);
+            notices.Add(Messages.RenderFailed.Format(language, e.Message));
+        }
+    }
+
+    /// <summary>
+    /// Reads the prompt documents again. Each one that fails its checks is reported and keeps its previous text; the others
+    /// take their new text. The watcher is armed again first, so a change made while reading is seen by the next reload.
+    /// </summary>
+    private void ReloadPrompts()
+    {
+        _watchPrompts();
+        var language = _runtime().Config.Language;
+        var current = PromptState.Running;
+        var problems = new Dictionary<PromptName, string>();
+        var prompts = PromptFiles.Reload(_options.TacitHome, language, current, problems);
+        foreach (var problem in problems.Values.Distinct())
+            _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
+        SkillSet.Write(_options.TacitHome, language, prompts.Skill);
+        _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
+        lock (_promptsGate)
+        {
+            _promptDocuments = prompts;
+            _promptProblems = problems;
+        }
+        InvalidateInstructions();
+        // The resident blocks show resident.md: render them with the new text, as a persona change does.
+        if (prompts.Resident != current.Resident)
+            _resident.Schedule();
     }
 
     /// <summary>
@@ -322,6 +427,7 @@ internal sealed class DerivedUpkeep : IDisposable
             _disposed = true;
             _resident.Dispose();
             _index.Dispose();
+            _prompts.Dispose();
             _dayTimer.Dispose();
         }
     }
@@ -335,6 +441,7 @@ internal sealed class DerivedUpkeep : IDisposable
         private readonly DerivedUpkeep _owner;
         private readonly Action _work;
         private readonly Localized _failed;
+        private readonly Func<Exception, bool> _alsoTransient;
         private readonly ITimer _timer;
         private int _retries;
         private bool _pending;
@@ -345,11 +452,13 @@ internal sealed class DerivedUpkeep : IDisposable
         /// </summary>
         private bool _retrying;
 
-        public Debounced(DerivedUpkeep owner, Action work, Localized failed)
+        /// <param name="alsoTransient">Failures of this refresh tried again as a held file is, beside <see cref="IOException"/> and <see cref="UnauthorizedAccessException"/>.</param>
+        public Debounced(DerivedUpkeep owner, Action work, Localized failed, Func<Exception, bool>? alsoTransient = null)
         {
             _owner = owner;
             _work = work;
             _failed = failed;
+            _alsoTransient = alsoTransient ?? (_ => false);
             _timer = owner._options.Time.CreateTimer(_ => OnTimer(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }
 
@@ -374,6 +483,13 @@ internal sealed class DerivedUpkeep : IDisposable
                 _pending = false;
                 _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             }
+        }
+
+        /// <summary>Runs the refresh now, in the caller's hold on the gate, in place of a scheduled run; failures are handled as a timed run's are.</summary>
+        public void RunNow()
+        {
+            Cancel();
+            Run();
         }
 
         /// <summary>Starts a run scheduled by a change now instead of at the end of its wait; a retry keeps waiting.</summary>
@@ -418,7 +534,7 @@ internal sealed class DerivedUpkeep : IDisposable
                     _work();
                     _retries = 0;
                 }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException && _retries < RetryLimit)
+                catch (Exception e) when ((e is IOException or UnauthorizedAccessException || _alsoTransient(e)) && _retries < RetryLimit)
                 {
                     // A file is still held open, which Windows refuses to replace; try again once it settles.
                     _retries++;
