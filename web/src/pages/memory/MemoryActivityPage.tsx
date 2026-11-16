@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Select } from "../../components/ui/select";
+import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
@@ -353,7 +354,7 @@ function Summary({ summary }: { readonly summary: ActivitySummaryView }) {
   return (
     <aside
       aria-label={title}
-      className={cn("grid gap-xs px-md py-sm", week ? cn(DASHED, "border-accent/50") : "rounded-md bg-accent-soft")}
+      className={cn("grid gap-xs px-md py-sm", week ? entryBox({ tone: "accent" }) : "rounded-md bg-accent-soft")}
     >
       <p className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
         <span className="text-accent">{title}</span>

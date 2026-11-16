@@ -18,6 +18,7 @@ import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Card, CardGroup } from "../../components/ui/card";
+import { IconTile } from "../../components/ui/icon-tile";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf, timeText } from "./format";
 import { HeatmapCard } from "./HeatmapCard";
@@ -125,13 +126,7 @@ function OverviewCard({
       className={`py-md lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center ${className}`}
     >
       <div className="flex items-center gap-md lg:pr-lg">
-        <span
-          className={`grid size-(--tk-size-control) shrink-0 place-items-center rounded-md ${
-            calm ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
-          }`}
-        >
-          <Icon aria-hidden className="size-(--tk-font-size-lg)" />
-        </span>
+        <IconTile icon={Icon} tone={calm ? "success" : "warning"} size="large" />
         <div className="grid gap-xs">
           <h2 id="overview-title" className="text-lg leading-(--tk-line-height-tight) font-semibold whitespace-nowrap">
             {calm ? text.calm : text.pending(todos.length)}
@@ -169,13 +164,7 @@ function TodoItem({ todo, locale }: { readonly todo: Todo; readonly locale: stri
       title={view.detail === null ? view.title : `${view.title}\n${view.detail}`}
       className="flex lift items-center gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface px-sm py-xs shadow-pressed outline-none hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
     >
-      <span
-        className={`grid size-(--tk-size-icon-tile) shrink-0 place-items-center rounded-sm ${
-          view.failure ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning"
-        }`}
-      >
-        <view.icon aria-hidden className="size-(--tk-font-size-sm)" />
-      </span>
+      <IconTile icon={view.icon} tone={view.failure ? "danger" : "warning"} />
       <span className="grid min-w-0 flex-1 leading-(--tk-line-height-tight)">
         <span className="truncate text-sm font-medium">{view.title}</span>
         {view.detail === null ? null : <span className="truncate text-xs text-ink-muted">{view.detail}</span>}

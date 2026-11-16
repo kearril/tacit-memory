@@ -10,6 +10,8 @@ import { BELOW_BARS } from "../../components/ui/sticky";
 import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card, CardTitle } from "../../components/ui/card";
+import { chipVariants } from "../../components/ui/chip-variants";
+import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { sectionAnchor, TOPICS } from "./pages";
 import { CodePill, FilePath, FileProblems, PageTypeBadge, WorkstreamPill } from "./parts";
@@ -18,7 +20,6 @@ import { memoryPathOf } from "./views";
 const MarkdownBody = lazy(() => import("./MarkdownBody"));
 
 /** The dashed box a section sits in, as the persona's entries do. */
-const SECTION_BOX = "rounded-md border-(length:--tk-border-thin) border-dashed border-ink-muted/40";
 
 /**
  * One detail page in a reading column: the trail back to the list, a head card with the page's facts, a sticky row of
@@ -128,10 +129,7 @@ function SectionTabs({ sections }: { readonly sections: readonly PageSectionView
       <ul className="-m-xs flex flex-wrap gap-sm p-xs">
         {sections.map((section) => (
           <li key={section.name} className="shrink-0">
-            <a
-              href={`#${encodeURIComponent(sectionAnchor(section.name))}`}
-              className="inline-flex rounded-full bg-surface px-md py-xs text-sm whitespace-nowrap shadow-rest transition-shadow outline-none hover:text-accent hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
-            >
+            <a href={`#${encodeURIComponent(sectionAnchor(section.name))}`} className={chipVariants()}>
               {section.name}
             </a>
           </li>
@@ -153,7 +151,7 @@ function Section({ section, number }: { readonly section: PageSectionView; reado
     <li
       id={anchor}
       aria-labelledby={`${anchor}-title`}
-      className={cn(SECTION_BOX, BELOW_BARS, "group grid gap-sm px-md py-md")}
+      className={cn(entryBox(), BELOW_BARS, "group grid gap-sm py-md")}
     >
       <div className="flex flex-wrap items-center gap-sm">
         <span
@@ -224,7 +222,7 @@ function Related({ page }: { readonly page: PageView }) {
                   <span className="text-sm font-medium">{item?.title ?? related.id}</span>
                 </Link>
               ) : (
-                <span className={cn(SECTION_BOX, "grid gap-xs border-warning px-md py-sm")}>
+                <span className={cn(entryBox({ tone: "warning" }), "grid gap-xs")}>
                   <span className="font-mono text-xs text-ink-muted">{related.id}</span>
                   <span className="flex items-center gap-xs text-xs text-warning">
                     <TriangleAlert aria-hidden className="size-(--tk-font-size-xs)" />

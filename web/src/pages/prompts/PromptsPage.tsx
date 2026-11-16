@@ -27,6 +27,7 @@ import { Button } from "../../components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { useToast } from "../../components/ui/toast-context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
+import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { lf, stateOf } from "./editor";
@@ -129,9 +130,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
   return (
     <section aria-labelledby={titleId} className="grid gap-lg rounded-lg bg-surface p-lg shadow-rest">
       <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-sm gap-y-xs">
-        <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
-          <Icon aria-hidden className="size-(--tk-font-size-sm)" />
-        </span>
+        <IconTile icon={Icon} />
         <div className="flex flex-wrap items-center gap-sm">
           <h2 id={titleId} className="text-lg font-semibold">
             {about.title}

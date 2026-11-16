@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import {
   CircleUserRound,
   Compass,
@@ -15,6 +16,7 @@ import { useDictionary } from "../../app/session-context";
 import type { PersonaScope } from "./persona";
 import { CodePill, QuoteList, QuoteToggle } from "./parts";
 import { splitSources } from "./sources";
+import { entryBox } from "../../components/ui/entry-box";
 
 /** The four persona sections. */
 export type SectionKind = NonNullable<PersonaSection>;
@@ -55,11 +57,7 @@ export function PersonaEntryCard({
   const quoted = sources.some((source) => source.quote !== null);
   const date = sources.find((source) => source.date !== null)?.date ?? null;
   return (
-    <li
-      className={`group grid gap-xs rounded-md border-(length:--tk-border-thin) border-dashed px-md py-sm ${
-        problems.length > 0 ? "border-warning bg-warning-soft" : "border-ink-muted/40"
-      }`}
-    >
+    <li className={cn(entryBox({ tone: problems.length > 0 ? "warning" : "quiet" }), "group grid gap-xs")}>
       <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
         {lead}
         {date === null ? null : <span className="tabular-nums">{date}</span>}

@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { useToast } from "../../components/ui/toast-context";
+import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
@@ -83,9 +84,7 @@ function CardHeading({
 }) {
   return (
     <header className="flex items-center gap-sm">
-      <span className="grid size-(--tk-size-icon-tile) shrink-0 place-items-center rounded-sm bg-accent-soft text-accent">
-        <Icon aria-hidden className="size-(--tk-font-size-sm)" />
-      </span>
+      <IconTile icon={Icon} />
       <CardTitle id={id} className="min-w-0 flex-1 truncate text-base">
         {title}
       </CardTitle>

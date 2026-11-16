@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
+import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { dayText } from "../dashboard/format";
@@ -131,9 +132,7 @@ function LogHeader({
 
   return (
     <header className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-sm">
-      <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
-        <ScrollText aria-hidden className="size-(--tk-font-size-sm)" />
-      </span>
+      <IconTile icon={ScrollText} />
       <h2 className="truncate text-lg font-semibold">{label(date)}</h2>
       {date === days.today ? (
         <Button

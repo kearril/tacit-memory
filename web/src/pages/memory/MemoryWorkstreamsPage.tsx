@@ -26,6 +26,8 @@ import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
+import { chipVariants } from "../../components/ui/chip-variants";
+import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
@@ -44,7 +46,6 @@ function pagePathOf(id: string): string {
 }
 
 /** The dashed box an entry of the brief sits in, as the persona's entries do. */
-const ENTRY_BOX = "rounded-md border-(length:--tk-border-thin) border-dashed px-md py-sm";
 
 /**
  * The workstreams view of the memory page, in a reading column. A sticky strip above holds every workstream as a small
@@ -151,13 +152,9 @@ function StripItem({
         <Link
           to={briefPathOf(item.name)}
           aria-current={current ? "page" : undefined}
-          className={cn(
-            "inline-flex items-center gap-xs rounded-full px-md py-xs text-sm whitespace-nowrap",
-            tone,
-            link,
-          )}
+          className={chipVariants({ tone: current ? "current" : faint ? "faint" : "rest" })}
         >
-          <FolderGit2 aria-hidden className="size-(--tk-font-size-sm)" />
+          <FolderGit2 aria-hidden />
           {item.name}
         </Link>
       ) : (
@@ -310,7 +307,7 @@ function BriefBody({
           <CardHead id="brief-open" icon={TriangleAlert} title={text.openItems} />
           <ul className="grid gap-sm">
             {brief.openItems.map((item) => (
-              <li key={item.page} className={cn("grid gap-xs border-warning bg-warning-soft", ENTRY_BOX)}>
+              <li key={item.page} className={cn(entryBox({ tone: "warning" }), "grid gap-xs")}>
                 <Link
                   to={pagePathOf(item.page)}
                   className="w-fit font-mono text-xs text-ink-muted hover:text-ink hover:underline"
@@ -345,7 +342,7 @@ function BriefBody({
         ) : (
           <ul className="grid gap-sm">
             {brief.activities.map((activity) => (
-              <li key={activity.code} className={cn("group grid gap-xs border-ink-muted/40", ENTRY_BOX)}>
+              <li key={activity.code} className={cn(entryBox(), "group grid gap-xs")}>
                 <div className="flex items-center gap-sm text-xs text-ink-muted">
                   <span className="tabular-nums">{activity.date}</span>
                   <CodePill code={activity.code} reveal className="ml-auto" />

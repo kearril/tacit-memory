@@ -35,6 +35,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/pop
 import { Segmented } from "../../components/ui/segmented";
 import { Select } from "../../components/ui/select";
 import { StickyBar } from "../../components/ui/sticky-bar";
+import { Chip } from "../../components/ui/chip";
+import { chipVariants } from "../../components/ui/chip-variants";
+import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../dashboard/parts";
 import { sectionAnchor } from "./pages";
@@ -63,15 +66,8 @@ const OVERRIDES = ["minRerankScore", "topK", "candidates"] as const;
 /** The conditions besides the query, counted on the button that unfolds them while the bar is stuck. */
 const CONDITIONS = ["workstream", "kind", "from", "to", ...OVERRIDES] as const;
 
-/** The dashed box a result sits in, as the persona's entries and the detail page's sections do. */
-const RESULT_BOX = "rounded-md border-(length:--tk-border-thin) border-dashed border-ink-muted/40";
-
 /** The columns of a unit row: what it is, then the two searches' ranks and the reranker's score. */
 const UNIT_COLUMNS = "grid-cols-[minmax(0,1fr)_auto_auto_auto]";
-
-/** A pill of the bar's second row: the kinds, and the button of the retrieval values. */
-const PILL =
-  "inline-flex cursor-pointer items-center gap-xs rounded-full px-md py-xs text-sm whitespace-nowrap transition-shadow outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
 
 /**
  * Whether the pointer itself moved: a page scrolled under a still pointer also reports it over a new row, which must not
@@ -292,20 +288,9 @@ function SearchBar({
                 />
                 <div role="group" aria-label={text.kindLabel} className="flex flex-wrap gap-xs">
                   {kinds.map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-pressed={fields.kind === key}
-                      onClick={() => field("kind", key)}
-                      className={cn(
-                        PILL,
-                        fields.kind === key
-                          ? "bg-accent text-on-accent"
-                          : "bg-surface text-ink-muted shadow-rest hover:text-ink hover:shadow-hover",
-                      )}
-                    >
+                    <Chip key={key} pressed={fields.kind === key} onClick={() => field("kind", key)}>
                       {label}
-                    </button>
+                    </Chip>
                   ))}
                 </div>
                 <div className="flex items-center gap-xs text-ink-muted">
@@ -374,21 +359,13 @@ function Overrides({
         <button
           type="button"
           className={cn(
-            PILL,
+            chipVariants({ tone: invalid ? "danger" : replaced > 0 ? "warning" : "rest" }),
             "group ml-auto",
-            invalid
-              ? "bg-danger-soft text-danger"
-              : replaced > 0
-                ? "bg-warning-soft text-warning"
-                : "bg-surface text-ink-muted shadow-rest hover:text-ink hover:shadow-hover",
           )}
         >
-          <SlidersHorizontal aria-hidden className="size-(--tk-font-size-sm)" />
+          <SlidersHorizontal aria-hidden />
           {text.overrides.pill(replaced)}
-          <ChevronDown
-            aria-hidden
-            className="size-(--tk-font-size-sm) transition-transform group-data-[state=open]:rotate-180"
-          />
+          <ChevronDown aria-hidden className="transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" aria-label={text.overrides.title} className="w-max gap-md">
@@ -755,11 +732,7 @@ function ResultItem({
       data-lit={lit ? "" : undefined}
       onPointerMove={(event) => moved(event) && onLight(result.number)}
       onFocus={() => onLight(result.number)}
-      className={cn(
-        RESULT_BOX,
-        "group grid gap-xs px-md py-sm transition-colors",
-        lit && "border-accent bg-accent-soft/40",
-      )}
+      className={cn(entryBox({ tone: lit ? "lit" : "quiet" }), "group grid gap-xs transition-colors")}
     >
       <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
         <span className="grid size-(--tk-font-size-xl) shrink-0 place-items-center rounded-full bg-accent-soft font-semibold text-accent tabular-nums">

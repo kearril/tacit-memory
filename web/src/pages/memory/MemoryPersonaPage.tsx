@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { FolderGit2, Globe, Inbox, Tag, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
@@ -16,6 +17,8 @@ import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
+import { Chip } from "../../components/ui/chip";
+import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { FilePath, FileProblems } from "./parts";
 import {
@@ -157,17 +160,9 @@ function ScopePill({
   readonly children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      title={title}
-      onClick={onClick}
-      className={`inline-flex shrink-0 cursor-pointer items-center gap-xs rounded-full px-md py-xs text-sm whitespace-nowrap outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent [&_svg]:size-(--tk-font-size-sm) ${
-        active ? "bg-accent text-on-accent" : "bg-surface text-ink-muted shadow-rest hover:text-ink"
-      }`}
-    >
+    <Chip pressed={active} title={title} onClick={onClick}>
       {children}
-    </button>
+    </Chip>
   );
 }
 
@@ -306,7 +301,7 @@ function CandidateRow({ candidate, quotes = false }: { readonly candidate: Candi
   const days = occurrenceDaysOf(candidate.occurrences);
   const section = candidate.section as SectionKind;
   return (
-    <li className="grid gap-xs rounded-md border-(length:--tk-border-thin) border-dashed border-ink-muted/40 px-md py-sm">
+    <li className={cn(entryBox(), "grid gap-xs")}>
       <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
         <SectionBadge section={section} />
         <ScopeBadge scope={candidate.scope} />

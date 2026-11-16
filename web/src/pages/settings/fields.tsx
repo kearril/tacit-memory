@@ -19,6 +19,7 @@ import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
+import { IconTile } from "../../components/ui/icon-tile";
 import type { Explained } from "../../i18n/messages";
 import {
   differsFromDefault,
@@ -88,9 +89,7 @@ export function SettingsSection({
       className="scroll-mt-lg gap-xl"
       label={
         <>
-          <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
-            <Icon aria-hidden className="size-(--tk-font-size-sm)" />
-          </span>
+          <IconTile icon={Icon} />
           <h2 id={`${id}-title`} className="text-lg font-semibold">
             {dictionary.settings.sections[section]}
           </h2>

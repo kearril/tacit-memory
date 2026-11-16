@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
+import { Chip } from "../../components/ui/chip";
 import { errorTextOf } from "../../i18n/messages";
 import {
   filterPages,
@@ -139,22 +140,13 @@ function TypeChips({
     const Icon = key === "" ? null : PAGE_TYPE_ICONS[key];
     const on = type === key;
     return (
-      <button
-        key={key}
-        type="button"
-        aria-pressed={on}
-        onClick={() => onChange(key)}
-        className={cn(
-          "inline-flex cursor-pointer items-center gap-xs rounded-full px-md py-xs text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-          on ? "bg-accent text-on-accent" : "bg-surface text-ink-muted shadow-rest hover:text-ink",
-        )}
-      >
-        {Icon === null ? null : <Icon aria-hidden className="size-(--tk-font-size-sm)" />}
+      <Chip key={key} pressed={on} onClick={() => onChange(key)}>
+        {Icon === null ? null : <Icon aria-hidden />}
         {key === "" ? text.typeAll : dictionary.memory.parts.pageTypes[key]}
         <span className="text-xs tabular-nums">
           {key === "" ? pages.length : pages.filter((page) => page.type === key).length}
         </span>
-      </button>
+      </Chip>
     );
   };
   return (
