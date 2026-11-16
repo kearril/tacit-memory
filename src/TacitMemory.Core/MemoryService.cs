@@ -173,7 +173,7 @@ public sealed class MemoryService : IDisposable
         var writer = new MemoryWriter(config, _log, _index, _vectors, OnWritten);
         _pages = new PageTools(
             _options, config, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision), writer);
-        _recent = new RecentTools(_options, config, _log, _models.Decision);
+        _recent = new RecentTools(_options, config, _models.Decision, writer);
         _persona = new PersonaTools(
             _options, config, _log,
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
@@ -1050,24 +1050,8 @@ public sealed class MemoryService : IDisposable
 
     private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            var result = await _recent.WriteAsync(request, cancellationToken);
-            // Like write_page, the index follows the file right away, so the new activity is searchable at once.
-            _index.SyncActivities();
-            InvalidateInstructions();
-            if (!result.Written)
-                return result;
-            _backup.ScheduleIfDue();
-            return await _vectors.FillAsync(cancellationToken)
-                ? result
-                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this activity is found by full-text search only." };
-        }
-        finally
-        {
-            hold.Dispose();
-        }
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        return await _recent.WriteAsync(request, cancellationToken);
     }
 
     /// <summary>

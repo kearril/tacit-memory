@@ -103,4 +103,27 @@ public sealed class MemoryWriteTests : IDisposable
         Assert.Equal("pages/tacit-memory/db-upgrade.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
         Assert.Equal("A  notes.txt", Git("status", "--porcelain").Trim());
     }
+
+    [Fact]
+    public async Task An_activity_whose_commit_fails_is_saved_searchable_and_backed_up_and_the_agent_is_told()
+    {
+        var head = Git("rev-parse", "HEAD").Trim();
+        LockIndex();
+
+        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "全文检索换成 PGroonga，因为中文分词更准。" });
+
+        Assert.True(result.IsError);
+        Assert.StartsWith("Added activity [", result.Text);
+        Assert.Contains($"Not committed: recent/{TestHome.Today:yyyy-MM}.md is saved, but git failed (", result.Text);
+        Assert.Contains("Nothing to redo: it is committed with the next write to this file.", result.Text);
+        Assert.Contains("PGroonga", File.ReadAllText(Path.Combine(Memory, "recent", $"{TestHome.Today:yyyy-MM}.md")));
+        Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
+        Assert.Single(_notices, notice => notice.Contains("git", StringComparison.OrdinalIgnoreCase));
+
+        var found = await _service.RecallAsync(new RecallRequest { Query = "PGroonga", Kind = "activities" });
+        Assert.Contains("PGroonga", found.Text);
+
+        await _service.BackupCompletion;
+        Assert.True(File.Exists(AutomaticBackup));
+    }
 }

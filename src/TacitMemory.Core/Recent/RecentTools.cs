@@ -1,9 +1,6 @@
-using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Decisions;
-using TacitMemory.Core.Git;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
-using TacitMemory.Core.Logging;
 using TacitMemory.Core.Models;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Tools;
@@ -15,12 +12,11 @@ namespace TacitMemory.Core.Recent;
 /// The workstream list is maintained by the consolidation, which edits <c>workstreams.md</c> directly. Callers serialize writes; this
 /// class assumes it runs one write at a time.
 /// </summary>
-internal sealed class RecentTools(TacitOptions options, TacitConfig config, ServiceLog log, IDecisionModel decision)
+internal sealed class RecentTools(TacitOptions options, TacitConfig config, IDecisionModel decision, MemoryWriter writer)
 {
     /// <summary>Every parameter <c>write_recent</c> takes, listed when an unknown one is refused.</summary>
     private const string Parameters = "text, workstream, source, replaces, confirm_no_secret";
 
-    private readonly GitCli _git = new(config.MemoryPath, config.Language);
     private readonly SameTopicCheck _sameTopic = new(config, decision);
 
     public async Task<ToolResult> WriteAsync(WriteRecentRequest request, CancellationToken cancellationToken)
@@ -115,9 +111,6 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
             sameTopicNote = verdict.Note;
         }
 
-        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
-        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
-
         string after;
         int line;
         if (replaced is null)
@@ -142,24 +135,8 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Serv
         if (after == existing)
             return ToolText.Ok(status);
 
-        TextFile.Write(path, after, hasBom);
         var subject = replaced is null ? "recent: add" : "recent: replace";
-        var commitProblem = await CommitAsync(dirty ? $"{subject} {code} (with user edits)" : $"{subject} {code}", relative, cancellationToken);
-        return commitProblem is null ? ToolText.Ok(status) with { Written = true } : new ToolResult($"{status}\n\n{commitProblem}", IsError: true, Written: true);
-    }
-
-    /// <summary>Commits the month file; on failure, tells the user and returns the note for the agent. The file stays written.</summary>
-    private async Task<string?> CommitAsync(string message, string relativePath, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _git.CommitAsync(message, [relativePath], cancellationToken);
-            return null;
-        }
-        catch (TacitException e) when (e.Error == TacitError.GitFailed)
-        {
-            log.Notify(LogLevel.Warning, e.Message);
-            return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
-        }
+        var outcome = await writer.WriteAsync(new MemoryWrite(relative, after, hasBom, $"{subject} {code}", WrittenSource.Activities), cancellationToken);
+        return outcome.Reply(status);
     }
 }
