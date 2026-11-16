@@ -1,9 +1,10 @@
 import { cn } from "cn";
 import { FolderGit2, Search } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { type PageListItem, usePages } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -20,7 +21,6 @@ import {
   TOPICS,
 } from "./pages";
 import { PAGE_TYPE_ICONS, PageTypeBadge } from "./parts";
-import { useStuck } from "./sticky";
 import { memoryPathOf } from "./views";
 
 /** The table's columns: type, title, workstream, changed and uses on a wide screen; the title and uses on a narrow one. */
@@ -113,27 +113,13 @@ export function MemoryPagesPage() {
   );
 }
 
-/** The sticky bar the filters sit in, with a line under it once it sticks. */
+/** The sticky bar the filters sit in. */
 function FilterBar({ children }: { readonly children: React.ReactNode }) {
   const text = useDictionary().memory.pages;
-  const sentinel = useRef<HTMLDivElement>(null);
-  const sticky = useRef<HTMLDivElement>(null);
-  const stuck = useStuck(sentinel, sticky);
   return (
-    <>
-      <div ref={sentinel} aria-hidden className="-mb-md h-0" />
-      <div
-        ref={sticky}
-        role="search"
-        aria-label={text.filters}
-        className={cn(
-          "sticky top-(--tk-size-nav-bar) z-(--tk-layer-nav) -mx-md grid gap-sm bg-canvas px-md py-sm lg:top-0",
-          stuck && "border-b-(length:--tk-border-thin) border-line",
-        )}
-      >
-        {children}
-      </div>
-    </>
+    <StickyBar role="search" aria-label={text.filters} className="grid gap-sm">
+      {children}
+    </StickyBar>
   );
 }
 

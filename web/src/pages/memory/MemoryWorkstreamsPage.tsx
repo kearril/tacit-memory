@@ -9,7 +9,7 @@ import {
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { useActivity } from "../../api/activity";
 import { ApiError } from "../../api/client";
@@ -22,6 +22,7 @@ import {
   type WorkstreamListItem,
 } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
@@ -29,7 +30,6 @@ import { errorTextOf } from "../../i18n/messages";
 import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
 import { PersonaEntryCard, SectionChip } from "./PersonaSections";
-import { useStuck } from "./sticky";
 import { memoryPathOf } from "./views";
 import { type DirectorySort, directoryRows, MINI_WEEKS, openItemText, weekLevel, workstreamWeeks } from "./workstreams";
 
@@ -101,24 +101,13 @@ export function MemoryWorkstreamsPage() {
 function WorkstreamStrip({ list, selected }: { readonly list: WorkstreamList; readonly selected: string | null }) {
   const text = useDictionary().memory.workstreams;
   const activity = useActivity();
-  const sentinel = useRef<HTMLDivElement>(null);
-  const sticky = useRef<HTMLElement>(null);
-  const stuck = useStuck(sentinel, sticky);
   const items = [
     ...list.established.map((item) => ({ item, faint: false })),
     ...list.unestablished.map((item) => ({ item, faint: true })),
   ];
   return (
-    <>
-      <div ref={sentinel} aria-hidden className="-mb-lg h-0" />
-      <nav
-        ref={sticky}
-        aria-label={text.listLabel}
-        className={cn(
-          "sticky top-(--tk-size-nav-bar) z-(--tk-layer-nav) -mx-md -mb-md bg-canvas px-md py-sm lg:top-0",
-          stuck && "border-b-(length:--tk-border-thin) border-line",
-        )}
-      >
+    <StickyBar role="navigation" aria-label={text.listLabel}>
+      {(stuck) => (
         <ul className={cn("-m-xs flex gap-sm p-xs", selected === null ? "flex-wrap" : "overflow-x-auto")}>
           {items.map(({ item, faint }) => (
             <StripItem
@@ -131,8 +120,8 @@ function WorkstreamStrip({ list, selected }: { readonly list: WorkstreamList; re
             />
           ))}
         </ul>
-      </nav>
-    </>
+      )}
+    </StickyBar>
   );
 }
 

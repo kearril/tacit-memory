@@ -10,6 +10,8 @@ import {
 } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
+import { BELOW_BARS } from "../../components/ui/sticky";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -26,7 +28,6 @@ import {
 } from "./persona";
 import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip, type SectionKind } from "./PersonaSections";
 import { occurrenceDaysOf } from "./sources";
-import { BELOW_BARS } from "./sticky";
 import { CANDIDATES_ANCHOR } from "./views";
 
 /**
@@ -65,14 +66,14 @@ export function MemoryPersonaPage() {
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
       <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
-      <div className="sticky top-(--tk-size-nav-bar) z-(--tk-layer-nav) -mx-md -mb-md grid gap-xs bg-canvas px-md py-sm lg:top-0">
+      <StickyBar className="grid gap-xs">
         <ScopeBar
           scopes={scopes}
           current={current}
           onSelect={(key) => setParams(scopeParams(key), { replace: true })}
         />
         {scope === null ? null : <ScopeHint scope={scope} />}
-      </div>
+      </StickyBar>
       {report.candidates.length === 0 ? null : (
         <a
           href={`#${CANDIDATES_ANCHOR}`}

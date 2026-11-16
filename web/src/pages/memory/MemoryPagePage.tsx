@@ -1,17 +1,18 @@
 import { cn } from "cn";
 import { ChevronRight, Link2, TriangleAlert } from "lucide-react";
-import { lazy, Suspense, useRef } from "react";
+import { lazy, Suspense } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError } from "../../api/client";
 import { type PageListItem, type PageSectionView, type PageView, usePage, usePages } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
+import { BELOW_BARS } from "../../components/ui/sticky";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
 import { sectionAnchor, TOPICS } from "./pages";
 import { CodePill, FilePath, FileProblems, PageTypeBadge, WorkstreamPill } from "./parts";
-import { BELOW_BARS, useStuck } from "./sticky";
 import { memoryPathOf } from "./views";
 
 const MarkdownBody = lazy(() => import("./MarkdownBody"));
@@ -119,37 +120,24 @@ function PageHead({ page }: { readonly page: PageView }) {
   );
 }
 
-/** The sections' names in a sticky row that scrolls sideways, each jumping to its section; a line under it once stuck. */
+/** The sections' names in a sticky row that scrolls sideways, each jumping to its section. */
 function SectionTabs({ sections }: { readonly sections: readonly PageSectionView[] }) {
   const text = useDictionary().memory.pages;
-  const sentinel = useRef<HTMLDivElement>(null);
-  const sticky = useRef<HTMLElement>(null);
-  const stuck = useStuck(sentinel, sticky);
   return (
-    <>
-      <div ref={sentinel} aria-hidden className="-mb-md h-0" />
-      <nav
-        ref={sticky}
-        aria-label={text.contents}
-        className={cn(
-          "sticky top-(--tk-size-nav-bar) z-(--tk-layer-nav) -mx-md -my-sm bg-canvas px-md py-sm lg:top-0",
-          stuck && "border-b-(length:--tk-border-thin) border-line",
-        )}
-      >
-        <ul className="-m-xs flex gap-sm overflow-x-auto p-xs">
-          {sections.map((section) => (
-            <li key={section.name} className="shrink-0">
-              <a
-                href={`#${encodeURIComponent(sectionAnchor(section.name))}`}
-                className="inline-flex rounded-full bg-surface px-md py-xs text-sm whitespace-nowrap shadow-rest transition-shadow outline-none hover:text-accent hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
-              >
-                {section.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </>
+    <StickyBar role="navigation" aria-label={text.contents}>
+      <ul className="-m-xs flex gap-sm overflow-x-auto p-xs">
+        {sections.map((section) => (
+          <li key={section.name} className="shrink-0">
+            <a
+              href={`#${encodeURIComponent(sectionAnchor(section.name))}`}
+              className="inline-flex rounded-full bg-surface px-md py-xs text-sm whitespace-nowrap shadow-rest transition-shadow outline-none hover:text-accent hover:shadow-hover focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+            >
+              {section.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </StickyBar>
   );
 }
 

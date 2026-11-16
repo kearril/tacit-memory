@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import {
@@ -11,6 +11,7 @@ import {
   useActivityMonths,
 } from "../../api/memory";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
@@ -20,7 +21,6 @@ import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, QuoteList, QuoteToggle, WorkstreamPill } from "./parts";
 import { splitSources } from "./sources";
-import { useStuck } from "./sticky";
 import {
   type ActivityQuery,
   activityParams,
@@ -152,7 +152,7 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
 /**
  * The sticky bar: the month with the months before and after it, how many days and activities are shown, the workstream
  * (given as `children`), then a strip of the month's days, each shaded as the heatmap shades it; a day with activities
- * goes to them. A line under it once it sticks.
+ * goes to them.
  */
 function MonthBar({
   choices,
@@ -172,88 +172,76 @@ function MonthBar({
   readonly children: React.ReactNode;
 }) {
   const text = useDictionary().memory.activity;
-  const sentinel = useRef<HTMLDivElement>(null);
-  const sticky = useRef<HTMLDivElement>(null);
-  const stuck = useStuck(sentinel, sticky);
   const position = choices.indexOf(month);
   const days = timeline.flatMap((entry) => (entry.kind === "day" ? [entry] : []));
   const counts = new Map(days.map((day) => [day.date, day.activities.length]));
   return (
-    <>
-      <div ref={sentinel} aria-hidden className="-mb-md h-0" />
-      <div
-        ref={sticky}
-        className={cn(
-          "sticky top-(--tk-size-nav-bar) z-(--tk-layer-nav) -mx-md grid gap-sm bg-canvas px-md py-sm lg:top-0",
-          stuck && "border-b-(length:--tk-border-thin) border-line",
-        )}
-      >
-        <div className="flex items-center gap-sm">
-          <div className="flex items-center gap-xs">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={text.previous}
-              disabled={position >= choices.length - 1}
-              onClick={() => onMonth(choices[position + 1]!)}
-            >
-              <ChevronLeft aria-hidden />
-            </Button>
-            <Select
-              aria-label={text.month}
-              className="w-auto"
-              value={month}
-              onValueChange={onMonth}
-              options={choices.map((choice) => ({ value: choice, label: choice }))}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={text.next}
-              disabled={position <= 0}
-              onClick={() => onMonth(choices[position - 1]!)}
-            >
-              <ChevronRight aria-hidden />
-            </Button>
-          </div>
-          {view === undefined ? null : (
-            <span className="hidden text-sm text-ink-muted tabular-nums sm:inline">
-              {text.totals(
-                days.length,
-                days.reduce((sum, day) => sum + day.activities.length, 0),
-              )}
-            </span>
-          )}
-          {children}
+    <StickyBar className="grid gap-sm">
+      <div className="flex items-center gap-sm">
+        <div className="flex items-center gap-xs">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={text.previous}
+            disabled={position >= choices.length - 1}
+            onClick={() => onMonth(choices[position + 1]!)}
+          >
+            <ChevronLeft aria-hidden />
+          </Button>
+          <Select
+            aria-label={text.month}
+            className="w-auto"
+            value={month}
+            onValueChange={onMonth}
+            options={choices.map((choice) => ({ value: choice, label: choice }))}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={text.next}
+            disabled={position <= 0}
+            onClick={() => onMonth(choices[position - 1]!)}
+          >
+            <ChevronRight aria-hidden />
+          </Button>
         </div>
         {view === undefined ? null : (
-          <div role="group" aria-label={text.calendar} className="flex gap-px">
-            {monthDays(view.month, counts).map((day) => (
-              <button
-                key={day.date}
-                type="button"
-                disabled={day.count === 0}
-                title={text.day(day.date, day.count)}
-                aria-label={text.day(day.date, day.count)}
-                onClick={() => onPick(day.date)}
-                className={cn(
-                  "grid h-control min-w-0 flex-1 place-items-center rounded-xs text-xs tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-                  HEAT_LEVEL_CLASS[dayLevel(day.count)],
-                  day.count === 0
-                    ? "text-ink-muted"
-                    : "cursor-pointer hover:ring-(length:--tk-border-thin) hover:ring-accent",
-                  dayLevel(day.count) >= 3 && "text-surface",
-                )}
-              >
-                <span aria-hidden className="hidden md:inline">
-                  {Number(day.date.slice(8))}
-                </span>
-              </button>
-            ))}
-          </div>
+          <span className="hidden text-sm text-ink-muted tabular-nums sm:inline">
+            {text.totals(
+              days.length,
+              days.reduce((sum, day) => sum + day.activities.length, 0),
+            )}
+          </span>
         )}
+        {children}
       </div>
-    </>
+      {view === undefined ? null : (
+        <div role="group" aria-label={text.calendar} className="flex gap-px">
+          {monthDays(view.month, counts).map((day) => (
+            <button
+              key={day.date}
+              type="button"
+              disabled={day.count === 0}
+              title={text.day(day.date, day.count)}
+              aria-label={text.day(day.date, day.count)}
+              onClick={() => onPick(day.date)}
+              className={cn(
+                "grid h-control min-w-0 flex-1 place-items-center rounded-xs text-xs tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
+                HEAT_LEVEL_CLASS[dayLevel(day.count)],
+                day.count === 0
+                  ? "text-ink-muted"
+                  : "cursor-pointer hover:ring-(length:--tk-border-thin) hover:ring-accent",
+                dayLevel(day.count) >= 3 && "text-surface",
+              )}
+            >
+              <span aria-hidden className="hidden md:inline">
+                {Number(day.date.slice(8))}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </StickyBar>
   );
 }
 
