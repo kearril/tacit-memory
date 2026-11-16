@@ -64,8 +64,8 @@ internal static class Initializer
             Write(MemoryLayout.Full(memory, MemoryLayout.Persona), Templates.Persona(language)),
             Write(MemoryLayout.Full(memory, MemoryLayout.Candidates), Templates.Candidates(language)),
             Write(MemoryLayout.Full(memory, MemoryLayout.Workstreams), Templates.Workstreams(language)),
-            Write(MemoryLayout.Full(memory, $"{MemoryLayout.Recent}/.gitkeep"), ""),
-            Write(MemoryLayout.Full(memory, $"{MemoryLayout.Pages}/.gitkeep"), ""),
+            Write(MemoryLayout.Full(memory, MemoryLayout.In(MemoryLayout.Recent, ".gitkeep")), ""),
+            Write(MemoryLayout.Full(memory, MemoryLayout.In(MemoryLayout.Pages, ".gitkeep")), ""),
         }.Any(added => added);
         if (!isRepository)
         {

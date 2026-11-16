@@ -151,7 +151,7 @@ internal static class RecentFile
         return Directory.EnumerateFiles(folder, "*.md", SearchOption.TopDirectoryOnly)
             .Where(file => IsMonthFileName(Path.GetFileName(file)))
             .OrderBy(file => Path.GetFileName(file), StringComparer.Ordinal)
-            .Select(file => ($"{MemoryLayout.Recent}/{Path.GetFileName(file)}", file))
+            .Select(file => (MemoryLayout.In(MemoryLayout.Recent, Path.GetFileName(file)), file))
             .ToList();
     }
 

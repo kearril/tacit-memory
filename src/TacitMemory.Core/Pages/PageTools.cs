@@ -130,7 +130,7 @@ internal sealed class PageTools(
         }
 
         var text = PageDocument.Render(header, sections);
-        var outcome = await writer.WriteAsync(new MemoryWrite(id.RelativePath, text, false, $"pages: create {id}", WrittenSource.Page, id), cancellationToken);
+        var outcome = await writer.WriteAsync(new MemoryWrite(id.RelativePath, text, HasBom: false, $"pages: create {id}", WrittenSource.Page, id), cancellationToken);
         var written = PageDocument.Parse(text, hasBom: false, id.Slug);
         var reply = $"Created page {id}.\nSections:\n{SectionList(written)}";
         if (check.Note is { } note)

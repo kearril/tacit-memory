@@ -1434,7 +1434,7 @@ public sealed class MemoryService : IDisposable
                     ScheduleIndexSync();
                 if (AffectsInstructions(relative))
                     InvalidateInstructions();
-                if (MemoryLayout.IsIn(relative, MemoryLayout.Pages) || relative.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal))
+                if (MemoryLayout.IsIn(relative, MemoryLayout.Pages) || MemoryLayout.IsIn(relative, MemoryLayout.Recent))
                     ScheduleIndexSync();
             }
         }

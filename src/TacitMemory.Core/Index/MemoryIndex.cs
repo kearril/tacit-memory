@@ -243,7 +243,7 @@ internal sealed class MemoryIndex : IDisposable
                 Remove(path);
             foreach (var (path, fullPath) in months)
                 SyncActivity(path, fullPath, known.GetValueOrDefault(path));
-            _skipped.RemoveWhere(path => path.StartsWith($"{MemoryLayout.Recent}/", StringComparison.Ordinal) && !months.ContainsKey(path));
+            _skipped.RemoveWhere(path => MemoryLayout.IsIn(path, MemoryLayout.Recent) && !months.ContainsKey(path));
         }
     }
 

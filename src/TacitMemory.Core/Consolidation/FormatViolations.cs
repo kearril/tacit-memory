@@ -88,7 +88,7 @@ internal static class FormatViolations
             return [new FormatIssue("", "file", "encoding", "The file is not valid UTF-8, so the service skips it. Re-save it as UTF-8 without changing its text.", FormatHandling.FixDirectly)];
 
         var issues = new List<FormatIssue>(MixedStructureWords(text.Text));
-        if (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal))
+        if (MemoryLayout.IsIn(relative, MemoryLayout.Pages))
             issues.AddRange(PageFormatCheck.Check(config.MemoryPath, relative, text.Text, config.Limits.Page));
         if (relative == MemoryLayout.Persona)
             issues.AddRange(PersonaFormatCheck.Check(text.Text, config));
