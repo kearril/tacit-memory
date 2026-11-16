@@ -68,7 +68,7 @@ internal sealed class BackupArchive(TacitOptions options, TacitConfig config)
                 foreach (var relative in MemoryFiles(config.MemoryPath, ""))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    AddFile(zip, Path.Combine(config.MemoryPath, relative), "memory/" + relative);
+                    AddFile(zip, MemoryLayout.Full(config.MemoryPath, relative), "memory/" + relative);
                     entries.Add("memory/" + relative);
                 }
                 foreach (var name in ConfigFiles)
@@ -126,7 +126,7 @@ internal sealed class BackupArchive(TacitOptions options, TacitConfig config)
             var name = Path.GetFileName(path);
             if (Directory.Exists(path))
             {
-                if (name == ".cache")
+                if (name == MemoryLayout.Cache)
                     continue;
                 foreach (var nested in MemoryFiles(path, prefix + name + "/"))
                     yield return nested;

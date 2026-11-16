@@ -135,7 +135,7 @@ internal sealed class RestoreInstall(TacitOptions options, TacitConfig config, S
         foreach (var child in Directory.EnumerateFileSystemEntries(_memory).ToList())
         {
             var name = Path.GetFileName(child);
-            if (name != ".cache" && !IsRestoreFolder(name))
+            if (name != MemoryLayout.Cache && !IsRestoreFolder(name))
                 _journal.Move(child, Path.Combine(Previous, name));
         }
 

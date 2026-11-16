@@ -45,18 +45,24 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
     }
 
     /// <summary>
-    /// Commits exactly <paramref name="files"/> (paths relative to the repository) with <paramref name="message"/>,
-    /// whatever else is staged.
+    /// Commits exactly <paramref name="path"/> (relative to the repository) with <paramref name="message"/>, whatever else is
+    /// staged. A tracked file is committed in one call; a file git does not track yet is added first.
     /// </summary>
-    public async Task CommitAsync(string message, IReadOnlyList<string> files, CancellationToken cancellationToken)
+    public async Task CommitFileAsync(string message, string path, bool tracked, CancellationToken cancellationToken)
     {
-        await RunAsync(cancellationToken, ["add", "--", .. files]);
-        await RunAsync(cancellationToken, ["commit", "--quiet", "-m", message, "--", .. files]);
+        if (!tracked)
+            await RunAsync(cancellationToken, "add", "--", path);
+        await RunAsync(cancellationToken, "commit", "--quiet", "-m", message, "--", path);
     }
 
-    /// <summary>Whether <paramref name="path"/> (relative to the repository) has uncommitted changes, or is untracked.</summary>
-    public async Task<bool> IsDirtyAsync(string path, CancellationToken cancellationToken) =>
-        (await RunAsync(cancellationToken, "status", "--porcelain", "--", path)).Trim().Length > 0;
+    /// <summary>How git sees <paramref name="path"/> (relative to the repository), which must exist.</summary>
+    public async Task<FileState> FileStateAsync(string path, CancellationToken cancellationToken)
+    {
+        var status = await RunAsync(cancellationToken, "status", "--porcelain", "--", path);
+        if (status.Trim().Length == 0)
+            return FileState.Committed;
+        return status.StartsWith("??", StringComparison.Ordinal) ? FileState.Untracked : FileState.Changed;
+    }
 
     /// <summary>The text of <paramref name="path"/> (relative to the repository) at <paramref name="commit"/>; <c>null</c> when the file is not there.</summary>
     public async Task<string?> ShowAsync(string commit, string path, CancellationToken cancellationToken)
@@ -104,4 +110,17 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
 
         return days;
     }
+}
+
+/// <summary>How git sees an existing file in the repository.</summary>
+internal enum FileState
+{
+    /// <summary>Tracked, and the file matches its last commit.</summary>
+    Committed,
+
+    /// <summary>Tracked, with changes not yet committed.</summary>
+    Changed,
+
+    /// <summary>Not tracked by git yet.</summary>
+    Untracked,
 }

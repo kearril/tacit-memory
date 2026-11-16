@@ -17,14 +17,14 @@ internal static class LengthHints
         var itemLimit = config.Consolidation.HintItemLength;
         var findings = new List<string>();
 
-        var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
+        var persona = PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona));
         if (persona is not null)
         {
             foreach (var entry in persona.KnownEntries())
             {
                 var length = TextLength.Of(entry.Item.Text);
                 if (length > itemLimit)
-                    findings.Add($"- {PersonaFiles.Persona}, line {entry.Item.Line + 1}: {length} characters (hint length {itemLimit}); propose a shorter wording.");
+                    findings.Add($"- {MemoryLayout.Persona}, line {entry.Item.Line + 1}: {length} characters (hint length {itemLimit}); propose a shorter wording.");
             }
         }
 
@@ -32,7 +32,7 @@ internal static class LengthHints
         {
             var length = TextLength.Of(activity.Body);
             if (length > itemLimit)
-                findings.Add($"- {RecentFile.RelativePath(activity.Day)}, line {activity.Line + 1}: {length} characters (hint length {itemLimit}); propose a shorter wording.");
+                findings.Add($"- {MemoryLayout.RecentMonth(activity.Day)}, line {activity.Line + 1}: {length} characters (hint length {itemLimit}); propose a shorter wording.");
         }
 
         var residentLimit = config.Consolidation.HintResidentLength;

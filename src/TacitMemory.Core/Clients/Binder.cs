@@ -194,7 +194,7 @@ internal static class Binder
         return results;
     }
 
-    private static string PersonaPath(TacitConfig config) => Path.Combine(config.MemoryPath, "persona.md");
+    private static string PersonaPath(TacitConfig config) => MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona);
 
     /// <summary>A path the user gave: <c>~</c> expanded and made absolute, the same rule the config's paths follow.</summary>
     /// <exception cref="TacitException">The path is empty.</exception>

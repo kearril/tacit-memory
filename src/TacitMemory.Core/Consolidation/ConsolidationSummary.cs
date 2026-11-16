@@ -38,7 +38,7 @@ internal sealed record ConsolidationSummary(
         var baseline = await ConsolidationBaseline.ReadAsync(git, cancellationToken);
         var context = new ConsolidationContext(config, today, git, baseline);
         // Candidates are counted without a model: every candidate in the file counts.
-        var candidates = TextFile.Read(Path.Combine(config.MemoryPath, PersonaFiles.Candidates));
+        var candidates = TextFile.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Candidates));
         var candidateCount = candidates is { } read ? CandidatesDocument.Parse(read.Text).Candidates.Count : 0;
         var problems = FormatViolations.Issues(context).Count;
         var workstreamEmpty = WorkstreamFile.Established(config.MemoryPath).Count == 0;

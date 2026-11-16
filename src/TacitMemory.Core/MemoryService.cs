@@ -143,7 +143,7 @@ public sealed class MemoryService : IDisposable
             models = new AuxiliaryModels(config, _options.Time, _log);
             index = new MemoryIndex(
                 config.MemoryPath, config.Models.Embedding?.Model, config.Language,
-                () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(PageId.Folder));
+                () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
             index.SyncAll();
             watcher = new FileSystemWatcher(config.MemoryPath) { IncludeSubdirectories = true, InternalBufferSize = 64 * 1024 };
         }
@@ -170,13 +170,15 @@ public sealed class MemoryService : IDisposable
         _judgments = new JudgmentPool(_index, _models.Decision, _options.Time, config.Consolidation.MaxConcurrency);
         _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
         _vectors.FillInBackground();
+        var writer = new MemoryWriter(config, _log, _index, _vectors, OnWritten);
         _pages = new PageTools(
-            _options, config, _log, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
-        _recent = new RecentTools(_options, config, _log, _models.Decision);
+            _options, config, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision), writer);
+        _recent = new RecentTools(_options, config, _models.Decision, writer);
         _persona = new PersonaTools(
-            _options, config, _log,
+            _options, config,
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
-            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
+            writer);
         _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
         _brief = new WorkstreamBrief(config, _index);
         _recall = new RecallTool(config, _index, _pages, _pipeline, _brief);
@@ -1026,26 +1028,21 @@ public sealed class MemoryService : IDisposable
 
     private async Task<ToolResult> WritePageCoreAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            var result = await _pages.WriteAsync(request, cancellationToken);
-            // The index follows the file right away; the watcher's later event finds the hash unchanged.
-            if (PageId.TryParse(request.Page ?? "", out var id, out _))
-                _index.SyncPage(id);
-            // Page counts and format problems come from the pages, so the instructions are rebuilt on their next use.
-            InvalidateInstructions();
-            if (result.IsError)
-                return result;
-            _backup.ScheduleIfDue();
-            return await _vectors.FillAsync(cancellationToken)
-                ? result
-                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this page is found by full-text search only." };
-        }
-        finally
-        {
-            hold.Dispose();
-        }
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        return await _pages.WriteAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// What follows a write once its file is written and the index has it: page counts, format problems, recent activities
+    /// and the persona all feed the instructions, so they are rebuilt on their next use; the day's first write leaves a
+    /// backup; a written persona re-renders the bound resident blocks, while a candidate waits for confirmation first.
+    /// </summary>
+    private void OnWritten(WrittenSource source)
+    {
+        InvalidateInstructions();
+        _backup.ScheduleIfDue();
+        if (source == WrittenSource.Persona)
+            ScheduleRender();
     }
 
     /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
@@ -1054,24 +1051,8 @@ public sealed class MemoryService : IDisposable
 
     private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            var result = await _recent.WriteAsync(request, cancellationToken);
-            // Like write_page, the index follows the file right away, so the new activity is searchable at once.
-            _index.SyncActivities();
-            InvalidateInstructions();
-            if (!result.Written)
-                return result;
-            _backup.ScheduleIfDue();
-            return await _vectors.FillAsync(cancellationToken)
-                ? result
-                : result with { Text = result.Text + "\n\nNote: the embedding model is unavailable, so until it is back this activity is found by full-text search only." };
-        }
-        finally
-        {
-            hold.Dispose();
-        }
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        return await _recent.WriteAsync(request, cancellationToken);
     }
 
     /// <summary>
@@ -1083,27 +1064,10 @@ public sealed class MemoryService : IDisposable
 
     private async Task<ToolResult> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            // Judgments read the index, so it follows a manual edit first and this write right after; the watcher's later event finds the hash unchanged.
-            _index.SyncJudgments();
-            var result = await _persona.WriteAsync(request, cancellationToken);
-            // The candidates and the persona feed the consolidation reminder, so the instructions are rebuilt on their next use.
-            InvalidateInstructions();
-            _index.SyncJudgments();
-            if (!result.Written)
-                return result;
-            // Only a change to persona.md reaches the resident context; a candidate waits for confirmation first.
-            if (request.Op != ToolValues.WritePersonaOps.Propose)
-                ScheduleRender();
-            _backup.ScheduleIfDue();
-            return result;
-        }
-        finally
-        {
-            hold.Dispose();
-        }
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        // Judgments read the index, so it follows a manual edit first; the writer syncs it again after the write.
+        _index.SyncJudgments();
+        return await _persona.WriteAsync(request, cancellationToken);
     }
 
     /// <summary>
@@ -1464,13 +1428,13 @@ public sealed class MemoryService : IDisposable
             var paths = e is RenamedEventArgs renamed ? [e.FullPath, renamed.OldFullPath] : new[] { e.FullPath };
             foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
             {
-                if (relative == PersonaFiles.Persona || AffectsResident(relative))
+                if (relative == MemoryLayout.Persona || AffectsResident(relative))
                     ScheduleRender();
-                if (relative is PersonaFiles.Persona or PersonaFiles.Candidates)
+                if (relative is MemoryLayout.Persona or MemoryLayout.Candidates)
                     ScheduleIndexSync();
                 if (AffectsInstructions(relative))
                     InvalidateInstructions();
-                if (relative == PageId.Folder || relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal) || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal))
+                if (MemoryLayout.IsIn(relative, MemoryLayout.Pages) || MemoryLayout.IsIn(relative, MemoryLayout.Recent))
                     ScheduleIndexSync();
             }
         }
@@ -1507,9 +1471,9 @@ public sealed class MemoryService : IDisposable
     /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
     /// </summary>
     private static bool AffectsResident(string relative) =>
-        relative == WorkstreamFile.RelativePath
-        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
-        || relative == PageId.Folder || (relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal) && relative.IndexOf('/', PageId.Folder.Length + 1) < 0);
+        relative == MemoryLayout.Workstreams
+        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
+        || relative == MemoryLayout.Pages || (relative.StartsWith($"{MemoryLayout.Pages}/", StringComparison.Ordinal) && relative.IndexOf('/', MemoryLayout.Pages.Length + 1) < 0);
 
     /// <summary>Arms the timer for the next local midnight.</summary>
     private ITimer ArmDayTimer() => _options.Time.CreateTimer(_ => OnDayChanged(), null, UntilNextMidnight(), Timeout.InfiniteTimeSpan);
@@ -1536,9 +1500,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
     private static bool AffectsInstructions(string relative) =>
-        relative is PersonaFiles.Persona or PersonaFiles.Candidates or WorkstreamFile.RelativePath
-        || relative == RecentFile.Folder || relative.StartsWith($"{RecentFile.Folder}/", StringComparison.Ordinal)
-        || relative == PageId.Folder || relative.StartsWith($"{PageId.Folder}/", StringComparison.Ordinal)
+        relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
+        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
+        || MemoryLayout.IsIn(relative, MemoryLayout.Pages)
         || IsGitHistory(relative);
 
     /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>

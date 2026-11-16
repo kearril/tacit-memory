@@ -26,12 +26,9 @@ internal sealed record WorkstreamParse(IReadOnlyList<WorkstreamEntry> Entries, I
 /// </summary>
 internal static class WorkstreamFile
 {
-    /// <summary>The file, relative to the memory repository, that lists the established workstreams.</summary>
-    public const string RelativePath = "workstreams.md";
-
     /// <summary>The file as the repository holds it now; an empty parse when the file is missing.</summary>
     public static WorkstreamParse Read(string memoryPath) =>
-        Parse(TextFile.Read(Path.Combine(memoryPath, RelativePath))?.Text ?? "");
+        Parse(TextFile.Read(MemoryLayout.Full(memoryPath, MemoryLayout.Workstreams))?.Text ?? "");
 
     /// <summary>The established workstreams in file order; empty when the file is missing.</summary>
     public static IReadOnlyList<WorkstreamEntry> Established(string memoryPath) => Read(memoryPath).Entries;

@@ -25,7 +25,7 @@ internal static class PageFormatCheck
         issues.AddRange(document.Problems(limits));
         foreach (var related in document.Header.Related)
         {
-            if (!PageId.TryParse(related, out var target, out _) || !File.Exists(Path.Combine(memoryPath, target.RelativePath)))
+            if (!PageId.TryParse(related, out var target, out _) || !File.Exists(MemoryLayout.Full(memoryPath, target.RelativePath)))
                 issues.Add(new FormatIssue("", document.LocationOf("related"), "related",
                     $"related lists \"{related}\", which is not an existing page.", FormatHandling.FixDirectly));
         }

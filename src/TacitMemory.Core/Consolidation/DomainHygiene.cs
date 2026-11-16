@@ -10,7 +10,7 @@ internal static class DomainHygiene
     /// <summary>One finding per domain of <c>persona.md</c> that holds exactly one entry; empty when the persona cannot be read.</summary>
     public static IReadOnlyList<string> Findings(TacitConfig config)
     {
-        var persona = PersonaDocument.Read(Path.Combine(config.MemoryPath, PersonaFiles.Persona));
+        var persona = PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona));
         if (persona is null)
             return [];
         return persona.Blocks

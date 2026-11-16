@@ -11,12 +11,6 @@ namespace TacitMemory.Core.Recent;
 /// </summary>
 internal static class RecentFile
 {
-    /// <summary>The folder, relative to the memory repository, that holds the month files of the activity log.</summary>
-    public const string Folder = "recent";
-
-    /// <summary>The month file's path, relative to the memory repository, for the month of <paramref name="day"/>.</summary>
-    public static string RelativePath(DateOnly day) => $"{Folder}/{day:yyyy-MM}.md";
-
     /// <summary>
     /// Adds <paramref name="entry"/> under the day's heading, appending the heading at the end of the file when the day
     /// has none. The entry goes after the day's last non-blank line, so it stays inside the day's block.
@@ -150,14 +144,14 @@ internal static class RecentFile
     /// </summary>
     public static List<(string RelativePath, string FullPath)> MonthFiles(string memoryPath)
     {
-        var folder = Path.Combine(memoryPath, Folder);
+        var folder = MemoryLayout.Full(memoryPath, MemoryLayout.Recent);
         if (!Directory.Exists(folder))
             return [];
 
         return Directory.EnumerateFiles(folder, "*.md", SearchOption.TopDirectoryOnly)
             .Where(file => IsMonthFileName(Path.GetFileName(file)))
             .OrderBy(file => Path.GetFileName(file), StringComparer.Ordinal)
-            .Select(file => ($"{Folder}/{Path.GetFileName(file)}", file))
+            .Select(file => (MemoryLayout.In(MemoryLayout.Recent, Path.GetFileName(file)), file))
             .ToList();
     }
 

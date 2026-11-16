@@ -19,7 +19,7 @@ internal static class ChangedPages
 
         var pages = new List<PageId>();
         foreach (var path in paths.Distinct().Order(StringComparer.Ordinal))
-            if (TryPageOf(path, out var id) && File.Exists(Path.Combine(memory, path)))
+            if (TryPageOf(path, out var id) && File.Exists(MemoryLayout.Full(memory, path)))
                 pages.Add(id);
         return pages;
     }
@@ -30,14 +30,14 @@ internal static class ChangedPages
     /// </summary>
     private static async Task<IEnumerable<string>> ChangedSinceAsync(GitCli git, string commit, CancellationToken cancellationToken)
     {
-        var tracked = await git.RunAsync(cancellationToken, "diff", "--name-only", "--no-renames", "--relative", commit, "--", PageId.Folder);
-        var untracked = await git.RunAsync(cancellationToken, "ls-files", "--others", "--exclude-standard", "--", PageId.Folder);
+        var tracked = await git.RunAsync(cancellationToken, "diff", "--name-only", "--no-renames", "--relative", commit, "--", MemoryLayout.Pages);
+        var untracked = await git.RunAsync(cancellationToken, "ls-files", "--others", "--exclude-standard", "--", MemoryLayout.Pages);
         return Lines(tracked).Concat(Lines(untracked));
     }
 
     private static IEnumerable<string> AllPageFiles(string memory)
     {
-        var folder = Path.Combine(memory, PageId.Folder);
+        var folder = MemoryLayout.Full(memory, MemoryLayout.Pages);
         return Directory.Exists(folder)
             ? Directory.EnumerateFiles(folder, "*.md", SearchOption.AllDirectories).Select(file => Path.GetRelativePath(memory, file).Replace('\\', '/'))
             : [];
@@ -52,7 +52,7 @@ internal static class ChangedPages
         var parts = relative.Split('/');
         id = null!;
         return parts.Length == 3
-            && parts[0] == PageId.Folder
+            && parts[0] == MemoryLayout.Pages
             && PageId.TryParse($"{parts[1]}/{Path.GetFileNameWithoutExtension(parts[2])}", out id, out _)
             && id.RelativePath == relative;
     }
