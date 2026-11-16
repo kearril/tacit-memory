@@ -30,6 +30,12 @@ internal sealed class TestHome : IDisposable
     public FixedTime Clock { get; } = new(new DateTimeOffset(Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.Zero));
 
     /// <summary>
+    /// The clock of the auxiliary model requests; null gives them <see cref="Clock"/>. A test that moves the consolidation
+    /// budget sets its own, so the move does not end a model request's timeout or retry pause as well.
+    /// </summary>
+    public FixedTime? ModelClock { get; set; }
+
+    /// <summary>
     /// The secret environment variables every <see cref="Tacit"/> made here sees. It starts empty, so the machine's own
     /// variables are never read; a test sets the ones it needs, e.g. <c>TACIT_DECISION_API_KEY</c>.
     /// </summary>
@@ -42,6 +48,7 @@ internal sealed class TestHome : IDisposable
         UserHome = UserHome,
         UiCulture = CultureInfo.GetCultureInfo(uiCulture),
         Time = Clock,
+        ModelTime = ModelClock,
         Secrets = EnvironmentVariables,
     };
 

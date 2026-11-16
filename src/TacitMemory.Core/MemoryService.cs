@@ -140,7 +140,7 @@ public sealed class MemoryService : IDisposable
         try
         {
             OnOpening?.Invoke(config);
-            models = new AuxiliaryModels(config, _options.Time, _log);
+            models = new AuxiliaryModels(config, _options.ModelClock, _log);
             index = new MemoryIndex(
                 config.MemoryPath, config.Models.Embedding?.Model, config.Language,
                 () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
@@ -490,7 +490,7 @@ public sealed class MemoryService : IDisposable
     public async Task<ProbeReport> ProbeAsync(CancellationToken cancellationToken = default)
     {
         var config = ConfigLoader.Read(_options);
-        var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.Time, cancellationToken);
+        var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.ModelClock, cancellationToken);
         return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets: false));
     }
 

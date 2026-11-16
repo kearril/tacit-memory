@@ -19,10 +19,18 @@ public sealed record TacitOptions
     public TimeProvider Time { get; init; } = TimeProvider.System;
 
     /// <summary>
+    /// The clock of the auxiliary model requests: their timeouts, retry pauses and budget. Null gives them <see cref="Time"/>.
+    /// </summary>
+    public TimeProvider? ModelTime { get; init; }
+
+    /// <summary>
     /// The values of the secret environment variables, by name (see <c>SecretVariables</c>). <see cref="FromEnvironment"/>
     /// fills it from the machine; it is empty otherwise, so nothing is read from the environment unless asked.
     /// </summary>
     public IReadOnlyDictionary<string, string> Secrets { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>The clock the auxiliary model requests run on.</summary>
+    internal TimeProvider ModelClock => ModelTime ?? Time;
 
     /// <summary>Today's date on this machine.</summary>
     internal DateOnly Today => DateOnly.FromDateTime(Time.GetLocalNow().DateTime);
