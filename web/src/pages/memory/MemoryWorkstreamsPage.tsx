@@ -242,16 +242,18 @@ function CardHead({
   id,
   icon: Icon,
   title,
+  quiet = false,
   children,
 }: {
   readonly id: string;
   readonly icon: typeof Sparkles;
   readonly title: string;
+  readonly quiet?: boolean;
   readonly children?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-sm">
-      <Icon aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-accent" />
+      <Icon aria-hidden className={`size-(--tk-font-size-lg) shrink-0 ${quiet ? "text-ink-muted" : "text-accent"}`} />
       <CardTitle id={id}>{title}</CardTitle>
       {children}
     </div>
@@ -270,7 +272,7 @@ function BriefBody({
   const lastActivity = item?.lastActivity ?? null;
   return (
     <>
-      <Card aria-labelledby="brief-name">
+      <Card variant="tinted" aria-labelledby="brief-name">
         <div className="grid gap-xs">
           <div className="flex flex-wrap items-center gap-sm">
             <FolderGit2 aria-hidden className="size-(--tk-font-size-xl) shrink-0 text-accent" />
@@ -288,7 +290,7 @@ function BriefBody({
           )}
         </div>
         {brief.recent === null ? null : (
-          <div className="grid gap-xs rounded-md bg-accent-soft px-md py-sm">
+          <div className="grid gap-xs rounded-md bg-surface px-md py-sm">
             <span className="flex items-center gap-xs text-xs font-medium text-accent">
               <Sparkles aria-hidden className="size-(--tk-font-size-sm)" />
               {text.recent}
@@ -328,8 +330,8 @@ function BriefBody({
         </Card>
       )}
 
-      <Card aria-labelledby="brief-activities">
-        <CardHead id="brief-activities" icon={History} title={text.activities}>
+      <Card variant="flat" aria-labelledby="brief-activities">
+        <CardHead id="brief-activities" quiet icon={History} title={text.activities}>
           <Link
             to={`${memoryPathOf("activity")}?workstream=${encodeURIComponent(brief.name)}`}
             className="ml-auto flex items-center gap-xs text-sm text-accent hover:underline"
@@ -368,8 +370,8 @@ function BriefBody({
       </Card>
 
       {brief.conventions.length === 0 ? null : (
-        <Card aria-labelledby="brief-conventions">
-          <CardHead id="brief-conventions" icon={ListChecks} title={text.conventions} />
+        <Card variant="flat" aria-labelledby="brief-conventions">
+          <CardHead id="brief-conventions" quiet icon={ListChecks} title={text.conventions} />
           <ul className="grid gap-sm">
             {brief.conventions.flatMap((section) =>
               section.entries.map((entry) => (

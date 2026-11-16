@@ -168,6 +168,7 @@ export function ModelsCard({
 
   return (
     <Card
+      variant="flat"
       aria-labelledby="models-title"
       className={`${cooling ? "ring-(length:--tk-border-thin) ring-warning" : ""} ${className}`}
     >
@@ -258,7 +259,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
   });
 
   return (
-    <Card aria-labelledby="index-title" className={className}>
+    <Card variant="flat" aria-labelledby="index-title" className={className}>
       <CardHeading
         id="index-title"
         icon={DatabaseZap}
@@ -302,7 +303,7 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
   const notable = logs === undefined ? 0 : logs.warnings + logs.errors;
 
   return (
-    <Card aria-labelledby="logs-title" className={className}>
+    <Card variant="flat" aria-labelledby="logs-title" className={className}>
       <CardHeading
         id="logs-title"
         icon={ScrollText}
@@ -440,7 +441,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   const lastRemote = list?.lastRemote ?? null;
 
   return (
-    <Card id="backups" aria-labelledby="backups-title" className={className}>
+    <Card variant="flat" id="backups" aria-labelledby="backups-title" className={className}>
       <CardHeading
         id="backups-title"
         icon={Archive}
@@ -675,7 +676,7 @@ export function ClientsCard({ report, locale, className }: CardProps) {
   const stateText: Record<ClientState, string> = { bound: text.bound, broken: text.broken, unbound: text.seenOnly };
 
   return (
-    <Card aria-labelledby="clients-title" className={className}>
+    <Card variant="flat" aria-labelledby="clients-title" className={className}>
       <CardHeading
         id="clients-title"
         icon={Users}

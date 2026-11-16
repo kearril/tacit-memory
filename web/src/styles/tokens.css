@@ -16,6 +16,7 @@
   --tk-color-surface: #ffffff;
   --tk-color-surface-raised: #f6f8fb;
   --tk-color-line: #e2e8f0;
+  --tk-color-line-strong: #cbd5e1;
   --tk-color-scrollbar: #cbd5e1;
   --tk-color-ink: #1f2937;
   --tk-color-ink-muted: #5b6577;
@@ -48,6 +49,7 @@
     --tk-color-surface: #1a2231;
     --tk-color-surface-raised: #222b3b;
     --tk-color-line: #2f3a4d;
+    --tk-color-line-strong: #435069;
     --tk-color-scrollbar: #435069;
     --tk-color-ink: #e6e9ef;
     --tk-color-ink-muted: #9aa4b5;
@@ -79,6 +81,7 @@
   --tk-color-surface: #1a2231;
   --tk-color-surface-raised: #222b3b;
   --tk-color-line: #2f3a4d;
+  --tk-color-line-strong: #435069;
   --tk-color-scrollbar: #435069;
   --tk-color-ink: #e6e9ef;
   --tk-color-ink-muted: #9aa4b5;
@@ -185,6 +188,9 @@
   --tk-shadow-pressed:
     0 1px 2px color-mix(in srgb, var(--tk-color-shadow) 14%, transparent),
     0 4px 12px color-mix(in srgb, var(--tk-color-shadow) 12%, transparent);
+  /* The rest shadow as a filter, for a shape a box shadow cannot follow: a tab card's tab and body cast one shadow. */
+  --tk-filter-rest: drop-shadow(0 1px 2px color-mix(in srgb, var(--tk-color-shadow) 10%, transparent))
+    drop-shadow(0 10px 20px color-mix(in srgb, var(--tk-color-shadow) 14%, transparent));
   --tk-shadow-raised:
     0 2px 6px color-mix(in srgb, var(--tk-color-shadow) 12%, transparent),
     0 28px 64px color-mix(in srgb, var(--tk-color-shadow) 24%, transparent);

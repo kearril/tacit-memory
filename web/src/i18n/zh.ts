@@ -424,6 +424,7 @@ export const zh: Dictionary = {
       index: "索引与整理",
       service: "服务",
       logs: "日志",
+      status: "状态",
     },
     unreadable: "这一栏读不了，详见服务日志。",
     copy: (what) => `复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,

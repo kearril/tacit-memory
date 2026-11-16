@@ -100,7 +100,7 @@ function PageHead({ page }: { readonly page: PageView }) {
   const dictionary = useDictionary();
   const text = dictionary.memory.pages;
   return (
-    <Card aria-labelledby="page-title">
+    <Card variant="tinted" aria-labelledby="page-title">
       <div className="grid gap-sm">
         <div className="flex flex-wrap items-center gap-sm">
           <PageTypeBadge type={page.type} />
@@ -198,9 +198,9 @@ function Related({ page }: { readonly page: PageView }) {
   }
   const items = new Map<string, PageListItem>((list.data?.pages ?? []).map((item) => [item.id, item]));
   return (
-    <Card aria-labelledby="page-related">
+    <Card variant="flat" aria-labelledby="page-related">
       <div className="flex items-center gap-sm">
-        <Link2 aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-accent" />
+        <Link2 aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-ink-muted" />
         <CardTitle id="page-related">{text.related}</CardTitle>
       </div>
       <ul className="grid gap-sm md:grid-cols-2">

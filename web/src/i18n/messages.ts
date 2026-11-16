@@ -338,6 +338,7 @@ export interface Dictionary {
       readonly index: string;
       readonly service: string;
       readonly logs: string;
+      readonly status: string;
     };
     readonly unreadable: string;
     readonly copy: (what: string) => string;

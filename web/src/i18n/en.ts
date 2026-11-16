@@ -494,6 +494,7 @@ export const en: Dictionary = {
       index: "Index and consolidation",
       service: "Service",
       logs: "Logs",
+      status: "Status",
     },
     unreadable: "This could not be read; see the service log.",
     copy: (what) => `Copy the ${what}`,

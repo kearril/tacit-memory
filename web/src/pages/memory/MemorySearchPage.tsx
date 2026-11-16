@@ -824,7 +824,7 @@ function UnitsCard({
 }) {
   const text = useDictionary().memory.search;
   return (
-    <Card aria-labelledby="trace-units">
+    <Card variant="flat" aria-labelledby="trace-units">
       <CardTitle id="trace-units">{text.unitsTitle}</CardTitle>
       <div className={cn("grid gap-x-md", UNIT_COLUMNS)}>
         <div

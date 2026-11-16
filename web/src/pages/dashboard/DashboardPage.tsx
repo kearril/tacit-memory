@@ -17,7 +17,7 @@ import { type StatusReport, useStatus } from "../../api/status";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
-import { Card } from "../../components/ui/card";
+import { Card, CardGroup } from "../../components/ui/card";
 import type { Dictionary } from "../../i18n/messages";
 import { durationOf, timeText } from "./format";
 import { HeatmapCard } from "./HeatmapCard";
@@ -71,11 +71,18 @@ export function DashboardPage() {
       ) : (
         <div className="grid gap-lg xl:grid-cols-12">
           <OverviewCard report={report} locale={locale} className="xl:col-span-12" />
-          <ModelsCard report={report} fetchedAt={status.dataUpdatedAt} className="xl:col-span-3 xl:row-start-3" />
-          <BackupsCard locale={locale} className="xl:col-span-3 xl:row-start-3" />
+          <CardGroup
+            id="status-group"
+            label={dictionary.dashboard.cards.status}
+            className="xl:col-span-12 xl:row-start-3"
+            layout="md:grid-cols-2 xl:grid-cols-4"
+          >
+            <ModelsCard report={report} fetchedAt={status.dataUpdatedAt} className="" />
+            <BackupsCard locale={locale} className="" />
+            <IndexCard report={report} locale={locale} className="" />
+            <LogsCard report={report} className="" />
+          </CardGroup>
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
-          <IndexCard report={report} locale={locale} className="xl:col-span-3" />
-          <LogsCard report={report} className="xl:col-span-3" />
           <ServiceCard report={report} className="xl:col-span-4" />
           <ClientsCard report={report} locale={locale} className="xl:col-span-8" />
         </div>
@@ -113,6 +120,7 @@ function OverviewCard({
 
   return (
     <Card
+      variant="tinted"
       aria-labelledby="overview-title"
       className={`py-md lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center ${className}`}
     >

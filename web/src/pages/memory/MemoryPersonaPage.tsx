@@ -204,15 +204,22 @@ function SectionCard({
   const id = `persona-${kind ?? "other"}`;
   const count = group.rows.filter((row) => row.entry.code !== null).length;
   return (
-    <Card aria-labelledby={id}>
-      <div className="flex items-center gap-sm">
-        <Icon
-          aria-hidden
-          className={`size-(--tk-font-size-lg) shrink-0 ${kind === null ? "text-warning" : "text-accent"}`}
-        />
-        <CardTitle id={id}>{kind === null ? text.otherTitle : text.sections[kind]}</CardTitle>
-        <span className="text-sm text-ink-muted tabular-nums">{count}</span>
-      </div>
+    <Card
+      aria-labelledby={id}
+      variant="tab"
+      label={
+        <>
+          <Icon
+            aria-hidden
+            className={`size-(--tk-font-size-base) shrink-0 ${kind === null ? "text-warning" : "text-accent"}`}
+          />
+          <CardTitle id={id} className="text-base">
+            {kind === null ? text.otherTitle : text.sections[kind]}
+          </CardTitle>
+          <span className="text-sm text-ink-muted tabular-nums">{count}</span>
+        </>
+      }
+    >
       {group.rows.length === 0 ? (
         <p className="text-sm text-ink-muted">{text.empty}</p>
       ) : (
@@ -253,10 +260,20 @@ function CandidatesCard({
   const text = useDictionary().memory.persona;
   const [view, setView] = useState<"waiting" | "rejected">("waiting");
   const listed = view === "waiting" ? candidates : rejected;
+  // Candidates waiting for review raise the card to a lead; with none it supports the sections.
+  const waiting = candidates.length > 0;
   return (
-    <Card id={CANDIDATES_ANCHOR} aria-labelledby="persona-candidates" className={BELOW_BARS}>
+    <Card
+      id={CANDIDATES_ANCHOR}
+      aria-labelledby="persona-candidates"
+      variant={waiting ? "raised" : "flat"}
+      className={BELOW_BARS}
+    >
       <div className="flex flex-wrap items-center gap-sm">
-        <Inbox aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-accent" />
+        <Inbox
+          aria-hidden
+          className={`size-(--tk-font-size-lg) shrink-0 ${waiting ? "text-accent" : "text-ink-muted"}`}
+        />
         <CardTitle id="persona-candidates">{text.candidatesTitle}</CardTitle>
         <Segmented
           className="ml-auto"
