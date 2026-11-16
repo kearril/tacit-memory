@@ -13,6 +13,7 @@ import {
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { useDictionary } from "../../app/session-context";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -329,9 +330,9 @@ function SaveBar({
   const dictionary = useDictionary();
   const text = dictionary.settings;
   return (
-    <div className="sticky bottom-md z-(--tk-layer-nav) grid gap-sm">
+    <StickyBar edge="bottom" className="grid gap-sm">
       {unplaced.length > 0 ? (
-        <Alert tone="danger" className="shadow-raised">
+        <Alert tone="danger">
           <AlertTitle>{text.unplacedTitle}</AlertTitle>
           <ul className="col-start-2 grid gap-xs">
             {unplaced.map((problem, index) => (
@@ -343,7 +344,7 @@ function SaveBar({
         </Alert>
       ) : null}
       {failure === null ? null : (
-        <Alert tone="danger" className="shadow-raised">
+        <Alert tone="danger">
           <AlertTitle>{text.saveFailed}</AlertTitle>
           <AlertDescription>{failure.message}</AlertDescription>
           {failure.reload ? (
@@ -374,7 +375,7 @@ function SaveBar({
       <div
         role="region"
         aria-label={text.changes(count)}
-        className="flex flex-wrap items-center justify-between gap-md rounded-lg bg-surface px-lg py-md shadow-raised"
+        className="flex flex-wrap items-center justify-between gap-md"
       >
         <p aria-live="polite" className="grid text-sm font-medium">
           {text.changes(count)}
@@ -407,7 +408,7 @@ function SaveBar({
           </Button>
         </div>
       </div>
-    </div>
+    </StickyBar>
   );
 }
 

@@ -15,9 +15,11 @@ import type { ConfigView } from "../../api/config";
 import { useDictionary } from "../../app/session-context";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
+import { IconTile } from "../../components/ui/icon-tile";
 import type { Explained } from "../../i18n/messages";
 import {
   differsFromDefault,
@@ -62,8 +64,8 @@ const SECTION_ICONS: Readonly<Record<SectionId, LucideIcon>> = {
 };
 
 /**
- * One section of the settings page, as a card: its icon on a soft tile, its name and a line on what it is for, then its
- * content. A section whose actions happen at once, without the save bar, says so beside its name.
+ * One section of the settings page, as an outline card: its icon on a soft tile and its name set into the top border, a
+ * line on what it is for, then its content. A section whose actions happen at once, without the save bar, says so beside its name.
  */
 export function SettingsSection({
   section,
@@ -80,25 +82,24 @@ export function SettingsSection({
   const id = sectionIdOf(section);
   const Icon = SECTION_ICONS[section];
   return (
-    <section
+    <Card
       id={id}
       aria-labelledby={`${id}-title`}
-      className="grid scroll-mt-lg gap-xl rounded-lg bg-surface p-lg shadow-rest"
-    >
-      <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-sm gap-y-xs">
-        <span className="grid size-(--tk-size-icon-tile) place-items-center rounded-sm bg-accent-soft text-accent">
-          <Icon aria-hidden className="size-(--tk-font-size-sm)" />
-        </span>
-        <div className="flex flex-wrap items-center gap-sm">
+      variant="outline"
+      className="scroll-mt-lg gap-xl"
+      label={
+        <>
+          <IconTile icon={Icon} />
           <h2 id={`${id}-title`} className="text-lg font-semibold">
             {dictionary.settings.sections[section]}
           </h2>
           {immediate ? <Immediate /> : null}
-        </div>
-        <p className="col-start-2 text-sm text-ink-muted">{summary}</p>
-      </header>
+        </>
+      }
+    >
+      <p className="text-sm text-ink-muted">{summary}</p>
       {children}
-    </section>
+    </Card>
   );
 }
 

@@ -1,155 +1,241 @@
-import { ChevronDown, FolderGit2, Globe, Tag } from "lucide-react";
+import { cn } from "cn";
+import { FolderGit2, Globe, Inbox, Tag, TriangleAlert } from "lucide-react";
 import { useState } from "react";
-import {
-  type CandidateView,
-  type FileProblem,
-  type MemoryFileInfo,
-  type PersonaBlockView,
-  type PersonaReport,
-  usePersona,
-} from "../../api/memory";
+import { useSearchParams } from "react-router";
+import { type CandidateView, type FileProblem, type MemoryFileInfo, usePersona } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
+import { BELOW_BARS } from "../../components/ui/sticky";
+import { Segmented } from "../../components/ui/segmented";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
+import { Chip } from "../../components/ui/chip";
+import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { FilePath, FileProblems } from "./parts";
-import { SECTION_ICONS, SectionGroup, type SectionKind } from "./PersonaSections";
-import { CANDIDATES_ANCHOR } from "./views";
+import {
+  type PersonaScope,
+  type PersonaSectionRows,
+  personaScopes,
+  personaSections,
+  scopeKeyOf,
+  scopeParams,
+} from "./persona";
+import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip, type SectionKind } from "./PersonaSections";
 import { occurrenceDaysOf } from "./sources";
+import { CANDIDATES_ANCHOR } from "./views";
 
 /**
- * The persona view of the memory page, in a reading column: the global persona in one card with its four sections, a
- * card for each domain and each workstream, then the candidates with the rejection list folded away. What a file holds in
- * the wrong form is marked where it is; the rest reads as usual.
+ * The persona view of the memory page, in a reading column, by section: a card for each of the four sections holding
+ * the entries of every scope, each marked with its scope. A sticky bar of scopes above narrows the view to one, kept in
+ * the address. The candidates follow, with a switch to the rejection list, and the two files' paths close the page.
+ * What a file holds in the wrong form is marked where it is; the rest reads as usual.
  */
 export function MemoryPersonaPage() {
   const dictionary = useDictionary();
   const text = dictionary.memory.persona;
   const persona = usePersona();
+  const [params, setParams] = useSearchParams();
   useScrollToHash(persona.data !== undefined, "start");
 
-  return (
-    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
-      <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
-      {persona.isError ? (
+  if (persona.isError) {
+    return (
+      <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
+        <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
         <Alert tone="danger">
           <AlertTitle>{text.failed}</AlertTitle>
           <AlertDescription>{errorTextOf(persona.error, dictionary)}</AlertDescription>
         </Alert>
-      ) : persona.data === undefined ? (
-        <div aria-busy="true" />
-      ) : (
-        <>
-          <Card aria-labelledby="persona-global">
-            <CardHead id="persona-global" title={text.globalTitle} file={persona.data.personaFile} />
-            <FileProblems problems={persona.data.personaFile.problems.filter(unplaced(persona.data))} />
-            {persona.data.global.map((section, index) => (
-              <SectionGroup
-                key={`${section.section ?? "other"}-${index}`}
-                section={section}
-                problems={persona.data.personaFile.problems}
-                showEmpty
-              />
-            ))}
-          </Card>
-          {persona.data.domains.map((block) => (
-            <BlockCard key={`domain-${block.name}`} kind="domain" block={block} file={persona.data.personaFile} />
-          ))}
-          {persona.data.workstreams.map((block) => (
-            <BlockCard
-              key={`workstream-${block.name}`}
-              kind="workstream"
-              block={block}
-              file={persona.data.personaFile}
-            />
-          ))}
-          <CandidatesCard
-            file={persona.data.candidatesFile}
-            candidates={persona.data.candidates}
-            rejected={persona.data.rejectionList}
-          />
-        </>
+      </div>
+    );
+  }
+  if (persona.data === undefined) {
+    return <div aria-busy="true" />;
+  }
+
+  const report = persona.data;
+  const scopes = personaScopes(report);
+  const current = scopeKeyOf(params, report);
+  const scope = scopes.find((item) => item.key === current) ?? null;
+  const problems = report.personaFile.problems;
+  const groups = personaSections(report, current);
+  return (
+    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
+      <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
+      <StickyBar className="grid gap-xs">
+        <ScopeBar
+          scopes={scopes}
+          current={current}
+          onSelect={(key) => setParams(scopeParams(key), { replace: true })}
+        />
+        {scope === null ? null : <ScopeHint scope={scope} />}
+      </StickyBar>
+      {report.candidates.length === 0 ? null : (
+        <a
+          href={`#${CANDIDATES_ANCHOR}`}
+          className="flex items-center gap-sm rounded-md bg-info-soft px-md py-sm text-sm text-info outline-none hover:underline focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+        >
+          <Inbox aria-hidden className="size-(--tk-font-size-base) shrink-0" />
+          {text.candidatesWaiting(report.candidates.length)}
+        </a>
       )}
+      <FileProblems problems={problems.filter(unplaced(groups))} />
+      {groups.map((group) => (
+        <SectionCard key={group.section ?? "other"} group={group} problems={problems} showScope={current === null} />
+      ))}
+      <CandidatesCard file={report.candidatesFile} candidates={report.candidates} rejected={report.rejectionList} />
+      <footer className="grid gap-xs px-md text-xs text-ink-muted">
+        <span>{text.sourceFiles}</span>
+        <FilePath path={report.personaFile.path} />
+        <FilePath path={report.candidatesFile.path} />
+      </footer>
     </div>
   );
 }
 
-/** Whether a problem of `persona.md` sits on no line an entry shows, so it is listed apart rather than in place. */
-function unplaced(report: PersonaReport): (problem: FileProblem) => boolean {
-  const lines = new Set(
-    [...report.global, ...[...report.domains, ...report.workstreams].flatMap((block) => block.sections)]
-      .flatMap((section) => section.entries)
-      .map((entry) => entry.line),
-  );
+/**
+ * Whether a problem of `persona.md` sits on no line an entry shown in the current scope has, so it is listed apart
+ * rather than in place: a problem of another scope's entry stays in sight while that scope is not shown.
+ */
+function unplaced(groups: readonly PersonaSectionRows[]): (problem: FileProblem) => boolean {
+  const lines = new Set(groups.flatMap((group) => group.rows.map((row) => row.entry.line)));
   return (problem) => problem.line === null || !lines.has(problem.line);
 }
 
-/** A card's head: its title, then the path of the file it reads with a copy button. */
-function CardHead({
-  id,
-  title,
-  detail,
-  file,
+/** The scopes as pills that wrap when they do not fit in a row: all, global, each domain, each workstream. */
+function ScopeBar({
+  scopes,
+  current,
+  onSelect,
 }: {
-  readonly id: string;
-  readonly title: string;
-  readonly detail?: React.ReactNode;
-  readonly file: MemoryFileInfo;
+  readonly scopes: readonly PersonaScope[];
+  readonly current: string | null;
+  readonly onSelect: (key: string | null) => void;
 }) {
+  const text = useDictionary().memory.persona;
+  const total = scopes.reduce((sum, scope) => sum + scope.count, 0);
   return (
-    <div className="grid gap-xs">
-      <div className="flex flex-wrap items-baseline gap-x-sm gap-y-xs">
-        <CardTitle id={id}>{title}</CardTitle>
-        {detail}
-      </div>
-      <FilePath path={file.path} />
+    <div role="group" aria-label={text.scopes} className="flex flex-wrap gap-sm">
+      <ScopePill active={current === null} onClick={() => onSelect(null)}>
+        {text.scopeAll}
+        <span className="tabular-nums">{total}</span>
+      </ScopePill>
+      {scopes.map((scope) => {
+        const missing = scope.kind === "domain" && scope.trigger === null;
+        const Icon = missing ? TriangleAlert : SCOPE_ICONS[scope.kind];
+        return (
+          <ScopePill
+            key={scope.key}
+            active={current === scope.key}
+            title={scope.trigger ?? undefined}
+            onClick={() => onSelect(current === scope.key ? null : scope.key)}
+          >
+            <Icon aria-hidden className={missing && current !== scope.key ? "text-warning" : undefined} />
+            {scope.name ?? text.scopeGlobal}
+            <span className="tabular-nums">{scope.count}</span>
+          </ScopePill>
+        );
+      })}
     </div>
   );
 }
 
-/** A domain's or a workstream's block: its name, the domain's trigger and the entry count, then its sections. */
-function BlockCard({
-  kind,
-  block,
-  file,
+function ScopePill({
+  active,
+  title,
+  onClick,
+  children,
 }: {
-  readonly kind: "domain" | "workstream";
-  readonly block: PersonaBlockView;
-  readonly file: MemoryFileInfo;
+  readonly active: boolean;
+  readonly title?: string;
+  readonly onClick: () => void;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <Chip pressed={active} title={title} onClick={onClick}>
+      {children}
+    </Chip>
+  );
+}
+
+/** When the persona's scope is read: every session, a domain's trigger (or that it has none), one workstream. */
+function ScopeHint({ scope }: { readonly scope: PersonaScope }) {
+  const text = useDictionary().memory.persona;
+  if (scope.kind === "domain" && scope.trigger === null) {
+    return <p className="px-sm text-sm text-warning">{text.noTrigger}</p>;
+  }
+  return (
+    <p className="px-sm text-sm text-ink-muted">
+      {scope.kind === "global"
+        ? text.globalHint
+        : scope.kind === "domain"
+          ? text.trigger(scope.trigger ?? "")
+          : text.workstreamHint}
+    </p>
+  );
+}
+
+/** A section's card: its icon, name and count, then its entries, each with its scope unless one scope is shown. */
+function SectionCard({
+  group,
+  problems,
+  showScope,
+}: {
+  readonly group: PersonaSectionRows;
+  readonly problems: readonly FileProblem[];
+  readonly showScope: boolean;
 }) {
   const text = useDictionary().memory.persona;
-  const count = block.sections.flatMap((section) => section.entries).filter((entry) => entry.code !== null).length;
-  const id = `persona-${kind}-${block.name}`;
-  const Icon = kind === "domain" ? Tag : FolderGit2;
+  const kind = group.section;
+  const Icon = kind === null ? TriangleAlert : SECTION_ICONS[kind];
+  const id = `persona-${kind ?? "other"}`;
+  const count = group.rows.filter((row) => row.entry.code !== null).length;
   return (
-    <Card aria-labelledby={id}>
-      <div className="grid gap-xs">
-        <div className="flex flex-wrap items-center gap-x-sm gap-y-xs">
-          <Icon aria-hidden className="size-(--tk-font-size-lg) text-ink-muted" />
-          <CardTitle id={id}>
-            {kind === "domain" ? text.domainTitle(block.name) : text.workstreamTitle(block.name)}
+    <Card
+      aria-labelledby={id}
+      variant="tab"
+      label={
+        <>
+          <Icon
+            aria-hidden
+            className={`size-(--tk-font-size-base) shrink-0 ${kind === null ? "text-warning" : "text-accent"}`}
+          />
+          <CardTitle id={id} className="text-base">
+            {kind === null ? text.otherTitle : text.sections[kind]}
           </CardTitle>
-          <span className="text-xs text-ink-muted">{text.count(count)}</span>
-        </div>
-        {kind === "domain" ? (
-          <p className={`text-sm ${block.trigger === null ? "text-warning" : "text-ink-muted"}`}>
-            {block.trigger === null ? text.noTrigger : text.trigger(block.trigger)}
-          </p>
-        ) : null}
-      </div>
-      {block.sections.map((section, index) => (
-        <SectionGroup key={`${section.section ?? "other"}-${index}`} section={section} problems={file.problems} />
-      ))}
+          <span className="text-sm text-ink-muted tabular-nums">{count}</span>
+        </>
+      }
+    >
+      {group.rows.length === 0 ? (
+        <p className="text-sm text-ink-muted">{text.empty}</p>
+      ) : (
+        <ul className="grid gap-sm">
+          {group.rows.map((row) => (
+            <PersonaEntryCard
+              key={row.entry.line}
+              entry={row.entry}
+              problems={problems.filter((problem) => problem.line === row.entry.line)}
+              lead={
+                <>
+                  {showScope ? <ScopeChip scope={row.scope} /> : null}
+                  {kind === null ? <span className="text-warning">{text.otherSection(row.heading)}</span> : null}
+                </>
+              }
+            />
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
 
 /**
- * The candidates: each with its section and scope, and a dot for each day it was said on. The rejection list follows,
- * folded away; unfolded, it shows each record's words and marks the day of the rejection.
+ * The candidates: each in a dashed box with its section, scope and a dot for each day it was said on above its text.
+ * A switch in the head turns the card to the rejection list, which shows each record's words and marks the day of the
+ * rejection.
  */
 function CandidatesCard({
   file,
@@ -161,64 +247,56 @@ function CandidatesCard({
   readonly rejected: readonly CandidateView[];
 }) {
   const text = useDictionary().memory.persona;
-  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"waiting" | "rejected">("waiting");
+  const listed = view === "waiting" ? candidates : rejected;
+  // Candidates waiting for review raise the card to a lead; with none it supports the sections.
+  const waiting = candidates.length > 0;
   return (
-    <Card id={CANDIDATES_ANCHOR} aria-labelledby="persona-candidates" className="scroll-mt-lg">
-      <CardHead
-        id="persona-candidates"
-        title={text.candidatesTitle}
-        detail={<span className="text-xs text-ink-muted">{text.candidateCount(candidates.length)}</span>}
-        file={file}
-      />
+    <Card
+      id={CANDIDATES_ANCHOR}
+      aria-labelledby="persona-candidates"
+      variant={waiting ? "raised" : "flat"}
+      className={BELOW_BARS}
+    >
+      <div className="flex flex-wrap items-center gap-sm">
+        <Inbox
+          aria-hidden
+          className={`size-(--tk-font-size-lg) shrink-0 ${waiting ? "text-accent" : "text-ink-muted"}`}
+        />
+        <CardTitle id="persona-candidates">{text.candidatesTitle}</CardTitle>
+        <Segmented
+          className="ml-auto"
+          label={text.candidateViews.label}
+          value={view}
+          onValueChange={setView}
+          options={[
+            { value: "waiting", label: text.candidateViews.waiting(candidates.length) },
+            { value: "rejected", label: text.candidateViews.rejected(rejected.length) },
+          ]}
+        />
+      </div>
       <FileProblems problems={file.problems} />
-      {candidates.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.noCandidates}</p>
+      {listed.length === 0 ? (
+        <p className="text-sm text-ink-muted">{view === "waiting" ? text.noCandidates : text.noRejected}</p>
       ) : (
-        <ul className="grid gap-md">
-          {candidates.map((candidate, index) => (
-            <CandidateRow key={index} candidate={candidate} />
+        <ul className="grid gap-sm">
+          {listed.map((candidate, index) => (
+            <CandidateRow key={`${view}-${index}`} candidate={candidate} quotes={view === "rejected"} />
           ))}
         </ul>
       )}
-      <div className="grid gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-        <Button
-          type="button"
-          variant="ghost"
-          className="justify-self-start"
-          aria-expanded={open}
-          aria-controls="persona-rejected"
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronDown aria-hidden className={`transition-transform ${open ? "" : "-rotate-90"}`} />
-          {text.rejectedTitle(rejected.length)}
-        </Button>
-        {open ? (
-          <div id="persona-rejected">
-            {rejected.length === 0 ? (
-              <p className="text-sm text-ink-muted">{text.noRejected}</p>
-            ) : (
-              <ul className="grid gap-md">
-                {rejected.map((candidate, index) => (
-                  <CandidateRow key={index} candidate={candidate} quotes />
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-      </div>
     </Card>
   );
 }
 
-/** One candidate: its text, section and scope, a dot per day; with `quotes`, every record's words too. */
+/** One candidate: its section, scope and a dot per day above its text; with `quotes`, every record's words under it. */
 function CandidateRow({ candidate, quotes = false }: { readonly candidate: CandidateView; readonly quotes?: boolean }) {
   const text = useDictionary().memory.persona;
   const days = occurrenceDaysOf(candidate.occurrences);
   const section = candidate.section as SectionKind;
   return (
-    <li className="grid gap-xs">
-      <p className="leading-(--tk-line-height-normal)">{candidate.title}</p>
-      <div className="flex flex-wrap items-center gap-sm">
+    <li className={cn(entryBox(), "grid gap-xs")}>
+      <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
         <SectionBadge section={section} />
         <ScopeBadge scope={candidate.scope} />
         <span role="img" aria-label={text.days(days.length)} className="flex items-center gap-xs">
@@ -230,8 +308,9 @@ function CandidateRow({ candidate, quotes = false }: { readonly candidate: Candi
             />
           ))}
         </span>
-        <span className="text-xs text-ink-muted">{text.days(days.length)}</span>
+        <span>{text.days(days.length)}</span>
       </div>
+      <p className="leading-(--tk-line-height-normal)">{candidate.title}</p>
       {quotes ? (
         <ul className="grid gap-xs">
           {candidate.occurrences.map((occurrence, index) => (

@@ -1,3 +1,4 @@
+import type { BriefPage, BriefPageGroup } from "../../api/memory";
 import { type ActivityReport, calendarColumns, fillWindow, type HeatLevel } from "../dashboard/heatmap";
 
 /** How many weeks a workstream's mini activity bar shows: about half a year. */
@@ -33,4 +34,36 @@ export function weekLevel(count: number): HeatLevel {
   if (count <= 7) return 2;
   if (count <= 14) return 3;
   return 4;
+}
+
+/** How the page directory of a brief is ordered: as the brief groups it by type, by the day changed, or by uses. */
+export type DirectorySort = "type" | "changed" | "uses";
+
+/** A page of the directory with the type of the group it is in. */
+export interface DirectoryRow {
+  readonly type: string | null;
+  readonly page: BriefPage;
+}
+
+/**
+ * The brief's pages in one list: by type as the brief groups them, or across the groups by the day changed (newest
+ * first, pages without one last) or by uses (most first). A tie keeps the brief's order.
+ */
+export function directoryRows(groups: readonly BriefPageGroup[], sort: DirectorySort): DirectoryRow[] {
+  const rows = groups.flatMap((group) => group.pages.map((page) => ({ type: group.type, page })));
+  if (sort === "changed") {
+    return [...rows].sort((a, b) => (b.page.changed ?? "").localeCompare(a.page.changed ?? ""));
+  }
+  if (sort === "uses") {
+    return [...rows].sort((a, b) => b.page.uses - a.page.uses);
+  }
+  return rows;
+}
+
+/** A list marker at the start of an open item's line: `-`, `*`, `+` or a number with a dot, and the space after it. */
+const LIST_MARKER = /^\s*(?:[-*+]|\d+\.)\s+/u;
+
+/** An open item's line as it reads, without the list marker it is written with in the page. */
+export function openItemText(line: string): string {
+  return line.replace(LIST_MARKER, "");
 }

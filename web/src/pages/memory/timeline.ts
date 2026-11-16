@@ -7,9 +7,10 @@ export type TimelineEntry =
   | { readonly kind: "summary"; readonly summary: ActivitySummaryView };
 
 /**
- * A month's timeline, oldest first: the month summary at the start, then the days, each week summary right after the
- * last day of its week (or, when none of its days is listed, after every day before its end). With a workstream, only
- * its activities are kept and the days left empty are dropped; the summaries stay, as they speak for every workstream.
+ * A month's timeline: the month summary at the start, then the days newest first, each week summary right before the
+ * last day of its week (or, when none of its days is listed, before every day up to its end), so it heads its week.
+ * With a workstream, only its activities are kept and the days left empty are dropped; the summaries stay, as they
+ * speak for every workstream.
  */
 export function timelineOf(view: ActivityMonthView, workstream: string | null): TimelineEntry[] {
   const days = view.days
@@ -23,21 +24,22 @@ export function timelineOf(view: ActivityMonthView, workstream: string | null): 
   const months = view.summaries.filter((summary) => summary.kind !== "week");
   const weeks = view.summaries.filter((summary) => summary.kind === "week");
 
-  const timeline: TimelineEntry[] = months.map((summary) => ({ kind: "summary", summary }));
+  // Laid out oldest first, each week after its last day, then turned around.
+  const oldestFirst: TimelineEntry[] = [];
   let next = 0;
   for (const day of days) {
     while (next < weeks.length && weeks[next]!.last < day.date) {
-      timeline.push({ kind: "summary", summary: weeks[next++]! });
+      oldestFirst.push({ kind: "summary", summary: weeks[next++]! });
     }
-    timeline.push(day);
+    oldestFirst.push(day);
   }
   for (; next < weeks.length; next++) {
-    timeline.push({ kind: "summary", summary: weeks[next]! });
+    oldestFirst.push({ kind: "summary", summary: weeks[next]! });
   }
-  return timeline;
+  return [...months.map((summary): TimelineEntry => ({ kind: "summary", summary })), ...oldestFirst.reverse()];
 }
 
-/** A day of the mini calendar, with its activity count. */
+/** A day of the day strip, with its activity count. */
 export interface CalendarDay {
   readonly date: string;
   readonly count: number;
@@ -48,27 +50,14 @@ function dateOf(year: number, month: number, day: number): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-/**
- * The mini calendar of a `yyyy-MM` month: one row a week from Monday to Sunday, with `null` for the places before its
- * first day and after its last, and each day's count from `counts` (none when missing).
- */
-export function monthGrid(month: string, counts: ReadonlyMap<string, number>): (CalendarDay | null)[][] {
+/** Every day of a `yyyy-MM` month from the first, each with its count from `counts` (none when missing). */
+export function monthDays(month: string, counts: ReadonlyMap<string, number>): CalendarDay[] {
   const [year, number] = month.split("-").map(Number) as [number, number];
   const length = new Date(Date.UTC(year, number, 0)).getUTCDate();
-  const offset = (new Date(Date.UTC(year, number - 1, 1)).getUTCDay() + 6) % 7;
-  const cells: (CalendarDay | null)[] = Array.from({ length: offset }, () => null);
-  for (let day = 1; day <= length; day++) {
-    const date = dateOf(year, number, day);
-    cells.push({ date, count: counts.get(date) ?? 0 });
-  }
-  while (cells.length % 7 !== 0) {
-    cells.push(null);
-  }
-  const rows: (CalendarDay | null)[][] = [];
-  for (let start = 0; start < cells.length; start += 7) {
-    rows.push(cells.slice(start, start + 7));
-  }
-  return rows;
+  return Array.from({ length }, (_, index) => {
+    const date = dateOf(year, number, index + 1);
+    return { date, count: counts.get(date) ?? 0 };
+  });
 }
 
 /** The `yyyy-MM` month `delta` months after `month`. */

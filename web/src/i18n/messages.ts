@@ -43,6 +43,17 @@ export interface Dictionary {
     readonly remote: string;
     readonly remoteNote: string;
   };
+  /** What the date field says. */
+  readonly datePicker: {
+    readonly placeholder: string;
+    readonly previous: string;
+    readonly next: string;
+    readonly today: string;
+    readonly clear: string;
+    /** The weekdays from Monday. */
+    readonly weekdays: readonly string[];
+    readonly month: (month: string) => string;
+  };
   readonly showPassword: string;
   readonly hidePassword: string;
   readonly login: {
@@ -327,6 +338,7 @@ export interface Dictionary {
       readonly index: string;
       readonly service: string;
       readonly logs: string;
+      readonly status: string;
     };
     readonly unreadable: string;
     readonly copy: (what: string) => string;
@@ -483,6 +495,9 @@ export interface Dictionary {
     readonly viewsNav: string;
     readonly search: {
       readonly queryLabel: string;
+      readonly queryPlaceholder: string;
+      /** The button that unfolds the conditions while the bar floats, with how many are set. */
+      readonly conditions: (count: number) => string;
       readonly workstreamLabel: string;
       readonly workstreamAll: string;
       readonly fromLabel: string;
@@ -495,6 +510,23 @@ export interface Dictionary {
       readonly resultsTitle: (count: number) => string;
       readonly noResults: string;
       readonly unitsTitle: string;
+      /** How a result and its units light each other up. */
+      readonly linkHint: string;
+      /** The number of the result a unit became part of. */
+      readonly partOf: (number: number) => string;
+      /** Lit rows scrolled out of their column, and the button that brings the first into view. */
+      readonly offscreen: { readonly above: (count: number) => string; readonly below: (count: number) => string };
+      /** The trace's funnel: what each step kept, then a bar of the units by fate. */
+      readonly funnel: {
+        readonly label: string;
+        readonly fullText: string;
+        readonly vector: string;
+        readonly fused: string;
+        readonly reranked: string;
+        readonly passed: string;
+        readonly results: string;
+        readonly jump: (fate: string, count: number) => string;
+      };
       readonly columns: { readonly fullText: string; readonly vector: string; readonly reranker: string };
       readonly fates: {
         readonly shown: string;
@@ -522,7 +554,8 @@ export interface Dictionary {
         readonly title: string;
         readonly help: string;
         readonly labels: { readonly minRerankScore: string; readonly topK: string; readonly candidates: string };
-        readonly differs: string;
+        /** The pill that opens the values, with how many are replaced. */
+        readonly pill: (replaced: number) => string;
         readonly configured: (value: string) => string;
       };
       /**
@@ -546,6 +579,8 @@ export interface Dictionary {
       /** What a copied file path is called. */
       readonly path: string;
       readonly quote: (words: string) => string;
+      /** The button that opens the user's words kept with an entry. */
+      readonly quoteToggle: string;
       readonly pageTypes: {
         readonly incident: string;
         readonly decision: string;
@@ -569,7 +604,10 @@ export interface Dictionary {
       readonly failed: string;
       readonly noPages: string;
       readonly noMatch: string;
-      readonly count: (count: number) => string;
+      readonly total: (count: number) => string;
+      /** The filter bar's name, for screen readers. */
+      readonly filters: string;
+      readonly columns: Readonly<Record<"type" | "title" | "workstream" | "changed" | "uses", string>>;
       /** The trail from the list to the page, for screen readers. */
       readonly trail: string;
       readonly notFound: string;
@@ -579,12 +617,12 @@ export interface Dictionary {
       readonly dates: (first: string, last: string) => string;
       readonly related: string;
       readonly missing: string;
+      readonly sectionCount: (count: number) => string;
+      readonly sourceFile: string;
     };
     readonly workstreams: {
       readonly failed: string;
       readonly listLabel: string;
-      readonly established: string;
-      readonly unestablished: string;
       readonly unestablishedHint: string;
       readonly none: string;
       readonly pages: (count: number) => string;
@@ -593,10 +631,8 @@ export interface Dictionary {
       readonly weeks: (count: number) => string;
       readonly week: (monday: string, count: number) => string;
       readonly pick: string;
-      readonly back: string;
       readonly notFound: string;
       readonly briefFailed: string;
-      readonly background: string;
       readonly recent: string;
       readonly notEstablished: string;
       readonly conventions: string;
@@ -608,6 +644,10 @@ export interface Dictionary {
       readonly viewAll: string;
       readonly empty: string;
       readonly lastUse: (day: string) => string;
+      readonly openCount: (count: number) => string;
+      readonly sourceFile: string;
+      readonly columnTitle: string;
+      readonly sortBy: Readonly<Record<"type" | "changed" | "uses", string>>;
     };
     readonly activity: {
       readonly failed: string;
@@ -618,26 +658,29 @@ export interface Dictionary {
       readonly workstream: string;
       readonly workstreamAll: string;
       readonly calendar: string;
-      /** The weekdays from Monday, as the mini calendar heads its columns. */
-      readonly weekdays: readonly string[];
       readonly day: (date: string, count: number) => string;
+      readonly totals: (days: number, count: number) => string;
       readonly timeline: string;
       readonly empty: string;
       readonly noMatch: string;
-      readonly count: (count: number) => string;
+      /** What an activity outside every workstream is marked with. */
+      readonly noWorkstream: string;
       readonly weekSummary: (label: string) => string;
       readonly monthSummary: (label: string) => string;
-      readonly showQuote: string;
-      readonly hideQuote: string;
+      readonly sourceFile: string;
     };
     readonly persona: {
       readonly failed: string;
-      readonly globalTitle: string;
+      readonly scopes: string;
+      readonly scopeAll: string;
+      readonly globalHint: string;
+      readonly workstreamHint: string;
+      readonly otherTitle: string;
+      readonly candidatesWaiting: (count: number) => string;
+      readonly sourceFiles: string;
       readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;
       /** A section whose heading is not one of the four; `null` for text before the first heading. */
       readonly otherSection: (heading: string | null) => string;
-      readonly beforeHeadings: string;
-      readonly count: (count: number) => string;
       readonly empty: string;
       readonly notEntry: string;
       readonly domainTitle: (name: string) => string;
@@ -645,9 +688,13 @@ export interface Dictionary {
       readonly trigger: (trigger: string) => string;
       readonly noTrigger: string;
       readonly candidatesTitle: string;
-      readonly candidateCount: (count: number) => string;
       readonly noCandidates: string;
-      readonly rejectedTitle: (count: number) => string;
+      /** The two views of the candidates card: the candidates waiting, and the rejection list. */
+      readonly candidateViews: {
+        readonly label: string;
+        readonly waiting: (count: number) => string;
+        readonly rejected: (count: number) => string;
+      };
       readonly noRejected: string;
       readonly rejectedMark: string;
       readonly days: (count: number) => string;

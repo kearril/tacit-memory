@@ -1,6 +1,6 @@
 import { cn } from "cn";
-import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import {
@@ -11,22 +11,24 @@ import {
   useActivityMonths,
 } from "../../api/memory";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
+import { StickyBar } from "../../components/ui/sticky-bar";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
-import { Label } from "../../components/ui/label";
-import { NativeSelect } from "../../components/ui/native-select";
+import { Select } from "../../components/ui/select";
+import { entryBox } from "../../components/ui/entry-box";
+import { BELOW_BARS } from "../../components/ui/sticky";
 import { errorTextOf } from "../../i18n/messages";
 import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
-import { CodePill, FilePath, FileProblems, SourceNote, WorkstreamPill } from "./parts";
+import { CodePill, FilePath, FileProblems, QuoteList, QuoteToggle, WorkstreamPill } from "./parts";
 import { splitSources } from "./sources";
 import {
   type ActivityQuery,
   activityParams,
   activityQueryOf,
   dayAnchor,
-  monthGrid,
+  monthDays,
   type TimelineEntry,
   timelineOf,
 } from "./timeline";
@@ -38,9 +40,10 @@ function scrollToDay(date: string) {
 
 /**
  * The activity view of the memory page: one month at a time in a reading column. The month, the day to go to and the
- * workstream to keep are in the address, so the dashboard heatmap and the workstream briefs can link to them. A card on
- * top chooses the month and the workstream and holds the month's mini calendar; the timeline below lists the days oldest
- * first with their dates sticking to the top, the month summary first and each week summary after its week.
+ * workstream to keep are in the address, so the dashboard heatmap and the workstream briefs can link to them. A sticky
+ * bar holds the month, the counts and the workstream above a strip of the month's days shaded as the heatmap shades
+ * them; the month summary follows, then the timeline newest first: each day's date beside a rail with a dot for every
+ * activity, and each week summary heading its week. The month's file closes it.
  */
 export function MemoryActivityPage() {
   const dictionary = useDictionary();
@@ -48,7 +51,7 @@ export function MemoryActivityPage() {
   const months = useActivityMonths();
 
   return (
-    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
+    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) grid-cols-1 gap-md">
       <h1 className="sr-only">{dictionary.memory.views.activity}</h1>
       {months.isError ? (
         <Alert tone="danger">
@@ -77,7 +80,6 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
     () => [...new Set([...months, current, query.month])].sort().reverse(),
     [months, current, query.month],
   );
-  const position = choices.indexOf(query.month);
   const update = (change: Partial<ActivityQuery>) =>
     setSearch(activityParams({ ...query, ...change }), { replace: true });
 
@@ -88,6 +90,10 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
     }
   }, [loaded, query.day]);
 
+  const timeline = useMemo(
+    () => (view.data === undefined ? [] : timelineOf(view.data, query.workstream)),
+    [view.data, query.workstream],
+  );
   const workstreams = useMemo(
     () =>
       [
@@ -101,73 +107,28 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
 
   return (
     <>
-      <Card>
-        <div className="grid gap-md md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="grid content-start gap-xs">
-            <Label htmlFor="activity-month">{text.month}</Label>
-            <div className="flex items-center gap-xs">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={text.previous}
-                disabled={position >= choices.length - 1}
-                onClick={() => update({ month: choices[position + 1], day: null })}
-              >
-                <ChevronLeft aria-hidden />
-              </Button>
-              <NativeSelect
-                id="activity-month"
-                value={query.month}
-                onChange={(event) => update({ month: event.target.value, day: null })}
-              >
-                {choices.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </NativeSelect>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={text.next}
-                disabled={position <= 0}
-                onClick={() => update({ month: choices[position - 1], day: null })}
-              >
-                <ChevronRight aria-hidden />
-              </Button>
-            </div>
-          </div>
-          <div className="grid content-start gap-xs">
-            <Label htmlFor="activity-workstream">{text.workstream}</Label>
-            <NativeSelect
-              id="activity-workstream"
-              value={query.workstream ?? ""}
-              onChange={(event) => update({ workstream: event.target.value || null })}
-            >
-              <option value="">{text.workstreamAll}</option>
-              {workstreams.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-        </div>
-        {view.data === undefined ? null : (
-          <>
-            <FilePath path={view.data.file.path} />
-            <FileProblems problems={view.data.file.problems} />
-            <MiniCalendar
-              view={view.data}
-              workstream={query.workstream}
-              onPick={(date) => {
-                update({ day: date });
-                scrollToDay(date);
-              }}
-            />
-          </>
-        )}
-      </Card>
+      <MonthBar
+        choices={choices}
+        month={query.month}
+        view={view.data}
+        timeline={timeline}
+        onMonth={(month) => update({ month, day: null })}
+        onPick={(date) => {
+          update({ day: date });
+          scrollToDay(date);
+        }}
+      >
+        <Select
+          aria-label={text.workstream}
+          className="ml-auto w-auto max-w-full"
+          value={query.workstream ?? ""}
+          onValueChange={(value) => update({ workstream: value || null })}
+          options={[
+            { value: "", label: text.workstreamAll },
+            ...workstreams.map((name) => ({ value: name, label: name })),
+          ]}
+        />
+      </MonthBar>
 
       {view.isError ? (
         <Alert tone={missing ? "warning" : "danger"}>
@@ -177,108 +138,163 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
       ) : view.data === undefined ? (
         <div aria-busy="true" />
       ) : (
-        <Timeline view={view.data} workstream={query.workstream} />
+        <Timeline view={view.data} timeline={timeline} workstream={query.workstream} />
       )}
     </>
   );
 }
 
-/** The month as a calendar from Monday, each day shaded as the heatmap shades it; a day with activities goes to them. */
-function MiniCalendar({
+/**
+ * The sticky bar: the month with the months before and after it, how many days and activities are shown, the workstream
+ * (given as `children`), then a strip of the month's days, each shaded as the heatmap shades it; a day with activities
+ * goes to them.
+ */
+function MonthBar({
+  choices,
+  month,
   view,
-  workstream,
+  timeline,
+  onMonth,
   onPick,
+  children,
 }: {
-  readonly view: ActivityMonthView;
-  readonly workstream: string | null;
+  readonly choices: readonly string[];
+  readonly month: string;
+  readonly view: ActivityMonthView | undefined;
+  readonly timeline: readonly TimelineEntry[];
+  readonly onMonth: (month: string) => void;
   readonly onPick: (date: string) => void;
+  readonly children: React.ReactNode;
 }) {
   const text = useDictionary().memory.activity;
-  const counts = useMemo(
-    () =>
-      new Map(
-        view.days.map((day) => [
-          day.date,
-          day.activities.filter((item) => workstream === null || item.workstream === workstream).length,
-        ]),
-      ),
-    [view.days, workstream],
-  );
-  const grid = monthGrid(view.month, counts);
+  const position = choices.indexOf(month);
+  const days = timeline.flatMap((entry) => (entry.kind === "day" ? [entry] : []));
+  const counts = new Map(days.map((day) => [day.date, day.activities.length]));
   return (
-    <div role="group" aria-label={text.calendar} className="grid w-fit grid-cols-7 gap-xs">
-      {text.weekdays.map((weekday) => (
-        <span key={weekday} aria-hidden className="text-center text-xs text-ink-muted">
-          {weekday}
-        </span>
-      ))}
-      {grid.flat().map((day, index) =>
-        day === null ? (
-          <span key={`empty-${index}`} />
-        ) : (
-          <button
-            key={day.date}
-            type="button"
-            disabled={day.count === 0}
-            title={text.day(day.date, day.count)}
-            aria-label={text.day(day.date, day.count)}
-            onClick={() => onPick(day.date)}
-            className={cn(
-              "grid size-(--tk-size-control) place-items-center rounded-xs text-xs tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-              HEAT_LEVEL_CLASS[dayLevel(day.count)],
-              day.count === 0
-                ? "text-ink-muted"
-                : "cursor-pointer hover:ring-(length:--tk-border-thin) hover:ring-ink-muted",
-              dayLevel(day.count) >= 3 && "text-surface",
-            )}
+    <StickyBar className="grid gap-sm">
+      <div className="flex items-center gap-sm">
+        <div className="flex items-center gap-xs">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={text.previous}
+            disabled={position >= choices.length - 1}
+            onClick={() => onMonth(choices[position + 1]!)}
           >
-            {Number(day.date.slice(8))}
-          </button>
-        ),
+            <ChevronLeft aria-hidden />
+          </Button>
+          <Select
+            aria-label={text.month}
+            className="w-auto"
+            value={month}
+            onValueChange={onMonth}
+            options={choices.map((choice) => ({ value: choice, label: choice }))}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={text.next}
+            disabled={position <= 0}
+            onClick={() => onMonth(choices[position - 1]!)}
+          >
+            <ChevronRight aria-hidden />
+          </Button>
+        </div>
+        {view === undefined ? null : (
+          <span className="hidden text-sm text-ink-muted tabular-nums sm:inline">
+            {text.totals(
+              days.length,
+              days.reduce((sum, day) => sum + day.activities.length, 0),
+            )}
+          </span>
+        )}
+        {children}
+      </div>
+      {view === undefined ? null : (
+        <div role="group" aria-label={text.calendar} className="flex gap-px">
+          {monthDays(view.month, counts).map((day) => (
+            <button
+              key={day.date}
+              type="button"
+              disabled={day.count === 0}
+              title={text.day(day.date, day.count)}
+              aria-label={text.day(day.date, day.count)}
+              onClick={() => onPick(day.date)}
+              className={cn(
+                "grid h-control min-w-0 flex-1 place-items-center rounded-xs text-xs tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
+                HEAT_LEVEL_CLASS[dayLevel(day.count)],
+                day.count === 0
+                  ? "text-ink-muted"
+                  : "cursor-pointer hover:ring-(length:--tk-border-thin) hover:ring-accent",
+                dayLevel(day.count) >= 3 && "text-surface",
+              )}
+            >
+              <span aria-hidden className="hidden md:inline">
+                {Number(day.date.slice(8))}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
-    </div>
+    </StickyBar>
   );
 }
 
-/** The timeline in one card: the days with their sticky dates, and the summaries between them. */
-function Timeline({ view, workstream }: { readonly view: ActivityMonthView; readonly workstream: string | null }) {
+/** The month summary above, then the days and week summaries in one card, then the month's file. */
+function Timeline({
+  view,
+  timeline,
+  workstream,
+}: {
+  readonly view: ActivityMonthView;
+  readonly timeline: readonly TimelineEntry[];
+  readonly workstream: string | null;
+}) {
   const text = useDictionary().memory.activity;
-  const timeline = useMemo(() => timelineOf(view, workstream), [view, workstream]);
   const hasDays = timeline.some((entry) => entry.kind === "day");
   return (
-    <Card aria-label={text.timeline} className="gap-lg">
-      {hasDays ? null : <p className="text-sm text-ink-muted">{workstream === null ? text.empty : text.noMatch}</p>}
-      {timeline.map((entry) => (
-        <TimelineItem key={entry.kind === "day" ? entry.date : entry.summary.label} entry={entry} />
-      ))}
-    </Card>
+    <>
+      {timeline.map((entry) =>
+        entry.kind === "summary" && entry.summary.kind !== "week" ? (
+          <Summary key={entry.summary.label} summary={entry.summary} />
+        ) : null,
+      )}
+      <Card aria-label={text.timeline} className="gap-xl">
+        {hasDays ? null : <p className="text-sm text-ink-muted">{workstream === null ? text.empty : text.noMatch}</p>}
+        {timeline.map((entry) =>
+          entry.kind === "day" ? (
+            <DaySection key={entry.date} date={entry.date} activities={entry.activities} />
+          ) : entry.summary.kind === "week" ? (
+            <Summary key={entry.summary.label} summary={entry.summary} />
+          ) : null,
+        )}
+      </Card>
+      <footer className="grid gap-xs px-md text-xs text-ink-muted">
+        <span>{text.sourceFile}</span>
+        <FilePath path={view.file.path} />
+        <FileProblems problems={view.file.problems} />
+      </footer>
+    </>
   );
 }
 
-function TimelineItem({ entry }: { readonly entry: TimelineEntry }) {
-  return entry.kind === "day" ? (
-    <DaySection date={entry.date} activities={entry.activities} />
-  ) : (
-    <SummaryBar summary={entry.summary} />
-  );
-}
-
-/** A day: its date and count sticking to the top while its activities scroll by. */
+/** A day: its date and weekday in a column beside a rail that carries a dot for each of its activities. */
 function DaySection({ date, activities }: { readonly date: string; readonly activities: readonly ActivityItemView[] }) {
-  const text = useDictionary().memory.activity;
   const locale = useSessionStatus().language === "zh" ? "zh-CN" : "en";
   return (
     <section
       id={dayAnchor(date)}
-      aria-label={date}
-      className="grid scroll-mt-(--tk-size-nav-bar) gap-sm lg:scroll-mt-0"
+      aria-labelledby={`${dayAnchor(date)}-title`}
+      className={cn(BELOW_BARS, "grid grid-cols-[var(--tk-size-control)_minmax(0,1fr)] gap-x-md")}
     >
-      <h2 className="sticky top-(--tk-size-nav-bar) z-(--tk-layer-base) flex items-baseline gap-sm border-b-(length:--tk-border-thin) border-line bg-surface py-xs text-sm font-semibold lg:top-0">
-        <span className="tabular-nums">{date}</span>
-        <span className="font-regular text-ink-muted">{dayText(date, locale, { weekday: "short" })}</span>
-        <span className="text-xs font-regular text-ink-muted">{text.count(activities.length)}</span>
+      <h2 id={`${dayAnchor(date)}-title`} className="grid content-start justify-items-center text-center">
+        <span className="sr-only">{date}</span>
+        <span aria-hidden className="text-xl leading-(--tk-line-height-tight) font-semibold tabular-nums">
+          {Number(date.slice(8))}
+        </span>
+        <span className="text-xs font-regular text-ink-muted">{dayText(date, locale, { weekday: "short" })}</span>
       </h2>
-      <ul className="grid gap-md">
+      <ul className="grid gap-lg border-l-(length:--tk-border-thick) border-line pl-md">
         {activities.map((item) => (
           <ActivityRow key={item.code} item={item} />
         ))}
@@ -287,63 +303,57 @@ function DaySection({ date, activities }: { readonly date: string; readonly acti
   );
 }
 
-/** An activity: its workstream, its text and its short code; the user's words are folded behind a quote button. */
+/**
+ * An activity, marked by a dot on the rail. Above its text, its workstream (or a mark that it has none), a button that
+ * opens the user's words when they were kept, and its short code, which shows on hover or focus.
+ */
 function ActivityRow({ item }: { readonly item: ActivityItemView }) {
   const text = useDictionary().memory.activity;
+  const quotesId = useId();
   const [open, setOpen] = useState(false);
   const { lines, sources } = splitSources(item.continuation);
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-md gap-y-xs">
-      <div className="grid min-w-0 gap-xs">
-        <p className="leading-(--tk-line-height-normal)">
-          {item.workstream === null ? null : (
-            <span className="mr-sm inline-flex align-middle">
-              <WorkstreamPill name={item.workstream} />
-            </span>
-          )}
-          {item.text}
-        </p>
-        {lines.map((line, index) => (
-          <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
-            {line.trim()}
-          </p>
-        ))}
-        {open ? sources.map((source, index) => <SourceNote key={index} source={source} />) : null}
-      </div>
-      <div className="flex items-center gap-xs">
-        {sources.length === 0 ? null : (
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-label={open ? text.hideQuote : text.showQuote}
-            title={open ? text.hideQuote : text.showQuote}
-            onClick={() => setOpen(!open)}
-            className={cn(
-              "grid cursor-pointer place-items-center rounded-sm p-xs outline-none hover:bg-surface-raised hover:text-ink focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-              open ? "text-accent" : "text-ink-muted",
-            )}
-          >
-            <Quote aria-hidden className="size-(--tk-font-size-sm)" />
-          </button>
+    <li className="group relative grid gap-xs">
+      <span
+        aria-hidden
+        className="absolute top-[calc(var(--tk-font-size-xl)/2-var(--tk-space-sm)/2)] -left-[calc(var(--tk-space-md)+var(--tk-border-thick)/2+var(--tk-space-sm)/2)] size-(--tk-space-sm) rounded-full bg-accent ring-(length:--tk-border-thick) ring-surface transition-transform group-hover:scale-125"
+      />
+      <div className="flex min-h-(--tk-font-size-xl) flex-wrap items-center gap-sm text-xs text-ink-muted">
+        {item.workstream === null ? (
+          <span className="rounded-full border-(length:--tk-border-thin) border-dashed border-ink-muted/40 px-sm">
+            {text.noWorkstream}
+          </span>
+        ) : (
+          <WorkstreamPill name={item.workstream} />
         )}
-        <CodePill code={item.code} />
+        {sources.some((source) => source.quote !== null) ? (
+          <QuoteToggle open={open} controls={quotesId} onToggle={() => setOpen(!open)} />
+        ) : null}
+        <CodePill code={item.code} reveal className="ml-auto" />
       </div>
+      <p className="leading-(--tk-line-height-normal)">{item.text}</p>
+      {lines.map((line, index) => (
+        <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
+          {line.trim()}
+        </p>
+      ))}
+      {open ? <QuoteList id={quotesId} sources={sources} /> : null}
     </li>
   );
 }
 
-/** A summary as a bar between the days: the month's at the start, a week's after the week. */
-function SummaryBar({ summary }: { readonly summary: ActivitySummaryView }) {
+/** A summary: the month's on the accent above the timeline, a week's in a dashed box heading its week. */
+function Summary({ summary }: { readonly summary: ActivitySummaryView }) {
   const text = useDictionary().memory.activity;
   const week = summary.kind === "week";
   const title = week ? text.weekSummary(summary.label) : text.monthSummary(summary.label);
   return (
     <aside
       aria-label={title}
-      className={cn("grid gap-xs rounded-md px-md py-sm", week ? "bg-surface-raised" : "bg-accent-soft")}
+      className={cn("grid gap-xs", week ? entryBox({ tone: "accent" }) : "rounded-md bg-accent-soft px-md py-sm")}
     >
       <p className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
-        {title}
+        <span className="text-accent">{title}</span>
         <span className="text-xs font-regular text-ink-muted tabular-nums">{`${summary.first} – ${summary.last}`}</span>
       </p>
       <p className="text-sm leading-(--tk-line-height-normal)">{summary.text}</p>

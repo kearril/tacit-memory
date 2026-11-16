@@ -21,6 +21,7 @@
   --color-surface: var(--tk-color-surface);
   --color-surface-raised: var(--tk-color-surface-raised);
   --color-line: var(--tk-color-line);
+  --color-line-strong: var(--tk-color-line-strong);
   --color-ink: var(--tk-color-ink);
   --color-ink-muted: var(--tk-color-ink-muted);
   --color-accent: var(--tk-color-accent);
@@ -139,4 +140,16 @@
     translate: 0 0;
     scale: var(--tk-scale-pressed);
   }
+}
+
+/* The inward corner where a tab card's tab meets its body: a square of the tab's radius filled with the surface but for a
+   quarter circle cut from its top right, so tab and body read as one sheet. */
+@utility card-notch {
+  width: var(--tk-radius-md);
+  height: var(--tk-radius-md);
+  background: radial-gradient(
+    circle at 100% 0,
+    transparent calc(var(--tk-radius-md) - 0.5px),
+    var(--tk-color-surface) var(--tk-radius-md)
+  );
 }
