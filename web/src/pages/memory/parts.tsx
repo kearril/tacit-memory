@@ -89,7 +89,7 @@ export function FilePath({ path }: { readonly path: string }) {
 }
 
 /** Each page type's icon; the types are told apart by icon and name, never by a state colour. */
-const PAGE_TYPE_ICONS: Readonly<Record<PageType, LucideIcon>> = {
+export const PAGE_TYPE_ICONS: Readonly<Record<PageType, LucideIcon>> = {
   incident: Siren,
   decision: Gavel,
   entity: Box,

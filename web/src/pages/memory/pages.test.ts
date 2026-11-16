@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PageListItem } from "../../api/memory";
-import { filterPages, groupPages, pageFilterOf, pageFilterParams } from "./pages";
+import { filterPages, pageFilterOf, pageFilterParams, sortPages } from "./pages";
 
 const page = (id: string, title: string, aliases: string[] = [], type: string | null = "work"): PageListItem => ({
   id,
@@ -58,12 +58,28 @@ describe("filterPages", () => {
   });
 });
 
-describe("groupPages", () => {
-  it("groups by workstream in name order, with the topics last", () => {
-    expect(groupPages(PAGES).map((group) => [group.workstream, group.pages.map((p) => p.id)])).toEqual([
-      ["app", ["app/login"]],
-      ["ops", ["ops/rollback", "ops/deploy"]],
-      ["_topics", ["_topics/pgroonga"]],
+describe("sortPages", () => {
+  const dated = (id: string, changed: string | null, uses: number): PageListItem => ({
+    ...page(id, id),
+    changed,
+    uses,
+  });
+  const ROWS = [dated("ops/a", "2026-11-02", 3), dated("app/b", null, 5), dated("ops/c", "2026-11-09", 3)];
+
+  it("orders by workstream in name order, with the topics last, keeping each workstream's order", () => {
+    expect(sortPages(PAGES, "workstream").map((p) => p.id)).toEqual([
+      "app/login",
+      "ops/rollback",
+      "ops/deploy",
+      "_topics/pgroonga",
     ]);
+  });
+
+  it("orders by the day changed, newest first, with the undated last", () => {
+    expect(sortPages(ROWS, "changed").map((p) => p.id)).toEqual(["ops/c", "ops/a", "app/b"]);
+  });
+
+  it("orders by uses, most first, keeping the order of ties", () => {
+    expect(sortPages(ROWS, "uses").map((p) => p.id)).toEqual(["app/b", "ops/a", "ops/c"]);
   });
 });

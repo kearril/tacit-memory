@@ -47,17 +47,30 @@ export function filterPages(pages: readonly PageListItem[], filter: PageFilter):
   );
 }
 
-/** The pages by workstream, in name order with the topics last; each group keeps the pages' order. */
-export function groupPages(
-  pages: readonly PageListItem[],
-): readonly { readonly workstream: string; readonly pages: readonly PageListItem[] }[] {
-  const groups = new Map<string, PageListItem[]>();
-  for (const page of pages) {
-    groups.set(page.workstream, [...(groups.get(page.workstream) ?? []), page]);
+/** How the list is ordered: by workstream as it groups them, by the day changed, or by uses. */
+export type PageSort = "workstream" | "changed" | "uses";
+
+/**
+ * The pages in the list's order. By workstream, in name order with the topics last; by the day changed, newest first
+ * with the undated last; by uses, most first. Pages that tie keep their order.
+ */
+export function sortPages(pages: readonly PageListItem[], sort: PageSort): PageListItem[] {
+  const rows = [...pages];
+  if (sort === "changed") {
+    return rows.sort((a, b) => (b.changed ?? "").localeCompare(a.changed ?? ""));
   }
-  return [...groups]
-    .sort(([a], [b]) => (a === TOPICS ? 1 : b === TOPICS ? -1 : a.localeCompare(b)))
-    .map(([workstream, grouped]) => ({ workstream, pages: grouped }));
+  if (sort === "uses") {
+    return rows.sort((a, b) => b.uses - a.uses);
+  }
+  return rows.sort((a, b) =>
+    a.workstream === b.workstream
+      ? 0
+      : a.workstream === TOPICS
+        ? 1
+        : b.workstream === TOPICS
+          ? -1
+          : a.workstream.localeCompare(b.workstream),
+  );
 }
 
 /** The anchor of a page's section, which the table of contents and the search results lead to. */

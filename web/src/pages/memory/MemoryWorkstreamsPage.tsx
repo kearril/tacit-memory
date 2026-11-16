@@ -9,7 +9,7 @@ import {
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useActivity } from "../../api/activity";
 import { ApiError } from "../../api/client";
@@ -29,6 +29,7 @@ import { errorTextOf } from "../../i18n/messages";
 import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
 import { PersonaEntryCard, SectionChip } from "./PersonaSections";
+import { useStuck } from "./sticky";
 import { memoryPathOf } from "./views";
 import { type DirectorySort, directoryRows, MINI_WEEKS, openItemText, weekLevel, workstreamWeeks } from "./workstreams";
 
@@ -90,37 +91,6 @@ export function MemoryWorkstreamsPage() {
       )}
     </div>
   );
-}
-
-/**
- * Whether the sticky element has stuck: the sentinel just above it has left the band the element sticks below. The band
- * is read from the element's own `top`, so it follows the narrow screen's top bar.
- */
-function useStuck(sentinel: RefObject<HTMLElement | null>, sticky: RefObject<HTMLElement | null>): boolean {
-  const [stuck, setStuck] = useState(false);
-  useEffect(() => {
-    const target = sentinel.current;
-    const element = sticky.current;
-    if (target === null || element === null) {
-      return;
-    }
-    let observer: IntersectionObserver | null = null;
-    const observe = () => {
-      observer?.disconnect();
-      const top = Number.parseFloat(getComputedStyle(element).top) || 0;
-      observer = new IntersectionObserver(([entry]) => setStuck(entry !== undefined && !entry.isIntersecting), {
-        rootMargin: `${-Math.ceil(top) - 1}px 0px 0px 0px`,
-      });
-      observer.observe(target);
-    };
-    observe();
-    window.addEventListener("resize", observe);
-    return () => {
-      window.removeEventListener("resize", observe);
-      observer?.disconnect();
-    };
-  }, [sentinel, sticky]);
-  return stuck;
 }
 
 /**

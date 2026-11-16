@@ -569,7 +569,10 @@ export interface Dictionary {
       readonly failed: string;
       readonly noPages: string;
       readonly noMatch: string;
-      readonly count: (count: number) => string;
+      readonly total: (count: number) => string;
+      /** The filter bar's name, for screen readers. */
+      readonly filters: string;
+      readonly columns: Readonly<Record<"type" | "title" | "workstream" | "changed" | "uses", string>>;
       /** The trail from the list to the page, for screen readers. */
       readonly trail: string;
       readonly notFound: string;
@@ -579,6 +582,8 @@ export interface Dictionary {
       readonly dates: (first: string, last: string) => string;
       readonly related: string;
       readonly missing: string;
+      readonly sectionCount: (count: number) => string;
+      readonly sourceFile: string;
     };
     readonly workstreams: {
       readonly failed: string;

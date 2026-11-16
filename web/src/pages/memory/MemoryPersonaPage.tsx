@@ -26,10 +26,8 @@ import {
 } from "./persona";
 import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip, type SectionKind } from "./PersonaSections";
 import { occurrenceDaysOf } from "./sources";
+import { BELOW_BARS } from "./sticky";
 import { CANDIDATES_ANCHOR } from "./views";
-
-/** Clears the sticky scope bar, and the top bar too on a narrow screen, when a card is scrolled to. */
-const BELOW_BARS = "scroll-mt-[calc(2*var(--tk-size-nav-bar))] lg:scroll-mt-(--tk-size-nav-bar)";
 
 /**
  * The persona view of the memory page, in a reading column, by section: a card for each of the four sections holding
