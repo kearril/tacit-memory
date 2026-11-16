@@ -175,9 +175,10 @@ public sealed class MemoryService : IDisposable
             _options, config, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision), writer);
         _recent = new RecentTools(_options, config, _models.Decision, writer);
         _persona = new PersonaTools(
-            _options, config, _log,
+            _options, config,
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
-            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision));
+            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
+            writer);
         _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
         _brief = new WorkstreamBrief(config, _index);
         _recall = new RecallTool(config, _index, _pages, _pipeline, _brief);
@@ -1063,27 +1064,10 @@ public sealed class MemoryService : IDisposable
 
     private async Task<ToolResult> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            // Judgments read the index, so it follows a manual edit first and this write right after; the watcher's later event finds the hash unchanged.
-            _index.SyncJudgments();
-            var result = await _persona.WriteAsync(request, cancellationToken);
-            // The candidates and the persona feed the consolidation reminder, so the instructions are rebuilt on their next use.
-            InvalidateInstructions();
-            _index.SyncJudgments();
-            if (!result.Written)
-                return result;
-            // Only a change to persona.md reaches the resident context; a candidate waits for confirmation first.
-            if (request.Op != ToolValues.WritePersonaOps.Propose)
-                ScheduleRender();
-            _backup.ScheduleIfDue();
-            return result;
-        }
-        finally
-        {
-            hold.Dispose();
-        }
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        // Judgments read the index, so it follows a manual edit first; the writer syncs it again after the write.
+        _index.SyncJudgments();
+        return await _persona.WriteAsync(request, cancellationToken);
     }
 
     /// <summary>

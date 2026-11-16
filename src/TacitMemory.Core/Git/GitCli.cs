@@ -45,16 +45,6 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
     }
 
     /// <summary>
-    /// Commits exactly <paramref name="files"/> (paths relative to the repository) with <paramref name="message"/>,
-    /// whatever else is staged.
-    /// </summary>
-    public async Task CommitAsync(string message, IReadOnlyList<string> files, CancellationToken cancellationToken)
-    {
-        await RunAsync(cancellationToken, ["add", "--", .. files]);
-        await RunAsync(cancellationToken, ["commit", "--quiet", "-m", message, "--", .. files]);
-    }
-
-    /// <summary>
     /// Commits exactly <paramref name="path"/> (relative to the repository) with <paramref name="message"/>, whatever else is
     /// staged. A tracked file is committed in one call; a file git does not track yet is added first.
     /// </summary>
@@ -73,10 +63,6 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
             return FileState.Committed;
         return status.StartsWith("??", StringComparison.Ordinal) ? FileState.Untracked : FileState.Changed;
     }
-
-    /// <summary>Whether <paramref name="path"/> (relative to the repository) has uncommitted changes, or is untracked.</summary>
-    public async Task<bool> IsDirtyAsync(string path, CancellationToken cancellationToken) =>
-        (await RunAsync(cancellationToken, "status", "--porcelain", "--", path)).Trim().Length > 0;
 
     /// <summary>The text of <paramref name="path"/> (relative to the repository) at <paramref name="commit"/>; <c>null</c> when the file is not there.</summary>
     public async Task<string?> ShowAsync(string commit, string path, CancellationToken cancellationToken)

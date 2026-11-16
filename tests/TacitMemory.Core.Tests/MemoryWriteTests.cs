@@ -126,4 +126,31 @@ public sealed class MemoryWriteTests : IDisposable
         await _service.BackupCompletion;
         Assert.True(File.Exists(AutomaticBackup));
     }
+
+    [Theory]
+    [InlineData("add", "persona.md")]
+    [InlineData("propose", "candidates.md")]
+    public async Task A_persona_write_whose_commit_fails_is_saved_and_backed_up_and_the_agent_is_told(string op, string file)
+    {
+        var head = Git("rev-parse", "HEAD").Trim();
+        LockIndex();
+
+        var result = await _service.WritePersonaAsync(new WritePersonaRequest
+        {
+            Op = op,
+            Section = "preferences",
+            Text = "回答先给结论，再给理由。",
+            Source = "先说结论",
+        });
+
+        Assert.True(result.IsError);
+        Assert.Contains($"Not committed: {file} is saved, but git failed (", result.Text);
+        Assert.Contains("Nothing to redo: it is committed with the next write to this file.", result.Text);
+        Assert.Contains("回答先给结论，再给理由。", File.ReadAllText(Path.Combine(Memory, file)));
+        Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
+        Assert.Single(_notices, notice => notice.Contains("git", StringComparison.OrdinalIgnoreCase));
+
+        await _service.BackupCompletion;
+        Assert.True(File.Exists(AutomaticBackup));
+    }
 }

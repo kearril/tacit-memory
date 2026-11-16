@@ -1,11 +1,8 @@
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Decisions;
-using TacitMemory.Core.Git;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
-using TacitMemory.Core.Logging;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Tools;
 
@@ -15,7 +12,8 @@ namespace TacitMemory.Core.Persona;
 /// The persona side of the memory tools: the <c>write_persona</c> operations. Callers serialize writes; this class
 /// assumes it runs one write at a time.
 /// </summary>
-internal sealed class PersonaTools(TacitOptions options, TacitConfig config, ServiceLog log, SamePreferenceCheck samePreference, RuleConflictCheck conflicts)
+internal sealed class PersonaTools(
+    TacitOptions options, TacitConfig config, SamePreferenceCheck samePreference, RuleConflictCheck conflicts, MemoryWriter writer)
 {
     /// <summary>Characters an editor shows as a line break, so none may appear in a text or source; the parser splits on LF only.</summary>
     private static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
@@ -48,8 +46,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
 
     /// <summary>Every parameter <c>write_persona</c> takes, listed when the op is missing or unknown.</summary>
     private static readonly string AllParameters = string.Join(", ", new[] { "op" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
-
-    private readonly GitCli _git = new(config.MemoryPath, config.Language);
 
     /// <summary>The four sections as an agent names them.</summary>
     private readonly (PersonaSection Kind, string Name)[] Sections =
@@ -130,9 +126,6 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (judgment.Conflict is { } conflict)
             return ConflictRefusal(conflict);
 
-        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
-        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
-
         var entry = EntryLines(text, source);
         // The trigger is written only when this write creates the domain; an existing domain keeps its own.
         var createdTrigger = scope.Kind == PersonaScopeKind.Domain && persona.BlockOf(scope) is null ? trigger : null;
@@ -141,12 +134,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
             : PersonaFile.AppendToBlock(existing, scope, createdTrigger, sectionKind, entry, config.Language);
         var code = PersonaDocument.Parse(after).CodesByLine()[line];
 
-        TextFile.Write(path, after, hasBom);
-        var subject = dirty ? $"persona: add {code} (with user edits)" : $"persona: add {code}";
         var reply = scope.IsGlobal
             ? WithNote($"Added to the {name} section as [{code}]. The section now has {persona.Entries(sectionKind).Count + 1} entries.", judgment.Note)
             : WithNote(AddedToScopeReply(persona, scope, sectionKind, code, createdTrigger), judgment.Note);
-        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+        return await WriteAsync(relative, after, hasBom, $"persona: add {code}", WrittenSource.Persona, reply, cancellationToken);
     }
 
     /// <summary>
@@ -245,16 +236,12 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         if (judgment.Conflict is { } conflict)
             return ConflictRefusal(conflict);
 
-        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
-        var dirty = await _git.IsDirtyAsync(relative, cancellationToken);
-        TextFile.Write(path, after, hasBom);
         var code = PersonaDocument.Parse(after).CodesByLine()[entry.Item.Line];
-        var subject = dirty ? $"persona: replace {code} (with user edits)" : $"persona: replace {code}";
         var reply = WithNote(
             $"Replaced [{entry.Code}] with [{code}] in the {name} section{ScopePhrase(entry.Scope)}. "
             + CountNote(persona, entry.Scope, entry.Kind, 0),
             judgment.Note);
-        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+        return await WriteAsync(relative, after, hasBom, $"persona: replace {code}", WrittenSource.Persona, reply, cancellationToken);
     }
 
     /// <summary>
@@ -275,14 +262,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
             return NoEntry(hash, [], "delete");
 
         var name = PersonaDocument.HeadingOf(entry.Kind).En;
-        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
-        var dirty = await _git.IsDirtyAsync(relative, cancellationToken);
         var after = PersonaFile.ReplaceEntry(existing, entry.Item, []);
-        TextFile.Write(path, after, hasBom);
-        var subject = dirty ? $"persona: delete {entry.Code} (with user edits)" : $"persona: delete {entry.Code}";
         var reply = $"Deleted [{entry.Code}] from the {name} section{ScopePhrase(entry.Scope)}. It read:\n{Listed(entry.Item, entry.Code)}\n"
             + CountNote(persona, entry.Scope, entry.Kind, -1);
-        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+        return await WriteAsync(relative, after, hasBom, $"persona: delete {entry.Code}", WrittenSource.Persona, reply, cancellationToken);
     }
 
     /// <summary>
@@ -328,22 +311,16 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
             return NotUtf8(relative, "propose");
         var (existing, hasBom) = read.Value;
 
-        // Checked before the write: a file that already had user edits gets that noted in its commit subject.
-        var dirty = File.Exists(path) && await _git.IsDirtyAsync(relative, cancellationToken);
-
         var judged = await samePreference.RunAsync(text, sectionKind, cancellationToken);
         if (judged.Same is { } same
-            && await AnswerSameAsync(same, source, existing, hasBom, dirty, path, relative, cancellationToken) is { } answer)
+            && await AnswerSameAsync(same, source, existing, hasBom, relative, cancellationToken) is { } answer)
             return answer;
 
         var after = CandidatesFile.AppendCandidate(existing, text, sectionKind, scope, options.Today, source, config.Language);
-        TextFile.Write(path, after, hasBom);
-
         var code = ShortCode.Of(ShortCode.Normalize(text));
-        var subject = dirty ? $"candidates: propose {code} (with user edits)" : $"candidates: propose {code}";
         var reply = $"Recorded as a new candidate (scope: {scope})."
             + (judged.Note is { } note ? $"\n\n{note}" : "");
-        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+        return await WriteAsync(relative, after, hasBom, $"candidates: propose {code}", WrittenSource.Candidates, reply, cancellationToken);
     }
 
     /// <summary>
@@ -351,11 +328,11 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// now, so the proposal is recorded as a new candidate instead.
     /// </summary>
     private async Task<ToolResult?> AnswerSameAsync(
-        PreferenceMatch same, string source, string existing, bool hasBom, bool dirty, string path, string relative, CancellationToken cancellationToken)
+        PreferenceMatch same, string source, string existing, bool hasBom, string relative, CancellationToken cancellationToken)
     {
         return same.Kind switch
         {
-            UnitKinds.Candidate => await MergeCandidateAsync(same, source, existing, hasBom, dirty, path, relative, cancellationToken),
+            UnitKinds.Candidate => await MergeCandidateAsync(same, source, existing, hasBom, relative, cancellationToken),
             UnitKinds.RejectedCandidate => RejectedReply(same, existing),
             UnitKinds.PersonaEntry => PersonaReply(same),
             _ => null,
@@ -367,7 +344,7 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
     /// scope: the one the proposal names is not used for a merge.
     /// </summary>
     private async Task<ToolResult?> MergeCandidateAsync(
-        PreferenceMatch same, string source, string existing, bool hasBom, bool dirty, string path, string relative, CancellationToken cancellationToken)
+        PreferenceMatch same, string source, string existing, bool hasBom, string relative, CancellationToken cancellationToken)
     {
         var candidate = CandidatesDocument.Parse(existing).Candidates
             .FirstOrDefault(item => item.Text == same.Text && item.Section == same.Section && item.Scope == same.Scope);
@@ -381,12 +358,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, candidate.Scope, today, source, config.Language);
         if (after is null)
             return null;
-        TextFile.Write(path, after, hasBom);
 
         var code = ShortCode.Of(ShortCode.Normalize(candidate.Text));
-        var subject = dirty ? $"candidates: merge {code} (with user edits)" : $"candidates: merge {code}";
         var reply = $"Merged into the candidate \"{candidate.Text}\" (scope: {candidate.Scope}).";
-        return await CommitAndReplyAsync(reply, subject, relative, cancellationToken);
+        return await WriteAsync(relative, after, hasBom, $"candidates: merge {code}", WrittenSource.Candidates, reply, cancellationToken);
     }
 
     /// <summary>The answer for a proposal on the rejection list: what was rejected, when and in what words.</summary>
@@ -420,29 +395,10 @@ internal sealed class PersonaTools(TacitOptions options, TacitConfig config, Ser
         return ToolText.Ok($"Not recorded: the persona already has this as [{code}]: {entry.Text}\nNext step: nothing to record; do not propose it again.");
     }
 
-    /// <summary>Commits the file a write changed and returns the reply; a failed commit is noted, and the file stays written.</summary>
-    private async Task<ToolResult> CommitAndReplyAsync(string reply, string subject, string relative, CancellationToken cancellationToken)
-    {
-        var commitProblem = await CommitAsync(subject, relative, cancellationToken);
-        return commitProblem is null
-            ? ToolText.Ok(reply) with { Written = true }
-            : new ToolResult($"{reply}\n\n{commitProblem}", IsError: true, Written: true);
-    }
-
-    /// <summary>Commits the persona file; on failure, tells the user and returns the note for the agent. The file stays written.</summary>
-    private async Task<string?> CommitAsync(string message, string relativePath, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _git.CommitAsync(message, [relativePath], cancellationToken);
-            return null;
-        }
-        catch (TacitException e) when (e.Error == TacitError.GitFailed)
-        {
-            log.Notify(LogLevel.Warning, e.Message);
-            return $"Not committed: the file is saved, but git failed ({e.Message}). Nothing to redo: it is committed with the next write to this file.";
-        }
-    }
+    /// <summary>Hands the changed file to the writer and returns <paramref name="reply"/> with what the write adds to it.</summary>
+    private async Task<ToolResult> WriteAsync(
+        string relative, string text, bool hasBom, string subject, WrittenSource source, string reply, CancellationToken cancellationToken) =>
+        (await writer.WriteAsync(new MemoryWrite(relative, text, hasBom, subject, source), cancellationToken)).Reply(reply);
 
     /// <summary>The name an agent gives a section.</summary>
     private string SectionName(PersonaSection kind) => Sections.Single(section => section.Kind == kind).Name;
