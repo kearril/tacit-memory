@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { Check, ChevronDown } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
+import { FIELD_TRIGGER } from "./field-trigger";
 
 // Structure and behaviour follow shadcn/ui's select: a button in the look of the inputs that opens a list in the look of
 // the dropdown menu, used with the keyboard as well as the pointer. It takes the choices as a list; an empty value, which
@@ -38,10 +39,7 @@ function Select({
       <SelectPrimitive.Trigger
         id={id}
         data-slot="select-trigger"
-        className={cn(
-          "flex h-control w-full min-w-0 cursor-pointer items-center justify-between gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface-raised px-md text-base text-ink transition-colors outline-none focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-(--tk-opacity-disabled) aria-invalid:border-danger data-[state=open]:border-accent",
-          className,
-        )}
+        className={cn(FIELD_TRIGGER, "justify-between", className)}
         {...props}
       >
         <span className="min-w-0 truncate">

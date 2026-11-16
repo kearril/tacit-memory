@@ -118,8 +118,10 @@ export function MemorySearchPage() {
   const request = applied.query.trim() === "" ? null : requestOf(applied);
   const trace = useRecallTrace(request);
   const page = useRef<HTMLDivElement>(null);
+  const searchKey = search.toString();
 
   // Keeps where the bar ends in `--trace-bar-bottom`, for the hints that float under it, as the bar folds and unfolds.
+  // Each search mounts a new bar, so the bar is observed again then.
   useEffect(() => {
     const element = page.current;
     const bar = element?.querySelector<HTMLElement>('[role="search"]');
@@ -134,13 +136,13 @@ export function MemorySearchPage() {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [searchKey]);
 
   return (
     <div ref={page} data-trace className="mx-auto grid w-full max-w-(--tk-size-page) grid-cols-1 content-start gap-md">
       <h1 className="sr-only">{dictionary.memory.views.search}</h1>
       <SearchBar
-        key={search.toString()}
+        key={searchKey}
         applied={applied}
         busy={trace.isFetching}
         error={trace.error}
@@ -575,13 +577,13 @@ function Column({
     place();
     const observer = new ResizeObserver(place);
     observer.observe(element);
-    const bar = page.querySelector<HTMLElement>('[role="search"]');
-    if (bar !== null) {
-      observer.observe(bar);
-    }
+    // The page writes where the bar ends on its own style, for whichever bar is mounted now.
+    const bar = new MutationObserver(place);
+    bar.observe(page, { attributes: true, attributeFilter: ["style"] });
     window.addEventListener("resize", place);
     return () => {
       observer.disconnect();
+      bar.disconnect();
       window.removeEventListener("resize", place);
     };
   }, [sticky]);

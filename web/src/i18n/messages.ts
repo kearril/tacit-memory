@@ -688,7 +688,6 @@ export interface Dictionary {
       readonly trigger: (trigger: string) => string;
       readonly noTrigger: string;
       readonly candidatesTitle: string;
-      readonly candidateCount: (count: number) => string;
       readonly noCandidates: string;
       /** The two views of the candidates card: the candidates waiting, and the rejection list. */
       readonly candidateViews: {

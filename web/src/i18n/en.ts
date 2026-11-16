@@ -849,7 +849,6 @@ export const en: Dictionary = {
       trigger: (trigger) => `Trigger: ${trigger}`,
       noTrigger: "No trigger",
       candidatesTitle: "Persona candidates",
-      candidateCount: (count) => (count === 1 ? "1 candidate" : `${count} candidates`),
       noCandidates: "No candidates",
       candidateViews: {
         label: "Show the candidates waiting or the rejection list",

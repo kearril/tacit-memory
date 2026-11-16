@@ -55,12 +55,17 @@ export function PersonaEntryCard({
   const [open, setOpen] = useState(false);
   const { lines, sources } = splitSources(entry.continuation);
   const quoted = sources.some((source) => source.quote !== null);
-  const date = sources.find((source) => source.date !== null)?.date ?? null;
+  // The first day the entry was written on leads; any later day it was confirmed on is counted after it and listed on hover.
+  const dates = [...new Set(sources.flatMap((source) => (source.date === null ? [] : [source.date])))];
   return (
     <li className={cn(entryBox({ tone: problems.length > 0 ? "warning" : "quiet" }), "group grid gap-xs")}>
       <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
         {lead}
-        {date === null ? null : <span className="tabular-nums">{date}</span>}
+        {dates.length === 0 ? null : (
+          <span className="tabular-nums" title={dates.length > 1 ? dates.join(" · ") : undefined}>
+            {dates.length > 1 ? `${dates[0]} +${dates.length - 1}` : dates[0]}
+          </span>
+        )}
         {quoted ? <QuoteToggle open={open} controls={quotesId} onToggle={() => setOpen(!open)} /> : null}
         {entry.code === null ? null : <CodePill code={entry.code} reveal className="ml-auto" />}
       </div>
@@ -82,12 +87,16 @@ export function PersonaEntryCard({
   );
 }
 
+/** The small neutral chip a scope or a section is shown in, ahead of an entry. */
+const TAG =
+  "inline-flex items-center gap-xs rounded-full bg-surface-raised px-sm py-xs leading-(--tk-line-height-tight)";
+
 /** A scope as a small neutral chip with its icon: global, or a domain's or workstream's name. */
 export function ScopeChip({ scope }: { readonly scope: PersonaScope }) {
   const text = useDictionary().memory.persona;
   const Icon = SCOPE_ICONS[scope.kind];
   return (
-    <span className="inline-flex items-center gap-xs rounded-full bg-surface-raised px-sm py-xs leading-(--tk-line-height-tight)">
+    <span className={TAG}>
       <Icon aria-hidden className="size-(--tk-font-size-xs)" />
       {scope.name ?? text.scopeGlobal}
     </span>
@@ -105,11 +114,7 @@ export function SectionChip({
   const text = useDictionary().memory.persona;
   const Icon = section === null ? TriangleAlert : SECTION_ICONS[section];
   return (
-    <span
-      className={`inline-flex items-center gap-xs rounded-full bg-surface-raised px-sm py-xs leading-(--tk-line-height-tight) ${
-        section === null ? "text-warning" : ""
-      }`}
-    >
+    <span className={cn(TAG, section === null && "text-warning")}>
       <Icon aria-hidden className="size-(--tk-font-size-xs)" />
       {section === null ? text.otherSection(heading) : text.sections[section]}
     </span>

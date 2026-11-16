@@ -1,8 +1,9 @@
 import { cn } from "cn";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { Popover as PopoverPrimitive } from "radix-ui";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { addDays, addMonths, isDate, monthOf, monthWeeks, today } from "./date-grid";
+import { FIELD_TRIGGER } from "./field-trigger";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
 // A date field in the look of the select: a button that shows the date and opens a month calendar under it, in place of
 // the browser's own date input. The calendar is used with the keyboard as well as the pointer: the arrows move a day or
@@ -97,7 +98,7 @@ function DatePicker({
     "cursor-pointer rounded-sm px-sm py-xs text-sm text-accent outline-none hover:bg-surface-raised focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
 
   return (
-    <PopoverPrimitive.Root
+    <Popover
       open={open}
       onOpenChange={(next) => {
         if (next) {
@@ -106,104 +107,94 @@ function DatePicker({
         setOpen(next);
       }}
     >
-      <PopoverPrimitive.Trigger
-        id={id}
-        data-slot="date-picker-trigger"
-        className={cn(
-          "flex h-control w-full min-w-0 cursor-pointer items-center gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface-raised px-md text-base text-ink transition-colors outline-none focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-(--tk-opacity-disabled) aria-invalid:border-danger data-[state=open]:border-accent",
-          className,
-        )}
-        {...props}
-      >
+      <PopoverTrigger id={id} data-slot="date-picker-trigger" className={cn(FIELD_TRIGGER, className)} {...props}>
         <CalendarDays aria-hidden className="size-(--tk-font-size-base) shrink-0 text-ink-muted" />
         <span className={cn("min-w-0 truncate tabular-nums", value === "" && "text-ink-muted")}>
           {value === "" ? text.placeholder : value}
         </span>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          data-slot="date-picker-content"
-          align="start"
-          sideOffset={4}
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            grid.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
-          }}
-          className="z-(--tk-layer-toast) grid gap-sm rounded-md border-(length:--tk-border-thin) border-line bg-surface p-sm text-ink shadow-raised outline-none"
-        >
-          <div className="flex items-center justify-between gap-sm">
-            <button
-              type="button"
-              aria-label={text.previous}
-              title={text.previous}
-              onClick={() => setFocus(addMonths(focus, -1))}
-              className={nav}
-            >
-              <ChevronLeft aria-hidden className="size-(--tk-font-size-base)" />
-            </button>
-            <span aria-live="polite" className="text-sm font-semibold tabular-nums">
-              {text.month(month)}
+      </PopoverTrigger>
+      <PopoverContent
+        data-slot="date-picker-content"
+        align="start"
+        sideOffset={4}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          grid.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+        }}
+        className="max-w-none p-sm"
+      >
+        <div className="flex items-center justify-between gap-sm">
+          <button
+            type="button"
+            aria-label={text.previous}
+            title={text.previous}
+            onClick={() => setFocus(addMonths(focus, -1))}
+            className={nav}
+          >
+            <ChevronLeft aria-hidden className="size-(--tk-font-size-base)" />
+          </button>
+          <span aria-live="polite" className="text-sm font-semibold tabular-nums">
+            {text.month(month)}
+          </span>
+          <button
+            type="button"
+            aria-label={text.next}
+            title={text.next}
+            onClick={() => setFocus(addMonths(focus, 1))}
+            className={nav}
+          >
+            <ChevronRight aria-hidden className="size-(--tk-font-size-base)" />
+          </button>
+        </div>
+        <div ref={grid} role="group" aria-label={text.month(month)} className="grid grid-cols-7 gap-xs">
+          {text.weekdays.map((weekday) => (
+            <span key={weekday} aria-hidden className="text-center text-xs text-ink-muted">
+              {weekday}
             </span>
-            <button
-              type="button"
-              aria-label={text.next}
-              title={text.next}
-              onClick={() => setFocus(addMonths(focus, 1))}
-              className={nav}
-            >
-              <ChevronRight aria-hidden className="size-(--tk-font-size-base)" />
+          ))}
+          {monthWeeks(focus)
+            .flat()
+            .map((date) => {
+              const selected = date === value;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  data-date={date}
+                  tabIndex={date === focus ? 0 : -1}
+                  aria-label={date}
+                  aria-pressed={selected}
+                  aria-current={date === now ? "date" : undefined}
+                  onClick={() => pick(date)}
+                  onKeyDown={(event) => onKeyDown(event, date)}
+                  className={cn(
+                    "grid size-(--tk-size-control) cursor-pointer place-items-center rounded-sm text-sm tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
+                    selected
+                      ? "bg-accent font-medium text-on-accent"
+                      : cn(
+                          "hover:bg-surface-raised",
+                          monthOf(date) !== month && "text-ink-muted/60",
+                          date === now && "font-semibold text-accent",
+                        ),
+                  )}
+                >
+                  {Number(date.slice(8))}
+                </button>
+              );
+            })}
+        </div>
+        <div className="flex items-center justify-between gap-sm border-t-(length:--tk-border-thin) border-line pt-xs">
+          <button type="button" onClick={() => pick(now)} className={action}>
+            {text.today}
+          </button>
+          {value === "" ? null : (
+            <button type="button" onClick={() => pick("")} className={cn(action, "text-ink-muted")}>
+              {text.clear}
             </button>
-          </div>
-          <div ref={grid} role="group" aria-label={text.month(month)} className="grid grid-cols-7 gap-xs">
-            {text.weekdays.map((weekday) => (
-              <span key={weekday} aria-hidden className="text-center text-xs text-ink-muted">
-                {weekday}
-              </span>
-            ))}
-            {monthWeeks(focus)
-              .flat()
-              .map((date) => {
-                const selected = date === value;
-                return (
-                  <button
-                    key={date}
-                    type="button"
-                    data-date={date}
-                    tabIndex={date === focus ? 0 : -1}
-                    aria-label={date}
-                    aria-pressed={selected}
-                    aria-current={date === now ? "date" : undefined}
-                    onClick={() => pick(date)}
-                    onKeyDown={(event) => onKeyDown(event, date)}
-                    className={cn(
-                      "grid size-(--tk-size-control) cursor-pointer place-items-center rounded-sm text-sm tabular-nums outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",
-                      selected
-                        ? "bg-accent font-medium text-on-accent"
-                        : cn(
-                            "hover:bg-surface-raised",
-                            monthOf(date) !== month && "text-ink-muted/60",
-                            date === now && "font-semibold text-accent",
-                          ),
-                    )}
-                  >
-                    {Number(date.slice(8))}
-                  </button>
-                );
-              })}
-          </div>
-          <div className="flex items-center justify-between gap-sm border-t-(length:--tk-border-thin) border-line pt-xs">
-            <button type="button" onClick={() => pick(now)} className={action}>
-              {text.today}
-            </button>
-            {value === "" ? null : (
-              <button type="button" onClick={() => pick("")} className={cn(action, "text-ink-muted")}>
-                {text.clear}
-              </button>
-            )}
-          </div>
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

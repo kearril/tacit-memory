@@ -2,13 +2,7 @@ import { cn } from "cn";
 import { FolderGit2, Globe, Inbox, Tag, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import {
-  type CandidateView,
-  type FileProblem,
-  type MemoryFileInfo,
-  type PersonaReport,
-  usePersona,
-} from "../../api/memory";
+import { type CandidateView, type FileProblem, type MemoryFileInfo, usePersona } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { BELOW_BARS } from "../../components/ui/sticky";
@@ -66,6 +60,7 @@ export function MemoryPersonaPage() {
   const current = scopeKeyOf(params, report);
   const scope = scopes.find((item) => item.key === current) ?? null;
   const problems = report.personaFile.problems;
+  const groups = personaSections(report, current);
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
       <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
@@ -86,8 +81,8 @@ export function MemoryPersonaPage() {
           {text.candidatesWaiting(report.candidates.length)}
         </a>
       )}
-      <FileProblems problems={problems.filter(unplaced(report))} />
-      {personaSections(report, current).map((group) => (
+      <FileProblems problems={problems.filter(unplaced(groups))} />
+      {groups.map((group) => (
         <SectionCard key={group.section ?? "other"} group={group} problems={problems} showScope={current === null} />
       ))}
       <CandidatesCard file={report.candidatesFile} candidates={report.candidates} rejected={report.rejectionList} />
@@ -100,13 +95,12 @@ export function MemoryPersonaPage() {
   );
 }
 
-/** Whether a problem of `persona.md` sits on no line an entry shows, so it is listed apart rather than in place. */
-function unplaced(report: PersonaReport): (problem: FileProblem) => boolean {
-  const lines = new Set(
-    [...report.global, ...[...report.domains, ...report.workstreams].flatMap((block) => block.sections)]
-      .flatMap((section) => section.entries)
-      .map((entry) => entry.line),
-  );
+/**
+ * Whether a problem of `persona.md` sits on no line an entry shown in the current scope has, so it is listed apart
+ * rather than in place: a problem of another scope's entry stays in sight while that scope is not shown.
+ */
+function unplaced(groups: readonly PersonaSectionRows[]): (problem: FileProblem) => boolean {
+  const lines = new Set(groups.flatMap((group) => group.rows.map((row) => row.entry.line)));
   return (problem) => problem.line === null || !lines.has(problem.line);
 }
 

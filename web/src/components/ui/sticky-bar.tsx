@@ -48,6 +48,41 @@ function useStuck(element: RefObject<HTMLElement | null>, edge: Edge): boolean {
 }
 
 /**
+ * How much a bar folded once stuck, for a bottom margin that keeps what follows it in place: without it the page would
+ * shift up by the fold and could get short enough to scroll the bar back out of its stuck place, unfolding it again.
+ * A top bar also writes its height in `--sticky-bar-height` on the document, for what is scrolled to under it.
+ */
+function useFold(element: RefObject<HTMLElement | null>, stuck: boolean, edge: Edge): number {
+  const rest = useRef(0);
+  const [fold, setFold] = useState(0);
+  useEffect(() => {
+    const target = element.current;
+    if (target === null) {
+      return;
+    }
+    const root = document.documentElement.style;
+    const observer = new ResizeObserver(() => {
+      const height = target.offsetHeight;
+      if (!stuck) {
+        rest.current = height;
+      }
+      setFold(stuck ? Math.max(0, rest.current - height) : 0);
+      if (edge === "top") {
+        root.setProperty("--sticky-bar-height", `${height}px`);
+      }
+    });
+    observer.observe(target);
+    return () => {
+      observer.disconnect();
+      if (edge === "top") {
+        root.removeProperty("--sticky-bar-height");
+      }
+    };
+  }, [element, stuck, edge]);
+  return fold;
+}
+
+/**
  * A bar that keeps to the top of the page as it scrolls (below the narrow screen's top bar), or to the bottom. In its
  * place it lies on the canvas, as wide as the column with the column's padding; once stuck it draws in to the column
  * and floats a little off the edge as a rounded surface with a raised shadow. Its content can take whether it has
@@ -69,9 +104,11 @@ function StickyBar({
 }) {
   const bar = useRef<HTMLDivElement>(null);
   const stuck = useStuck(bar, edge);
+  const fold = useFold(bar, stuck, edge);
   return (
     <div
       ref={bar}
+      style={{ marginBottom: fold }}
       role={role}
       data-stuck={stuck || undefined}
       className={cn(

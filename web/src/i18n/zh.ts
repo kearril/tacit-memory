@@ -757,7 +757,6 @@ export const zh: Dictionary = {
       trigger: (trigger) => `触发：${trigger}`,
       noTrigger: "缺少触发描述",
       candidatesTitle: "画像候选",
-      candidateCount: (count) => `${count} 条`,
       noCandidates: "暂无候选",
       candidateViews: {
         label: "看待审的候选或拒绝列表",

@@ -39,7 +39,8 @@ export function MemoryPagesPage() {
   const text = dictionary.memory.pages;
   const pages = usePages();
   const [search, setSearch] = useSearchParams();
-  const filter = pageFilterOf(search);
+  // Read once per change of the address, so the lists worked out from it below are not worked out again on every render.
+  const filter = useMemo(() => pageFilterOf(search), [search]);
   const [keyword, setKeyword] = useState(filter.q);
   const [sort, setSort] = useState<PageSort>("workstream");
   const all = pages.data?.pages;
@@ -51,7 +52,10 @@ export function MemoryPagesPage() {
     () => sortPages(filter.type === "" ? untyped : untyped.filter((page) => page.type === filter.type), sort),
     [untyped, filter.type, sort],
   );
-  const workstreams = useMemo(() => sortPages(all ?? [], "workstream").map((page) => page.workstream), [all]);
+  const workstreams = useMemo(
+    () => [...new Set(sortPages(all ?? [], "workstream").map((page) => page.workstream))],
+    [all],
+  );
   const update = (change: Partial<PageFilter>) =>
     setSearch(pageFilterParams({ ...filter, q: keyword, ...change }), { replace: true });
 
@@ -83,7 +87,7 @@ export function MemoryPagesPage() {
             onValueChange={(value) => update({ workstream: value })}
             options={[
               { value: "", label: text.workstreamAll },
-              ...[...new Set(workstreams)].map((name) => ({
+              ...workstreams.map((name) => ({
                 value: name,
                 label: name === TOPICS ? dictionary.memory.parts.topics : name,
               })),

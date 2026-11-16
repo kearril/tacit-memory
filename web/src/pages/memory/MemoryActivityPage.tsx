@@ -17,6 +17,7 @@ import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Select } from "../../components/ui/select";
 import { entryBox } from "../../components/ui/entry-box";
+import { BELOW_BARS } from "../../components/ui/sticky";
 import { errorTextOf } from "../../i18n/messages";
 import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
@@ -31,13 +32,6 @@ import {
   type TimelineEntry,
   timelineOf,
 } from "./timeline";
-
-/** The dashed box a week summary sits in, as the persona's entries do. */
-const DASHED = "rounded-md border-(length:--tk-border-thin) border-dashed";
-
-/** Where a day stops when it is scrolled to: below the narrow screen's bar and the floating month bar of two rows. */
-const BELOW_MONTH_BAR =
-  "scroll-mt-[calc(var(--tk-size-nav-bar)+2*var(--tk-size-control)+5*var(--tk-space-sm))] lg:scroll-mt-[calc(2*var(--tk-size-control)+5*var(--tk-space-sm))]";
 
 /** Scrolls a day of the timeline to the top, below the sticky bars. */
 function scrollToDay(date: string) {
@@ -291,7 +285,7 @@ function DaySection({ date, activities }: { readonly date: string; readonly acti
     <section
       id={dayAnchor(date)}
       aria-labelledby={`${dayAnchor(date)}-title`}
-      className={cn(BELOW_MONTH_BAR, "grid grid-cols-[var(--tk-size-control)_minmax(0,1fr)] gap-x-md")}
+      className={cn(BELOW_BARS, "grid grid-cols-[var(--tk-size-control)_minmax(0,1fr)] gap-x-md")}
     >
       <h2 id={`${dayAnchor(date)}-title`} className="grid content-start justify-items-center text-center">
         <span className="sr-only">{date}</span>
@@ -326,7 +320,9 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
       />
       <div className="flex min-h-(--tk-font-size-xl) flex-wrap items-center gap-sm text-xs text-ink-muted">
         {item.workstream === null ? (
-          <span className={cn(DASHED, "rounded-full border-ink-muted/40 px-sm")}>{text.noWorkstream}</span>
+          <span className="rounded-full border-(length:--tk-border-thin) border-dashed border-ink-muted/40 px-sm">
+            {text.noWorkstream}
+          </span>
         ) : (
           <WorkstreamPill name={item.workstream} />
         )}
@@ -354,7 +350,7 @@ function Summary({ summary }: { readonly summary: ActivitySummaryView }) {
   return (
     <aside
       aria-label={title}
-      className={cn("grid gap-xs px-md py-sm", week ? entryBox({ tone: "accent" }) : "rounded-md bg-accent-soft")}
+      className={cn("grid gap-xs", week ? entryBox({ tone: "accent" }) : "rounded-md bg-accent-soft px-md py-sm")}
     >
       <p className="flex flex-wrap items-baseline gap-x-sm text-sm font-semibold">
         <span className="text-accent">{title}</span>

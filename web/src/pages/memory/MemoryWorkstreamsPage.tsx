@@ -45,8 +45,6 @@ function pagePathOf(id: string): string {
   return `${memoryPathOf("pages")}/${id}`;
 }
 
-/** The dashed box an entry of the brief sits in, as the persona's entries do. */
-
 /**
  * The workstreams view of the memory page, in a reading column. A sticky strip above holds every workstream as a small
  * card (name, pages, last activity, weekly bar) that folds to a pill once the strip sticks; the chosen workstream's

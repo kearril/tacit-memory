@@ -19,8 +19,6 @@ import { memoryPathOf } from "./views";
 
 const MarkdownBody = lazy(() => import("./MarkdownBody"));
 
-/** The dashed box a section sits in, as the persona's entries do. */
-
 /**
  * One detail page in a reading column: the trail back to the list, a head card with the page's facts, a sticky row of
  * its sections to jump to, then the sections numbered in dashed boxes, each typeset under its name, the day it changed
