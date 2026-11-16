@@ -61,8 +61,6 @@ public sealed class MemoryService : IDisposable
     private FileSystemWatcher _watcher = null!;
     private FileSystemWatcher? _promptsWatcher;
     private readonly Timer _promptsTimer;
-    private readonly Timer _indexTimer;
-    private readonly Lock _indexTimerGate = new();
 
     /// <summary>Keeps the derived products in step with the memory files; it outlives every runtime.</summary>
     private readonly DerivedUpkeep _upkeep;
@@ -71,7 +69,6 @@ public sealed class MemoryService : IDisposable
     private int _promptsRetries;
 
     private readonly Lock _instructionsGate = new();
-    private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
     private readonly MaintenanceGate _gate = new();
     private PageTools _pages = null!;
     private RecentTools _recent = null!;
@@ -89,9 +86,6 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>The refusal of each prompt document whose file the service does not run, keeping its previous text instead.</summary>
     private IReadOnlyDictionary<PromptName, string> _promptProblems = new Dictionary<PromptName, string>();
-    private string? _instructions;
-    private string? _instructionsStatus;
-    private int _instructionsVersion;
     private volatile bool _disposed;
 
     /// <summary>Whether a runtime is open; false only after a reload could open none, which ends the service.</summary>
@@ -115,9 +109,8 @@ public sealed class MemoryService : IDisposable
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _upkeep = new DerivedUpkeep(
-            options, _log, _gate, () => new UpkeepRuntime(Config, _prompts, _backup.Completion, _vectors.Background, _judgments.Completion));
+            options, _log, _gate, () => new UpkeepRuntime(Config, _prompts, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
         _promptsTimer = new Timer(_ => ReloadPrompts());
-        _indexTimer = new Timer(_ => SyncIndexNow());
         OpenRuntime(config);
     }
 
@@ -189,7 +182,7 @@ public sealed class MemoryService : IDisposable
         _watcher.EnableRaisingEvents = true;
         WatchPrompts();
         _runtimeOpen = true;
-        InvalidateInstructions();
+        _upkeep.InvalidateInstructions();
     }
 
     /// <summary>Lets go of the runtime's files and models: the watchers, the index and the model clients. Its background work has already settled.</summary>
@@ -297,6 +290,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>What happened to each bound context file when the service started.</summary>
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
+
     /// <summary>
     /// The server instructions, generated on first use and kept until something they are built from may have changed: a
     /// prompt document, the persona or its candidates, a page or activity file, <c>workstreams.md</c> (which the consolidation
@@ -306,41 +300,7 @@ public sealed class MemoryService : IDisposable
     public async Task<string> ServerInstructionsAsync(CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        await _instructionsBuild.WaitAsync(cancellationToken);
-        try
-        {
-            var unavailable = _models.Unavailable;
-            var skipped = _index.SkippedFiles;
-            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped) + "\n" + _options.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-            int version;
-            PromptDocuments prompts;
-            lock (_instructionsGate)
-            {
-                if (_instructions is not null && _instructionsStatus == status)
-                    return _instructions;
-                version = _instructionsVersion;
-                prompts = _prompts;
-            }
-
-            var recent = RecentSummary.Read(Config.MemoryPath, _options.Today);
-            var consolidation = await ConsolidationReminder.RenderAsync(Config, _options.Today, cancellationToken);
-            var text = ServerInstructionText.Assemble(Config.Language, prompts, unavailable, skipped, recent, consolidation).Text;
-
-            lock (_instructionsGate)
-            {
-                // A change that arrived while the text was being built makes it stale, so it is not kept.
-                if (version == _instructionsVersion)
-                {
-                    _instructions = text;
-                    _instructionsStatus = status;
-                }
-            }
-            return text;
-        }
-        finally
-        {
-            _instructionsBuild.Release();
-        }
+        return await _upkeep.InstructionsAsync(cancellationToken);
     }
 
     /// <summary>
@@ -872,6 +832,9 @@ public sealed class MemoryService : IDisposable
     /// <summary>Completes once the scheduled refreshes have run and the background work has finished.</summary>
     internal Task SettledAsync() => _upkeep.SettledAsync();
 
+    /// <summary>Tells the upkeep that a file or folder in the memory repository changed, as the watcher does; for tests.</summary>
+    internal void MemoryChanged(string relative) => _upkeep.MemoryChanged(relative);
+
     /// <summary>Completes when the vectors being filled in the background are stored. Tests await it.</summary>
     internal Task VectorCompletion => _vectors.Background;
 
@@ -1029,13 +992,11 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
-    /// What follows a write once its file is written and the index has it: page counts, format problems, recent activities
-    /// and the persona all feed the instructions, so they are rebuilt on their next use; the day's first write leaves a
-    /// backup; a written persona re-renders the bound resident blocks, while a candidate waits for confirmation first.
+    /// What follows a write once its file is written and the index has it: the day's first write leaves a backup, and the
+    /// upkeep refreshes what the written source feeds.
     /// </summary>
     private void OnWritten(WrittenSource source)
     {
-        InvalidateInstructions();
         _backup.ScheduleIfDue();
         _upkeep.Written(source);
     }
@@ -1266,7 +1227,7 @@ public sealed class MemoryService : IDisposable
             notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
         if (config && !reloaded)
             ApplyPrompts();
-        InvalidateInstructions();
+        _upkeep.InvalidateInstructions();
 
         if (config)
         {
@@ -1356,14 +1317,11 @@ public sealed class MemoryService : IDisposable
         _upkeep.Dispose();
         lock (_upkeep.Gate)
             _promptsTimer.Dispose();
-        lock (_indexTimerGate)
-            _indexTimer.Dispose();
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
         CloseRuntime();
         _gate.Dispose();
-        _instructionsBuild.Dispose();
     }
 
     /// <summary>
@@ -1421,12 +1379,6 @@ public sealed class MemoryService : IDisposable
             foreach (var relative in paths.Select(path => Path.GetRelativePath(Config.MemoryPath, path).Replace('\\', '/')))
             {
                 _upkeep.MemoryChanged(relative);
-                if (relative is MemoryLayout.Persona or MemoryLayout.Candidates)
-                    ScheduleIndexSync();
-                if (AffectsInstructions(relative))
-                    InvalidateInstructions();
-                if (MemoryLayout.IsIn(relative, MemoryLayout.Pages) || MemoryLayout.IsIn(relative, MemoryLayout.Recent))
-                    ScheduleIndexSync();
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -1437,38 +1389,7 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>Events were lost: assume anything may have changed.</summary>
-    private void OnOverflow(object sender, ErrorEventArgs e)
-    {
-        InvalidateInstructions();
-        _upkeep.EventsLost();
-        ScheduleIndexSync();
-    }
-
-    private void InvalidateInstructions()
-    {
-        lock (_instructionsGate)
-            ClearInstructionsLocked();
-    }
-
-    /// <summary>Drops the cached text. A build that started before this is not kept either.</summary>
-    private void ClearInstructionsLocked()
-    {
-        _instructions = null;
-        _instructionsVersion++;
-    }
-
-    /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
-    private static bool AffectsInstructions(string relative) =>
-        relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
-        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
-        || MemoryLayout.IsIn(relative, MemoryLayout.Pages)
-        || IsGitHistory(relative);
-
-    /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>
-    private static bool IsGitHistory(string relative) =>
-        relative is ".git/HEAD" or ".git/packed-refs"
-        || relative.StartsWith(".git/refs/", StringComparison.Ordinal)
-        || relative.StartsWith(".git/logs/", StringComparison.Ordinal);
+    private void OnOverflow(object sender, ErrorEventArgs e) => _upkeep.EventsLost();
 
     private void OnPromptsChange(object sender, FileSystemEventArgs e) => SchedulePromptsReload();
 
@@ -1532,8 +1453,8 @@ public sealed class MemoryService : IDisposable
                 {
                     _prompts = prompts;
                     _promptProblems = problems;
-                    ClearInstructionsLocked();
                 }
+                _upkeep.InvalidateInstructions();
                 _promptsRetries = 0;
                 // The resident blocks show resident.md: render them with the new text, as a persona change does.
                 if (residentChanged)
@@ -1555,43 +1476,6 @@ public sealed class MemoryService : IDisposable
         }
     }
 
-    private void ScheduleIndexSync()
-    {
-        lock (_indexTimerGate)
-        {
-            if (!_disposed)
-                _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-        }
-    }
-
     /// <summary>Runs <paramref name="work"/> under the write gate, as the upkeep runs its refreshes.</summary>
     private void UnderWriteGate(Action work) => _ = _upkeep.UnderWriteGate(work);
-
-    /// <summary>
-    /// Runs on the timer thread, between writes: compares every page file's hash with the index, so missed events do no
-    /// harm. It reads the files only under the write gate, as a write replaces them.
-    /// </summary>
-    private void SyncIndexNow() => UnderWriteGate(() =>
-    {
-        lock (_indexTimerGate)
-        {
-            if (_disposed)
-                return;
-            try
-            {
-                _index.SyncAll();
-                _vectors.FillInBackground();
-            }
-            catch (IOException)
-            {
-                // The editor still holds a file; try again once it settles.
-                _indexTimer.Change(Debounce, Timeout.InfiniteTimeSpan);
-            }
-            catch (Exception e) when (e is UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException or TacitException)
-            {
-                // A git process that cannot start surfaces as a TacitException from the full build's commit dates.
-                _log.Notify(LogLevel.Warning, Messages.IndexSyncFailed, e.Message);
-            }
-        }
-    });
 }

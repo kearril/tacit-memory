@@ -1,18 +1,27 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Clients;
+using TacitMemory.Core.Consolidation;
+using TacitMemory.Core.Index;
+using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Logging;
 using TacitMemory.Core.Maintenance;
+using TacitMemory.Core.Models;
+using TacitMemory.Core.Recent;
 
 namespace TacitMemory.Core.Upkeep;
 
 /// <summary>What the derived products are made from in the runtime open now, read afresh each time it is asked for.</summary>
 /// <param name="Config">The config the runtime runs.</param>
 /// <param name="Prompts">The prompt documents the service runs.</param>
+/// <param name="Index">The derived index.</param>
+/// <param name="Vectors">The vector fill, which an index sync starts in the background.</param>
+/// <param name="Models">The auxiliary models, whose availability the server instructions report.</param>
 /// <param name="Backup">The automatic backup in progress, or a completed task.</param>
-/// <param name="Vectors">The vector fill in progress, or a completed task.</param>
 /// <param name="Judgments">The consolidation judgments in progress, or a completed task.</param>
-internal sealed record UpkeepRuntime(TacitConfig Config, PromptDocuments Prompts, Task Backup, Task Vectors, Task Judgments);
+internal sealed record UpkeepRuntime(
+    TacitConfig Config, PromptDocuments Prompts, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments);
 
 /// <summary>
 /// Keeps the products derived from the memory files in step with them: it hears which source changed, schedules the
@@ -37,6 +46,12 @@ internal sealed class DerivedUpkeep : IDisposable
     private readonly MaintenanceGate _gate;
     private readonly Func<UpkeepRuntime> _runtime;
     private readonly Debounced _resident;
+    private readonly Debounced _index;
+    private readonly Lock _instructionsGate = new();
+    private readonly SemaphoreSlim _instructionsBuild = new(1, 1);
+    private string? _instructions;
+    private string? _instructionsStatus;
+    private int _instructionsVersion;
     private readonly HashSet<Task> _running = [];
     private ITimer _dayTimer;
     private bool _disposed;
@@ -48,6 +63,7 @@ internal sealed class DerivedUpkeep : IDisposable
         _gate = gate;
         _runtime = runtime;
         _resident = new Debounced(this, RenderResident, Messages.RenderFailed);
+        _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed);
         _dayTimer = ArmDayTimer();
     }
 
@@ -62,17 +78,86 @@ internal sealed class DerivedUpkeep : IDisposable
     {
         if (relative == MemoryLayout.Persona || AffectsResident(relative))
             _resident.Schedule();
+        if (relative is MemoryLayout.Persona or MemoryLayout.Candidates
+            || MemoryLayout.IsIn(relative, MemoryLayout.Pages) || MemoryLayout.IsIn(relative, MemoryLayout.Recent))
+            _index.Schedule();
+        if (AffectsInstructions(relative))
+            InvalidateInstructions();
     }
 
     /// <summary>A watcher lost events: anything may have changed.</summary>
-    public void EventsLost() => _resident.Schedule();
+    public void EventsLost()
+    {
+        InvalidateInstructions();
+        _resident.Schedule();
+        _index.Schedule();
+    }
 
-    /// <summary>A write tool has written a source of this kind.</summary>
+    /// <summary>
+    /// A write tool has written a source of this kind, and has already synced the index for it. Page counts, format
+    /// problems, recent activities and the persona all feed the server instructions, so they are built again on their next
+    /// use; only a change to the persona reaches the resident block, while a candidate waits for confirmation first.
+    /// </summary>
     public void Written(WrittenSource source)
     {
-        // Only a change to the persona reaches the resident block; a candidate waits for confirmation first.
+        InvalidateInstructions();
         if (source == WrittenSource.Persona)
             _resident.Schedule();
+    }
+
+    /// <summary>Drops the cached server instructions. A build that started before this is not kept either.</summary>
+    public void InvalidateInstructions()
+    {
+        lock (_instructionsGate)
+        {
+            _instructions = null;
+            _instructionsVersion++;
+        }
+    }
+
+    /// <summary>
+    /// The server instructions, built on first use and kept until something they are built from may have changed: a
+    /// prompt document, the persona or its candidates, a page or activity file, <c>workstreams.md</c> (which the consolidation
+    /// reminder reads), the memory repository's commits, or the status (unavailable models, skipped files, the date). Builds
+    /// run one at a time. The caller holds the read gate.
+    /// </summary>
+    public async Task<string> InstructionsAsync(CancellationToken cancellationToken)
+    {
+        await _instructionsBuild.WaitAsync(cancellationToken);
+        try
+        {
+            var runtime = _runtime();
+            var today = _options.Today;
+            var unavailable = runtime.Models.Unavailable;
+            var skipped = runtime.Index.SkippedFiles;
+            var status = string.Join("|", unavailable) + "\n" + string.Join("|", skipped) + "\n" + today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            int version;
+            lock (_instructionsGate)
+            {
+                if (_instructions is not null && _instructionsStatus == status)
+                    return _instructions;
+                version = _instructionsVersion;
+            }
+
+            var recent = RecentSummary.Read(runtime.Config.MemoryPath, today);
+            var consolidation = await ConsolidationReminder.RenderAsync(runtime.Config, today, cancellationToken);
+            var text = ServerInstructionText.Assemble(runtime.Config.Language, runtime.Prompts, unavailable, skipped, recent, consolidation).Text;
+
+            lock (_instructionsGate)
+            {
+                // A change that arrived while the text was being built makes it stale, so it is not kept.
+                if (version == _instructionsVersion)
+                {
+                    _instructions = text;
+                    _instructionsStatus = status;
+                }
+            }
+            return text;
+        }
+        finally
+        {
+            _instructionsBuild.Release();
+        }
     }
 
     /// <summary><c>resident.md</c> now has other text, which the resident blocks show.</summary>
@@ -99,12 +184,13 @@ internal sealed class DerivedUpkeep : IDisposable
     public async Task SettledAsync()
     {
         _resident.Flush();
+        _index.Flush();
         Task[] running;
         lock (Gate)
             running = [.. _running];
         await Task.WhenAll(running);
         var runtime = _runtime();
-        await Task.WhenAll(Settled(runtime.Backup), Settled(runtime.Vectors), Settled(runtime.Judgments));
+        await Task.WhenAll(Settled(runtime.Backup), Settled(runtime.Vectors.Background), Settled(runtime.Judgments));
     }
 
     /// <summary>
@@ -165,6 +251,30 @@ internal sealed class DerivedUpkeep : IDisposable
     }
 
     /// <summary>
+    /// Compares every source file's hash with the index, so missed events do no harm, and fills the vectors of what changed
+    /// in the background. It reads the files only under the write gate, as a write replaces them.
+    /// </summary>
+    private void SyncIndex()
+    {
+        var runtime = _runtime();
+        runtime.Index.SyncAll();
+        runtime.Vectors.FillInBackground();
+    }
+
+    /// <summary>Whether a change to this path (relative to the repository, with forward slashes) can change the server instructions.</summary>
+    private static bool AffectsInstructions(string relative) =>
+        relative is MemoryLayout.Persona or MemoryLayout.Candidates or MemoryLayout.Workstreams
+        || MemoryLayout.IsIn(relative, MemoryLayout.Recent)
+        || MemoryLayout.IsIn(relative, MemoryLayout.Pages)
+        || IsGitHistory(relative);
+
+    /// <summary>The files a commit moves: HEAD, the refs and their logs, and the packed refs.</summary>
+    private static bool IsGitHistory(string relative) =>
+        relative is ".git/HEAD" or ".git/packed-refs"
+        || relative.StartsWith(".git/refs/", StringComparison.Ordinal)
+        || relative.StartsWith(".git/logs/", StringComparison.Ordinal);
+
+    /// <summary>
     /// Whether a change to this path (relative to the repository, with forward slashes) changes the resident block: the
     /// <c>workstreams.md</c>, an activity month file (its counts and its summaries), or a workstream folder directly under <c>pages/</c>.
     /// </summary>
@@ -211,6 +321,7 @@ internal sealed class DerivedUpkeep : IDisposable
         {
             _disposed = true;
             _resident.Dispose();
+            _index.Dispose();
             _dayTimer.Dispose();
         }
     }

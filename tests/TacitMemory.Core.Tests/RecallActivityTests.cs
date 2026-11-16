@@ -68,10 +68,13 @@ public sealed class RecallActivityTests : IDisposable
         return vector;
     }
 
-    private static async Task Eventually(Func<Task<bool>> condition)
+    /// <summary>Waits until the condition holds, letting the open service run the refreshes it has scheduled on the test clock.</summary>
+    private async Task Eventually(Func<Task<bool>> condition)
     {
         for (var waited = TimeSpan.Zero; waited < TimeSpan.FromSeconds(10); waited += TimeSpan.FromMilliseconds(100))
         {
+            if (_service is { } service)
+                await service.SettledAsync();
             if (await condition())
                 return;
             await Task.Delay(TimeSpan.FromMilliseconds(100));
