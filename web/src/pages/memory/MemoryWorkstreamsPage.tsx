@@ -94,9 +94,8 @@ export function MemoryWorkstreamsPage() {
 }
 
 /**
- * Every workstream in a strip, the established ones in file order, then the names in use that are not, dashed. Before
- * one is chosen the cards wrap to show them all; after, they keep to one row that scrolls sideways. Once the strip
- * sticks they fold to pills.
+ * Every workstream in a strip, the established ones in file order, then the names in use that are not, dashed; the
+ * cards wrap to show them all. Once the strip sticks they fold to pills, which wrap as well.
  */
 function WorkstreamStrip({ list, selected }: { readonly list: WorkstreamList; readonly selected: string | null }) {
   const text = useDictionary().memory.workstreams;
@@ -108,7 +107,7 @@ function WorkstreamStrip({ list, selected }: { readonly list: WorkstreamList; re
   return (
     <StickyBar role="navigation" aria-label={text.listLabel}>
       {(stuck) => (
-        <ul className={cn("-m-xs flex gap-sm p-xs", selected === null ? "flex-wrap" : "overflow-x-auto")}>
+        <ul className="-m-xs flex flex-wrap gap-sm p-xs">
           {items.map(({ item, faint }) => (
             <StripItem
               key={item.name}

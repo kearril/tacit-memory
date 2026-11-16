@@ -120,12 +120,12 @@ function PageHead({ page }: { readonly page: PageView }) {
   );
 }
 
-/** The sections' names in a sticky row that scrolls sideways, each jumping to its section. */
+/** The sections' names in a sticky bar, wrapping when they do not fit in a row, each jumping to its section. */
 function SectionTabs({ sections }: { readonly sections: readonly PageSectionView[] }) {
   const text = useDictionary().memory.pages;
   return (
     <StickyBar role="navigation" aria-label={text.contents}>
-      <ul className="-m-xs flex gap-sm overflow-x-auto p-xs">
+      <ul className="-m-xs flex flex-wrap gap-sm p-xs">
         {sections.map((section) => (
           <li key={section.name} className="shrink-0">
             <a

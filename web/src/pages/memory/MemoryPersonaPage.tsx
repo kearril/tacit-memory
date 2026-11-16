@@ -107,7 +107,7 @@ function unplaced(report: PersonaReport): (problem: FileProblem) => boolean {
   return (problem) => problem.line === null || !lines.has(problem.line);
 }
 
-/** The scopes as pills in one row that scrolls sideways when it does not fit: all, global, each domain, each workstream. */
+/** The scopes as pills that wrap when they do not fit in a row: all, global, each domain, each workstream. */
 function ScopeBar({
   scopes,
   current,
@@ -120,7 +120,7 @@ function ScopeBar({
   const text = useDictionary().memory.persona;
   const total = scopes.reduce((sum, scope) => sum + scope.count, 0);
   return (
-    <div role="group" aria-label={text.scopes} className="flex gap-sm overflow-x-auto">
+    <div role="group" aria-label={text.scopes} className="flex flex-wrap gap-sm">
       <ScopePill active={current === null} onClick={() => onSelect(null)}>
         {text.scopeAll}
         <span className="tabular-nums">{total}</span>
