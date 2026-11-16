@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router";
 import { ApiError } from "../../api/client";
 import { login, SESSION_QUERY_KEY } from "../../api/session";
-import { Brain } from "lucide-react";
+import { AppIcon } from "../../components/app-icon";
 import { Button } from "../../components/ui/button";
 import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { PasswordInput } from "../../components/ui/password-input";
@@ -58,9 +58,7 @@ export function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center bg-canvas p-md">
       <Card className="w-full max-w-content gap-lg p-xl">
         <div className="grid justify-items-start gap-md">
-          <span className="grid size-(--tk-size-control) place-items-center rounded-md bg-accent text-on-accent shadow-pressed">
-            <Brain aria-hidden className="size-(--tk-font-size-lg)" />
-          </span>
+          <AppIcon />
           <div className="grid gap-xs">
             <CardTitle className="text-xl">{dictionary.login.title}</CardTitle>
             <CardDescription>{dictionary.login.description}</CardDescription>

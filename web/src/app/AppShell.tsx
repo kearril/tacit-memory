@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Brain,
   ChevronDown,
   FileText,
   LayoutDashboard,
@@ -20,6 +19,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { usePrompts } from "../api/prompts";
 import { logout, SESSION_QUERY_KEY } from "../api/session";
+import { AppIcon } from "../components/app-icon";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet";
 import { MEMORY_PATH, MEMORY_VIEWS, memoryPathOf } from "../pages/memory/views";
@@ -309,9 +309,7 @@ function Brand() {
   const dictionary = useDictionary();
   return (
     <span className="flex items-center gap-sm text-base font-semibold">
-      <span className="grid size-(--tk-size-control) place-items-center rounded-md bg-accent text-on-accent shadow-pressed">
-        <Brain aria-hidden className="size-(--tk-font-size-lg)" />
-      </span>
+      <AppIcon />
       {dictionary.appName}
     </span>
   );
