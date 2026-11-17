@@ -1,6 +1,6 @@
 import type { Dictionary } from "./messages";
 
-export const en: Dictionary = {
+export const en = {
   appName: "TacitMemory",
   mainNav: "Main navigation",
   nav: {
@@ -860,4 +860,4 @@ export const en: Dictionary = {
       scopeGlobal: "Global",
     },
   },
-};
+} satisfies Dictionary;
