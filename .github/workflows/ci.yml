@@ -22,16 +22,11 @@ permissions:
 
 jobs:
   check:
-    # vec0.dll is Windows-only, so the index tests run on Windows.
-    runs-on: windows-latest
+    # Linux runs the suite cheapest and fastest, and takes the code paths macOS shares with it. The release workflow runs
+    # the suite on Windows as well before it packages anything.
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      # The tests start thousands of git processes and write thousands of temporary files, and the real-time scan checks
-      # each. The runner is thrown away after the job. Only a speed-up, so a runner that refuses it still runs the checks.
-      - name: Turn off real-time scanning
-        continue-on-error: true
-        run: Set-MpPreference -DisableRealtimeMonitoring $true
-
       - uses: actions/checkout@v7
         with:
           # MinVer reads the version from the tags in the history.
