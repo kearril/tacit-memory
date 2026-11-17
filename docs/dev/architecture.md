@@ -119,7 +119,7 @@ flowchart LR
 | CLI 与输出美化 | `ConsoleAppFramework`；`Spectre.Console` 只在 CLI 中用 |
 | 调用 `git` | `SimpleExec` |
 | 索引 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建）、`Dapper` |
-| 向量 | `sqlite-vec` 官方发布的 `vec0.dll`，存于 `lib/sqlite-vec/`，加载前校验 SHA-256 |
+| 向量 | `sqlite-vec` 官方发布的 loadable 扩展，按平台存于 `lib/sqlite-vec/<rid>/`，加载前校验 SHA-256 |
 | 辅助模型、WebDAV | 只用 `HttpClient`，不引入 SDK |
 | 日志 | `Serilog`；Core 只引用日志抽象 |
 | 版本与许可清单 | `MinVer`；`nuget-license` 与 `rollup-plugin-license` |

@@ -6,7 +6,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 ## 前提
 
 - **Git**：命令行可直接调用；记忆仓库由 Git 管理。
-- **操作系统**：已在 Windows x64 上验证。向量扩展 `vec0.dll` 仅附带 Windows x64 版本。
+- **操作系统**：Windows x64、macOS（Apple 芯片）与 Linux x64（glibc），各有发行包。
 - **三个辅助模型**（可选，均为 HTTP 端点，需自行准备；不配置的模型即未配置，服务照常运行，依赖它的功能按降级规则处理）：
   - 嵌入模型：OpenAI Embeddings 协议；
   - reranker：Cohere/Jina Rerank 协议；
@@ -16,7 +16,22 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
 ## 安装
 
-从 GitHub Releases 下载 `tacit-<版本>-win-x64.zip`，解压到一个空目录。发行包是自包含的，不需要预装 .NET。`tacit.exe`、`vec0.dll` 与 Web 界面的 `web/` 子目录须留在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。
+从 GitHub Releases 下载对应平台的发行包，解压到一个空目录。发行包是自包含的，不需要预装 .NET。
+
+| 平台 | 发行包 |
+| :-- | :-- |
+| Windows x64 | `tacit-<版本>-win-x64.zip` |
+| macOS（Apple 芯片） | `tacit-<版本>-osx-arm64.tar.gz` |
+| Linux x64 | `tacit-<版本>-linux-x64.tar.gz` |
+
+可执行文件（`tacit.exe` 或 `tacit`）、向量扩展（`vec0.dll`、`vec0.dylib` 或 `vec0.so`）与 Web 界面的 `web/` 子目录须留在同一目录。把该目录加入 `PATH`，或在 `PATH` 中的目录里放一个指向可执行文件的符号链接，即可在任意位置运行 `tacit`：
+
+```bash
+mkdir -p <安装目录> && tar -xzf tacit-<版本>-osx-arm64.tar.gz -C <安装目录>
+ln -s <安装目录>/tacit ~/.local/bin/tacit
+```
+
+macOS 的发行包只有 ad-hoc 签名，未经公证。用浏览器下载的文件带隔离标记，Gatekeeper 会拒绝运行其中的 `tacit` 与 `vec0.dylib`；用 `gh release download` 或 `curl -LO` 下载则不会带上它。已经带上时，解压后执行 `xattr -dr com.apple.quarantine <安装目录>`。
 
 校验下载与升级的步骤见 [`docs/reference/operations.md`](docs/reference/operations.md)「发布」。
 

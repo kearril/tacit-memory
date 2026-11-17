@@ -89,7 +89,7 @@
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md`「提示词文档」，固定部分的上限见 `docs/design.md`「注入」）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
 - **辅助模型连不上**：先运行 `tacit probe`，据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md`「辅助模型」）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
-- **向量扩展无法加载**：启动时会校验 `vec0.dll` 的存在与哈希，不符即拒绝启动。确认它与 `tacit.exe` 位于同一目录，且未被替换。
+- **向量扩展无法加载**：启动时会校验本平台向量扩展（`vec0.dll`、`vec0.dylib` 或 `vec0.so`）的存在与哈希，不符即拒绝启动。确认它与可执行文件位于同一目录，且未被替换，并且发行包与所在平台一致。
 - **客户端中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。
 
@@ -97,19 +97,20 @@
 
 ### 发行包
 
-每个版本在 GitHub Releases 上有一个 `tacit-<版本>-win-x64.zip` 与它的 `.sha256`。zip 是自包含的：解压即可运行，不需要预装 .NET。`tacit.exe` 是单个可执行文件，内含运行时与全部托管依赖（框架中用不到的部分在发布时裁掉，整体压缩）；旁边是两个按路径加载的原生库 `e_sqlite3.dll` 与 `vec0.dll`、`web/`、tacit 自己的 pdb，以及 `LICENSE`、`NOTICE` 与 `THIRD-PARTY-NOTICES.txt`。
+每个版本在 GitHub Releases 上有三个发行包，各附一个 `.sha256`：`tacit-<版本>-win-x64.zip`、`tacit-<版本>-osx-arm64.tar.gz` 与 `tacit-<版本>-linux-x64.tar.gz`。发行包是自包含的：解压即可运行，不需要预装 .NET。可执行文件（Windows 上为 `tacit.exe`，其他平台为 `tacit`）是单个文件，内含运行时与全部托管依赖（框架中用不到的部分在发布时裁掉，整体压缩）；旁边是两个按路径加载的原生库，即 SQLite 与向量扩展（Windows 上为 `e_sqlite3.dll` 与 `vec0.dll`，macOS 上为 `libe_sqlite3.dylib` 与 `vec0.dylib`，Linux 上为 `libe_sqlite3.so` 与 `vec0.so`），以及 `web/`、tacit 自己的 pdb、`LICENSE`、`NOTICE` 与 `THIRD-PARTY-NOTICES.txt`。tar.gz 保留可执行位。macOS 包的可执行文件带 ad-hoc 签名，未经公证。
 
-校验下载：
+校验下载（与 `.sha256` 文件中的值比对）：
 
-```powershell
-(Get-FileHash tacit-<版本>-win-x64.zip -Algorithm SHA256).Hash.ToLower()   # 与 .sha256 文件中的值比对
+```bash
+sha256sum -c tacit-<版本>-<平台>.<扩展名>.sha256        # Linux、Git Bash
+shasum -a 256 -c tacit-<版本>-osx-arm64.tar.gz.sha256   # macOS
 ```
 
 安装与升级都是"放进一个干净的目录"，数据目录 `~/.tacit` 不受影响：
 
 1. 停止服务（由托管工具运行时，从托管工具停止）；
 2. 清空安装目录。不要把新版本解压到旧文件上：同名文件会被覆盖，但旧版本独有的文件会留下；
-3. 把 zip 解压到安装目录；
+3. 把发行包解压到安装目录；
 4. 启动服务，用 `tacit status` 确认版本。
 
 ### 版本号
@@ -118,7 +119,7 @@
 
 ### 打包与发布流程
 
-GitHub Actions 在 Windows 运行器上运行（`vec0.dll` 只有 Windows 版）。推送到 `main` 时运行格式检查、全量测试与前端检查，只改文档的推送不运行，也可以手动触发；其他分支的推送不运行。检查的大部分时间是测试：运行器只有 2 个核心，测试又频繁启动 git 进程，所以工作流先关闭运行器上的实时扫描（运行器用完即弃）。推送 `v*` tag 后，先运行同样的检查，再用 `build/package.ps1` 打包，用 `build/smoke.ps1` 冒烟，最后创建 Release；手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
+推送到 `main` 时，GitHub Actions 在 Linux 运行器上运行格式检查、全量测试与前端检查，只改文档的推送不运行，也可以手动触发；其他分支的推送不运行。推送 `v*` tag 后，先在 Linux 与 Windows 上各运行一遍全量测试（Windows 上测试频繁启动 git 进程，所以先关闭运行器上的实时扫描，运行器用完即弃），再在三个平台各自的运行器上用 `build/package.sh` 打包、用 `build/smoke.sh` 冒烟。mac 包必须在 macOS 上构建，只有在那里构建时可执行文件才会被签名。三个包都通过冒烟后，由一个作业创建 Release，附全部发行包与各自的 SHA-256，不会出现只含部分平台的 Release；手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
 
 在本机打包（需要 .NET 11 SDK、Bun、`jq` 与 bash；Windows 上用 Git Bash）。包要在它所针对的平台上打：macOS 只在本机构建时给可执行文件签名，Apple 芯片不运行未签名的程序。
 
