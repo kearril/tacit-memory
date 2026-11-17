@@ -180,6 +180,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
     {
         await Send(_remote, new HttpRequestMessage(HttpMethod.Get, Url("/api/status")));
 
+        await _logs.WaitForAsync(entry => entry.Message.Contains("/api/status", StringComparison.Ordinal));
         var line = Assert.Single(_logs.Entries, entry => entry.Message.Contains("/api/status", StringComparison.Ordinal));
         Assert.Contains("401", line.Message, StringComparison.Ordinal);
     }
