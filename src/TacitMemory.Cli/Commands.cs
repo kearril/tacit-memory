@@ -43,10 +43,30 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         if (memory is not null)
             RequirePath("--memory", memory);
         var parsed = language is null ? (MemoryLanguage?)null : ParseChoice<MemoryLanguage>("--language", language);
-        var result = await _tacit.InitAsync(new InitRequest { Language = parsed, MemoryPath = memory }, cancellationToken);
+        var result = await _tacit.InitAsync(new InitRequest { Language = parsed, MemoryPath = memory, AskLanguage = AskLanguage }, cancellationToken);
         console.Out.WriteLine(result.Report);
         return 0;
     });
+
+    /// <summary>
+    /// Asks for the memory language at a terminal until the answer is one; anywhere else the caller is an Agent or a script,
+    /// which must say <c>--language</c> rather than wait on a question.
+    /// </summary>
+    private MemoryLanguage AskLanguage()
+    {
+        if (!console.InIsTerminal)
+            throw new UsageException("init needs the memory language, and standard input is not a terminal: add --language zh or --language en.");
+
+        var names = Enum.GetNames<MemoryLanguage>();
+        var valid = string.Join(" or ", names.Select(name => name.ToLowerInvariant()));
+        while (true)
+        {
+            console.Error.Write($"Memory language ({valid}): ");
+            var answer = console.In.ReadLine()?.Trim() ?? throw new EndOfStreamException("No memory language was given: the input ended.");
+            if (names.FirstOrDefault(name => string.Equals(name, answer, StringComparison.OrdinalIgnoreCase)) is { } match)
+                return Enum.Parse<MemoryLanguage>(match);
+        }
+    }
 
     /// <summary>Run the memory service on 127.0.0.1 until Ctrl+C.</summary>
     [Command("serve")]

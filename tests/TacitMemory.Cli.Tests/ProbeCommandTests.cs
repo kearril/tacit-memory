@@ -70,7 +70,7 @@ public sealed class ProbeCommandTests : IDisposable
         _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n", models: models);
         File.WriteAllText(
             _cli.ConfigPath,
-            $"server:\n  port: {_cli.Port}\nmodels:\n  decision: {{ url: '{models.DecisionUrl}', model: double-decision }}\n");
+            $"language: zh\nserver:\n  port: {_cli.Port}\nmodels:\n  decision: {{ url: '{models.DecisionUrl}', model: double-decision }}\n");
 
         var result = await _cli.RunAsync(["probe"]);
 
@@ -146,7 +146,7 @@ public sealed class ProbeCommandTests : IDisposable
     public async Task The_report_follows_the_memory_language()
     {
         var models = new ModelDouble();
-        _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\nlanguage: en\n", models: models);
+        _cli.Home.InitReady(extraConfig: $"server:\n  port: {_cli.Port}\n", models: models, language: MemoryLanguage.En);
 
         var result = await _cli.RunAsync(["probe", "reranker"]);
 

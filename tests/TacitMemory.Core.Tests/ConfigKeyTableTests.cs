@@ -122,7 +122,7 @@ public sealed class ConfigKeyTableTests : IDisposable
 
             Assert.Equal(running, Service.ConfigView().Running);
             Assert.Equal([key.Path], restart.Select(change => change.Path));
-            File.WriteAllText(ConfigPath, TestHome.Models);
+            File.WriteAllText(ConfigPath, "language: zh\n" + TestHome.Models);
             await Service.ReloadAsync();
         }
     }

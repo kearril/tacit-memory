@@ -156,7 +156,7 @@ public sealed class StatusTests : IDisposable
     [Fact]
     public void An_invalid_config_is_reported_with_every_wrong_key_path_and_the_logs_location()
     {
-        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\n");
+        File.WriteAllText(ConfigPath, "language: zh\nmodels:\n  embedding: { endpoint: 'nope' }\n");
         var tacit = _home.Tacit();
         var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
 
@@ -188,7 +188,7 @@ public sealed class StatusTests : IDisposable
 
         var running = (await Service.StatusAsync(Endpoint)).Logs!;
         var offline = (await tacit.OfflineStatus(tacit.LoadConfig())).Logs!;
-        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\n");
+        File.WriteAllText(ConfigPath, "language: zh\nmodels:\n  embedding: { endpoint: 'nope' }\n");
         var invalid = tacit.InvalidConfigStatus(Assert.Throws<TacitException>(() => tacit.LoadConfig()), tacit.ReadLooseSettings()).Logs!;
 
         foreach (var column in new[] { running, offline, invalid })
@@ -232,7 +232,7 @@ public sealed class StatusTests : IDisposable
     [Fact]
     public void The_loose_port_is_server_port_even_when_other_keys_are_wrong()
     {
-        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
+        File.WriteAllText(ConfigPath, "language: zh\nmodels:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
 
         Assert.Equal(19001, _home.Tacit().ReadLooseSettings().Port);
     }
@@ -275,7 +275,7 @@ public sealed class StatusTests : IDisposable
     [Fact]
     public void An_invalid_config_report_gives_the_service_column_the_loose_endpoint_and_says_it_is_not_running()
     {
-        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
+        File.WriteAllText(ConfigPath, "language: zh\nmodels:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
         var tacit = _home.Tacit();
         var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
 
@@ -293,7 +293,7 @@ public sealed class StatusTests : IDisposable
     [Fact]
     public void An_invalid_config_report_names_another_program_answering_the_loose_port()
     {
-        File.WriteAllText(ConfigPath, "models:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
+        File.WriteAllText(ConfigPath, "language: zh\nmodels:\n  embedding: { endpoint: 'nope' }\nserver:\n  port: 19001\n");
         var tacit = _home.Tacit();
         var error = Assert.Throws<TacitException>(() => tacit.LoadConfig());
 

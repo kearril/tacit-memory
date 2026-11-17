@@ -68,12 +68,12 @@ public sealed class ServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(MemoryLanguage.Zh, "zh")]
-    [InlineData(MemoryLanguage.En, "en")]
-    public async Task A_freshly_initialized_home_starts_in_either_memory_language(MemoryLanguage language, string key)
+    [InlineData(MemoryLanguage.Zh)]
+    [InlineData(MemoryLanguage.En)]
+    public async Task A_freshly_initialized_home_starts_in_either_memory_language(MemoryLanguage language)
     {
         using var home = new TestHome();
-        home.InitReady($"language: {key}\n", language: language);
+        home.InitReady(language: language);
 
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
@@ -157,7 +157,8 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public async Task English_memory_language_is_named_in_the_language_norms()
     {
-        File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "language: en\n");
+        var config = Path.Combine(_home.TacitHome, "config.yaml");
+        File.WriteAllText(config, File.ReadAllText(config).Replace("language: zh", "language: en"));
 
         using var service = Open();
 

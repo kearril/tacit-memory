@@ -45,7 +45,7 @@ public sealed class PersonaConflictTests : IDisposable
     private void Configure(string extra = "", string decisionKey = "test-key")
     {
         _home.InitReady(models: _models);
-        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), ("language: zh\n" + _models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
     }
 
     /// <summary>Writes the persona before the service opens, so its index starts from this content.</summary>
@@ -250,7 +250,7 @@ public sealed class PersonaConflictTests : IDisposable
     {
         using var home = new TestHome();
         using var models = new ModelDouble();
-        home.InitReady("language: en\n", models);
+        home.InitReady(models: models, language: MemoryLanguage.En);
         File.WriteAllText(Path.Combine(home.DefaultMemory, "persona.md"), Fixture.ReplaceLineEndings("\n"));
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 

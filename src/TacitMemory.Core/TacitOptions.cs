@@ -1,4 +1,3 @@
-using System.Globalization;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Upkeep;
 
@@ -12,9 +11,6 @@ public sealed record TacitOptions
 
     /// <summary>The user's home directory; client files and <c>~</c> in configured paths resolve against it.</summary>
     public required string UserHome { get; init; }
-
-    /// <summary>The system UI culture, used to pick the memory language when none is given.</summary>
-    public CultureInfo UiCulture { get; init; } = CultureInfo.CurrentUICulture;
 
     /// <summary>The clock; dates written into memory are its local date.</summary>
     public TimeProvider Time { get; init; } = TimeProvider.System;

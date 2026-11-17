@@ -15,13 +15,18 @@ internal static class Initializer
 {
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
+    /// <summary>The language the caller is asked for when neither the request nor the config names one.</summary>
+    private static MemoryLanguage AskLanguage(InitRequest request) =>
+        request.AskLanguage?.Invoke()
+        ?? throw new InvalidOperationException("init needs a language: none was given, the config names none, and there is no one to ask.");
+
     public static async Task<InitResult> RunAsync(TacitOptions options, InitRequest request, CancellationToken cancellationToken)
     {
         var configPath = Path.Combine(options.TacitHome, "config.yaml");
         var config = ExistingConfig.Read(configPath, options.UserHome);
         var requestedMemory = request.MemoryPath is null ? null : Path.GetFullPath(request.MemoryPath);
 
-        var language = request.Language ?? config.Language ?? LanguageCodes.FromUiCulture(options.UiCulture);
+        var language = request.Language ?? config.Language ?? AskLanguage(request);
         if (request.Language is { } requestedLanguage && config.Language is { } configLanguage && requestedLanguage != configLanguage)
             throw Conflict(configLanguage, configPath, "language", configLanguage.Code(), requestedLanguage.Code());
 

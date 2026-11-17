@@ -28,7 +28,7 @@ internal static class ConfigLoader
     /// <summary>Reads the config file at <paramref name="path"/>; its prompt documents still come from <c>TACIT_HOME</c>.</summary>
     internal static TacitConfig Read(TacitOptions options, string path)
     {
-        var fallbackLanguage = LanguageCodes.FromUiCulture(options.UiCulture);
+        var fallbackLanguage = LanguageCodes.WithoutConfig;
         if (!File.Exists(path))
             throw new TacitException(TacitError.NotInitialized, Messages.NotInitializedConfig.Format(fallbackLanguage, path));
 
@@ -44,7 +44,7 @@ internal static class ConfigLoader
     /// </summary>
     internal static TacitConfig Read(TacitOptions options, string path, string text)
     {
-        var fallbackLanguage = LanguageCodes.FromUiCulture(options.UiCulture);
+        var fallbackLanguage = LanguageCodes.WithoutConfig;
         var root = Parse(new StringReader(text), path, fallbackLanguage);
         var languageText = root.Children.TryGetValue(new YamlScalarNode("language"), out var languageNode)
             ? (languageNode as YamlScalarNode)?.Value
@@ -101,7 +101,7 @@ internal static class ConfigLoader
         };
     }
 
-    /// <summary>The memory language for messages: the config's language, or the system UI language when the config does not load.</summary>
+    /// <summary>The memory language for messages: the config's language, or English when the config does not load.</summary>
     public static MemoryLanguage LanguageOf(TacitOptions options)
     {
         try
@@ -110,18 +110,18 @@ internal static class ConfigLoader
         }
         catch (TacitException)
         {
-            return LanguageCodes.FromUiCulture(options.UiCulture);
+            return LanguageCodes.WithoutConfig;
         }
     }
 
     /// <summary>
     /// Reads the port and the language from <c>config.yaml</c> without validating anything else, for the status report of a
-    /// config that does not load. Reads no secret. Each value falls back on its own: the default port, and the system UI
-    /// language, when the file is missing or cannot be parsed, or when the key is absent or not a valid value.
+    /// config that does not load. Reads no secret. Each value falls back on its own: the default port, and English
+    /// for the language, when the file is missing or cannot be parsed, or when the key is absent or not a valid value.
     /// </summary>
     internal static LooseSettings ReadLoose(TacitOptions options)
     {
-        var fallbackLanguage = LanguageCodes.FromUiCulture(options.UiCulture);
+        var fallbackLanguage = LanguageCodes.WithoutConfig;
         YamlMappingNode root;
         try
         {

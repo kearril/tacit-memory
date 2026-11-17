@@ -38,7 +38,7 @@ public sealed class LogTests : IDisposable
         _home.InitReady(models: _models);
         File.WriteAllText(
             Path.Combine(_home.TacitHome, "config.yaml"),
-            _models.ModelsYaml(decisionKey: decisionKey, embeddingKey: embeddingKey, rerankerKey: rerankerKey).ReplaceLineEndings("\n"));
+            ("language: zh\n" + _models.ModelsYaml(decisionKey: decisionKey, embeddingKey: embeddingKey, rerankerKey: rerankerKey)).ReplaceLineEndings("\n"));
     }
 
     private static WritePageRequest Create(string page, string title = "部署脚本") => new()

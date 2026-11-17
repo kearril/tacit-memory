@@ -338,7 +338,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     public async Task In_an_english_memory_the_scope_line_is_written_in_english()
     {
         using var home = new TestHome();
-        home.InitReady("language: en\n");
+        home.InitReady(language: MemoryLanguage.En);
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
         File.WriteAllText(candidates, "## Candidates\n\n## Rejection list\n");

@@ -166,7 +166,7 @@ public sealed class CommandSkillTests : IDisposable
         Assert.DoesNotContain("summarized weeks it lists", chinese, StringComparison.Ordinal);
 
         using var home = new TestHome();
-        home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
+        home.InitReady(language: MemoryLanguage.En);
         home.Tacit().GenerateSkills();
         var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
         Assert.Contains("leave its background line unchanged", english, StringComparison.Ordinal);
@@ -242,7 +242,7 @@ public sealed class CommandSkillTests : IDisposable
 
         using var home = new TestHome();
         // InitReady rewrites config.yaml without the language key, so the memory language is set again here.
-        home.InitReady(extraConfig: "language: en\n", language: MemoryLanguage.En);
+        home.InitReady(language: MemoryLanguage.En);
         home.Tacit().GenerateSkills();
         var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
         Assert.Contains("Rejection list", english, StringComparison.Ordinal);
