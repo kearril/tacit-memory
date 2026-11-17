@@ -42,6 +42,7 @@ import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
+import { sectionLabel } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
 import { requestOf } from "./search";
 import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
@@ -664,7 +665,8 @@ function ResultItem({
   readonly lit: boolean;
   readonly onLight: (number: number | null) => void;
 }) {
-  const text = useDictionary().memory.search;
+  const dictionary = useDictionary().memory;
+  const text = dictionary.search;
   const pageId = result.kind === "page" ? result.page : null;
   return (
     <li
@@ -702,7 +704,7 @@ function ResultItem({
                   to={pagePathOf(pageId, name)}
                   className="rounded-full bg-surface-raised px-sm text-xs text-ink-muted outline-none hover:text-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
-                  {name}
+                  {sectionLabel(name, dictionary.pages.sectionNames)}
                 </Link>
               ))}
             </p>

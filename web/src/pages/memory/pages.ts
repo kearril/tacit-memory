@@ -4,6 +4,18 @@ import type { PageFilter } from "../../lib/routes";
 /** The workstream topic pages belong to; listed after every workstream. */
 export const TOPICS = "_topics";
 
+/** The sections the service finds by their English names, whatever the memory language, and their labels. */
+export type SectionLabels = Readonly<Record<"lesson" | "overturned" | "leftovers", string>>;
+
+/**
+ * A section's name as shown: one of the three sections the service recognizes, matched ignoring case as the service
+ * does, by its label in the interface language; any other section as written.
+ */
+export function sectionLabel(name: string, labels: SectionLabels): string {
+  const key = name.toLowerCase();
+  return key === "lesson" || key === "overturned" || key === "leftovers" ? labels[key] : name;
+}
+
 /** The pages the filter keeps: of its workstream and type, with the keyword in the title or an alias, ignoring case. */
 export function filterPages(pages: readonly PageListItem[], filter: PageFilter): readonly PageListItem[] {
   const q = filter.q.trim().toLowerCase();
