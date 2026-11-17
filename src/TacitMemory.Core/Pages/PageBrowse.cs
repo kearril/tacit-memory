@@ -2,6 +2,7 @@ using System.Globalization;
 using TacitMemory.Core.Formats;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Retrieval;
 
 namespace TacitMemory.Core.Pages;
 
@@ -37,7 +38,7 @@ internal static class PageBrowse
     /// <see cref="TacitError.RequestInvalid"/> when the two do not make a page ID; <see cref="TacitError.MemoryNotFound"/>
     /// when there is no such page.
     /// </exception>
-    public static PageView Read(TacitConfig config, MemoryIndex index, string workstream, string slug)
+    public static PageView Read(TacitConfig config, MemoryIndex index, MemoryReader reader, string workstream, string slug)
     {
         var raw = $"{workstream}/{slug}";
         if (!PageId.TryParse(raw, out var id, out var problem))
@@ -45,9 +46,7 @@ internal static class PageBrowse
         if (!File.Exists(MemoryLayout.Full(config.MemoryPath, id.RelativePath)))
             throw new TacitException(TacitError.MemoryNotFound, ManagementApiMessages.PageNotFound.Format(config.Language, raw));
 
-        var document = PageDocument.TryLoad(config.MemoryPath, id);
-        if (document is not null)
-            index.SyncPage(id);
+        var document = reader.Page(id, Usage.NotCounted).Document;
         var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null);
         var changes = index.SectionChanges(id);
         var returns = index.SectionReturns(id);

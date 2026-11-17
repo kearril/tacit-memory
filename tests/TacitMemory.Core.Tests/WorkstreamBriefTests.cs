@@ -337,9 +337,9 @@ public sealed class WorkstreamBriefTests : IDisposable
         await Brief("my-app", from: "2026-11-04");
         await Brief("my-app", from: "2026-11-04");
 
-        var usages = Service.PageUsages().ToDictionary(usage => usage.Page);
-        Assert.Equal(2, usages["my-app/recent-page"].Count);
-        Assert.Equal(0, usages["my-app/early-page"].Count);
+        var usages = await Service.PageCountsAsync();
+        Assert.Equal(2, usages["my-app/recent-page"]);
+        Assert.Equal(0, usages["my-app/early-page"]);
     }
 
     [Fact]

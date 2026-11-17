@@ -2497,7 +2497,8 @@
           "code",
           "workstream",
           "text",
-          "continuation"
+          "continuation",
+          "uses"
         ],
         "type": "object",
         "properties": {
@@ -2518,6 +2519,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

@@ -186,12 +186,12 @@ public sealed class MemoryPersonaTests : IDisposable
     public async Task Reading_the_persona_counts_nothing()
     {
         Write(MemoryLayout.Persona, Persona);
-        var pages = Service.PageUsages();
-        var activities = Service.ActivityUsages();
+        var pages = await Service.PageCountsAsync();
+        var activities = await Service.ActivityCountsAsync(TestHome.Today);
 
         await Service.PersonaAsync();
 
-        Assert.Equal(pages, Service.PageUsages());
-        Assert.Equal(activities, Service.ActivityUsages());
+        Assert.Equal(pages, await Service.PageCountsAsync());
+        Assert.Equal(activities, await Service.ActivityCountsAsync(TestHome.Today));
     }
 }

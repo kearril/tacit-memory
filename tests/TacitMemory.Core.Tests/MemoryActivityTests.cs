@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace TacitMemory.Core.Tests;
 
 /// <summary>The activity log as the memory page reads it: the months that have a file, and one month by day with its summaries.</summary>
@@ -118,12 +120,32 @@ public sealed class MemoryActivityTests : IDisposable
     [Fact]
     public async Task Reading_counts_nothing()
     {
-        WriteMonth("2026-10", "## 2026-10-05\n- 一条\n");
-        var before = _service.PageUsages();
+        var written = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
+        var code = Regex.Match(written.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
+        await _service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
+        var before = await _service.ActivityCountsAsync(TestHome.Today);
 
         await _service.ActivityMonthsAsync();
-        await _service.ActivityMonthAsync("2026-10");
+        await _service.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
 
-        Assert.Equal(before, _service.PageUsages());
+        Assert.Equal(1, before[code]);
+        Assert.Equal(before, await _service.ActivityCountsAsync(TestHome.Today));
+    }
+
+    [Fact]
+    public async Task Each_activity_shows_how_often_recall_returned_it_and_a_trace_adds_nothing()
+    {
+        var written = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
+        var other = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "调整日志轮转天数" });
+        var code = Regex.Match(written.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
+        var otherCode = Regex.Match(other.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
+        Assert.Equal(0, (await _service.ActivityCountsAsync(TestHome.Today))[code]);
+
+        await _service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
+        await _service.TraceRecallAsync(new RecallTraceRequest("恢复演练的备份清单"));
+
+        var counts = await _service.ActivityCountsAsync(TestHome.Today);
+        Assert.Equal(1, counts[code]);
+        Assert.Equal(0, counts[otherCode]);
     }
 }

@@ -29,33 +29,6 @@ internal sealed class PageTools(
     /// <summary>Every parameter <c>write_page</c> takes, listed when the op is missing or unknown.</summary>
     private static readonly string AllParameters = string.Join(", ", new[] { "op", "page" }.Concat(OpParameters.Values.SelectMany(taken => taken).Distinct()));
 
-    /// <summary>Reads a whole page. The index follows the file first, so the section dates are current, and each section counts as returned.</summary>
-    public ToolResult Read(RecallRequest request, MemoryIndex index)
-    {
-        if (string.IsNullOrWhiteSpace(request.Page))
-            return ToolText.Refuse("Missing parameter page.", "Call recall again with page set to a page ID such as my-app/db-upgrade.");
-        if (!PageId.TryParse(request.Page, out var id, out var problem))
-            return ToolText.Refuse(problem, "Call recall again with a valid page ID.");
-
-        var (document, refusal) = Fetch(id, index);
-        if (refusal is not null)
-            return refusal;
-        index.RecordPageRead(id);
-        return ToolText.Ok(Format(id, document!, index.SectionChanges(id)));
-    }
-
-    /// <summary>
-    /// A whole page with the index brought up to date first, so its section dates are current; counts no return. The refusal
-    /// says why the page cannot be read.
-    /// </summary>
-    public (PageDocument? Document, ToolResult? Refusal) Fetch(PageId id, MemoryIndex index)
-    {
-        var loaded = Load(id);
-        if (loaded.Refusal is null)
-            index.SyncPage(id);
-        return loaded;
-    }
-
     public async Task<ToolResult> WriteAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
         var problems = ToolText.UnknownParameters(request.UnknownParameters);
@@ -420,7 +393,7 @@ internal sealed class PageTools(
     }
 
     /// <summary>The page, or the refusal to give when it is missing or not UTF-8.</summary>
-    private (PageDocument? Document, ToolResult? Refusal) Load(PageId id)
+    public (PageDocument? Document, ToolResult? Refusal) Load(PageId id)
     {
         var path = PathOf(id);
         if (!File.Exists(path))

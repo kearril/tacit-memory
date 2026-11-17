@@ -23,7 +23,8 @@ public sealed record ActivityDayView(string Date, IReadOnlyList<ActivityItemView
 /// <param name="Workstream">Its workstream label; <c>null</c> when it has none.</param>
 /// <param name="Text">Its text without the label.</param>
 /// <param name="Continuation">The indented lines under it, as written; a source comment keeps the user's words.</param>
-public sealed record ActivityItemView(string Code, string? Workstream, string Text, IReadOnlyList<string> Continuation);
+/// <param name="Uses">How often <c>recall</c> has returned it; 0 when never, or when the index has not reached it yet.</param>
+public sealed record ActivityItemView(string Code, string? Workstream, string Text, IReadOnlyList<string> Continuation, long Uses);
 
 /// <summary>A summary of the month file.</summary>
 /// <param name="Kind"><c>week</c> or <c>month</c>.</param>

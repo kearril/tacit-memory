@@ -118,12 +118,12 @@ public sealed class RecallTests : IDisposable
         Hand("tacit-memory", "first", "备份甲", "## 要点\n每日备份到 zip");
         Hand("tacit-memory", "second", "备份乙", "## 要点\n每日备份到 zip");
         var before = await Recall("每日备份");
-        int CountOf() => Service.PageUsages().Single(usage => usage.Page == "tacit-memory/second").Count;
-        var countBefore = CountOf();
+        async Task<long> CountOf() => (await Service.PageCountsAsync())["tacit-memory/second"];
+        var countBefore = await CountOf();
 
         for (var i = 0; i < 30; i++)
             await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/second" });
-        Assert.Equal(countBefore + 30, CountOf());
+        Assert.Equal(countBefore + 30, await CountOf());
 
         var after = await Recall("每日备份");
         Assert.Equal(before.Text, after.Text);

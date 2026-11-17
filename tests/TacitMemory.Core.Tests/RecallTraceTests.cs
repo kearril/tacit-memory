@@ -276,29 +276,27 @@ public sealed class RecallTraceTests : IDisposable
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
         await Trace("部署");
-        Assert.All(Service.PageUsages(), usage => Assert.Equal(0, usage.Count));
+        Assert.All(await Service.PageCountsAsync(), entry => Assert.Equal(0, entry.Value));
 
         await Service.RecallAsync(new RecallRequest { Query = "部署" });
-        Assert.Contains(Service.PageUsages(), usage => usage.Page == "ops/rollback" && usage.Count > 0);
+        Assert.InRange((await Service.PageCountsAsync())["ops/rollback"], 1, long.MaxValue);
     }
 
     [Fact]
-    public async Task Gathering_a_brief_and_fetching_a_page_count_nothing_while_the_tools_still_count()
+    public async Task Browsing_a_brief_and_a_page_counts_nothing_while_recall_still_counts()
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
-        var parts = await Service.GatherBriefAsync("ops");
-        Assert.True(PageId.TryParse("ops/rollback", out var id, out _));
-        var page = await Service.FetchPageAsync(id);
+        var brief = await Service.WorkstreamBriefAsync("ops");
+        var page = await Service.PageAsync("ops", "rollback");
 
-        Assert.NotNull(parts);
-        Assert.Equal("ops/rollback", Assert.Single(parts.Entries).Id.ToString());
-        Assert.Equal("部署回滚", page?.Header.Title);
-        Assert.All(Service.PageUsages(), usage => Assert.Equal(0, usage.Count));
+        Assert.Equal("ops/rollback", Assert.Single(brief.Groups.SelectMany(group => group.Pages)).Id);
+        Assert.Equal("部署回滚", page.Title);
+        Assert.All(await Service.PageCountsAsync(), entry => Assert.Equal(0, entry.Value));
 
         await Service.RecallAsync(new RecallRequest { Workstream = "ops" });
-        Assert.Equal(1, Service.PageUsages().Single(usage => usage.Page == "ops/rollback").Count);
+        Assert.Equal(1, (await Service.PageCountsAsync())["ops/rollback"]);
         await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
-        Assert.Equal(2, Service.PageUsages().Single(usage => usage.Page == "ops/rollback").Count);
+        Assert.Equal(2, (await Service.PageCountsAsync())["ops/rollback"]);
     }
 }

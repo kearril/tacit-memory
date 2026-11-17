@@ -71,7 +71,8 @@ public sealed class MemoryService : IDisposable
     private JudgmentPool _judgments = null!;
     private ConsolidationServices _consolidation = null!;
     private RecallPipeline _pipeline = null!;
-    private WorkstreamBrief _brief = null!;
+    private MemoryReader _reader = null!;
+
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
 
@@ -150,8 +151,8 @@ public sealed class MemoryService : IDisposable
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, judge),
             writer);
         _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
-        _brief = new WorkstreamBrief(config, _index);
-        _recall = new RecallTool(config, _index, _pages, _pipeline, _brief);
+        _reader = new MemoryReader(_index, _pages, _pipeline, new WorkstreamBrief(config, _index));
+        _recall = new RecallTool(config, _index, _reader);
         _backup = new AutomaticBackup(_options, config, _log, _gate);
         _manual = new ManualBackup(_options, config, _log);
         _remote = new CloudBackup(_options, config, _log);
@@ -810,14 +811,7 @@ public sealed class MemoryService : IDisposable
         string query, IndexFilter filter, RetrievalOverrides overrides, CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return await _pipeline.RunAsync(query, filter, overrides, cancellationToken);
-    }
-
-    /// <summary>Everything a workstream's brief lists, whole; counts no return. <c>null</c> when the workstream has nothing.</summary>
-    internal async Task<WorkstreamBrief.Parts?> GatherBriefAsync(string workstream, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return _brief.Gather(workstream, null, null);
+        return await _reader.SearchAsync(query, filter, overrides, Usage.NotCounted, cancellationToken);
     }
 
     /// <summary>
@@ -842,7 +836,7 @@ public sealed class MemoryService : IDisposable
     public async Task<WorkstreamBriefView> WorkstreamBriefAsync(string workstream, CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return WorkstreamBrowse.Brief(Config, _brief, workstream);
+        return WorkstreamBrowse.Brief(Config, _reader, workstream);
     }
 
     /// <summary>The months of the activity log that have a file, newest first, and the current month. Reads files only.</summary>
@@ -852,7 +846,7 @@ public sealed class MemoryService : IDisposable
         return ActivityBrowse.Months(Config.MemoryPath, _options.Today);
     }
 
-    /// <summary>One month of the activity log by day, with its summaries and the file's problems. Counts nothing.</summary>
+    /// <summary>One month of the activity log by day, with each activity's returns, its summaries and the file's problems. Counts nothing.</summary>
     /// <exception cref="TacitException">
     /// <see cref="TacitError.RequestInvalid"/> when the month is not written yyyy-MM; <see cref="TacitError.MemoryNotFound"/>
     /// when it has no file and is not the current month.
@@ -860,7 +854,7 @@ public sealed class MemoryService : IDisposable
     public async Task<ActivityMonthView> ActivityMonthAsync(string month, CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return ActivityBrowse.Month(Config, _options.Today, month);
+        return ActivityBrowse.Month(Config, _index, _options.Today, month);
     }
 
     /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
@@ -877,27 +871,8 @@ public sealed class MemoryService : IDisposable
     public async Task<PageView> PageAsync(string workstream, string slug, CancellationToken cancellationToken = default)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return PageBrowse.Read(Config, _index, workstream, slug);
+        return PageBrowse.Read(Config, _index, _reader, workstream, slug);
     }
-
-    /// <summary>A whole page; counts no return. <c>null</c> when it does not exist or cannot be read.</summary>
-    internal async Task<PageDocument?> FetchPageAsync(PageId id, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return _pages.Fetch(id, _index).Document;
-    }
-
-    /// <summary>
-    /// How often <c>recall</c> has returned each page's units, for every page in the index. Derived state: <c>reindex</c>
-    /// resets it, and no search reads it.
-    /// </summary>
-    internal IReadOnlyList<PageUsage> PageUsages() =>
-        _index.PageUsages()
-            .Select(row => new PageUsage(row.Page, (int)row.Count, row.Last is null ? null : DateOnly.ParseExact(row.Last, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)))
-            .ToList();
-
-    /// <summary>How often <c>recall</c> has returned each activity, by its short code. Derived state, as <see cref="PageUsages"/> is.</summary>
-    internal IReadOnlyDictionary<string, long> ActivityUsages() => _index.ActivityUsages();
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
     public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>

@@ -11,7 +11,7 @@ namespace TacitMemory.Core.Retrieval;
 /// workstream, or searches pages and activities by full text and by vector, merges the two with reciprocal rank fusion, reranks the
 /// merged units and returns the best sections, merged per page. The persona is never searched. It never changes a file.
 /// </summary>
-internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTools pages, RecallPipeline pipeline, WorkstreamBrief brief)
+internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryReader reader)
 {
 
     /// <summary>The answer when nothing matches; also a plain result, not an error.</summary>
@@ -43,7 +43,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Workstream))
             return WorkstreamBriefCall(request, unknown);
         if (hasPage && !hasQuery && !hasDomain)
-            return unknown.Count == 0 ? pages.Read(request, index) : ToolText.Refuse(unknown, ParametersStep);
+            return unknown.Count == 0 ? ReadPage(request.Page!) : ToolText.Refuse(unknown, ParametersStep);
 
         var problems = new List<string>(unknown);
         var queryOrPage = hasQuery == hasPage;
@@ -68,9 +68,17 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
         var workstream = string.IsNullOrWhiteSpace(request.Workstream) ? null : request.Workstream.Trim().ToLowerInvariant();
         var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
         var filter = new IndexFilter(workstream, from, to, activities);
-        var trace = await pipeline.RunAsync(request.Query!, filter, new RetrievalOverrides(), cancellationToken);
-        index.RecordReturns(trace.Returned.Select(hit => hit.Id).ToList());
+        var trace = await reader.SearchAsync(request.Query!, filter, new RetrievalOverrides(), Usage.Counted, cancellationToken);
         return ToolText.Ok(trace.Text);
+    }
+
+    /// <summary>A whole page, with the date each section last changed.</summary>
+    private ToolResult ReadPage(string raw)
+    {
+        if (!PageId.TryParse(raw, out var id, out var problem))
+            return ToolText.Refuse(problem, "Call recall again with a valid page ID.");
+        var read = reader.Page(id, Usage.Counted);
+        return read.Refusal ?? ToolText.Ok(PageTools.Format(id, read.Document!, index.SectionChanges(id)));
     }
 
     /// <summary>
@@ -171,7 +179,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, PageTool
             return ToolText.Refuse(problems, nextStep);
         }
 
-        return ToolText.Ok(brief.Compose(workstream, from, to));
+        return ToolText.Ok(reader.Brief(workstream, from, to, Usage.Counted)?.Text ?? NoMemory);
     }
 
     private static DateOnly? Date(string? raw, string name, List<string> problems)
