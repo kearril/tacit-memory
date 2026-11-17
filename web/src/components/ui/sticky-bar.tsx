@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { publishBarBottom } from "./sticky";
 
 /** The edge of the page a sticky bar keeps to. */
@@ -75,29 +75,43 @@ function useFold(element: RefObject<HTMLElement | null>, stuck: boolean): number
 
 /**
  * A top bar publishes where it ends on screen, with the gap of the column it stands in, for what is scrolled to or placed
- * under it. It measures as it mounts, again as it folds or unfolds, and as the window resizes, which moves its edge on the
- * narrow screen; sticking does not take it away, so what is placed under the bar never loses its place meanwhile.
+ * under it. It measures as it folds or unfolds and as the window resizes, which moves its edge on the narrow screen, and
+ * after each render before the page's own effects run, so a page that scrolls as its content arrives already finds the
+ * bar's new height; sticking does not take it away, so what is placed under the bar never loses its place meanwhile.
  */
 function usePublishBottom(element: RefObject<HTMLElement | null>, edge: Edge) {
+  const published = useRef("");
+  useLayoutEffect(() => {
+    if (edge === "top" && element.current !== null) {
+      publishBottom(element.current, published);
+    }
+  });
   useEffect(() => {
     const target = element.current;
     if (target === null || edge !== "top") {
       return;
     }
-    const publish = () => {
-      const gap = target.parentElement === null ? 0 : parseFloat(getComputedStyle(target.parentElement).rowGap) || 0;
-      publishBarBottom((parseFloat(getComputedStyle(target).top) || 0) + target.offsetHeight + gap, gap);
-    };
-    publish();
+    const publish = () => publishBottom(target, published);
     const observer = new ResizeObserver(publish);
     observer.observe(target);
     window.addEventListener("resize", publish);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", publish);
+      published.current = "";
       publishBarBottom(null);
     };
   }, [element, edge]);
+}
+
+/** Publishes where `bar` ends on screen with its column's gap, unless that is what `published` says was published last. */
+function publishBottom(bar: HTMLElement, published: { current: string }) {
+  const gap = bar.parentElement === null ? 0 : parseFloat(getComputedStyle(bar.parentElement).rowGap) || 0;
+  const bottom = (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + gap;
+  if (published.current !== `${bottom} ${gap}`) {
+    published.current = `${bottom} ${gap}`;
+    publishBarBottom(bottom, gap);
+  }
 }
 
 /**

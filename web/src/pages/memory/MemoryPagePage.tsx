@@ -27,7 +27,6 @@ export function MemoryPagePage() {
   const text = dictionary.memory.pages;
   const { id, workstream, slug } = pageOf(useParams());
   const page = usePage(id);
-  useScrollToHash(page.data !== undefined, "start");
 
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) grid-cols-1 gap-md">
@@ -62,11 +61,16 @@ function PageBody({ page }: { readonly page: PageView }) {
         <>
           <SectionTabs sections={page.sections} />
           <Card aria-label={text.contents}>
-            <ol className="grid gap-md">
-              {page.sections.map((section, index) => (
-                <Section key={section.name} section={section} number={index + 1} />
-              ))}
-            </ol>
+            {/* One boundary for every section's text, which loads apart from the page: the link's section is scrolled
+                to once the text is all there, when the page has its full length. */}
+            <Suspense fallback={<div aria-busy="true" />}>
+              <ol className="grid gap-md">
+                {page.sections.map((section, index) => (
+                  <Section key={section.name} section={section} number={index + 1} />
+                ))}
+              </ol>
+              <ScrollToHash />
+            </Suspense>
           </Card>
         </>
       )}
@@ -78,6 +82,12 @@ function PageBody({ page }: { readonly page: PageView }) {
       </footer>
     </>
   );
+}
+
+/** Scrolls to the section the address names, once it is rendered with the sections before it. */
+function ScrollToHash() {
+  useScrollToHash(true, "start");
+  return null;
 }
 
 /** The page's head: its type and title, its aliases, then its workstream, dates, uses and how many sections it has. */
@@ -159,9 +169,7 @@ function Section({ section, number }: { readonly section: PageSectionView; reado
           {text.emptySection}
         </p>
       ) : (
-        <Suspense fallback={<div aria-busy="true" />}>
-          <MarkdownBody text={section.body} sources={section.sources} />
-        </Suspense>
+        <MarkdownBody text={section.body} sources={section.sources} />
       )}
     </li>
   );
