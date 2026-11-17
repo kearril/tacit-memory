@@ -17,6 +17,9 @@ internal static class Messages
         "启动服务后，可在浏览器打开 Web 界面继续配置：http://127.0.0.1:{0}/",
         "Once the service is running, continue the setup in the Web interface: http://127.0.0.1:{0}/");
 
+    public static readonly Localized InitConfigWithoutLanguage = new(
+        "{0} 已存在，但没有可读的 language 设置。init 不改写已有的配置：请在其中加上 language: zh 或 language: en，再执行 init。",
+        "{0} exists but sets no readable language. init does not rewrite an existing config: add language: zh or language: en to it, then run init again.");
     public static readonly Localized MemoryDirectoryNotEmpty = new(
         "目录 {0} 不为空且不是 Git 仓库，不能用作记忆仓库。请指定空目录或已有的记忆仓库（--memory）。",
         "The directory {0} is not empty and is not a Git repository, so it cannot be the memory repository. Choose an empty directory or an existing memory repository (--memory).");
@@ -106,12 +109,15 @@ internal static class Messages
     public static readonly Localized BindingNotFound = new(
         "没有名为 {0} 的绑定。",
         "No binding is named {0}.");
-    public static readonly Localized ContextFolderMissing = new(
-        "上下文文件所在的目录 {0} 不存在，未做任何改动。请先创建该目录，或改用正确的路径。",
-        "The folder {0} that the context file goes into does not exist; nothing was changed. Create it, or give the right path.");
-    public static readonly Localized SkillsFolderMissing = new(
-        "skill 目录 {0} 不存在，未做任何改动。tacit 不替客户端创建它，请确认路径，或先让客户端生成该目录。",
-        "The skills folder {0} does not exist; nothing was changed. tacit does not create it for the client: check the path, or let the client create the folder first.");
+    public static readonly Localized FolderIsAFile = new(
+        "{0} 是一个文件，不能在那里建立目录，未做任何改动。请改用正确的路径。",
+        "{0} is a file, so no folder can be made there; nothing was changed. Give the right path.");
+    public static readonly Localized ContextFolderCreated = new(
+        "已新建上下文文件所在的目录 {0}：请确认客户端读取的就是这里。",
+        "Created the folder {0} for the context file: make sure the client reads from it.");
+    public static readonly Localized SkillsFolderCreated = new(
+        "已新建 skill 目录 {0}：请确认客户端扫描的就是这里。",
+        "Created the skills folder {0}: make sure the client scans it.");
     public static readonly Localized ContextFileNoun = new("上下文文件", "context file");
     public static readonly Localized SkillsFolderNoun = new("skill 目录", "skills folder");
     public static readonly Localized PathEmpty = new(

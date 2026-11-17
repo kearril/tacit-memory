@@ -309,10 +309,10 @@ export const zh = {
       bindingName: (client: string) => `绑定名 ${client}`,
       close: "关闭",
       done: "完成",
-      pathsNote: "路径是运行服务的这台主机上的路径，~ 为主机上用户的主目录；skill 目录必须已存在。",
+      pathsNote: "路径是运行服务的这台主机上的路径，~ 为主机上用户的主目录；不存在的目录会被新建。",
       fields: {
         client: { label: "客户端名称", help: "字母、数字与连字符，至多 32 个字符；不区分大小写。" },
-        contextFile: { label: "上下文文件", help: "写入常驻块的文件，不存在时创建；所在目录必须已存在。" },
+        contextFile: { label: "上下文文件", help: "写入常驻块的文件，不存在时创建。" },
         skillsFolder: { label: "skill 目录", help: "客户端扫描 skill 的目录，skill 链接放在这里。" },
       },
       bind: "绑定",
@@ -322,6 +322,7 @@ export const zh = {
       mcpNote: "MCP 只接受本机连接：请在这台主机上的客户端中注册，tacit 不替你修改客户端的配置。",
       mcp: { url: "端点", transport: "传输方式", name: "服务名" },
       details: "查看做了什么",
+      createdFolders: "以下目录原先不存在，已新建。请确认客户端读取的就是这里：",
     },
     models: {
       summary: "检索和写入时用到的三个模型。关掉的模型保存后从配置中移除，填过的内容留在页面上。",

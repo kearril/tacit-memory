@@ -67,16 +67,19 @@ internal sealed class CliHarness : IDisposable
     }
 
     /// <summary>Replaces the config with one that does not load: the embedding endpoint is not a URL.</summary>
-    public void BreakConfig() => File.WriteAllText(ConfigPath, BrokenConfig + ServerSection);
+    public void BreakConfig() => File.WriteAllText(ConfigPath, Language + BrokenConfig + ServerSection);
 
     /// <summary>Replaces the config with one whose decision model has no key, so it does not load.</summary>
     public void RemoveDecisionKey() =>
-        File.WriteAllText(ConfigPath, (ModelDouble.Quiet.ModelsYaml(decisionKey: string.Empty) + ServerSection).ReplaceLineEndings("\n"));
+        File.WriteAllText(ConfigPath, (Language + ModelDouble.Quiet.ModelsYaml(decisionKey: string.Empty) + ServerSection).ReplaceLineEndings("\n"));
 
     /// <summary>Replaces the config with one that has no <c>models</c> section at all: every model is unconfigured.</summary>
-    public void RemoveModels() => File.WriteAllText(ConfigPath, ServerSection);
+    public void RemoveModels() => File.WriteAllText(ConfigPath, Language + ServerSection);
 
     private string ServerSection => $"server:\n  port: {Port}\n";
+
+    /// <summary>The language line of a config that replaces the whole file: Chinese, as <see cref="InitReady"/> writes.</summary>
+    private const string Language = "language: zh\n";
 
     /// <summary>
     /// Runs one command line in process. Stdout and stderr are cleared first and returned as they were at the end. The

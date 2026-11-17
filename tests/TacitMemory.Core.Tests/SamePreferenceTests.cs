@@ -30,7 +30,7 @@ public sealed class SamePreferenceTests : IDisposable
 
     private const string Today = "2026-11-02";
 
-    private void Configure(string extra = "") => _home.InitReady(extra, _models);
+    private void Configure(string extra = "", MemoryLanguage language = MemoryLanguage.Zh) => _home.InitReady(extra, _models, language);
 
     /// <summary>Writes both judgment files and commits them, so the next write's commit holds only what it changed.</summary>
     private void Baseline(string candidates, string? persona = null)
@@ -284,7 +284,7 @@ public sealed class SamePreferenceTests : IDisposable
     [Fact]
     public async Task The_question_does_not_name_a_language_for_the_preferences_in_an_english_memory()
     {
-        Configure("language: en\n");
+        Configure(language: MemoryLanguage.En);
         Baseline(WorkingRuleCandidate);
 
         await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
@@ -335,7 +335,7 @@ public sealed class SamePreferenceTests : IDisposable
     {
         using var home = new TestHome();
         using var models = new ModelDouble();
-        home.InitReady("language: en\n", models);
+        home.InitReady(models: models, language: MemoryLanguage.En);
         var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
         File.WriteAllText(
             candidates,

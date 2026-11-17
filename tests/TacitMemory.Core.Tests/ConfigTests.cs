@@ -27,7 +27,7 @@ public sealed class ConfigTests : IDisposable
 
         Assert.Equal(18888, config.Port);
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
-        Assert.Equal(MemoryLanguage.Zh, config.Language);
+        Assert.Equal(MemoryLanguage.En, config.Language);
         Assert.Equal(new LimitsConfig(3000, new PageLimits(2)), config.Limits);
         Assert.Equal(new ConsolidationConfig(7, 20, 5, 5, 200, 6000), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
@@ -567,7 +567,7 @@ public sealed class ConfigTests : IDisposable
     [Fact]
     public void The_recording_criteria_come_from_rules_md()
     {
-        WriteConfig(Models);
+        WriteConfig("language: zh\n" + Models);
         File.WriteAllText(RulesPath, "## 值得记\n- 用户纠正 Agent\n  补充说明\n- 环境事实\n\n## Not recorded\n- 常规改动\n");
 
         var rules = _home.Tacit().LoadConfig().Prompts.Rules!;
@@ -590,7 +590,7 @@ public sealed class ConfigTests : IDisposable
     [Fact]
     public void A_rules_section_with_more_than_ten_items_is_refused_with_the_excess()
     {
-        WriteConfig(Models);
+        WriteConfig("language: zh\n" + Models);
         File.WriteAllText(RulesPath, "## 值得记\n" + string.Concat(Enumerable.Range(1, 12).Select(i => $"- 规则 {i}\n")) + "\n## 不记\n- 常规改动\n");
 
         var error = LoadFails();

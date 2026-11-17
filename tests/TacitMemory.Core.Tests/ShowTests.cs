@@ -341,7 +341,7 @@ public sealed class ShowTests : IDisposable
         using var english = new TestHome();
         english.InitReady(language: MemoryLanguage.En);
 
-        var result = await english.Tacit("en-US").ShowAsync(ShowTarget.Instructions);
+        var result = await english.Tacit().ShowAsync(ShowTarget.Instructions);
 
         var heading = result.Report.Split('\n')[0];
         Assert.Contains($"{result.Fixed!.Length}/3000", heading);

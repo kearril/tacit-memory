@@ -2907,7 +2907,8 @@
         "required": [
           "client",
           "lines",
-          "mcp"
+          "mcp",
+          "createdFolders"
         ],
         "type": "object",
         "properties": {
@@ -2929,6 +2930,12 @@
                 "$ref": "#/components/schemas/McpServer"
               }
             ]
+          },
+          "createdFolders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -5544,8 +5551,7 @@
           "ClientNameInvalid",
           "BindingConflict",
           "BindingNotFound",
-          "ContextFolderMissing",
-          "SkillsFolderMissing",
+          "FolderIsAFile",
           "GitFailed",
           "BackupExists",
           "RequestInvalid",

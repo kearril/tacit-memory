@@ -53,7 +53,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
    tacit init
    ```
 
-   生成配置 `~/.tacit/config.yaml` 与记忆仓库。
+   生成配置 `~/.tacit/config.yaml` 与记忆仓库。在终端里执行时会询问记忆语言（`zh` 或 `en`）；在脚本里或由 Agent 执行时，加上 `--language zh` 或 `--language en`。
 
 2. **填写模型**（可选）：编辑 `config.yaml` 的 `models` 一节，填入要用的模型的 `url`（完整请求地址）与 `model`；不写的模型即未配置，可以之后再补。写法见 [`docs/reference/configuration.md`](docs/reference/configuration.md)，填好后可用 `tacit probe` 检查。
 

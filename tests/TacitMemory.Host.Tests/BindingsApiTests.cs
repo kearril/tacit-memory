@@ -80,6 +80,9 @@ public sealed class BindingsApiTests : IAsyncLifetime
     [Fact]
     public async Task A_refusal_gives_the_reason_the_command_gives_and_changes_nothing()
     {
+        // A file where the skills folder goes, which connect refuses to build a folder over.
+        Directory.CreateDirectory(Path.GetDirectoryName(SkillsFolder)!);
+        File.WriteAllText(SkillsFolder, "in the way");
         var expected = Assert.Throws<TacitException>(() => _home.Tacit().Connect(Omp));
 
         using var response = await PostAsync(Omp);

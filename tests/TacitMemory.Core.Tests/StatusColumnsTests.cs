@@ -535,7 +535,7 @@ public sealed class StatusColumnsTests : IDisposable
     {
         File.WriteAllText(
             Path.Combine(_home.TacitHome, "config.yaml"),
-            _models.ModelsYaml(embeddingKey: "emb-config-secret", decisionKey: "test-key").ReplaceLineEndings("\n"));
+            ("language: zh\n" + _models.ModelsYaml(embeddingKey: "emb-config-secret", decisionKey: "test-key")).ReplaceLineEndings("\n"));
         _home.EnvironmentVariables["TACIT_RERANKER_API_KEY"] = "rer-env-secret";
 
         var secrets = (await OfflineReport()).Secrets!;
@@ -554,7 +554,7 @@ public sealed class StatusColumnsTests : IDisposable
     [Fact]
     public async Task A_model_key_that_is_nowhere_is_reported_as_not_set_and_is_not_an_error()
     {
-        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), _models.ModelsYaml(decisionKey: string.Empty).ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), ("language: zh\n" + _models.ModelsYaml(decisionKey: string.Empty)).ReplaceLineEndings("\n"));
 
         var report = await OfflineReport();
 

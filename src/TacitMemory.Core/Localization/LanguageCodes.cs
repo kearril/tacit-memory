@@ -1,8 +1,6 @@
-using System.Globalization;
-
 namespace TacitMemory.Core.Localization;
 
-/// <summary>The <c>language</c> config values and how a system UI culture maps onto them.</summary>
+/// <summary>The <c>language</c> config values, and the language used before a config names one.</summary>
 internal static class LanguageCodes
 {
     public static string Code(this MemoryLanguage language) => language switch
@@ -19,7 +17,9 @@ internal static class LanguageCodes
         _ => null,
     };
 
-    /// <summary>Chinese UI of any region means <c>zh</c>; everything else <c>en</c>.</summary>
-    public static MemoryLanguage FromUiCulture(CultureInfo culture) =>
-        culture.TwoLetterISOLanguageName == "zh" ? MemoryLanguage.Zh : MemoryLanguage.En;
+    /// <summary>
+    /// The language of what is said before a config names one: a missing or unreadable config, or one without the key.
+    /// English, as the command line's help and usage errors are.
+    /// </summary>
+    public const MemoryLanguage WithoutConfig = MemoryLanguage.En;
 }

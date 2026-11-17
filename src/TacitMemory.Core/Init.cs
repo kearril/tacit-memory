@@ -5,6 +5,12 @@ public sealed record InitRequest
 {
     public MemoryLanguage? Language { get; init; }
 
+    /// <summary>
+    /// Asked for the language when neither <see cref="Language"/> nor the existing config names one, before anything is
+    /// written. Without it, init is refused then.
+    /// </summary>
+    public Func<MemoryLanguage>? AskLanguage { get; init; }
+
     /// <summary>Memory repository location; relative paths are taken against the current directory.</summary>
     public string? MemoryPath { get; init; }
 }

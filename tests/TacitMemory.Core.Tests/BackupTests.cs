@@ -155,7 +155,7 @@ public sealed class BackupTests : IDisposable
         home.InitReady();
         File.WriteAllText(
             Path.Combine(home.TacitHome, "config.yaml"),
-            ModelDouble.Quiet.ModelsYaml(embeddingKey: "emb-plain-key", decisionKey: string.Empty).ReplaceLineEndings("\n"));
+            ("language: zh\n" + ModelDouble.Quiet.ModelsYaml(embeddingKey: "emb-plain-key", decisionKey: string.Empty)).ReplaceLineEndings("\n"));
 
         var notices = await NoticesAfterWrite(home);
 

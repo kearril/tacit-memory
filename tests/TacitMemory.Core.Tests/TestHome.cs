@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 
 namespace TacitMemory.Core.Tests;
 
@@ -42,13 +41,12 @@ internal sealed partial class TestHome : IDisposable
     public Dictionary<string, string> EnvironmentVariables { get; } = [];
 
     /// <summary>The options of every <see cref="Tacit"/> made here: this home, this clock and the secrets above.</summary>
-    public TacitOptions Options(string uiCulture = "zh-CN")
+    public TacitOptions Options()
     {
         var options = new TacitOptions
         {
             TacitHome = TacitHome,
             UserHome = UserHome,
-            UiCulture = CultureInfo.GetCultureInfo(uiCulture),
             Time = Clock,
             ModelTime = ModelClock,
             Secrets = EnvironmentVariables,
@@ -60,7 +58,7 @@ internal sealed partial class TestHome : IDisposable
     /// <summary>Gives the options the changes a Core test tells the service of; the hosts' tests watch the files.</summary>
     partial void WithSources(ref TacitOptions options);
 
-    public Tacit Tacit(string uiCulture = "zh-CN") => new(Options(uiCulture));
+    public Tacit Tacit() => new(Options());
 
     /// <summary>
     /// Binds the client <paramref name="client"/> to the omp paths under the user home, creating its folders first as a user
@@ -96,7 +94,8 @@ internal sealed partial class TestHome : IDisposable
             Tacit().InitAsync(new InitRequest { Language = language }).GetAwaiter().GetResult();
         else
             CopyDirectory(InitializedTemplate(language), TacitHome);
-        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), ((models ?? ModelDouble.Quiet).ModelsYaml(decisionKey: "test-key") + extraConfig).ReplaceLineEndings("\n"));
+        var config = $"language: {language.ToString().ToLowerInvariant()}\n" + (models ?? ModelDouble.Quiet).ModelsYaml(decisionKey: "test-key") + extraConfig;
+        File.WriteAllText(Path.Combine(TacitHome, "config.yaml"), config.ReplaceLineEndings("\n"));
     }
 
     private static readonly Dictionary<MemoryLanguage, TestHome> InitTemplates = [];

@@ -1,3 +1,4 @@
+
 namespace TacitMemory.Core.Tests;
 
 public sealed class InitTests : IDisposable
@@ -36,7 +37,7 @@ public sealed class InitTests : IDisposable
         Directory.CreateDirectory(memory);
         File.WriteAllText(Path.Combine(memory, "todo.txt"), "milk");
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => _home.Tacit().InitAsync(new InitRequest { MemoryPath = memory }));
+        var error = await Assert.ThrowsAsync<TacitException>(() => _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh, MemoryPath = memory }));
 
         Assert.Equal(TacitError.MemoryDirectoryNotEmpty, error.Error);
         Assert.Contains(memory, error.Message);
@@ -72,7 +73,7 @@ public sealed class InitTests : IDisposable
         var memory = Path.Combine(_home.PathFor("sync"), "记忆");
         Directory.CreateDirectory(memory);
 
-        var result = await _home.Tacit().InitAsync(new InitRequest { MemoryPath = memory });
+        var result = await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.Zh, MemoryPath = memory });
 
         Assert.True(result.RepositoryCreated);
         Assert.True(File.Exists(Path.Combine(memory, "persona.md")));
@@ -97,16 +98,60 @@ public sealed class InitTests : IDisposable
     }
 
     [Theory]
-    [InlineData("zh-CN", "## 红线\n")]
-    [InlineData("zh-TW", "## 红线\n")]
-    [InlineData("en-US", "## Red lines\n")]
-    [InlineData("ja-JP", "## Red lines\n")]
-    public async Task Init_without_a_language_follows_the_system_ui_language(string uiCulture, string personaStart)
+    [InlineData(MemoryLanguage.Zh, "## 红线\n")]
+    [InlineData(MemoryLanguage.En, "## Red lines\n")]
+    public async Task Init_without_a_language_asks_for_one(MemoryLanguage answer, string personaStart)
     {
-        var result = await _home.Tacit(uiCulture).InitAsync(new InitRequest());
+        var asked = 0;
 
+        var result = await _home.Tacit().InitAsync(new InitRequest { AskLanguage = () => { asked++; return answer; } });
+
+        Assert.Equal(1, asked);
         Assert.StartsWith(personaStart, File.ReadAllText(Path.Combine(result.MemoryPath, "persona.md")));
-        Assert.Contains($"language: {(personaStart.Contains("红线") ? "zh" : "en")}\n", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+        Assert.Contains($"language: {answer.ToString().ToLowerInvariant()}\n", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+    }
+
+    [Fact]
+    public async Task Init_does_not_ask_when_the_request_or_the_config_names_the_language()
+    {
+        Func<MemoryLanguage> ask = () => throw new InvalidOperationException("asked");
+
+        await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En, AskLanguage = ask });
+        var again = await _home.Tacit().InitAsync(new InitRequest { AskLanguage = ask });
+
+        Assert.Equal(MemoryLanguage.En, again.Language);
+    }
+
+    [Fact]
+    public async Task Init_refuses_an_existing_config_without_a_language_and_changes_nothing()
+    {
+        Directory.CreateDirectory(_home.TacitHome);
+        var configPath = Path.Combine(_home.TacitHome, "config.yaml");
+        File.WriteAllText(configPath, "server:\n  port: 19001\n");
+
+        var error = await Assert.ThrowsAsync<TacitException>(
+            () => _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En, AskLanguage = () => throw new InvalidOperationException("asked") }));
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("language", error.Message, StringComparison.Ordinal);
+        Assert.Equal("server:\n  port: 19001\n", File.ReadAllText(configPath));
+        Assert.False(Directory.Exists(Path.Combine(_home.TacitHome, "memory")));
+    }
+
+    [Fact]
+    public async Task Init_refuses_a_memory_folder_that_is_not_empty_before_asking_for_the_language()
+    {
+        var memory = Path.Combine(_home.TacitHome, "memory");
+        Directory.CreateDirectory(memory);
+        File.WriteAllText(Path.Combine(memory, "notes.txt"), "mine");
+        var asked = 0;
+
+        var error = await Assert.ThrowsAsync<TacitException>(
+            () => _home.Tacit().InitAsync(new InitRequest { AskLanguage = () => { asked++; return MemoryLanguage.Zh; } }));
+
+        Assert.Equal(TacitError.MemoryDirectoryNotEmpty, error.Error);
+        Assert.Equal(0, asked);
+        Assert.StartsWith("The directory ", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
