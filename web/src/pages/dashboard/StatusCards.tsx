@@ -163,7 +163,7 @@ export function ModelsCard({
     mutationFn: runProbe,
     onMutate: () => setFailure(null),
     onSuccess: () => afterCommand(queryClient, PROBE_AFFECTS),
-    onError: (error) => setFailure({ title: dictionary.dashboard.probe.failedTitle, failure: classifyFailure(error) }),
+    onError: (error) => setFailure({ title: dictionary.probe.failedTitle, failure: classifyFailure(error) }),
   });
 
   const remaining = (items ?? []).map((model) =>
@@ -199,7 +199,7 @@ export function ModelsCard({
         actions={
           <IconAction
             type="button"
-            label={dictionary.dashboard.probe.button}
+            label={dictionary.probe.button}
             disabled={probe.isPending}
             onClick={() => probe.mutate()}
           >

@@ -3,7 +3,20 @@ import type { PageType } from "../api/memory";
 import type { PromptName } from "../api/prompts";
 
 // Every address of the interface is built and read here: the router takes its paths from these, and a link to another
-// page is always built by one of these functions, so a change to an address shape is a change to this module.
+// page is always built by one of these functions, so a change to an address shape is a change to this module. An address
+// with a parameter in its path has a route pattern, which the router matches, and a reader of the parameters it gives.
+
+/** The parameters the router reads from an address's path, by the names its route pattern gives them. */
+export type RouteParams = Readonly<Record<string, string | undefined>>;
+
+/** Whether a value is a calendar date written `yyyy-MM-dd`. */
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    return false;
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
 
 /** The sign-in page. */
 export const LOGIN_PATH = "/login";
@@ -51,14 +64,17 @@ export const PROMPT_NAMES = ["instructions", "rules", "resident", "skill"] as co
 /** The document `/prompts` opens. */
 export const DEFAULT_PROMPT: PromptName = "instructions";
 
+/** The route of a document's page. */
+export const PROMPT_ROUTE = `${PROMPTS_PATH}/:name`;
+
 /** The path of a document's page. */
 export function promptPathOf(name: PromptName): string {
   return `${PROMPTS_PATH}/${name}`;
 }
 
 /** The document a page address names; `undefined` for anything else, which the page sends on to the default document. */
-export function promptNameOf(param: string | undefined): PromptName | undefined {
-  return PROMPT_NAMES.find((name) => name === param);
+export function promptNameOf(params: RouteParams): PromptName | undefined {
+  return PROMPT_NAMES.find((name) => name === params.name);
 }
 
 // The logs page.
@@ -66,13 +82,12 @@ export function promptNameOf(param: string | undefined): PromptName | undefined 
 /** The address of the logs page; it shows today. */
 export const LOGS_PATH = "/logs";
 
+/** The route of a day's log other than today's. */
+export const LOG_ROUTE = `${LOGS_PATH}/:date`;
+
 /** The day an address names, when it is a calendar date written `yyyy-MM-dd`. */
-export function logDateOf(param: string | undefined): string | undefined {
-  if (param === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(param)) {
-    return undefined;
-  }
-  const date = new Date(`${param}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(param) ? param : undefined;
+export function logDateOf(params: RouteParams): string | undefined {
+  return params.date !== undefined && isCalendarDate(params.date) ? params.date : undefined;
 }
 
 /** The address of a day's log: today is the page's own address, any other day is named in it. */
@@ -153,9 +168,17 @@ export function personaPathOf(anchor?: typeof CANDIDATES_ANCHOR): string {
   return anchor === undefined ? path : `${path}#${anchor}`;
 }
 
+/** The route of one workstream's brief. */
+export const WORKSTREAM_ROUTE = `${memoryPathOf("workstreams")}/:name`;
+
 /** The address of one workstream's brief. */
 export function workstreamPathOf(name: string): string {
   return `${memoryPathOf("workstreams")}/${encodeURIComponent(name)}`;
+}
+
+/** The workstream whose brief an address opens; `null` on the list of every workstream. */
+export function workstreamNameOf(params: RouteParams): string | null {
+  return params.name ?? null;
 }
 
 /** The page types, in the order the filter lists them. */
@@ -200,10 +223,28 @@ export function sectionAnchor(name: string): string {
   return `section-${name}`;
 }
 
+/** The link to a page's section from the page itself. */
+export function sectionHash(name: string): string {
+  return `#${encodeURIComponent(sectionAnchor(name))}`;
+}
+
+/** The route of one page. */
+export const PAGE_ROUTE = `${memoryPathOf("pages")}/:workstream/:slug`;
+
 /** The address of a page by its id (`workstream/slug`), at one of its sections when `section` names it. */
 export function pagePathOf(id: string, section?: string): string {
-  const path = `${memoryPathOf("pages")}/${id}`;
-  return section === undefined ? path : `${path}#${encodeURIComponent(sectionAnchor(section))}`;
+  const path = `${memoryPathOf("pages")}/${id.split("/").map(encodeURIComponent).join("/")}`;
+  return section === undefined ? path : `${path}${sectionHash(section)}`;
+}
+
+/** The page an address opens: its id, the workstream it is in and its slug. */
+export function pageOf(params: RouteParams): {
+  readonly id: string;
+  readonly workstream: string;
+  readonly slug: string;
+} {
+  const { workstream = "", slug = "" } = params;
+  return { id: `${workstream}/${slug}`, workstream, slug };
 }
 
 /** What the activity view shows, as its address holds it. */
@@ -217,7 +258,6 @@ export interface ActivityQuery {
 }
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/u;
-const DAY = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/u;
 
 /**
  * The activity view's query from its address: `month`, `day` and `workstream`. A month that is not `yyyy-MM` falls back
@@ -225,7 +265,7 @@ const DAY = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/u;
  */
 export function activityQueryOf(search: URLSearchParams, current: string): ActivityQuery {
   const day = search.get("day");
-  const validDay = day !== null && DAY.test(day) ? day : null;
+  const validDay = day !== null && isCalendarDate(day) ? day : null;
   const month = search.get("month");
   return {
     month: month !== null && MONTH.test(month) ? month : (validDay?.slice(0, 7) ?? current),
@@ -234,24 +274,19 @@ export function activityQueryOf(search: URLSearchParams, current: string): Activ
   };
 }
 
-/** The address of a query, with only what is set. */
-export function activityParams(query: ActivityQuery): URLSearchParams {
-  const params = new URLSearchParams({ month: query.month });
-  if (query.day !== null) params.set("day", query.day);
-  if (query.workstream !== null) params.set("workstream", query.workstream);
-  return params;
-}
-
-/**
- * The address of the activity view showing a query, for links from the other pages. Without a month it opens on the
- * current one, which the view works out.
- */
-export function activityPathOf(query: Partial<ActivityQuery>): string {
+/** The address of a query, with only what is set; without a month the view opens on the current one. */
+export function activityParams(query: Partial<ActivityQuery>): URLSearchParams {
   const params = new URLSearchParams();
   if (query.month !== undefined) params.set("month", query.month);
   if (query.day != null) params.set("day", query.day);
   if (query.workstream != null) params.set("workstream", query.workstream);
-  return `${memoryPathOf("activity")}?${params}`;
+  return params;
+}
+
+/** The address of the activity view showing a query, for links from the other pages. */
+export function activityPathOf(query: Partial<ActivityQuery>): string {
+  const params = activityParams(query).toString();
+  return params === "" ? memoryPathOf("activity") : `${memoryPathOf("activity")}?${params}`;
 }
 
 /** The anchor of a day on the timeline. */
@@ -294,7 +329,6 @@ const SEARCH_PARAMS: Readonly<Record<keyof SearchFields, string>> = {
   candidates: "candidates",
 };
 
-const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const COUNT = /^[1-9]\d*$/;
 const SCORE = /^\d+(\.\d+)?$/;
 
@@ -309,8 +343,8 @@ export function searchFieldsOf(params: URLSearchParams): SearchFields {
     // The query is kept as typed: recall embeds it as given, so a space changes its vector.
     query: params.get(SEARCH_PARAMS.query) ?? "",
     workstream: read("workstream"),
-    from: read("from", (value) => DATE.test(value)),
-    to: read("to", (value) => DATE.test(value)),
+    from: read("from", isCalendarDate),
+    to: read("to", isCalendarDate),
     kind: kind === "pages" || kind === "activities" ? kind : "",
     minRerankScore: read("minRerankScore", (value) => SCORE.test(value)),
     topK: read("topK", (value) => COUNT.test(value)),

@@ -13,7 +13,7 @@ import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { TOPICS } from "./pages";
 import { CodePill, FilePath, FileProblems, PageTypeBadge, WorkstreamPill } from "./parts";
-import { memoryPathOf, pagePathOf, pagesPathOf, sectionAnchor } from "../../lib/routes";
+import { memoryPathOf, pageOf, pagePathOf, pagesPathOf, sectionAnchor, sectionHash } from "../../lib/routes";
 
 const MarkdownBody = lazy(() => import("./MarkdownBody"));
 
@@ -25,8 +25,7 @@ const MarkdownBody = lazy(() => import("./MarkdownBody"));
 export function MemoryPagePage() {
   const dictionary = useDictionary();
   const text = dictionary.memory.pages;
-  const { workstream = "", slug = "" } = useParams();
-  const id = `${workstream}/${slug}`;
+  const { id, workstream, slug } = pageOf(useParams());
   const page = usePage(id);
   useScrollToHash(page.data !== undefined, "start");
 
@@ -114,7 +113,7 @@ function SectionTabs({ sections }: { readonly sections: readonly PageSectionView
       <ul className="-m-xs flex flex-wrap gap-sm p-xs">
         {sections.map((section) => (
           <li key={section.name} className="shrink-0">
-            <a href={`#${encodeURIComponent(sectionAnchor(section.name))}`} className={chipVariants()}>
+            <a href={sectionHash(section.name)} className={chipVariants()}>
               {section.name}
             </a>
           </li>

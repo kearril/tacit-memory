@@ -4,7 +4,7 @@ import { useDictionary } from "../app/session-context";
 /** What the last probe of one model found, on a small line under the model: success, a skip, or how it failed. */
 export function ProbeLine({ result }: { readonly result: ProbeResult }) {
   const dictionary = useDictionary();
-  const text = dictionary.dashboard.probe;
+  const text = dictionary.probe;
   const milliseconds = result.elapsedMilliseconds ?? 0;
   if (result.outcome === "succeeded") {
     return <span className="text-xs text-success">{text.succeeded(milliseconds)}</span>;

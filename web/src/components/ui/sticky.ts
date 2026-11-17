@@ -1,11 +1,13 @@
 import { type RefObject, useEffect } from "react";
 
+// Where the floating top bar ends is `--sticky-bar-bottom` on the document. The stylesheet gives it the bottom of a bar
+// of one row, for a page without a bar and until a bar measures itself; a bar's own measure overrides it.
+
 /**
  * Clears the sticky bar floating under the top, and the top bar too on a narrow screen, when something is scrolled to:
- * it starts where the bar publishes that its bottom is. With no bar on the page it clears a bar of one row.
+ * it starts where the bar ends.
  */
-export const BELOW_BARS =
-  "scroll-mt-[var(--sticky-bar-bottom,calc(2*var(--tk-size-nav-bar)+2*var(--tk-space-sm)))] lg:scroll-mt-[var(--sticky-bar-bottom,calc(var(--tk-size-nav-bar)+2*var(--tk-space-sm)))]";
+export const BELOW_BARS = "scroll-mt-(--sticky-bar-bottom)";
 
 /** Pins a `sticky` element just under the floating top bar, following it as it folds and unfolds. */
 export const UNDER_BAR = "top-(--sticky-bar-bottom)";
@@ -17,7 +19,7 @@ let barGap = 0;
 
 /**
  * Publishes where the floating top bar ends on screen, with the gap the page leaves under it, in `--sticky-bar-bottom`
- * on the document, and tells what is placed under it; `null` takes it away when the bar goes.
+ * on the document, and tells what is placed under it; `null` takes it away when the bar goes, back to the default.
  */
 export function publishBarBottom(bottom: number | null, gap = 0) {
   const root = document.documentElement.style;
@@ -32,9 +34,9 @@ export function publishBarBottom(bottom: number | null, gap = 0) {
   }
 }
 
-/** Where the floating top bar ends on screen, with the gap under it; 0 with no bar. */
+/** Where the floating top bar ends on screen, with the gap under it; with no bar, where a bar of one row would end. */
 export function barBottom(): number {
-  return parseFloat(document.documentElement.style.getPropertyValue("--sticky-bar-bottom")) || 0;
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sticky-bar-bottom")) || 0;
 }
 
 /** Scrolls the page smoothly so that `element` starts under the floating top bar. */

@@ -69,7 +69,7 @@ const PROMPT_ICONS: Readonly<Record<PromptName, LucideIcon>> = {
  */
 export function PromptsPage() {
   const dictionary = useDictionary();
-  const name = promptNameOf(useParams().name);
+  const name = promptNameOf(useParams());
   const prompts = usePrompts();
   if (name === undefined) {
     return <Navigate to={promptPathOf(DEFAULT_PROMPT)} replace />;

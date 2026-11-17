@@ -46,13 +46,13 @@ export function ModelsSection({ form }: { readonly form: SettingsForm }) {
       </Rows>
       {probe.isError ? (
         <p role="alert" className="text-sm text-danger">
-          {dictionary.dashboard.probe.failedTitle}：{errorTextOf(probe.error, dictionary)}
+          {dictionary.probe.failedTitle}：{errorTextOf(probe.error, dictionary)}
         </p>
       ) : null}
       <CardActions note={dirty ? text.probeDirty : text.probeNote}>
         <Button type="button" variant="outline" disabled={dirty || probe.isPending} onClick={() => probe.mutate()}>
           <BusyIcon busy={probe.isPending} icon={Activity} />
-          {dictionary.dashboard.probe.button}
+          {dictionary.probe.button}
         </Button>
       </CardActions>
     </SettingsSection>

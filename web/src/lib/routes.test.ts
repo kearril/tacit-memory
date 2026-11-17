@@ -1,3 +1,4 @@
+import { matchRoutes } from "react-router";
 import { describe, expect, it } from "vitest";
 import {
   activityParams,
@@ -26,28 +27,37 @@ import {
   searchParamsOf,
   settingsPathOf,
   workstreamPathOf,
+  isCalendarDate,
+  LOG_ROUTE,
+  PAGE_ROUTE,
+  pageOf,
+  PROMPT_ROUTE,
+  WORKSTREAM_ROUTE,
+  workstreamNameOf,
+  memoryPathOf,
 } from "./routes";
 
-describe("promptNameOf", () => {
-  it("names each of the four documents by its address", () => {
-    for (const name of PROMPT_NAMES) {
-      expect(promptNameOf(name)).toBe(name);
-    }
-  });
+/** The parameters the router reads from `path` for the route `pattern`, decoded as the router decodes them. */
+function paramsOf(pattern: string, path: string) {
+  const match = matchRoutes([{ path: pattern }], new URL(path, "http://localhost").pathname)?.at(-1);
+  if (match === undefined) {
+    throw new Error(`${path} does not match ${pattern}`);
+  }
+  return match.params;
+}
 
+describe("promptNameOf", () => {
   it("names nothing for a missing, unknown or differently cased address", () => {
-    expect(promptNameOf(undefined)).toBeUndefined();
-    expect(promptNameOf("")).toBeUndefined();
-    expect(promptNameOf("tools")).toBeUndefined();
-    expect(promptNameOf("Rules")).toBeUndefined();
-    expect(promptNameOf("rules.md")).toBeUndefined();
+    for (const name of [undefined, "", "tools", "Rules", "rules.md"]) {
+      expect(promptNameOf({ name })).toBeUndefined();
+    }
   });
 });
 
 describe("promptPathOf", () => {
   it("gives the address that names the document again", () => {
     for (const name of PROMPT_NAMES) {
-      expect(promptNameOf(promptPathOf(name).split("/").at(-1))).toBe(name);
+      expect(promptNameOf(paramsOf(PROMPT_ROUTE, promptPathOf(name)))).toBe(name);
     }
   });
 
@@ -56,17 +66,24 @@ describe("promptPathOf", () => {
   });
 });
 
-describe("logDateOf", () => {
+describe("isCalendarDate", () => {
   it.each(["2026-11-14", "2024-02-29"])("accepts the calendar date %s", (value) => {
-    expect(logDateOf(value)).toBe(value);
+    expect(isCalendarDate(value)).toBe(true);
   });
 
-  it.each([undefined, "", "20261114", "2026-13-01", "2026-02-30", "2025-02-29", "today", "2026-11-14x"])(
+  it.each(["", "20261114", "2026-13-01", "2026-02-30", "2025-02-29", "2026-11-99", "today", "2026-11-14x"])(
     "refuses %s",
     (value) => {
-      expect(logDateOf(value)).toBeUndefined();
+      expect(isCalendarDate(value)).toBe(false);
     },
   );
+});
+
+describe("logDateOf", () => {
+  it("reads back the day a log's address names, and nothing from one that names no day", () => {
+    expect(logDateOf(paramsOf(LOG_ROUTE, logPathOf("2026-11-14", "2026-11-17")))).toBe("2026-11-14");
+    expect(logDateOf(paramsOf(LOG_ROUTE, "/logs/2026-02-30"))).toBeUndefined();
+  });
 });
 
 describe("logPathOf", () => {
@@ -137,7 +154,7 @@ describe("searchFieldsOf", () => {
 
   it("ignores values it does not know", () => {
     const fields = searchFieldsOf(
-      new URLSearchParams("q=部署&kind=persona&from=昨天&to=2026-13-01&min=abc&topK=1.5&candidates=-2&x=1"),
+      new URLSearchParams("q=部署&kind=persona&from=2026-02-31&to=2026-13-01&min=abc&topK=1.5&candidates=-2&x=1"),
     );
 
     expect(fields).toEqual({ ...EMPTY_SEARCH, query: "部署" });
@@ -167,6 +184,10 @@ describe("activityQueryOf", () => {
       day: null,
       workstream: null,
     });
+  });
+
+  it("ignores a day that is not on the calendar", () => {
+    expect(activityQueryOf(new URLSearchParams("month=2026-11&day=2026-11-99"), "2026-11").day).toBeNull();
   });
 
   it("takes the month from a day given alone", () => {
@@ -205,12 +226,23 @@ describe("pagePathOf", () => {
       "/memory/pages/web-ui/sticky-bar#section-%E4%BF%AE%E5%A4%8D%20%232",
     );
   });
+
+  it("encodes each part of the id, so the page it names is read back", () => {
+    expect(pagePathOf("ops/a#b?c")).toBe("/memory/pages/ops/a%23b%3Fc");
+    expect(pageOf(paramsOf(PAGE_ROUTE, pagePathOf("运维/回滚 #2")))).toEqual({
+      id: "运维/回滚 #2",
+      workstream: "运维",
+      slug: "回滚 #2",
+    });
+  });
 });
 
 describe("workstreamPathOf", () => {
-  it("encodes the workstream's name as one segment", () => {
+  it("encodes the workstream's name as one segment, which is read back", () => {
     expect(workstreamPathOf("tacit-memory")).toBe("/memory/workstreams/tacit-memory");
     expect(workstreamPathOf("a/b c")).toBe("/memory/workstreams/a%2Fb%20c");
+    expect(workstreamNameOf(paramsOf(WORKSTREAM_ROUTE, workstreamPathOf("a/b c")))).toBe("a/b c");
+    expect(workstreamNameOf(paramsOf(memoryPathOf("workstreams"), memoryPathOf("workstreams")))).toBeNull();
   });
 });
 
@@ -229,6 +261,10 @@ describe("logsPathOf", () => {
 });
 
 describe("pagesPathOf and activityPathOf", () => {
+  it("leave the query out when nothing is set", () => {
+    expect(activityPathOf({})).toBe("/memory/activity");
+  });
+
   it("keep a workstream in the address", () => {
     expect(pagesPathOf({ workstream: "ops" })).toBe("/memory/pages?workstream=ops");
     expect(pagesPathOf()).toBe("/memory/pages");

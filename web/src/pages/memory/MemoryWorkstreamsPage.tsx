@@ -31,7 +31,7 @@ import { HEAT_LEVEL_CLASS } from "../../lib/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
 import { PersonaEntryCard, SectionChip } from "./PersonaSections";
 import { type DirectorySort, directoryRows, MINI_WEEKS, openItemText, weekLevel, workstreamWeeks } from "./workstreams";
-import { activityPathOf, pagePathOf, workstreamPathOf } from "../../lib/routes";
+import { activityPathOf, pagePathOf, workstreamNameOf, workstreamPathOf } from "../../lib/routes";
 
 /**
  * The workstreams view of the memory page, in a reading column. A sticky strip above holds every workstream as a small
@@ -41,7 +41,7 @@ import { activityPathOf, pagePathOf, workstreamPathOf } from "../../lib/routes";
 export function MemoryWorkstreamsPage() {
   const dictionary = useDictionary();
   const text = dictionary.memory.workstreams;
-  const name = useParams().name ?? null;
+  const name = workstreamNameOf(useParams());
   const list = useWorkstreams();
 
   return (
