@@ -3,3 +3,5 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 *.dll binary
+*.dylib binary
+*.so binary

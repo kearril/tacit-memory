@@ -2,7 +2,8 @@ namespace TacitMemory.Core.Clients;
 
 /// <summary>
 /// Whether two paths name the same place for bindings: full paths with no trailing separator, compared case-insensitively
-/// on Windows. Directory junctions and symbolic links are not resolved, so two entries into one folder count as two.
+/// where the platform ignores case (<see cref="PathCase"/>). Directory junctions and symbolic links are not resolved, so
+/// two entries into one folder count as two.
 /// </summary>
 internal static class BindingPath
 {
@@ -13,7 +14,7 @@ internal static class BindingPath
 
     private sealed class PathComparer : IEqualityComparer<string>
     {
-        private static readonly StringComparer Text = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        private static readonly StringComparer Text = PathCase.Comparer;
 
         public bool Equals(string? x, string? y) => Text.Equals(Normalize(x!), Normalize(y!));
 

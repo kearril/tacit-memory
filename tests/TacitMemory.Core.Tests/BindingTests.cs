@@ -502,6 +502,13 @@ public sealed class BindingTests : IDisposable
 
     private static int CountBlocks(string text) => text.Split("<!-- tacit:begin").Length - 1;
 
+    /// <summary>The same path with the client's folder <c>.omp</c> spelled <c>.OMP</c>.</summary>
+    private static string InOtherCase(string path)
+    {
+        var separator = Path.DirectorySeparatorChar;
+        return path.Replace($"{separator}.omp{separator}", $"{separator}.OMP{separator}");
+    }
+
     private JsonObject RecordOf(string client) =>
         JsonNode.Parse(File.ReadAllText(BindingsJson))!["bindings"]!.AsArray().Select(node => node!.AsObject()).Single(record => (string?)record["client"] == client);
 
@@ -571,14 +578,14 @@ public sealed class BindingTests : IDisposable
     }
 
     [Fact]
-    public void On_windows_a_path_spelled_in_other_case_is_the_same_place()
+    public void On_windows_and_macos_a_path_spelled_in_other_case_is_the_same_place()
     {
-        if (!OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
             return;
         File.WriteAllText(PersonaMd, Persona.ReplaceLineEndings("\n"));
         _home.Bind();
 
-        var result = _home.Tacit().Connect(new ConnectRequest("beta", AgentsMd.ToUpperInvariant(), SkillsFolder.ToUpperInvariant()));
+        var result = _home.Tacit().Connect(new ConnectRequest("beta", InOtherCase(AgentsMd), InOtherCase(SkillsFolder)));
 
         Assert.Contains("已由 omp 使用", result.Report);
         Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
@@ -589,6 +596,22 @@ public sealed class BindingTests : IDisposable
         Assert.Contains("仍被 beta 使用，保留", first.Report);
         Assert.True(File.Exists(AgentsMd));
         Assert.All(SkillNames, name => Assert.True(IsLinkEntry(LinkOf(name))));
+    }
+
+    [Fact]
+    public void On_linux_a_path_spelled_in_other_case_is_another_place()
+    {
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+            return;
+        _home.Bind();
+        Directory.CreateDirectory(InOtherCase(SkillsFolder));
+
+        var result = _home.Tacit().Connect(new ConnectRequest("beta", InOtherCase(AgentsMd), InOtherCase(SkillsFolder)));
+
+        Assert.DoesNotContain("已由 omp 使用", result.Report);
+        Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
+        Assert.Equal(1, CountBlocks(File.ReadAllText(InOtherCase(AgentsMd))));
+        Assert.Equal(2, _home.Tacit().RenderBlocks().Count);
     }
 
     [Fact]

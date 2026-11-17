@@ -105,11 +105,19 @@ public sealed class StatusColumnsTests : IDisposable
         File.SetLastWriteTime(path, written);
     }
 
-    /// <summary>Points the omp skill link at <paramref name="target"/>, replacing the one <c>connect</c> made.</summary>
+    /// <summary>
+    /// Points the omp skill link at <paramref name="target"/>, replacing the one <c>connect</c> made with the same kind of
+    /// link: a junction on Windows, a symbolic link elsewhere.
+    /// </summary>
     private void PointSkillLinkAt(string target)
     {
         Directory.Delete(SkillLink, recursive: false);
         Directory.CreateDirectory(target);
+        if (!OperatingSystem.IsWindows())
+        {
+            Directory.CreateSymbolicLink(SkillLink, target);
+            return;
+        }
         var start = new ProcessStartInfo("cmd") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { "/c", "mklink", "/J", SkillLink, target })
             start.ArgumentList.Add(arg);

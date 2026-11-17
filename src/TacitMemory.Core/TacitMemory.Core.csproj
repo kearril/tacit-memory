@@ -11,12 +11,13 @@
     <InternalsVisibleTo Include="TacitMemory.Core.Tests" />
   </ItemGroup>
 
+  <!--
+    The official sqlite-vec release for the machine doing the build, so a plain build or test run anywhere can load it; its
+    SHA-256 is checked before every load. A publish for another runtime swaps in that runtime's release (see the Cli
+    project), since a referenced project is not built for the runtime being published.
+  -->
   <ItemGroup>
-    <!--
-      The official sqlite-vec release; its SHA-256 is checked before every load. SQLite loads it by its path, so the
-      single-file release keeps it beside the executable instead of bundling it.
-    -->
-    <None Include="..\..\lib\sqlite-vec\vec0.dll" Link="vec0.dll" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="..\..\lib\sqlite-vec\$(NETCoreSdkRuntimeIdentifier)\vec0.*" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
 </Project>

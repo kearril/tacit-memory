@@ -119,7 +119,7 @@ flowchart LR
 | CLI 与输出美化 | `ConsoleAppFramework`；`Spectre.Console` 只在 CLI 中用 |
 | 调用 `git` | `SimpleExec` |
 | 索引 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建）、`Dapper` |
-| 向量 | `sqlite-vec` 官方发布的 `vec0.dll`，存于 `lib/sqlite-vec/`，加载前校验 SHA-256 |
+| 向量 | `sqlite-vec` 官方发布的 loadable 扩展，按平台存于 `lib/sqlite-vec/<rid>/`，加载前校验 SHA-256 |
 | 辅助模型、WebDAV | 只用 `HttpClient`，不引入 SDK |
 | 日志 | `Serilog`；Core 只引用日志抽象 |
 | 版本与许可清单 | `MinVer`；`nuget-license` 与 `rollup-plugin-license` |
@@ -142,6 +142,6 @@ flowchart LR
 
 **构建与托管**：`dotnet publish` 时构建前端并复制到发布目录的 `web/`；`dotnet build` 与 `dotnet test` 不触发前端构建。
 
-**发行包**：`build/package.ps1` 生成单文件、裁剪且压缩的可执行文件。裁剪只针对框架，所以全部 JSON 都经构建时生成的契约读写，产品代码每次构建都运行裁剪分析器（警告即错误）。发布规则见 `docs/reference/operations.md`。
+**发行包**：`build/package.sh` 按目标平台生成单文件、裁剪且压缩的可执行文件，并把该平台的向量扩展放在旁边。裁剪只针对框架，所以全部 JSON 都经构建时生成的契约读写，产品代码每次构建都运行裁剪分析器（警告即错误）。发布规则见 `docs/reference/operations.md`。
 
 **开发**：`bun run dev` 启动 Vite 开发服务器，`/api` 代理到本机运行中的服务（端口取 `TACIT_SERVICE_PORT`，缺省 18888）。

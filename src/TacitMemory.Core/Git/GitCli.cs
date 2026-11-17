@@ -21,6 +21,12 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
         "-c", "user.email=tacit@localhost",
     ];
 
+    /// <summary>
+    /// UTF-8 without a byte order mark. The encoding is also git's standard input, and a process start writes the mark
+    /// there at once; off Windows, a git that has already exited turns that write into a broken pipe.
+    /// </summary>
+    private static readonly Encoding Utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
     /// <summary>Whether the directory is itself the top of a repository (has its own <c>.git</c>).</summary>
     public bool IsRepositoryRoot()
     {
@@ -33,7 +39,7 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
         try
         {
             var (output, _) = await Command.ReadAsync(
-                "git", [.. FixedSettings, .. args], workingDirectory: repository, encoding: Encoding.UTF8,
+                "git", [.. FixedSettings, .. args], workingDirectory: repository, encoding: Utf8,
                 ct: cancellationToken);
             return output;
         }
@@ -85,7 +91,7 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
         {
             (output, _) = Command.ReadAsync(
                 "git", [.. FixedSettings, "log", "--format=%x1f%as", "--name-only", "--relative", "--", folder],
-                workingDirectory: repository, encoding: Encoding.UTF8).GetAwaiter().GetResult();
+                workingDirectory: repository, encoding: Utf8).GetAwaiter().GetResult();
         }
         catch (ExitCodeReadException)
         {

@@ -116,6 +116,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, read.Status);
         Assert.Equal(HttpStatusCode.Forbidden, refusal.Status);
+        await _logs.WaitForAsync(entry => entry.Message.Contains("/api/backups", StringComparison.Ordinal));
         Assert.DoesNotContain(_logs.Entries, entry => entry.Message.Contains("/api/status", StringComparison.Ordinal));
         var line = Assert.Single(_logs.Entries, entry => entry.Message.Contains("/api/backups", StringComparison.Ordinal));
         Assert.Equal(LogLevel.Information, line.Level);

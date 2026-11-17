@@ -1,6 +1,6 @@
-# Pushing a v* tag runs the checks, packages tacit self-contained for win-x64, smoke-tests the package and creates the
-# GitHub Release with the zip and its SHA-256. Run by hand, it stops after the smoke test and keeps the package as a
-# workflow artifact instead of creating a Release.
+# Pushing a v* tag runs the checks on Linux and Windows, packages tacit self-contained for each platform on that
+# platform's own runner, smoke-tests each package and creates one GitHub Release with every package and its SHA-256.
+# Run by hand, it stops after the smoke tests and keeps the packages as workflow artifacts instead of creating a Release.
 name: Release
 
 on:
@@ -15,12 +15,48 @@ jobs:
   check:
     uses: ./.github/workflows/ci.yml
 
-  package:
-    needs: check
+  # Day to day the suite runs on Linux only; before a release it runs on Windows too, for the code paths only Windows
+  # takes (junctions, its file sharing, its sockets).
+  check-windows:
     runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      # The tests start thousands of git processes and write thousands of temporary files, and the real-time scan checks
+      # each. The runner is thrown away after the job. Only a speed-up, so a runner that refuses it still runs the checks.
+      - name: Turn off real-time scanning
+        continue-on-error: true
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
+      - uses: actions/checkout@v7
+        with:
+          # MinVer reads the version from the tags in the history.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Tests
+        run: dotnet test TacitMemory.slnx -c Release
+
+  package:
+    needs: [check, check-windows]
+    strategy:
+      matrix:
+        include:
+          - runtime: win-x64
+            os: windows-latest
+          # macOS signs the executable only when it is built there, and Apple silicon runs no unsigned program.
+          - runtime: osx-arm64
+            os: macos-latest
+          - runtime: linux-x64
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    permissions:
-      contents: write
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,40 +72,49 @@ jobs:
 
       - name: Package
         id: package
-        shell: pwsh
-        run: |
-          dotnet tool restore
-          $package = ./build/package.ps1 -Output "$env:RUNNER_TEMP/release"
-          "folder=$($package.Folder)" >> $env:GITHUB_OUTPUT
-          "zip=$($package.Zip)" >> $env:GITHUB_OUTPUT
-          "version=$($package.Version)" >> $env:GITHUB_OUTPUT
+        # Forward slashes, so Git Bash on Windows reads the runner's temporary folder too.
+        run: build/package.sh ${{ matrix.runtime }} "${RUNNER_TEMP//\\//}/release" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test
-        shell: pwsh
         run: |
           # On a tag the package must carry the tag's version; by hand any version passes.
-          $expected = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.Substring(1) } else { '' }
-          ./build/smoke.ps1 -PublishDir '${{ steps.package.outputs.folder }}' -ExpectedVersion $expected
+          expected=
+          if [ "$GITHUB_REF_TYPE" = tag ]; then expected=${GITHUB_REF_NAME#v}; fi
+          build/smoke.sh '${{ steps.package.outputs.folder }}' $expected
 
       - uses: actions/upload-artifact@v7
         with:
-          name: tacit-${{ steps.package.outputs.version }}-win-x64
+          name: tacit-${{ steps.package.outputs.version }}-${{ matrix.runtime }}
           path: |
-            ${{ steps.package.outputs.zip }}
-            ${{ steps.package.outputs.zip }}.sha256
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.archive }}.sha256
+
+  # Only once every package has passed its smoke test, so a Release never holds some platforms and not others.
+  release:
+    needs: package
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: tacit-*
+          merge-multiple: true
+          path: packages
 
       - name: Create the Release
-        if: github.ref_type == 'tag'
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          $version = '${{ steps.package.outputs.version }}'
-          $zip = '${{ steps.package.outputs.zip }}'
+          tag=$GITHUB_REF_NAME
+          version=${tag#v}
+          arguments=("$tag" packages/* --title "$version" --verify-tag)
           # A version's notes are optional: .github/release-notes/<tag>.md when it exists, otherwise none.
-          $notes = ".github/release-notes/$tag.md"
-          $arguments = @($tag, $zip, "$zip.sha256", '--title', $version, '--verify-tag')
-          $arguments += if (Test-Path $notes) { @('--notes-file', $notes) } else { @('--notes', '') }
-          if ($version.Contains('-')) { $arguments += '--prerelease' }
-          gh release create @arguments
+          notes=.github/release-notes/$tag.md
+          if [ -f "$notes" ]; then arguments+=(--notes-file "$notes"); else arguments+=(--notes ''); fi
+          if [[ $version == *-* ]]; then arguments+=(--prerelease); fi
+          gh release create "${arguments[@]}"
