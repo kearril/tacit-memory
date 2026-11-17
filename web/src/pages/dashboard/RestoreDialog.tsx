@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Cloud, History, LoaderCircle, RotateCcw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
-import { ACTIVITY_QUERY_KEY } from "../../api/activity";
 import {
-  BACKUPS_QUERY_KEY,
+  RESTORE_AFFECTS,
   type BackupList,
   previewRestore,
   type RestorePreview,
@@ -11,10 +10,7 @@ import {
   type RestoreSource,
   runRestore,
 } from "../../api/backups";
-import { CONFIG_QUERY_KEY } from "../../api/config";
-import { LOGS_QUERY_KEY } from "../../api/logs";
-import { PROMPTS_QUERY_KEY } from "../../api/prompts";
-import { STATUS_QUERY_KEY } from "../../api/status";
+import { afterCommand } from "../../api/effects";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
@@ -71,17 +67,7 @@ export function RestoreDialog({ list, locale }: { readonly list: BackupList; rea
   });
   const restore = useMutation({
     mutationFn: (path: string) => runRestore(path, config),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
-      void queryClient.invalidateQueries({ queryKey: BACKUPS_QUERY_KEY });
-      void queryClient.invalidateQueries({ queryKey: ACTIVITY_QUERY_KEY });
-      // A restore with the config reloads the service: the settings page reads the file and the pending restarts again.
-      void queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
-      // It also replaces the prompt documents.
-      void queryClient.invalidateQueries({ queryKey: PROMPTS_QUERY_KEY });
-      // And it writes its own events to the service log.
-      void queryClient.invalidateQueries({ queryKey: LOGS_QUERY_KEY });
-    },
+    onSettled: () => afterCommand(queryClient, RESTORE_AFFECTS),
   });
 
   const onOpenChange = (next: boolean) => {

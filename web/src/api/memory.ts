@@ -35,7 +35,10 @@ export type ActivityDayView = components["schemas"]["ActivityDayView"];
 export type ActivityItemView = components["schemas"]["ActivityItemView"];
 export type ActivitySummaryView = components["schemas"]["ActivitySummaryView"];
 
-export const RECALL_TRACE_QUERY_KEY = ["recall-trace"] as const;
+/** The prefix of every query that reads the memory, so a change to it invalidates them together. */
+export const MEMORY_QUERY_KEY = ["memory"] as const;
+
+export const RECALL_TRACE_QUERY_KEY = [...MEMORY_QUERY_KEY, "recall-trace"] as const;
 
 /**
  * Runs a recall trace: the search `recall` would run for the same parameters, stage by stage. It counts no return and

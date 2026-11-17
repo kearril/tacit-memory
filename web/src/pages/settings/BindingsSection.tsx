@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Link2, PenLine, Plus, Unlink } from "lucide-react";
 import { useState } from "react";
 import {
-  BINDINGS_QUERY_KEY,
+  BIND_AFFECTS,
   type BindingCheck,
   type BindingDone,
   connectClient,
@@ -11,7 +11,7 @@ import {
   type McpServer as McpServerInfo,
   useBindings,
 } from "../../api/bindings";
-import { STATUS_QUERY_KEY } from "../../api/status";
+import { afterCommand } from "../../api/effects";
 import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -152,10 +152,7 @@ function AddDialog({
     mutationFn: connectClient,
     onSuccess: async (done) => {
       setStep({ kind: "done", done });
-      await Promise.all([
-        queries.invalidateQueries({ queryKey: BINDINGS_QUERY_KEY }),
-        queries.invalidateQueries({ queryKey: STATUS_QUERY_KEY }),
-      ]);
+      await afterCommand(queries, BIND_AFFECTS);
     },
   });
 
@@ -330,10 +327,7 @@ function Details({
     onSuccess: async (done) => {
       showToast(text.unbound(nameOf(done.client)));
       close();
-      await Promise.all([
-        queries.invalidateQueries({ queryKey: BINDINGS_QUERY_KEY }),
-        queries.invalidateQueries({ queryKey: STATUS_QUERY_KEY }),
-      ]);
+      await afterCommand(queries, BIND_AFFECTS);
     },
   });
 

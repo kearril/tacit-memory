@@ -1,4 +1,6 @@
 import { api, call } from "./client";
+import type { Affects } from "./effects";
+import { STATUS_QUERY_KEY } from "./status";
 import type { components } from "./schema";
 
 export type ProbeReport = components["schemas"]["ProbeReport"];
@@ -11,3 +13,6 @@ export type ProbeResult = components["schemas"]["ProbeResult"];
 export function runProbe(): Promise<ProbeReport> {
   return call(api.POST("/api/probe"));
 }
+
+/** A probe starts or ends a model's cooling down, which the status reports. */
+export const PROBE_AFFECTS: Affects = [STATUS_QUERY_KEY];

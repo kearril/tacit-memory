@@ -2,14 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ApiError } from "../../api/client";
 import {
-  CONFIG_QUERY_KEY,
   type ConfigProblem,
   type ConfigView,
   type RestartChange,
+  SAVE_CONFIG_AFFECTS,
   saveConfig,
   useConfig,
 } from "../../api/config";
-import { STATUS_QUERY_KEY } from "../../api/status";
+import { afterCommand } from "../../api/effects";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { useDictionary } from "../../app/session-context";
 import { StickyBar } from "../../components/ui/sticky-bar";
@@ -162,8 +162,7 @@ function SettingsEditor({
       } else {
         showToast(text.saved);
       }
-      void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
-      await queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
+      await afterCommand(queryClient, SAVE_CONFIG_AFFECTS);
     },
     onError: (error) => {
       const failed = classifyFailure(error);

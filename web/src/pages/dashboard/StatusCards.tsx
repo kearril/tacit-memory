@@ -20,8 +20,16 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups } from "../../api/backups";
-import { runProbe } from "../../api/probe";
+import {
+  BACKUP_AFFECTS,
+  type BackupTarget,
+  REINDEX_AFFECTS,
+  runBackup,
+  runReindex,
+  useBackups,
+} from "../../api/backups";
+import { afterCommand } from "../../api/effects";
+import { PROBE_AFFECTS, runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { AgentLogo } from "../../components/agent-logo";
@@ -149,6 +157,7 @@ export function ModelsCard({
   const probe = useMutation({
     mutationFn: runProbe,
     onMutate: () => setFailure(null),
+    onSuccess: () => afterCommand(queryClient, PROBE_AFFECTS),
     onError: (error) => setFailure({ title: dictionary.dashboard.probe.failedTitle, failure: classifyFailure(error) }),
   });
 
@@ -250,7 +259,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
     onMutate: () => setFailure(null),
     onSuccess: (result) => {
       showToast(dictionary.dashboard.reindex.done(result.files, result.units));
-      void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
+      void afterCommand(queryClient, REINDEX_AFFECTS);
     },
     onError: (error) => setFailure({ title: dictionary.dashboard.reindex.failed, failure: classifyFailure(error) }),
   });
@@ -428,10 +437,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
         title: target === "remote" ? text.cloudFailedTitle : text.failed,
         failure: classifyFailure(error),
       }),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: BACKUPS_QUERY_KEY });
-      void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
-    },
+    onSettled: () => afterCommand(queryClient, BACKUP_AFFECTS),
   });
   const list = backups.data;
   const latest = list?.local[0];

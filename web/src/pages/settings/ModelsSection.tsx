@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Activity, ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { runProbe } from "../../api/probe";
+import { afterCommand } from "../../api/effects";
+import { PROBE_AFFECTS, runProbe } from "../../api/probe";
 import { useDictionary } from "../../app/session-context";
 import { Button } from "../../components/ui/button";
 import { errorTextOf } from "../../i18n/messages";
@@ -24,7 +25,8 @@ type Model = (typeof MODELS)[number];
 export function ModelsSection({ form }: { readonly form: SettingsForm }) {
   const dictionary = useDictionary();
   const text = dictionary.settings.models;
-  const probe = useMutation({ mutationFn: runProbe });
+  const queryClient = useQueryClient();
+  const probe = useMutation({ mutationFn: runProbe, onSuccess: () => afterCommand(queryClient, PROBE_AFFECTS) });
   const [open, setOpen] = useState<Model | null>(null);
   const dirty = form.changed.size > 0;
 

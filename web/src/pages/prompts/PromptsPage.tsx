@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router";
+import { afterCommand } from "../../api/effects";
 import type {
   PromptDocument,
   PromptList,
@@ -10,8 +11,14 @@ import type {
   PromptSaved,
   ResidentPart,
 } from "../../api/prompts";
-import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePromptCheck, usePrompts } from "../../api/prompts";
-import { STATUS_QUERY_KEY } from "../../api/status";
+import {
+  PROMPTS_QUERY_KEY,
+  restorePromptDefault,
+  SAVE_PROMPT_AFFECTS,
+  savePrompt,
+  usePromptCheck,
+  usePrompts,
+} from "../../api/prompts";
 import { useDictionary } from "../../app/session-context";
 import { useDebounced } from "../../app/use-debounced";
 import { LeaveGuard } from "../../components/leave-guard";
@@ -129,10 +136,7 @@ function PromptCard({
     );
     setNotices(saved.notices);
     showToast(message);
-    // The core rules and the recording criteria are measured together, so the other one's length changed as well.
-    void queryClient.invalidateQueries({ queryKey: PROMPTS_QUERY_KEY });
-    // A save or a return to the default may fix a broken file, which the dashboard lists from the status.
-    void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
+    void afterCommand(queryClient, SAVE_PROMPT_AFFECTS);
   };
 
   return (
