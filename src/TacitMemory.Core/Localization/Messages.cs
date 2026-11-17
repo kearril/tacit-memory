@@ -17,6 +17,9 @@ internal static class Messages
         "启动服务后，可在浏览器打开 Web 界面继续配置：http://127.0.0.1:{0}/",
         "Once the service is running, continue the setup in the Web interface: http://127.0.0.1:{0}/");
 
+    public static readonly Localized InitConfigWithoutLanguage = new(
+        "{0} 已存在，但没有可读的 language 设置。init 不改写已有的配置：请在其中加上 language: zh 或 language: en，再执行 init。",
+        "{0} exists but sets no readable language. init does not rewrite an existing config: add language: zh or language: en to it, then run init again.");
     public static readonly Localized MemoryDirectoryNotEmpty = new(
         "目录 {0} 不为空且不是 Git 仓库，不能用作记忆仓库。请指定空目录或已有的记忆仓库（--memory）。",
         "The directory {0} is not empty and is not a Git repository, so it cannot be the memory repository. Choose an empty directory or an existing memory repository (--memory).");

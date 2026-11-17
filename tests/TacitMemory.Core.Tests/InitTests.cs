@@ -123,6 +123,38 @@ public sealed class InitTests : IDisposable
     }
 
     [Fact]
+    public async Task Init_refuses_an_existing_config_without_a_language_and_changes_nothing()
+    {
+        Directory.CreateDirectory(_home.TacitHome);
+        var configPath = Path.Combine(_home.TacitHome, "config.yaml");
+        File.WriteAllText(configPath, "server:\n  port: 19001\n");
+
+        var error = await Assert.ThrowsAsync<TacitException>(
+            () => _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En, AskLanguage = () => throw new InvalidOperationException("asked") }));
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains("language", error.Message, StringComparison.Ordinal);
+        Assert.Equal("server:\n  port: 19001\n", File.ReadAllText(configPath));
+        Assert.False(Directory.Exists(Path.Combine(_home.TacitHome, "memory")));
+    }
+
+    [Fact]
+    public async Task Init_refuses_a_memory_folder_that_is_not_empty_before_asking_for_the_language()
+    {
+        var memory = Path.Combine(_home.TacitHome, "memory");
+        Directory.CreateDirectory(memory);
+        File.WriteAllText(Path.Combine(memory, "notes.txt"), "mine");
+        var asked = 0;
+
+        var error = await Assert.ThrowsAsync<TacitException>(
+            () => _home.Tacit().InitAsync(new InitRequest { AskLanguage = () => { asked++; return MemoryLanguage.Zh; } }));
+
+        Assert.Equal(TacitError.MemoryDirectoryNotEmpty, error.Error);
+        Assert.Equal(0, asked);
+        Assert.StartsWith("The directory ", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Init_in_english_writes_english_templates_and_report()
     {
         var result = await _home.Tacit().InitAsync(new InitRequest { Language = MemoryLanguage.En });

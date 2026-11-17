@@ -20,7 +20,7 @@ public sealed class DuplicatePageTests : IDisposable
     private void Configure(string extra = "", string decisionKey = "test-key")
     {
         _home.InitReady(models: _models);
-        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
+        File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), ("language: zh\n" + _models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
     }
 
     private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.WritePageAsync(new WritePageRequest

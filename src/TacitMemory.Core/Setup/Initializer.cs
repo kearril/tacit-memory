@@ -15,7 +15,7 @@ internal static class Initializer
 {
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
-    /// <summary>The language the caller is asked for when neither the request nor the config names one.</summary>
+    /// <summary>The language the caller is asked for when neither the request nor a config names one: there is no config yet.</summary>
     private static MemoryLanguage AskLanguage(InitRequest request) =>
         request.AskLanguage?.Invoke()
         ?? throw new InvalidOperationException("init needs a language: none was given, the config names none, and there is no one to ask.");
@@ -26,20 +26,27 @@ internal static class Initializer
         var config = ExistingConfig.Read(configPath, options.UserHome);
         var requestedMemory = request.MemoryPath is null ? null : Path.GetFullPath(request.MemoryPath);
 
-        var language = request.Language ?? config.Language ?? AskLanguage(request);
+        // The language is asked for only once every refusal has had its turn, so no one answers and is then refused.
+        // Until then the refusals speak the language already known, English when none is.
+        var knownLanguage = request.Language ?? config.Language ?? LanguageCodes.WithoutConfig;
+        // init never rewrites an existing config, so a language it would choose could not be kept there.
+        if (config.Exists && config.Language is null)
+            throw new TacitException(TacitError.ConfigInvalid, Messages.InitConfigWithoutLanguage.Format(knownLanguage, configPath));
         if (request.Language is { } requestedLanguage && config.Language is { } configLanguage && requestedLanguage != configLanguage)
             throw Conflict(configLanguage, configPath, "language", configLanguage.Code(), requestedLanguage.Code());
 
         var defaultMemory = Path.Combine(options.TacitHome, "memory");
         var configMemory = config.Exists ? config.MemoryPath ?? defaultMemory : null;
         if (requestedMemory is not null && configMemory is not null && !SamePath(requestedMemory, configMemory))
-            throw Conflict(language, configPath, "memory.path", configMemory, requestedMemory);
+            throw Conflict(knownLanguage, configPath, "memory.path", configMemory, requestedMemory);
 
         var memory = requestedMemory ?? configMemory ?? defaultMemory;
-        var git = new GitCli(memory, language);
-        var isRepository = git.IsRepositoryRoot();
+        var isRepository = new GitCli(memory, knownLanguage).IsRepositoryRoot();
         if (!isRepository && Directory.Exists(memory) && Directory.EnumerateFileSystemEntries(memory).Any())
-            throw new TacitException(TacitError.MemoryDirectoryNotEmpty, Messages.MemoryDirectoryNotEmpty.Format(language, memory));
+            throw new TacitException(TacitError.MemoryDirectoryNotEmpty, Messages.MemoryDirectoryNotEmpty.Format(knownLanguage, memory));
+
+        var language = request.Language ?? config.Language ?? AskLanguage(request);
+        var git = new GitCli(memory, language);
 
         var created = new List<string>();
         var existing = new List<string>();
