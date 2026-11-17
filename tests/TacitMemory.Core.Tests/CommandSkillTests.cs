@@ -241,7 +241,6 @@ public sealed class CommandSkillTests : IDisposable
         Assert.Contains("- YYYY-Www：", chinese, StringComparison.Ordinal);
 
         using var home = new TestHome();
-        // InitReady rewrites config.yaml without the language key, so the memory language is set again here.
         home.InitReady(language: MemoryLanguage.En);
         home.Tacit().GenerateSkills();
         var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));

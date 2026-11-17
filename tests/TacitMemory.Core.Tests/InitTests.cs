@@ -1,4 +1,3 @@
-using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Tests;
 
@@ -109,7 +108,7 @@ public sealed class InitTests : IDisposable
 
         Assert.Equal(1, asked);
         Assert.StartsWith(personaStart, File.ReadAllText(Path.Combine(result.MemoryPath, "persona.md")));
-        Assert.Contains($"language: {answer.Code()}\n", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
+        Assert.Contains($"language: {answer.ToString().ToLowerInvariant()}\n", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
     }
 
     [Fact]

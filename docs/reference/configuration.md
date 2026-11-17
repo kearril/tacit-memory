@@ -67,7 +67,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 
 ### `language`
 
-`language` 取 `zh` 或 `en`，决定记忆语言；缺省规则与各类文字的语言划分见 `docs/design.md`「语言」。
+`language` 取 `zh` 或 `en`，决定记忆语言；它如何定下与各类文字的语言划分见 `docs/design.md`「语言」。
 
 ### `models`
 
