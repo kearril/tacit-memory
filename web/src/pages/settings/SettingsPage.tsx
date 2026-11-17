@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
 import { LeaveGuard } from "../../components/leave-guard";
+import { classifyFailure, type CommandFailure } from "../../components/command-failure";
 import { QueryFailed, QueryResult, type Retry } from "../../components/query-result";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/toast-context";
@@ -118,10 +119,8 @@ function LoadFailed({ error, retry }: { readonly error: Error; readonly retry: R
   );
 }
 
-interface Failure {
-  readonly message: string;
-  readonly reload: boolean;
-}
+/** A failed save the bar shows: any but one refused with problems, which are shown at their fields. */
+type Failure = Exclude<CommandFailure, { readonly kind: "rejected" }>;
 
 function SettingsEditor({
   view,
@@ -167,14 +166,12 @@ function SettingsEditor({
       await queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.problems.length > 0) {
-        show(error.problems);
+      const failed = classifyFailure(error);
+      if (failed.kind === "rejected") {
+        show(failed.problems);
         setFailure(null);
       } else {
-        setFailure({
-          message: errorTextOf(error, dictionary),
-          reload: error instanceof ApiError && error.error === "ConfigChanged",
-        });
+        setFailure(failed);
       }
     },
   });
@@ -327,8 +324,8 @@ function SaveBar({
       {failure === null ? null : (
         <Alert tone="danger">
           <AlertTitle>{text.saveFailed}</AlertTitle>
-          <AlertDescription>{failure.message}</AlertDescription>
-          {failure.reload ? (
+          <AlertDescription>{errorTextOf(failure.error, dictionary)}</AlertDescription>
+          {failure.kind === "changed" ? (
             <div className="col-start-2 pt-xs">
               <AlertDialog>
                 <AlertDialogTrigger asChild>

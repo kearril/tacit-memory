@@ -2,14 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router";
-import { ApiError } from "../../api/client";
-import type { ConfigProblem } from "../../api/config";
 import type { PromptDocument, PromptList, PromptMeasure, PromptName, PromptSaved } from "../../api/prompts";
 import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePromptCheck, usePrompts } from "../../api/prompts";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { useDebounced } from "../../app/use-debounced";
 import { LeaveGuard } from "../../components/leave-guard";
+import { classifyFailure, type TitledFailure } from "../../components/command-failure";
 import { QueryResult } from "../../components/query-result";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
@@ -227,11 +226,6 @@ function ListAlert({
   );
 }
 
-/** A refused save or return to the default: the document's problems, or the explanation and whether a reload helps. */
-type Failure =
-  | { readonly kind: "rejected"; readonly problems: readonly ConfigProblem[] }
-  | { readonly kind: "failed"; readonly title: string; readonly message: string; readonly reload: boolean };
-
 /**
  * The text of one document and its actions. A built-in text is read-only until the user starts customizing it; then, or
  * once a file exists, it is saved as a whole, discarded, or (with a file) returned to its default by deleting the file.
@@ -254,7 +248,7 @@ function PromptEditor({
   const file = FILE_NAMES[document.name];
   const [customizing, setCustomizing] = useState(false);
   const [draft, setDraft] = useState(document.text);
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<TitledFailure | null>(null);
   const state = stateOf(document, customizing, draft);
   // The text as it is saved needs no check: the document carries its measure. Any other text is checked once typing pauses.
   const settled = useDebounced(draft, CHECK_DELAY);
@@ -263,18 +257,8 @@ function PromptEditor({
   const measure = !edited ? document.measure : check.isError ? undefined : check.data?.measure;
   const problems = edited && !check.isPlaceholderData ? (check.data?.problems ?? []) : [];
 
-  const failed = (title: string) => (error: Error) => {
-    if (error instanceof ApiError && error.problems.length > 0) {
-      setFailure({ kind: "rejected", problems: error.problems });
-    } else {
-      setFailure({
-        kind: "failed",
-        title,
-        message: errorTextOf(error, dictionary),
-        reload: error instanceof ApiError && error.error === "PromptChanged",
-      });
-    }
-  };
+  const failed = (title: string) => (error: Error) => setFailure({ title, failure: classifyFailure(error) });
+  const rejected = failure?.failure.kind === "rejected" ? failure.failure : null;
   const save = useMutation({
     mutationFn: () => savePrompt(document.name, document.hash, draft),
     onSuccess: (saved) => onDone(saved, text.saved),
@@ -320,20 +304,21 @@ function PromptEditor({
       </Suspense>
       {measure === undefined ? null : <Measure measure={measure} />}
 
-      {problems.length === 0 || failure?.kind === "rejected" ? null : (
+      {problems.length === 0 || rejected !== null ? null : (
         <ListAlert tone="warning" title={text.problemsTitle} items={problems} />
       )}
-      {failure === null ? null : failure.kind === "rejected" ? (
+      {rejected === null ? null : (
         <ListAlert
           tone="danger"
           title={text.rejectedTitle}
-          items={failure.problems.map((problem) => problem.message)}
+          items={rejected.problems.map((problem) => problem.message)}
         />
-      ) : (
+      )}
+      {failure === null || failure.failure.kind === "rejected" ? null : (
         <Alert tone="danger">
           <AlertTitle>{failure.title}</AlertTitle>
-          <AlertDescription>{failure.message}</AlertDescription>
-          {failure.reload ? (
+          <AlertDescription>{errorTextOf(failure.failure.error, dictionary)}</AlertDescription>
+          {failure.failure.kind === "changed" ? (
             <div className="col-start-2 pt-xs">
               <ConfirmButton
                 label={text.reload}
