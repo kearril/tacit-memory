@@ -117,6 +117,45 @@ public sealed class DerivedUpkeepTests : IDisposable
     }
 
     [Fact]
+    public async Task After_an_index_sync_gives_up_the_next_search_finds_the_file_as_it_is_without_another_change()
+    {
+        using (var first = Open())
+            Assert.False((await first.WritePageAsync(Create())).IsError);
+        using var service = Open();
+        var text = File.ReadAllText(PageFile).Replace("升级后中文搜索没有结果。", "升级后中文搜索没有结果，Zhparser 也失效。", StringComparison.Ordinal);
+
+        using (var held = new FileStream(PageFile, FileMode.Truncate, FileAccess.Write, FileShare.None))
+        {
+            using (var writer = new StreamWriter(held, leaveOpen: true))
+                writer.Write(text);
+            _home.Sources!.MemoryChanged($"pages/{Page}.md");
+            await service.SettledAsync();
+            for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
+            {
+                _home.Clock.Elapse(DerivedUpkeep.Debounce);
+                await service.SettledAsync();
+            }
+        }
+        Assert.True(IndexSyncReported());
+
+        var found = await service.RecallAsync(new RecallRequest { Query = "Zhparser" });
+
+        Assert.Contains(Page, found.Text);
+    }
+
+    [Fact]
+    public async Task A_page_changed_without_a_notice_reads_as_it_is_in_its_workstream_brief()
+    {
+        using var service = Open();
+        Assert.False((await service.WritePageAsync(Create())).IsError);
+        File.WriteAllText(PageFile, File.ReadAllText(PageFile).Replace("title: 数据库升级后扩展丢失", "title: 数据库升级后两个扩展都丢失", StringComparison.Ordinal));
+
+        var brief = await service.RecallAsync(new RecallRequest { Workstream = "tacit-memory" });
+
+        Assert.Contains("数据库升级后两个扩展都丢失", brief.Text);
+    }
+
+    [Fact]
     public async Task A_prompt_reload_that_meets_a_held_file_is_retried_five_times_then_reported_once()
     {
         var rules = Path.Combine(_home.TacitHome, "prompts", "rules.md");

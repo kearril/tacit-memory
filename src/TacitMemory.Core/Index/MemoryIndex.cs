@@ -137,6 +137,9 @@ internal sealed class MemoryIndex : IDisposable
     private readonly string _databasePath;
     private readonly string? _embeddingModel;
     private readonly Lock _gate = new();
+
+    /// <summary>Set when a background sync gave up; the next search syncs every file first.</summary>
+    private volatile bool _possiblyStale;
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
     private readonly Func<DateOnly> _today;
     private readonly Func<IReadOnlyDictionary<string, DateOnly>> _commitDays;
@@ -202,6 +205,8 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
+            // Cleared first: a file that changes while this runs sets it again through its own sync.
+            _possiblyStale = false;
             var pages = PageFiles().ToDictionary(file => file.Id.RelativePath);
             var months = RecentFile.MonthFiles(_memoryPath).ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
@@ -215,6 +220,31 @@ internal sealed class MemoryIndex : IDisposable
             _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
             _fullBuild = false;
             _commitDayCache = null;
+        }
+    }
+
+    /// <summary>
+    /// Marks the index as possibly behind its files: a background sync gave up, and no change may come to start another. It
+    /// is kept in memory only, as a restart syncs every file anyway.
+    /// </summary>
+    public void MarkPossiblyStale() => _possiblyStale = true;
+
+    /// <summary>
+    /// Syncs every file when a background sync gave up since the last full sync, so a search does not read what the files no
+    /// longer say. A file still held leaves the mark for the next search.
+    /// </summary>
+    public void SyncAllIfStale()
+    {
+        if (!_possiblyStale)
+            return;
+        try
+        {
+            SyncAll();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // The give-up was reported already; the search reads what the index holds, and the next one tries again.
+            _possiblyStale = true;
         }
     }
 

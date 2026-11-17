@@ -88,7 +88,7 @@ internal sealed class DerivedUpkeep : IDisposable
         _gate = gate;
         _runtime = runtime;
         _resident = new Debounced(this, RenderResident, Messages.RenderFailed, RenderLock);
-        _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed, exclusive: null);
+        _index = new Debounced(this, SyncIndex, Messages.IndexSyncFailed, exclusive: null, gaveUp: () => _runtime().Index.MarkPossiblyStale());
         // Watching prompts/ afresh throws ArgumentException while the folder is being replaced.
         _prompts = new Debounced(this, ReloadPrompts, Messages.PromptsNotApplied, RenderLock, e => e is ArgumentException);
         _dayTimer = ArmDayTimer();
@@ -471,6 +471,7 @@ internal sealed class DerivedUpkeep : IDisposable
         private readonly Localized _failed;
         private readonly Func<Exception, bool> _alsoTransient;
         private readonly Lock? _exclusive;
+        private readonly Action? _gaveUp;
         private readonly ITimer _timer;
         private int _retries;
         private bool _pending;
@@ -483,8 +484,11 @@ internal sealed class DerivedUpkeep : IDisposable
 
         /// <param name="exclusive">A lock the work runs under, when it writes files that others write too.</param>
         /// <param name="alsoTransient">Failures of this refresh tried again as a held file is, beside <see cref="IOException"/> and <see cref="UnauthorizedAccessException"/>.</param>
-        public Debounced(DerivedUpkeep owner, Action work, Localized failed, Lock? exclusive, Func<Exception, bool>? alsoTransient = null)
+        /// <param name="gaveUp">Run once the refresh is given up, after the failure is reported.</param>
+        public Debounced(
+            DerivedUpkeep owner, Action work, Localized failed, Lock? exclusive, Func<Exception, bool>? alsoTransient = null, Action? gaveUp = null)
         {
+            _gaveUp = gaveUp;
             _owner = owner;
             _work = work;
             _failed = failed;
@@ -594,6 +598,7 @@ internal sealed class DerivedUpkeep : IDisposable
                     _retries = 0;
                 }
                 _owner._log.Notify(LogLevel.Warning, _failed, e.Message);
+                _gaveUp?.Invoke();
             }
         }
 

@@ -25,10 +25,14 @@ internal sealed record BriefReading(WorkstreamBrief.Parts Parts, string Text);
 /// </summary>
 internal sealed class MemoryReader(MemoryIndex index, PageTools pages, RecallPipeline pipeline, WorkstreamBrief brief)
 {
-    /// <summary>The search <c>recall</c> runs, stage by stage; counted, every unit it returned counts once.</summary>
+    /// <summary>
+    /// The search <c>recall</c> runs, stage by stage; counted, every unit it returned counts once. When a background sync
+    /// gave up, every file is synced first.
+    /// </summary>
     public async Task<RecallTrace> SearchAsync(
         string query, IndexFilter filter, RetrievalOverrides overrides, Usage usage, CancellationToken cancellationToken)
     {
+        index.SyncAllIfStale();
         var trace = await pipeline.RunAsync(query, filter, overrides, cancellationToken);
         if (usage == Usage.Counted)
             index.RecordReturns([.. trace.Returned.Select(hit => hit.Id)]);
