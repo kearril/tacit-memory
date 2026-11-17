@@ -44,8 +44,9 @@ public sealed record PersonaSectionView(PersonaSection? Section, string? Heading
 /// <param name="Line">The entry's first line in the file, from 1.</param>
 /// <param name="Code">The short code <c>write_persona</c> takes; <c>null</c> for a line that is not an entry.</param>
 /// <param name="Text">The entry's first line without its marker, or the line as written.</param>
-/// <param name="Continuation">Its continuation lines, trimmed, source comments among them as written.</param>
-public sealed record PersonaEntryView(int Line, string? Code, string Text, IReadOnlyList<string> Continuation);
+/// <param name="Lines">Its continuation lines that are not comments, trimmed, in order.</param>
+/// <param name="Sources">Its source comments, in order.</param>
+public sealed record PersonaEntryView(int Line, string? Code, string Text, IReadOnlyList<string> Lines, IReadOnlyList<SourceView> Sources);
 
 /// <summary>A domain or workstream block of the persona.</summary>
 /// <param name="Name">The domain's label or the workstream's name.</param>

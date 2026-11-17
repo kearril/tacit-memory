@@ -179,7 +179,7 @@ public sealed class ServiceHost : IAsyncDisposable
                 var error = context.Request.Path.StartsWithSegments(McpPath, StringComparison.OrdinalIgnoreCase)
                     ? TacitError.McpRemoteRefused
                     : TacitError.RemotePathRefused;
-                await ManagementApi.Json(new ApiError(error.ToString(), HostMessages.Refusal(error, service.Language)), StatusCodes.Status403Forbidden)
+                await ManagementApi.Json(new ApiError(error, HostMessages.Refusal(error, service.Language)), StatusCodes.Status403Forbidden)
                     .ExecuteAsync(context);
                 return;
             }

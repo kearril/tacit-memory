@@ -76,7 +76,7 @@ public sealed class RemoteBackupApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, status);
         var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-        Assert.Equal("RequestInvalid", error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
         Assert.False(string.IsNullOrWhiteSpace(error.Message));
     }
 
@@ -89,7 +89,7 @@ public sealed class RemoteBackupApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.InternalServerError, status);
         var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-        Assert.Equal("CloudBackupFailed", error.Error);
+        Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("HTTP 500", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(Password, text, StringComparison.Ordinal);
     }

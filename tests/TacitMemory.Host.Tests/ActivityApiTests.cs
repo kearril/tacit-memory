@@ -180,6 +180,6 @@ public sealed class ActivityApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.ApiUnauthorized), error.Error);
+        Assert.Equal(TacitError.ApiUnauthorized, error.Error);
     }
 }

@@ -7,7 +7,7 @@ internal static class RequestMessages
         "config.yaml 在你打开设置页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
         "config.yaml was changed after you opened the settings page, and saving would overwrite that change. Load it again, then make your changes.");
 
-    public static readonly Localized SecretUnknown = new("{0} 不是密钥。", "{0} is not a secret.");
+    public static readonly Localized SecretNotFound = new("{0} 不是密钥。", "{0} is not a secret.");
 
     public static readonly Localized PromptUnknown = new(
         "{0} 不是提示词文档。提示词文档有 instructions、rules、resident、skill。",
@@ -33,7 +33,7 @@ internal static class RequestMessages
 
     public static readonly Localized LogDateNotFound = new("{0} 没有日志。", "There is no log for {0}.");
 
-    public static readonly Localized SecretNotSecret = new("不是密钥，不能按密钥修改", "not a secret, so it cannot be changed as one");
+    public static readonly Localized NotASecretKey = new("不是密钥，不能按密钥修改", "not a secret, so it cannot be changed as one");
 
     public static readonly Localized ConfigReadOnly = new(
         "设置页不能修改这一项：请在 config.yaml 中修改，重启 tacit serve 后生效。",

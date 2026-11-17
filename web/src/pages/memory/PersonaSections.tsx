@@ -15,14 +15,10 @@ import type { FileProblem, PersonaEntryView, PersonaSection } from "../../api/me
 import { useDictionary } from "../../app/session-context";
 import type { PersonaScope } from "./persona";
 import { CodePill, QuoteList, QuoteToggle } from "./parts";
-import { splitSources } from "./sources";
 import { entryBox } from "../../components/ui/entry-box";
 
-/** The four persona sections. */
-export type SectionKind = NonNullable<PersonaSection>;
-
 /** Each section's icon: a red line is told apart by its icon, never by the error colour. */
-export const SECTION_ICONS: Readonly<Record<SectionKind, LucideIcon>> = {
+export const SECTION_ICONS: Readonly<Record<PersonaSection, LucideIcon>> = {
   redLines: ShieldAlert,
   workingRules: Compass,
   preferences: Heart,
@@ -53,7 +49,7 @@ export function PersonaEntryCard({
   const text = useDictionary().memory.persona;
   const quotesId = useId();
   const [open, setOpen] = useState(false);
-  const { lines, sources } = splitSources(entry.continuation);
+  const { lines, sources } = entry;
   const quoted = sources.some((source) => source.quote !== null);
   // The first day the entry was written on leads; any later day it was confirmed on is counted after it and listed on hover.
   const dates = [...new Set(sources.flatMap((source) => (source.date === null ? [] : [source.date])))];
@@ -108,7 +104,7 @@ export function SectionChip({
   section,
   heading,
 }: {
-  readonly section: PersonaSection;
+  readonly section: PersonaSection | null;
   readonly heading: string | null;
 }) {
   const text = useDictionary().memory.persona;

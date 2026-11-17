@@ -71,7 +71,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
         var entry = redLines["entries"]![0]!;
         Assert.Equal("不要删库", entry["text"]!.GetValue<string>());
         Assert.Matches("^[0-9a-f]{6}$", entry["code"]!.GetValue<string>());
-        Assert.Equal("<!-- 2026-10-25 原话「别删库」 -->", entry["continuation"]![0]!.GetValue<string>());
+        var source = entry["sources"]![0]!;
+        Assert.Equal(("2026-10-25", "别删库"), (source["date"]!.GetValue<string>(), source["quote"]!.GetValue<string>()));
         Assert.Equal("Red line without instead", report["personaFile"]!["problems"]![0]!["kind"]!.GetValue<string>());
         Assert.Equal(2, report["personaFile"]!["problems"]![0]!["line"]!.GetValue<int>());
         Assert.Equal("改代理时", report["domains"]![0]!["trigger"]!.GetValue<string>());
@@ -143,7 +144,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.NotNull(months["current"]);
         var activity = month["days"]![0]!["activities"]![0]!;
         Assert.Equal(("ops", "回滚演练完成"), (activity["workstream"]!.GetValue<string>(), activity["text"]!.GetValue<string>()));
-        Assert.Equal("  <!-- 原话「演练一下」 -->", activity["continuation"]![0]!.GetValue<string>());
+        Assert.Equal("演练一下", activity["sources"]![0]!["quote"]!.GetValue<string>());
         Assert.Equal("week", month["summaries"]![0]!["kind"]!.GetValue<string>());
         Assert.EndsWith("2026-10.md", month["file"]!["path"]!.GetValue<string>());
     }

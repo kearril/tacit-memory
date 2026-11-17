@@ -124,7 +124,7 @@ public sealed class OpenApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.ApiOriginRefused), error.Error);
+        Assert.Equal(TacitError.ApiOriginRefused, error.Error);
     }
 
     [Theory]
@@ -162,12 +162,58 @@ public sealed class OpenApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_error_body_names_its_error_from_one_enum_with_the_names_as_written()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var schemas = document["components"]?["schemas"];
+        Assert.Equal("#/components/schemas/TacitError", schemas?["ApiError"]?["properties"]?["error"]?["$ref"]?.GetValue<string>());
+        var names = schemas?["TacitError"]?["enum"]?.AsArray().Select(name => name!.GetValue<string>()).ToArray() ?? [];
+        Assert.Equal(Enum.GetNames<TacitError>(), names);
+    }
+
+    [Fact]
+    public async Task The_page_types_and_the_resident_sections_are_enums_named_as_they_are_written()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var schemas = document["components"]?["schemas"];
+        string[] Names(string schema) => schemas?[schema]?["enum"]?.AsArray().Select(name => name!.GetValue<string>()).ToArray() ?? [];
+        Assert.Equal(ToolValues.PageTypes.All, Names("PageType"));
+        Assert.Equal(["red_lines", "working_rules", "preferences", "profile", "situational_rules", "workstreams"], Names("ResidentPart"));
+    }
+
+    [Fact]
+    public async Task An_enum_holds_only_its_names_and_a_nullable_use_says_so_where_it_refers_to_it()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var schemas = document["components"]!["schemas"]!.AsObject();
+        Assert.All(
+            schemas.Where(schema => schema.Value?["enum"] is not null),
+            schema => Assert.DoesNotContain(schema.Value!["enum"]!.AsArray(), value => value is null));
+        var type = schemas["PageListItem"]!["properties"]!["type"]!["oneOf"]!.AsArray();
+        Assert.Contains(type, option => option?["type"]?.GetValue<string>() == "null");
+        Assert.Contains(type, option => option?["$ref"]?.GetValue<string>() == "#/components/schemas/PageType");
+    }
+
+    [Fact]
+    public async Task A_config_save_declares_that_a_secret_may_be_null_which_removes_it()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var value = document["components"]?["schemas"]?["ConfigSave"]?["properties"]?["secrets"]?["additionalProperties"]?["type"]?.AsArray()
+            .Select(type => type!.GetValue<string>()).ToArray();
+        Assert.Equal(["null", "string"], value!);
+    }
+
+    [Fact]
     public async Task The_restore_preview_declares_its_report_as_required()
     {
         var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
 
         var required = document["components"]?["schemas"]?["RestorePreview"]?["required"]?.AsArray()
-            .Select(name => name!.GetValue<string>()).ToArray();
+            .Select(name => name!.GetValue<string>()).ToArray() ?? [];
         Assert.Contains("report", required!);
     }
 

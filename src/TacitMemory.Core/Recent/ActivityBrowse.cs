@@ -60,7 +60,8 @@ internal static class ActivityBrowse
             continuation.Add(line);
         }
 
-        return new ActivityItemView(activity.Code, activity.Workstream, activity.Body, continuation, uses);
+        var (texts, sources) = SourceComment.Split(continuation);
+        return new ActivityItemView(activity.Code, activity.Workstream, activity.Body, texts, sources, uses);
     }
 
     private static string Day(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

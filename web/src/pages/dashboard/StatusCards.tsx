@@ -52,7 +52,10 @@ import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, IconAction, InfoRow, ProbeLine } from "./parts";
+import { classifyFailure, type TitledFailure } from "../../components/command-failure";
+import { QueryResult } from "../../components/query-result";
+import { BusyIcon } from "../../components/ui/busy-icon";
+import { IconAction, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 import { LOGS_PATH } from "../logs/day";
 import { CANDIDATES_ANCHOR, memoryPathOf } from "../memory/views";
@@ -113,17 +116,13 @@ function useNow(running: boolean): number {
   return now;
 }
 
-/** A failure to show in a card: what did not succeed, and the service's explanation as it is. */
-interface Failure {
-  readonly title: string;
-  readonly message: string;
-}
-
-function FailureAlert({ failure }: { readonly failure: Failure | null }) {
+/** A failure shown in a card: what did not succeed, and the service's explanation as it is. */
+function FailureAlert({ failure }: { readonly failure: TitledFailure | null }) {
+  const dictionary = useDictionary();
   return failure === null ? null : (
     <Alert tone="danger">
       <AlertTitle>{failure.title}</AlertTitle>
-      <AlertDescription>{failure.message}</AlertDescription>
+      <AlertDescription>{errorTextOf(failure.failure.error, dictionary)}</AlertDescription>
     </Alert>
   );
 }
@@ -145,12 +144,11 @@ export function ModelsCard({
   const items = report.models?.items;
   const cooling = items?.some((model) => model.state === "coolingDown") ?? false;
   const now = Math.max(useNow(cooling), fetchedAt);
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<TitledFailure | null>(null);
   const probe = useMutation({
     mutationFn: runProbe,
     onMutate: () => setFailure(null),
-    onError: (error) =>
-      setFailure({ title: dictionary.dashboard.probe.failedTitle, message: errorTextOf(error, dictionary) }),
+    onError: (error) => setFailure({ title: dictionary.dashboard.probe.failedTitle, failure: classifyFailure(error) }),
   });
 
   const remaining = (items ?? []).map((model) =>
@@ -245,7 +243,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
   const pending = report.pending;
   const showToast = useToast();
   const queryClient = useQueryClient();
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<TitledFailure | null>(null);
   const reindex = useMutation({
     mutationFn: runReindex,
     onMutate: () => setFailure(null),
@@ -253,8 +251,7 @@ export function IndexCard({ report, locale, className }: CardProps) {
       showToast(dictionary.dashboard.reindex.done(result.files, result.units));
       void queryClient.invalidateQueries({ queryKey: STATUS_QUERY_KEY });
     },
-    onError: (error) =>
-      setFailure({ title: dictionary.dashboard.reindex.failed, message: errorTextOf(error, dictionary) }),
+    onError: (error) => setFailure({ title: dictionary.dashboard.reindex.failed, failure: classifyFailure(error) }),
   });
 
   return (
@@ -418,7 +415,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   const backups = useBackups();
   const showToast = useToast();
   const queryClient = useQueryClient();
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<TitledFailure | null>(null);
   const backup = useMutation({
     mutationFn: (target: BackupTarget) => runBackup(target),
     onMutate: () => setFailure(null),
@@ -428,7 +425,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
     onError: (error, target) =>
       setFailure({
         title: target === "remote" ? text.cloudFailedTitle : text.failed,
-        message: errorTextOf(error, dictionary),
+        failure: classifyFailure(error),
       }),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: BACKUPS_QUERY_KEY });
@@ -482,60 +479,61 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
           )
         }
       />
-      {list === undefined ? (
-        backups.isError ? (
-          <FailureAlert
-            failure={{ title: dictionary.dashboard.unreadable, message: errorTextOf(backups.error, dictionary) }}
-          />
-        ) : (
-          <div aria-busy="true" className="py-lg" />
-        )
-      ) : (
-        <>
-          {latest === undefined ? (
-            <span className="text-lg font-semibold">{text.none}</span>
-          ) : (
-            <div className="grid gap-xs">
-              <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
-                {timeText(latest.at, locale)}
-              </span>
-              <span className="text-xs text-ink-muted">
-                {text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}
-              </span>
-              <span className="text-xs text-ink-muted">{text.count(list.local.length)}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-md text-sm">
-            <span className="text-ink-muted">{text.cloud}</span>
-            {!list.remoteConfigured ? (
-              <span className="flex items-center gap-sm">
-                <span className="text-ink-muted">{text.cloudNotConfigured}</span>
-                <Link to="/settings#settings-backup" className="text-accent underline-offset-2 hover:underline">
-                  {text.configure}
-                </Link>
-              </span>
-            ) : lastRemote === null ? (
-              <span className="text-ink-muted">{text.cloudNever}</span>
+      <QueryResult
+        query={backups}
+        title={dictionary.dashboard.unreadable}
+        skeleton={<div aria-busy="true" className="py-lg" />}
+        failure={(error) => (
+          <FailureAlert failure={{ title: dictionary.dashboard.unreadable, failure: classifyFailure(error) }} />
+        )}
+      >
+        {(loaded) => (
+          <>
+            {latest === undefined ? (
+              <span className="text-lg font-semibold">{text.none}</span>
             ) : (
-              <span className="flex min-w-0 items-center gap-sm">
-                <span className="truncate text-xs text-ink-muted">{timeText(lastRemote.at, locale)}</span>
-                {lastRemote.succeeded ? (
-                  <Badge tone="success">
-                    <CircleCheck aria-hidden />
-                    {text.cloudSucceeded}
-                  </Badge>
-                ) : (
-                  <Badge tone="danger" title={lastRemote.error ?? undefined}>
-                    <TriangleAlert aria-hidden />
-                    {text.cloudFailed}
-                  </Badge>
-                )}
-              </span>
+              <div className="grid gap-xs">
+                <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
+                  {timeText(latest.at, locale)}
+                </span>
+                <span className="text-xs text-ink-muted">
+                  {text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}
+                </span>
+                <span className="text-xs text-ink-muted">{text.count(loaded.local.length)}</span>
+              </div>
             )}
-          </div>
-          <FailureAlert failure={failure} />
-        </>
-      )}
+            <div className="flex items-center justify-between gap-md text-sm">
+              <span className="text-ink-muted">{text.cloud}</span>
+              {!loaded.remoteConfigured ? (
+                <span className="flex items-center gap-sm">
+                  <span className="text-ink-muted">{text.cloudNotConfigured}</span>
+                  <Link to="/settings#settings-backup" className="text-accent underline-offset-2 hover:underline">
+                    {text.configure}
+                  </Link>
+                </span>
+              ) : lastRemote === null ? (
+                <span className="text-ink-muted">{text.cloudNever}</span>
+              ) : (
+                <span className="flex min-w-0 items-center gap-sm">
+                  <span className="truncate text-xs text-ink-muted">{timeText(lastRemote.at, locale)}</span>
+                  {lastRemote.succeeded ? (
+                    <Badge tone="success">
+                      <CircleCheck aria-hidden />
+                      {text.cloudSucceeded}
+                    </Badge>
+                  ) : (
+                    <Badge tone="danger" title={lastRemote.error ?? undefined}>
+                      <TriangleAlert aria-hidden />
+                      {text.cloudFailed}
+                    </Badge>
+                  )}
+                </span>
+              )}
+            </div>
+            <FailureAlert failure={failure} />
+          </>
+        )}
+      </QueryResult>
     </Card>
   );
 }

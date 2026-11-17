@@ -105,7 +105,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal("CloudBackupFailed", error.Error);
+        Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("远端没有云端备份", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(Password, error.Message, StringComparison.Ordinal);
     }

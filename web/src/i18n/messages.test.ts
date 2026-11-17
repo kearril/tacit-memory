@@ -12,7 +12,7 @@ describe("errorTextOf", () => {
   });
 
   it("shows the dictionary's text for an answer without an explanation, in each memory language", () => {
-    const error = new ApiError(502, { error: "unexpected", message: "" });
+    const error = new ApiError(502, { error: null, message: "" });
 
     expect(errorTextOf(error, zh)).toBe(zh.unexpectedAnswer);
     expect(errorTextOf(error, en)).toBe(en.unexpectedAnswer);

@@ -67,7 +67,7 @@ internal sealed class ManagementApiClient(int port, MemoryLanguage language, Tac
             var text = await response.Content.ReadAsStringAsync(deadline.Token);
             if (!response.IsSuccessStatusCode)
             {
-                if (TryRead<ApiError>(text) is { Error: not null } error)
+                if (TryRead<ApiError>(text) is { } error)
                     throw new ServiceRefusedException(error.Error, error.Message);
                 throw Foreign();
             }
@@ -107,7 +107,7 @@ internal sealed class ServiceNotRunningException(string message) : Exception(mes
 internal sealed class ForeignServiceException(string message) : Exception(message);
 
 /// <summary>The service refused the call with an error body; <see cref="Exception.Message"/> is that body's message.</summary>
-internal sealed class ServiceRefusedException(string error, string message) : Exception(message)
+internal sealed class ServiceRefusedException(TacitError error, string message) : Exception(message)
 {
-    public string Error { get; } = error;
+    public TacitError Error { get; } = error;
 }

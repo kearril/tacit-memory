@@ -47,10 +47,11 @@ public static class ManagementApiJson
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
 /// memory language, ready to show as it is. A config that does not validate, and a recall trace with bad parameters, also
-/// list every problem with its key path or parameter name; other errors leave the field out.
+/// list every problem with its key path or parameter name; other errors leave the field out. The error is written as the
+/// member's own name (<c>ConfigChanged</c>), not in the camelCase the API's other enums take.
 /// </summary>
 public sealed record ApiError(
-    string Error,
+    [property: JsonRequired, JsonConverter(typeof(JsonStringEnumConverter<TacitError>))] TacitError Error,
     string Message,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ConfigProblem>? Problems = null);
 
@@ -164,11 +165,11 @@ internal static class ManagementApi
             {
                 if (Refusal(context, local) is { } refusal)
                 {
-                    await Json(new ApiError(refusal.Error.ToString(), HostMessages.Refusal(refusal.Error, service.Language)), refusal.Status).ExecuteAsync(context);
+                    await Json(new ApiError(refusal.Error, HostMessages.Refusal(refusal.Error, service.Language)), refusal.Status).ExecuteAsync(context);
                 }
                 else if (!(local || IsSessionEndpoint(context) || service.Access.IsSession(Cookie(context))))
                 {
-                    await Json(new ApiError(nameof(TacitError.ApiUnauthorized), HostMessages.Refusal(TacitError.ApiUnauthorized, service.Language)), StatusCodes.Status401Unauthorized)
+                    await Json(new ApiError(TacitError.ApiUnauthorized, HostMessages.Refusal(TacitError.ApiUnauthorized, service.Language)), StatusCodes.Status401Unauthorized)
                         .ExecuteAsync(context);
                 }
                 else
@@ -184,7 +185,7 @@ internal static class ManagementApi
                         var failure = Failure(service, e);
                         if (failure.RetryAfterSeconds is { } seconds)
                             context.Response.Headers["Retry-After"] = seconds.ToString(CultureInfo.InvariantCulture);
-                        await Json(new ApiError(failure.Error.ToString(), failure.Message, failure.Problems), StatusOf(failure.Error)).ExecuteAsync(context);
+                        await Json(new ApiError(failure.Error, failure.Message, failure.Problems), StatusOf(failure.Error)).ExecuteAsync(context);
                     }
                 }
 
@@ -458,6 +459,20 @@ internal static class ManagementApi
                     previewSchema.Required ??= new HashSet<string>();
                     previewSchema.Required.Add("report");
                 }
+                // The generator drops the nullability of a dictionary's values; a secret set to null is removed from the file.
+                if (document.Components?.Schemas?.TryGetValue(nameof(ConfigSave), out var save) == true
+                    && save.Properties?.TryGetValue("secrets", out var secrets) == true
+                    && secrets.AdditionalProperties is OpenApiSchema secretValue)
+                {
+                    secretValue.Type = JsonSchemaType.String | JsonSchemaType.Null;
+                }
+                // The generator writes null into a shared enum's values when the enum is first met as nullable, so the
+                // enum itself reads as nullable everywhere; where it may be null, the reference already says so.
+                foreach (var schema in document.Components?.Schemas?.Values.OfType<OpenApiSchema>() ?? [])
+                {
+                    if (schema.Enum is { } values)
+                        schema.Enum = [.. values.Where(value => value is not null && value.GetValueKind() != JsonValueKind.Null)];
+                }
                 return Task.CompletedTask;
             });
         });
@@ -614,7 +629,7 @@ internal static class ManagementApi
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown
+        TacitError.SecretNotFound or TacitError.BindingNotFound or TacitError.PromptUnknown
             or TacitError.LogDateNotFound or TacitError.MemoryNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,

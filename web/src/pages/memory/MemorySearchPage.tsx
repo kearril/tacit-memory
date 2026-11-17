@@ -17,6 +17,7 @@ import { type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState
 import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../../api/client";
 import {
+  type PageListItem,
   type RecallTraceReport,
   type TraceResult,
   type TraceUnit,
@@ -39,7 +40,7 @@ import { Chip } from "../../components/ui/chip";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
-import { BusyIcon } from "../dashboard/parts";
+import { BusyIcon } from "../../components/ui/busy-icon";
 import { sectionAnchor } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
 import { requestOf, type SearchFields, searchFieldsOf, searchParamsOf } from "./search";
@@ -659,8 +660,8 @@ function ResultsCard({
   const text = useDictionary().memory.search;
   const [raw, setRaw] = useState(false);
   const pages = usePages();
-  const types = useMemo(
-    () => new Map((pages.data?.pages ?? []).map((page) => [page.id, page.type] as const)),
+  const listed = useMemo(
+    () => new Map((pages.data?.pages ?? []).map((page) => [page.id, page] as const)),
     [pages.data],
   );
   const milliseconds = (value: number | null) => (value === null ? null : `${Math.round(value)} ms`);
@@ -693,7 +694,7 @@ function ResultsCard({
               <ResultItem
                 key={result.number}
                 result={result}
-                type={result.page === null ? null : (types.get(result.page) ?? null)}
+                listed={result.page === null ? undefined : listed.get(result.page)}
                 lit={lit === result.number}
                 onLight={onLight}
               />
@@ -718,12 +719,13 @@ function ResultsCard({
  */
 function ResultItem({
   result,
-  type,
+  listed,
   lit,
   onLight,
 }: {
   readonly result: TraceResult;
-  readonly type: string | null;
+  /** The page in the list, for its type; `undefined` until the list is read, or for a result that is not a page. */
+  readonly listed: PageListItem | undefined;
   readonly lit: boolean;
   readonly onLight: (number: number | null) => void;
 }) {
@@ -741,7 +743,7 @@ function ResultItem({
           {result.number}
         </span>
         {page ? (
-          <PageTypeBadge type={type} />
+          <PageTypeBadge type={listed?.type ?? null} written={listed?.writtenType} />
         ) : (
           <Badge>{result.kind === "activity" ? text.unitKinds.activity : text.unitKinds.summary}</Badge>
         )}

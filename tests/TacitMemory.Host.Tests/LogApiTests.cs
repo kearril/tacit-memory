@@ -111,7 +111,7 @@ public sealed class LogApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.RequestInvalid), error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public sealed class LogApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.LogDateNotFound), error.Error);
+        Assert.Equal(TacitError.LogDateNotFound, error.Error);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class LogApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.RequestInvalid), error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
     }
 
     [Theory]

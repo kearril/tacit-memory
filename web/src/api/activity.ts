@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type ActivityReport = components["schemas"]["ActivityReport"];
@@ -9,7 +9,7 @@ export const ACTIVITY_QUERY_KEY = ["activity"] as const;
 
 /** The activity log's counts per day over the last 53 weeks, with the consolidation days and the skipped month files. */
 export function getActivity(): Promise<ActivityReport> {
-  return apiFetch<ActivityReport>("/api/activity");
+  return call(api.GET("/api/activity"));
 }
 
 /** The activity counts, fetched when the page opens and again when the window regains focus; never polled. */

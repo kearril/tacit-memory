@@ -12,6 +12,7 @@ export const en: Dictionary = {
   },
   unreachable: "The memory service cannot be reached.",
   unexpectedAnswer: "The memory service sent an answer that could not be read.",
+  readAgain: "Read again",
   menuOpen: "Open menu",
   menuClose: "Close menu",
   logout: "Log out",
@@ -110,7 +111,6 @@ export const en: Dictionary = {
     invalidNote:
       "Below is what the file holds now. Fix it and save, or restore the default, and the service takes the new text.",
     customizedNote: (file) => `The service uses your file prompts/${file}.`,
-    readAgain: "Read again",
     aboutLabel: (title) => `About the ${title.toLowerCase()}`,
     residentSections: "Allowed sections:",
     textLabel: (title) => `Text of the ${title.toLowerCase()}`,
@@ -163,7 +163,6 @@ export const en: Dictionary = {
       error: { code: "ERR", name: "Error" },
     },
     loadFailed: "Could not read the log",
-    readAgain: "Read again",
     emptyToday: "Nothing has been logged today. The first event the service writes will appear here.",
     emptyDay: "The log of this day is empty.",
     noLog: (date) => `There is no log for ${date}. Logs are kept for the last 14 days.`,
@@ -196,7 +195,6 @@ export const en: Dictionary = {
     fileInvalid: "config.yaml has errors, so the settings cannot be shown",
     fileInvalidNote:
       "The service runs on with the config it last loaded. Fix these in config.yaml, then choose Read again.",
-    readAgain: "Read again",
     defaultValue: (value) => `Default ${value}`,
     outOfRange: (min, max) => `Must be between ${min} and ${max}`,
     immediate: "Takes effect at once",

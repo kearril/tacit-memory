@@ -1,15 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin, RefreshCw } from "lucide-react";
+import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router";
-import { ApiError } from "../../api/client";
-import type { ConfigProblem } from "../../api/config";
-import type { PromptDocument, PromptList, PromptMeasure, PromptName, PromptSaved } from "../../api/prompts";
+import type {
+  PromptDocument,
+  PromptList,
+  PromptMeasure,
+  PromptName,
+  PromptSaved,
+  ResidentPart,
+} from "../../api/prompts";
 import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePromptCheck, usePrompts } from "../../api/prompts";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { useDebounced } from "../../app/use-debounced";
 import { LeaveGuard } from "../../components/leave-guard";
+import { classifyFailure, type TitledFailure } from "../../components/command-failure";
+import { QueryResult } from "../../components/query-result";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -29,10 +36,9 @@ import { useToast } from "../../components/ui/toast-context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
-import { BusyIcon } from "../dashboard/parts";
 import { lf, stateOf } from "./editor";
 import { measureLines } from "./measure";
-import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf, RESIDENT_SECTIONS } from "./names";
+import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf } from "./names";
 
 /** The Markdown editor, loaded only once the prompts page opens, so the other pages do not carry it. */
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
@@ -61,33 +67,26 @@ export function PromptsPage() {
     return <Navigate to={promptPathOf(DEFAULT_PROMPT)} replace />;
   }
 
-  const document = prompts.data?.documents.find((candidate) => candidate.name === name);
+  const skeleton = <div aria-busy="true" className="min-h-dvh" />;
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-xl">
       <h1 className="sr-only">{dictionary.nav.prompts}</h1>
-      {document !== undefined ? (
-        <PromptCard key={name} document={document} onReload={() => void prompts.refetch()} />
-      ) : prompts.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{dictionary.prompts.loadFailed}</AlertTitle>
-          <AlertDescription className="grid gap-sm">
-            <p>{errorTextOf(prompts.error, dictionary)}</p>
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={prompts.isFetching}
-                onClick={() => void prompts.refetch()}
-              >
-                <BusyIcon busy={prompts.isFetching} icon={RefreshCw} />
-                {dictionary.prompts.readAgain}
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <div aria-busy="true" className="min-h-dvh" />
-      )}
+      <QueryResult query={prompts} title={dictionary.prompts.loadFailed} skeleton={skeleton}>
+        {(list) => {
+          // The service always lists the four documents.
+          const document = list.documents.find((candidate) => candidate.name === name);
+          return document === undefined ? (
+            skeleton
+          ) : (
+            <PromptCard
+              key={name}
+              document={document}
+              residentSections={list.residentSections}
+              onReload={() => void prompts.refetch()}
+            />
+          );
+        }}
+      </QueryResult>
     </div>
   );
 }
@@ -98,7 +97,15 @@ export function PromptsPage() {
  * the last save stays shown above the text until the next one. A file the service does not run, as it breaks its rules,
  * is named at the top with the reason.
  */
-function PromptCard({ document, onReload }: { readonly document: PromptDocument; readonly onReload: () => void }) {
+function PromptCard({
+  document,
+  residentSections,
+  onReload,
+}: {
+  readonly document: PromptDocument;
+  readonly residentSections: readonly ResidentPart[];
+  readonly onReload: () => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.prompts;
   const queryClient = useQueryClient();
@@ -114,6 +121,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
       list === undefined
         ? list
         : {
+            ...list,
             documents: list.documents.map((candidate) =>
               candidate.name === saved.document.name ? saved.document : candidate,
             ),
@@ -148,7 +156,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
             </TooltipTrigger>
             <TooltipContent>{stateNote}</TooltipContent>
           </Tooltip>
-          <About document={document} stateNote={stateNote} />
+          <About document={document} residentSections={residentSections} stateNote={stateNote} />
         </div>
       </header>
 
@@ -180,7 +188,16 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
  * takes effect; the sections the resident document accepts; and whether the file or the built-in text applies. It opens
  * on a click, so a touch screen and the keyboard reach it too.
  */
-function About({ document, stateNote }: { readonly document: PromptDocument; readonly stateNote: string }) {
+function About({
+  document,
+  residentSections,
+  stateNote,
+}: {
+  readonly document: PromptDocument;
+  /** The section headings the resident document accepts, in block order, as the service gives them. */
+  readonly residentSections: readonly ResidentPart[];
+  readonly stateNote: string;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.prompts;
   const about = text.documents[document.name];
@@ -204,7 +221,7 @@ function About({ document, stateNote }: { readonly document: PromptDocument; rea
         {document.name === "resident" ? (
           <p className="flex flex-wrap items-center gap-xs">
             {text.residentSections}
-            {RESIDENT_SECTIONS.map((section) => (
+            {residentSections.map((section) => (
               <code key={section} className="rounded-sm bg-surface-raised px-xs font-mono text-xs">
                 ## {section}
               </code>
@@ -239,11 +256,6 @@ function ListAlert({
   );
 }
 
-/** A refused save or return to the default: the document's problems, or the explanation and whether a reload helps. */
-type Failure =
-  | { readonly kind: "rejected"; readonly problems: readonly ConfigProblem[] }
-  | { readonly kind: "failed"; readonly title: string; readonly message: string; readonly reload: boolean };
-
 /**
  * The text of one document and its actions. A built-in text is read-only until the user starts customizing it; then, or
  * once a file exists, it is saved as a whole, discarded, or (with a file) returned to its default by deleting the file.
@@ -266,7 +278,7 @@ function PromptEditor({
   const file = FILE_NAMES[document.name];
   const [customizing, setCustomizing] = useState(false);
   const [draft, setDraft] = useState(document.text);
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<TitledFailure | null>(null);
   const state = stateOf(document, customizing, draft);
   // The text as it is saved needs no check: the document carries its measure. Any other text is checked once typing pauses.
   const settled = useDebounced(draft, CHECK_DELAY);
@@ -275,18 +287,8 @@ function PromptEditor({
   const measure = !edited ? document.measure : check.isError ? undefined : check.data?.measure;
   const problems = edited && !check.isPlaceholderData ? (check.data?.problems ?? []) : [];
 
-  const failed = (title: string) => (error: Error) => {
-    if (error instanceof ApiError && error.problems.length > 0) {
-      setFailure({ kind: "rejected", problems: error.problems });
-    } else {
-      setFailure({
-        kind: "failed",
-        title,
-        message: errorTextOf(error, dictionary),
-        reload: error instanceof ApiError && error.error === "PromptChanged",
-      });
-    }
-  };
+  const failed = (title: string) => (error: Error) => setFailure({ title, failure: classifyFailure(error) });
+  const rejected = failure?.failure.kind === "rejected" ? failure.failure : null;
   const save = useMutation({
     mutationFn: () => savePrompt(document.name, document.hash, draft),
     onSuccess: (saved) => onDone(saved, text.saved),
@@ -332,20 +334,21 @@ function PromptEditor({
       </Suspense>
       {measure === undefined ? null : <Measure measure={measure} />}
 
-      {problems.length === 0 || failure?.kind === "rejected" ? null : (
+      {problems.length === 0 || rejected !== null ? null : (
         <ListAlert tone="warning" title={text.problemsTitle} items={problems} />
       )}
-      {failure === null ? null : failure.kind === "rejected" ? (
+      {rejected === null ? null : (
         <ListAlert
           tone="danger"
           title={text.rejectedTitle}
-          items={failure.problems.map((problem) => problem.message)}
+          items={rejected.problems.map((problem) => problem.message)}
         />
-      ) : (
+      )}
+      {failure === null || failure.failure.kind === "rejected" ? null : (
         <Alert tone="danger">
           <AlertTitle>{failure.title}</AlertTitle>
-          <AlertDescription>{failure.message}</AlertDescription>
-          {failure.reload ? (
+          <AlertDescription>{errorTextOf(failure.failure.error, dictionary)}</AlertDescription>
+          {failure.failure.kind === "changed" ? (
             <div className="col-start-2 pt-xs">
               <ConfirmButton
                 label={text.reload}

@@ -22,9 +22,11 @@ public sealed record ActivityDayView(string Date, IReadOnlyList<ActivityItemView
 /// <param name="Code">The short code <c>write_recent</c> takes to replace it.</param>
 /// <param name="Workstream">Its workstream label; <c>null</c> when it has none.</param>
 /// <param name="Text">Its text without the label.</param>
-/// <param name="Continuation">The indented lines under it, as written; a source comment keeps the user's words.</param>
+/// <param name="Lines">The indented lines under it that are not comments, trimmed, in order.</param>
+/// <param name="Sources">Its source comments, which keep the user's words, in order.</param>
 /// <param name="Uses">How often <c>recall</c> has returned it; 0 when never, or when the index has not reached it yet.</param>
-public sealed record ActivityItemView(string Code, string? Workstream, string Text, IReadOnlyList<string> Continuation, long Uses);
+public sealed record ActivityItemView(
+    string Code, string? Workstream, string Text, IReadOnlyList<string> Lines, IReadOnlyList<SourceView> Sources, long Uses);
 
 /// <summary>A summary of the month file.</summary>
 /// <param name="Kind"><c>week</c> or <c>month</c>.</param>

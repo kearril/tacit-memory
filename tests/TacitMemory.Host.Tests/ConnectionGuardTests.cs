@@ -70,7 +70,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
             Assert.True(status == HttpStatusCode.Unauthorized, $"{method} {path} answered {status}");
             Assert.Equal(["error", "message"], JsonDocument.Parse(text).RootElement.EnumerateObject().Select(property => property.Name));
             var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-            Assert.Equal(nameof(TacitError.ApiUnauthorized), error.Error);
+            Assert.Equal(TacitError.ApiUnauthorized, error.Error);
             Assert.False(string.IsNullOrWhiteSpace(error.Message));
         }
     }
@@ -92,7 +92,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Forbidden, status);
         var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.McpRemoteRefused), error.Error);
+        Assert.Equal(TacitError.McpRemoteRefused, error.Error);
         Assert.False(string.IsNullOrWhiteSpace(error.Message));
     }
 
@@ -122,7 +122,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_remote, request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, status);
-        Assert.Equal(nameof(TacitError.ApiUnauthorized), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiUnauthorized, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_remote, request);
 
         Assert.Equal(HttpStatusCode.Forbidden, status);
-        Assert.Equal(nameof(TacitError.ApiOriginRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiOriginRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_remote, request);
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, status);
-        Assert.Equal(nameof(TacitError.ApiContentTypeRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiContentTypeRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -240,7 +240,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_remote, new HttpRequestMessage(HttpMethod.Get, Url("/no-such-path")));
 
         Assert.Equal(HttpStatusCode.Forbidden, status);
-        Assert.Equal(nameof(TacitError.RemotePathRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.RemotePathRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_local, request);
 
         Assert.Equal(HttpStatusCode.Forbidden, status);
-        Assert.Equal(nameof(TacitError.ApiOriginRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiOriginRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_local, request);
 
         Assert.Equal(HttpStatusCode.Forbidden, status);
-        Assert.Equal(nameof(TacitError.ApiHostRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiHostRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -278,7 +278,7 @@ public sealed class ConnectionGuardTests : IAsyncLifetime
         var (status, text) = await Send(_local, request);
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, status);
-        Assert.Equal(nameof(TacitError.ApiContentTypeRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiContentTypeRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Theory]

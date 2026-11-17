@@ -31,7 +31,8 @@ import {
 } from "../../components/ui/dialog";
 import { errorTextOf } from "../../i18n/messages";
 import { fileNameOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, IconAction, InfoRow } from "./parts";
+import { BusyIcon } from "../../components/ui/busy-icon";
+import { IconAction, InfoRow } from "./parts";
 
 /** The backup chosen in the list: a local one by its full path, or the latest cloud backup. */
 type Choice = { readonly kind: "local"; readonly path: string } | { readonly kind: "cloud" };

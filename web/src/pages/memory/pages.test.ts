@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { PageListItem } from "../../api/memory";
+import type { PageListItem, PageType } from "../../api/memory";
 import { filterPages, pageFilterOf, pageFilterParams, sortPages } from "./pages";
 
-const page = (id: string, title: string, aliases: string[] = [], type: string | null = "work"): PageListItem => ({
+const page = (id: string, title: string, aliases: string[] = [], type: PageType | null = "work"): PageListItem => ({
   id,
   workstream: id.split("/")[0] ?? "",
   title,
   aliases,
   type,
+  writtenType: null,
   first: null,
   last: null,
   changed: null,

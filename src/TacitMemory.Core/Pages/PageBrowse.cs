@@ -25,8 +25,9 @@ internal static class PageBrowse
             var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null);
             var changes = document is null ? null : index.SectionChanges(id);
             var changed = changes is { Count: > 0 } ? changes.Values.Max() : header.Last;
+            var (type, written) = PageDocument.BrowseTypeOf(header.Type);
             pages.Add(new PageListItem(
-                id.ToString(), id.Workstream, header.Title, header.Aliases, header.Type, Day(header.First), Day(header.Last), Day(changed),
+                id.ToString(), id.Workstream, header.Title, header.Aliases, type, written, Day(header.First), Day(header.Last), Day(changed),
                 uses.GetValueOrDefault(id.ToString())));
         }
 
@@ -56,10 +57,11 @@ internal static class PageBrowse
             .ToList();
         var sections = (document?.Sections ?? [])
             .Select(section => new PageSectionView(
-                section.Name, section.Code, Day(changes.TryGetValue(section.Name, out var day) ? day : null), returns.GetValueOrDefault(section.Name), section.Body))
+                section.Name, section.Code, Day(changes.TryGetValue(section.Name, out var day) ? day : null), returns.GetValueOrDefault(section.Name), section.Body, SourceComment.In(section.Body)))
             .ToList();
+        var (type, written) = PageDocument.BrowseTypeOf(header.Type);
         return new PageView(
-            id.ToString(), id.Workstream, header.Title, header.Aliases, header.Type, Day(header.First), Day(header.Last), related,
+            id.ToString(), id.Workstream, header.Title, header.Aliases, type, written, Day(header.First), Day(header.Last), related,
             MemoryFileReport.Of(config, id.RelativePath), uses, sections);
     }
 

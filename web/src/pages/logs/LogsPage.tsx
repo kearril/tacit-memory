@@ -1,24 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowDown,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Pause,
-  Radio,
-  RefreshCw,
-  ScrollText,
-  Search,
-  X,
-} from "lucide-react";
+import { ArrowDown, CalendarDays, Check, ChevronDown, Pause, Radio, ScrollText, Search, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { ApiError } from "../../api/client";
 import type { ServiceLogDays, ServiceLogEntry, ServiceLogLevel } from "../../api/logs";
 import { LOGS_QUERY_KEY, useLogDay, useLogDays } from "../../api/logs";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
+import { QueryFailed, QueryResult } from "../../components/query-result";
+import { queryStateOf } from "../../components/query-state";
 import { Card } from "../../components/ui/card";
 import {
   DropdownMenu,
@@ -28,8 +17,6 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
 import { IconTile } from "../../components/ui/icon-tile";
-import { errorTextOf } from "../../i18n/messages";
-import { BusyIcon } from "../dashboard/parts";
 import { dayText } from "../dashboard/format";
 import { clockOf, dateOptions, LOGS_PATH, logDateOf, logPathOf } from "./day";
 import { applyFilters, filtersOf, highlightParts, LEVELS, levelCounts, type LogFilters, searchOf } from "./filter";
@@ -72,32 +59,34 @@ export function LogsPage() {
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-page) gap-xl">
       <h1 className="sr-only">{dictionary.nav.logs}</h1>
-      {days.isError ? (
-        <LoadFailed error={days.error} busy={days.isFetching} onRetry={() => void days.refetch()} />
-      ) : days.data === undefined ? (
-        <div aria-busy="true" className="min-h-dvh" />
-      ) : (
-        <Card>
-          <LogHeader
-            days={days.data}
-            date={date ?? param ?? days.data.today}
-            following={following}
-            onFollowing={setFollowing}
-          />
-          {date === undefined ? (
-            <NoLog today={days.data.today} date={param ?? ""} />
-          ) : (
-            <LogDay
-              key={date}
-              date={date}
-              today={days.data.today}
-              following={following && date === days.data.today}
-              filters={filters}
-              onFilters={setFilters}
+      <QueryResult
+        query={days}
+        title={dictionary.logs.loadFailed}
+        skeleton={<div aria-busy="true" className="min-h-dvh" />}
+      >
+        {(data) => (
+          <Card>
+            <LogHeader
+              days={data}
+              date={date ?? param ?? data.today}
+              following={following}
+              onFollowing={setFollowing}
             />
-          )}
-        </Card>
-      )}
+            {date === undefined ? (
+              <NoLog today={data.today} date={param ?? ""} />
+            ) : (
+              <LogDay
+                key={date}
+                date={date}
+                today={data.today}
+                following={following && date === data.today}
+                filters={filters}
+                onFilters={setFilters}
+              />
+            )}
+          </Card>
+        )}
+      </QueryResult>
     </div>
   );
 }
@@ -243,11 +232,18 @@ function LogDay({
     }
   }, [view, following, count]);
 
-  if (day.isError) {
-    return day.error instanceof ApiError && day.error.status === 404 ? (
-      <NoLog today={today} date={date} />
-    ) : (
-      <LoadFailed error={day.error} busy={day.isFetching} onRetry={() => void day.refetch()} />
+  // The day's events come from following, not from the query, so only the query's failure is taken from it.
+  const read = queryStateOf(day);
+  if (read.kind === "missing") {
+    return <NoLog today={today} date={date} />;
+  }
+  if (read.kind === "failed") {
+    return (
+      <QueryFailed
+        title={dictionary.logs.loadFailed}
+        error={read.error}
+        retry={{ busy: day.isFetching, run: () => void day.refetch() }}
+      />
     );
   }
   if (held === undefined) {
@@ -432,33 +428,6 @@ function NoLog({ today, date }: { readonly today: string; readonly date: string 
         <Link to={logPathOf(today, today)}>{text.backToToday}</Link>
       </Button>
     </div>
-  );
-}
-
-/** A read that failed: the service's explanation, and a button to read again. */
-function LoadFailed({
-  error,
-  busy,
-  onRetry,
-}: {
-  readonly error: unknown;
-  readonly busy: boolean;
-  readonly onRetry: () => void;
-}) {
-  const dictionary = useDictionary();
-  return (
-    <Alert tone="danger">
-      <AlertTitle>{dictionary.logs.loadFailed}</AlertTitle>
-      <AlertDescription className="grid gap-sm">
-        <p>{errorTextOf(error, dictionary)}</p>
-        <div>
-          <Button type="button" variant="outline" disabled={busy} onClick={onRetry}>
-            <BusyIcon busy={busy} icon={RefreshCw} />
-            {dictionary.logs.readAgain}
-          </Button>
-        </div>
-      </AlertDescription>
-    </Alert>
   );
 }
 

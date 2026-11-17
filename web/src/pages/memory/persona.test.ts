@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { PersonaEntryView, PersonaReport, PersonaSectionView } from "../../api/memory";
-import { personaScopes, personaSections, scopeKeyOf } from "./persona";
+import { occurrenceDaysOf, personaScopes, personaSections, scopeKeyOf } from "./persona";
 
 const entry = (line: number, text: string, code: string | null = `c${line}`): PersonaEntryView => ({
   line,
   code,
   text,
-  continuation: [],
+  lines: [],
+  sources: [],
 });
 
 const section = (kind: PersonaSectionView["section"], ...entries: PersonaEntryView[]): PersonaSectionView => ({
@@ -111,5 +112,21 @@ describe("scopeKeyOf", () => {
     expect(scopeKeyOf(new URLSearchParams("scope=global"), REPORT)).toBe("global");
     expect(scopeKeyOf(new URLSearchParams("scope=domain:gone"), REPORT)).toBeNull();
     expect(scopeKeyOf(new URLSearchParams(""), REPORT)).toBeNull();
+  });
+});
+
+describe("occurrenceDaysOf", () => {
+  it("gives each day once, in order, marked rejected when any record of it is", () => {
+    expect(
+      occurrenceDaysOf([
+        { date: "2026-11-01", quote: "a", rejected: false },
+        { date: "2026-11-03", quote: "b", rejected: false },
+        { date: "2026-11-01", quote: "c", rejected: false },
+        { date: "2026-11-03", quote: "d", rejected: true },
+      ]),
+    ).toEqual([
+      { date: "2026-11-01", rejected: false },
+      { date: "2026-11-03", rejected: true },
+    ]);
   });
 });

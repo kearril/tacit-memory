@@ -3,20 +3,6 @@ using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Configuration;
 
-/// <summary>
-/// The parts of the resident block that <c>resident.md</c> can give guidance for. The first four are the global persona
-/// sections; the rest are generated from the memory repository.
-/// </summary>
-internal enum ResidentPart
-{
-    RedLines,
-    WorkingRules,
-    Preferences,
-    Profile,
-    SituationalRules,
-    Workstreams,
-}
-
 /// <summary>One section of the resident block: its heading in <c>resident.md</c>, the part it is, and its title in the block.</summary>
 internal sealed record ResidentSection(string Name, ResidentPart Part, string Title);
 

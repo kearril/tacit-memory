@@ -2537,7 +2537,8 @@
           "code",
           "workstream",
           "text",
-          "continuation",
+          "lines",
+          "sources",
           "uses"
         ],
         "type": "object",
@@ -2554,10 +2555,16 @@
           "text": {
             "type": "string"
           },
-          "continuation": {
+          "lines": {
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceView"
             }
           },
           "uses": {
@@ -2691,7 +2698,7 @@
         "type": "object",
         "properties": {
           "error": {
-            "type": "string"
+            "$ref": "#/components/schemas/TacitError"
           },
           "message": {
             "type": "string"
@@ -2949,8 +2956,7 @@
           "contextFileNotUtf8",
           "contextFileUnreadable",
           "markersIncomplete",
-          "skillLinkNotTacit",
-          null
+          "skillLinkNotTacit"
         ]
       },
       "BindingsStatus": {
@@ -3046,9 +3052,13 @@
         "type": "object",
         "properties": {
           "type": {
-            "type": [
-              "null",
-              "string"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
             ]
           },
           "pages": {
@@ -3380,7 +3390,10 @@
               "object"
             ],
             "additionalProperties": {
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ]
             }
           }
         }
@@ -3990,6 +4003,7 @@
           "title",
           "aliases",
           "type",
+          "writtenType",
           "first",
           "last",
           "changed",
@@ -4013,6 +4027,16 @@
             }
           },
           "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
+            ]
+          },
+          "writtenType": {
             "type": [
               "null",
               "string"
@@ -4048,7 +4072,8 @@
           "code",
           "changed",
           "uses",
-          "body"
+          "body",
+          "sources"
         ],
         "type": "object",
         "properties": {
@@ -4070,8 +4095,22 @@
           },
           "body": {
             "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCommentView"
+            }
           }
         }
+      },
+      "PageType": {
+        "enum": [
+          "incident",
+          "decision",
+          "entity",
+          "work"
+        ]
       },
       "PageView": {
         "required": [
@@ -4080,6 +4119,7 @@
           "title",
           "aliases",
           "type",
+          "writtenType",
           "first",
           "last",
           "related",
@@ -4105,6 +4145,16 @@
             }
           },
           "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
+            ]
+          },
+          "writtenType": {
             "type": [
               "null",
               "string"
@@ -4237,7 +4287,8 @@
           "line",
           "code",
           "text",
-          "continuation"
+          "lines",
+          "sources"
         ],
         "type": "object",
         "properties": {
@@ -4254,10 +4305,16 @@
           "text": {
             "type": "string"
           },
-          "continuation": {
+          "lines": {
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceView"
             }
           }
         }
@@ -4317,8 +4374,7 @@
           "redLines",
           "workingRules",
           "preferences",
-          "profile",
-          null
+          "profile"
         ]
       },
       "PersonaSectionView": {
@@ -4373,8 +4429,7 @@
           "httpStatus",
           "wrongFormat",
           "network",
-          "timeout",
-          null
+          "timeout"
         ]
       },
       "ProbeOutcome": {
@@ -4562,7 +4617,8 @@
       },
       "PromptList": {
         "required": [
-          "documents"
+          "documents",
+          "residentSections"
         ],
         "type": "object",
         "properties": {
@@ -4570,6 +4626,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PromptDocumentView"
+            }
+          },
+          "residentSections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResidentPart"
             }
           }
         }
@@ -4862,6 +4924,16 @@
           }
         }
       },
+      "ResidentPart": {
+        "enum": [
+          "red_lines",
+          "working_rules",
+          "preferences",
+          "profile",
+          "situational_rules",
+          "workstreams"
+        ]
+      },
       "RestartChange": {
         "required": [
           "path",
@@ -5026,8 +5098,7 @@
       "SecretSource": {
         "enum": [
           "environment",
-          "configFile",
-          null
+          "configFile"
         ]
       },
       "SecretsStatus": {
@@ -5300,12 +5371,47 @@
           }
         }
       },
+      "SourceCommentView": {
+        "required": [
+          "comment",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceView"
+          }
+        }
+      },
+      "SourceView": {
+        "required": [
+          "date",
+          "quote"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "StatusLevel": {
         "enum": [
           "ok",
           "attention",
-          "problem",
-          null
+          "problem"
         ]
       },
       "StatusReport": {
@@ -5422,6 +5528,55 @@
             ]
           }
         }
+      },
+      "TacitError": {
+        "enum": [
+          "MemoryDirectoryNotEmpty",
+          "ConflictsWithConfig",
+          "NotInitialized",
+          "ConfigInvalid",
+          "PromptInvalid",
+          "NoBuiltInText",
+          "MarkersBroken",
+          "FileNotUtf8",
+          "BindingsInvalid",
+          "SkillLinkRefused",
+          "ClientNameInvalid",
+          "BindingConflict",
+          "BindingNotFound",
+          "ContextFolderMissing",
+          "SkillsFolderMissing",
+          "GitFailed",
+          "BackupExists",
+          "RequestInvalid",
+          "CloudBackupNotConfigured",
+          "CloudBackupFailed",
+          "FileSystemFailed",
+          "InternalFailure",
+          "RestoreInvalid",
+          "RestoreFailed",
+          "ConfigRejected",
+          "ConfigChanged",
+          "ReloadFailed",
+          "SecretNotFound",
+          "PromptUnknown",
+          "PromptRejected",
+          "PromptChanged",
+          "LogDateNotFound",
+          "MemoryNotFound",
+          "VectorExtensionInvalid",
+          "ApiOriginRefused",
+          "ApiHostRefused",
+          "ApiContentTypeRefused",
+          "ApiUnauthorized",
+          "McpRemoteRefused",
+          "RemotePathRefused",
+          "PasswordTooShort",
+          "PasswordWrong",
+          "LoginLimited",
+          "PasswordClearRefused",
+          "PasswordClearRemoteRefused"
+        ]
       },
       "ThresholdFile": {
         "required": [

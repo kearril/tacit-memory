@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components, paths } from "./schema";
 
 export type BackupList = components["schemas"]["BackupList"];
@@ -13,7 +13,7 @@ export const BACKUPS_QUERY_KEY = ["backups"] as const;
 
 /** The local backups, newest first, whether the cloud backup is configured, and its last attempt; no network is touched. */
 export function getBackups(): Promise<BackupList> {
-  return apiFetch<BackupList>("/api/backups");
+  return call(api.GET("/api/backups"));
 }
 
 /** The backup list, fetched again when the window regains focus and after a backup; it changes too rarely to poll. */
@@ -23,14 +23,16 @@ export function useBackups() {
 
 /** Makes a backup now: a manual one into `backups/`, or the cloud backup. */
 export function runBackup(target: BackupTarget): Promise<BackupResult> {
-  return apiFetch<BackupResult>("/api/backup", { method: "POST", body: JSON.stringify({ target }) });
+  return call(api.POST("/api/backup", { body: { target } }));
 }
 
 /** Rebuilds the derived index; a maintenance operation, so it is refused while another one runs. */
 export function runReindex(): Promise<ReindexResult> {
-  return apiFetch<ReindexResult>("/api/reindex", { method: "POST", body: "{}" });
+  return call(api.POST("/api/reindex"));
 }
 
+// The restore endpoint answers with the preview or the result as the body's `preview` asks, which the document can only
+// give as a choice of both; each function below takes the one its own body asks for.
 type RestoreAnswer = paths["/api/restore"]["post"]["responses"][200]["content"]["application/json"];
 export type RestorePreview = components["schemas"]["RestorePreview"];
 export type RestoreResult = Extract<RestoreAnswer, { safetyBackup: string }>;
@@ -44,16 +46,10 @@ export type RestoreSource = { readonly path: string } | { readonly remote: true 
  * `path` names the downloaded file, which is the file to restore.
  */
 export function previewRestore(source: RestoreSource, config: boolean): Promise<RestorePreview> {
-  return apiFetch<RestorePreview>("/api/restore", {
-    method: "POST",
-    body: JSON.stringify({ ...source, config, preview: true }),
-  });
+  return call(api.POST("/api/restore", { body: { ...source, config, preview: true } })) as Promise<RestorePreview>;
 }
 
 /** Restores the backup at `path`, the path a preview gave; a maintenance operation that keeps a safety backup first. */
 export function runRestore(path: string, config: boolean): Promise<RestoreResult> {
-  return apiFetch<RestoreResult>("/api/restore", {
-    method: "POST",
-    body: JSON.stringify({ path, config, preview: false }),
-  });
+  return call(api.POST("/api/restore", { body: { path, config, preview: false } })) as Promise<RestoreResult>;
 }

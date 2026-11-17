@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type ConfigView = components["schemas"]["ConfigView"];
@@ -23,7 +23,7 @@ export const CONFIG_QUERY_KEY = ["config"] as const;
 export function useConfig() {
   return useQuery({
     queryKey: CONFIG_QUERY_KEY,
-    queryFn: () => apiFetch<ConfigView>("/api/config"),
+    queryFn: () => call(api.GET("/api/config")),
     refetchOnWindowFocus: false,
   });
 }
@@ -40,10 +40,10 @@ export function saveConfig(
   config: ConfigFile,
   secrets: Readonly<Record<string, string | null>>,
 ): Promise<ConfigSaved> {
-  return apiFetch<ConfigSaved>("/api/config", { method: "PUT", body: JSON.stringify({ hash, config, secrets }) });
+  return call(api.PUT("/api/config", { body: { hash, config, secrets } }));
 }
 
 /** The value of the secret at the key path `path` as the service would use it: the environment variable's, else the file's. */
 export function getSecret(path: string): Promise<SecretShown> {
-  return apiFetch<SecretShown>(`/api/config/secrets/${encodeURIComponent(path)}`);
+  return call(api.GET("/api/config/secrets/{path}", { params: { path: { path } } }));
 }

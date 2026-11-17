@@ -2,6 +2,7 @@ import { Star } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useActivity } from "../../api/activity";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
@@ -37,20 +38,26 @@ export function HeatmapCard({ className }: { readonly className: string }) {
 
   return (
     <Card aria-labelledby="activity-title" className={`py-md ${className}`}>
-      {activity.data === undefined ? (
-        <>
-          <header>{title}</header>
-          {activity.isError ? (
-            <Alert tone="danger">
-              <AlertDescription>{errorTextOf(activity.error, dictionary)}</AlertDescription>
-            </Alert>
-          ) : (
+      <QueryResult
+        query={activity}
+        title={dictionary.dashboard.cards.activity}
+        skeleton={
+          <>
+            <header>{title}</header>
             <div aria-busy="true" className="py-xl" />
-          )}
-        </>
-      ) : (
-        <Heatmap report={activity.data} title={title} />
-      )}
+          </>
+        }
+        failure={(error) => (
+          <>
+            <header>{title}</header>
+            <Alert tone="danger">
+              <AlertDescription>{errorTextOf(error, dictionary)}</AlertDescription>
+            </Alert>
+          </>
+        )}
+      >
+        {(report) => <Heatmap report={report} title={title} />}
+      </QueryResult>
     </Card>
   );
 }

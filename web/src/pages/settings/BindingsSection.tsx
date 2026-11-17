@@ -12,6 +12,7 @@ import {
   useBindings,
 } from "../../api/bindings";
 import { STATUS_QUERY_KEY } from "../../api/status";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
@@ -23,7 +24,7 @@ import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import { AgentLogo, LOGO_TILES } from "../dashboard/AgentLogo";
 import { knownAgentOf } from "../dashboard/agents";
-import { BusyIcon } from "../dashboard/parts";
+import { BusyIcon } from "../../components/ui/busy-icon";
 import { complete, EMPTY, presetsLeft } from "./bindings";
 import { Explaining, SettingsSection } from "./fields";
 
@@ -47,33 +48,30 @@ export function BindingsSection() {
 
   return (
     <SettingsSection section="bindings" summary={text.summary} immediate>
-      {bindings.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{dictionary.settings.loadFailed}</AlertTitle>
-          <AlertDescription>{errorTextOf(bindings.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : bindings.data === undefined ? null : (
-        <ul className={LOGO_TILES}>
-          {items.map((binding) => (
-            <li key={binding.client}>
-              <Tile
-                label={nameOf(binding.client)}
-                title={`${nameOf(binding.client)} · ${binding.problem == null ? text.healthy : dictionary.dashboard.bindingProblems[binding.problem]}`}
-                onClick={() => setShown(binding.client)}
-              >
-                <AgentLogo icon={knownAgentOf(binding.client)?.icon ?? null} large sound={binding.problem == null} />
+      <QueryResult query={bindings} title={dictionary.settings.loadFailed} skeleton={null}>
+        {() => (
+          <ul className={LOGO_TILES}>
+            {items.map((binding) => (
+              <li key={binding.client}>
+                <Tile
+                  label={nameOf(binding.client)}
+                  title={`${nameOf(binding.client)} · ${binding.problem == null ? text.healthy : dictionary.dashboard.bindingProblems[binding.problem]}`}
+                  onClick={() => setShown(binding.client)}
+                >
+                  <AgentLogo icon={knownAgentOf(binding.client)?.icon ?? null} large sound={binding.problem == null} />
+                </Tile>
+              </li>
+            ))}
+            <li>
+              <Tile label={text.addTile} title={text.add} muted onClick={() => setAdding(true)}>
+                <span className="grid size-(--tk-size-logo) place-items-center rounded-lg">
+                  <Plus aria-hidden className="size-(--tk-font-size-xl)" />
+                </span>
               </Tile>
             </li>
-          ))}
-          <li>
-            <Tile label={text.addTile} title={text.add} muted onClick={() => setAdding(true)}>
-              <span className="grid size-(--tk-size-logo) place-items-center rounded-lg">
-                <Plus aria-hidden className="size-(--tk-font-size-xl)" />
-              </span>
-            </Tile>
-          </li>
-        </ul>
-      )}
+          </ul>
+        )}
+      </QueryResult>
       <AddDialog open={adding} onOpenChange={setAdding} bound={items.map((binding) => binding.client)} />
       <Details
         binding={items.find((binding) => binding.client === shown) ?? null}

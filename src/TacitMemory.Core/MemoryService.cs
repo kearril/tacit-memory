@@ -403,7 +403,8 @@ public sealed class MemoryService : IDisposable
     /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
     /// file. Reads the files only, so it does not wait for a maintenance operation.
     /// </summary>
-    public PromptList Prompts() => new([.. Enum.GetValues<PromptName>().Select(PromptView)]);
+    public PromptList Prompts() =>
+        new([.. Enum.GetValues<PromptName>().Select(PromptView)], [.. ResidentFile.Sections.Select(section => section.Part)]);
 
     /// <summary>
     /// Checks <paramref name="text"/> as the prompt document <paramref name="name"/> without saving it: its measure beside
@@ -554,7 +555,7 @@ public sealed class MemoryService : IDisposable
     /// The value of the secret at <paramref name="path"/> as the service would use it with <c>config.yaml</c> as it is now:
     /// the environment variable's, else the file's.
     /// </summary>
-    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretUnknown"/>).</exception>
+    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretNotFound"/>).</exception>
     public SecretShown Secret(string path) =>
         new(ConfigSchema.SecretValue(ConfigLoader.Read(_options, ConfigFilePath, File.ReadAllText(ConfigFilePath)), _options, path));
 
@@ -582,7 +583,7 @@ public sealed class MemoryService : IDisposable
         var unknown = secrets.Keys.Where(key => ConfigKeys.Secrets.All(secret => secret.Path != key)).ToList();
         if (unknown.Count > 0)
         {
-            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.SecretNotSecret.In(Language))).ToList();
+            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.NotASecretKey.In(Language))).ToList();
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
         }
 

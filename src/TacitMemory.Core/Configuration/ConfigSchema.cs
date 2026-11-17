@@ -46,11 +46,11 @@ internal static class ConfigSchema
     }
 
     /// <summary>The value a secret takes: its variable's, else the file's; <c>null</c> when neither holds it.</summary>
-    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretUnknown"/>).</exception>
+    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretNotFound"/>).</exception>
     public static string? SecretValue(TacitConfig config, TacitOptions options, string path)
     {
         var secret = ConfigKeys.Secrets.FirstOrDefault(secret => secret.Path == path)
-            ?? throw new TacitException(TacitError.SecretUnknown, RequestMessages.SecretUnknown.Format(config.Language, path));
+            ?? throw new TacitException(TacitError.SecretNotFound, RequestMessages.SecretNotFound.Format(config.Language, path));
         return FromEnvironment(options, secret.SecretVariable!) ?? ConfigFile.From(config).ValueAt(secret);
     }
 

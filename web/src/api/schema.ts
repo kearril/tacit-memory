@@ -2442,7 +2442,8 @@ export interface components {
             code: string;
             workstream: null | string;
             text: string;
-            continuation: string[];
+            lines: string[];
+            sources: components["schemas"]["SourceView"][];
             /** Format: int64 */
             uses: number;
         };
@@ -2474,7 +2475,7 @@ export interface components {
             text: string;
         };
         ApiError: {
-            error: string;
+            error: components["schemas"]["TacitError"];
             message: string;
             problems?: null | components["schemas"]["ConfigProblem"][];
         };
@@ -2527,7 +2528,7 @@ export interface components {
             mcp: components["schemas"]["McpServer"];
         };
         /** @enum {unknown} */
-        BindingProblem: "contextFileMissing" | "contextFileNotUtf8" | "contextFileUnreadable" | "markersIncomplete" | "skillLinkNotTacit" | null;
+        BindingProblem: "contextFileMissing" | "contextFileNotUtf8" | "contextFileUnreadable" | "markersIncomplete" | "skillLinkNotTacit";
         BindingsStatus: {
             title: string;
             lines: string[];
@@ -2548,7 +2549,7 @@ export interface components {
             lastUse: null | string;
         };
         BriefPageGroup: {
-            type: null | string;
+            type: null | components["schemas"]["PageType"];
             pages: components["schemas"]["BriefPage"][];
         };
         BriefSummary: {
@@ -2619,7 +2620,7 @@ export interface components {
             hash: string;
             config: components["schemas"]["ConfigFile"];
             secrets?: null | {
-                [key: string]: string;
+                [key: string]: null | string;
             };
         };
         ConfigSaved: {
@@ -2767,7 +2768,8 @@ export interface components {
             workstream: string;
             title: string;
             aliases: string[];
-            type: null | string;
+            type: null | components["schemas"]["PageType"];
+            writtenType: null | string;
             first: null | string;
             last: null | string;
             changed: null | string;
@@ -2781,13 +2783,17 @@ export interface components {
             /** Format: int64 */
             uses: number;
             body: string;
+            sources: components["schemas"]["SourceCommentView"][];
         };
+        /** @enum {unknown} */
+        PageType: "incident" | "decision" | "entity" | "work";
         PageView: {
             id: string;
             workstream: string;
             title: string;
             aliases: string[];
-            type: null | string;
+            type: null | components["schemas"]["PageType"];
+            writtenType: null | string;
             first: null | string;
             last: null | string;
             related: components["schemas"]["RelatedPage"][];
@@ -2822,7 +2828,8 @@ export interface components {
             line: number;
             code: null | string;
             text: string;
-            continuation: string[];
+            lines: string[];
+            sources: components["schemas"]["SourceView"][];
         };
         PersonaReport: {
             personaFile: components["schemas"]["MemoryFileInfo"];
@@ -2834,7 +2841,7 @@ export interface components {
             rejectionList: components["schemas"]["CandidateView"][];
         };
         /** @enum {unknown} */
-        PersonaSection: "redLines" | "workingRules" | "preferences" | "profile" | null;
+        PersonaSection: "redLines" | "workingRules" | "preferences" | "profile";
         PersonaSectionView: {
             section: null | components["schemas"]["PersonaSection"];
             heading: null | string;
@@ -2845,7 +2852,7 @@ export interface components {
             replaces: boolean;
         };
         /** @enum {unknown} */
-        ProbeFailure: "httpStatus" | "wrongFormat" | "network" | "timeout" | null;
+        ProbeFailure: "httpStatus" | "wrongFormat" | "network" | "timeout";
         /** @enum {unknown} */
         ProbeOutcome: "succeeded" | "unconfigured" | "failed";
         ProbeReport: {
@@ -2891,6 +2898,7 @@ export interface components {
         };
         PromptList: {
             documents: components["schemas"]["PromptDocumentView"][];
+            residentSections: components["schemas"]["ResidentPart"][];
         };
         PromptMeasure: {
             /** Format: int32 */
@@ -2961,6 +2969,8 @@ export interface components {
             id: string;
             exists: boolean;
         };
+        /** @enum {unknown} */
+        ResidentPart: "red_lines" | "working_rules" | "preferences" | "profile" | "situational_rules" | "workstreams";
         RestartChange: {
             path: components["schemas"]["ConfigKeyPath"];
             running: string;
@@ -3001,7 +3011,7 @@ export interface components {
             value: null | string;
         };
         /** @enum {unknown} */
-        SecretSource: "environment" | "configFile" | null;
+        SecretSource: "environment" | "configFile";
         SecretsStatus: {
             title: string;
             lines: string[];
@@ -3066,8 +3076,16 @@ export interface components {
             language: components["schemas"]["MemoryLanguage"];
             version: string;
         };
+        SourceCommentView: {
+            comment: string;
+            source: components["schemas"]["SourceView"];
+        };
+        SourceView: {
+            date: null | string;
+            quote: null | string;
+        };
         /** @enum {unknown} */
-        StatusLevel: "ok" | "attention" | "problem" | null;
+        StatusLevel: "ok" | "attention" | "problem";
         StatusReport: {
             config?: null | components["schemas"]["ConfigStatus"];
             service?: null | components["schemas"]["ServiceStatus"];
@@ -3081,6 +3099,8 @@ export interface components {
             logs?: null | components["schemas"]["LogsStatus"];
             secrets?: null | components["schemas"]["SecretsStatus"];
         };
+        /** @enum {unknown} */
+        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "ContextFolderMissing" | "SkillsFolderMissing" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "SecretNotFound" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "VectorExtensionInvalid" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
         ThresholdFile: {
             /** Format: double */
             certain: null | number;

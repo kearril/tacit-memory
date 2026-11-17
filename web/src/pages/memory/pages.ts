@@ -1,9 +1,7 @@
-import type { PageListItem } from "../../api/memory";
+import type { PageListItem, PageType } from "../../api/memory";
 
-/** The four page types. */
-export const PAGE_TYPES = ["incident", "decision", "entity", "work"] as const;
-
-export type PageType = (typeof PAGE_TYPES)[number];
+/** The page types, in the order the filter lists them. */
+export const PAGE_TYPES = ["incident", "decision", "entity", "work"] as const satisfies readonly PageType[];
 
 /** The workstream topic pages belong to; listed after every workstream. */
 export const TOPICS = "_topics";

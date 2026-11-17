@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { SourceCommentView } from "../../api/memory";
 import { type MdBlock, type MdInline, parseMarkdown } from "./markdown";
 import { SourceNote } from "./parts";
 
@@ -6,8 +7,14 @@ import { SourceNote } from "./parts";
  * A page section's Markdown, typeset. It is read into blocks first, so no HTML in the text ever reaches the page; the
  * sources a comment records show as small muted notes. Loaded on its own, with the parser, when a page is opened.
  */
-export default function MarkdownBody({ text }: { readonly text: string }) {
-  const blocks = useMemo(() => parseMarkdown(text), [text]);
+export default function MarkdownBody({
+  text,
+  sources,
+}: {
+  readonly text: string;
+  readonly sources: readonly SourceCommentView[];
+}) {
+  const blocks = useMemo(() => parseMarkdown(text, sources), [text, sources]);
   return (
     <div className="grid gap-sm leading-(--tk-line-height-normal)">
       <Blocks blocks={blocks} />

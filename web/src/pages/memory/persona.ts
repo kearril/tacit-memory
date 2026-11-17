@@ -1,4 +1,10 @@
-import type { PersonaEntryView, PersonaReport, PersonaSection, PersonaSectionView } from "../../api/memory";
+import type {
+  CandidateOccurrenceView,
+  PersonaEntryView,
+  PersonaReport,
+  PersonaSection,
+  PersonaSectionView,
+} from "../../api/memory";
 
 /** The four persona sections, in the order the persona file and the view give them. */
 export const SECTION_ORDER = ["redLines", "workingRules", "preferences", "profile"] as const;
@@ -25,7 +31,7 @@ export interface PersonaRow {
 
 /** A section's rows across the scopes; `section` is `null` for what sits under no known section. */
 export interface PersonaSectionRows {
-  readonly section: PersonaSection;
+  readonly section: PersonaSection | null;
   readonly rows: readonly PersonaRow[];
 }
 
@@ -94,4 +100,19 @@ export function scopeKeyOf(params: URLSearchParams, report: PersonaReport): stri
 /** The address parameters for a scope; none for the whole persona. */
 export function scopeParams(key: string | null): Record<string, string> {
   return key === null ? {} : { [SCOPE_PARAM]: key };
+}
+
+/** A day a candidate was said on, once however many records it has; rejected when any of them is. */
+export interface OccurrenceDay {
+  readonly date: string;
+  readonly rejected: boolean;
+}
+
+/** The days of a candidate's occurrence records, each once, in the order they first appear. */
+export function occurrenceDaysOf(occurrences: readonly CandidateOccurrenceView[]): readonly OccurrenceDay[] {
+  const days = new Map<string, boolean>();
+  for (const occurrence of occurrences) {
+    days.set(occurrence.date, (days.get(occurrence.date) ?? false) || occurrence.rejected);
+  }
+  return [...days].map(([date, rejected]) => ({ date, rejected }));
 }

@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, ShieldOff } from "lucide-react";
 import { useState } from "react";
 import { type UseFormRegisterReturn, useForm } from "react-hook-form";
-import { ApiError } from "../../api/client";
 import { useStatus } from "../../api/status";
 import { type AccessPasswordBody, clearAccessPassword, SESSION_QUERY_KEY, setAccessPassword } from "../../api/session";
+import { classifyFailure } from "../../components/command-failure";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { errorTextOf } from "../../i18n/messages";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -32,7 +32,8 @@ interface PasswordValues {
   current: string;
 }
 
-interface Failure {
+/** What the card shows in an alert: a failure the service gave, or why the page did not ask it. */
+interface Notice {
   readonly title: string;
   readonly message: string;
 }
@@ -53,7 +54,7 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
   const showToast = useToast();
   // An extra listener keeps the password from being cleared; the button says so before the service has to refuse.
   const blockingAddress = useStatus().data?.service?.extraListener?.address ?? null;
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<Notice | null>(null);
   const form = useForm<PasswordValues>({ defaultValues: { password: "", current: "" } });
   const { errors } = form.formState;
 
@@ -64,12 +65,14 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
       showToast(dictionary.access.saved);
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.error === "PasswordTooShort") {
-        form.setError("password", { type: "server", message: error.message });
-      } else if (error instanceof ApiError && error.error === "PasswordWrong") {
-        form.setError("current", { type: "server", message: error.message });
+      // A password too short or a current one that is wrong is the field's own problem, shown beside it.
+      const failed = classifyFailure(error);
+      if (failed.kind === "failed" && failed.error.error === "PasswordTooShort") {
+        form.setError("password", { type: "server", message: failed.error.message });
+      } else if (failed.kind === "failed" && failed.error.error === "PasswordWrong") {
+        form.setError("current", { type: "server", message: failed.error.message });
       } else {
-        setFailure({ title: dictionary.access.saveFailed, message: errorTextOf(error, dictionary) });
+        setFailure({ title: dictionary.access.saveFailed, message: errorTextOf(failed.error, dictionary) });
       }
     },
   });

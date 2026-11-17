@@ -98,7 +98,7 @@ public sealed class ProbeApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.ConfigInvalid), error.Error);
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
     }
 
     [Fact]

@@ -184,7 +184,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var session = await Remote(HttpMethod.Get, "/api/session");
 
         Assert.Equal(HttpStatusCode.Unauthorized, status.Status);
-        Assert.Equal(nameof(TacitError.ApiUnauthorized), status.Error.Error);
+        Assert.Equal(TacitError.ApiUnauthorized, status.Error.Error);
         Assert.Equal(HttpStatusCode.OK, session.Status);
     }
 
@@ -225,7 +225,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Remote(HttpMethod.Post, "/api/session", new { password = "correct horsf" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, reply.Status);
-        Assert.Equal(nameof(TacitError.PasswordWrong), reply.Error.Error);
+        Assert.Equal(TacitError.PasswordWrong, reply.Error.Error);
         Assert.False(string.IsNullOrWhiteSpace(reply.Error.Message));
         Assert.Null(reply.SetCookieValue);
     }
@@ -236,7 +236,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Remote(HttpMethod.Post, "/api/session", Body);
 
         Assert.Equal(HttpStatusCode.Unauthorized, reply.Status);
-        Assert.Equal(nameof(TacitError.PasswordWrong), reply.Error.Error);
+        Assert.Equal(TacitError.PasswordWrong, reply.Error.Error);
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Remote(HttpMethod.Post, "/api/session", new { });
 
         Assert.Equal(HttpStatusCode.BadRequest, reply.Status);
-        Assert.Equal(nameof(TacitError.RequestInvalid), reply.Error.Error);
+        Assert.Equal(TacitError.RequestInvalid, reply.Error.Error);
     }
 
     [Fact]
@@ -257,7 +257,7 @@ public sealed class AccessApiTests : IAsyncLifetime
 
         var paused = await Remote(HttpMethod.Post, "/api/session", Body);
         Assert.Equal((HttpStatusCode)429, paused.Status);
-        Assert.Equal(nameof(TacitError.LoginLimited), paused.Error.Error);
+        Assert.Equal(TacitError.LoginLimited, paused.Error.Error);
         Assert.Contains("60", paused.Error.Message, StringComparison.Ordinal);
 
         _home.Clock.Advance(TimeSpan.FromSeconds(59));
@@ -294,7 +294,7 @@ public sealed class AccessApiTests : IAsyncLifetime
 
         var paused = await Remote(HttpMethod.Put, "/api/access-password", new { password = Changed, current = Password }, cookie);
         Assert.Equal((HttpStatusCode)429, paused.Status);
-        Assert.Equal(nameof(TacitError.LoginLimited), paused.Error.Error);
+        Assert.Equal(TacitError.LoginLimited, paused.Error.Error);
         Assert.Equal("60", RetryAfter(paused));
         Assert.Null(paused.SetCookieValue);
 
@@ -450,7 +450,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Remote(HttpMethod.Post, "/mcp", new { }, cookie: cookie);
 
         Assert.Equal(HttpStatusCode.Forbidden, reply.Status);
-        Assert.Equal(nameof(TacitError.McpRemoteRefused), reply.Error.Error);
+        Assert.Equal(TacitError.McpRemoteRefused, reply.Error.Error);
     }
 
     [Fact]
@@ -462,7 +462,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Send(_remote, HttpMethod.Get, Url("/api/status"), cookie: cookie, origin: "https://evil.example");
 
         Assert.Equal(HttpStatusCode.Forbidden, reply.Status);
-        Assert.Equal(nameof(TacitError.ApiOriginRefused), reply.Error.Error);
+        Assert.Equal(TacitError.ApiOriginRefused, reply.Error.Error);
     }
 
     [Fact]
@@ -495,7 +495,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Local(HttpMethod.Put, "/api/access-password", new { password = "1234567" });
 
         Assert.Equal(HttpStatusCode.BadRequest, reply.Status);
-        Assert.Equal(nameof(TacitError.PasswordTooShort), reply.Error.Error);
+        Assert.Equal(TacitError.PasswordTooShort, reply.Error.Error);
         Assert.False(File.Exists(StateFile));
     }
 
@@ -505,7 +505,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Remote(HttpMethod.Put, "/api/access-password", new { password = Password, current = (string?)null });
 
         Assert.Equal(HttpStatusCode.Unauthorized, reply.Status);
-        Assert.Equal(nameof(TacitError.ApiUnauthorized), reply.Error.Error);
+        Assert.Equal(TacitError.ApiUnauthorized, reply.Error.Error);
         Assert.False(File.Exists(StateFile));
     }
 
@@ -519,9 +519,9 @@ public sealed class AccessApiTests : IAsyncLifetime
         var wrong = await Remote(HttpMethod.Put, "/api/access-password", new { password = Changed, current = "not the password" }, cookie);
 
         Assert.Equal(HttpStatusCode.Unauthorized, missing.Status);
-        Assert.Equal(nameof(TacitError.PasswordWrong), missing.Error.Error);
+        Assert.Equal(TacitError.PasswordWrong, missing.Error.Error);
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.Status);
-        Assert.Equal(nameof(TacitError.PasswordWrong), wrong.Error.Error);
+        Assert.Equal(TacitError.PasswordWrong, wrong.Error.Error);
         Assert.Equal(HttpStatusCode.OK, (await Remote(HttpMethod.Post, "/api/session", new { password = Password })).Status);
     }
 
@@ -577,7 +577,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, reply.Status);
         Assert.False(reply.Session.PasswordSet);
         Assert.False(File.Exists(StateFile));
-        Assert.Equal(nameof(TacitError.PasswordWrong), (await Remote(HttpMethod.Post, "/api/session", Body)).Error.Error);
+        Assert.Equal(TacitError.PasswordWrong, (await Remote(HttpMethod.Post, "/api/session", Body)).Error.Error);
     }
 
     [Fact]
@@ -589,7 +589,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         var reply = await Remote(HttpMethod.Delete, "/api/access-password", cookie: cookie);
 
         Assert.Equal(HttpStatusCode.Forbidden, reply.Status);
-        Assert.Equal(nameof(TacitError.PasswordClearRemoteRefused), reply.Error.Error);
+        Assert.Equal(TacitError.PasswordClearRemoteRefused, reply.Error.Error);
         Assert.True((await Local(HttpMethod.Get, "/api/session")).Session.PasswordSet);
         Assert.Equal(HttpStatusCode.OK, (await Remote(HttpMethod.Get, "/api/status", cookie: cookie)).Status);
     }

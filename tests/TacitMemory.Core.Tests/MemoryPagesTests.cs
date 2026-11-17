@@ -44,7 +44,7 @@ public sealed class MemoryPagesTests : IDisposable
 
         Assert.Equal(["_topics/pgroonga", "ops/rollback"], list.Pages.Select(page => page.Id));
         var topic = list.Pages[0];
-        Assert.Equal(("_topics", "PGroonga", "entity"), (topic.Workstream, topic.Title, topic.Type));
+        Assert.Equal(("_topics", "PGroonga", PageType.Entity, (string?)null), (topic.Workstream, topic.Title, topic.Type, topic.WrittenType));
         var rollback = list.Pages[1];
         Assert.Equal(["部署回滚别名", "部署回滚又名"], rollback.Aliases);
         Assert.Equal(TestHome.Today.ToString("yyyy-MM-dd"), rollback.Changed);
@@ -59,13 +59,14 @@ public sealed class MemoryPagesTests : IDisposable
         await Create("ops/deploy", "部署", ToolValues.PageTypes.Entity, null, new PageSectionInput("现状", "蓝绿部署。"));
         await Create(
             "ops/rollback", "部署回滚", ToolValues.PageTypes.Decision, ["ops/deploy"],
-            new PageSectionInput("决定", "失败先回滚。\n<!-- 2026-11-01 原话「先回滚」 -->"), new PageSectionInput("理由", "最快止损。"));
+            new PageSectionInput("决定", "失败先回滚。\n<!-- 2026-11-01 原话「先回滚」 -->"),
+            new PageSectionInput("理由", "最快止损<!-- quote「stop the loss」 -->，再查原因。<!-- 备注 -->"));
         File.WriteAllText(PagePath("ops/rollback"), File.ReadAllText(PagePath("ops/rollback")).Replace("related: [ops/deploy]", "related: [ops/deploy, ops/gone]"));
         await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
 
         var page = await Service.Browse.PageAsync("ops", "rollback");
 
-        Assert.Equal(("ops/rollback", "ops", "部署回滚", "decision"), (page.Id, page.Workstream, page.Title, page.Type));
+        Assert.Equal(("ops/rollback", "ops", "部署回滚", PageType.Decision, (string?)null), (page.Id, page.Workstream, page.Title, page.Type, page.WrittenType));
         Assert.Equal([new RelatedPage("ops/deploy", true), new RelatedPage("ops/gone", false)], page.Related);
         Assert.Equal(["决定", "理由"], page.Sections.Select(section => section.Name));
         var decision = page.Sections[0];
@@ -73,9 +74,28 @@ public sealed class MemoryPagesTests : IDisposable
         Assert.Equal(TestHome.Today.ToString("yyyy-MM-dd"), decision.Changed);
         Assert.Equal(1, decision.Uses);
         Assert.Contains("<!-- 2026-11-01 原话「先回滚」 -->", decision.Body);
+        Assert.Equal([new SourceCommentView("<!-- 2026-11-01 原话「先回滚」 -->", new SourceView("2026-11-01", "先回滚"))], decision.Sources);
+        Assert.Equal([new SourceCommentView("<!-- quote「stop the loss」 -->", new SourceView(null, "stop the loss"))], page.Sections[1].Sources);
         Assert.Equal(2, page.Uses);
         Assert.EndsWith(Path.Combine("pages", "ops", "rollback.md"), page.File.Path);
         Assert.Contains(page.File.Problems, problem => problem.Kind == "related");
+    }
+
+    [Fact]
+    public async Task A_type_outside_the_four_is_given_as_written_and_a_missing_one_as_none()
+    {
+        await Create("ops/meeting", "周会", ToolValues.PageTypes.Work, null, new PageSectionInput("产出", "定了排期。"));
+        await Create("ops/plain", "随记", ToolValues.PageTypes.Work, null, new PageSectionInput("产出", "随手记。"));
+        File.WriteAllText(PagePath("ops/meeting"), File.ReadAllText(PagePath("ops/meeting")).Replace("type: work", "type: meeting"));
+        File.WriteAllText(PagePath("ops/plain"), File.ReadAllText(PagePath("ops/plain")).Replace("type: work\n", ""));
+
+        var list = await Service.Browse.PagesAsync();
+        var meeting = await Service.Browse.PageAsync("ops", "meeting");
+
+        Assert.Equal(
+            [("ops/meeting", (PageType?)null, "meeting"), ("ops/plain", null, null)],
+            list.Pages.Select(page => (page.Id, page.Type, page.WrittenType)));
+        Assert.Equal(((PageType?)null, "meeting"), (meeting.Type, meeting.WrittenType));
     }
 
     [Fact]

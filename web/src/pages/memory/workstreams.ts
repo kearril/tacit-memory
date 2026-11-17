@@ -1,4 +1,4 @@
-import type { BriefPage, BriefPageGroup } from "../../api/memory";
+import type { BriefPage, BriefPageGroup, PageType } from "../../api/memory";
 import { type ActivityReport, calendarColumns, fillWindow, type HeatLevel } from "../dashboard/heatmap";
 
 /** How many weeks a workstream's mini activity bar shows: about half a year. */
@@ -41,7 +41,7 @@ export type DirectorySort = "type" | "changed" | "uses";
 
 /** A page of the directory with the type of the group it is in. */
 export interface DirectoryRow {
-  readonly type: string | null;
+  readonly type: PageType | null;
   readonly page: BriefPage;
 }
 

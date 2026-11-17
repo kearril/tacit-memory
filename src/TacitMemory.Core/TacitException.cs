@@ -85,7 +85,7 @@ public enum TacitError
     ReloadFailed,
 
     /// <summary>A key path asked for as a secret that is not one.</summary>
-    SecretUnknown,
+    SecretNotFound,
 
     /// <summary>A name that is not one of the four prompt documents.</summary>
     PromptUnknown,

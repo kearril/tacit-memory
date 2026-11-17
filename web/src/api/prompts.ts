@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type PromptList = components["schemas"]["PromptList"];
@@ -8,6 +8,7 @@ export type PromptName = components["schemas"]["PromptName"];
 export type PromptSaved = components["schemas"]["PromptSaved"];
 export type PromptMeasure = components["schemas"]["PromptMeasure"];
 export type PromptCheck = components["schemas"]["PromptCheck"];
+export type ResidentPart = components["schemas"]["ResidentPart"];
 
 /** The query key of the prompt documents. */
 export const PROMPTS_QUERY_KEY = ["prompts"] as const;
@@ -19,7 +20,7 @@ export const PROMPTS_QUERY_KEY = ["prompts"] as const;
 export function usePrompts() {
   return useQuery({
     queryKey: PROMPTS_QUERY_KEY,
-    queryFn: () => apiFetch<PromptList>("/api/prompts"),
+    queryFn: () => call(api.GET("/api/prompts")),
     refetchOnWindowFocus: false,
   });
 }
@@ -31,17 +32,17 @@ export function usePrompts() {
  * not go as planned, such as a resident block that could not be rendered again.
  */
 export function savePrompt(name: PromptName, hash: string | null, text: string): Promise<PromptSaved> {
-  return apiFetch<PromptSaved>(`/api/prompts/${name}`, { method: "PUT", body: JSON.stringify({ hash, text }) });
+  return call(api.PUT("/api/prompts/{name}", { params: { path: { name } }, body: { hash, text } }));
 }
 
 /** Returns the document `name` to its built-in text by deleting its file, applied at once as a save is. */
 export function restorePromptDefault(name: PromptName): Promise<PromptSaved> {
-  return apiFetch<PromptSaved>(`/api/prompts/${name}`, { method: "DELETE" });
+  return call(api.DELETE("/api/prompts/{name}", { params: { path: { name } } }));
 }
 
 /** Checks `text` as the document `name` without saving it: its measure, and every refusal a save of it would give. */
 export function checkPrompt(name: PromptName, text: string): Promise<PromptCheck> {
-  return apiFetch<PromptCheck>(`/api/prompts/${name}/check`, { method: "POST", body: JSON.stringify({ text }) });
+  return call(api.POST("/api/prompts/{name}/check", { params: { path: { name } }, body: { text } }));
 }
 
 /**

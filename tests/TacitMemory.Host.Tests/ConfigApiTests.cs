@@ -112,7 +112,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = await Read<ApiError>(response);
-        Assert.Equal(nameof(TacitError.ConfigRejected), error.Error);
+        Assert.Equal(TacitError.ConfigRejected, error.Error);
         Assert.Equal(["decision.samePage", "retrieval.topK"], error.Problems!.Select(problem => problem.Path));
         Assert.All(error.Problems!, problem => Assert.NotEmpty(problem.Message));
         Assert.Equal(before, File.ReadAllText(ConfigPath));
@@ -128,7 +128,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         using var response = await PutAsync(new ConfigSave(view.Hash, view.File));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal(nameof(TacitError.ConfigChanged), (await Read<ApiError>(response)).Error);
+        Assert.Equal(TacitError.ConfigChanged, (await Read<ApiError>(response)).Error);
         Assert.Equal(edited, File.ReadAllText(ConfigPath));
     }
 
@@ -218,7 +218,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
 
         using var other = await _local.GetAsync(new Uri(Url, "config/secrets/retrieval.topK"));
         Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
-        Assert.Equal(nameof(TacitError.SecretUnknown), (await Read<ApiError>(other)).Error);
+        Assert.Equal(TacitError.SecretNotFound, (await Read<ApiError>(other)).Error);
     }
 
     [Fact]
