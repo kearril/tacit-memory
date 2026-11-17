@@ -265,49 +265,49 @@ internal static class ManagementApi
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status415UnsupportedMediaType);
         api.MapGet("/memory/persona", async (HttpContext context) =>
         {
-            var report = await service.PersonaAsync(context.RequestAborted);
+            var report = await service.Browse.PersonaAsync(context.RequestAborted);
             return Json(report);
         })
             .Produces<PersonaReport>()
             .ProducesErrors();
         api.MapGet("/memory/workstreams", async (HttpContext context) =>
         {
-            var list = await service.WorkstreamsAsync(context.RequestAborted);
+            var list = await service.Browse.WorkstreamsAsync(context.RequestAborted);
             return Json(list);
         })
             .Produces<WorkstreamList>()
             .ProducesErrors();
         api.MapGet("/memory/workstreams/{name}", async (string name, HttpContext context) =>
         {
-            var brief = await service.WorkstreamBriefAsync(name, context.RequestAborted);
+            var brief = await service.Browse.WorkstreamBriefAsync(name, context.RequestAborted);
             return Json(brief);
         })
             .Produces<WorkstreamBriefView>()
             .ProducesErrors(StatusCodes.Status404NotFound);
         api.MapGet("/memory/activity", async (HttpContext context) =>
         {
-            var months = await service.ActivityMonthsAsync(context.RequestAborted);
+            var months = await service.Browse.ActivityMonthsAsync(context.RequestAborted);
             return Json(months);
         })
             .Produces<ActivityMonths>()
             .ProducesErrors();
         api.MapGet("/memory/activity/{month}", async (string month, HttpContext context) =>
         {
-            var view = await service.ActivityMonthAsync(month, context.RequestAborted);
+            var view = await service.Browse.ActivityMonthAsync(month, context.RequestAborted);
             return Json(view);
         })
             .Produces<ActivityMonthView>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         api.MapGet("/memory/pages", async (HttpContext context) =>
         {
-            var list = await service.PagesAsync(context.RequestAborted);
+            var list = await service.Browse.PagesAsync(context.RequestAborted);
             return Json(list);
         })
             .Produces<PageList>()
             .ProducesErrors();
         api.MapGet("/memory/pages/{workstream}/{slug}", async (string workstream, string slug, HttpContext context) =>
         {
-            var page = await service.PageAsync(workstream, slug, context.RequestAborted);
+            var page = await service.Browse.PageAsync(workstream, slug, context.RequestAborted);
             return Json(page);
         })
             .Produces<PageView>()

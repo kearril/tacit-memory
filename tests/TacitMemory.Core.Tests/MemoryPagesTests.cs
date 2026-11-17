@@ -40,7 +40,7 @@ public sealed class MemoryPagesTests : IDisposable
         await Create("_topics/pgroonga", "PGroonga", ToolValues.PageTypes.Entity, null, new PageSectionInput("现状", "暂不采用。"));
         await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
 
-        var list = await Service.PagesAsync();
+        var list = await Service.Browse.PagesAsync();
 
         Assert.Equal(["_topics/pgroonga", "ops/rollback"], list.Pages.Select(page => page.Id));
         var topic = list.Pages[0];
@@ -63,7 +63,7 @@ public sealed class MemoryPagesTests : IDisposable
         File.WriteAllText(PagePath("ops/rollback"), File.ReadAllText(PagePath("ops/rollback")).Replace("related: [ops/deploy]", "related: [ops/deploy, ops/gone]"));
         await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
 
-        var page = await Service.PageAsync("ops", "rollback");
+        var page = await Service.Browse.PageAsync("ops", "rollback");
 
         Assert.Equal(("ops/rollback", "ops", "部署回滚", "decision"), (page.Id, page.Workstream, page.Title, page.Type));
         Assert.Equal([new RelatedPage("ops/deploy", true), new RelatedPage("ops/gone", false)], page.Related);
@@ -85,8 +85,8 @@ public sealed class MemoryPagesTests : IDisposable
         File.WriteAllText(PagePath("ops/broken"), "---\ntitle: [unclosed\n---\n\n## 现状\n还能读。\n");
         File.WriteAllBytes(PagePath("ops/binary"), [0xff, 0xfe, 0x41, 0x80]);
 
-        var broken = await Service.PageAsync("ops", "broken");
-        var binary = await Service.PageAsync("ops", "binary");
+        var broken = await Service.Browse.PageAsync("ops", "broken");
+        var binary = await Service.Browse.PageAsync("ops", "binary");
 
         Assert.Equal("broken", broken.Title);
         Assert.Equal("还能读。", Assert.Single(broken.Sections).Body.Trim());
@@ -94,14 +94,14 @@ public sealed class MemoryPagesTests : IDisposable
         Assert.Equal("binary", binary.Title);
         Assert.Empty(binary.Sections);
         Assert.Equal("encoding", Assert.Single(binary.File.Problems).Kind);
-        Assert.Contains((await Service.PagesAsync()).Pages, page => page.Id == "ops/binary" && page.Title == "binary");
+        Assert.Contains((await Service.Browse.PagesAsync()).Pages, page => page.Id == "ops/binary" && page.Title == "binary");
     }
 
     [Fact]
     public async Task A_missing_page_is_not_found_and_a_bad_id_is_refused()
     {
-        var missing = await Assert.ThrowsAsync<TacitException>(() => Service.PageAsync("ops", "nothing"));
-        var bad = await Assert.ThrowsAsync<TacitException>(() => Service.PageAsync("Ops!", "x"));
+        var missing = await Assert.ThrowsAsync<TacitException>(() => Service.Browse.PageAsync("ops", "nothing"));
+        var bad = await Assert.ThrowsAsync<TacitException>(() => Service.Browse.PageAsync("Ops!", "x"));
 
         Assert.Equal(TacitError.MemoryNotFound, missing.Error);
         Assert.Equal(TacitError.RequestInvalid, bad.Error);
@@ -113,8 +113,8 @@ public sealed class MemoryPagesTests : IDisposable
         await Create("ops/rollback", "部署回滚", ToolValues.PageTypes.Decision, null, new PageSectionInput("决定", "失败先回滚。"));
         var before = await Service.PageCountsAsync();
 
-        await Service.PagesAsync();
-        await Service.PageAsync("ops", "rollback");
+        await Service.Browse.PagesAsync();
+        await Service.Browse.PageAsync("ops", "rollback");
 
         Assert.Equal(before, await Service.PageCountsAsync());
     }

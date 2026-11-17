@@ -162,4 +162,18 @@ public sealed class ReloadTests : IDisposable
         Assert.Equal(TacitError.ReloadFailed, error.Error);
         Assert.Contains("disk is full", (await Service.Failed.WaitAsync(TimeSpan.FromSeconds(5))).Message);
     }
+
+    [Fact]
+    public async Task The_memory_browser_taken_before_a_reload_reads_the_reopened_memory()
+    {
+        var browse = Service.Browse;
+        Hand("a", "部署问题", "## 经过\n部署失败");
+        Assert.Single((await browse.PagesAsync()).Pages);
+
+        Save(file => file with { Retrieval = file.Retrieval with { TopK = 1 } });
+        await Service.ReloadAsync();
+        Hand("b", "回滚问题", "## 经过\n回滚失败");
+
+        Assert.Equal(["p/a", "p/b"], (await browse.PagesAsync()).Pages.Select(page => page.Id).Order());
+    }
 }

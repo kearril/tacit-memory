@@ -96,6 +96,7 @@ public sealed class MemoryService : IDisposable
             _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
+        Browse = new MemoryBrowser(_gate, () => new BrowseRuntime(Config, _index, _reader), () => _options.Today);
         _upkeep = new DerivedUpkeep(
             options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
         OpenRuntime(config);
@@ -240,6 +241,9 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>The memory language the service words everything in: the language of the config it runs.</summary>
     public MemoryLanguage Language => Config.Language;
+
+    /// <summary>The memory as the memory page browses it, read as the service runs it now.</summary>
+    public MemoryBrowser Browse { get; }
 
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
@@ -701,66 +705,6 @@ public sealed class MemoryService : IDisposable
         using var hold = await _gate.ReadAsync(cancellationToken);
         var trace = await _reader.SearchAsync(search, Usage.NotCounted, cancellationToken);
         return RecallTraceRun.Report(trace, Config);
-    }
-
-    /// <summary>
-    /// The persona and its candidates for the memory page, with the two files' paths and problems. Reads the files only:
-    /// counts nothing and changes nothing.
-    /// </summary>
-    public async Task<PersonaReport> PersonaAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return PersonaBrowse.Read(Config);
-    }
-
-    /// <summary>The established workstreams and the names in use that are not, for the memory page. Reads files only.</summary>
-    public async Task<WorkstreamList> WorkstreamsAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return WorkstreamBrowse.List(Config);
-    }
-
-    /// <summary>A workstream's brief, whole and structured, gathered as <c>recall</c> gathers it. Counts nothing.</summary>
-    /// <exception cref="TacitException"><see cref="TacitError.MemoryNotFound"/> when there is no such workstream.</exception>
-    public async Task<WorkstreamBriefView> WorkstreamBriefAsync(string workstream, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return WorkstreamBrowse.Brief(Config, _reader, workstream);
-    }
-
-    /// <summary>The months of the activity log that have a file, newest first, and the current month. Reads files only.</summary>
-    public async Task<ActivityMonths> ActivityMonthsAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return ActivityBrowse.Months(Config.MemoryPath, _options.Today);
-    }
-
-    /// <summary>One month of the activity log by day, with each activity's returns, its summaries and the file's problems. Counts nothing.</summary>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.RequestInvalid"/> when the month is not written yyyy-MM; <see cref="TacitError.MemoryNotFound"/>
-    /// when it has no file and is not the current month.
-    /// </exception>
-    public async Task<ActivityMonthView> ActivityMonthAsync(string month, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return ActivityBrowse.Month(Config, _index, _options.Today, month);
-    }
-
-    /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
-    public async Task<PageList> PagesAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return PageBrowse.List(Config, _index);
-    }
-
-    /// <summary>One detail page for the memory page, with its sections' dates and counts. Counts nothing.</summary>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.RequestInvalid"/> for a page ID that is not valid; <see cref="TacitError.MemoryNotFound"/> when there is no such page.
-    /// </exception>
-    public async Task<PageView> PageAsync(string workstream, string slug, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return PageBrowse.Read(Config, _index, _reader, workstream, slug);
     }
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>

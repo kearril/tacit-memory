@@ -51,7 +51,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         await Activity("my-app 发版完成，因为测试都过了。", "my-app");
         await Activity("记了一个旁支的想法，因为以后可能用到。", "loose");
 
-        var list = await Service.WorkstreamsAsync();
+        var list = await Service.Browse.WorkstreamsAsync();
 
         Assert.Equal(["my-app", "quiet"], list.Established.Select(item => item.Name));
         var app = list.Established[0];
@@ -68,7 +68,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         Setup();
         Establish("## 主线\n\n### my-app\n背景：一个应用。\n\n### no-background\n近况：缺背景。\n");
 
-        var list = await Service.WorkstreamsAsync();
+        var list = await Service.Browse.WorkstreamsAsync();
 
         Assert.Equal(Path.Combine(Memory, "workstreams.md"), list.File.Path);
         Assert.Equal(6, Assert.Single(list.File.Problems).Line);
@@ -89,7 +89,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         await Service.RecallAsync(new RecallRequest { Page = "my-app/use-pg" });
         var before = await Service.PageCountsAsync();
 
-        var brief = await Service.WorkstreamBriefAsync("my-app");
+        var brief = await Service.Browse.WorkstreamBriefAsync("my-app");
 
         Assert.True(brief.Established);
         Assert.Equal("一个应用。", brief.Background);
@@ -121,7 +121,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         for (var i = 0; i < 12; i++)
             await CreatePage($"my-app/page-{i:00}", ToolValues.PageTypes.Entity, $"第 {i} 页的标题写得长一些", ("现状", "内容。"));
 
-        var brief = await Service.WorkstreamBriefAsync("my-app");
+        var brief = await Service.Browse.WorkstreamBriefAsync("my-app");
         var text = (await Service.RecallAsync(new RecallRequest { Workstream = "my-app" })).Text;
 
         Assert.Equal(12, brief.Groups.Sum(group => group.Pages.Count));
@@ -134,7 +134,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
     public async Task A_workstream_with_nothing_is_not_found(string name)
     {
         Setup();
-        var error = await Assert.ThrowsAsync<TacitException>(() => Service.WorkstreamBriefAsync(name));
+        var error = await Assert.ThrowsAsync<TacitException>(() => Service.Browse.WorkstreamBriefAsync(name));
 
         Assert.Equal(TacitError.MemoryNotFound, error.Error);
     }
