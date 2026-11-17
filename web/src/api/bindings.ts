@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type BindingList = components["schemas"]["BindingList"];
@@ -15,16 +15,16 @@ export const BINDINGS_QUERY_KEY = ["bindings"] as const;
 export function useBindings() {
   return useQuery({
     queryKey: BINDINGS_QUERY_KEY,
-    queryFn: () => apiFetch<BindingList>("/api/bindings"),
+    queryFn: () => call(api.GET("/api/bindings")),
   });
 }
 
 /** Binds a client by the rules of `tacit connect`; a refusal carries the reason the command gives. */
 export function connectClient(request: ConnectRequest): Promise<BindingDone> {
-  return apiFetch<BindingDone>("/api/bindings", { method: "POST", body: JSON.stringify(request) });
+  return call(api.POST("/api/bindings", { body: request }));
 }
 
 /** Unbinds a client by the rules of `tacit disconnect`. */
 export function disconnectClient(client: string): Promise<BindingDone> {
-  return apiFetch<BindingDone>(`/api/bindings/${encodeURIComponent(client)}`, { method: "DELETE" });
+  return call(api.DELETE("/api/bindings/{client}", { params: { path: { client } } }));
 }

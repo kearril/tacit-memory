@@ -3380,7 +3380,10 @@
               "object"
             ],
             "additionalProperties": {
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ]
             }
           }
         }

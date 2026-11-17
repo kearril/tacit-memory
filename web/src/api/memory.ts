@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type RecallTraceRequest = components["schemas"]["RecallTraceRequest"];
@@ -39,7 +39,7 @@ export const RECALL_TRACE_QUERY_KEY = ["recall-trace"] as const;
  * changes no file. Bad parameters are refused with every problem (`RequestInvalid`).
  */
 export function traceRecall(request: RecallTraceRequest): Promise<RecallTraceReport> {
-  return apiFetch<RecallTraceReport>("/api/recall/trace", { method: "POST", body: JSON.stringify(request) });
+  return call(api.POST("/api/recall/trace", { body: request }));
 }
 
 /**
@@ -62,7 +62,7 @@ export const PERSONA_QUERY_KEY = ["memory", "persona"] as const;
 
 /** The persona and its candidates, with the two files' paths and problems. Reads files only; counts nothing. */
 export function getPersona(): Promise<PersonaReport> {
-  return apiFetch<PersonaReport>("/api/memory/persona");
+  return call(api.GET("/api/memory/persona"));
 }
 
 /** The persona, fetched when the view opens and again when the window regains focus; never polled. */
@@ -75,14 +75,16 @@ export const PAGES_QUERY_KEY = ["memory", "pages"] as const;
 
 /** Every detail page, for the list. Counts nothing. */
 export function getPages(): Promise<PageList> {
-  return apiFetch<PageList>("/api/memory/pages");
+  return call(api.GET("/api/memory/pages"));
 }
 
 /** One detail page with its sections. Counts nothing; a page that does not exist is refused with `MemoryNotFound`. */
 export function getPage(id: string): Promise<PageView> {
   const [workstream, slug] = id.split("/");
-  return apiFetch<PageView>(
-    `/api/memory/pages/${encodeURIComponent(workstream ?? "")}/${encodeURIComponent(slug ?? "")}`,
+  return call(
+    api.GET("/api/memory/pages/{workstream}/{slug}", {
+      params: { path: { workstream: workstream ?? "", slug: slug ?? "" } },
+    }),
   );
 }
 
@@ -106,12 +108,12 @@ export const WORKSTREAMS_QUERY_KEY = ["memory", "workstreams"] as const;
 
 /** The established workstreams and the names in use that are not. Reads files only; counts nothing. */
 export function getWorkstreams(): Promise<WorkstreamList> {
-  return apiFetch<WorkstreamList>("/api/memory/workstreams");
+  return call(api.GET("/api/memory/workstreams"));
 }
 
 /** A workstream's brief, whole. Counts nothing; a name with nothing behind it is refused with `MemoryNotFound`. */
 export function getWorkstreamBrief(name: string): Promise<WorkstreamBriefView> {
-  return apiFetch<WorkstreamBriefView>(`/api/memory/workstreams/${encodeURIComponent(name)}`);
+  return call(api.GET("/api/memory/workstreams/{name}", { params: { path: { name } } }));
 }
 
 /** The workstream list, fetched when the view opens and again when the window regains focus; never polled. */
@@ -135,7 +137,7 @@ export const ACTIVITY_MONTHS_QUERY_KEY = ["memory", "activity"] as const;
 
 /** The months of the activity log that have a file, newest first, and the current month. Counts nothing. */
 export function getActivityMonths(): Promise<ActivityMonths> {
-  return apiFetch<ActivityMonths>("/api/memory/activity");
+  return call(api.GET("/api/memory/activity"));
 }
 
 /**
@@ -143,7 +145,7 @@ export function getActivityMonths(): Promise<ActivityMonths> {
  * unless it is the current one.
  */
 export function getActivityMonth(month: string): Promise<ActivityMonthView> {
-  return apiFetch<ActivityMonthView>(`/api/memory/activity/${encodeURIComponent(month)}`);
+  return call(api.GET("/api/memory/activity/{month}", { params: { path: { month } } }));
 }
 
 /** The activity months, fetched when the view opens and again when the window regains focus; never polled. */

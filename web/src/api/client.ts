@@ -1,4 +1,5 @@
-import type { components } from "./schema";
+import createClient from "openapi-fetch";
+import type { components, paths } from "./schema";
 
 type ErrorBody = components["schemas"]["ApiError"];
 type ConfigProblem = components["schemas"]["ConfigProblem"];
@@ -49,42 +50,62 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
 }
 
 /**
- * Calls the management API at `path` on the same origin. Every call carries the credentials, so the session cookie goes
- * with it. A failed answer throws an {@link ApiError}; when the session is missing, the subscribers of
- * {@link onUnauthorized} are signalled first. Pages call the API only through this function.
+ * The management API, typed by its OpenAPI paths: the path, the parameters, the body and the answer of each call are
+ * checked against the document. Every call goes to the page's own origin and carries the credentials, so the session
+ * cookie goes with it. Pages call it through {@link call}.
  */
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (init.body !== undefined && init.body !== null && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  const response = await fetch(path, { ...init, headers, credentials: "include" });
+export const api = createClient<paths>({
+  baseUrl: location.origin,
+  credentials: "include",
+  // Looked up on each call rather than kept from the start, so a fetch put in place later is the one used.
+  fetch: (request) => fetch(request),
+});
 
-  if (!response.ok) {
-    const error = new ApiError(response.status, await readErrorBody(response));
-    if (response.status === 401 && error.error === SESSION_MISSING) {
-      for (const listener of unauthorizedListeners) {
-        listener(error);
+api.use({
+  /** The service refuses a post or put that is not JSON, even one without a body. */
+  onRequest({ request }) {
+    if ((request.method === "POST" || request.method === "PUT") && !request.headers.has("Content-Type")) {
+      request.headers.set("Content-Type", "application/json");
+    }
+    return request;
+  },
+  /** A missing session signals the subscribers of {@link onUnauthorized} before the call's own failure is thrown. */
+  async onResponse({ response }) {
+    if (response.status === 401) {
+      const error = new ApiError(response.status, errorBodyOf(await response.clone().text()));
+      if (error.error === SESSION_MISSING) {
+        for (const listener of unauthorizedListeners) {
+          listener(error);
+        }
       }
     }
-    throw error;
-  }
+    return response;
+  },
+});
 
-  const text = await response.text();
-  return (text.length === 0 ? undefined : JSON.parse(text)) as T;
+/**
+ * The answer of a call to {@link api}: its data, or an {@link ApiError} thrown when it failed. An answer without a body
+ * resolves to `undefined`.
+ */
+export async function call<D>(pending: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<D> {
+  const { data, error, response } = await pending;
+  if (!response.ok) {
+    throw new ApiError(response.status, errorBodyOf(error));
+  }
+  return data as D;
 }
 
-/** The service's error body, or an empty explanation when the answer is not the service's JSON. */
-async function readErrorBody(response: Response): Promise<ReadErrorBody> {
-  try {
-    const parsed: unknown = JSON.parse(await response.text());
-    if (isErrorBody(parsed)) {
-      return parsed;
+/** The service's error body from what the answer carried, or one without a name or explanation when it is not the service's JSON. */
+function errorBodyOf(body: unknown): ReadErrorBody {
+  let value = body;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // Not JSON: fall through to the body without an explanation.
     }
-  } catch {
-    // Not JSON: fall through to the body without an explanation.
   }
-  return { error: null, message: "" };
+  return isErrorBody(value) ? value : { error: null, message: "" };
 }
 
 function isErrorBody(value: unknown): value is ErrorBody {

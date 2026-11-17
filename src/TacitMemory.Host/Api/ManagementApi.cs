@@ -459,6 +459,13 @@ internal static class ManagementApi
                     previewSchema.Required ??= new HashSet<string>();
                     previewSchema.Required.Add("report");
                 }
+                // The generator drops the nullability of a dictionary's values; a secret set to null is removed from the file.
+                if (document.Components?.Schemas?.TryGetValue(nameof(ConfigSave), out var save) == true
+                    && save.Properties?.TryGetValue("secrets", out var secrets) == true
+                    && secrets.AdditionalProperties is OpenApiSchema secretValue)
+                {
+                    secretValue.Type = JsonSchemaType.String | JsonSchemaType.Null;
+                }
                 return Task.CompletedTask;
             });
         });

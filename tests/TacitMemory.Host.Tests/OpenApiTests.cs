@@ -173,6 +173,16 @@ public sealed class OpenApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_config_save_declares_that_a_secret_may_be_null_which_removes_it()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var value = document["components"]?["schemas"]?["ConfigSave"]?["properties"]?["secrets"]?["additionalProperties"]?["type"]?.AsArray()
+            .Select(type => type!.GetValue<string>()).ToArray();
+        Assert.Equal(["null", "string"], value!);
+    }
+
+    [Fact]
     public async Task The_restore_preview_declares_its_report_as_required()
     {
         var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;

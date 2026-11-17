@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type StatusReport = components["schemas"]["StatusReport"];
@@ -13,7 +13,7 @@ const STATUS_POLL_MILLISECONDS = 30_000;
 
 /** The status report: the same columns as `tacit status`, as structured fields. */
 export function getStatus(): Promise<StatusReport> {
-  return apiFetch<StatusReport>("/api/status");
+  return call(api.GET("/api/status"));
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type ServiceLogDays = components["schemas"]["ServiceLogDays"];
@@ -12,13 +12,14 @@ export const LOGS_QUERY_KEY = ["logs"] as const;
 
 /** The days with a log file, newest first, and today on the service's machine. */
 export function getLogDays(): Promise<ServiceLogDays> {
-  return apiFetch<ServiceLogDays>("/api/logs");
+  return call(api.GET("/api/logs"));
 }
 
 /** The events of one day, `yyyy-MM-dd`, oldest first; with `after`, only those past that many. */
 export function getLogDay(date: string, after = 0): Promise<ServiceLogDay> {
-  const query = after === 0 ? "" : `?after=${after}`;
-  return apiFetch<ServiceLogDay>(`/api/logs/${encodeURIComponent(date)}${query}`);
+  return call(
+    api.GET("/api/logs/{date}", { params: { path: { date }, query: after === 0 ? {} : { after: String(after) } } }),
+  );
 }
 
 /** The days with a log file, fetched when the page opens and again when the window regains focus. */

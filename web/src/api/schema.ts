@@ -2619,7 +2619,7 @@ export interface components {
             hash: string;
             config: components["schemas"]["ConfigFile"];
             secrets?: null | {
-                [key: string]: string;
+                [key: string]: null | string;
             };
         };
         ConfigSaved: {
