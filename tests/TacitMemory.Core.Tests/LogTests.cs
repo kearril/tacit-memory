@@ -141,9 +141,8 @@ public sealed class LogTests : IDisposable
     }
 
     [Fact]
-    public void A_management_API_call_is_logged_unless_it_is_a_successful_read()
+    public void A_management_API_call_is_logged_with_its_method_route_status_and_time()
     {
-        Service.RecordApiCall("GET", "/api/status", 200, TimeSpan.FromMilliseconds(3));
         Service.RecordApiCall("GET", "/api/backups", 404, TimeSpan.FromMilliseconds(3));
         Service.RecordApiCall("GET", "/api/logs", 500, TimeSpan.FromMilliseconds(3));
         Service.RecordApiCall("POST", "/api/backup", 200, TimeSpan.FromMilliseconds(3));

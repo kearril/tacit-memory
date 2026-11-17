@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
 using TacitMemory.Core;
+using TacitMemory.Host.Localization;
 
 namespace TacitMemory.Host.Web;
 
@@ -49,7 +50,7 @@ internal static class WebInterface
 
             if (!File.Exists(Path.Combine(root, EntryFile)))
             {
-                await Results.Text(service.WebNotBuiltMessage(), "text/plain; charset=utf-8", statusCode: StatusCodes.Status404NotFound)
+                await Results.Text(HostMessages.WebNotBuilt.In(service.Language), "text/plain; charset=utf-8", statusCode: StatusCodes.Status404NotFound)
                     .ExecuteAsync(context);
                 return;
             }

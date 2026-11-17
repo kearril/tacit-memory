@@ -21,6 +21,7 @@
     <Compile Include="..\TacitMemory.Core.Tests\ModelDouble.cs" Link="ModelDouble.cs" />
     <Compile Include="..\TacitMemory.Core.Tests\WebDavDouble.cs" Link="WebDavDouble.cs" />
     <Compile Include="..\TacitMemory.Core.Tests\CapturingLoggerFactory.cs" Link="CapturingLoggerFactory.cs" />
+    <Compile Include="..\TacitMemory.Core.Tests\LocalizedTexts.cs" Link="LocalizedTexts.cs" />
   </ItemGroup>
 
   <ItemGroup>

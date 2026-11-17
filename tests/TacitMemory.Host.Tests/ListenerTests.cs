@@ -116,7 +116,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         var report = await service.StatusAsync(host.Endpoint);
         var column = Assert.IsType<ServiceStatus>(report.Service);
         Assert.True(column.Running);
-        Assert.StartsWith($"额外监听失败：http://192.0.2.1:{host.Endpoint.Port}/，", column.Lines[^1], StringComparison.Ordinal);
+        Assert.Equal($"额外监听失败：http://192.0.2.1:{host.Endpoint.Port}/，192.0.2.1 不是本机的地址", column.Lines[^1]);
         Assert.Equal(StatusLevel.Problem, column.LineLevels()[^1]);
         var warning = Assert.Single(_logs.Entries, entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning);
         Assert.Contains("192.0.2.1", warning.Message, StringComparison.Ordinal);

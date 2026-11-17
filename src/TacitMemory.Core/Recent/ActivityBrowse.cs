@@ -22,14 +22,14 @@ internal static class ActivityBrowse
     {
         if (month.Length != 7
             || !DateOnly.TryParseExact(month + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var first))
-            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.ActivityMonthInvalid.Format(config.Language, month));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.ActivityMonthInvalid.Format(config.Language, month));
 
         var relative = MemoryLayout.RecentMonth(first);
         var path = MemoryLayout.Full(config.MemoryPath, relative);
         if (!File.Exists(path))
         {
             if (first.Year != today.Year || first.Month != today.Month)
-                throw new TacitException(TacitError.MemoryNotFound, ManagementApiMessages.ActivityMonthNotFound.Format(config.Language, month));
+                throw new TacitException(TacitError.MemoryNotFound, RequestMessages.ActivityMonthNotFound.Format(config.Language, month));
             return new ActivityMonthView(month, MemoryFileReport.Of(config, relative), [], []);
         }
 

@@ -35,7 +35,7 @@ public sealed class MemoryActivityTests : IDisposable
         WriteMonth("2026-11", "## 2026-11-01\n- 十一月的一条\n");
         File.WriteAllText(Path.Combine(Recent, "notes.md"), "不是月份文件\n");
 
-        var months = await _service.ActivityMonthsAsync();
+        var months = await _service.Browse.ActivityMonthsAsync();
 
         Assert.Equal(["2026-11", "2026-09"], months.Months);
         Assert.Equal(TestHome.Today.ToString("yyyy-MM"), months.Current);
@@ -56,7 +56,7 @@ public sealed class MemoryActivityTests : IDisposable
             - 2026-10：一个月的汇总
             """);
 
-        var month = await _service.ActivityMonthAsync("2026-10");
+        var month = await _service.Browse.ActivityMonthAsync("2026-10");
 
         Assert.Equal("2026-10", month.Month);
         Assert.EndsWith(Path.Combine("recent", "2026-10.md"), month.File.Path);
@@ -79,7 +79,7 @@ public sealed class MemoryActivityTests : IDisposable
         var written = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "记下一条，因为要比对短码", Workstream = "my-app" });
         Assert.False(written.IsError, written.Text);
 
-        var month = await _service.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
+        var month = await _service.Browse.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
 
         Assert.Contains($"[{Assert.Single(Assert.Single(month.Days).Activities).Code}]", written.Text);
     }
@@ -87,11 +87,11 @@ public sealed class MemoryActivityTests : IDisposable
     [Fact]
     public async Task The_current_month_without_a_file_is_empty_and_another_month_is_not_found()
     {
-        var current = await _service.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
+        var current = await _service.Browse.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
 
         Assert.Empty(current.Days);
         Assert.Empty(current.Summaries);
-        var error = await Assert.ThrowsAsync<TacitException>(() => _service.ActivityMonthAsync("2025-01"));
+        var error = await Assert.ThrowsAsync<TacitException>(() => _service.Browse.ActivityMonthAsync("2025-01"));
         Assert.Equal(TacitError.MemoryNotFound, error.Error);
     }
 
@@ -101,7 +101,7 @@ public sealed class MemoryActivityTests : IDisposable
     [InlineData("latest")]
     public async Task A_month_not_written_yyyy_MM_is_refused(string month)
     {
-        var error = await Assert.ThrowsAsync<TacitException>(() => _service.ActivityMonthAsync(month));
+        var error = await Assert.ThrowsAsync<TacitException>(() => _service.Browse.ActivityMonthAsync(month));
 
         Assert.Equal(TacitError.RequestInvalid, error.Error);
     }
@@ -111,7 +111,7 @@ public sealed class MemoryActivityTests : IDisposable
     {
         WriteMonth("2026-10", "- 在日期标题之前\n## 2026/10/05\n- 日期写错了\n## 2026-10-06\n- 照常读出\n");
 
-        var month = await _service.ActivityMonthAsync("2026-10");
+        var month = await _service.Browse.ActivityMonthAsync("2026-10");
 
         Assert.Equal([1, 2, 3], month.File.Problems.Select(problem => problem.Line));
         Assert.Equal("照常读出", Assert.Single(Assert.Single(month.Days).Activities).Text);
@@ -125,8 +125,8 @@ public sealed class MemoryActivityTests : IDisposable
         await _service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
         var before = await _service.ActivityCountsAsync(TestHome.Today);
 
-        await _service.ActivityMonthsAsync();
-        await _service.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
+        await _service.Browse.ActivityMonthsAsync();
+        await _service.Browse.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
 
         Assert.Equal(1, before[code]);
         Assert.Equal(before, await _service.ActivityCountsAsync(TestHome.Today));

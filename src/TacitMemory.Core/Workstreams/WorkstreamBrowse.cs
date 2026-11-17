@@ -44,7 +44,7 @@ internal static class WorkstreamBrowse
     public static WorkstreamBriefView Brief(TacitConfig config, MemoryReader reader, string workstream)
     {
         if (!PageId.IsWorkstreamName(workstream) || reader.Brief(workstream, null, null, Usage.NotCounted)?.Parts is not { } parts)
-            throw new TacitException(TacitError.MemoryNotFound, ManagementApiMessages.WorkstreamNotFound.Format(config.Language, workstream));
+            throw new TacitException(TacitError.MemoryNotFound, RequestMessages.WorkstreamNotFound.Format(config.Language, workstream));
 
         var established = WorkstreamFile.Established(config.MemoryPath).Any(entry => entry.Name == workstream);
         var conventions = parts.Conventions is { } block

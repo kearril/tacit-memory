@@ -1,4 +1,4 @@
-import type { ConfigFile, ConfigProblem, ConfigView } from "../../api/config";
+import type { ConfigFile, ConfigKeyPath, ConfigProblem, ConfigView } from "../../api/config";
 
 /** The sections of the settings page, in the page's order. */
 export const SECTIONS = ["models", "bindings", "judgment", "consolidation", "backup", "access", "advanced"] as const;
@@ -44,61 +44,91 @@ export const CONSOLIDATION = [
 /** The four judgments, each with a pair of thresholds. */
 export const JUDGMENTS = ["samePreference", "samePage", "sameTopic", "ruleConflict"] as const;
 
-/** The fields the page edits, in the order they appear on it. */
-export const FIELDS: readonly Field[] = [
-  { path: "server.port", section: "advanced", kind: "integer" },
-  { path: "server.host", section: "access", kind: "text" },
-  { path: "limits.brief", section: "advanced", kind: "integer" },
-  { path: "limits.page.minAliases", section: "advanced", kind: "integer" },
-  ...MODELS.flatMap((model) => {
-    const within = `models.${model}`;
-    return [
-      { path: within, section: "models" as const, kind: "toggle" as const },
-      { path: `${within}.provider`, section: "models" as const, kind: "choice" as const, within },
-      { path: `${within}.url`, section: "models" as const, kind: "text" as const, within },
-      { path: `${within}.model`, section: "models" as const, kind: "text" as const, within },
-    ];
-  }),
-  { path: "retrieval.candidates", section: "judgment", kind: "integer" },
-  { path: "retrieval.topK", section: "judgment", kind: "integer" },
-  { path: "retrieval.minRerankScore", section: "judgment", kind: "number" },
-  ...JUDGMENTS.flatMap((judgment) =>
-    (["certain", "unlikely"] as const).map((bound) => ({
-      path: `decision.${judgment}.${bound}`,
-      section: "judgment" as const,
-      kind: "number" as const,
-      group: `decision.${judgment}`,
-    })),
-  ),
-  ...CONSOLIDATION.map((key) => ({
-    path: `consolidation.${key}`,
-    section: "consolidation" as const,
-    kind: "integer" as const,
-  })),
-  { path: "backup.keep", section: "backup", kind: "integer" },
-  { path: "backup.webdav.url", section: "backup", kind: "text" },
-  { path: "backup.webdav.username", section: "backup", kind: "text" },
-];
+/**
+ * How the page shows each key of `config.yaml`: the section that holds it and, for a key edited with the other fields, its
+ * input, the pair of thresholds it belongs to and the toggle it sits under. A secret or a read-only key has no input here;
+ * the page shows it apart. Every key the service describes needs an entry, so a new key does not compile until it has one.
+ */
+export interface Presentation {
+  readonly section: SectionId;
+  readonly kind?: Exclude<FieldKind, "toggle">;
+  readonly group?: string;
+  readonly within?: string;
+}
 
-/** The secrets, by key path, and the section that holds each. They are changed apart from the other fields. */
-export const SECRETS: readonly { readonly path: string; readonly section: SectionId }[] = [
-  { path: "models.embedding.apiKey", section: "models" },
-  { path: "models.reranker.apiKey", section: "models" },
-  { path: "models.decision.apiKey", section: "models" },
-  { path: "backup.webdav.password", section: "backup" },
-];
+const model = (model: (typeof MODELS)[number]) => `models.${model}`;
+
+/** Each key's place on the page; the keys edited with the other fields are in the order they appear on it. */
+export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
+  "server.port": { section: "advanced", kind: "integer" },
+  "server.host": { section: "access", kind: "text" },
+  "memory.path": { section: "advanced" },
+  language: { section: "advanced" },
+  "limits.brief": { section: "advanced", kind: "integer" },
+  "limits.page.minAliases": { section: "advanced", kind: "integer" },
+  "models.embedding.provider": { section: "models", kind: "choice", within: model("embedding") },
+  "models.embedding.url": { section: "models", kind: "text", within: model("embedding") },
+  "models.embedding.model": { section: "models", kind: "text", within: model("embedding") },
+  "models.embedding.apiKey": { section: "models" },
+  "models.reranker.provider": { section: "models", kind: "choice", within: model("reranker") },
+  "models.reranker.url": { section: "models", kind: "text", within: model("reranker") },
+  "models.reranker.model": { section: "models", kind: "text", within: model("reranker") },
+  "models.reranker.apiKey": { section: "models" },
+  "models.decision.provider": { section: "models", kind: "choice", within: model("decision") },
+  "models.decision.url": { section: "models", kind: "text", within: model("decision") },
+  "models.decision.model": { section: "models", kind: "text", within: model("decision") },
+  "models.decision.apiKey": { section: "models" },
+  "retrieval.candidates": { section: "judgment", kind: "integer" },
+  "retrieval.topK": { section: "judgment", kind: "integer" },
+  "retrieval.minRerankScore": { section: "judgment", kind: "number" },
+  "decision.samePreference.certain": { section: "judgment", kind: "number", group: "decision.samePreference" },
+  "decision.samePreference.unlikely": { section: "judgment", kind: "number", group: "decision.samePreference" },
+  "decision.samePage.certain": { section: "judgment", kind: "number", group: "decision.samePage" },
+  "decision.samePage.unlikely": { section: "judgment", kind: "number", group: "decision.samePage" },
+  "decision.sameTopic.certain": { section: "judgment", kind: "number", group: "decision.sameTopic" },
+  "decision.sameTopic.unlikely": { section: "judgment", kind: "number", group: "decision.sameTopic" },
+  "decision.ruleConflict.certain": { section: "judgment", kind: "number", group: "decision.ruleConflict" },
+  "decision.ruleConflict.unlikely": { section: "judgment", kind: "number", group: "decision.ruleConflict" },
+  "consolidation.remindAfterDays": { section: "consolidation", kind: "integer" },
+  "consolidation.remindCandidates": { section: "consolidation", kind: "integer" },
+  "consolidation.budgetSeconds": { section: "consolidation", kind: "integer" },
+  "consolidation.maxConcurrency": { section: "consolidation", kind: "integer" },
+  "consolidation.hintItemLength": { section: "consolidation", kind: "integer" },
+  "consolidation.hintResidentLength": { section: "consolidation", kind: "integer" },
+  "backup.keep": { section: "backup", kind: "integer" },
+  "backup.webdav.url": { section: "backup", kind: "text" },
+  "backup.webdav.username": { section: "backup", kind: "text" },
+  "backup.webdav.password": { section: "backup" },
+};
+
+/** The fields the page edits, in the order they appear on it: each model's toggle comes before the fields it holds. */
+export const FIELDS: readonly Field[] = Object.entries(PRESENTATION).flatMap(([path, shown]): Field[] => {
+  if (shown.kind === undefined) {
+    return [];
+  }
+  const field: Field = { ...shown, path, kind: shown.kind };
+  const opensToggle =
+    shown.within !== undefined && Object.values(PRESENTATION).find((other) => other.within === shown.within) === shown;
+  return opensToggle && shown.within !== undefined
+    ? [{ path: shown.within, section: shown.section, kind: "toggle" }, field]
+    : [field];
+});
+
+/** The secrets the service describes, by key path. They are changed apart from the other fields. */
+function secretsOf(view: ConfigView): ConfigKeyPath[] {
+  return view.keys.filter((key) => key.secret).map((key) => key.path);
+}
+
+/** The settings the service describes as read-only, by key path; the page shows them without letting them change. */
+function readOnlyOf(view: ConfigView): ConfigKeyPath[] {
+  return view.keys.filter((key) => key.readOnly).map((key) => key.path);
+}
 
 /**
  * The secrets changed on the page, by key path: a text is the new value to write into `config.yaml`, `null` removes the
  * secret from the file. A secret not named keeps what the file holds.
  */
 export type SecretEdits = Readonly<Record<string, string | null>>;
-
-/** The settings the page shows without letting them change, and the section that shows them. */
-export const READ_ONLY: readonly { readonly path: string; readonly section: SectionId }[] = [
-  { path: "memory.path", section: "advanced" },
-  { path: "language", section: "advanced" },
-];
 
 /** What each field's input holds, by key path: the text as typed, so a half-typed number is kept as it is. */
 export type Drafts = Readonly<Record<string, string>>;
@@ -138,7 +168,7 @@ export function changedPaths(view: ConfigView, drafts: Drafts, secrets: SecretEd
     ...FIELDS.filter((field) => !isOff(drafts, field.path))
       .filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind))
       .map((field) => field.path),
-    ...SECRETS.filter((secret) => secret.path in secrets && !isOff(drafts, secret.path)).map((secret) => secret.path),
+    ...secretsOf(view).filter((path) => path in secrets && !isOff(drafts, path)),
   ];
 }
 
@@ -214,9 +244,9 @@ export function bodyOf(
     config = setAt(config, "backup.webdav", null);
   }
   const sent = Object.fromEntries(Object.entries(secrets).filter(([path]) => !isOff(drafts, path)));
-  for (const secret of SECRETS) {
-    if (sent[secret.path]?.trim() === "") {
-      invalid.push(secret.path);
+  for (const path of secretsOf(view)) {
+    if (sent[path]?.trim() === "") {
+      invalid.push(path);
     }
   }
   return { config, secrets: sent, invalid };
@@ -272,14 +302,15 @@ export interface PlacedProblems {
  * Places each problem on the field whose key path it names, on the pair of thresholds it names, or on a read-only setting
  * the page shows; anything else (a key the page does not show) stays unplaced.
  */
-export function placeProblems(problems: readonly ConfigProblem[]): PlacedProblems {
+export function placeProblems(view: ConfigView, problems: readonly ConfigProblem[]): PlacedProblems {
   const byField: Record<string, string[]> = {};
   const bySection: Partial<Record<SectionId, number>> = {};
   const unplaced: ConfigProblem[] = [];
   for (const problem of problems) {
+    const apart = [...readOnlyOf(view), ...secretsOf(view)].find((path) => path === problem.path);
     const section =
       FIELDS.find((field) => field.path === problem.path || field.group === problem.path)?.section ??
-      [...READ_ONLY, ...SECRETS].find((item) => item.path === problem.path)?.section;
+      (apart === undefined ? undefined : PRESENTATION[apart].section);
     if (section === undefined) {
       unplaced.push(problem);
       continue;
@@ -288,9 +319,9 @@ export function placeProblems(problems: readonly ConfigProblem[]): PlacedProblem
     bySection[section] = (bySection[section] ?? 0) + 1;
   }
   const order = [
-    ...READ_ONLY.map((item) => item.path),
+    ...readOnlyOf(view),
     ...FIELDS.flatMap((field) => [field.group, field.path]),
-    ...SECRETS.map((secret) => secret.path),
+    ...secretsOf(view),
   ];
   const first = order.find((path) => path !== undefined && byField[path] !== undefined);
   return { byField, bySection, unplaced, first: first ?? null };

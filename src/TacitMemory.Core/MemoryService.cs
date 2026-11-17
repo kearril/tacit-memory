@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
-using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -97,6 +96,7 @@ public sealed class MemoryService : IDisposable
             _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
+        Browse = new MemoryBrowser(_gate, () => new BrowseRuntime(Config, _index, _reader), () => _options.Today);
         _upkeep = new DerivedUpkeep(
             options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
         OpenRuntime(config);
@@ -239,6 +239,12 @@ public sealed class MemoryService : IDisposable
     /// <summary>The config the service runs with: the one it started with, or the one the last reload put in place.</summary>
     public TacitConfig Config { get; private set; }
 
+    /// <summary>The memory language the service words everything in: the language of the config it runs.</summary>
+    public MemoryLanguage Language => Config.Language;
+
+    /// <summary>The memory as the memory page browses it, read as the service runs it now.</summary>
+    public MemoryBrowser Browse { get; }
+
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
 
@@ -253,7 +259,7 @@ public sealed class MemoryService : IDisposable
     public void CheckExtraListenerAllowed()
     {
         if (Config.ExtraAddress is { } extra && !Access.PasswordSet)
-            throw new TacitException(TacitError.ConfigInvalid, AccessMessages.PasswordRequiredForExtraAddress.Format(Config.Language, extra));
+            throw new TacitException(TacitError.ConfigInvalid, AccessMessages.PasswordRequiredForExtraAddress.Format(Language, extra));
     }
 
     /// <summary>What happened to each bound context file when the service started.</summary>
@@ -282,49 +288,25 @@ public sealed class MemoryService : IDisposable
         return await ConsolidationResource.RenderAsync(_options, Config, _consolidation, cancellationToken);
     }
 
-    /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
-    public string ListeningMessage(Uri endpoint) => Messages.ServiceListening.Format(Config.Language, endpoint);
-
     /// <summary>The extra listener <c>server.host</c> names, as the host bound it when the service started; <c>null</c> when none is named.</summary>
     public ExtraListenerStatus? ExtraListener => _extraListener;
 
-    /// <summary>The text the web interface answers with when its files were not built, in the memory language.</summary>
-    public string WebNotBuiltMessage() => ManagementApiMessages.WebNotBuilt.In(Config.Language);
-
-    /// <summary>The line to show for a bound extra listener at <paramref name="address"/>, in the memory language.</summary>
-    public string ExtraListeningMessage(Uri address) =>
-        ManagementApiMessages.ExtraListenerAddress.Format(Config.Language, ManagementApiMessages.ExtraListenerName(address, Config.Language));
-
     /// <summary>
     /// Records the outcome of the host's attempt to bind the address <c>server.host</c> names, at <paramref name="port"/>. A
-    /// failure is logged as a warning, shown to the user, and kept for the status report; the reason is the system's error
-    /// put in words where it can be, such as a port that is taken.
+    /// failure is logged as a warning, shown to the user, and kept for the status report.
     /// </summary>
     /// <param name="address">The address that was to be listened on besides loopback.</param>
     /// <param name="port">The port of the service.</param>
-    /// <param name="failure">The error the bind failed with; <c>null</c> when the address answers.</param>
-    public void RecordExtraListener(IPAddress address, int port, Exception? failure)
+    /// <param name="failureReason">Why the bind failed, in the memory language; <c>null</c> when the address answers.</param>
+    public void RecordExtraListener(IPAddress address, int port, string? failureReason)
     {
-        var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failure is null ? null : FailureReason(address, port, failure));
+        var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failureReason);
         _extraListener = listener;
         if (listener.FailureReason is null)
-            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language));
+            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, StatusMessages.ExtraListenerName(listener.Address, Language));
         else
-            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language), listener.FailureReason);
+            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, StatusMessages.ExtraListenerName(listener.Address, Language), listener.FailureReason);
     }
-
-    private string FailureReason(IPAddress address, int port, Exception failure) => failure is SocketException socket
-        ? socket.SocketErrorCode switch
-        {
-            SocketError.AddressAlreadyInUse => ManagementApiMessages.ExtraPortInUse.Format(Config.Language, port),
-            SocketError.AddressNotAvailable => ManagementApiMessages.ExtraAddressUnavailable.Format(Config.Language, address),
-            _ => socket.Message,
-        }
-        : failure.Message;
-
-    /// <summary>The line to show when <see cref="TacitConfig.Port"/> is taken by another program.</summary>
-    public string PortInUseMessage() =>
-        Messages.PortInUse.Format(Config.Language, Config.Port, Path.Combine(_options.TacitHome, "config.yaml"));
 
     /// <summary>
     /// The status report of this running service, reachable at <paramref name="endpoint"/>: its version, uptime, the
@@ -362,13 +344,13 @@ public sealed class MemoryService : IDisposable
     public ServiceLogDay ServiceLog(string date, string? after = null)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
-            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogDateInvalid.Format(Config.Language, date));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogDateInvalid.Format(Language, date));
         var skip = 0;
         if (after is not null && !int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out skip))
-            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogAfterInvalid.Format(Config.Language, after));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogAfterInvalid.Format(Language, after));
         var today = _options.Today;
         var entries = ServiceLogReader.Read(_options.TacitHome, day)
-            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, ManagementApiMessages.LogDateNotFound.Format(Config.Language, date)));
+            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, RequestMessages.LogDateNotFound.Format(Language, date)));
         return new ServiceLogDay(day, today, [.. entries.Skip(skip)], entries.Count);
     }
 
@@ -383,7 +365,7 @@ public sealed class MemoryService : IDisposable
     /// client registers.
     /// </summary>
     /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
-    public BindingList Bindings() => new(BindingChecks.Produce(_options, Config.Language).Items, McpServer.On(Config.Port));
+    public BindingList Bindings() => new(BindingChecks.Produce(_options, Language).Items, McpServer.On(Config.Port));
 
     /// <summary>
     /// Binds a client by the rules of <c>tacit connect</c>; a refusal changes no file. Holds the render lock, so the service
@@ -431,8 +413,8 @@ public sealed class MemoryService : IDisposable
     {
         var running = RunningPrompts();
         return new PromptCheck(
-            PromptFiles.Measure(Config.Language, running, name, text),
-            PromptFiles.Check(_options.TacitHome, Config.Language, running, name, text));
+            PromptFiles.Measure(Language, running, name, text),
+            PromptFiles.Check(_options.TacitHome, Language, running, name, text));
     }
 
     /// <summary>The prompt documents the service runs with now.</summary>
@@ -445,7 +427,7 @@ public sealed class MemoryService : IDisposable
     private PromptDocumentView PromptView(PromptName name)
     {
         var (running, problems) = _upkeep.PromptState;
-        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problems.GetValueOrDefault(name));
+        return PromptFiles.View(_options.TacitHome, Language, running, name, problems.GetValueOrDefault(name));
     }
 
     /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
@@ -464,7 +446,7 @@ public sealed class MemoryService : IDisposable
             if (string.Equals(candidate.ToString(), name, StringComparison.OrdinalIgnoreCase) && name == name.ToLowerInvariant())
                 return candidate;
         }
-        throw new TacitException(TacitError.PromptUnknown, ManagementApiMessages.PromptUnknown.Format(Config.Language, name));
+        throw new TacitException(TacitError.PromptUnknown, RequestMessages.PromptUnknown.Format(Language, name));
     }
 
     /// <summary>
@@ -485,7 +467,7 @@ public sealed class MemoryService : IDisposable
             var path = PromptFiles.PathOf(_options.TacitHome, name);
             var current = PromptView(name);
             if (current.Hash != hash)
-                throw new TacitException(TacitError.PromptChanged, ManagementApiMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
+                throw new TacitException(TacitError.PromptChanged, RequestMessages.PromptChanged.Format(Language, Path.GetFileName(path)));
 
             var content = text.ReplaceLineEndings("\n");
             RefuseUnless(name, content);
@@ -514,7 +496,7 @@ public sealed class MemoryService : IDisposable
             if (!File.Exists(path))
                 return new PromptSaved(PromptView(name), []);
 
-            RefuseUnless(name, PromptFiles.DefaultText(name, Config.Language));
+            RefuseUnless(name, PromptFiles.DefaultText(name, Language));
             File.Delete(path);
             return Applied(name);
         }
@@ -538,7 +520,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
     private void RefuseUnless(PromptName name, string text)
     {
-        var refusals = PromptFiles.Check(_options.TacitHome, Config.Language, RunningPrompts(), name, text);
+        var refusals = PromptFiles.Check(_options.TacitHome, Language, RunningPrompts(), name, text);
         if (refusals.Count == 0)
             return;
         var file = Path.GetFileName(PromptFiles.PathOf(_options.TacitHome, name));
@@ -594,17 +576,20 @@ public sealed class MemoryService : IDisposable
         var path = ConfigFilePath;
         var current = File.ReadAllText(path);
         if (ContentHash.Of(current) != hash)
-            throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
+            throw new TacitException(TacitError.ConfigChanged, RequestMessages.ConfigChanged.In(Language));
 
         var held = ConfigLoader.Read(_options, path, current);
-        var unknown = secrets.Keys.Where(key => ConfigSchema.Secrets.All(secret => secret.Path != key)).ToList();
+        var unknown = secrets.Keys.Where(key => ConfigKeys.Secrets.All(secret => secret.Path != key)).ToList();
         if (unknown.Count > 0)
         {
-            var refused = unknown.Select(key => new ConfigProblem(key, ManagementApiMessages.SecretNotSecret.In(Config.Language))).ToList();
+            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.SecretNotSecret.In(Language))).ToList();
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
         }
 
-        var content = ConfigWriter.Render(WithSecrets(WithSecretsOf(file, ConfigFile.From(held)), secrets), _options);
+        var kept = ConfigFile.From(held);
+        var withSecrets = ConfigKeys.Secrets.Aggregate(
+            file, (result, secret) => result.WithSecret(secret, secrets.TryGetValue(secret.Path, out var value) ? value : kept.ValueAt(secret)));
+        var content = ConfigWriter.Render(withSecrets, _options);
         TacitConfig saved;
         try
         {
@@ -615,13 +600,13 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ConfigRejected, e.Message, e) { Problems = e.Problems };
         }
 
-        var problems = new List<ConfigProblem>();
-        if (saved.MemoryPath != held.MemoryPath)
-            problems.Add(new ConfigProblem("memory.path", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
-        if (saved.Language != held.Language)
-            problems.Add(new ConfigProblem("language", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
+        var (before, after) = (ConfigFile.From(held), ConfigFile.From(saved));
+        var problems = ConfigKeys.ReadOnly
+            .Where(key => before.ValueAt(key) != after.ValueAt(key))
+            .Select(key => new ConfigProblem(key.Path, RequestMessages.ConfigReadOnly.In(Language)))
+            .ToList();
         if (saved.ExtraAddress is not null && !Access.PasswordSet)
-            problems.Add(new ConfigProblem("server.host", ManagementApiMessages.ConfigExtraNeedsPassword.In(Config.Language)));
+            problems.Add(new ConfigProblem(ConfigKeys.Host.Path, RequestMessages.ConfigExtraNeedsPassword.In(Language)));
         if (problems.Count > 0)
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
 
@@ -642,88 +627,13 @@ public sealed class MemoryService : IDisposable
 
     private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
 
-    /// <summary>The hash that names one content of <c>config.yaml</c>.</summary>
     /// <summary>The settings with every secret left out, as they leave the service.</summary>
-    private static ConfigFile WithoutSecrets(ConfigFile file) => file with
-    {
-        Models = new ModelsFile(
-            file.Models.Embedding is { } embedding ? embedding with { ApiKey = null } : null,
-            file.Models.Reranker is { } reranker ? reranker with { ApiKey = null } : null,
-            file.Models.Decision is { } decision ? decision with { ApiKey = null } : null),
-        Backup = file.Backup with { WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = null } : null },
-    };
+    private static ConfigFile WithoutSecrets(ConfigFile file) =>
+        ConfigKeys.Secrets.Aggregate(file, (result, secret) => result.WithSecret(secret, null));
 
-    /// <summary>
-    /// <paramref name="file"/> with each secret <paramref name="secrets"/> names set to its value, or removed where the value
-    /// is <c>null</c>. A secret whose model or cloud backup <paramref name="file"/> does not configure is left out with it.
-    /// </summary>
-    private static ConfigFile WithSecrets(ConfigFile file, IReadOnlyDictionary<string, string?> secrets)
-    {
-        ModelFile? Model(ModelFile? model, string path) =>
-            model is not null && secrets.TryGetValue(path, out var key) ? model with { ApiKey = key } : model;
-
-        var webdav = file.Backup.WebDav;
-        return file with
-        {
-            Models = new ModelsFile(
-                Model(file.Models.Embedding, "models.embedding.apiKey"),
-                Model(file.Models.Reranker, "models.reranker.apiKey"),
-                Model(file.Models.Decision, "models.decision.apiKey")),
-            Backup = file.Backup with
-            {
-                WebDav = webdav is not null && secrets.TryGetValue("backup.webdav.password", out var password)
-                    ? webdav with { Password = password }
-                    : webdav,
-            },
-        };
-    }
-
-    /// <summary><paramref name="file"/> with each secret as <paramref name="held"/> holds it, for each model and cloud backup both have.</summary>
-    private static ConfigFile WithSecretsOf(ConfigFile file, ConfigFile held) => file with
-    {
-        Models = new ModelsFile(
-            file.Models.Embedding is { } embedding ? embedding with { ApiKey = held.Models.Embedding?.ApiKey } : null,
-            file.Models.Reranker is { } reranker ? reranker with { ApiKey = held.Models.Reranker?.ApiKey } : null,
-            file.Models.Decision is { } decision ? decision with { ApiKey = held.Models.Decision?.ApiKey } : null),
-        Backup = file.Backup with
-        {
-            WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = held.Backup.WebDav?.Password } : null,
-        },
-    };
-
-    /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
-    public TacitException InvalidRequestBody(string? jsonPath)
-    {
-        var field = jsonPath?.TrimStart('$').TrimStart('.');
-        return new TacitException(
-            TacitError.RequestInvalid,
-            string.IsNullOrEmpty(field)
-                ? ManagementApiMessages.ApiBodyInvalid.In(Config.Language)
-                : ManagementApiMessages.ApiBodyInvalidField.Format(Config.Language, field));
-    }
-
-    /// <summary>The refusal for a file or folder the operation could not use; the message names the reason the system gave.</summary>
-    public TacitException FileFailure(Exception cause) =>
-        new(TacitError.FileSystemFailed, ManagementApiMessages.ApiFileFailed.Format(Config.Language, cause.Message), cause);
-
-    /// <summary>The refusal for a failure no operation expected: logged with its kind and message, answered without them.</summary>
-    public TacitException UnexpectedFailure(Exception cause)
-    {
+    /// <summary>The failure no operation expected, logged with its kind and message; the host answers without them.</summary>
+    public void RecordUnexpectedFailure(Exception cause) =>
         _log.Record(LogLevel.Error, LogMessages.UnexpectedFailure, cause.GetType().Name, cause.Message);
-        return new TacitException(TacitError.InternalFailure, ManagementApiMessages.ApiInternalFailure.In(Config.Language), cause);
-    }
-
-    /// <summary>The message for a request the host refuses (the management API's guards, its connection rule, or the MCP endpoint's), in the memory language.</summary>
-    public string RefusalMessage(TacitError error) => error switch
-    {
-        TacitError.ApiOriginRefused => ManagementApiMessages.ApiOriginRefused.Format(Config.Language),
-        TacitError.ApiHostRefused => ManagementApiMessages.ApiHostRefused.Format(Config.Language),
-        TacitError.ApiContentTypeRefused => ManagementApiMessages.ApiContentTypeRefused.Format(Config.Language),
-        TacitError.ApiUnauthorized => ManagementApiMessages.ApiUnauthorized.Format(Config.Language),
-        TacitError.McpRemoteRefused => ManagementApiMessages.McpRemoteRefused.Format(Config.Language),
-        TacitError.RemotePathRefused => ManagementApiMessages.RemotePathRefused.Format(Config.Language),
-        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Not a host refusal."),
-    };
 
     /// <summary>
     /// Makes a backup now. A local one waits in the write queue like a write does, so the archive holds the repository as
@@ -735,11 +645,11 @@ public sealed class MemoryService : IDisposable
     public async Task<BackupResult> BackupAsync(BackupTarget target, string? directory = null, CancellationToken cancellationToken = default)
     {
         if (directory is not null && !Path.IsPathFullyQualified(directory))
-            throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupDirectoryNotAbsolute.Format(Config.Language, directory));
+            throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupDirectoryNotAbsolute.Format(Language, directory));
         if (target == BackupTarget.Cloud)
         {
             if (directory is not null)
-                throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupCloudWithDirectory.In(Config.Language));
+                throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupCloudWithDirectory.In(Language));
             return await _remote.RunAsync(_gate, cancellationToken);
         }
 
@@ -767,22 +677,12 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
 
-    /// <summary>The route of the recall trace, which reads like a GET though it is a POST.</summary>
-    public const string RecallTracePath = "/api/recall/trace";
-
     /// <summary>
-    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful read is not
-    /// written: a GET, or a recall trace, changed nothing, and the Web UI's polling or a user trying query after query would
-    /// otherwise fill the log. The event never holds a request body, so a trace's query is never written.
+    /// Writes the management API's event for one call: its method, route, status code and time taken. The host decides which
+    /// calls are written; the event never holds a request body.
     /// </summary>
-    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed)
-    {
-        var read = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
-            || (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(route, RecallTracePath, StringComparison.OrdinalIgnoreCase));
-        if (read && statusCode is >= 200 and < 300)
-            return;
+    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
-    }
 
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
@@ -801,70 +701,10 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with every problem of the request.</exception>
     public async Task<RecallTraceReport> TraceRecallAsync(RecallTraceRequest request, CancellationToken cancellationToken = default)
     {
-        var search = RecallTraceRun.Check(request, Config.Language);
+        var search = RecallTraceRun.Check(request, Language);
         using var hold = await _gate.ReadAsync(cancellationToken);
         var trace = await _reader.SearchAsync(search, Usage.NotCounted, cancellationToken);
         return RecallTraceRun.Report(trace, Config);
-    }
-
-    /// <summary>
-    /// The persona and its candidates for the memory page, with the two files' paths and problems. Reads the files only:
-    /// counts nothing and changes nothing.
-    /// </summary>
-    public async Task<PersonaReport> PersonaAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return PersonaBrowse.Read(Config);
-    }
-
-    /// <summary>The established workstreams and the names in use that are not, for the memory page. Reads files only.</summary>
-    public async Task<WorkstreamList> WorkstreamsAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return WorkstreamBrowse.List(Config);
-    }
-
-    /// <summary>A workstream's brief, whole and structured, gathered as <c>recall</c> gathers it. Counts nothing.</summary>
-    /// <exception cref="TacitException"><see cref="TacitError.MemoryNotFound"/> when there is no such workstream.</exception>
-    public async Task<WorkstreamBriefView> WorkstreamBriefAsync(string workstream, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return WorkstreamBrowse.Brief(Config, _reader, workstream);
-    }
-
-    /// <summary>The months of the activity log that have a file, newest first, and the current month. Reads files only.</summary>
-    public async Task<ActivityMonths> ActivityMonthsAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return ActivityBrowse.Months(Config.MemoryPath, _options.Today);
-    }
-
-    /// <summary>One month of the activity log by day, with each activity's returns, its summaries and the file's problems. Counts nothing.</summary>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.RequestInvalid"/> when the month is not written yyyy-MM; <see cref="TacitError.MemoryNotFound"/>
-    /// when it has no file and is not the current month.
-    /// </exception>
-    public async Task<ActivityMonthView> ActivityMonthAsync(string month, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return ActivityBrowse.Month(Config, _index, _options.Today, month);
-    }
-
-    /// <summary>Every detail page, for the memory page's list. Counts nothing.</summary>
-    public async Task<PageList> PagesAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return PageBrowse.List(Config, _index);
-    }
-
-    /// <summary>One detail page for the memory page, with its sections' dates and counts. Counts nothing.</summary>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.RequestInvalid"/> for a page ID that is not valid; <see cref="TacitError.MemoryNotFound"/> when there is no such page.
-    /// </exception>
-    public async Task<PageView> PageAsync(string workstream, string slug, CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return PageBrowse.Read(Config, _index, _reader, workstream, slug);
     }
 
     /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
@@ -941,18 +781,18 @@ public sealed class MemoryService : IDisposable
     {
         var lines = new List<string>
         {
-            MaintenanceMessages.Reindexed.Format(Config.Language, counts.Files, counts.Units, counts.Vectors, elapsed.TotalSeconds),
+            MaintenanceMessages.Reindexed.Format(Language, counts.Files, counts.Units, counts.Vectors, elapsed.TotalSeconds),
         };
         if (skipped.Count > 0)
         {
-            lines.Add(MaintenanceMessages.SkippedFiles.In(Config.Language));
+            lines.Add(MaintenanceMessages.SkippedFiles.In(Language));
             lines.AddRange(skipped.Select(path => $"  {path}"));
         }
 
         if (!_models.Embedding.Configured)
-            lines.Add(MaintenanceMessages.EmbeddingNotConfigured.In(Config.Language));
+            lines.Add(MaintenanceMessages.EmbeddingNotConfigured.In(Language));
         if (vectorsPending)
-            lines.Add(MaintenanceMessages.VectorsPending.In(Config.Language));
+            lines.Add(MaintenanceMessages.VectorsPending.In(Language));
         return string.Join('\n', lines);
     }
 
@@ -996,7 +836,7 @@ public sealed class MemoryService : IDisposable
     public async Task<RestorePreview> PreviewRestoreAsync(string? path, bool remote = false, bool config = false, CancellationToken cancellationToken = default)
     {
         if ((path is not null) == remote)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Config.Language));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
         if (remote)
             return await PreviewRemoteRestoreAsync(config, cancellationToken);
         RequireAbsolutePath(path!);
@@ -1018,7 +858,7 @@ public sealed class MemoryService : IDisposable
     private async Task<RestorePreview> PreviewLocalRestoreAsync(string path, bool config, CancellationToken cancellationToken)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        using var archive = RestoreArchive.Open(path, Config.Language, config);
+        using var archive = RestoreArchive.Open(path, Language, config);
         return await RestorePreviewBuilder.BuildAsync(_options, Config, path, archive, config, cancellationToken);
     }
 
@@ -1036,9 +876,9 @@ public sealed class MemoryService : IDisposable
     public async Task<RestoreResult> RestoreAsync(string? path, bool remote = false, bool config = false, CancellationToken cancellationToken = default)
     {
         if (remote)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.RemotePreviewFirst.In(Config.Language));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.RemotePreviewFirst.In(Language));
         if (path is null)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Config.Language));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
         RequireAbsolutePath(path);
         var result = await RunMaintenanceAsync("restore", _ => RestoreCoreAsync(path, config), cancellationToken);
         // A restore from the cloud download is done with the download once it has succeeded; a failed one keeps it.
@@ -1049,7 +889,7 @@ public sealed class MemoryService : IDisposable
 
     private async Task<RestoreResult> RestoreCoreAsync(string path, bool config)
     {
-        var language = Config.Language;
+        var language = Language;
         // A bad backup is refused here, before the index, the watchers or any file is touched.
         using var archive = RestoreArchive.Open(path, language, config);
         var memory = Path.TrimEndingDirectorySeparator(Config.MemoryPath);
@@ -1117,7 +957,7 @@ public sealed class MemoryService : IDisposable
             notices.Add(RestoreMessages.PromptsApplied.In(language));
             if (restart.Count > 0)
                 notices.Add(string.Join('\n', restart
-                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, change.Path, change.Running, change.Saved))
+                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, ConfigKeys.Of(change.Path).Path, change.Running, change.Saved))
                     .Prepend(RestoreMessages.RestartPending.In(language))));
             if (restored.Problem is null
                 && !string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
@@ -1162,7 +1002,7 @@ public sealed class MemoryService : IDisposable
     private void RequireAbsolutePath(string path)
     {
         if (!Path.IsPathFullyQualified(path))
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.PathNotAbsolute.Format(Config.Language, path));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.PathNotAbsolute.Format(Language, path));
     }
 
     /// <summary>A task that completes once <paramref name="task"/> has, whether it finished or failed: its failure is reported where it happened.</summary>
@@ -1198,7 +1038,7 @@ public sealed class MemoryService : IDisposable
                 : result.Written ? LogMessages.ToolWritten
                 : LogMessages.ToolDone;
             _log.Record(
-                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, outcome.In(Config.Language),
+                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, outcome.In(Language),
                 (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }

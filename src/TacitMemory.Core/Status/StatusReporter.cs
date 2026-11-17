@@ -27,18 +27,18 @@ internal static class StatusReporter
         var web = WebAddress(endpoint);
         List<string> lines =
         [
-            ManagementApiMessages.ServiceRunning.In(language),
-            ManagementApiMessages.ServiceAddress.Format(language, endpoint),
-            ManagementApiMessages.ServiceVersion.Format(language, version),
-            ManagementApiMessages.ServiceUptime.Format(language, Uptime(language, uptime)),
-            ManagementApiMessages.WebAddress.Format(language, web),
+            StatusMessages.ServiceRunning.In(language),
+            StatusMessages.ServiceAddress.Format(language, endpoint),
+            StatusMessages.ServiceVersion.Format(language, version),
+            StatusMessages.ServiceUptime.Format(language, Uptime(language, uptime)),
+            StatusMessages.WebAddress.Format(language, web),
         ];
         if (extraListener is not null)
-            lines.Add(ExtraListenerLine(language, extraListener));
+            lines.Add(extraListener.Line(language));
         return shared with
         {
             Service = new ServiceStatus(
-                ManagementApiMessages.ServiceTitle.In(language),
+                StatusMessages.ServiceTitle.In(language),
                 lines,
                 Running: true,
                 endpoint,
@@ -49,8 +49,8 @@ internal static class StatusReporter
                 extraListener),
             Models = Models(language, models),
             Prompts = prompts.Count == 0 ? null : new PromptsStatus(
-                ManagementApiMessages.PromptsTitle.In(language),
-                [.. prompts.Select(item => ManagementApiMessages.PromptKept.Format(language, $"prompts/{FileName(item.Name)}", item.Problem))],
+                StatusMessages.PromptsTitle.In(language),
+                [.. prompts.Select(item => StatusMessages.PromptKept.Format(language, $"prompts/{FileName(item.Name)}", item.Problem))],
                 prompts),
         };
     }
@@ -61,9 +61,6 @@ internal static class StatusReporter
     private static Uri WebAddress(Uri endpoint) => new(endpoint, "/ui/");
 
     /// <summary>The extra listener's line: its address when it answers, and its address with the reason when it did not.</summary>
-    private static string ExtraListenerLine(MemoryLanguage language, ExtraListenerStatus extra) => extra.FailureReason is null
-        ? ManagementApiMessages.ExtraListenerAddress.Format(language, ManagementApiMessages.ExtraListenerName(extra.Address, language))
-        : ManagementApiMessages.ExtraListenerFailed.Format(language, ManagementApiMessages.ExtraListenerName(extra.Address, language), extra.FailureReason);
 
     /// <summary>
     /// The report when no service answers. It reads no model; the service column says so, says whether another program
@@ -100,15 +97,15 @@ internal static class StatusReporter
     {
         var endpoint = new Uri($"http://127.0.0.1:{port}/mcp");
         var line = otherProgramAnswered
-            ? ManagementApiMessages.ServiceNotRunningOtherProgram.Format(language, port)
-            : ManagementApiMessages.ServiceNotRunning.In(language);
+            ? StatusMessages.ServiceNotRunningOtherProgram.Format(language, port)
+            : StatusMessages.ServiceNotRunning.In(language);
         var web = WebAddress(endpoint);
         var extraListener = extra is null ? null : new ExtraListenerStatus(ExtraListenerStatus.AddressOf(extra, port), null);
-        List<string> lines = [line, ManagementApiMessages.ServiceAddress.Format(language, endpoint), ManagementApiMessages.WebAddress.Format(language, web)];
+        List<string> lines = [line, StatusMessages.ServiceAddress.Format(language, endpoint), StatusMessages.WebAddress.Format(language, web)];
         if (extraListener is not null)
-            lines.Add(ManagementApiMessages.ExtraListenerNotRunning.Format(language, ManagementApiMessages.ExtraListenerName(extraListener.Address, language)));
+            lines.Add(StatusMessages.ExtraListenerNotRunning.Format(language, StatusMessages.ExtraListenerName(extraListener.Address, language)));
         return new ServiceStatus(
-            ManagementApiMessages.ServiceTitle.In(language),
+            StatusMessages.ServiceTitle.In(language),
             lines,
             Running: false,
             Endpoint: endpoint,
@@ -130,7 +127,7 @@ internal static class StatusReporter
         var lines = error.Message.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         return new StatusReport
         {
-            Config = new ConfigStatus(ManagementApiMessages.ConfigTitle.In(language), lines),
+            Config = new ConfigStatus(StatusMessages.ConfigTitle.In(language), lines),
             Service = OfflineService(language, settings.Port, otherProgramAnswered),
             Clients = Clients(options, language),
             Logs = Logs(options, language),
@@ -139,8 +136,8 @@ internal static class StatusReporter
 
     /// <summary>The line that tells the user a command needs the service to run.</summary>
     public static string NotRunningHint(MemoryLanguage language, int port, bool otherProgramAnswered) => otherProgramAnswered
-        ? ManagementApiMessages.NotRunningHintOtherProgram.Format(language, port)
-        : ManagementApiMessages.NotRunningHint.Format(language);
+        ? StatusMessages.NotRunningHintOtherProgram.Format(language, port)
+        : StatusMessages.NotRunningHint.Format(language);
 
     /// <summary>
     /// The columns that need no service: bindings, the consolidation, the pending counts, the local backups, the secrets and
@@ -169,15 +166,15 @@ internal static class StatusReporter
     /// </summary>
     private static ClientsStatus Clients(TacitOptions options, MemoryLanguage language)
     {
-        var title = ManagementApiMessages.ClientsTitle.In(language);
+        var title = StatusMessages.ClientsTitle.In(language);
         var (clients, unreadable) = ClientRecordStore.ReadFor(ClientRecordStore.PathFor(options));
         if (unreadable is not null)
-            return new ClientsStatus(title, [ManagementApiMessages.ClientsUnreadable.Format(language, unreadable)], []);
+            return new ClientsStatus(title, [StatusMessages.ClientsUnreadable.Format(language, unreadable)], []);
         if (clients.Count == 0)
-            return new ClientsStatus(title, [ManagementApiMessages.ClientsNone.In(language)], []);
+            return new ClientsStatus(title, [StatusMessages.ClientsNone.In(language)], []);
 
         var items = clients.OrderByDescending(client => client.LastSeen).ThenBy(client => client.Name, StringComparer.Ordinal).ToList();
-        var lines = items.Select(client => ManagementApiMessages.ClientLine.Format(
+        var lines = items.Select(client => StatusMessages.ClientLine.Format(
             language,
             client.Name,
             client.LastSeen.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -190,7 +187,7 @@ internal static class StatusReporter
 
     /// <summary>What a client declared, joined; the word for none when it declared nothing.</summary>
     private static string Declared(IReadOnlyList<string> values, MemoryLanguage language) =>
-        values.Count == 0 ? ManagementApiMessages.ClientNothingDeclared.In(language) : string.Join(", ", values);
+        values.Count == 0 ? StatusMessages.ClientNothingDeclared.In(language) : string.Join(", ", values);
 
     /// <summary>The consolidation summary, or the reason it could not be read: the repository's history, or a file held open.</summary>
     private static async Task<(ConsolidationSummary? Summary, string? Unreadable)> ReadConsolidationAsync(
@@ -212,38 +209,38 @@ internal static class StatusReporter
 
     private static ConsolidationStatus Consolidation(TacitOptions options, MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
-        var title = ManagementApiMessages.ConsolidationTitle.In(language);
+        var title = StatusMessages.ConsolidationTitle.In(language);
         if (summary is null)
-            return new ConsolidationStatus(title, [ManagementApiMessages.ConsolidationUnreadable.Format(language, unreadable)], null, null);
+            return new ConsolidationStatus(title, [StatusMessages.ConsolidationUnreadable.Format(language, unreadable)], null, null);
 
         var baseline = summary.Baseline;
         if (baseline.Commit is not { } commit)
-            return new ConsolidationStatus(title, [ManagementApiMessages.ConsolidationNever.In(language)], null, null);
+            return new ConsolidationStatus(title, [StatusMessages.ConsolidationNever.In(language)], null, null);
 
         var day = commit.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var ago = DaysAgo(language, summary.DaysSince!.Value);
         var line = baseline.Kind == BaselineKind.Consolidation
-            ? ManagementApiMessages.ConsolidationOn.Format(language, day, ago)
-            : ManagementApiMessages.ConsolidationFromInit.Format(language, day, ago);
+            ? StatusMessages.ConsolidationOn.Format(language, day, ago)
+            : StatusMessages.ConsolidationFromInit.Format(language, day, ago);
         return new ConsolidationStatus(title, [line], commit.Day, summary.DaysSince);
     }
 
     private static PendingStatus Pending(MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
-        var title = ManagementApiMessages.PendingTitle.In(language);
+        var title = StatusMessages.PendingTitle.In(language);
         if (summary is null)
-            return new PendingStatus(title, [ManagementApiMessages.PendingUnreadable.Format(language, unreadable)], null, null, null);
+            return new PendingStatus(title, [StatusMessages.PendingUnreadable.Format(language, unreadable)], null, null, null);
 
         var candidates = summary.CandidatesReadable ? summary.Candidates : (int?)null;
         return new PendingStatus(
             title,
             [
                 candidates is { } count
-                    ? ManagementApiMessages.PendingCandidates.Format(language, count)
-                    : ManagementApiMessages.PendingCandidatesUnknown.In(language),
-                ManagementApiMessages.PendingFormatProblems.Format(language, summary.Problems),
-                summary.WorkstreamEmpty ? ManagementApiMessages.PendingWorkstreamEmpty.In(language) : ManagementApiMessages.PendingWorkstreamSet.In(language),
-                ManagementApiMessages.PendingWeeks.Format(language, summary.UnsummarizedWeeks),
+                    ? StatusMessages.PendingCandidates.Format(language, count)
+                    : StatusMessages.PendingCandidatesUnknown.In(language),
+                StatusMessages.PendingFormatProblems.Format(language, summary.Problems),
+                summary.WorkstreamEmpty ? StatusMessages.PendingWorkstreamEmpty.In(language) : StatusMessages.PendingWorkstreamSet.In(language),
+                StatusMessages.PendingWeeks.Format(language, summary.UnsummarizedWeeks),
             ],
             candidates,
             summary.Problems,
@@ -308,7 +305,7 @@ internal static class StatusReporter
         {
             if (!configured)
             {
-                lines.Add(ManagementApiMessages.SecretNotConfigured.Format(language, owner));
+                lines.Add(StatusMessages.SecretNotConfigured.Format(language, owner));
                 return;
             }
             var item = SecretItem($"{owner}.{key}", variable, secret);
@@ -320,7 +317,7 @@ internal static class StatusReporter
         Add("models.reranker", "apiKey", SecretVariables.RerankerApiKey, config.Models.Reranker is not null, config.Models.Reranker?.ApiKey);
         Add("models.decision", "apiKey", SecretVariables.DecisionApiKey, config.Models.Decision is not null, config.Models.Decision?.ApiKey);
         Add("backup.webdav", "password", SecretVariables.WebDavPassword, config.Backup.WebDav is not null, config.Backup.WebDav?.Password);
-        return new SecretsStatus(ManagementApiMessages.SecretsTitle.In(language), lines, items);
+        return new SecretsStatus(StatusMessages.SecretsTitle.In(language), lines, items);
     }
 
     private static SecretStatus SecretItem(string key, string variable, SecretValue? secret) => new(
@@ -331,27 +328,27 @@ internal static class StatusReporter
 
     private static string SecretLine(MemoryLanguage language, SecretStatus item) => item.Source switch
     {
-        SecretSource.Environment when item.Overridden => ManagementApiMessages.SecretFromEnvironmentOverridden.Format(language, item.Key, item.Variable),
-        SecretSource.Environment => ManagementApiMessages.SecretFromEnvironment.Format(language, item.Key, item.Variable),
-        SecretSource.ConfigFile => ManagementApiMessages.SecretFromConfig.Format(language, item.Key),
-        _ => ManagementApiMessages.SecretMissing.Format(language, item.Key, item.Variable),
+        SecretSource.Environment when item.Overridden => StatusMessages.SecretFromEnvironmentOverridden.Format(language, item.Key, item.Variable),
+        SecretSource.Environment => StatusMessages.SecretFromEnvironment.Format(language, item.Key, item.Variable),
+        SecretSource.ConfigFile => StatusMessages.SecretFromConfig.Format(language, item.Key),
+        _ => StatusMessages.SecretMissing.Format(language, item.Key, item.Variable),
     };
 
     private static ModelsStatus Models(MemoryLanguage language, IReadOnlyList<ModelStatus> models) => new(
-        ManagementApiMessages.ModelsTitle.In(language),
+        StatusMessages.ModelsTitle.In(language),
         models.Select(model => ModelLine(language, model)).ToList(),
         models);
 
     private static string ModelLine(MemoryLanguage language, ModelStatus model) => model.State switch
     {
-        ModelState.CoolingDown => ManagementApiMessages.ModelCoolingDown.Format(language, model.Role, model.CoolingSeconds),
-        ModelState.Unconfigured => ManagementApiMessages.ModelUnconfigured.Format(language, model.Role),
-        _ => ManagementApiMessages.ModelAvailable.Format(language, model.Role),
+        ModelState.CoolingDown => StatusMessages.ModelCoolingDown.Format(language, model.Role, model.CoolingSeconds),
+        ModelState.Unconfigured => StatusMessages.ModelUnconfigured.Format(language, model.Role),
+        _ => StatusMessages.ModelAvailable.Format(language, model.Role),
     };
 
     /// <summary>"距今 1 天" or "1 day ago", and so on for the other counts.</summary>
     private static string DaysAgo(MemoryLanguage language, int days) =>
-        days == 1 ? ManagementApiMessages.DayAgo.In(language) : ManagementApiMessages.DaysAgo.Format(language, days);
+        days == 1 ? StatusMessages.DayAgo.In(language) : StatusMessages.DaysAgo.Format(language, days);
 
     /// <summary>
     /// The logs column: where the files are, and how many warnings and errors today's file holds so far, or why it cannot be
@@ -360,8 +357,8 @@ internal static class StatusReporter
     private static LogsStatus Logs(TacitOptions options, MemoryLanguage language)
     {
         var directory = ServiceLogFiles.DirectoryOf(options.TacitHome);
-        var title = ManagementApiMessages.LogsTitle.In(language);
-        var where = ManagementApiMessages.LogsDirectory.Format(language, directory);
+        var title = StatusMessages.LogsTitle.In(language);
+        var where = StatusMessages.LogsDirectory.Format(language, directory);
         IReadOnlyList<ServiceLogEntry> today;
         try
         {
@@ -369,14 +366,14 @@ internal static class StatusReporter
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return new LogsStatus(title, [where, ManagementApiMessages.LogsTodayUnreadable.Format(language, e.Message)], directory, null, null);
+            return new LogsStatus(title, [where, StatusMessages.LogsTodayUnreadable.Format(language, e.Message)], directory, null, null);
         }
 
         var warnings = today.Count(entry => entry.Level == ServiceLogLevel.Warning);
         var errors = today.Count(entry => entry.Level == ServiceLogLevel.Error);
         var counts = warnings + errors == 0
-            ? ManagementApiMessages.LogsTodayQuiet.In(language)
-            : ManagementApiMessages.LogsToday.Format(language, warnings, errors);
+            ? StatusMessages.LogsTodayQuiet.In(language)
+            : StatusMessages.LogsToday.Format(language, warnings, errors);
         return new LogsStatus(title, [where, counts], directory, warnings, errors);
     }
 
@@ -385,12 +382,12 @@ internal static class StatusReporter
     {
         var parts = new List<string>();
         if (uptime.Days > 0)
-            parts.Add(ManagementApiMessages.UptimeDays.Format(language, uptime.Days));
+            parts.Add(StatusMessages.UptimeDays.Format(language, uptime.Days));
         if (uptime.Hours > 0)
-            parts.Add(ManagementApiMessages.UptimeHours.Format(language, uptime.Hours));
+            parts.Add(StatusMessages.UptimeHours.Format(language, uptime.Hours));
         if (uptime.Minutes > 0)
-            parts.Add(ManagementApiMessages.UptimeMinutes.Format(language, uptime.Minutes));
-        parts.Add(ManagementApiMessages.UptimeSeconds.Format(language, uptime.Seconds));
+            parts.Add(StatusMessages.UptimeMinutes.Format(language, uptime.Minutes));
+        parts.Add(StatusMessages.UptimeSeconds.Format(language, uptime.Seconds));
         return string.Join(" ", parts);
     }
 }

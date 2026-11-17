@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.RegularExpressions;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Show;
@@ -10,20 +9,14 @@ namespace TacitMemory.Core.Tests;
 /// Every human-facing text exists in both languages by construction (<see cref="Localized"/> takes both). What the
 /// compiler cannot see is a translation that drops or invents a format placeholder, or a blank one.
 /// </summary>
-public sealed partial class LocalizationTests
+public sealed class LocalizationTests
 {
-    public static TheoryData<string> Texts() => [.. AllLocalized().Select(entry => entry.Name)];
+    public static TheoryData<string> Texts() => [.. LocalizedTexts.In(typeof(Localized).Assembly).Select(entry => entry.Name)];
 
     [Theory]
     [MemberData(nameof(Texts))]
-    public void Both_translations_are_present_and_take_the_same_placeholders(string name)
-    {
-        var text = AllLocalized().Single(entry => entry.Name == name).Text;
-
-        Assert.False(string.IsNullOrWhiteSpace(text.Zh));
-        Assert.False(string.IsNullOrWhiteSpace(text.En));
-        Assert.Equal(Placeholders(text.En), Placeholders(text.Zh));
-    }
+    public void Both_translations_are_present_and_take_the_same_placeholders(string name) =>
+        LocalizedTexts.AssertTranslated(LocalizedTexts.In(typeof(Localized).Assembly).Single(entry => entry.Name == name).Text);
 
     [Fact]
     public void Structure_words_are_distinct_across_both_languages()
@@ -64,22 +57,4 @@ public sealed partial class LocalizationTests
 
     private static IEnumerable<Localized> StructureWordsIn() =>
         typeof(StructureWords).GetFields(BindingFlags.Public | BindingFlags.Static).Select(field => (Localized)field.GetValue(null)!);
-
-    /// <summary>Every <see cref="Localized"/> field of a type in Core, including private ones inside templates.</summary>
-    private static IEnumerable<(string Name, Localized Text)> AllLocalized() =>
-        typeof(Localized).Assembly.GetTypes()
-            .SelectMany(type => type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
-                .Where(field => field.FieldType == typeof(Localized) || field.FieldType == typeof(Localized[]))
-                .SelectMany(field => field.GetValue(null) switch
-                {
-                    Localized one => [($"{type.Name}.{field.Name}", one)],
-                    Localized[] many => many.Select((text, index) => ($"{type.Name}.{field.Name}[{index}]", text)),
-                    _ => [],
-                }));
-
-    private static string[] Placeholders(string text) =>
-        [.. PlaceholderPattern().Matches(text).Select(match => match.Value).Distinct().Order()];
-
-    [GeneratedRegex(@"\{\w+\}")]
-    private static partial Regex PlaceholderPattern();
 }

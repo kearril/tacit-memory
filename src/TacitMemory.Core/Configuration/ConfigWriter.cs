@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
-using TacitMemory.Core.Decisions;
-using TacitMemory.Core.Retrieval;
 
 namespace TacitMemory.Core.Configuration;
 
@@ -19,11 +17,11 @@ internal static partial class ConfigWriter
         var root = new Mapping();
 
         var server = root.Section("server");
-        server.Add("port", Unless(file.Server.Port, ConfigDefaults.Port));
-        server.Add("host", file.Server.Host is ConfigDefaults.Host ? null : Text(file.Server.Host));
+        server.Add("port", Unless(file.Server.Port, ConfigKeys.Port));
+        server.Add("host", file.Server.Host is ConfigKeys.LoopbackHost ? null : Text(file.Server.Host));
 
         var memoryPath = file.Memory.Path;
-        var defaultMemory = ConfigDefaults.MemoryPath(options.TacitHome);
+        var defaultMemory = ConfigKeys.DefaultMemoryPath(options.TacitHome);
         root.Section("memory").Add(
             "path", memoryPath is null || SamePath(HomePaths.Expand(memoryPath, options.UserHome), defaultMemory) ? null : Text(memoryPath));
         root.Add("language", Text(file.Language));
@@ -34,33 +32,33 @@ internal static partial class ConfigWriter
         AddModel(models, "decision", file.Models.Decision);
 
         var limits = root.Section("limits");
-        limits.Add("brief", Unless(file.Limits.Brief, ConfigDefaults.Brief));
-        limits.Section("page").Add("minAliases", Unless(file.Limits.Page?.MinAliases, ConfigDefaults.MinAliases));
+        limits.Add("brief", Unless(file.Limits.Brief, ConfigKeys.Brief));
+        limits.Section("page").Add("minAliases", Unless(file.Limits.Page?.MinAliases, ConfigKeys.MinAliases));
 
         var consolidation = root.Section("consolidation");
         var c = file.Consolidation;
-        consolidation.Add("remindAfterDays", Unless(c.RemindAfterDays, ConfigDefaults.RemindAfterDays));
-        consolidation.Add("remindCandidates", Unless(c.RemindCandidates, ConfigDefaults.RemindCandidates));
-        consolidation.Add("budgetSeconds", Unless(c.BudgetSeconds, ConfigDefaults.BudgetSeconds));
-        consolidation.Add("maxConcurrency", Unless(c.MaxConcurrency, ConfigDefaults.MaxConcurrency));
-        consolidation.Add("hintItemLength", Unless(c.HintItemLength, ConfigDefaults.HintItemLength));
-        consolidation.Add("hintResidentLength", Unless(c.HintResidentLength, ConfigDefaults.HintResidentLength));
+        consolidation.Add("remindAfterDays", Unless(c.RemindAfterDays, ConfigKeys.RemindAfterDays));
+        consolidation.Add("remindCandidates", Unless(c.RemindCandidates, ConfigKeys.RemindCandidates));
+        consolidation.Add("budgetSeconds", Unless(c.BudgetSeconds, ConfigKeys.BudgetSeconds));
+        consolidation.Add("maxConcurrency", Unless(c.MaxConcurrency, ConfigKeys.MaxConcurrency));
+        consolidation.Add("hintItemLength", Unless(c.HintItemLength, ConfigKeys.HintItemLength));
+        consolidation.Add("hintResidentLength", Unless(c.HintResidentLength, ConfigKeys.HintResidentLength));
 
         var decision = root.Section("decision");
-        AddThreshold(decision, "samePreference", file.Decision.SamePreference, Judgment.SamePreference);
-        AddThreshold(decision, "samePage", file.Decision.SamePage, Judgment.SamePage);
-        AddThreshold(decision, "sameTopic", file.Decision.SameTopic, Judgment.SameTopic);
-        AddThreshold(decision, "ruleConflict", file.Decision.RuleConflict, Judgment.RuleConflict);
+        AddThreshold(decision, "samePreference", file.Decision.SamePreference, ConfigKeys.SamePreference);
+        AddThreshold(decision, "samePage", file.Decision.SamePage, ConfigKeys.SamePage);
+        AddThreshold(decision, "sameTopic", file.Decision.SameTopic, ConfigKeys.SameTopic);
+        AddThreshold(decision, "ruleConflict", file.Decision.RuleConflict, ConfigKeys.RuleConflict);
 
         var retrieval = root.Section("retrieval");
-        retrieval.Add("candidates", Unless(file.Retrieval.Candidates, ConfigDefaults.Candidates));
-        retrieval.Add("topK", Unless(file.Retrieval.TopK, ConfigDefaults.TopK));
+        retrieval.Add("candidates", Unless(file.Retrieval.Candidates, ConfigKeys.Candidates));
+        retrieval.Add("topK", Unless(file.Retrieval.TopK, ConfigKeys.TopK));
         retrieval.Add(
             "minRerankScore",
-            file.Retrieval.MinRerankScore == RecallPipeline.DefaultMinRerankScore ? null : Number(file.Retrieval.MinRerankScore));
+            file.Retrieval.MinRerankScore == ConfigKeys.MinRerankScore.Default ? null : Number(file.Retrieval.MinRerankScore));
 
         var backup = root.Section("backup");
-        backup.Add("keep", Unless(file.Backup.Keep, ConfigDefaults.Keep));
+        backup.Add("keep", Unless(file.Backup.Keep, ConfigKeys.Keep));
         if (file.Backup.WebDav is { } webdav)
         {
             var target = backup.Section("webdav");
@@ -97,17 +95,17 @@ internal static partial class ConfigWriter
     /// A judgment's thresholds, unless they are its built-in ones; both are written whenever either is given, so a missing
     /// one is reported on load.
     /// </summary>
-    private static void AddThreshold(Mapping decision, string key, ThresholdFile? threshold, Threshold builtIn)
+    private static void AddThreshold(Mapping decision, string key, ThresholdFile? threshold, ThresholdKeys keys)
     {
-        if (threshold is null || threshold == ConfigSchema.File(builtIn))
+        if (threshold is null || (threshold.Certain == keys.Certain.Default && threshold.Unlikely == keys.Unlikely.Default))
             return;
         var section = decision.Section(key);
         section.Add("certain", Number(threshold.Certain) ?? "''");
         section.Add("unlikely", Number(threshold.Unlikely) ?? "''");
     }
 
-    private static string? Unless(int? value, int fallback) =>
-        value is null || value == fallback ? null : value.Value.ToString(CultureInfo.InvariantCulture);
+    private static string? Unless(int? value, IntegerEntry entry) =>
+        value is null || value == entry.Default ? null : value.Value.ToString(CultureInfo.InvariantCulture);
 
     private static string? Number(double? value) => value?.ToString("R", CultureInfo.InvariantCulture);
 

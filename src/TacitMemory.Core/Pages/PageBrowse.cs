@@ -42,9 +42,9 @@ internal static class PageBrowse
     {
         var raw = $"{workstream}/{slug}";
         if (!PageId.TryParse(raw, out var id, out var problem))
-            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.PageIdInvalid.Format(config.Language, raw, problem));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.PageIdInvalid.Format(config.Language, raw, problem));
         if (!File.Exists(MemoryLayout.Full(config.MemoryPath, id.RelativePath)))
-            throw new TacitException(TacitError.MemoryNotFound, ManagementApiMessages.PageNotFound.Format(config.Language, raw));
+            throw new TacitException(TacitError.MemoryNotFound, RequestMessages.PageNotFound.Format(config.Language, raw));
 
         var document = reader.Page(id, Usage.NotCounted).Document;
         var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null);

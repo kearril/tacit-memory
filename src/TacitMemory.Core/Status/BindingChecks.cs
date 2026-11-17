@@ -16,7 +16,7 @@ internal static class BindingChecks
 {
     public static BindingsStatus Produce(TacitOptions options, MemoryLanguage language)
     {
-        var title = ManagementApiMessages.BindingsTitle.In(language);
+        var title = StatusMessages.BindingsTitle.In(language);
         IReadOnlyList<BindingRecord> bindings;
         try
         {
@@ -24,11 +24,11 @@ internal static class BindingChecks
         }
         catch (TacitException e)
         {
-            return new BindingsStatus(title, [ManagementApiMessages.BindingsUnreadable.Format(language, e.Message)], []);
+            return new BindingsStatus(title, [StatusMessages.BindingsUnreadable.Format(language, e.Message)], []);
         }
 
         if (bindings.Count == 0)
-            return new BindingsStatus(title, [ManagementApiMessages.BindingsNone.In(language)], []);
+            return new BindingsStatus(title, [StatusMessages.BindingsNone.In(language)], []);
 
         var items = Checks(bindings, options.TacitHome, language);
         return new BindingsStatus(title, items.Select(item => LineOf(item, language)).ToList(), items);
@@ -95,13 +95,13 @@ internal static class BindingChecks
     {
         var line = item.Problem switch
         {
-            null => ManagementApiMessages.BindingOk.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-            BindingProblem.ContextFileMissing => ManagementApiMessages.BindingContextFileMissing.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-            BindingProblem.ContextFileNotUtf8 => ManagementApiMessages.BindingContextFileNotUtf8.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-            BindingProblem.ContextFileUnreadable => ManagementApiMessages.BindingContextFileUnreadable.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-            BindingProblem.MarkersIncomplete => ManagementApiMessages.BindingMarkersIncomplete.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
-            _ => ManagementApiMessages.BindingSkillLinkNotTacit.Format(language, item.Client, item.ContextFile, item.SkillsFolder, item.SkillLink),
+            null => StatusMessages.BindingOk.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.ContextFileMissing => StatusMessages.BindingContextFileMissing.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.ContextFileNotUtf8 => StatusMessages.BindingContextFileNotUtf8.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.ContextFileUnreadable => StatusMessages.BindingContextFileUnreadable.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            BindingProblem.MarkersIncomplete => StatusMessages.BindingMarkersIncomplete.Format(language, item.Client, item.ContextFile, item.SkillsFolder),
+            _ => StatusMessages.BindingSkillLinkNotTacit.Format(language, item.Client, item.ContextFile, item.SkillsFolder, item.SkillLink),
         };
-        return item.SharedWith.Count == 0 ? line : line + ManagementApiMessages.BindingSharedWith.Format(language, string.Join(", ", item.SharedWith));
+        return item.SharedWith.Count == 0 ? line : line + StatusMessages.BindingSharedWith.Format(language, string.Join(", ", item.SharedWith));
     }
 }

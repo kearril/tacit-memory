@@ -286,7 +286,7 @@ public sealed class RestoreTests : IDisposable
 
         Assert.Equal(7, _service.Config.Retrieval.TopK);
         Assert.Equal(2, _service.Config.Limits.Page.MinAliases);
-        Assert.Equal([new RestartChange("limits.page.minAliases", "2", "4")], result.Restart);
+        Assert.Equal([new RestartChange(ConfigKeyPath.LimitsPageMinAliases, "2", "4")], result.Restart);
         Assert.Contains(result.Notices, notice => notice.Contains("limits.page.minAliases", StringComparison.Ordinal));
         Assert.DoesNotContain(result.Notices, notice => notice.Contains("重启后生效", StringComparison.Ordinal));
     }

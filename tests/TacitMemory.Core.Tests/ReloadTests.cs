@@ -138,7 +138,7 @@ public sealed class ReloadTests : IDisposable
     [Fact]
     public async Task The_start_time_and_the_extra_listener_outlive_a_reload()
     {
-        Service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failure: null);
+        Service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failureReason: null);
         var listener = Service.ExtraListener;
         _home.Clock.Advance(TimeSpan.FromMinutes(5));
         var before = await Service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
@@ -161,5 +161,19 @@ public sealed class ReloadTests : IDisposable
 
         Assert.Equal(TacitError.ReloadFailed, error.Error);
         Assert.Contains("disk is full", (await Service.Failed.WaitAsync(TimeSpan.FromSeconds(5))).Message);
+    }
+
+    [Fact]
+    public async Task The_memory_browser_taken_before_a_reload_reads_the_reopened_memory()
+    {
+        var browse = Service.Browse;
+        Hand("a", "部署问题", "## 经过\n部署失败");
+        Assert.Single((await browse.PagesAsync()).Pages);
+
+        Save(file => file with { Retrieval = file.Retrieval with { TopK = 1 } });
+        await Service.ReloadAsync();
+        Hand("b", "回滚问题", "## 经过\n回滚失败");
+
+        Assert.Equal(["p/a", "p/b"], (await browse.PagesAsync()).Pages.Select(page => page.Id).Order());
     }
 }

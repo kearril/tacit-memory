@@ -6,7 +6,7 @@ namespace TacitMemory.Core.Localization;
 /// One piece of human-facing text in every supported memory language. Both translations are constructor arguments,
 /// so a missing one does not compile.
 /// </summary>
-internal sealed record Localized(string Zh, string En)
+public sealed record Localized(string Zh, string En)
 {
     public string In(MemoryLanguage language) => language switch
     {

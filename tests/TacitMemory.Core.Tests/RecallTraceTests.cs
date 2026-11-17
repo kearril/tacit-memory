@@ -299,8 +299,8 @@ public sealed class RecallTraceTests : IDisposable
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
-        var brief = await Service.WorkstreamBriefAsync("ops");
-        var page = await Service.PageAsync("ops", "rollback");
+        var brief = await Service.Browse.WorkstreamBriefAsync("ops");
+        var page = await Service.Browse.PageAsync("ops", "rollback");
 
         Assert.Equal("ops/rollback", Assert.Single(brief.Groups.SelectMany(group => group.Pages)).Id);
         Assert.Equal("部署回滚", page.Title);

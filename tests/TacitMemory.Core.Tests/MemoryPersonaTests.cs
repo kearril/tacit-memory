@@ -71,7 +71,7 @@ public sealed class MemoryPersonaTests : IDisposable
     {
         Write(MemoryLayout.Persona, Persona);
 
-        var report = await Service.PersonaAsync();
+        var report = await Service.Browse.PersonaAsync();
 
         Assert.Equal(
             [PersonaSection.RedLines, PersonaSection.WorkingRules, PersonaSection.Preferences, PersonaSection.Profile],
@@ -104,7 +104,7 @@ public sealed class MemoryPersonaTests : IDisposable
     {
         Write(MemoryLayout.Candidates, Candidates);
 
-        var report = await Service.PersonaAsync();
+        var report = await Service.Browse.PersonaAsync();
 
         var candidate = Assert.Single(report.Candidates);
         Assert.Equal(("回答先给结论", PersonaSection.Preferences, "workstream:tacit-memory"), (candidate.Title, candidate.Section, candidate.Scope));
@@ -123,7 +123,7 @@ public sealed class MemoryPersonaTests : IDisposable
         File.Delete(Path.Combine(_home.DefaultMemory, MemoryLayout.Persona));
         File.Delete(Path.Combine(_home.DefaultMemory, MemoryLayout.Candidates));
 
-        var report = await Service.PersonaAsync();
+        var report = await Service.Browse.PersonaAsync();
 
         Assert.All(report.Global, section => Assert.Empty(section.Entries));
         Assert.Empty(report.Domains);
@@ -155,7 +155,7 @@ public sealed class MemoryPersonaTests : IDisposable
 
             """);
 
-        var report = await Service.PersonaAsync();
+        var report = await Service.Browse.PersonaAsync();
 
         var problem = Assert.Single(report.PersonaFile.Problems, problem => problem.Line == 2);
         Assert.Equal("Red line without instead", problem.Kind);
@@ -174,7 +174,7 @@ public sealed class MemoryPersonaTests : IDisposable
     {
         File.WriteAllBytes(Path.Combine(_home.DefaultMemory, MemoryLayout.Persona), [0xff, 0xfe, 0x41, 0x80]);
 
-        var report = await Service.PersonaAsync();
+        var report = await Service.Browse.PersonaAsync();
 
         Assert.All(report.Global, section => Assert.Empty(section.Entries));
         var problem = Assert.Single(report.PersonaFile.Problems);
@@ -189,7 +189,7 @@ public sealed class MemoryPersonaTests : IDisposable
         var pages = await Service.PageCountsAsync();
         var activities = await Service.ActivityCountsAsync(TestHome.Today);
 
-        await Service.PersonaAsync();
+        await Service.Browse.PersonaAsync();
 
         Assert.Equal(pages, await Service.PageCountsAsync());
         Assert.Equal(activities, await Service.ActivityCountsAsync(TestHome.Today));

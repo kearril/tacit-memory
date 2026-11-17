@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
 
@@ -20,10 +21,131 @@ public sealed record ConfigView(
 /// Where one secret's value comes from, by its key path: its environment variable, which wins over the file, or
 /// <c>config.yaml</c>; <c>null</c> when neither holds it. The value itself is fetched on its own, when asked for.
 /// </summary>
-public sealed record SecretState(string Path, SecretSource? Source, string Variable);
+public sealed record SecretState(ConfigKeyPath Path, SecretSource? Source, string Variable);
 
 /// <summary>A secret's value as the service would use it: the environment variable's, else the file's; <c>null</c> when neither holds it.</summary>
 public sealed record SecretShown(string? Value);
+
+/// <summary>The path of a key of <c>config.yaml</c>, written as the file nests it, such as <c>retrieval.topK</c>.</summary>
+public enum ConfigKeyPath
+{
+    [JsonStringEnumMemberName("server.port")]
+    ServerPort,
+
+    [JsonStringEnumMemberName("server.host")]
+    ServerHost,
+
+    [JsonStringEnumMemberName("memory.path")]
+    MemoryPath,
+
+    [JsonStringEnumMemberName("language")]
+    Language,
+
+    [JsonStringEnumMemberName("models.embedding.provider")]
+    ModelsEmbeddingProvider,
+
+    [JsonStringEnumMemberName("models.embedding.url")]
+    ModelsEmbeddingUrl,
+
+    [JsonStringEnumMemberName("models.embedding.model")]
+    ModelsEmbeddingModel,
+
+    [JsonStringEnumMemberName("models.embedding.apiKey")]
+    ModelsEmbeddingApiKey,
+
+    [JsonStringEnumMemberName("models.reranker.provider")]
+    ModelsRerankerProvider,
+
+    [JsonStringEnumMemberName("models.reranker.url")]
+    ModelsRerankerUrl,
+
+    [JsonStringEnumMemberName("models.reranker.model")]
+    ModelsRerankerModel,
+
+    [JsonStringEnumMemberName("models.reranker.apiKey")]
+    ModelsRerankerApiKey,
+
+    [JsonStringEnumMemberName("models.decision.provider")]
+    ModelsDecisionProvider,
+
+    [JsonStringEnumMemberName("models.decision.url")]
+    ModelsDecisionUrl,
+
+    [JsonStringEnumMemberName("models.decision.model")]
+    ModelsDecisionModel,
+
+    [JsonStringEnumMemberName("models.decision.apiKey")]
+    ModelsDecisionApiKey,
+
+    [JsonStringEnumMemberName("limits.brief")]
+    LimitsBrief,
+
+    [JsonStringEnumMemberName("limits.page.minAliases")]
+    LimitsPageMinAliases,
+
+    [JsonStringEnumMemberName("consolidation.remindAfterDays")]
+    ConsolidationRemindAfterDays,
+
+    [JsonStringEnumMemberName("consolidation.remindCandidates")]
+    ConsolidationRemindCandidates,
+
+    [JsonStringEnumMemberName("consolidation.budgetSeconds")]
+    ConsolidationBudgetSeconds,
+
+    [JsonStringEnumMemberName("consolidation.maxConcurrency")]
+    ConsolidationMaxConcurrency,
+
+    [JsonStringEnumMemberName("consolidation.hintItemLength")]
+    ConsolidationHintItemLength,
+
+    [JsonStringEnumMemberName("consolidation.hintResidentLength")]
+    ConsolidationHintResidentLength,
+
+    [JsonStringEnumMemberName("decision.samePreference.certain")]
+    DecisionSamePreferenceCertain,
+
+    [JsonStringEnumMemberName("decision.samePreference.unlikely")]
+    DecisionSamePreferenceUnlikely,
+
+    [JsonStringEnumMemberName("decision.samePage.certain")]
+    DecisionSamePageCertain,
+
+    [JsonStringEnumMemberName("decision.samePage.unlikely")]
+    DecisionSamePageUnlikely,
+
+    [JsonStringEnumMemberName("decision.sameTopic.certain")]
+    DecisionSameTopicCertain,
+
+    [JsonStringEnumMemberName("decision.sameTopic.unlikely")]
+    DecisionSameTopicUnlikely,
+
+    [JsonStringEnumMemberName("decision.ruleConflict.certain")]
+    DecisionRuleConflictCertain,
+
+    [JsonStringEnumMemberName("decision.ruleConflict.unlikely")]
+    DecisionRuleConflictUnlikely,
+
+    [JsonStringEnumMemberName("retrieval.candidates")]
+    RetrievalCandidates,
+
+    [JsonStringEnumMemberName("retrieval.topK")]
+    RetrievalTopK,
+
+    [JsonStringEnumMemberName("retrieval.minRerankScore")]
+    RetrievalMinRerankScore,
+
+    [JsonStringEnumMemberName("backup.keep")]
+    BackupKeep,
+
+    [JsonStringEnumMemberName("backup.webdav.url")]
+    BackupWebDavUrl,
+
+    [JsonStringEnumMemberName("backup.webdav.username")]
+    BackupWebDavUsername,
+
+    [JsonStringEnumMemberName("backup.webdav.password")]
+    BackupWebDavPassword,
+}
 
 /// <summary>What one key of <c>config.yaml</c> accepts, by its key path, such as <c>retrieval.topK</c>.</summary>
 /// <param name="Min">The smallest number the key accepts; <c>null</c> for a key that is not a number.</param>
@@ -31,7 +153,9 @@ public sealed record SecretShown(string? Value);
 /// <param name="Choices">The values the key accepts when they are fixed; <c>null</c> otherwise.</param>
 /// <param name="Restart">Whether a saved change waits for the service to restart instead of taking effect at once.</param>
 /// <param name="ReadOnly">Whether the settings page shows the key without letting it change.</param>
-public sealed record ConfigKey(string Path, double? Min, double? Max, IReadOnlyList<string>? Choices, bool Restart, bool ReadOnly);
+/// <param name="Secret">Whether the key is a secret: its value never leaves the service with the settings, and is changed apart from them.</param>
+public sealed record ConfigKey(
+    ConfigKeyPath Path, double? Min, double? Max, IReadOnlyList<string>? Choices, bool Restart, bool ReadOnly, bool Secret);
 
 /// <summary>The result of a saved config: the hash of the file as it was written.</summary>
 /// <param name="Restart">The settings saved with a value the service will take only when it restarts.</param>
@@ -41,24 +165,19 @@ public sealed record ConfigSaved(string Hash, IReadOnlyList<RestartChange> Resta
 /// A setting that waits for a restart, by its key path, with the value the service runs and the value the file holds, both
 /// as <c>config.yaml</c> would write them.
 /// </summary>
-public sealed record RestartChange(string Path, string Running, string Saved)
+public sealed record RestartChange(ConfigKeyPath Path, string Running, string Saved)
 {
     /// <summary>The settings that wait for a restart and differ between <paramref name="running"/> and <paramref name="saved"/>, in a fixed order.</summary>
     internal static IReadOnlyList<RestartChange> Between(TacitConfig running, TacitConfig saved)
     {
-        static string Host(TacitConfig config) => config.ExtraAddress?.ToString() ?? ConfigDefaults.Host;
-
-        (string Path, string Running, string Saved)[] all =
+        var (before, after) = (ConfigFile.From(running), ConfigFile.From(saved));
+        return
         [
-            ("server.port", running.Port.ToString(CultureInfo.InvariantCulture), saved.Port.ToString(CultureInfo.InvariantCulture)),
-            ("server.host", Host(running), Host(saved)),
-            ("memory.path", running.MemoryPath, saved.MemoryPath),
-            ("language", running.Language.Code(), saved.Language.Code()),
-            ("limits.page.minAliases",
-                running.Limits.Page.MinAliases.ToString(CultureInfo.InvariantCulture),
-                saved.Limits.Page.MinAliases.ToString(CultureInfo.InvariantCulture)),
+            .. ConfigKeys.Restarting
+                .Select(key => (key.Id, Running: before.ValueAt(key) ?? "", Saved: after.ValueAt(key) ?? ""))
+                .Where(item => item.Running != item.Saved)
+                .Select(item => new RestartChange(item.Id, item.Running, item.Saved)),
         ];
-        return [.. all.Where(item => item.Running != item.Saved).Select(item => new RestartChange(item.Path, item.Running, item.Saved))];
     }
 }
 

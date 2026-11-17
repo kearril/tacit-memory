@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ConfigFile, ConfigView } from "../../api/config";
+import type { ConfigFile, ConfigKey, ConfigKeyPath, ConfigView } from "../../api/config";
 import {
   bodyOf,
   changedPaths,
@@ -16,6 +16,21 @@ import {
 } from "./form";
 
 const threshold = { certain: 0.85, unlikely: 0.25 };
+
+/** A key as the service describes it: a plain one unless told otherwise. */
+function key(path: ConfigKeyPath, shape: Partial<ConfigKey> = {}): ConfigKey {
+  return { path, min: null, max: null, choices: null, restart: false, readOnly: false, secret: false, ...shape };
+}
+
+/** The keys the service describes apart from the other fields: the read-only ones and the secrets. */
+const APART: ConfigKey[] = [
+  key("memory.path", { restart: true, readOnly: true }),
+  key("language", { choices: ["zh", "en"], restart: true, readOnly: true }),
+  key("models.embedding.apiKey", { secret: true }),
+  key("models.reranker.apiKey", { secret: true }),
+  key("models.decision.apiKey", { secret: true }),
+  key("backup.webdav.password", { secret: true }),
+];
 
 function configFile(): ConfigFile {
   return {
@@ -39,7 +54,7 @@ function view(): ConfigView {
   const defaults = configFile();
   defaults.retrieval = { candidates: 30, topK: 5, minRerankScore: 0.001 };
   defaults.decision = { samePreference: threshold, samePage: threshold, sameTopic: threshold, ruleConflict: threshold };
-  return { hash: "h", file, running: file, defaults, keys: [], secrets: [] };
+  return { hash: "h", file, running: file, defaults, keys: APART, secrets: [] };
 }
 
 describe("draftsOf", () => {
@@ -140,7 +155,7 @@ describe("bodyOf", () => {
 
 describe("placeProblems", () => {
   it("places a problem on its field, a problem of a pair on the pair, and counts them by section", () => {
-    const placed = placeProblems([
+    const placed = placeProblems(view(), [
       { path: "decision.samePage", message: "order" },
       { path: "retrieval.topK", message: "range" },
       { path: "decision.sameTopic.certain", message: "probability" },
@@ -156,7 +171,7 @@ describe("placeProblems", () => {
   });
 
   it("keeps the problems no field on the page answers to apart, in the order given", () => {
-    const placed = placeProblems([
+    const placed = placeProblems(view(), [
       { path: "unknown.key", message: "unknown" },
       { path: "decision", message: "unknown key" },
       { path: "retrieval.topK", message: "range" },
@@ -167,7 +182,7 @@ describe("placeProblems", () => {
   });
 
   it("gives the first problem in the page's order, to scroll to", () => {
-    const placed = placeProblems([
+    const placed = placeProblems(view(), [
       { path: "decision.ruleConflict.unlikely", message: "a" },
       { path: "retrieval.candidates", message: "b" },
     ]);
@@ -180,11 +195,11 @@ describe("placeProblems", () => {
 function general(): ConfigView {
   const base = view();
   const keys = [
-    { path: "server.port", min: 1, max: 65535, choices: null, restart: true, readOnly: false },
-    { path: "server.host", min: null, max: null, choices: null, restart: true, readOnly: false },
-    { path: "language", min: null, max: null, choices: ["zh", "en"], restart: true, readOnly: true },
-    { path: "retrieval.topK", min: 1, max: 100000, choices: null, restart: false, readOnly: false },
-    { path: "retrieval.candidates", min: 1, max: 100000, choices: null, restart: false, readOnly: false },
+    key("server.port", { min: 1, max: 65535, restart: true }),
+    key("server.host", { restart: true }),
+    key("language", { choices: ["zh", "en"], restart: true, readOnly: true }),
+    key("retrieval.topK", { min: 1, max: 100000 }),
+    key("retrieval.candidates", { min: 1, max: 100000 }),
   ];
   const running = structuredClone(base.file);
   running.server = { port: 18888, host: null };
@@ -255,7 +270,7 @@ describe("secrets", () => {
   });
 
   it("place the service's problems on their own fields", () => {
-    expect(placeProblems([{ path: "backup.webdav.password", message: "required" }]).bySection).toEqual({ backup: 1 });
+    expect(placeProblems(view(), [{ path: "backup.webdav.password", message: "required" }]).bySection).toEqual({ backup: 1 });
   });
 });
 

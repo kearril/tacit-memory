@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core;
 
@@ -116,6 +117,11 @@ public sealed record ServiceStatus(
 /// <param name="FailureReason">Why the address could not be bound, in the memory language; <c>null</c> when the listener answers.</param>
 public sealed record ExtraListenerStatus(Uri Address, string? FailureReason)
 {
+    /// <summary>The line for this listener: its address, or that it failed and why.</summary>
+    public string Line(MemoryLanguage language) => FailureReason is null
+        ? StatusMessages.ExtraListenerAddress.Format(language, StatusMessages.ExtraListenerName(Address, language))
+        : StatusMessages.ExtraListenerFailed.Format(language, StatusMessages.ExtraListenerName(Address, language), FailureReason);
+
     /// <summary>The base address of an extra listener on <paramref name="address"/> and <paramref name="port"/>; an IPv6 address goes in brackets.</summary>
     internal static Uri AddressOf(System.Net.IPAddress address, int port) =>
         new($"http://{(address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? $"[{address}]" : address.ToString())}:{port}/");

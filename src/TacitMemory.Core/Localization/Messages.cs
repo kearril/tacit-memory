@@ -176,12 +176,4 @@ internal static class Messages
     public static readonly Localized VectorExtensionInvalid = new(
         "向量检索扩展 {0} 缺失或不是 sqlite-vec {1} 的官方发布文件，为安全起见不加载，常驻服务无法启动。请重新安装 TacitMemory。",
         "The vector search extension {0} is missing or is not the official sqlite-vec {1} release, so it is not loaded and the memory service cannot start. Reinstall TacitMemory.");
-
-    public static readonly Localized ServiceListening = new(
-        "常驻服务已启动：{0}（Ctrl+C 停止）",
-        "The memory service is running at {0} (Ctrl+C to stop)");
-    public static readonly Localized PortInUse = new(
-        "端口 {0} 已被占用，常驻服务无法启动。请在 {1} 中修改 server.port。",
-        "Port {0} is already in use, so the memory service cannot start. Change server.port in {1}.");
-
 }
