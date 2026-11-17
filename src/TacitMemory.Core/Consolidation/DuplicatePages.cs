@@ -71,7 +71,7 @@ internal static class DuplicatePages
 
         var vector = await services.Embedding.EmbedAsync([string.Join('\n', [document.Header.Title, .. document.Header.Aliases])], cancellationToken);
         if (vector is null)
-            return new PreparedChoice<PageId>(null, JudgmentPool.NoAnswerReason(services.Embedding.Configured));
+            return new PreparedChoice<PageId>(null, ChoiceJudge.NoAnswerReason(services.Embedding.Configured));
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var options = DuplicatePageCheck.Describe(memory, DuplicatePageCheck.Nearest(services.Index, page, vector[0]))

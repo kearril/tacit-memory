@@ -220,7 +220,8 @@ internal sealed class MemoryIndex : IDisposable
 
     /// <summary>
     /// Brings <c>persona.md</c> and <c>candidates.md</c> in line with their files: their units are rebuilt when a hash
-    /// changed. The write path calls it before and after each <c>write_persona</c>, so judgments see the latest text.
+    /// changed. Every judgment calls it before its question is prepared, so it sees the latest text; the write path calls it after
+    /// each write, so the next read does.
     /// </summary>
     public void SyncJudgments()
     {

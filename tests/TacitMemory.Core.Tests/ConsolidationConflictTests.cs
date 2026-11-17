@@ -12,7 +12,7 @@ namespace TacitMemory.Core.Tests;
 /// </summary>
 public sealed class ConsolidationConflictTests : IDisposable
 {
-    private readonly TestHome _home = new();
+    private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ModelDouble _models = new();
     private MemoryService? _service;
 
@@ -88,6 +88,22 @@ public sealed class ConsolidationConflictTests : IDisposable
     }
 
     private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
+
+    [Fact]
+    public async Task An_entry_added_by_hand_while_the_service_runs_is_offered_to_the_judgment_without_a_change_notice()
+    {
+        Configure();
+        CheckedBaseline();
+        _ = Service;
+        // No change notice: the persona entries of the index only follow the file when a judgment brings them up to date.
+        Edit(Changed, Terse);
+        PickOption(Terse, 0.95);
+
+        var section = Section(await Consolidation(), Conflicting);
+
+        Assert.Contains($"[{ShortOf(Changed)}]", section);
+        Assert.Contains($"[{ShortOf(Terse)}]", section);
+    }
 
     [Fact]
     public async Task Only_an_entry_changed_since_the_last_consolidation_is_judged_against_the_others()

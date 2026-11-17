@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -17,18 +16,11 @@ namespace TacitMemory.Core.Consolidation;
 /// not called. Only the consolidation reads and writes the cache; the live judgments never do. A judgment that has started always
 /// runs to its end, so its answer is cached even when the consolidation that asked stopped waiting for it.
 /// </summary>
-internal sealed class JudgmentPool(MemoryIndex index, SystemOneDecisionModel decision, TimeProvider time, int maxConcurrency)
+internal sealed class JudgmentPool(MemoryIndex index, ChoiceJudge judge, TimeProvider time, int maxConcurrency)
 {
-    /// <summary>The key of the "none of these" option, which every choice question ends with.</summary>
-    private const string NoneKey = "none";
-
     private readonly SemaphoreSlim _slots = new(maxConcurrency, maxConcurrency);
     private readonly Lock _gate = new();
     private readonly List<Task> _running = [];
-
-    /// <summary>The reason a text whose model gave no answer is not checked: the model is unavailable, or it is not configured.</summary>
-    public static UncheckedReason NoAnswerReason(bool configured) =>
-        configured ? UncheckedReason.ModelUnavailable : UncheckedReason.Unconfigured;
 
     /// <summary>Starts the judgments of one consolidation. The budget is started by the session, once every judgment is submitted.</summary>
     public JudgmentSession Begin(CancellationToken cancellationToken) => new(this, time, cancellationToken);
@@ -75,7 +67,7 @@ internal sealed class JudgmentPool(MemoryIndex index, SystemOneDecisionModel dec
 
         try
         {
-            var prepared = await prepare(CancellationToken.None);
+            var prepared = await judge.PrepareAsync(prepare, CancellationToken.None);
             if (prepared.Unchecked is { } reason)
                 return JudgmentOutcome<T>.Unchecked(reason);
             if (prepared.Question is not { } question)
@@ -95,35 +87,23 @@ internal sealed class JudgmentPool(MemoryIndex index, SystemOneDecisionModel dec
     /// </summary>
     private async Task<JudgmentOutcome<T>> AskAsync<T>(ChoiceQuestion<T> question, Threshold threshold, CancellationToken queue)
     {
-        var texts = new Dictionary<string, string>(StringComparer.Ordinal);
-        var targets = new Dictionary<string, T>(StringComparer.Ordinal);
-        foreach (var option in question.Options)
-        {
-            var key = "o" + (texts.Count + 1).ToString(CultureInfo.InvariantCulture);
-            texts[key] = option.Text;
-            targets[key] = option.Target;
-        }
-        texts[NoneKey] = question.NoneText;
-
-        var cacheKey = CacheKey(question.State, question.Instructions, texts);
-        if (!decision.Configured)
+        var choice = ChoiceJudge.Number(question);
+        var cacheKey = CacheKey(choice.State, choice.Instructions, choice.Options);
+        if (!judge.Configured)
             return JudgmentOutcome<T>.Unchecked(UncheckedReason.Unconfigured);
         var probabilities = index.CachedJudgment(cacheKey);
         if (probabilities is null)
         {
-            if (decision.Health.CoolingDown)
+            if (judge.Health.CoolingDown)
                 return JudgmentOutcome<T>.Unchecked(UncheckedReason.ModelUnavailable);
             if (queue.IsCancellationRequested)
                 return JudgmentOutcome<T>.Unchecked(UncheckedReason.Budget);
-            probabilities = await decision.ChooseAsync(question.State, question.Instructions, texts, CancellationToken.None);
+            probabilities = await judge.ProbabilitiesAsync(choice, CancellationToken.None);
             if (probabilities is null)
                 return JudgmentOutcome<T>.Unchecked(UncheckedReason.ModelUnavailable);
             index.StoreJudgment(cacheKey, probabilities, time.GetUtcNow());
         }
-
-        var verdict = Judgment.Choice(probabilities, NoneKey, threshold);
-        var target = verdict.Option is null ? default : targets[verdict.Option];
-        return new JudgmentOutcome<T>(verdict.Tier, target, null);
+        return choice.Outcome(probabilities, threshold);
     }
 
     /// <summary>

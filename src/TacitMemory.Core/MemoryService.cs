@@ -136,9 +136,9 @@ public sealed class MemoryService : IDisposable
             _log.Record(LogLevel.Information, LogMessages.ModelsNotConfigured, string.Join(", ", unconfigured));
         _index = index;
         _vectors = new VectorSync(_index, _models.Embedding);
-        _judgments = new JudgmentPool(_index, _models.Decision, _options.Time, config.Consolidation.MaxConcurrency);
-        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
         var judge = new ChoiceJudge(_index, _models.Decision);
+        _judgments = new JudgmentPool(_index, judge, _options.Time, config.Consolidation.MaxConcurrency);
+        _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
         _vectors.FillInBackground();
         var writer = new MemoryWriter(config, _log, _index, _vectors, OnWritten);
         _pages = new PageTools(
