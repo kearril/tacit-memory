@@ -133,7 +133,7 @@ internal static partial class ConfigWriter
         string.Equals(
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
-            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            PathCase.Comparison);
 
     /// <summary>A YAML mapping under construction: keys in the order added, each a rendered scalar or a nested section.</summary>
     private sealed class Mapping
