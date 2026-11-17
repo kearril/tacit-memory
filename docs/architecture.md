@@ -185,7 +185,7 @@ flowchart LR
 | :--- | :--- |
 | `web/openapi.json` | 管理 API 的 OpenAPI 快照，是前端类型的唯一来源（改动方式见 `docs/testing.md` 第 6 节） |
 | `web/src/api/schema.ts` | 由 `bun run generate` 从快照生成的类型，进 Git；生成不需要运行中的服务 |
-| `web/src/api/client.ts` | 接口调用层：包住 `fetch`，统一带上凭据，失败时抛出 `ApiError`（带服务返回的名称与说明）。会话缺失（401，名称 `ApiUnauthorized`）时先向 `onUnauthorized` 的订阅者发出信号；其他 401（如当前密码不对）只抛出错误。页面不直接调用 `fetch` |
+| `web/src/api/client.ts` | 接口调用层：`api` 是由 `schema.ts` 的 `paths` 驱动的类型化客户端（`openapi-fetch`），路径、路径参数、查询参数、请求体与响应的类型都取自快照，写错路径或参数即类型检查失败；它统一带上凭据。各端点模块以 `call(api.GET(…))` 取得应答数据，失败时抛出 `ApiError`（带服务返回的错误名 `TacitError` 与说明，非 JSON 或无正文的应答错误名为空）。会话缺失（401，错误名 `ApiUnauthorized`）时先向 `onUnauthorized` 的订阅者发出信号；其他 401（如当前密码不对）只抛出错误。页面不直接调用 `fetch` |
 | `web/src/api/session.ts` | 按端点封装的调用：会话的读取、登录、退出，访问密码的设置与清除；会话状态的查询键 `SESSION_QUERY_KEY` 在此定义 |
 | `web/src/api/status.ts`、`activity.ts`、`backups.ts`、`probe.ts` | 仪表盘用到的端点：状态报告（每 30 秒刷新）、活动统计与备份列表（窗口重新获得焦点时刷新）各一个查询及其查询键；备份、重建索引、恢复的预览与执行、探测各一个调用，由卡片包成 mutation |
 | `web/src/app/RootLayout.tsx` | 每个页面的入口：先取会话状态，非本机且未登录则去登录页并记下原地址；收到会话缺失的信号也如此；把会话状态经 `SessionContext` 交给页面 |
@@ -196,9 +196,10 @@ flowchart LR
 | `web/src/pages/dashboard/` | 仪表盘：页面与网格（`DashboardPage.tsx`）、状态卡片（`StatusCards.tsx`）、热力图（`HeatmapCard.tsx`）与恢复对话框（`RestoreDialog.tsx`）；不含界面的逻辑各在一个可单测的模块中：待处理事项及其去处（`todos.ts`）、热力图的周列与月份标签（`heatmap.ts`）、按名称认出常见客户端及其图标（`agents.ts`）、时长、大小、日期与版本的格式化（`format.ts`）；几张卡片共用的小部件在 `parts.tsx`。功能见 `docs/web.md` 第 3 节 |
 | `web/src/pages/prompts/` | 提示词页（`PromptsPage.tsx`）与懒加载的 Markdown 编辑器（`MarkdownEditor.tsx`，CodeMirror，语法高亮的颜色取自令牌）；不含界面的逻辑：地址与文档名的互转（`names.ts`）、编辑状态（`editor.ts`）、长度信息的显示文字（`measure.ts`）。功能见 `docs/web.md` 第 3 节 |
 | `web/src/api/memory.ts` | 记忆页用到的端点：画像、细节页清单与单页、主线清单与简报、活动的月份与某月，各一个查询（窗口重新获得焦点时刷新，从不轮询）；检索追踪一个查询，同一组条件只执行一次，不自动刷新 |
-| `web/src/pages/memory/` | 记忆页的五个视图（`MemoryPersonaPage.tsx`、`MemoryWorkstreamsPage.tsx`、`MemoryPagesPage.tsx` 与单页 `MemoryPagePage.tsx`、`MemoryActivityPage.tsx`、`MemorySearchPage.tsx`），几个视图共用的小部件在 `parts.tsx`（短码胶囊、原话按钮与原话、来源小字、文件路径、格式问题、页面类型徽标、主线胶囊）与 `PersonaSections.tsx`（画像条目、作用域与小节的小标签，主线约定也用它），懒加载的正文渲染在 `MarkdownBody.tsx`。不含界面的逻辑各在一个可单测的模块中：视图与地址（`views.ts`）、检索条件与地址的互转（`search.ts`）、检索单元按去向分段（`trace.ts`）、来源注释的解析（`sources.ts`）、画像按小节汇集与作用域筛选（`persona.ts`）、细节页清单的筛选与排序（`pages.ts`）、Markdown 解析为块（`markdown.ts`，`@lezer/markdown`，HTML 按文字处理）、主线的活动条、页目录的排序与未决事项去掉列表标记（`workstreams.ts`）、活动时间线与日期条（`timeline.ts`）。功能见 `docs/web.md` 第 3 节 |
+| `web/src/pages/memory/` | 记忆页的五个视图（`MemoryPersonaPage.tsx`、`MemoryWorkstreamsPage.tsx`、`MemoryPagesPage.tsx` 与单页 `MemoryPagePage.tsx`、`MemoryActivityPage.tsx`、`MemorySearchPage.tsx`），几个视图共用的小部件在 `parts.tsx`（短码胶囊、原话按钮与原话、来源小字、文件路径、格式问题、页面类型徽标、主线胶囊）与 `PersonaSections.tsx`（画像条目、作用域与小节的小标签，主线约定也用它），懒加载的正文渲染在 `MarkdownBody.tsx`。不含界面的逻辑各在一个可单测的模块中：视图与地址（`views.ts`）、检索条件与地址的互转（`search.ts`）、检索单元按去向分段（`trace.ts`）、画像按小节汇集与作用域筛选、候选出现记录按天合并（`persona.ts`）、细节页清单的筛选与排序（`pages.ts`）、Markdown 解析为块（`markdown.ts`，`@lezer/markdown`，HTML 按文字处理；注释只在该节的原话清单中查到时显示为原话，前端不解析原话注释的写法）、主线的活动条、页目录的排序与未决事项去掉列表标记（`workstreams.ts`）、活动时间线与日期条（`timeline.ts`）。功能见 `docs/web.md` 第 3 节 |
 | `web/src/assets/agents/` | 图标库中没有的客户端图标，自己绘制的 SVG |
 | `web/src/pages/settings/` | 设置页与各节（如「远程访问」一节的 `RemoteAccessSection.tsx`），各节的功能见 `docs/web.md` 第 3 节 |
+| `web/src/components/` | 跨页面的部件与两个纯函数。查询结果：`queryStateOf`（`query-state.ts`）把一个查询分成加载中、有数据、不存在（404）、失败四态，已有数据时后台刷新失败仍显示数据；`QueryResult`（`query-result.tsx`）按四态显示骨架、内容、「不存在」与带「重新读取」的失败提示，各页不再自写这几种分支。命令失败：`classifyFailure`（`command-failure.ts`）把保存、恢复、改密码等命令的失败分成被拒（带问题清单）、文件已变（`ConfigChanged`、`PromptChanged`，界面提供重新读取）、失败与连不上四类，各页按类别展示，文字仍由 `errorTextOf` 与字典给出。另有离开前确认（`leave-guard.tsx`）与应用图标 |
 | `web/src/components/ui/` | 由 shadcn/ui 生成的组件（按钮、输入框、下拉框、标签、卡片、徽标、提示条、确认对话框、模态对话框、抽屉、下拉菜单、悬停提示、弹出层、通知）与自写的复制按钮、日期框（`date-picker.tsx`，日期的推算与一个月的日历格在 `date-grid.ts`）、分段切换（`segmented.tsx`）、吸顶条（`sticky-bar.tsx`，贴住顶端时自己察觉，滚动到某处时让开它的偏移在 `sticky.ts`），结构与交互取自 shadcn，颜色、尺寸与动效全部改为令牌；配置在 `web/components.json` |
 | `web/src/i18n/` | 中英两份字典（`zh.ts`、`en.ts`），都标注为 `messages.ts` 中的 `Dictionary` 类型，键不一致时类型检查失败；语言取自会话返回的记忆语言 |
 | `web/src/styles/tokens.css` | 设计令牌的数值，浅色与深色两套；当前为临时数值（见 `docs/ui-design.md` 第 2 节） |

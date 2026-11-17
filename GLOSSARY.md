@@ -398,7 +398,7 @@ _Avoid_: action、类型
 _Avoid_: 分类、节名
 
 **原话**（`source`）：
-用户本人的原话，一行，保存为画像条目或活动下的注释；`write_persona` 的 `add`、`replace`、`propose` 必填。
+用户本人的原话，一行，保存为画像条目或活动下的注释；`write_persona` 的 `add`、`replace`、`propose` 必填。这种注释称为原话注释，写作 `<!-- 日期 原话「…」 -->`，日期或原话可缺其一，细节页的小节里也可出现；它的写法只由 Core 解析，记忆页拿到的是解析好的日期与原话。
 _Avoid_: 引文、出处
 
 **替换标识**（`replaces`）：
