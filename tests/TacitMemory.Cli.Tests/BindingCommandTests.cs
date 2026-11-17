@@ -64,7 +64,7 @@ public sealed class BindingCommandTests : IDisposable
         var result = await _cli.RunAsync(["disconnect", "--client", "OMP"]);
 
         Assert.Equal(0, result.ExitCode);
-        Assert.False(File.Exists(AgentsMd));
+        Assert.DoesNotContain("tacit:begin", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
     }
 
     [Fact]

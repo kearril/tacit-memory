@@ -52,9 +52,6 @@ internal static class Binder
         var bindings = store.Read();
         var contextUsers = SharedPaths.ContextFileUsers(bindings, client, contextFile);
         var skillUsers = SharedPaths.SkillsFolderUsers(bindings, client, skillsFolder);
-        // An inherited answer keeps the creator's: the last binding that uses an empty context file removes it.
-        var createdContextFile = previous?.CreatedContextFile
-            ?? (contextUsers.Count > 0 ? contextUsers[0].CreatedContextFile : !File.Exists(contextFile));
         var report = new List<string>();
 
         foreach (var (folder, line) in missingFolders)
@@ -83,7 +80,7 @@ internal static class Binder
                 report.Add((made ? Messages.SkillLinked : Messages.SkillLinkUnchanged).Format(language, link));
             }
 
-            store.Put(new BindingRecord(client, contextFile, skillsFolder, createdContextFile));
+            store.Put(new BindingRecord(client, contextFile, skillsFolder));
         }
         catch
         {
@@ -138,12 +135,8 @@ internal static class Binder
             report.Add(Messages.ContextFileStillUsed.Format(language, binding.ContextFile, SharedPaths.Names(contextUsers)));
         else if (!File.Exists(binding.ContextFile))
             report.Add(Messages.ContextFileAbsent.Format(language, binding.ContextFile));
-        else if (ContextFile.Remove(binding.ContextFile, language) is { } remaining)
-        {
+        else if (ContextFile.Remove(binding.ContextFile, language) is not null)
             report.Add(Messages.BlockRemoved.Format(language, binding.ContextFile));
-            if (remaining.Length == 0 && binding.CreatedContextFile)
-                File.Delete(binding.ContextFile);
-        }
         else
             report.Add(Messages.ResidentBlockAbsent.Format(language, binding.ContextFile));
 

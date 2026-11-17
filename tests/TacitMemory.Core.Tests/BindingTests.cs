@@ -86,11 +86,10 @@ public sealed class BindingTests : IDisposable
 
         Assert.StartsWith("<!-- tacit:begin", File.ReadAllText(AgentsMd));
         var record = Record();
-        Assert.Equal(["client", "contextFile", "skillsFolder", "createdContextFile"], record.Select(property => property.Key));
+        Assert.Equal(["client", "contextFile", "skillsFolder"], record.Select(property => property.Key));
         Assert.Equal("omp", (string?)record["client"]);
         Assert.Equal(AgentsMd, (string?)record["contextFile"]);
         Assert.Equal(SkillsFolder, (string?)record["skillsFolder"]);
-        Assert.True((bool?)record["createdContextFile"]);
     }
 
     [Fact]
@@ -315,19 +314,8 @@ public sealed class BindingTests : IDisposable
     }
 
     [Fact]
-    public void Disconnect_removes_a_context_file_that_connect_created_once_it_is_empty()
+    public void Disconnect_removes_the_block_and_keeps_the_context_file_even_when_connect_created_it()
     {
-        _home.Bind();
-
-        _home.Unbind();
-
-        Assert.False(File.Exists(AgentsMd));
-    }
-
-    [Fact]
-    public void Disconnect_keeps_an_empty_context_file_that_connect_did_not_create()
-    {
-        WriteAgentsMd("");
         _home.Bind();
 
         _home.Unbind();
@@ -547,13 +535,13 @@ public sealed class BindingTests : IDisposable
 
         _home.Unbind(second);
 
-        Assert.False(File.Exists(AgentsMd));
+        Assert.Equal(0, CountBlocks(File.ReadAllText(AgentsMd)));
         Assert.All(SkillNames, name => Assert.False(Directory.Exists(LinkOf(name))));
         Assert.Equal(0, RecordCount());
     }
 
     [Fact]
-    public void A_client_sharing_only_the_context_file_reuses_the_block_and_the_file_goes_with_the_last()
+    public void A_client_sharing_only_the_context_file_reuses_the_block_and_the_block_goes_with_the_last()
     {
         _home.Bind();
         Directory.CreateDirectory(OtherSkillsFolder);
@@ -561,7 +549,6 @@ public sealed class BindingTests : IDisposable
         var result = _home.Tacit().Connect(new ConnectRequest("beta", AgentsMd, OtherSkillsFolder));
 
         Assert.Contains("已由 omp 使用", result.Report);
-        Assert.True((bool?)RecordOf("beta")["createdContextFile"]);
         Assert.Equal(1, CountBlocks(File.ReadAllText(AgentsMd)));
 
         var first = _home.Unbind("omp");
@@ -572,7 +559,7 @@ public sealed class BindingTests : IDisposable
 
         _home.Unbind("beta");
 
-        Assert.False(File.Exists(AgentsMd));
+        Assert.Equal(0, CountBlocks(File.ReadAllText(AgentsMd)));
     }
 
     [Fact]

@@ -5,13 +5,11 @@ using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Clients;
 
-/// <summary>One binding: the client's name, its context file, its skills folder, and whether <c>connect</c> created the context file.</summary>
-/// <param name="CreatedContextFile">Whether <c>connect</c> created the context file, so <c>disconnect</c> may delete it again once it is empty.</param>
+/// <summary>One binding: the client's name, its context file and its skills folder.</summary>
 internal sealed record BindingRecord(
     [property: JsonPropertyName("client")] string Client,
     [property: JsonPropertyName("contextFile")] string ContextFile,
-    [property: JsonPropertyName("skillsFolder")] string SkillsFolder,
-    [property: JsonPropertyName("createdContextFile")] bool CreatedContextFile);
+    [property: JsonPropertyName("skillsFolder")] string SkillsFolder);
 
 /// <summary><c>TACIT_HOME/bindings.json</c>: which context files TacitMemory maintains. Read fresh on every use.</summary>
 internal sealed class BindingStore(string tacitHome, MemoryLanguage language)
