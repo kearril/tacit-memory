@@ -205,8 +205,6 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
-            // Cleared first: a file that changes while this runs sets it again through its own sync.
-            _possiblyStale = false;
             var pages = PageFiles().ToDictionary(file => file.Id.RelativePath);
             var months = RecentFile.MonthFiles(_memoryPath).ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
@@ -220,6 +218,8 @@ internal sealed class MemoryIndex : IDisposable
             _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
             _fullBuild = false;
             _commitDayCache = null;
+            // Cleared only once every file is in step: a sync that meets a held file leaves the mark for the next search.
+            _possiblyStale = false;
         }
     }
 
@@ -244,14 +244,13 @@ internal sealed class MemoryIndex : IDisposable
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // The give-up was reported already; the search reads what the index holds, and the next one tries again.
-            _possiblyStale = true;
         }
     }
 
     /// <summary>
     /// Brings <c>persona.md</c> and <c>candidates.md</c> in line with their files: their units are rebuilt when a hash
-    /// changed. Every judgment calls it before its question is prepared, so it sees the latest text; the write path calls it after
-    /// each write, so the next read does.
+    /// changed. A judgment that offers these entries calls it before its question is prepared, and a consolidation once before
+    /// its judgments, so they see the latest text; the write path calls it after each write, so the next read does.
     /// </summary>
     public void SyncJudgments()
     {

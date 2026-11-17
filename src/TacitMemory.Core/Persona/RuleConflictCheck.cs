@@ -50,6 +50,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
     {
         var embeddingFailed = false;
         var outcome = await judge.AskAsync(
+            Neighbours.PersonaEntries,
             async token =>
             {
                 var others = persona.KnownEntries()

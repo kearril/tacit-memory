@@ -47,6 +47,16 @@ internal sealed record JudgmentOutcome<T>(Tier? Tier, T? Target, UncheckedReason
 }
 
 /// <summary>
+/// Where a question's options come from: the persona and candidate entries of the index, which a judgment brings up to date
+/// with their files first, or anywhere else.
+/// </summary>
+internal enum Neighbours
+{
+    Elsewhere,
+    PersonaEntries,
+}
+
+/// <summary>
 /// A choice question as the decision model receives it: the options keyed <c>o1</c>, <c>o2</c> and so on, then <c>none</c>,
 /// and the target behind each key.
 /// </summary>
@@ -64,8 +74,8 @@ internal sealed record NumberedChoice<T>(
 
 /// <summary>
 /// Asks the decision model a choice question and sorts its answer by a threshold: the one way a judgment is asked, before
-/// a write and in the consolidation. The neighbours a question offers come from the persona and candidate entries of the
-/// index, so those are brought up to date with their files first, and a manual edit is judged as it is now.
+/// a write and in the consolidation. A question whose options are persona or candidate entries brings those entries of the
+/// index up to date with their files first, so a manual edit is judged as it is now.
 /// </summary>
 internal sealed class ChoiceJudge(MemoryIndex index, SystemOneDecisionModel decision)
 {
@@ -91,13 +101,8 @@ internal sealed class ChoiceJudge(MemoryIndex index, SystemOneDecisionModel deci
         return new NumberedChoice<T>(question.State, question.Instructions, texts, targets);
     }
 
-    /// <summary>Brings the judgment entries of the index up to date, then prepares the question: its neighbours are read from them.</summary>
-    public async Task<PreparedChoice<T>> PrepareAsync<T>(
-        Func<CancellationToken, Task<PreparedChoice<T>>> prepare, CancellationToken cancellationToken)
-    {
-        index.SyncJudgments();
-        return await prepare(cancellationToken);
-    }
+    /// <summary>Brings the persona and candidate entries of the index up to date with their files.</summary>
+    public void SyncPersonaEntries() => index.SyncJudgments();
 
     /// <summary>The model's probability of each option; <c>null</c> when it is not configured or cannot answer.</summary>
     public Task<IReadOnlyDictionary<string, double>?> ProbabilitiesAsync<T>(NumberedChoice<T> choice, CancellationToken cancellationToken) =>
@@ -108,9 +113,11 @@ internal sealed class ChoiceJudge(MemoryIndex index, SystemOneDecisionModel deci
     /// judgment unchecked, as does a model the preparation found without an answer.
     /// </summary>
     public async Task<JudgmentOutcome<T>> AskAsync<T>(
-        Func<CancellationToken, Task<PreparedChoice<T>>> prepare, Threshold threshold, CancellationToken cancellationToken)
+        Neighbours neighbours, Func<CancellationToken, Task<PreparedChoice<T>>> prepare, Threshold threshold, CancellationToken cancellationToken)
     {
-        var prepared = await PrepareAsync(prepare, cancellationToken);
+        if (neighbours == Neighbours.PersonaEntries)
+            SyncPersonaEntries();
+        var prepared = await prepare(cancellationToken);
         if (prepared.Unchecked is { } reason)
             return JudgmentOutcome<T>.Unchecked(reason);
         if (prepared.Question is not { } question)

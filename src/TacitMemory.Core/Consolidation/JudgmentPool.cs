@@ -22,8 +22,15 @@ internal sealed class JudgmentPool(MemoryIndex index, ChoiceJudge judge, TimePro
     private readonly Lock _gate = new();
     private readonly List<Task> _running = [];
 
-    /// <summary>Starts the judgments of one consolidation. The budget is started by the session, once every judgment is submitted.</summary>
-    public JudgmentSession Begin(CancellationToken cancellationToken) => new(this, time, cancellationToken);
+    /// <summary>
+    /// Starts the judgments of one consolidation. The persona and candidate entries the questions offer are brought up to date
+    /// here, once, while the consolidation holds the gate. The budget is started by the session, once every judgment is submitted.
+    /// </summary>
+    public JudgmentSession Begin(CancellationToken cancellationToken)
+    {
+        judge.SyncPersonaEntries();
+        return new(this, time, cancellationToken);
+    }
 
     /// <summary>Completes when every judgment started so far has finished, including those a consolidation stopped waiting for.</summary>
     public Task Completion
@@ -67,7 +74,7 @@ internal sealed class JudgmentPool(MemoryIndex index, ChoiceJudge judge, TimePro
 
         try
         {
-            var prepared = await judge.PrepareAsync(prepare, CancellationToken.None);
+            var prepared = await prepare(CancellationToken.None);
             if (prepared.Unchecked is { } reason)
                 return JudgmentOutcome<T>.Unchecked(reason);
             if (prepared.Question is not { } question)

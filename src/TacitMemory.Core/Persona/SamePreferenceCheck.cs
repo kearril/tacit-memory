@@ -66,6 +66,7 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
     {
         var embeddingFailed = false;
         var outcome = await judge.AskAsync(
+            Neighbours.PersonaEntries,
             async token =>
             {
                 if (!index.HasJudgments(Sources))

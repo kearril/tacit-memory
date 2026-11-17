@@ -41,6 +41,7 @@ internal sealed class SameTopicCheck(TacitConfig config, ChoiceJudge judge)
                 entry.Labeled.Length > OptionLength ? entry.Labeled[..OptionLength] : entry.Labeled, entry))
             .ToList();
         var outcome = await judge.AskAsync(
+            Neighbours.Elsewhere,
             _ => Task.FromResult(options.Count == 0
                 ? PreparedChoice<RecentFile.Activity>.Nothing
                 : new PreparedChoice<RecentFile.Activity>(new ChoiceQuestion<RecentFile.Activity>(state, Instructions, NoneText, options), null)),

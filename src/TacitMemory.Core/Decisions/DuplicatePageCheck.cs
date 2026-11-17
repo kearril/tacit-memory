@@ -43,6 +43,7 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
     {
         var embeddingFailed = false;
         var outcome = await judge.AskAsync(
+            Neighbours.Elsewhere,
             async token =>
             {
                 if (!index.HasOtherPagesInWorkstream(id))

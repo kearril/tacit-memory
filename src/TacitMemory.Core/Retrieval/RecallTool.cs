@@ -163,10 +163,9 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
     private ToolResult WorkstreamBriefCall(RecallRequest request, List<string> unknown)
     {
         var problems = new List<string>(unknown);
-        var from = Date(request.From, "from", problems);
-        var to = Date(request.To, "to", problems);
-        if (from > to)
-            problems.Add("from is later than to.");
+        var faults = new List<SearchProblem>();
+        var (from, to) = RecallSearch.Dates(request.From, request.To, faults);
+        problems.AddRange(faults.Select(Describe));
         var raw = request.Workstream!.Trim();
         var workstream = raw.ToLowerInvariant();
         if (workstream != PageId.Topics && !PageId.IsWorkstreamName(workstream))
@@ -183,15 +182,5 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
         }
 
         return ToolText.Ok(reader.Brief(workstream, from, to, Usage.Counted)?.Text ?? NoMemory);
-    }
-
-    private static DateOnly? Date(string? raw, string name, List<string> problems)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-        if (DateOnly.TryParseExact(raw.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
-            return date;
-        problems.Add($"{name} {ToolText.Quote(raw)} must be a date written YYYY-MM-DD.");
-        return null;
     }
 }

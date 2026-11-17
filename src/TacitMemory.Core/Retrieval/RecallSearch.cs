@@ -36,10 +36,7 @@ internal sealed record RecallSearch(string Query, IndexFilter Filter, RetrievalO
         var problems = new List<SearchProblem>();
         if (string.IsNullOrWhiteSpace(request.Query))
             problems.Add(new SearchProblem("query", SearchFault.QueryMissing));
-        var from = Date(request.From, "from", problems);
-        var to = Date(request.To, "to", problems);
-        if (from > to)
-            problems.Add(new SearchProblem("to", SearchFault.DatesReversed));
+        var (from, to) = Dates(request.From, request.To, problems);
 
         var kind = string.IsNullOrWhiteSpace(request.Kind) ? null : request.Kind.Trim();
         if (kind is not (null or ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
@@ -54,6 +51,16 @@ internal sealed record RecallSearch(string Query, IndexFilter Filter, RetrievalO
         var workstream = string.IsNullOrWhiteSpace(request.Workstream) ? null : request.Workstream.Trim().ToLowerInvariant();
         var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
         return (new RecallSearch(request.Query!, new IndexFilter(workstream, from, to, activities), request.Overrides), []);
+    }
+
+    /// <summary>The date range <paramref name="from"/> to <paramref name="to"/>, each written yyyy-MM-dd; a problem for each that is not, or when they are reversed.</summary>
+    public static (DateOnly? From, DateOnly? To) Dates(string? from, string? to, List<SearchProblem> problems)
+    {
+        var first = Date(from, "from", problems);
+        var last = Date(to, "to", problems);
+        if (first > last)
+            problems.Add(new SearchProblem("to", SearchFault.DatesReversed));
+        return (first, last);
     }
 
     private static DateOnly? Date(string? raw, string name, List<SearchProblem> problems)
