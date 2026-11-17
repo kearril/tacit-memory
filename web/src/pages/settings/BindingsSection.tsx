@@ -253,6 +253,20 @@ function AddDialog({
           </form>
         ) : (
           <div className="grid gap-md">
+            {step.done.createdFolders.length === 0 ? null : (
+              <Alert tone="warning">
+                <AlertDescription>
+                  {text.createdFolders}
+                  <ul className="mt-xs grid gap-xs">
+                    {step.done.createdFolders.map((folder) => (
+                      <li key={folder} className="font-mono break-all">
+                        {folder}
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
             {step.done.mcp == null ? null : (
               <McpServer url={step.done.mcp.url} transport={step.done.mcp.transport} name={step.done.mcp.name} />
             )}

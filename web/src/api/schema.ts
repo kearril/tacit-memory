@@ -2522,6 +2522,7 @@ export interface components {
             client: string;
             lines: string[];
             mcp: null | components["schemas"]["McpServer"];
+            createdFolders: string[];
         };
         BindingList: {
             items: components["schemas"]["BindingCheck"][];
@@ -3100,7 +3101,7 @@ export interface components {
             secrets?: null | components["schemas"]["SecretsStatus"];
         };
         /** @enum {unknown} */
-        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "ContextFolderMissing" | "SkillsFolderMissing" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "SecretNotFound" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "VectorExtensionInvalid" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
+        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "FolderIsAFile" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "SecretNotFound" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "VectorExtensionInvalid" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
         ThresholdFile: {
             /** Format: double */
             certain: null | number;

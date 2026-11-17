@@ -42,11 +42,8 @@ public enum TacitError
     /// <summary>No binding has the client name.</summary>
     BindingNotFound,
 
-    /// <summary>The folder the context file goes into does not exist; <c>connect</c> does not create it.</summary>
-    ContextFolderMissing,
-
-    /// <summary>The skills folder does not exist; <c>connect</c> does not create it.</summary>
-    SkillsFolderMissing,
+    /// <summary>A file stands where <c>connect</c> needs a folder: the context file's folder, the skills folder or one above them.</summary>
+    FolderIsAFile,
 
     /// <summary>A <c>git</c> command failed.</summary>
     GitFailed,

@@ -12,7 +12,17 @@ public sealed record ConnectRequest(string Client, string ContextFile, string Sk
 /// <param name="Before">The summary lines before the endpoint block, in the memory language.</param>
 /// <param name="EndpointBlock">The endpoint, the transport and the suggested server name, one line each; empty for <c>disconnect</c>.</param>
 /// <param name="After">The summary lines after the endpoint block, in the memory language.</param>
-public sealed record BindingResult(string ContextFile, Uri? Endpoint, IReadOnlyList<string> Before, IReadOnlyList<string> EndpointBlock, IReadOnlyList<string> After)
+/// <param name="CreatedFolders">
+/// The folders <c>connect</c> created because they did not exist: the context file's, then the skills folder. The user checks
+/// that the client reads from them, since a mistyped path is created as readily as the right one. Empty for <c>disconnect</c>.
+/// </param>
+public sealed record BindingResult(
+    string ContextFile,
+    Uri? Endpoint,
+    IReadOnlyList<string> Before,
+    IReadOnlyList<string> EndpointBlock,
+    IReadOnlyList<string> After,
+    IReadOnlyList<string> CreatedFolders)
 {
     /// <summary>The summary for the user: every line in order, one per line, as the plain output prints it.</summary>
     public string Report => string.Join(Environment.NewLine, Before.Concat(EndpointBlock).Concat(After));
@@ -22,10 +32,15 @@ public sealed record BindingResult(string ContextFile, Uri? Endpoint, IReadOnlyL
 /// <param name="Client">The client's name as recorded: lower-cased.</param>
 /// <param name="Lines">The summary lines in the memory language, without the endpoint block, which <paramref name="Mcp"/> carries.</param>
 /// <param name="Mcp">The MCP server the user registers in the client; <c>null</c> for an unbind.</param>
-public sealed record BindingDone(string Client, IReadOnlyList<string> Lines, McpServer? Mcp)
+/// <param name="CreatedFolders">The folders a bind created, which the user should check; their lines are in <paramref name="Lines"/> too.</param>
+public sealed record BindingDone(string Client, IReadOnlyList<string> Lines, McpServer? Mcp, IReadOnlyList<string> CreatedFolders)
 {
     internal static BindingDone From(string client, BindingResult result) =>
-        new(client, [.. result.Before, .. result.After], result.Endpoint is null ? null : new McpServer(result.Endpoint, McpServer.StreamableHttp, McpServer.SuggestedName));
+        new(
+            client,
+            [.. result.Before, .. result.After],
+            result.Endpoint is null ? null : new McpServer(result.Endpoint, McpServer.StreamableHttp, McpServer.SuggestedName),
+            result.CreatedFolders);
 }
 
 /// <summary>Where a client reaches the MCP server: the endpoint, the transport and the suggested server name.</summary>

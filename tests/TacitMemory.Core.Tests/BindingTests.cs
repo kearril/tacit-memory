@@ -213,30 +213,43 @@ public sealed class BindingTests : IDisposable
     }
 
     [Fact]
-    public void A_context_file_whose_folder_does_not_exist_is_refused_and_nothing_is_written()
+    public void Missing_folders_for_the_context_file_and_the_skills_are_created_and_named_in_the_result()
     {
-        Directory.CreateDirectory(SkillsFolder);
-        var missing = Path.Combine(_home.UserHome, ".omp", "agnet", "AGENTS.md");
-        var before = Snapshot();
+        var contextFolder = Path.GetDirectoryName(AgentsMd)!;
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(new ConnectRequest("omp", missing, SkillsFolder)));
+        var result = _home.Tacit().Connect(new ConnectRequest("omp", AgentsMd, SkillsFolder));
 
-        Assert.Equal(TacitError.ContextFolderMissing, error.Error);
-        Assert.Contains(Path.GetDirectoryName(missing)!, error.Message);
-        Assert.Equal(before, Snapshot());
+        Assert.True(File.Exists(AgentsMd));
+        Assert.True(Directory.Exists(Path.Combine(SkillsFolder, "tacit-memory")));
+        Assert.Equal([contextFolder, SkillsFolder], result.CreatedFolders);
+        Assert.Contains(result.Before, line => line.Contains(contextFolder, StringComparison.Ordinal) && line.Contains("新建", StringComparison.Ordinal));
+        Assert.Contains(result.Before, line => line.Contains(SkillsFolder, StringComparison.Ordinal) && line.Contains("新建", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void A_skills_folder_that_does_not_exist_is_refused_and_not_created()
+    public void Folders_that_already_exist_are_not_named_as_created()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(AgentsMd)!);
+        Directory.CreateDirectory(SkillsFolder);
+
+        var result = _home.Tacit().Connect(new ConnectRequest("omp", AgentsMd, SkillsFolder));
+
+        Assert.Empty(result.CreatedFolders);
+        Assert.DoesNotContain(result.Before, line => line.Contains("新建", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_file_where_the_context_folder_should_be_is_refused_and_nothing_is_written()
+    {
+        var blocker = Path.Combine(_home.UserHome, ".omp", "agent");
+        Directory.CreateDirectory(Path.GetDirectoryName(blocker)!);
+        File.WriteAllText(blocker, "in the way");
         var before = Snapshot();
 
-        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(new ConnectRequest("omp", AgentsMd, SkillsFolder)));
+        var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(new ConnectRequest("omp", Path.Combine(blocker, "AGENTS.md"), SkillsFolder)));
 
-        Assert.Equal(TacitError.SkillsFolderMissing, error.Error);
-        Assert.Contains(SkillsFolder, error.Message);
-        Assert.False(Directory.Exists(SkillsFolder));
+        Assert.Equal(TacitError.FolderIsAFile, error.Error);
+        Assert.Contains(blocker, error.Message);
         Assert.Equal(before, Snapshot());
     }
 

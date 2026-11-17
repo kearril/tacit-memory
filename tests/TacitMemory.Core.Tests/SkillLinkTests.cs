@@ -202,14 +202,14 @@ public sealed class SkillLinkTests : IDisposable
     [Fact]
     public void A_skills_folder_that_is_a_file_is_refused_and_changes_nothing_else()
     {
-        // A file where the skills folder should be: the folder is not there, so connect refuses before it writes anything.
+        // A file where the skills folder should be: no folder can be made there, so connect refuses before it writes anything.
         Directory.CreateDirectory(Path.Combine(_home.UserHome, ".omp", "agent"));
         var blocker = Path.Combine(_home.UserHome, ".omp", "agent", "skills");
         File.WriteAllText(blocker, "in the way");
 
         var error = Assert.Throws<TacitException>(() => _home.Tacit().Connect(new ConnectRequest("omp", AgentsMd, blocker)));
 
-        Assert.Equal(TacitError.SkillsFolderMissing, error.Error);
+        Assert.Equal(TacitError.FolderIsAFile, error.Error);
         Assert.Equal("in the way", File.ReadAllText(blocker));
         Assert.False(File.Exists(AgentsMd));
     }

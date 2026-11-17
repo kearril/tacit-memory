@@ -12,7 +12,8 @@ internal static class Binder
 {
     /// <summary>
     /// Binds a client. Every check runs before the first write, so a refusal changes no file: the name, the record of the
-    /// same name, the two folders, the link names, the config and persona, and the markers of the context file.
+    /// same name, that no file stands where the two folders go, the link names, the config and persona, and the markers of
+    /// the context file. Then the missing folders are created and named in the result, so the user can check the paths.
     /// </summary>
     public static BindingResult Connect(TacitOptions options, ConnectRequest request)
     {
@@ -28,10 +29,14 @@ internal static class Binder
                 TacitError.BindingConflict, Messages.BindingConflict.Format(language, client, previous.ContextFile, previous.SkillsFolder));
 
         var contextFolder = Path.GetDirectoryName(contextFile) ?? contextFile;
-        if (!Directory.Exists(contextFolder))
-            throw new TacitException(TacitError.ContextFolderMissing, Messages.ContextFolderMissing.Format(language, contextFolder));
-        if (!Directory.Exists(skillsFolder))
-            throw new TacitException(TacitError.SkillsFolderMissing, Messages.SkillsFolderMissing.Format(language, skillsFolder));
+        var missingFolders = new List<(string Folder, Localized Line)>();
+        foreach (var (folder, line) in new[] { (contextFolder, Messages.ContextFolderCreated), (skillsFolder, Messages.SkillsFolderCreated) })
+        {
+            if (FileInTheWay(folder) is { } file)
+                throw new TacitException(TacitError.FolderIsAFile, Messages.FolderIsAFile.Format(language, file));
+            if (!Directory.Exists(folder) && !missingFolders.Any(missing => BindingPath.Same(missing.Folder, folder)))
+                missingFolders.Add((folder, line));
+        }
 
         var links = SkillSet.Links(skillsFolder, options.TacitHome);
         foreach (var (link, skillFolder) in links)
@@ -52,6 +57,11 @@ internal static class Binder
             ?? (contextUsers.Count > 0 ? contextUsers[0].CreatedContextFile : !File.Exists(contextFile));
         var report = new List<string>();
 
+        foreach (var (folder, line) in missingFolders)
+        {
+            Directory.CreateDirectory(folder);
+            report.Add(line.Format(language, folder));
+        }
         if (skillUsers.Count > 0)
             report.Add(Messages.SkillsFolderShared.Format(language, skillsFolder, SharedPaths.Names(skillUsers)));
         foreach (var skill in SkillSet.Write(options.TacitHome, language, config.Prompts.Skill).Skills)
@@ -90,7 +100,21 @@ internal static class Binder
             endpoint,
             report,
             [Messages.McpEndpoint.Format(language, endpoint), Messages.McpTransport.In(language), Messages.McpServerName.In(language)],
-            [Messages.McpPortReminder.In(language)]);
+            [Messages.McpPortReminder.In(language)],
+            [.. missingFolders.Select(missing => missing.Folder)]);
+    }
+
+    /// <summary>The file that stands at <paramref name="folder"/> or at a folder above it, which keeps it from being made; null when none does.</summary>
+    private static string? FileInTheWay(string folder)
+    {
+        for (var path = folder; path is not null; path = Path.GetDirectoryName(path))
+        {
+            if (Directory.Exists(path))
+                return null;
+            if (File.Exists(path))
+                return path;
+        }
+        return null;
     }
 
     /// <summary>
@@ -150,7 +174,7 @@ internal static class Binder
 
         store.Remove(name);
         report.Add(Messages.Disconnected.Format(language, name));
-        return new BindingResult(binding.ContextFile, null, report, [], []);
+        return new BindingResult(binding.ContextFile, null, report, [], [], []);
     }
 
     /// <summary>Renders the current persona and <c>resident.md</c> into every context file listed in <c>bindings.json</c> right now.</summary>

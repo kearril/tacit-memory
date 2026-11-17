@@ -303,7 +303,7 @@ export const en = {
       close: "Close",
       done: "Done",
       pathsNote:
-        "Paths are on the host the service runs on, where ~ is the user's home folder; the skills folder must already exist.",
+        "Paths are on the host the service runs on, where ~ is the user's home folder; a folder that does not exist is created.",
       fields: {
         client: {
           label: "Client name",
@@ -311,7 +311,7 @@ export const en = {
         },
         contextFile: {
           label: "Context file",
-          help: "The file the resident block goes into, created when missing; its folder must exist.",
+          help: "The file the resident block goes into, created when missing.",
         },
         skillsFolder: {
           label: "Skills folder",
@@ -326,6 +326,7 @@ export const en = {
         "MCP accepts connections from this host only: register it in the client on this host; tacit does not edit the client's configuration.",
       mcp: { url: "Endpoint", transport: "Transport", name: "Server name" },
       details: "What was done",
+      createdFolders: "These folders did not exist and were created. Make sure the client reads from them:",
     },
     models: {
       summary:
