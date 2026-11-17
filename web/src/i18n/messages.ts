@@ -3,7 +3,7 @@ import type { ServiceLogLevel } from "../api/logs";
 import type { BindingProblem } from "../api/status";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
-import type { FullTextMethod } from "../api/memory";
+import type { FullTextMethod, PageType } from "../api/memory";
 import type { MemoryView } from "../pages/memory/views";
 import type { Duration } from "../pages/dashboard/format";
 import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
@@ -579,12 +579,7 @@ export interface Dictionary {
       readonly quote: (words: string) => string;
       /** The button that opens the user's words kept with an entry. */
       readonly quoteToggle: string;
-      readonly pageTypes: {
-        readonly incident: string;
-        readonly decision: string;
-        readonly entity: string;
-        readonly work: string;
-      };
+      readonly pageTypes: Readonly<Record<PageType, string>>;
       readonly untyped: string;
       /** What the topic pages' workstream is called. */
       readonly topics: string;
@@ -676,7 +671,7 @@ export interface Dictionary {
       readonly otherTitle: string;
       readonly candidatesWaiting: (count: number) => string;
       readonly sourceFiles: string;
-      readonly sections: Readonly<Record<NonNullable<components["schemas"]["PersonaSection"]>, string>>;
+      readonly sections: Readonly<Record<components["schemas"]["PersonaSection"], string>>;
       /** A section whose heading is not one of the four; `null` for text before the first heading. */
       readonly otherSection: (heading: string | null) => string;
       readonly empty: string;

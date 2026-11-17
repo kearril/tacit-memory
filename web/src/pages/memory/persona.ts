@@ -31,7 +31,7 @@ export interface PersonaRow {
 
 /** A section's rows across the scopes; `section` is `null` for what sits under no known section. */
 export interface PersonaSectionRows {
-  readonly section: PersonaSection;
+  readonly section: PersonaSection | null;
   readonly rows: readonly PersonaRow[];
 }
 

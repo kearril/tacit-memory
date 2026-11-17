@@ -43,8 +43,8 @@ public sealed record WorkstreamBriefView(
 public sealed record OpenItemView(string Page, IReadOnlyList<string> Lines);
 
 /// <summary>The pages of one type.</summary>
-/// <param name="Type"><c>decision</c>, <c>incident</c>, <c>work</c> or <c>entity</c>; <c>null</c> for pages without a valid type.</param>
-public sealed record BriefPageGroup(string? Type, IReadOnlyList<BriefPage> Pages);
+/// <param name="Type">The page type; <c>null</c> for the pages without one, whatever their headers write.</param>
+public sealed record BriefPageGroup(PageType? Type, IReadOnlyList<BriefPage> Pages);
 
 /// <summary>A page in a brief.</summary>
 /// <param name="Changed">The latest day a section changed, or the page's last date; <c>null</c> when neither is known.</param>

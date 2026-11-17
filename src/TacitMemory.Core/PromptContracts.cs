@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using TacitMemory.Core.Configuration;
+
 namespace TacitMemory.Core;
 
 /// <summary>The four prompt documents in <c>TACIT_HOME/prompts/</c>, each named after its file.</summary>
@@ -62,4 +65,30 @@ public sealed record PromptSaved(PromptDocumentView Document, IReadOnlyList<stri
 public sealed record PromptSave(string? Hash, string Text);
 
 /// <summary>The four prompt documents, in the order of <see cref="PromptName"/>.</summary>
-public sealed record PromptList(IReadOnlyList<PromptDocumentView> Documents);
+/// <param name="ResidentSections">The section headings <c>resident.md</c> accepts, in block order; any other heading is refused.</param>
+public sealed record PromptList(IReadOnlyList<PromptDocumentView> Documents, IReadOnlyList<ResidentPart> ResidentSections);
+
+/// <summary>
+/// The parts of the resident block that <c>resident.md</c> can give guidance for, each named by its heading there. The first
+/// four are the global persona sections; the rest are generated from the memory repository.
+/// </summary>
+public enum ResidentPart
+{
+    [JsonStringEnumMemberName(ToolValues.PersonaSections.RedLines)]
+    RedLines,
+
+    [JsonStringEnumMemberName(ToolValues.PersonaSections.WorkingRules)]
+    WorkingRules,
+
+    [JsonStringEnumMemberName(ToolValues.PersonaSections.Preferences)]
+    Preferences,
+
+    [JsonStringEnumMemberName(ToolValues.PersonaSections.Profile)]
+    Profile,
+
+    [JsonStringEnumMemberName(ResidentFile.SituationalRulesName)]
+    SituationalRules,
+
+    [JsonStringEnumMemberName(ResidentFile.WorkstreamsName)]
+    Workstreams,
+}

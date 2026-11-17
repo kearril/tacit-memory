@@ -19,6 +19,7 @@ export type MemoryFileInfo = components["schemas"]["MemoryFileInfo"];
 export type FileProblem = components["schemas"]["FileProblem"];
 export type PageList = components["schemas"]["PageList"];
 export type PageListItem = components["schemas"]["PageListItem"];
+export type PageType = components["schemas"]["PageType"];
 export type PageView = components["schemas"]["PageView"];
 export type PageSectionView = components["schemas"]["PageSectionView"];
 export type SourceView = components["schemas"]["SourceView"];

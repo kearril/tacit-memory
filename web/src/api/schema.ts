@@ -2528,7 +2528,7 @@ export interface components {
             mcp: components["schemas"]["McpServer"];
         };
         /** @enum {unknown} */
-        BindingProblem: "contextFileMissing" | "contextFileNotUtf8" | "contextFileUnreadable" | "markersIncomplete" | "skillLinkNotTacit" | null;
+        BindingProblem: "contextFileMissing" | "contextFileNotUtf8" | "contextFileUnreadable" | "markersIncomplete" | "skillLinkNotTacit";
         BindingsStatus: {
             title: string;
             lines: string[];
@@ -2549,7 +2549,7 @@ export interface components {
             lastUse: null | string;
         };
         BriefPageGroup: {
-            type: null | string;
+            type: null | components["schemas"]["PageType"];
             pages: components["schemas"]["BriefPage"][];
         };
         BriefSummary: {
@@ -2768,7 +2768,8 @@ export interface components {
             workstream: string;
             title: string;
             aliases: string[];
-            type: null | string;
+            type: null | components["schemas"]["PageType"];
+            writtenType: null | string;
             first: null | string;
             last: null | string;
             changed: null | string;
@@ -2784,12 +2785,15 @@ export interface components {
             body: string;
             sources: components["schemas"]["SourceCommentView"][];
         };
+        /** @enum {unknown} */
+        PageType: "incident" | "decision" | "entity" | "work";
         PageView: {
             id: string;
             workstream: string;
             title: string;
             aliases: string[];
-            type: null | string;
+            type: null | components["schemas"]["PageType"];
+            writtenType: null | string;
             first: null | string;
             last: null | string;
             related: components["schemas"]["RelatedPage"][];
@@ -2837,7 +2841,7 @@ export interface components {
             rejectionList: components["schemas"]["CandidateView"][];
         };
         /** @enum {unknown} */
-        PersonaSection: "redLines" | "workingRules" | "preferences" | "profile" | null;
+        PersonaSection: "redLines" | "workingRules" | "preferences" | "profile";
         PersonaSectionView: {
             section: null | components["schemas"]["PersonaSection"];
             heading: null | string;
@@ -2848,7 +2852,7 @@ export interface components {
             replaces: boolean;
         };
         /** @enum {unknown} */
-        ProbeFailure: "httpStatus" | "wrongFormat" | "network" | "timeout" | null;
+        ProbeFailure: "httpStatus" | "wrongFormat" | "network" | "timeout";
         /** @enum {unknown} */
         ProbeOutcome: "succeeded" | "unconfigured" | "failed";
         ProbeReport: {
@@ -2894,6 +2898,7 @@ export interface components {
         };
         PromptList: {
             documents: components["schemas"]["PromptDocumentView"][];
+            residentSections: components["schemas"]["ResidentPart"][];
         };
         PromptMeasure: {
             /** Format: int32 */
@@ -2964,6 +2969,8 @@ export interface components {
             id: string;
             exists: boolean;
         };
+        /** @enum {unknown} */
+        ResidentPart: "red_lines" | "working_rules" | "preferences" | "profile" | "situational_rules" | "workstreams";
         RestartChange: {
             path: components["schemas"]["ConfigKeyPath"];
             running: string;
@@ -3004,7 +3011,7 @@ export interface components {
             value: null | string;
         };
         /** @enum {unknown} */
-        SecretSource: "environment" | "configFile" | null;
+        SecretSource: "environment" | "configFile";
         SecretsStatus: {
             title: string;
             lines: string[];
@@ -3078,7 +3085,7 @@ export interface components {
             quote: null | string;
         };
         /** @enum {unknown} */
-        StatusLevel: "ok" | "attention" | "problem" | null;
+        StatusLevel: "ok" | "attention" | "problem";
         StatusReport: {
             config?: null | components["schemas"]["ConfigStatus"];
             service?: null | components["schemas"]["ServiceStatus"];

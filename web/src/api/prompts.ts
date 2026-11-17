@@ -8,6 +8,7 @@ export type PromptName = components["schemas"]["PromptName"];
 export type PromptSaved = components["schemas"]["PromptSaved"];
 export type PromptMeasure = components["schemas"]["PromptMeasure"];
 export type PromptCheck = components["schemas"]["PromptCheck"];
+export type ResidentPart = components["schemas"]["ResidentPart"];
 
 /** The query key of the prompt documents. */
 export const PROMPTS_QUERY_KEY = ["prompts"] as const;

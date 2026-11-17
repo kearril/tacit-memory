@@ -14,16 +14,6 @@ export const FILE_NAMES: Readonly<Record<PromptName, string>> = {
   skill: "skill.md",
 };
 
-/** The section headings `resident.md` accepts, in their order; any other heading is refused. */
-export const RESIDENT_SECTIONS = [
-  "red_lines",
-  "working_rules",
-  "preferences",
-  "profile",
-  "situational_rules",
-  "workstreams",
-] as const;
-
 /** The path of a document's page. */
 export function promptPathOf(name: PromptName): string {
   return `/prompts/${name}`;

@@ -17,11 +17,8 @@ import type { PersonaScope } from "./persona";
 import { CodePill, QuoteList, QuoteToggle } from "./parts";
 import { entryBox } from "../../components/ui/entry-box";
 
-/** The four persona sections. */
-export type SectionKind = NonNullable<PersonaSection>;
-
 /** Each section's icon: a red line is told apart by its icon, never by the error colour. */
-export const SECTION_ICONS: Readonly<Record<SectionKind, LucideIcon>> = {
+export const SECTION_ICONS: Readonly<Record<PersonaSection, LucideIcon>> = {
   redLines: ShieldAlert,
   workingRules: Compass,
   preferences: Heart,
@@ -107,7 +104,7 @@ export function SectionChip({
   section,
   heading,
 }: {
-  readonly section: PersonaSection;
+  readonly section: PersonaSection | null;
   readonly heading: string | null;
 }) {
   const text = useDictionary().memory.persona;

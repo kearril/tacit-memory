@@ -216,7 +216,7 @@ function PageTable({
               )}
             >
               <span className="hidden md:block">
-                <PageTypeBadge type={page.type} />
+                <PageTypeBadge type={page.type} written={page.writtenType} />
               </span>
               <span className="min-w-0 truncate">{page.title}</span>
               <span className="hidden max-w-(--tk-size-setting-name) truncate text-xs text-ink-muted md:block">

@@ -112,6 +112,20 @@ internal sealed partial class PageDocument
     /// <summary>Whether <paramref name="type"/> is one of the page types, spelled exactly.</summary>
     public static bool IsPageType(string? type) => type is not null && ToolValues.PageTypes.All.Contains(type, StringComparer.Ordinal);
 
+    /// <summary>The page type <paramref name="type"/> names, spelled exactly; <c>null</c> for anything else.</summary>
+    public static PageType? PageTypeOf(string? type) => type switch
+    {
+        ToolValues.PageTypes.Incident => PageType.Incident,
+        ToolValues.PageTypes.Decision => PageType.Decision,
+        ToolValues.PageTypes.Entity => PageType.Entity,
+        ToolValues.PageTypes.Work => PageType.Work,
+        _ => null,
+    };
+
+    /// <summary><paramref name="type"/> as the browse views give it: the page type, or the text as written when it is not one.</summary>
+    public static (PageType? Type, string? Written) BrowseTypeOf(string? type) =>
+        PageTypeOf(type) is { } known ? (known, null) : (null, type);
+
     /// <summary>The "Leftovers" section (遗留), which a work page lists its open items under; null when it has none.</summary>
     public PageSection? Leftovers => SectionNamed(StructureWords.Leftovers);
 

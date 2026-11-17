@@ -92,7 +92,7 @@ function PageHead({ page }: { readonly page: PageView }) {
     <Card variant="tinted" aria-labelledby="page-title">
       <div className="grid gap-sm">
         <div className="flex flex-wrap items-center gap-sm">
-          <PageTypeBadge type={page.type} />
+          <PageTypeBadge type={page.type} written={page.writtenType} />
           <h1 id="page-title" className="text-xl leading-(--tk-line-height-tight) font-semibold">
             {page.title}
           </h1>
@@ -200,7 +200,7 @@ function Related({ page }: { readonly page: PageView }) {
                   className="grid content-start gap-xs rounded-md bg-surface-raised px-md py-sm outline-none hover:ring-(length:--tk-border-thin) hover:ring-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
                   <span className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
-                    <PageTypeBadge type={item?.type ?? null} />
+                    <PageTypeBadge type={item?.type ?? null} written={item?.writtenType} />
                     {item === undefined
                       ? null
                       : item.workstream === TOPICS

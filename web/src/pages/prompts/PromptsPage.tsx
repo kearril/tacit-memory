@@ -2,7 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router";
-import type { PromptDocument, PromptList, PromptMeasure, PromptName, PromptSaved } from "../../api/prompts";
+import type {
+  PromptDocument,
+  PromptList,
+  PromptMeasure,
+  PromptName,
+  PromptSaved,
+  ResidentPart,
+} from "../../api/prompts";
 import { PROMPTS_QUERY_KEY, restorePromptDefault, savePrompt, usePromptCheck, usePrompts } from "../../api/prompts";
 import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
@@ -31,7 +38,7 @@ import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { lf, stateOf } from "./editor";
 import { measureLines } from "./measure";
-import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf, RESIDENT_SECTIONS } from "./names";
+import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf } from "./names";
 
 /** The Markdown editor, loaded only once the prompts page opens, so the other pages do not carry it. */
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
@@ -71,7 +78,12 @@ export function PromptsPage() {
           return document === undefined ? (
             skeleton
           ) : (
-            <PromptCard key={name} document={document} onReload={() => void prompts.refetch()} />
+            <PromptCard
+              key={name}
+              document={document}
+              residentSections={list.residentSections}
+              onReload={() => void prompts.refetch()}
+            />
           );
         }}
       </QueryResult>
@@ -85,7 +97,15 @@ export function PromptsPage() {
  * the last save stays shown above the text until the next one. A file the service does not run, as it breaks its rules,
  * is named at the top with the reason.
  */
-function PromptCard({ document, onReload }: { readonly document: PromptDocument; readonly onReload: () => void }) {
+function PromptCard({
+  document,
+  residentSections,
+  onReload,
+}: {
+  readonly document: PromptDocument;
+  readonly residentSections: readonly ResidentPart[];
+  readonly onReload: () => void;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.prompts;
   const queryClient = useQueryClient();
@@ -101,6 +121,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
       list === undefined
         ? list
         : {
+            ...list,
             documents: list.documents.map((candidate) =>
               candidate.name === saved.document.name ? saved.document : candidate,
             ),
@@ -135,7 +156,7 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
             </TooltipTrigger>
             <TooltipContent>{stateNote}</TooltipContent>
           </Tooltip>
-          <About document={document} stateNote={stateNote} />
+          <About document={document} residentSections={residentSections} stateNote={stateNote} />
         </div>
       </header>
 
@@ -167,7 +188,16 @@ function PromptCard({ document, onReload }: { readonly document: PromptDocument;
  * takes effect; the sections the resident document accepts; and whether the file or the built-in text applies. It opens
  * on a click, so a touch screen and the keyboard reach it too.
  */
-function About({ document, stateNote }: { readonly document: PromptDocument; readonly stateNote: string }) {
+function About({
+  document,
+  residentSections,
+  stateNote,
+}: {
+  readonly document: PromptDocument;
+  /** The section headings the resident document accepts, in block order, as the service gives them. */
+  readonly residentSections: readonly ResidentPart[];
+  readonly stateNote: string;
+}) {
   const dictionary = useDictionary();
   const text = dictionary.prompts;
   const about = text.documents[document.name];
@@ -191,7 +221,7 @@ function About({ document, stateNote }: { readonly document: PromptDocument; rea
         {document.name === "resident" ? (
           <p className="flex flex-wrap items-center gap-xs">
             {text.residentSections}
-            {RESIDENT_SECTIONS.map((section) => (
+            {residentSections.map((section) => (
               <code key={section} className="rounded-sm bg-surface-raised px-xs font-mono text-xs">
                 ## {section}
               </code>

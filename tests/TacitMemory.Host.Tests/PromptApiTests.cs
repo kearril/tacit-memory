@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using TacitMemory.Core;
 using TacitMemory.Core.Tests;
 using TacitMemory.Host.Api;
@@ -59,6 +60,17 @@ public sealed class PromptApiTests : IAsyncLifetime
         Assert.StartsWith("## 值得记\n", list.Documents[1].Text);
         Assert.Contains("## red_lines", list.Documents[2].Text);
         Assert.Equal("", list.Documents[3].Text);
+    }
+
+    [Fact]
+    public async Task The_list_names_the_sections_the_resident_block_accepts_in_block_order()
+    {
+        using var response = await _local.GetAsync(Url("/api/prompts"));
+        var list = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+
+        Assert.Equal(
+            ["red_lines", "working_rules", "preferences", "profile", "situational_rules", "workstreams"],
+            list["residentSections"]!.AsArray().Select(name => name!.GetValue<string>()));
     }
 
     [Fact]

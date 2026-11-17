@@ -12,8 +12,7 @@ namespace TacitMemory.Core.Workstreams;
 internal static class WorkstreamBrowse
 {
     /// <summary>The order the brief lists the page types in; pages without a valid type come last.</summary>
-    private static readonly string?[] GroupOrder =
-        [ToolValues.PageTypes.Decision, ToolValues.PageTypes.Incident, ToolValues.PageTypes.Work, ToolValues.PageTypes.Entity, null];
+    private static readonly PageType?[] GroupOrder = [PageType.Decision, PageType.Incident, PageType.Work, PageType.Entity, null];
 
     public static WorkstreamList List(TacitConfig config)
     {
@@ -67,8 +66,7 @@ internal static class WorkstreamBrowse
             parts.Summary is { } summary ? new BriefSummary(summary.Label, Day(summary.First), Day(summary.Last), summary.Body) : null);
     }
 
-    private static string? TypeOf(WorkstreamBrief.Entry entry) =>
-        PageDocument.IsPageType(entry.Document.Header.Type) ? entry.Document.Header.Type : null;
+    private static PageType? TypeOf(WorkstreamBrief.Entry entry) => PageDocument.PageTypeOf(entry.Document.Header.Type);
 
     private static BriefPage Page(WorkstreamBrief.Entry entry) =>
         new(entry.Id.ToString(), entry.Document.Header.Title, entry.Document.Header.Aliases, entry.Changed is { } changed ? Day(changed) : null, entry.Uses, entry.LastUse);

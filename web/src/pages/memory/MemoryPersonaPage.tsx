@@ -7,6 +7,7 @@ import {
   type FileProblem,
   type MemoryFileInfo,
   type PersonaReport,
+  type PersonaSection,
   usePersona,
 } from "../../api/memory";
 import { QueryResult } from "../../components/query-result";
@@ -29,7 +30,7 @@ import {
   scopeKeyOf,
   scopeParams,
 } from "./persona";
-import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip, type SectionKind } from "./PersonaSections";
+import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip } from "./PersonaSections";
 import { CANDIDATES_ANCHOR } from "./views";
 
 /**
@@ -292,7 +293,7 @@ function CandidatesCard({
 function CandidateRow({ candidate, quotes = false }: { readonly candidate: CandidateView; readonly quotes?: boolean }) {
   const text = useDictionary().memory.persona;
   const days = occurrenceDaysOf(candidate.occurrences);
-  const section = candidate.section as SectionKind;
+  const { section } = candidate;
   return (
     <li className={cn(entryBox(), "grid gap-xs")}>
       <div className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
@@ -327,7 +328,7 @@ function CandidateRow({ candidate, quotes = false }: { readonly candidate: Candi
 }
 
 /** The section a candidate belongs to, with the section's icon. */
-function SectionBadge({ section }: { readonly section: SectionKind }) {
+function SectionBadge({ section }: { readonly section: PersonaSection }) {
   const text = useDictionary().memory.persona;
   const Icon = SECTION_ICONS[section];
   return (

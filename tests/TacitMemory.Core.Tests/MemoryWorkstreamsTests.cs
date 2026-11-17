@@ -99,7 +99,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         var open = Assert.Single(brief.OpenItems);
         Assert.Equal("my-app/release", open.Page);
         Assert.Equal(["补发布说明", "补签名"], open.Lines);
-        Assert.Equal(["decision", "work"], brief.Groups.Select(group => group.Type));
+        Assert.Equal([PageType.Decision, PageType.Work], brief.Groups.Select(group => group.Type));
         var decision = Assert.Single(brief.Groups[0].Pages);
         Assert.Equal(("my-app/use-pg", 1L), (decision.Id, decision.Uses));
         Assert.Equal(["my-app/old-db"], brief.Overturned);

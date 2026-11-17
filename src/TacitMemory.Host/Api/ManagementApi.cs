@@ -466,6 +466,13 @@ internal static class ManagementApi
                 {
                     secretValue.Type = JsonSchemaType.String | JsonSchemaType.Null;
                 }
+                // The generator writes null into a shared enum's values when the enum is first met as nullable, so the
+                // enum itself reads as nullable everywhere; where it may be null, the reference already says so.
+                foreach (var schema in document.Components?.Schemas?.Values.OfType<OpenApiSchema>() ?? [])
+                {
+                    if (schema.Enum is { } values)
+                        schema.Enum = [.. values.Where(value => value is not null && value.GetValueKind() != JsonValueKind.Null)];
+                }
                 return Task.CompletedTask;
             });
         });

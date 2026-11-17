@@ -2956,8 +2956,7 @@
           "contextFileNotUtf8",
           "contextFileUnreadable",
           "markersIncomplete",
-          "skillLinkNotTacit",
-          null
+          "skillLinkNotTacit"
         ]
       },
       "BindingsStatus": {
@@ -3053,9 +3052,13 @@
         "type": "object",
         "properties": {
           "type": {
-            "type": [
-              "null",
-              "string"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
             ]
           },
           "pages": {
@@ -4000,6 +4003,7 @@
           "title",
           "aliases",
           "type",
+          "writtenType",
           "first",
           "last",
           "changed",
@@ -4023,6 +4027,16 @@
             }
           },
           "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
+            ]
+          },
+          "writtenType": {
             "type": [
               "null",
               "string"
@@ -4090,6 +4104,14 @@
           }
         }
       },
+      "PageType": {
+        "enum": [
+          "incident",
+          "decision",
+          "entity",
+          "work"
+        ]
+      },
       "PageView": {
         "required": [
           "id",
@@ -4097,6 +4119,7 @@
           "title",
           "aliases",
           "type",
+          "writtenType",
           "first",
           "last",
           "related",
@@ -4122,6 +4145,16 @@
             }
           },
           "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
+            ]
+          },
+          "writtenType": {
             "type": [
               "null",
               "string"
@@ -4341,8 +4374,7 @@
           "redLines",
           "workingRules",
           "preferences",
-          "profile",
-          null
+          "profile"
         ]
       },
       "PersonaSectionView": {
@@ -4397,8 +4429,7 @@
           "httpStatus",
           "wrongFormat",
           "network",
-          "timeout",
-          null
+          "timeout"
         ]
       },
       "ProbeOutcome": {
@@ -4586,7 +4617,8 @@
       },
       "PromptList": {
         "required": [
-          "documents"
+          "documents",
+          "residentSections"
         ],
         "type": "object",
         "properties": {
@@ -4594,6 +4626,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PromptDocumentView"
+            }
+          },
+          "residentSections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResidentPart"
             }
           }
         }
@@ -4886,6 +4924,16 @@
           }
         }
       },
+      "ResidentPart": {
+        "enum": [
+          "red_lines",
+          "working_rules",
+          "preferences",
+          "profile",
+          "situational_rules",
+          "workstreams"
+        ]
+      },
       "RestartChange": {
         "required": [
           "path",
@@ -5050,8 +5098,7 @@
       "SecretSource": {
         "enum": [
           "environment",
-          "configFile",
-          null
+          "configFile"
         ]
       },
       "SecretsStatus": {
@@ -5364,8 +5411,7 @@
         "enum": [
           "ok",
           "attention",
-          "problem",
-          null
+          "problem"
         ]
       },
       "StatusReport": {

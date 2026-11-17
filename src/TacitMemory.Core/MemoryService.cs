@@ -403,7 +403,8 @@ public sealed class MemoryService : IDisposable
     /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
     /// file. Reads the files only, so it does not wait for a maintenance operation.
     /// </summary>
-    public PromptList Prompts() => new([.. Enum.GetValues<PromptName>().Select(PromptView)]);
+    public PromptList Prompts() =>
+        new([.. Enum.GetValues<PromptName>().Select(PromptView)], [.. ResidentFile.Sections.Select(section => section.Part)]);
 
     /// <summary>
     /// Checks <paramref name="text"/> as the prompt document <paramref name="name"/> without saving it: its measure beside

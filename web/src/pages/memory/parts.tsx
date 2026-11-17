@@ -13,14 +13,14 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import type { FileProblem } from "../../api/memory";
+import type { FileProblem, PageType } from "../../api/memory";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { CopyButton } from "../../components/ui/copy-button";
 import { copyText } from "../../components/ui/copy-text";
 import { useToast } from "../../components/ui/toast-context";
-import { PAGE_TYPES, type PageType, TOPICS } from "./pages";
+import { TOPICS } from "./pages";
 import type { SourceView } from "../../api/memory";
 import { memoryPathOf } from "./views";
 
@@ -167,15 +167,20 @@ export const PAGE_TYPE_ICONS: Readonly<Record<PageType, LucideIcon>> = {
   work: Hammer,
 };
 
-/** A page's type as a neutral badge with its icon; a type that is not one of the four is shown as written. */
-export function PageTypeBadge({ type }: { readonly type: string | null }) {
+/** A page's type as a neutral badge with its icon; a type that is not a page type is shown as `written` gives it. */
+export function PageTypeBadge({
+  type,
+  written = null,
+}: {
+  readonly type: PageType | null;
+  readonly written?: string | null;
+}) {
   const text = useDictionary().memory.parts;
-  const known = (PAGE_TYPES as readonly string[]).includes(type ?? "") ? (type as PageType) : null;
-  const Icon = known === null ? CircleHelp : PAGE_TYPE_ICONS[known];
+  const Icon = type === null ? CircleHelp : PAGE_TYPE_ICONS[type];
   return (
     <Badge>
       <Icon aria-hidden />
-      {known === null ? (type ?? text.untyped) : text.pageTypes[known]}
+      {type === null ? (written ?? text.untyped) : text.pageTypes[type]}
     </Badge>
   );
 }

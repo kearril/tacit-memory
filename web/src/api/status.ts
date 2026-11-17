@@ -3,7 +3,7 @@ import { api, call } from "./client";
 import type { components } from "./schema";
 
 export type StatusReport = components["schemas"]["StatusReport"];
-export type BindingProblem = NonNullable<components["schemas"]["BindingProblem"]>;
+export type BindingProblem = components["schemas"]["BindingProblem"];
 
 /** The query key of the status report. */
 export const STATUS_QUERY_KEY = ["status"] as const;
