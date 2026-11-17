@@ -59,7 +59,8 @@ public sealed class MemoryPagesTests : IDisposable
         await Create("ops/deploy", "部署", ToolValues.PageTypes.Entity, null, new PageSectionInput("现状", "蓝绿部署。"));
         await Create(
             "ops/rollback", "部署回滚", ToolValues.PageTypes.Decision, ["ops/deploy"],
-            new PageSectionInput("决定", "失败先回滚。\n<!-- 2026-11-01 原话「先回滚」 -->"), new PageSectionInput("理由", "最快止损。"));
+            new PageSectionInput("决定", "失败先回滚。\n<!-- 2026-11-01 原话「先回滚」 -->"),
+            new PageSectionInput("理由", "最快止损<!-- quote「stop the loss」 -->，再查原因。<!-- 备注 -->"));
         File.WriteAllText(PagePath("ops/rollback"), File.ReadAllText(PagePath("ops/rollback")).Replace("related: [ops/deploy]", "related: [ops/deploy, ops/gone]"));
         await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
 
@@ -73,6 +74,8 @@ public sealed class MemoryPagesTests : IDisposable
         Assert.Equal(TestHome.Today.ToString("yyyy-MM-dd"), decision.Changed);
         Assert.Equal(1, decision.Uses);
         Assert.Contains("<!-- 2026-11-01 原话「先回滚」 -->", decision.Body);
+        Assert.Equal([new SourceCommentView("<!-- 2026-11-01 原话「先回滚」 -->", new SourceView("2026-11-01", "先回滚"))], decision.Sources);
+        Assert.Equal([new SourceCommentView("<!-- quote「stop the loss」 -->", new SourceView(null, "stop the loss"))], page.Sections[1].Sources);
         Assert.Equal(2, page.Uses);
         Assert.EndsWith(Path.Combine("pages", "ops", "rollback.md"), page.File.Path);
         Assert.Contains(page.File.Problems, problem => problem.Kind == "related");

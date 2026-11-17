@@ -23,13 +23,13 @@ import { FilePath, FileProblems } from "./parts";
 import {
   type PersonaScope,
   type PersonaSectionRows,
+  occurrenceDaysOf,
   personaScopes,
   personaSections,
   scopeKeyOf,
   scopeParams,
 } from "./persona";
 import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip, type SectionKind } from "./PersonaSections";
-import { occurrenceDaysOf } from "./sources";
 import { CANDIDATES_ANCHOR } from "./views";
 
 /**

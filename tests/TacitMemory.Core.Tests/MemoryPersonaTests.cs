@@ -67,6 +67,30 @@ public sealed class MemoryPersonaTests : IDisposable
         """;
 
     [Fact]
+    public async Task An_entry_s_sources_are_read_in_either_language_with_the_day_or_the_words_left_out_and_other_comments_dropped()
+    {
+        Write(MemoryLayout.Persona, """
+            ## 偏好
+            - 沟通：先要结论
+              正文的一行
+              <!-- 2026-10-01 -->
+              <!-- QUOTE「conclusion first」 -->
+              <!-- 2026-10-02 原话「先说结论」 -->
+              <!-- 随手写的注释 -->
+              <!-- 2026-10-03 随手写的注释 -->
+
+            """);
+
+        var report = await Service.Browse.PersonaAsync();
+
+        var entry = Assert.Single(report.Global[2].Entries);
+        Assert.Equal(["正文的一行"], entry.Lines);
+        Assert.Equal(
+            [new SourceView("2026-10-01", null), new SourceView(null, "conclusion first"), new SourceView("2026-10-02", "先说结论")],
+            entry.Sources);
+    }
+
+    [Fact]
     public async Task Every_block_and_entry_is_read_with_its_continuation_code_and_sources()
     {
         Write(MemoryLayout.Persona, Persona);
@@ -79,9 +103,8 @@ public sealed class MemoryPersonaTests : IDisposable
         Assert.Empty(report.Global[3].Entries);
         var rule = Assert.Single(report.Global[1].Entries);
         Assert.Equal("需求不清时 → 先连续追问", rule.Text);
-        Assert.Equal(
-            ["先列出不清楚的点", "<!-- 2026-10-20 原话「先问清楚再动手」 -->", "<!-- 2026-10-28 原话「还是要先问」 -->"],
-            rule.Continuation);
+        Assert.Equal(["先列出不清楚的点"], rule.Lines);
+        Assert.Equal([new SourceView("2026-10-20", "先问清楚再动手"), new SourceView("2026-10-28", "还是要先问")], rule.Sources);
         Assert.Matches("^[0-9a-f]{6}$", rule.Code);
         Assert.Equal(6, rule.Line);
 

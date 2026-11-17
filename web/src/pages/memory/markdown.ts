@@ -1,6 +1,6 @@
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
-import { type Source, sourceOf } from "./sources";
+import type { SourceCommentView, SourceView } from "../../api/memory";
 
 /**
  * A page's Markdown read into blocks the page view renders itself. Nothing in it is HTML: HTML in the text is kept as
@@ -18,7 +18,7 @@ export type MdBlock =
     }
   | { readonly type: "quote"; readonly blocks: readonly MdBlock[] }
   | { readonly type: "code"; readonly info: string; readonly text: string }
-  | { readonly type: "source"; readonly source: Source }
+  | { readonly type: "source"; readonly source: SourceView }
   | { readonly type: "html"; readonly text: string }
   | { readonly type: "rule" }
   | {
@@ -39,7 +39,7 @@ export type MdInline =
   | { readonly type: "code"; readonly text: string }
   | { readonly type: "link"; readonly href: string | null; readonly children: readonly MdInline[] }
   | { readonly type: "break" }
-  | { readonly type: "source"; readonly source: Source };
+  | { readonly type: "source"; readonly source: SourceView };
 
 const markdown = parser.configure(GFM);
 
@@ -66,15 +66,30 @@ const SAFE_HREF = /^(?:https?:|mailto:|#|\/)/iu;
 /** A character of the scripts that are written without spaces between words. */
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u{3000}-\u{303f}\u{ff00}-\u{ffef}]/u;
 
-/** Reads `text` into blocks. */
-export function parseMarkdown(text: string): readonly MdBlock[] {
-  return blocksOf(markdown.parse(text).topNode, text);
+/** The text being read, and the sources the service read from its comments, by the comment as written. */
+interface Doc {
+  readonly text: string;
+  readonly sources: ReadonlyMap<string, SourceView>;
 }
 
-function blocksOf(parent: SyntaxNode, text: string): MdBlock[] {
+/**
+ * Reads `text` into blocks. A comment is shown as a source when `sources`, the section's source comments as the service
+ * read them, holds it; the view never reads a comment's words itself.
+ */
+export function parseMarkdown(text: string, sources: readonly SourceCommentView[]): readonly MdBlock[] {
+  const doc: Doc = { text, sources: new Map(sources.map((found) => [found.comment, found.source])) };
+  return blocksOf(markdown.parse(text).topNode, doc);
+}
+
+/** The source a comment records, or `null` for a comment that records none. */
+function sourceOf(raw: string, doc: Doc): SourceView | null {
+  return doc.sources.get(raw.trim()) ?? null;
+}
+
+function blocksOf(parent: SyntaxNode, doc: Doc): MdBlock[] {
   const blocks: MdBlock[] = [];
   for (let node = parent.firstChild; node !== null; node = node.nextSibling) {
-    const block = blockOf(node, text);
+    const block = blockOf(node, doc);
     if (block !== null) {
       blocks.push(block);
     }
@@ -82,33 +97,33 @@ function blocksOf(parent: SyntaxNode, text: string): MdBlock[] {
   return blocks;
 }
 
-function blockOf(node: SyntaxNode, text: string): MdBlock | null {
-  const raw = text.slice(node.from, node.to);
+function blockOf(node: SyntaxNode, doc: Doc): MdBlock | null {
+  const raw = doc.text.slice(node.from, node.to);
   const heading = /^(?:ATXHeading|SetextHeading)(\d)$/u.exec(node.name);
   if (heading !== null) {
-    return { type: "heading", level: Number(heading[1]), inlines: inlinesOf(node, text) };
+    return { type: "heading", level: Number(heading[1]), inlines: inlinesOf(node, doc) };
   }
   switch (node.name) {
     case "Paragraph":
-      return { type: "paragraph", inlines: inlinesOf(node, text) };
+      return { type: "paragraph", inlines: inlinesOf(node, doc) };
     case "BulletList":
     case "OrderedList":
-      return listOf(node, text);
+      return listOf(node, doc);
     case "Blockquote":
-      return { type: "quote", blocks: blocksOf(node, text) };
+      return { type: "quote", blocks: blocksOf(node, doc) };
     case "FencedCode": {
       const info = node.getChild("CodeInfo");
       const code = node.getChild("CodeText");
       return {
         type: "code",
-        info: info === null ? "" : text.slice(info.from, info.to),
-        text: code === null ? "" : text.slice(code.from, code.to),
+        info: info === null ? "" : doc.text.slice(info.from, info.to),
+        text: code === null ? "" : doc.text.slice(code.from, code.to),
       };
     }
     case "CodeBlock":
       return { type: "code", info: "", text: raw.replace(/^ {4}/gmu, "") };
     case "CommentBlock": {
-      const source = sourceOf(raw);
+      const source = sourceOf(raw, doc);
       return source === null ? null : { type: "source", source };
     }
     case "HTMLBlock":
@@ -117,13 +132,13 @@ function blockOf(node: SyntaxNode, text: string): MdBlock | null {
     case "HorizontalRule":
       return { type: "rule" };
     case "Table":
-      return tableOf(node, text);
+      return tableOf(node, doc);
     default:
       return null;
   }
 }
 
-function listOf(node: SyntaxNode, text: string): MdBlock {
+function listOf(node: SyntaxNode, doc: Doc): MdBlock {
   const items: MdListItem[] = [];
   let start: number | null = null;
   for (let item = node.firstChild; item !== null; item = item.nextSibling) {
@@ -132,25 +147,25 @@ function listOf(node: SyntaxNode, text: string): MdBlock {
     }
     const mark = item.getChild("ListMark");
     if (node.name === "OrderedList" && start === null && mark !== null) {
-      start = Number.parseInt(text.slice(mark.from, mark.to), 10);
+      start = Number.parseInt(doc.text.slice(mark.from, mark.to), 10);
     }
     const task = item.getChild("Task");
     if (task !== null) {
       const marker = task.getChild("TaskMarker");
-      const ticked = marker !== null && /x/iu.test(text.slice(marker.from, marker.to));
+      const ticked = marker !== null && /x/iu.test(doc.text.slice(marker.from, marker.to));
       items.push({
         task: ticked,
-        blocks: [{ type: "paragraph", inlines: inlinesOf(task, text) }, ...blocksOf(item, text)],
+        blocks: [{ type: "paragraph", inlines: inlinesOf(task, doc) }, ...blocksOf(item, doc)],
       });
     } else {
-      items.push({ task: null, blocks: blocksOf(item, text) });
+      items.push({ task: null, blocks: blocksOf(item, doc) });
     }
   }
   return { type: "list", ordered: node.name === "OrderedList", start, items };
 }
 
-function tableOf(node: SyntaxNode, text: string): MdBlock {
-  const cellsOf = (row: SyntaxNode) => row.getChildren("TableCell").map((cell) => inlinesOf(cell, text));
+function tableOf(node: SyntaxNode, doc: Doc): MdBlock {
+  const cellsOf = (row: SyntaxNode) => row.getChildren("TableCell").map((cell) => inlinesOf(cell, doc));
   const header = node.getChild("TableHeader");
   return {
     type: "table",
@@ -160,7 +175,7 @@ function tableOf(node: SyntaxNode, text: string): MdBlock {
 }
 
 /** The inlines of a node: the text between its children, and each child read by its kind. */
-function inlinesOf(parent: SyntaxNode, text: string): MdInline[] {
+function inlinesOf(parent: SyntaxNode, doc: Doc): MdInline[] {
   const inlines: MdInline[] = [];
   let at = parent.from;
   const pushText = (value: string) => {
@@ -176,32 +191,32 @@ function inlinesOf(parent: SyntaxNode, text: string): MdInline[] {
   };
 
   for (let node = parent.firstChild; node !== null; node = node.nextSibling) {
-    pushText(text.slice(at, node.from));
+    pushText(doc.text.slice(at, node.from));
     at = node.to;
-    const raw = text.slice(node.from, node.to);
+    const raw = doc.text.slice(node.from, node.to);
     if (MARKS.has(node.name) || node.name === "Task") {
       continue;
     }
     switch (node.name) {
       case "StrongEmphasis":
-        inlines.push({ type: "strong", children: inlinesOf(node, text) });
+        inlines.push({ type: "strong", children: inlinesOf(node, doc) });
         break;
       case "Emphasis":
-        inlines.push({ type: "em", children: inlinesOf(node, text) });
+        inlines.push({ type: "em", children: inlinesOf(node, doc) });
         break;
       case "Strikethrough":
-        inlines.push({ type: "strike", children: inlinesOf(node, text) });
+        inlines.push({ type: "strike", children: inlinesOf(node, doc) });
         break;
       case "InlineCode":
         inlines.push({ type: "code", text: raw.replace(/^`+|`+$/gu, "").trim() });
         break;
       case "Link": {
         const url = node.getChild("URL");
-        const href = url === null ? null : text.slice(url.from, url.to);
+        const href = url === null ? null : doc.text.slice(url.from, url.to);
         inlines.push({
           type: "link",
           href: href !== null && SAFE_HREF.test(href) ? href : null,
-          children: inlinesOf(node, text),
+          children: inlinesOf(node, doc),
         });
         break;
       }
@@ -223,7 +238,7 @@ function inlinesOf(parent: SyntaxNode, text: string): MdInline[] {
         pushText(raw.slice(1));
         break;
       case "Comment": {
-        const source = sourceOf(raw);
+        const source = sourceOf(raw, doc);
         if (source !== null) {
           inlines.push({ type: "source", source });
         }
@@ -233,7 +248,7 @@ function inlinesOf(parent: SyntaxNode, text: string): MdInline[] {
         pushText(raw);
     }
   }
-  pushText(text.slice(at, parent.to));
+  pushText(doc.text.slice(at, parent.to));
   return joinLines(trimEnds(inlines));
 }
 

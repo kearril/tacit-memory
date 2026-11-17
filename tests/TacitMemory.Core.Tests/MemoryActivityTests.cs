@@ -64,10 +64,12 @@ public sealed class MemoryActivityTests : IDisposable
         Assert.Equal(["2026-10-05", "2026-10-30"], month.Days.Select(day => day.Date));
         var first = month.Days[0].Activities;
         Assert.Equal(("my-app", "发版完成，因为测试都过了"), (first[0].Workstream, first[0].Text));
-        Assert.Equal(["  <!-- 原话「发吧」 -->"], first[0].Continuation);
+        Assert.Empty(first[0].Lines);
+        Assert.Equal([new SourceView(null, "发吧")], first[0].Sources);
         Assert.Matches("^[0-9a-f]{6}$", first[0].Code);
         Assert.Null(first[1].Workstream);
-        Assert.Empty(first[1].Continuation);
+        Assert.Empty(first[1].Lines);
+        Assert.Empty(first[1].Sources);
         Assert.Equal(["week", "month"], month.Summaries.Select(summary => summary.Kind));
         var week = month.Summaries[0];
         Assert.Equal(("2026-W41", "2026-10-05", "2026-10-11", "一周的汇总"), (week.Label, week.First, week.Last, week.Text));

@@ -15,7 +15,6 @@ import type { FileProblem, PersonaEntryView, PersonaSection } from "../../api/me
 import { useDictionary } from "../../app/session-context";
 import type { PersonaScope } from "./persona";
 import { CodePill, QuoteList, QuoteToggle } from "./parts";
-import { splitSources } from "./sources";
 import { entryBox } from "../../components/ui/entry-box";
 
 /** The four persona sections. */
@@ -53,7 +52,7 @@ export function PersonaEntryCard({
   const text = useDictionary().memory.persona;
   const quotesId = useId();
   const [open, setOpen] = useState(false);
-  const { lines, sources } = splitSources(entry.continuation);
+  const { lines, sources } = entry;
   const quoted = sources.some((source) => source.quote !== null);
   // The first day the entry was written on leads; any later day it was confirmed on is counted after it and listed on hover.
   const dates = [...new Set(sources.flatMap((source) => (source.date === null ? [] : [source.date])))];

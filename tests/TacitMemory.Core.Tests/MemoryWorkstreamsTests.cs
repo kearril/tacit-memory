@@ -95,7 +95,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         Assert.Equal("一个应用。", brief.Background);
         var convention = Assert.Single(Assert.Single(brief.Conventions).Entries);
         Assert.Equal("发版 → 先跑全量测试", convention.Text);
-        Assert.Contains("<!-- 2026-11-01 原话「先全量」 -->", convention.Continuation);
+        Assert.Contains(new SourceView("2026-11-01", "先全量"), convention.Sources);
         var open = Assert.Single(brief.OpenItems);
         Assert.Equal("my-app/release", open.Page);
         Assert.Equal(["补发布说明", "补签名"], open.Lines);

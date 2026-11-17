@@ -54,8 +54,11 @@ internal static class PersonaBrowse
     internal static List<PersonaSectionView> BlockSections(PersonaBlock block, IReadOnlyDictionary<int, string> codes) =>
         Sections(block.Parts, codes, everyKind: false);
 
-    private static PersonaEntryView Entry(PersonaItem item, IReadOnlyDictionary<int, string> codes) =>
-        new(item.Line + 1, item.IsListItem ? codes[item.Line] : null, item.Text, [.. item.Continuation.Select(line => line.Trim())]);
+    private static PersonaEntryView Entry(PersonaItem item, IReadOnlyDictionary<int, string> codes)
+    {
+        var (lines, sources) = SourceComment.Split(item.Continuation);
+        return new(item.Line + 1, item.IsListItem ? codes[item.Line] : null, item.Text, lines, sources);
+    }
 
     private static CandidateView Candidate(PersonaCandidate candidate) =>
         new(candidate.Text, candidate.Section, candidate.Scope.ToString(),

@@ -21,7 +21,7 @@ import { CopyButton } from "../../components/ui/copy-button";
 import { copyText } from "../../components/ui/copy-text";
 import { useToast } from "../../components/ui/toast-context";
 import { PAGE_TYPES, type PageType, TOPICS } from "./pages";
-import type { Source } from "./sources";
+import type { SourceView } from "../../api/memory";
 import { memoryPathOf } from "./views";
 
 /** How long a code pill shows its check mark after a copy. */
@@ -109,7 +109,7 @@ export function QuoteToggle({
 }
 
 /** The user's words kept with an entry, each behind a bar, with its day when there are several. */
-export function QuoteList({ id, sources }: { readonly id: string; readonly sources: readonly Source[] }) {
+export function QuoteList({ id, sources }: { readonly id: string; readonly sources: readonly SourceView[] }) {
   const quoted = sources.filter((source) => source.quote !== null);
   return (
     <div id={id} className="grid gap-xs">
@@ -129,7 +129,7 @@ export function QuoteList({ id, sources }: { readonly id: string; readonly sourc
 }
 
 /** Where an entry came from, in small muted type on a line of its own: the day, then the user's words when they were kept. */
-export function SourceNote({ source, inline = false }: { readonly source: Source; readonly inline?: boolean }) {
+export function SourceNote({ source, inline = false }: { readonly source: SourceView; readonly inline?: boolean }) {
   const text = useDictionary().memory.parts;
   const Tag = inline ? "span" : "p";
   return (

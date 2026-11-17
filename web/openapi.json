@@ -2537,7 +2537,8 @@
           "code",
           "workstream",
           "text",
-          "continuation",
+          "lines",
+          "sources",
           "uses"
         ],
         "type": "object",
@@ -2554,10 +2555,16 @@
           "text": {
             "type": "string"
           },
-          "continuation": {
+          "lines": {
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceView"
             }
           },
           "uses": {
@@ -4051,7 +4058,8 @@
           "code",
           "changed",
           "uses",
-          "body"
+          "body",
+          "sources"
         ],
         "type": "object",
         "properties": {
@@ -4073,6 +4081,12 @@
           },
           "body": {
             "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCommentView"
+            }
           }
         }
       },
@@ -4240,7 +4254,8 @@
           "line",
           "code",
           "text",
-          "continuation"
+          "lines",
+          "sources"
         ],
         "type": "object",
         "properties": {
@@ -4257,10 +4272,16 @@
           "text": {
             "type": "string"
           },
-          "continuation": {
+          "lines": {
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceView"
             }
           }
         }
@@ -5300,6 +5321,42 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "SourceCommentView": {
+        "required": [
+          "comment",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceView"
+          }
+        }
+      },
+      "SourceView": {
+        "required": [
+          "date",
+          "quote"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quote": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

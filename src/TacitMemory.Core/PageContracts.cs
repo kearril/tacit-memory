@@ -51,4 +51,5 @@ public sealed record RelatedPage(string Id, bool Exists);
 /// <param name="Changed">The day it last changed, written yyyy-MM-dd; <c>null</c> when unknown.</param>
 /// <param name="Uses">How often <c>recall</c> has returned it.</param>
 /// <param name="Body">Its Markdown as written, without the heading.</param>
-public sealed record PageSectionView(string Name, string Code, string? Changed, long Uses, string Body);
+/// <param name="Sources">The source comments in its Markdown, each once, for the page to show where they are.</param>
+public sealed record PageSectionView(string Name, string Code, string? Changed, long Uses, string Body, IReadOnlyList<SourceCommentView> Sources);

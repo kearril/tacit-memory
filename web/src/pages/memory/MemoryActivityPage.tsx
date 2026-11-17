@@ -20,7 +20,6 @@ import { BELOW_BARS } from "../../components/ui/sticky";
 import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, QuoteList, QuoteToggle, WorkstreamPill } from "./parts";
-import { splitSources } from "./sources";
 import {
   type ActivityQuery,
   activityParams,
@@ -294,7 +293,7 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
   const text = useDictionary().memory.activity;
   const quotesId = useId();
   const [open, setOpen] = useState(false);
-  const { lines, sources } = splitSources(item.continuation);
+  const { lines, sources } = item;
   return (
     <li className="group relative grid gap-xs">
       <span
@@ -317,7 +316,7 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
       <p className="leading-(--tk-line-height-normal)">{item.text}</p>
       {lines.map((line, index) => (
         <p key={index} className="text-sm leading-(--tk-line-height-normal) text-ink-muted">
-          {line.trim()}
+          {line}
         </p>
       ))}
       {open ? <QuoteList id={quotesId} sources={sources} /> : null}

@@ -164,7 +164,7 @@ function Section({ section, number }: { readonly section: PageSectionView; reado
         </p>
       ) : (
         <Suspense fallback={<div aria-busy="true" />}>
-          <MarkdownBody text={section.body} />
+          <MarkdownBody text={section.body} sources={section.sources} />
         </Suspense>
       )}
     </li>

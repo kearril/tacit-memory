@@ -2442,7 +2442,8 @@ export interface components {
             code: string;
             workstream: null | string;
             text: string;
-            continuation: string[];
+            lines: string[];
+            sources: components["schemas"]["SourceView"][];
             /** Format: int64 */
             uses: number;
         };
@@ -2781,6 +2782,7 @@ export interface components {
             /** Format: int64 */
             uses: number;
             body: string;
+            sources: components["schemas"]["SourceCommentView"][];
         };
         PageView: {
             id: string;
@@ -2822,7 +2824,8 @@ export interface components {
             line: number;
             code: null | string;
             text: string;
-            continuation: string[];
+            lines: string[];
+            sources: components["schemas"]["SourceView"][];
         };
         PersonaReport: {
             personaFile: components["schemas"]["MemoryFileInfo"];
@@ -3065,6 +3068,14 @@ export interface components {
             passwordSet: boolean;
             language: components["schemas"]["MemoryLanguage"];
             version: string;
+        };
+        SourceCommentView: {
+            comment: string;
+            source: components["schemas"]["SourceView"];
+        };
+        SourceView: {
+            date: null | string;
+            quote: null | string;
         };
         /** @enum {unknown} */
         StatusLevel: "ok" | "attention" | "problem" | null;
