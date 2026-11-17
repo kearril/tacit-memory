@@ -20,4 +20,15 @@
     <None Include="..\..\lib\sqlite-vec\$(NETCoreSdkRuntimeIdentifier)\vec0.*" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
+  <!--
+    An SDK built by a Linux distribution can name its runtime after the distribution (ubuntu.24.04-x64), which matches no
+    folder. Fail the build then, rather than leave a service that refuses to start for want of the extension.
+  -->
+  <Target Name="TacitVectorExtensionForBuild" BeforeTargets="Build">
+    <ItemGroup>
+      <TacitVectorFile Include="..\..\lib\sqlite-vec\$(NETCoreSdkRuntimeIdentifier)\vec0.*" />
+    </ItemGroup>
+    <Error Condition="'@(TacitVectorFile)' == ''" Text="No sqlite-vec release for $(NETCoreSdkRuntimeIdentifier) under lib/sqlite-vec. Build with Microsoft's .NET SDK, whose runtime identifiers are win-x64, osx-arm64 and linux-x64." />
+  </Target>
+
 </Project>

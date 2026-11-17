@@ -134,7 +134,7 @@ build/smoke.sh <输出目录>/tacit
 
 ### 从源码构建
 
-`dotnet publish src/TacitMemory.Cli` 默认得到依赖框架的产物，运行时需要预装 ASP.NET Core 11。它需要 Bun，它在 `web/` 下按锁文件安装依赖并构建 Web 界面，产物复制到输出目录的 `web/` 子目录。服务只读取这个目录，不写入。找不到 Bun 时发布失败。`dotnet build` 与 `dotnet test` 不构建 Web 界面，也不需要 Bun。
+`dotnet publish src/TacitMemory.Cli` 默认得到依赖框架的产物，运行时需要预装 ASP.NET Core 11。它需要 Bun，它在 `web/` 下按锁文件安装依赖并构建 Web 界面，产物复制到输出目录的 `web/` 子目录。服务只读取这个目录，不写入。找不到 Bun 时发布失败。`dotnet build` 与 `dotnet test` 不构建 Web 界面，也不需要 Bun。构建要用微软发布的 .NET SDK：Linux 发行版自己构建的 SDK 可能以发行版命名平台（如 `ubuntu.24.04-x64`），找不到对应的向量扩展，构建会失败。
 
 - 不需要 Web 界面时，发布加上 `/p:TacitSkipWebBuild=true`：不需要 Bun，输出目录没有 `web/`，访问 `/ui` 得到「Web 界面未构建」，服务的其余部分照常。
 - 发布先删除输出目录下的 `web/`，旧版本的前端资源不会留下；输出目录中的其他文件只覆盖同名文件，不删除。需要完全干净的输出时，发布前删除输出目录。
