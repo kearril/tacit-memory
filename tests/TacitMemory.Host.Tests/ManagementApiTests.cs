@@ -133,7 +133,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, status);
         Assert.Equal(["error", "message"], JsonDocument.Parse(text).RootElement.EnumerateObject().Select(property => property.Name));
         var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.ApiOriginRefused), error.Error);
+        Assert.Equal(TacitError.ApiOriginRefused, error.Error);
         Assert.False(string.IsNullOrWhiteSpace(error.Message));
     }
 
@@ -152,7 +152,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var (status, text) = await Send(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, status);
-        Assert.Equal(nameof(TacitError.ApiHostRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiHostRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Theory]
@@ -186,7 +186,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
             other.Headers.TryAddWithoutValidation("Origin", $"http://localhost:{Port}");
             var (status, text) = await Send(other);
             Assert.Equal(HttpStatusCode.Forbidden, status);
-            Assert.Equal(nameof(TacitError.ApiOriginRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+            Assert.Equal(TacitError.ApiOriginRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
         }
 
         using var opaque = new HttpRequestMessage(HttpMethod.Get, Url("/api/status"));
@@ -215,7 +215,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var (status, text) = await Send(request);
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, status);
-        Assert.Equal(nameof(TacitError.ApiContentTypeRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiContentTypeRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -229,7 +229,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var (status, text) = await Send(request);
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, status);
-        Assert.Equal(nameof(TacitError.ApiContentTypeRefused), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.ApiContentTypeRefused, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]
@@ -329,7 +329,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, status);
         var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.RequestInvalid), error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
         Assert.False(string.IsNullOrWhiteSpace(error.Message));
     }
 
@@ -342,7 +342,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Conflict, status);
         var error = JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.CloudBackupNotConfigured), error.Error);
+        Assert.Equal(TacitError.CloudBackupNotConfigured, error.Error);
         Assert.Contains("未配置云端备份", error.Message, StringComparison.Ordinal);
     }
 
@@ -356,7 +356,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
         var (status, text) = await Send(again);
 
         Assert.Equal(HttpStatusCode.Conflict, status);
-        Assert.Equal(nameof(TacitError.BackupExists), JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
+        Assert.Equal(TacitError.BackupExists, JsonSerializer.Deserialize<ApiError>(text, ManagementApiJson.Options)!.Error);
     }
 
     [Fact]

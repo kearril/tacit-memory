@@ -86,7 +86,7 @@ public sealed class BindingsApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var error = await Read<ApiError>(response);
-        Assert.Equal((expected.Error.ToString(), expected.Message), (error.Error, error.Message));
+        Assert.Equal((expected.Error, expected.Message), (error.Error, error.Message));
         Assert.Empty((await ListAsync()).Items);
     }
 
@@ -98,7 +98,7 @@ public sealed class BindingsApiTests : IAsyncLifetime
         using var response = await PostAsync(Omp with { Client = "open ai" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("ClientNameInvalid", (await Read<ApiError>(response)).Error);
+        Assert.Equal(TacitError.ClientNameInvalid, (await Read<ApiError>(response)).Error);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class BindingsApiTests : IAsyncLifetime
         Assert.Empty((await ListAsync()).Items);
         using var again = await _local.DeleteAsync(Url("/omp"));
         Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
-        Assert.Equal("BindingNotFound", (await Read<ApiError>(again)).Error);
+        Assert.Equal(TacitError.BindingNotFound, (await Read<ApiError>(again)).Error);
     }
 
     [Fact]

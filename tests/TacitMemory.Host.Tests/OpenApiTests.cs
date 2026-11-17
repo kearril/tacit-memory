@@ -124,7 +124,7 @@ public sealed class OpenApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.ApiOriginRefused), error.Error);
+        Assert.Equal(TacitError.ApiOriginRefused, error.Error);
     }
 
     [Theory]
@@ -159,6 +159,17 @@ public sealed class OpenApiTests : IAsyncLifetime
         var responses = document["paths"]?["/api/session"]?[method]?["responses"];
         Assert.NotNull(responses?["200"]);
         Assert.Null(responses?["401"]);
+    }
+
+    [Fact]
+    public async Task The_error_body_names_its_error_from_one_enum_with_the_names_as_written()
+    {
+        var document = JsonNode.Parse(await _http.GetStringAsync(Url("/api/openapi.json")))!;
+
+        var schemas = document["components"]?["schemas"];
+        Assert.Equal("#/components/schemas/TacitError", schemas?["ApiError"]?["properties"]?["error"]?["$ref"]?.GetValue<string>());
+        var names = schemas?["TacitError"]?["enum"]?.AsArray().Select(name => name!.GetValue<string>()).ToArray();
+        Assert.Equal(Enum.GetNames<TacitError>(), names);
     }
 
     [Fact]

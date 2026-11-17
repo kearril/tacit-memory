@@ -83,7 +83,7 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal(nameof(TacitError.RequestInvalid), error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
         Assert.Equal(["query", "from", "candidates"], error.Problems!.Select(problem => problem.Path));
     }
 

@@ -1,3 +1,5 @@
+using TacitMemory.Core;
+
 namespace TacitMemory.Cli.Tests;
 
 /// <summary>
@@ -138,7 +140,7 @@ public sealed class ServiceExitCodeTests : IDisposable
     [Fact]
     public async Task Status_exits_1_when_the_service_refuses_the_report_and_names_the_refusal_on_stderr()
     {
-        await _cli.StartRefusingServiceAsync("maintenance", "the service is under maintenance");
+        await _cli.StartRefusingServiceAsync(TacitError.InternalFailure, "the service is under maintenance");
 
         var result = await _cli.RunAsync(["status"]);
 

@@ -2691,7 +2691,7 @@
         "type": "object",
         "properties": {
           "error": {
-            "type": "string"
+            "$ref": "#/components/schemas/TacitError"
           },
           "message": {
             "type": "string"
@@ -5422,6 +5422,55 @@
             ]
           }
         }
+      },
+      "TacitError": {
+        "enum": [
+          "MemoryDirectoryNotEmpty",
+          "ConflictsWithConfig",
+          "NotInitialized",
+          "ConfigInvalid",
+          "PromptInvalid",
+          "NoBuiltInText",
+          "MarkersBroken",
+          "FileNotUtf8",
+          "BindingsInvalid",
+          "SkillLinkRefused",
+          "ClientNameInvalid",
+          "BindingConflict",
+          "BindingNotFound",
+          "ContextFolderMissing",
+          "SkillsFolderMissing",
+          "GitFailed",
+          "BackupExists",
+          "RequestInvalid",
+          "CloudBackupNotConfigured",
+          "CloudBackupFailed",
+          "FileSystemFailed",
+          "InternalFailure",
+          "RestoreInvalid",
+          "RestoreFailed",
+          "ConfigRejected",
+          "ConfigChanged",
+          "ReloadFailed",
+          "SecretNotFound",
+          "PromptUnknown",
+          "PromptRejected",
+          "PromptChanged",
+          "LogDateNotFound",
+          "MemoryNotFound",
+          "VectorExtensionInvalid",
+          "ApiOriginRefused",
+          "ApiHostRefused",
+          "ApiContentTypeRefused",
+          "ApiUnauthorized",
+          "McpRemoteRefused",
+          "RemotePathRefused",
+          "PasswordTooShort",
+          "PasswordWrong",
+          "LoginLimited",
+          "PasswordClearRefused",
+          "PasswordClearRemoteRefused"
+        ]
       },
       "ThresholdFile": {
         "required": [

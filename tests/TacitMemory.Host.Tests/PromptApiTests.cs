@@ -192,7 +192,7 @@ public sealed class PromptApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = await Read<ApiError>(response);
-        Assert.Equal(nameof(TacitError.PromptRejected), error.Error);
+        Assert.Equal(TacitError.PromptRejected, error.Error);
         Assert.Equal("skill.md", Assert.Single(error.Problems!).Path);
         Assert.False(File.Exists(Path.Combine(Prompts, "skill.md")));
     }
@@ -208,7 +208,7 @@ public sealed class PromptApiTests : IAsyncLifetime
         using var unseen = await _local.PutAsync(Url("/api/prompts/skill"), Body(null, "页面上的版本\n"));
 
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-        Assert.Equal(nameof(TacitError.PromptChanged), (await Read<ApiError>(stale)).Error);
+        Assert.Equal(TacitError.PromptChanged, (await Read<ApiError>(stale)).Error);
         Assert.Equal(HttpStatusCode.Conflict, unseen.StatusCode);
         Assert.Equal("手改的第二版\n", File.ReadAllText(Path.Combine(Prompts, "skill.md")));
     }
@@ -236,7 +236,7 @@ public sealed class PromptApiTests : IAsyncLifetime
         using var delete = await _local.DeleteAsync(Url($"/api/prompts/{name}"));
 
         Assert.Equal(HttpStatusCode.NotFound, put.StatusCode);
-        Assert.Equal(nameof(TacitError.PromptUnknown), (await Read<ApiError>(put)).Error);
+        Assert.Equal(TacitError.PromptUnknown, (await Read<ApiError>(put)).Error);
         Assert.Equal(HttpStatusCode.NotFound, delete.StatusCode);
     }
 }

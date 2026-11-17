@@ -47,10 +47,11 @@ public static class ManagementApiJson
 /// <summary>
 /// The body of every error the management API returns: the <see cref="TacitError"/> name, and the message in the
 /// memory language, ready to show as it is. A config that does not validate, and a recall trace with bad parameters, also
-/// list every problem with its key path or parameter name; other errors leave the field out.
+/// list every problem with its key path or parameter name; other errors leave the field out. The error is written as the
+/// member's own name (<c>ConfigChanged</c>), not in the camelCase the API's other enums take.
 /// </summary>
 public sealed record ApiError(
-    string Error,
+    [property: JsonRequired, JsonConverter(typeof(JsonStringEnumConverter<TacitError>))] TacitError Error,
     string Message,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ConfigProblem>? Problems = null);
 
@@ -164,11 +165,11 @@ internal static class ManagementApi
             {
                 if (Refusal(context, local) is { } refusal)
                 {
-                    await Json(new ApiError(refusal.Error.ToString(), HostMessages.Refusal(refusal.Error, service.Language)), refusal.Status).ExecuteAsync(context);
+                    await Json(new ApiError(refusal.Error, HostMessages.Refusal(refusal.Error, service.Language)), refusal.Status).ExecuteAsync(context);
                 }
                 else if (!(local || IsSessionEndpoint(context) || service.Access.IsSession(Cookie(context))))
                 {
-                    await Json(new ApiError(nameof(TacitError.ApiUnauthorized), HostMessages.Refusal(TacitError.ApiUnauthorized, service.Language)), StatusCodes.Status401Unauthorized)
+                    await Json(new ApiError(TacitError.ApiUnauthorized, HostMessages.Refusal(TacitError.ApiUnauthorized, service.Language)), StatusCodes.Status401Unauthorized)
                         .ExecuteAsync(context);
                 }
                 else
@@ -184,7 +185,7 @@ internal static class ManagementApi
                         var failure = Failure(service, e);
                         if (failure.RetryAfterSeconds is { } seconds)
                             context.Response.Headers["Retry-After"] = seconds.ToString(CultureInfo.InvariantCulture);
-                        await Json(new ApiError(failure.Error.ToString(), failure.Message, failure.Problems), StatusOf(failure.Error)).ExecuteAsync(context);
+                        await Json(new ApiError(failure.Error, failure.Message, failure.Problems), StatusOf(failure.Error)).ExecuteAsync(context);
                     }
                 }
 
@@ -614,7 +615,7 @@ internal static class ManagementApi
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretUnknown or TacitError.BindingNotFound or TacitError.PromptUnknown
+        TacitError.SecretNotFound or TacitError.BindingNotFound or TacitError.PromptUnknown
             or TacitError.LogDateNotFound or TacitError.MemoryNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,

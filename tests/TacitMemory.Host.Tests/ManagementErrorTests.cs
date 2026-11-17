@@ -54,7 +54,7 @@ public sealed class ManagementErrorTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         Assert.Equal("application/json; charset=utf-8", response.Content.Headers.ContentType?.ToString());
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal("FileSystemFailed", error.Error);
+        Assert.Equal(TacitError.FileSystemFailed, error.Error);
         Assert.Contains(blocker, error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("IOException", error.Message, StringComparison.Ordinal);
     }
@@ -68,7 +68,7 @@ public sealed class ManagementErrorTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal("RequestInvalid", error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
         Assert.Contains(missing, error.Message, StringComparison.Ordinal);
     }
 
@@ -79,7 +79,7 @@ public sealed class ManagementErrorTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal("RequestInvalid", error.Error);
+        Assert.Equal(TacitError.RequestInvalid, error.Error);
         Assert.Contains("target", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("JsonException", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("System.", error.Message, StringComparison.Ordinal);
@@ -93,6 +93,6 @@ public sealed class ManagementErrorTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var error = JsonSerializer.Deserialize<ApiError>(await response.Content.ReadAsStringAsync(), ManagementApiJson.Options)!;
-        Assert.Equal("CloudBackupNotConfigured", error.Error);
+        Assert.Equal(TacitError.CloudBackupNotConfigured, error.Error);
     }
 }

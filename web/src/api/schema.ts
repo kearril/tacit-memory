@@ -2474,7 +2474,7 @@ export interface components {
             text: string;
         };
         ApiError: {
-            error: string;
+            error: components["schemas"]["TacitError"];
             message: string;
             problems?: null | components["schemas"]["ConfigProblem"][];
         };
@@ -3081,6 +3081,8 @@ export interface components {
             logs?: null | components["schemas"]["LogsStatus"];
             secrets?: null | components["schemas"]["SecretsStatus"];
         };
+        /** @enum {unknown} */
+        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "ContextFolderMissing" | "SkillsFolderMissing" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "SecretNotFound" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "VectorExtensionInvalid" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
         ThresholdFile: {
             /** Format: double */
             certain: null | number;

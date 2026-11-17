@@ -3,30 +3,36 @@ import type { components } from "./schema";
 type ErrorBody = components["schemas"]["ApiError"];
 type ConfigProblem = components["schemas"]["ConfigProblem"];
 
+/** The name of an error the service gives, one of its TacitError names. */
+export type TacitError = components["schemas"]["TacitError"];
+
+/** An error body as read: the service's, or one without a name or an explanation when the answer was not its JSON. */
+type ReadErrorBody = ErrorBody | { readonly error: null; readonly message: "" };
+
 /**
- * A failed call to the management API. `error` is the service's TacitError name; `message` is the explanation in the memory
- * language, shown to the user as it is. It is empty when the answer carried no explanation, and then the text to show
+ * A failed call to the management API. `error` is the service's TacitError name, `null` when the answer is not the
+ * service's JSON; `message` is the explanation in the memory language, shown to the user as it is. It is empty when the answer carried no explanation, and then the text to show
  * comes from the dictionary (see `errorTextOf`). `problems` lists each place a refused config or document went wrong, and is
  * empty for every other refusal.
  */
 export class ApiError extends Error {
   readonly status: number;
-  readonly error: string;
+  readonly error: TacitError | null;
   readonly problems: readonly ConfigProblem[];
 
-  constructor(status: number, body: ErrorBody) {
+  constructor(status: number, body: ReadErrorBody) {
     super(body.message);
     this.name = "ApiError";
     this.status = status;
     this.error = body.error;
-    this.problems = body.problems ?? [];
+    this.problems = ("problems" in body ? body.problems : null) ?? [];
   }
 }
 
 type UnauthorizedListener = (error: ApiError) => void;
 
 /** The error name the service gives when a call needs a session that is missing or no longer valid. */
-const SESSION_MISSING = "ApiUnauthorized";
+const SESSION_MISSING: TacitError = "ApiUnauthorized";
 
 const unauthorizedListeners = new Set<UnauthorizedListener>();
 
@@ -69,7 +75,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 /** The service's error body, or an empty explanation when the answer is not the service's JSON. */
-async function readErrorBody(response: Response): Promise<ErrorBody> {
+async function readErrorBody(response: Response): Promise<ReadErrorBody> {
   try {
     const parsed: unknown = JSON.parse(await response.text());
     if (isErrorBody(parsed)) {
@@ -78,7 +84,7 @@ async function readErrorBody(response: Response): Promise<ErrorBody> {
   } catch {
     // Not JSON: fall through to the body without an explanation.
   }
-  return { error: "unexpected", message: "" };
+  return { error: null, message: "" };
 }
 
 function isErrorBody(value: unknown): value is ErrorBody {

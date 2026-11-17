@@ -96,7 +96,7 @@ describe("apiFetch", () => {
     const failure = await apiFetch("/api/status").catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(ApiError);
-    expect(failure).toMatchObject({ status: 502, error: "unexpected", message: "" });
+    expect(failure).toMatchObject({ status: 502, error: null, message: "" });
   });
 
   it("resolves to undefined for an answer without a body", async () => {

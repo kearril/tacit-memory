@@ -114,7 +114,7 @@ internal sealed class CliHarness : IDisposable
     public Task StartForeignListenerAsync() => ListenAsync(() => Results.Text("hello from another program"));
 
     /// <summary>Answers on <see cref="Port"/> the way a running service refuses a request it cannot serve: status 503 with an error body.</summary>
-    public Task StartRefusingServiceAsync(string error, string message) =>
+    public Task StartRefusingServiceAsync(TacitError error, string message) =>
         ListenAsync(() => Results.Json(new ApiError(error, message), statusCode: StatusCodes.Status503ServiceUnavailable));
 
     private async Task ListenAsync(Func<IResult> reply)
