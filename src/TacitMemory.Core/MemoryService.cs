@@ -597,14 +597,17 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
 
         var held = ConfigLoader.Read(_options, path, current);
-        var unknown = secrets.Keys.Where(key => ConfigSchema.Secrets.All(secret => secret.Path != key)).ToList();
+        var unknown = secrets.Keys.Where(key => ConfigKeys.Secrets.All(secret => secret.Path != key)).ToList();
         if (unknown.Count > 0)
         {
             var refused = unknown.Select(key => new ConfigProblem(key, ManagementApiMessages.SecretNotSecret.In(Config.Language))).ToList();
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
         }
 
-        var content = ConfigWriter.Render(WithSecrets(WithSecretsOf(file, ConfigFile.From(held)), secrets), _options);
+        var kept = ConfigFile.From(held);
+        var withSecrets = ConfigKeys.Secrets.Aggregate(
+            file, (result, secret) => result.WithSecret(secret, secrets.TryGetValue(secret.Path, out var value) ? value : kept.ValueAt(secret)));
+        var content = ConfigWriter.Render(withSecrets, _options);
         TacitConfig saved;
         try
         {
@@ -615,11 +618,11 @@ public sealed class MemoryService : IDisposable
             throw new TacitException(TacitError.ConfigRejected, e.Message, e) { Problems = e.Problems };
         }
 
-        var problems = new List<ConfigProblem>();
-        if (saved.MemoryPath != held.MemoryPath)
-            problems.Add(new ConfigProblem("memory.path", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
-        if (saved.Language != held.Language)
-            problems.Add(new ConfigProblem("language", ManagementApiMessages.ConfigReadOnly.In(Config.Language)));
+        var (before, after) = (ConfigFile.From(held), ConfigFile.From(saved));
+        var problems = ConfigKeys.ReadOnly
+            .Where(key => before.ValueAt(key) != after.ValueAt(key))
+            .Select(key => new ConfigProblem(key.Path, ManagementApiMessages.ConfigReadOnly.In(Config.Language)))
+            .ToList();
         if (saved.ExtraAddress is not null && !Access.PasswordSet)
             problems.Add(new ConfigProblem("server.host", ManagementApiMessages.ConfigExtraNeedsPassword.In(Config.Language)));
         if (problems.Count > 0)
@@ -642,54 +645,9 @@ public sealed class MemoryService : IDisposable
 
     private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
 
-    /// <summary>The hash that names one content of <c>config.yaml</c>.</summary>
     /// <summary>The settings with every secret left out, as they leave the service.</summary>
-    private static ConfigFile WithoutSecrets(ConfigFile file) => file with
-    {
-        Models = new ModelsFile(
-            file.Models.Embedding is { } embedding ? embedding with { ApiKey = null } : null,
-            file.Models.Reranker is { } reranker ? reranker with { ApiKey = null } : null,
-            file.Models.Decision is { } decision ? decision with { ApiKey = null } : null),
-        Backup = file.Backup with { WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = null } : null },
-    };
-
-    /// <summary>
-    /// <paramref name="file"/> with each secret <paramref name="secrets"/> names set to its value, or removed where the value
-    /// is <c>null</c>. A secret whose model or cloud backup <paramref name="file"/> does not configure is left out with it.
-    /// </summary>
-    private static ConfigFile WithSecrets(ConfigFile file, IReadOnlyDictionary<string, string?> secrets)
-    {
-        ModelFile? Model(ModelFile? model, string path) =>
-            model is not null && secrets.TryGetValue(path, out var key) ? model with { ApiKey = key } : model;
-
-        var webdav = file.Backup.WebDav;
-        return file with
-        {
-            Models = new ModelsFile(
-                Model(file.Models.Embedding, "models.embedding.apiKey"),
-                Model(file.Models.Reranker, "models.reranker.apiKey"),
-                Model(file.Models.Decision, "models.decision.apiKey")),
-            Backup = file.Backup with
-            {
-                WebDav = webdav is not null && secrets.TryGetValue("backup.webdav.password", out var password)
-                    ? webdav with { Password = password }
-                    : webdav,
-            },
-        };
-    }
-
-    /// <summary><paramref name="file"/> with each secret as <paramref name="held"/> holds it, for each model and cloud backup both have.</summary>
-    private static ConfigFile WithSecretsOf(ConfigFile file, ConfigFile held) => file with
-    {
-        Models = new ModelsFile(
-            file.Models.Embedding is { } embedding ? embedding with { ApiKey = held.Models.Embedding?.ApiKey } : null,
-            file.Models.Reranker is { } reranker ? reranker with { ApiKey = held.Models.Reranker?.ApiKey } : null,
-            file.Models.Decision is { } decision ? decision with { ApiKey = held.Models.Decision?.ApiKey } : null),
-        Backup = file.Backup with
-        {
-            WebDav = file.Backup.WebDav is { } webdav ? webdav with { Password = held.Backup.WebDav?.Password } : null,
-        },
-    };
+    private static ConfigFile WithoutSecrets(ConfigFile file) =>
+        ConfigKeys.Secrets.Aggregate(file, (result, secret) => result.WithSecret(secret, null));
 
     /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
     public TacitException InvalidRequestBody(string? jsonPath)

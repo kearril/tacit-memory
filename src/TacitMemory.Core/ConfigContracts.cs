@@ -46,19 +46,14 @@ public sealed record RestartChange(string Path, string Running, string Saved)
     /// <summary>The settings that wait for a restart and differ between <paramref name="running"/> and <paramref name="saved"/>, in a fixed order.</summary>
     internal static IReadOnlyList<RestartChange> Between(TacitConfig running, TacitConfig saved)
     {
-        static string Host(TacitConfig config) => config.ExtraAddress?.ToString() ?? ConfigKeys.LoopbackHost;
-
-        (string Path, string Running, string Saved)[] all =
+        var (before, after) = (ConfigFile.From(running), ConfigFile.From(saved));
+        return
         [
-            ("server.port", running.Port.ToString(CultureInfo.InvariantCulture), saved.Port.ToString(CultureInfo.InvariantCulture)),
-            ("server.host", Host(running), Host(saved)),
-            ("memory.path", running.MemoryPath, saved.MemoryPath),
-            ("language", running.Language.Code(), saved.Language.Code()),
-            ("limits.page.minAliases",
-                running.Limits.Page.MinAliases.ToString(CultureInfo.InvariantCulture),
-                saved.Limits.Page.MinAliases.ToString(CultureInfo.InvariantCulture)),
+            .. ConfigKeys.Restarting
+                .Select(key => (key.Path, Running: before.ValueAt(key) ?? "", Saved: after.ValueAt(key) ?? ""))
+                .Where(item => item.Running != item.Saved)
+                .Select(item => new RestartChange(item.Path, item.Running, item.Saved)),
         ];
-        return [.. all.Where(item => item.Running != item.Saved).Select(item => new RestartChange(item.Path, item.Running, item.Saved))];
     }
 }
 

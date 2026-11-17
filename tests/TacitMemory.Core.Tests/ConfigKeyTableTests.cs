@@ -84,6 +84,52 @@ public sealed class ConfigKeyTableTests : IDisposable
             Assert.Contains(path[(path.LastIndexOf('.') + 1)..] + ":", File.ReadAllText(ConfigPath));
     }
 
+    /// <summary>A change to each key that waits for a restart or is read-only; a key described as either needs one here.</summary>
+    private Dictionary<string, Func<ConfigFile, ConfigFile>> Changes() => new()
+    {
+        ["server.port"] = file => file with { Server = file.Server with { Port = 19999 } },
+        ["server.host"] = file => file with { Server = file.Server with { Host = "192.168.1.10" } },
+        ["memory.path"] = file => file with { Memory = new MemoryFile(Path.Combine(_home.UserHome, "elsewhere")) },
+        ["language"] = file => file with { Language = "en" },
+        ["limits.page.minAliases"] = file => file with { Limits = file.Limits with { Page = new PageLimitsFile(MinAliases: 4) } },
+    };
+
+    [Fact]
+    public async Task Every_key_that_waits_for_a_restart_keeps_its_running_value_and_is_listed_after_a_reload()
+    {
+        var view = Service.ConfigView();
+        var changes = Changes();
+        foreach (var key in view.Keys.Where(key => key.Restart))
+        {
+            Assert.True(changes.ContainsKey(key.Path), $"no change for {key.Path}");
+            var running = Service.ConfigView().Running;
+            _home.Tacit().SaveConfig(changes[key.Path](_home.Tacit().ReadConfigFile()));
+
+            var restart = await Service.ReloadAsync();
+
+            Assert.Equal(running, Service.ConfigView().Running);
+            Assert.Equal([key.Path], restart.Select(change => change.Path));
+            File.WriteAllText(ConfigPath, TestHome.Models);
+            await Service.ReloadAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Every_read_only_key_refuses_a_save_that_changes_it()
+    {
+        var changes = Changes();
+        foreach (var key in Service.ConfigView().Keys.Where(key => key.ReadOnly))
+        {
+            Assert.True(changes.ContainsKey(key.Path), $"no change for {key.Path}");
+            var view = Service.ConfigView();
+
+            var error = await Assert.ThrowsAsync<TacitException>(() => Service.SaveConfigAsync(changes[key.Path](view.File), view.Hash));
+
+            Assert.Equal(TacitError.ConfigRejected, error.Error);
+            Assert.Equal([key.Path], (error.Problems ?? []).Select(problem => problem.Path));
+        }
+    }
+
     /// <summary>The value at <paramref name="path"/>, with the other threshold of a pair at a value that keeps the pair in order.</summary>
     private static Dictionary<string, double> WithPartner(string path, double value)
     {

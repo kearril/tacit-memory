@@ -1,3 +1,4 @@
+using System.Globalization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Retrieval;
 
@@ -36,6 +37,18 @@ internal class ConfigEntry(string path)
     /// <summary>The environment variable whose value wins over the file's; <c>null</c> for a key that is not a secret.</summary>
     public string? SecretVariable { get; init; }
 
+    /// <summary>
+    /// The key's value in a <see cref="ConfigFile"/> as <c>config.yaml</c> would write it, or as the service takes it when the
+    /// file leaves it out. Every key that waits for a restart, is read-only or is a secret has it.
+    /// </summary>
+    public Func<ConfigFile, string?>? Value { get; init; }
+
+    /// <summary>
+    /// A secret's change: the <see cref="ConfigFile"/> with the secret set to a value, or removed with <c>null</c>. A secret
+    /// whose model or cloud backup the file does not configure is left out with it.
+    /// </summary>
+    public Func<ConfigFile, string?, ConfigFile>? Rewrite { get; init; }
+
     /// <summary>The key as the settings page describes it.</summary>
     public ConfigKey Contract => new(Path, Min, Max, Choices, Restart, ReadOnly);
 }
@@ -71,7 +84,8 @@ internal sealed class ProbabilityEntry : ConfigEntry
 }
 
 /// <summary>The keys of one auxiliary model under <c>models</c>.</summary>
-internal sealed class ModelKeys(string name, string secretVariable)
+internal sealed class ModelKeys(
+    string name, string secretVariable, Func<ModelsFile, ModelFile?> model, Func<ModelsFile, ModelFile, ModelsFile> replace)
 {
     /// <summary>The model's name under <c>models</c>, such as <c>embedding</c>.</summary>
     public string Name { get; } = name;
@@ -84,7 +98,14 @@ internal sealed class ModelKeys(string name, string secretVariable)
 
     public ConfigEntry Model { get; } = new($"models.{name}.model");
 
-    public ConfigEntry ApiKey { get; } = new($"models.{name}.apiKey") { SecretVariable = secretVariable };
+    public ConfigEntry ApiKey { get; } = new($"models.{name}.apiKey")
+    {
+        SecretVariable = secretVariable,
+        Value = file => model(file.Models)?.ApiKey,
+        Rewrite = (file, value) => model(file.Models) is { } configured
+            ? file with { Models = replace(file.Models, configured with { ApiKey = value }) }
+            : file,
+    };
 
     public IEnumerable<ConfigEntry> All => [Provider, Url, Model, ApiKey];
 }
@@ -113,17 +134,39 @@ internal static class ConfigKeys
     /// <summary>The address <c>server.host</c> may name that means no extra listener, and the one it means when absent.</summary>
     public const string LoopbackHost = "127.0.0.1";
 
-    public static readonly IntegerEntry Port = new("server.port", 18888, 1, 65535) { Restart = true };
-    public static readonly ConfigEntry Host = new("server.host") { Restart = true };
-    public static readonly ConfigEntry MemoryPath = new("memory.path") { Restart = true, ReadOnly = true };
-    public static readonly ConfigEntry Language = new("language") { Choices = ["zh", "en"], Restart = true, ReadOnly = true };
+    public static readonly IntegerEntry Port = new("server.port", 18888, 1, 65535)
+    {
+        Restart = true,
+        Value = file => Number(file.Server.Port ?? Port!.Default),
+    };
 
-    public static readonly ModelKeys Embedding = new("embedding", SecretVariables.EmbeddingApiKey);
-    public static readonly ModelKeys Reranker = new("reranker", SecretVariables.RerankerApiKey);
-    public static readonly ModelKeys Decision = new("decision", SecretVariables.DecisionApiKey);
+    public static readonly ConfigEntry Host = new("server.host") { Restart = true, Value = file => file.Server.Host ?? LoopbackHost };
+    public static readonly ConfigEntry MemoryPath = new("memory.path") { Restart = true, ReadOnly = true, Value = file => file.Memory.Path };
+
+    public static readonly ConfigEntry Language = new("language")
+    {
+        Choices = ["zh", "en"],
+        Restart = true,
+        ReadOnly = true,
+        Value = file => file.Language,
+    };
+
+    public static readonly ModelKeys Embedding = new(
+        "embedding", SecretVariables.EmbeddingApiKey, models => models.Embedding, (models, model) => models with { Embedding = model });
+
+    public static readonly ModelKeys Reranker = new(
+        "reranker", SecretVariables.RerankerApiKey, models => models.Reranker, (models, model) => models with { Reranker = model });
+
+    public static readonly ModelKeys Decision = new(
+        "decision", SecretVariables.DecisionApiKey, models => models.Decision, (models, model) => models with { Decision = model });
 
     public static readonly IntegerEntry Brief = Count("limits.brief", 3000);
-    public static readonly IntegerEntry MinAliases = new("limits.page.minAliases", 2, 1, CountMax) { Restart = true };
+
+    public static readonly IntegerEntry MinAliases = new("limits.page.minAliases", 2, 1, CountMax)
+    {
+        Restart = true,
+        Value = file => Number(file.Limits.Page?.MinAliases ?? MinAliases!.Default),
+    };
 
     public static readonly IntegerEntry RemindAfterDays = Count("consolidation.remindAfterDays", 7);
     public static readonly IntegerEntry RemindCandidates = Count("consolidation.remindCandidates", 5);
@@ -144,7 +187,14 @@ internal static class ConfigKeys
     public static readonly IntegerEntry Keep = new("backup.keep", 7, 0, 1000);
     public static readonly ConfigEntry WebDavUrl = new("backup.webdav.url");
     public static readonly ConfigEntry WebDavUsername = new("backup.webdav.username");
-    public static readonly ConfigEntry WebDavPassword = new("backup.webdav.password") { SecretVariable = SecretVariables.WebDavPassword };
+    public static readonly ConfigEntry WebDavPassword = new("backup.webdav.password")
+    {
+        SecretVariable = SecretVariables.WebDavPassword,
+        Value = file => file.Backup.WebDav?.Password,
+        Rewrite = (file, value) => file.Backup.WebDav is { } webdav
+            ? file with { Backup = file.Backup with { WebDav = webdav with { Password = value } } }
+            : file,
+    };
 
     /// <summary>Every key, in the order of the configuration reference.</summary>
     public static readonly IReadOnlyList<ConfigEntry> All =
@@ -158,8 +208,19 @@ internal static class ConfigKeys
         Keep, WebDavUrl, WebDavUsername, WebDavPassword,
     ];
 
+    /// <summary>The secrets, in the order of the configuration reference.</summary>
+    public static readonly IReadOnlyList<ConfigEntry> Secrets = [.. All.Where(entry => entry.SecretVariable is not null)];
+
+    /// <summary>The keys that wait for a restart, in the order of the configuration reference.</summary>
+    public static readonly IReadOnlyList<ConfigEntry> Restarting = [.. All.Where(entry => entry.Restart)];
+
+    /// <summary>The keys the settings page does not let change, in the order of the configuration reference.</summary>
+    public static readonly IReadOnlyList<ConfigEntry> ReadOnly = [.. All.Where(entry => entry.ReadOnly)];
+
     /// <summary>Where the memory repository is when <c>memory.path</c> is not given: <c>memory</c> under <c>TACIT_HOME</c>.</summary>
     public static string DefaultMemoryPath(string tacitHome) => System.IO.Path.Combine(tacitHome, "memory");
 
     private static IntegerEntry Count(string path, int fallback) => new(path, fallback, 1, CountMax);
+
+    private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 }

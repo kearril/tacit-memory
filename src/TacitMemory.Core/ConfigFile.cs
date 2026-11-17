@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core;
@@ -37,6 +38,17 @@ public sealed record ConfigFile
 
     [JsonRequired]
     public BackupFile Backup { get; init; } = new();
+
+    /// <summary>The value at <paramref name="key"/>, as <c>config.yaml</c> would write it.</summary>
+    internal string? ValueAt(ConfigEntry key) =>
+        (key.Value ?? throw new ArgumentException($"{key.Path} has no value accessor.", nameof(key)))(this);
+
+    /// <summary>
+    /// This file with the secret at <paramref name="key"/> set to <paramref name="value"/>, or removed with <c>null</c>; a
+    /// secret whose model or cloud backup is not configured is left out with it.
+    /// </summary>
+    internal ConfigFile WithSecret(ConfigEntry key, string? value) =>
+        (key.Rewrite ?? throw new ArgumentException($"{key.Path} is not a secret.", nameof(key)))(this, value);
 
     /// <summary>
     /// The file form of a loaded config: every key at its loaded value, and each secret at the plain text the file holds,
