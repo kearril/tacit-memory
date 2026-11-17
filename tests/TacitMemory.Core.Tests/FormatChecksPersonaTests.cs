@@ -40,50 +40,10 @@ public sealed class FormatChecksPersonaTests : IDisposable
     private async Task<string> OverLimit(MemoryService service) => await service.ConsolidationReportAsync();
 
     [Fact]
-    public async Task A_red_line_without_instead_is_reported_at_its_line_and_fixed_directly()
-    {
-        using var service = Open();
-        Write("persona.md", "## 红线\n- 不要发布版本\n- 不要推送到公开仓库；改为先请用户确认\n");
-
-        var violations = await Violations(service);
-
-        Assert.Contains("persona.md", violations);
-        Assert.Contains("line 2", violations);
-        Assert.Contains("Red line without instead", violations);
-        Assert.Contains("Fix directly.", violations);
-        Assert.DoesNotContain("line 3", violations);
-    }
-
-    [Fact]
-    public async Task A_red_line_with_instead_in_either_language_is_accepted()
-    {
-        using var service = Open();
-        Write("persona.md", "## 红线\n- 不要发布版本；改为先请用户确认\n- Don't publish; instead ask the user first\n");
-
-        var violations = await Violations(service);
-
-        Assert.DoesNotContain("Red line without instead", violations);
-    }
-
-    [Fact]
-    public async Task A_working_rule_without_an_arrow_is_reported()
-    {
-        using var service = Open();
-        Write("persona.md", "## 协作规则\n- 遇到问题时先查日志\n- 需求不清时 → 先问清楚\n");
-
-        var violations = await Violations(service);
-
-        Assert.Contains("persona.md", violations);
-        Assert.Contains("line 2", violations);
-        Assert.Contains("Working rule without →", violations);
-        Assert.DoesNotContain("line 3", violations);
-    }
-
-    [Fact]
     public async Task An_entry_of_any_length_is_not_reported()
     {
         using var service = Open();
-        Write("persona.md", "## 偏好\n- 短\n- " + new string('字', 400) + "\n");
+        Write("persona.md", "## Preferences\n- 短\n- " + new string('字', 400) + "\n");
 
         var violations = await Violations(service);
 
@@ -95,7 +55,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_section_with_many_entries_is_not_put_to_the_user()
     {
         using var service = Open();
-        Write("persona.md", "## 偏好\n" + string.Concat(Enumerable.Range(1, 15).Select(i => $"- 第{i}条\n")));
+        Write("persona.md", "## Preferences\n" + string.Concat(Enumerable.Range(1, 15).Select(i => $"- 第{i}条\n")));
 
         var violations = await OverLimit(service);
 
@@ -106,7 +66,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task An_unknown_section_and_text_outside_entries_are_reported()
     {
         using var service = Open();
-        Write("persona.md", "## 偏好\n- 有效条目\n随手写的一行\n## 其他\n- 不认识的节\n");
+        Write("persona.md", "## Preferences\n- 有效条目\n随手写的一行\n## 其他\n- 不认识的节\n");
 
         var violations = await Violations(service);
 
@@ -120,7 +80,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_candidate_without_its_section_line_is_reported()
     {
         using var service = Open();
-        Write("candidates.md", "## 候选\n### 先说结论\n- 2026-10-28 原话「先说结论」\n");
+        Write("candidates.md", "## Candidates\n### 先说结论\n- 2026-10-28 quote「先说结论」\n");
 
         var violations = await Violations(service);
 
@@ -133,7 +93,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task An_unrecognized_occurrence_line_under_a_candidate_is_reported()
     {
         using var service = Open();
-        Write("candidates.md", "## 候选\n### 先说结论\n归属：偏好\n- 2026-10-28 原话「先说结论」\n- 随便写的\n");
+        Write("candidates.md", "## Candidates\n### 先说结论\nBelongs to: Preferences\n- 2026-10-28 quote「先说结论」\n- 随便写的\n");
 
         var violations = await Violations(service);
 
@@ -146,7 +106,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_candidate_scope_line_that_is_not_a_scope_is_reported_and_a_valid_one_is_not()
     {
         using var service = Open();
-        Write("candidates.md", "## 候选\n### 先说结论\n归属：偏好\n作用域：domain:Bad Name\n- 2026-10-28 原话「先说结论」\n### 再说结论\n归属：偏好\nScope: domain:network-proxy\n- 2026-10-28 原话「再说结论」\n");
+        Write("candidates.md", "## Candidates\n### 先说结论\nBelongs to: Preferences\nScope: domain:Bad Name\n- 2026-10-28 quote「先说结论」\n### 再说结论\nBelongs to: Preferences\nScope: domain:network-proxy\n- 2026-10-28 quote「再说结论」\n");
 
         var violations = await Violations(service);
 
@@ -179,7 +139,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_workstream_entry_without_a_background_line_is_a_format_problem_fixed_by_hand()
     {
         using var service = Open();
-        Write("workstreams.md", "## 主线\n### alpha\n近况：没有背景。\n");
+        Write("workstreams.md", "## Workstream\n### alpha\nRecent: 没有背景。\n");
 
         var problems = await Violations(service);
 
@@ -192,7 +152,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_workstream_name_that_is_not_valid_duplicate_or_a_line_no_entry_reads_is_reported()
     {
         using var service = Open();
-        Write("workstreams.md", "## 主线\n随便写的一行\n### Bad-Name\n背景：不合规。\n### dup\n背景：一。\n### dup\n背景：二。\n");
+        Write("workstreams.md", "## Workstream\n随便写的一行\n### Bad-Name\nBackground: 不合规。\n### dup\nBackground: 一。\n### dup\nBackground: 二。\n");
 
         var problems = await Violations(service);
 
@@ -205,10 +165,10 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task Fixing_a_workstream_format_problem_makes_it_disappear()
     {
         using var service = Open();
-        Write("workstreams.md", "## 主线\n### alpha\n近况：没有背景。\n");
+        Write("workstreams.md", "## Workstream\n### alpha\nRecent: 没有背景。\n");
         Assert.Contains("Missing background", await Violations(service));
 
-        Write("workstreams.md", "## 主线\n### alpha\n背景：有背景了。\n");
+        Write("workstreams.md", "## Workstream\n### alpha\nBackground: 有背景了。\n");
 
         Assert.DoesNotContain("workstreams.md", await Violations(service));
     }
@@ -217,28 +177,40 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task The_number_of_workstreams_is_not_limited()
     {
         using var service = Open();
-        Write("workstreams.md", "## 主线\n" + string.Concat(Enumerable.Range(1, 12).Select(i => $"### w{i}\n背景：第{i}条。\n")));
+        Write("workstreams.md", "## Workstream\n" + string.Concat(Enumerable.Range(1, 12).Select(i => $"### w{i}\nBackground: 第{i}条。\n")));
 
         Assert.DoesNotContain("workstreams.md", await Violations(service));
+    }
+
+    [Fact]
+    public async Task A_persona_section_with_a_chinese_heading_is_an_unrecognized_section()
+    {
+        using var service = Open();
+        Write("persona.md", "## 红线\n- 不要删库\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("Unrecognized section", violations);
+        Assert.Contains("section \"红线\"", violations);
     }
 
     [Fact]
     public async Task Fixing_a_violation_by_hand_makes_it_disappear_from_the_next_report()
     {
         using var service = Open();
-        Write("persona.md", "## 红线\n- 不要发布版本\n");
-        Assert.Contains("Red line without instead", await Violations(service));
+        Write("persona.md", "## Domain: network-proxy\n### Working rules\n- 测速取多次 → 再下结论\n");
+        Assert.Contains("Domain without trigger", await Violations(service));
 
-        Write("persona.md", "## 红线\n- 不要发布版本；改为先请用户确认\n");
+        Write("persona.md", "## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 测速取多次 → 再下结论\n");
 
-        Assert.DoesNotContain("Red line without instead", await Violations(service));
+        Assert.DoesNotContain("Domain without trigger", await Violations(service));
     }
 
     [Fact]
     public async Task A_domain_without_a_trigger_is_reported_at_its_heading_and_fixed_directly()
     {
         using var service = Open();
-        Write("persona.md", "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n### 偏好\n- 测速：只看持续测速\n");
+        Write("persona.md", "## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\n### Preferences\n- 测速：只看持续测速\n");
 
         var violations = await Violations(service);
 
@@ -252,7 +224,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_long_trigger_is_not_reported_and_an_unrecognized_section_in_a_domain_is()
     {
         using var service = Open();
-        Write("persona.md", "## 领域：network-proxy\n触发：" + new string('改', 200) + "\n### 偏好\n- 测速：只看持续测速\n### 其他\n- 不认识的节\n");
+        Write("persona.md", "## Domain: network-proxy\nTrigger: " + new string('改', 200) + "\n### Preferences\n- 测速：只看持续测速\n### 其他\n- 不认识的节\n");
 
         var violations = await Violations(service);
 
@@ -262,22 +234,20 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     [Fact]
-    public async Task A_red_line_inside_a_domain_is_checked_like_one_in_a_global_section()
+    public async Task Red_lines_and_working_rules_in_any_wording_are_not_reported()
     {
         using var service = Open();
-        Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 红线\n- 不要发布版本\n");
+        Write("persona.md", "## Red lines\n- 不要发布版本\n## Working rules\n- 遇到问题时先查日志\n"
+            + "## Domain: network-proxy\nTrigger: 改代理时\n### Red lines\n- 不要改全局代理\n");
 
-        var violations = await Violations(service);
-
-        Assert.Contains("Red line without instead", violations);
-        Assert.Contains("line 4", violations);
+        Assert.DoesNotContain("persona.md", await Violations(service));
     }
 
     [Fact]
     public async Task A_domain_with_many_entries_and_many_domains_are_not_put_to_the_user()
     {
         using var service = Open();
-        Write("persona.md", "## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 第一条\n- 第二条\n\n## 领域：writing\n触发：写文章时\n### 偏好\n- 写作\n");
+        Write("persona.md", "## Domain: network-proxy\nTrigger: 改代理时\n### Preferences\n- 第一条\n- 第二条\n\n## Domain: writing\nTrigger: 写文章时\n### Preferences\n- 写作\n");
 
         var violations = await OverLimit(service);
 
@@ -289,7 +259,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_domain_name_that_breaks_the_naming_rule_is_reported()
     {
         using var service = Open();
-        Write("persona.md", "## 领域：Network\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+        Write("persona.md", "## Domain: Network\nTrigger: 改代理时\n### Preferences\n- 测速：只看持续测速\n");
 
         Assert.Contains("Invalid scope name", await Violations(service));
     }

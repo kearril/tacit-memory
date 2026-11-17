@@ -70,11 +70,11 @@ internal static class Viewer
     private static readonly Localized ToolParameters = new("参数：", "Parameters:");
 
     /// <summary>The built-in text alone, for the targets that have one. A memory command has no file that replaces it, so it has none.</summary>
-    public static ShowResult Default(ShowTarget target, MemoryLanguage language) => target switch
+    public static ShowResult Default(ShowTarget target) => target switch
     {
-        ShowTarget.Instructions => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Instructions, language)),
-        ShowTarget.Rules => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Rules, language)),
-        ShowTarget.Resident => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Resident, language)),
+        ShowTarget.Instructions => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Instructions)),
+        ShowTarget.Rules => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Rules)),
+        ShowTarget.Resident => Bare(ShowSource.BuiltInDefault, PromptFiles.DefaultText(PromptName.Resident)),
         ShowTarget.Skill => Bare(ShowSource.Code, MemorySkill.SystemPart),
         _ => throw new ArgumentException("A memory command has no built-in text that a file replaces.", nameof(target)),
     };
@@ -89,7 +89,7 @@ internal static class Viewer
             ShowTarget.Resident => Resident(options, config),
             ShowTarget.Skill => Skill(options, config),
             ShowTarget.Remember => Command(RememberSkill.Name, RememberSkill.Compose(), config.Language),
-            ShowTarget.Consolidation => Command(ConsolidationSkill.Name, ConsolidationSkill.Compose(config.Language), config.Language),
+            ShowTarget.Consolidation => Command(ConsolidationSkill.Name, ConsolidationSkill.Compose(), config.Language),
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
         };
     }
@@ -186,8 +186,8 @@ internal static class Viewer
         var rules = config.Prompts.Rules;
         var source = rules is null ? ShowSource.BuiltInDefault : ShowSource.UserFile;
         var path = rules is null ? null : PromptFiles.RulesPath(options.TacitHome);
-        var criteria = rules ?? RulesFile.Default(language);
-        var text = RulesFile.Compose(criteria, language).TrimEnd('\n');
+        var criteria = rules ?? RulesFile.Default;
+        var text = RulesFile.Compose(criteria).TrimEnd('\n');
 
         var heading = RulesTitle.Format(
             language, SourceText(language, source, path),

@@ -16,12 +16,11 @@ internal static class RedundantCandidates
         if (review is null)
             return new ConsolidationSection(ConsolidationTitles.RedundantCandidates, [], CandidateReview.NotReadable);
 
-        var language = config.Language;
         var findings = new List<string>();
         foreach (var judgment in review.Judgments)
         {
             if (judgment.Outcome.Tier == Tier.Certain && judgment.Outcome.Target is { } match)
-                findings.Add($"- \"{judgment.Candidate.Text}\"; section: {PersonaDocument.HeadingOf(judgment.Candidate.Section).In(language)}; the same preference as {review.Describe(match)}.");
+                findings.Add($"- \"{judgment.Candidate.Text}\"; section: {PersonaDocument.HeadingOf(judgment.Candidate.Section)}; the same preference as {review.Describe(match)}.");
         }
 
         var status = Unanswered.Of(review.Judgments.Select(judgment => judgment.Outcome.Reason)).Status(

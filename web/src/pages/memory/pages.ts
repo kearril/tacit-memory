@@ -1,8 +1,19 @@
-import type { PageListItem } from "../../api/memory";
+import type { PageListItem, RecognizedSection } from "../../api/memory";
 import type { PageFilter } from "../../lib/routes";
 
 /** The workstream topic pages belong to; listed after every workstream. */
 export const TOPICS = "_topics";
+
+/**
+ * A section's name as shown: a section the service recognizes by its label in the interface language, any other as
+ * written.
+ */
+export function sectionLabel(
+  section: { readonly name: string; readonly recognized: RecognizedSection | null },
+  labels: Readonly<Record<RecognizedSection, string>>,
+): string {
+  return section.recognized === null ? section.name : labels[section.recognized];
+}
 
 /** The pages the filter keeps: of its workstream and type, with the keyword in the title or an alias, ignoring case. */
 export function filterPages(pages: readonly PageListItem[], filter: PageFilter): readonly PageListItem[] {

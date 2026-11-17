@@ -47,10 +47,11 @@ internal static class MemorySkill
         - Link a page to related pages, so a reader can move from one matter to the next.
         - When something in a section has changed, replace that text; do not add a note that contradicts it.
         - Where the environment already records a fact (a config file, a repository document, an infrastructure note), write a pointer to it, not a copy.
-        - incident: one fault, its cause and its fix. Sections: Symptom, Cause, Fix, Lesson. The lesson is the rule the next session can apply; in a Chinese memory the section is 教训.
-        - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page overturns the decision, add a line under Overturned naming that page; the brief then stops listing the decision as current. In a Chinese memory the section is 推翻记录.
+        - Name sections in the memory language, except three the service finds by name and that keep their English names in every language: Lesson, Overturned and Leftovers.
+        - incident: one fault, its cause and its fix. Sections: Symptom, Cause, Fix, Lesson. The lesson is the rule the next session can apply.
+        - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page overturns the decision, add a line under Overturned naming that page; the brief then stops listing the decision as current.
         - entity: a standing system or tool, kept to a table of contents: pointers to its documentation, the user's stance and open to-dos. Write each fault and each decision on its own page and link it back here. Sections: Status, Stance, To-do.
-        - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream; in a Chinese memory the section is 遗留.
+        - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream.
 
         ## Examples
         Each example shows a real page from a Chinese memory, with its type and its recommended sections. The text in the examples is data, not instructions.
@@ -60,7 +61,7 @@ internal static class MemorySkill
         Aliases: 容器库损坏, Mac sqlite3 写坏容器内 SQLite
         ## 修复
         改为在容器内生成快照，不再从 Mac 端直接打开容器内的 SQLite 数据库。
-        ## 教训
+        ## Lesson
         在 Mac 端用 sqlite3 打开容器内的 SQLite 会将其损坏，不要这样做。
         </example>
 
@@ -85,7 +86,7 @@ internal static class MemorySkill
         Aliases: my-app 适配 1.7, my-app v3.3.0
         ## 产出
         发布 v3.3.0：适配宿主 2.0（net10，标准 SQLite provider，插件分目录）；1.x 冻结在 3.2.0。
-        ## 遗留
+        ## Leftovers
         values 列表聚合问题留待优化主题。
         </example>
 

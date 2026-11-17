@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PageListItem, PageType } from "../../api/memory";
-import { filterPages, sortPages } from "./pages";
+import { filterPages, sectionLabel, sortPages } from "./pages";
 
 const page = (id: string, title: string, aliases: string[] = [], type: PageType | null = "work"): PageListItem => ({
   id,
@@ -64,5 +64,27 @@ describe("sortPages", () => {
 
   it("orders by uses, most first, keeping the order of ties", () => {
     expect(sortPages(ROWS, "uses").map((p) => p.id)).toEqual(["app/b", "ops/a", "ops/c"]);
+  });
+});
+
+describe("sectionLabel", () => {
+  const labels = { lesson: "教训", overturned: "推翻记录", leftovers: "遗留" };
+
+  it("labels a section the service recognizes", () => {
+    expect(
+      [
+        { name: "Lesson", recognized: "lesson" as const },
+        { name: "overturned", recognized: "overturned" as const },
+        { name: "LEFTOVERS", recognized: "leftovers" as const },
+      ].map((section) => sectionLabel(section, labels)),
+    ).toEqual(["教训", "推翻记录", "遗留"]);
+  });
+
+  it("shows any other section as written", () => {
+    expect(["现状", "教训", "Fix"].map((name) => sectionLabel({ name, recognized: null }, labels))).toEqual([
+      "现状",
+      "教训",
+      "Fix",
+    ]);
   });
 });

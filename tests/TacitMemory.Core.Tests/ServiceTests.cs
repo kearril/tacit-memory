@@ -46,7 +46,7 @@ public sealed class ServiceTests : IDisposable
     [Fact]
     public async Task The_recording_criteria_of_rules_md_go_into_the_instructions_word_for_word()
     {
-        File.WriteAllText(RulesMd, "## 值得记\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## 不记\n- 日常闲聊\n");
+        File.WriteAllText(RulesMd, "## Worth recording\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## Not recorded\n- 日常闲聊\n");
 
         using var service = Open();
 
@@ -60,7 +60,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         Assert.DoesNotContain("新加的一条", await service.ServerInstructionsAsync());
 
-        File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
+        File.WriteAllText(RulesMd, "## Worth recording\n- 新加的一条\n\n## Not recorded\n- 日常闲聊\n");
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
@@ -84,7 +84,7 @@ public sealed class ServiceTests : IDisposable
     public void Criteria_that_push_the_fixed_part_past_3000_characters_stop_the_service_and_say_by_how_much()
     {
         var item = new string('长', 200);
-        File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {item}\n", 10)) + "## 不记\n- 日常闲聊\n");
+        File.WriteAllText(RulesMd, "## Worth recording\n" + string.Concat(Enumerable.Repeat($"- {item}\n", 10)) + "## Not recorded\n- 日常闲聊\n");
 
         var error = Assert.Throws<TacitException>(() => Open());
 
@@ -100,7 +100,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         var before = await service.ServerInstructionsAsync();
 
-        File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
+        File.WriteAllText(RulesMd, "## Worth recording\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
@@ -169,7 +169,7 @@ public sealed class ServiceTests : IDisposable
     public void Starting_the_service_renders_every_binding()
     {
         _home.Bind();
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 偏好\n- 沟通：先要结论\n");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## Preferences\n- 沟通：先要结论\n");
 
         using var service = Open();
 
@@ -182,7 +182,7 @@ public sealed class ServiceTests : IDisposable
     {
         _home.Bind();
         _home.Bind("beta");
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 偏好\n- 沟通：先要结论\n");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## Preferences\n- 沟通：先要结论\n");
 
         using var service = Open();
 
@@ -196,7 +196,7 @@ public sealed class ServiceTests : IDisposable
         _home.Bind();
         using var service = Open();
 
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## Profile\n- 系统：Windows 11\n");
 
         await Watchers.Eventually(service, () => File.ReadAllText(AgentsMd).Contains("- 系统：Windows 11\n"));
         await Watchers.Eventually(service, () => _notices.Any(notice => notice.Contains("已写入常驻区块")));
@@ -210,7 +210,7 @@ public sealed class ServiceTests : IDisposable
         using var service = Open();
         File.WriteAllText(Path.Combine(_home.TacitHome, "bindings.json"), "{ not json");
 
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), "## Profile\n- 系统：Windows 11\n");
         _home.Sources!.MemoryChanged("persona.md");
 
         await service.SettledAsync();
@@ -225,7 +225,7 @@ public sealed class ServiceTests : IDisposable
         _home.UseManualSources();
         using var service = Open();
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "skill.md"), new string('长', 3001));
-        File.WriteAllText(RulesMd, "## 值得记\n- 新加的一条\n\n## 不记\n- 日常闲聊\n");
+        File.WriteAllText(RulesMd, "## Worth recording\n- 新加的一条\n\n## Not recorded\n- 日常闲聊\n");
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
@@ -244,7 +244,7 @@ public sealed class ServiceTests : IDisposable
         var before = await service.ServerInstructionsAsync();
 
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 2000) + "\n");
-        File.WriteAllText(RulesMd, "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## 不记\n- 日常闲聊\n");
+        File.WriteAllText(RulesMd, "## Worth recording\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## Not recorded\n- 日常闲聊\n");
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();

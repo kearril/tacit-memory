@@ -55,7 +55,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Adding_a_red_line_appends_it_to_the_section_with_a_dated_source_comment_and_commits_only_persona()
     {
-        WritePersona("## 红线\n- 不要删库；改为先备份（理由：不可逆）\n  <!-- 2026-10-25 原话「别删库」 -->\n\n## 协作规则\n\n## 偏好\n\n## 档案\n");
+        WritePersona("## Red lines\n- 不要删库；改为先备份（理由：不可逆）\n  <!-- 2026-10-25 quote「别删库」 -->\n\n## Working rules\n\n## Preferences\n\n## Profile\n");
         Git("add", "persona.md");
         Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: persona baseline");
         File.WriteAllText(Path.Combine(Memory, "notes.txt"), "staged by the user\n");
@@ -66,8 +66,8 @@ public sealed partial class PersonaAddTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
         Assert.Equal(
-            "## 红线\n- 不要删库；改为先备份（理由：不可逆）\n  <!-- 2026-10-25 原话「别删库」 -->\n"
-            + $"- 不要自行发布版本；改为先请用户确认\n  <!-- {Today} 原话「发布前必须问我」 -->\n\n## 协作规则\n\n## 偏好\n\n## 档案\n",
+            "## Red lines\n- 不要删库；改为先备份（理由：不可逆）\n  <!-- 2026-10-25 quote「别删库」 -->\n"
+            + $"- 不要自行发布版本；改为先请用户确认\n  <!-- {Today} quote「发布前必须问我」 -->\n\n## Working rules\n\n## Preferences\n\n## Profile\n",
             File.ReadAllText(PersonaMd));
         Assert.Equal(ShortOf("不要自行发布版本；改为先请用户确认"), CodeOf(result));
         Assert.Contains("The section now has 2 entries.", result.Text);
@@ -79,33 +79,27 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Adding_to_the_profile_writes_the_source_comment_in_the_memory_language()
     {
-        WritePersona("## 档案\n- 系统：Windows 11 x64\n");
+        WritePersona("## Profile\n- 系统：Windows 11 x64\n");
 
         var result = await _service.WritePersonaAsync(Add("profile", "主力语言：C#", "我主要写 C#"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            $"## 档案\n- 系统：Windows 11 x64\n- 主力语言：C#\n  <!-- {Today} 原话「我主要写 C#」 -->\n",
+            $"## Profile\n- 系统：Windows 11 x64\n- 主力语言：C#\n  <!-- {Today} quote「我主要写 C#」 -->\n",
             File.ReadAllText(PersonaMd));
     }
 
     [Fact]
-    public async Task Working_rules_must_contain_an_arrow_and_red_lines_must_name_an_alternative()
+    public async Task Red_lines_and_working_rules_are_written_in_whatever_wording_the_agent_gives()
     {
-        var refusedRule = await _service.WritePersonaAsync(Add("working_rules", "需求不清时先追问"));
-        var refusedRedLine = await _service.WritePersonaAsync(Add("red_lines", "不要删库"));
+        var rule = await _service.WritePersonaAsync(Add("working_rules", "需求不清时先追问"));
+        var redLine = await _service.WritePersonaAsync(Add("red_lines", "不要删库"));
 
-        Assert.True(refusedRule.IsError);
-        Assert.False(refusedRule.Written);
-        Assert.Contains("→", refusedRule.Text);
-        Assert.True(refusedRedLine.IsError);
-        Assert.False(refusedRedLine.Written);
-        Assert.Contains("instead", refusedRedLine.Text);
-        Assert.DoesNotContain("原话", File.ReadAllText(PersonaMd));
-
-        Assert.False((await _service.WritePersonaAsync(Add("working_rules", "需求不清时 → 先连续追问"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(Add("red_lines", "Don't publish without asking; instead ask the user first"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(Add("red_lines", "不要删库；改为先备份"))).IsError);
+        Assert.False(rule.IsError, rule.Text);
+        Assert.False(redLine.IsError, redLine.Text);
+        var persona = File.ReadAllText(PersonaMd);
+        Assert.Contains("- 需求不清时先追问\n", persona);
+        Assert.Contains("- 不要删库\n", persona);
     }
 
     [Fact]
@@ -135,7 +129,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [InlineData("\u0085")]
     public async Task Text_and_source_must_not_contain_a_line_break_an_editor_shows_as_a_second_line(string lineBreak)
     {
-        WritePersona("## 偏好\n- 沟通：先要结论\n\n## 档案\n- 系统：Windows 11 x64\n");
+        WritePersona("## Preferences\n- 沟通：先要结论\n\n## Profile\n- 系统：Windows 11 x64\n");
         var before = File.ReadAllText(PersonaMd);
 
         var inText = await _service.WritePersonaAsync(Add("preferences", $"沟通：先说结论{lineBreak}再附依据"));
@@ -171,7 +165,7 @@ public sealed partial class PersonaAddTests : IDisposable
     public async Task A_section_takes_entries_past_any_count_without_refusal()
     {
         var red = Enumerable.Range(1, 7).Select(i => $"不要做{i}；改为做{i}").ToList();
-        WritePersona("## 红线\n" + string.Concat(red.Select(line => $"- {line}\n")) + "\n## 协作规则\n\n## 偏好\n\n## 档案\n");
+        WritePersona("## Red lines\n" + string.Concat(red.Select(line => $"- {line}\n")) + "\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
         var result = await _service.WritePersonaAsync(Add("red_lines", "不要做八；改为做八"));
 
@@ -188,35 +182,35 @@ public sealed partial class PersonaAddTests : IDisposable
 
         var persona = File.ReadAllText(PersonaMd);
         for (var i = 1; i <= 11; i++)
-            Assert.Contains($"## 领域：area{i}", persona);
+            Assert.Contains($"## Domain: area{i}", persona);
     }
 
     [Fact]
     public async Task A_missing_section_heading_is_restored_after_the_nearest_earlier_section()
     {
-        WritePersona("## 红线\n- 不要删库；改为先备份\n\n## 协作规则\n- 需求不清时 → 先追问\n\n## 档案\n- 系统：Windows 11 x64\n");
+        WritePersona("## Red lines\n- 不要删库；改为先备份\n\n## Working rules\n- 需求不清时 → 先追问\n\n## Profile\n- 系统：Windows 11 x64\n");
 
         var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 红线\n- 不要删库；改为先备份\n\n## 协作规则\n- 需求不清时 → 先追问\n\n"
-            + $"## 偏好\n- 沟通：先要结论\n  <!-- {Today} 原话「先要结论」 -->\n\n"
-            + "## 档案\n- 系统：Windows 11 x64\n",
+            "## Red lines\n- 不要删库；改为先备份\n\n## Working rules\n- 需求不清时 → 先追问\n\n"
+            + $"## Preferences\n- 沟通：先要结论\n  <!-- {Today} quote「先要结论」 -->\n\n"
+            + "## Profile\n- 系统：Windows 11 x64\n",
             File.ReadAllText(PersonaMd));
     }
 
     [Fact]
     public async Task With_no_earlier_section_the_restored_heading_goes_before_the_nearest_later_section()
     {
-        WritePersona("## 偏好\n- 沟通：先要结论\n\n## 档案\n- 系统：Windows 11 x64\n");
+        WritePersona("## Preferences\n- 沟通：先要结论\n\n## Profile\n- 系统：Windows 11 x64\n");
 
         var result = await _service.WritePersonaAsync(Add("red_lines", "不要删库；改为先备份", "别删库"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            $"## 红线\n- 不要删库；改为先备份\n  <!-- {Today} 原话「别删库」 -->\n\n"
-            + "## 偏好\n- 沟通：先要结论\n\n## 档案\n- 系统：Windows 11 x64\n",
+            $"## Red lines\n- 不要删库；改为先备份\n  <!-- {Today} quote「别删库」 -->\n\n"
+            + "## Preferences\n- 沟通：先要结论\n\n## Profile\n- 系统：Windows 11 x64\n",
             File.ReadAllText(PersonaMd));
     }
 
@@ -229,7 +223,7 @@ public sealed partial class PersonaAddTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            $"## 其他\n- 随手记的一条\n\n## 档案\n- 系统：Windows 11 x64\n  <!-- {Today} 原话「发布前必须问我」 -->\n",
+            $"## 其他\n- 随手记的一条\n\n## Profile\n- 系统：Windows 11 x64\n  <!-- {Today} quote「发布前必须问我」 -->\n",
             File.ReadAllText(PersonaMd));
     }
 
@@ -242,7 +236,7 @@ public sealed partial class PersonaAddTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains(
-            "- Don't publish without asking; instead ask the user\n  <!-- 2026-11-02 原话「ask me first」 -->\n\n## Working rules",
+            "- Don't publish without asking; instead ask the user\n  <!-- 2026-11-02 quote「ask me first」 -->\n\n## Working rules",
             File.ReadAllText(PersonaMd));
     }
 
@@ -289,7 +283,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Uncommitted_user_edits_to_persona_are_committed_with_the_write_and_noted_in_the_subject()
     {
-        WritePersona("## 红线\n\n## 协作规则\n\n## 偏好\n- 用户手写的一条\n\n## 档案\n");
+        WritePersona("## Red lines\n\n## Working rules\n\n## Preferences\n- 用户手写的一条\n\n## Profile\n");
 
         var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 
@@ -402,7 +396,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_new_domain_gets_a_block_with_its_trigger_after_the_global_sections()
     {
-        WritePersona("## 红线\n- 不要删库；改为先备份\n\n## 协作规则\n\n## 偏好\n\n## 档案\n- 系统：Windows 11 x64\n");
+        WritePersona("## Red lines\n- 不要删库；改为先备份\n\n## Working rules\n\n## Preferences\n\n## Profile\n- 系统：Windows 11 x64\n");
         Git("add", "persona.md");
         Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: persona baseline");
 
@@ -412,9 +406,9 @@ public sealed partial class PersonaAddTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
         Assert.Equal(
-            "## 红线\n- 不要删库；改为先备份\n\n## 协作规则\n\n## 偏好\n\n## 档案\n- 系统：Windows 11 x64\n\n"
-            + "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 性能比较 → 不拿单次测速当结论\n"
-            + $"  <!-- {Today} 原话「别拿单次测速下结论」 -->\n",
+            "## Red lines\n- 不要删库；改为先备份\n\n## Working rules\n\n## Preferences\n\n## Profile\n- 系统：Windows 11 x64\n\n"
+            + "## Domain: network-proxy\nTrigger: 改代理、分流或测速时\n### Working rules\n- 性能比较 → 不拿单次测速当结论\n"
+            + $"  <!-- {Today} quote「别拿单次测速下结论」 -->\n",
             File.ReadAllText(PersonaMd));
         Assert.Equal(ShortOf("性能比较 → 不拿单次测速当结论"), CodeOf(result));
         Assert.Contains("domain network-proxy", result.Text);
@@ -426,14 +420,14 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task An_existing_domain_takes_entries_under_its_section_and_ignores_a_trigger_given_again()
     {
-        WritePersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 旧规则 → 旧做法\n### 偏好\n- 测速：只看持续测速\n");
+        WritePersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 旧规则 → 旧做法\n### Preferences\n- 测速：只看持续测速\n");
 
         var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "切换节点 → 先备份配置", "先备份"), "domain:network-proxy", "完全不同的触发"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 旧规则 → 旧做法\n"
-            + $"- 切换节点 → 先备份配置\n  <!-- {Today} 原话「先备份」 -->\n### 偏好\n- 测速：只看持续测速\n",
+            "## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 旧规则 → 旧做法\n"
+            + $"- 切换节点 → 先备份配置\n  <!-- {Today} quote「先备份」 -->\n### Preferences\n- 测速：只看持续测速\n",
             File.ReadAllText(PersonaMd));
         Assert.DoesNotContain("完全不同的触发", File.ReadAllText(PersonaMd));
     }
@@ -452,13 +446,13 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Scope_blocks_follow_the_global_sections_with_domains_first_and_each_kind_sorted_by_name()
     {
-        WritePersona("## 红线\n\n## 偏好\n- 沟通：先要结论\n\n## 领域：zeta\n触发：收尾时\n### 偏好\n- 收尾：先列清单\n\n## 主线：my-app\n### 偏好\n- 发布：先打标签\n");
+        WritePersona("## Red lines\n\n## Preferences\n- 沟通：先要结论\n\n## Domain: zeta\nTrigger: 收尾时\n### Preferences\n- 收尾：先列清单\n\n## Workstream: my-app\n### Preferences\n- 发布：先打标签\n");
 
         Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
         Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "workstream:alpha"))).IsError);
 
         var text = File.ReadAllText(PersonaMd);
-        var headings = new[] { "\n## 偏好", "\n## 领域：alpha", "\n## 领域：zeta", "\n## 主线：alpha", "\n## 主线：my-app" };
+        var headings = new[] { "\n## Preferences", "\n## Domain: alpha", "\n## Domain: zeta", "\n## Workstream: alpha", "\n## Workstream: my-app" };
         var positions = headings.Select(heading => text.IndexOf(heading, StringComparison.Ordinal)).ToArray();
         Assert.All(positions, position => Assert.True(position >= 0, text));
         Assert.Equal(positions.Order().ToArray(), positions);
@@ -467,45 +461,45 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_missing_section_inside_a_block_is_restored_in_the_standard_order_within_the_block()
     {
-        WritePersona("## 领域：network-proxy\n触发：改代理时\n### 偏好\n- 测速：只看持续测速\n");
+        WritePersona("## Domain: network-proxy\nTrigger: 改代理时\n### Preferences\n- 测速：只看持续测速\n");
 
         var result = await _service.WritePersonaAsync(
             InScope(Add("red_lines", "不要用单次测速下结论；改为先看持续测速", "别下结论"), "domain:network-proxy"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 领域：network-proxy\n触发：改代理时\n\n### 红线\n- 不要用单次测速下结论；改为先看持续测速\n"
-            + $"  <!-- {Today} 原话「别下结论」 -->\n\n### 偏好\n- 测速：只看持续测速\n",
+            "## Domain: network-proxy\nTrigger: 改代理时\n\n### Red lines\n- 不要用单次测速下结论；改为先看持续测速\n"
+            + $"  <!-- {Today} quote「别下结论」 -->\n\n### Preferences\n- 测速：只看持续测速\n",
             File.ReadAllText(PersonaMd));
     }
 
     [Fact]
     public async Task A_block_with_red_lines_and_working_rules_keeps_both_and_restores_the_missing_preferences_last()
     {
-        WritePersona("## 领域：network-proxy\n触发：改代理时\n### 红线\n- r0\n\n### 协作规则\n- 先给结论\n");
+        WritePersona("## Domain: network-proxy\nTrigger: 改代理时\n### Red lines\n- r0\n\n### Working rules\n- 先给结论\n");
 
         var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
 
         Assert.False(result.IsError, result.Text);
         var text = File.ReadAllText(PersonaMd);
-        Assert.Contains("### 红线\n- r0\n", text, StringComparison.Ordinal);
-        Assert.Contains("### 协作规则\n- 先给结论\n", text, StringComparison.Ordinal);
-        Assert.True(text.IndexOf("### 红线", StringComparison.Ordinal) < text.IndexOf("### 协作规则", StringComparison.Ordinal));
-        Assert.True(text.IndexOf("### 协作规则", StringComparison.Ordinal) < text.IndexOf("### 偏好", StringComparison.Ordinal));
+        Assert.Contains("### Red lines\n- r0\n", text, StringComparison.Ordinal);
+        Assert.Contains("### Working rules\n- 先给结论\n", text, StringComparison.Ordinal);
+        Assert.True(text.IndexOf("### Red lines", StringComparison.Ordinal) < text.IndexOf("### Working rules", StringComparison.Ordinal));
+        Assert.True(text.IndexOf("### Working rules", StringComparison.Ordinal) < text.IndexOf("### Preferences", StringComparison.Ordinal));
         Assert.Contains("- 测速：只看持续测速", text, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_workstream_block_needs_no_trigger_and_holds_its_entries_under_the_workstream_heading()
     {
-        WritePersona("## 偏好\n- 沟通：先要结论\n");
+        WritePersona("## Preferences\n- 沟通：先要结论\n");
 
         var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:my-app"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 偏好\n- 沟通：先要结论\n\n## 主线：my-app\n### 协作规则\n- 发版 → 先问我\n"
-            + $"  <!-- {Today} 原话「发版前问我」 -->\n",
+            "## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n- 发版 → 先问我\n"
+            + $"  <!-- {Today} quote「发版前问我」 -->\n",
             File.ReadAllText(PersonaMd));
         Assert.Contains("workstream my-app", result.Text);
     }
@@ -513,7 +507,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_new_domain_without_a_trigger_is_refused_with_the_next_step_and_writes_nothing()
     {
-        WritePersona("## 偏好\n- 沟通：先要结论\n");
+        WritePersona("## Preferences\n- 沟通：先要结论\n");
         var before = File.ReadAllText(PersonaMd);
 
         var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));

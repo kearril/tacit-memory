@@ -61,8 +61,8 @@ public sealed class PromptCheckTests : IDisposable
     [Fact]
     public void The_criteria_count_as_they_are_laid_out_when_sent()
     {
-        var plain = _service.CheckPrompt(PromptName.Rules, "## 值得记\n- 一条\n").Measure;
-        var loose = _service.CheckPrompt(PromptName.Rules, "前言\n## 值得记\n- 一条   \n  续行\n## 其他\n- 不算\n").Measure;
+        var plain = _service.CheckPrompt(PromptName.Rules, "## Worth recording\n- 一条\n").Measure;
+        var loose = _service.CheckPrompt(PromptName.Rules, "前言\n## Worth recording\n- 一条   \n  续行\n## 其他\n- 不算\n").Measure;
 
         Assert.Equal(plain.Length, loose.Length);
         Assert.Equal(new PromptItems(1, 0, 10), loose.Items);
@@ -73,7 +73,7 @@ public sealed class PromptCheckTests : IDisposable
     {
         var before = _service.CheckPrompt(PromptName.Instructions, "## 核心\n- 规则\n").Measure.Length;
 
-        await _service.SavePromptAsync(PromptName.Rules, null, "## 值得记\n- 短\n");
+        await _service.SavePromptAsync(PromptName.Rules, null, "## Worth recording\n- 短\n");
         var after = _service.CheckPrompt(PromptName.Instructions, "## 核心\n- 规则\n").Measure.Length;
 
         Assert.True(after < before);
@@ -96,7 +96,7 @@ public sealed class PromptCheckTests : IDisposable
     {
         var items = string.Concat(Enumerable.Range(1, 11).Select(i => $"- 条目 {i}\n"));
 
-        var check = _service.CheckPrompt(PromptName.Rules, "## 值得记\n" + items + "## 不记\n" + items + "- 第十二条\n");
+        var check = _service.CheckPrompt(PromptName.Rules, "## Worth recording\n" + items + "## Not recorded\n" + items + "- 第十二条\n");
 
         Assert.Equal(new PromptItems(11, 12, 10), check.Measure.Items);
         Assert.Equal(2, check.Problems.Count);
@@ -107,7 +107,7 @@ public sealed class PromptCheckTests : IDisposable
     public static TheoryData<PromptName, string> Broken => new()
     {
         { PromptName.Instructions, "## 核心\n" + new string('核', 2600) },
-        { PromptName.Rules, "## 值得记\n" + string.Concat(Enumerable.Range(1, 11).Select(i => $"- 条目 {i}\n")) },
+        { PromptName.Rules, "## Worth recording\n" + string.Concat(Enumerable.Range(1, 11).Select(i => $"- 条目 {i}\n")) },
         { PromptName.Resident, "外壳\n\n## mainline\n旧节名\n" },
         { PromptName.Resident, new string('长', 1501) },
         { PromptName.Skill, "---\nname: mine\n---\n" },

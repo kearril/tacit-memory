@@ -77,7 +77,7 @@ _Avoid_: 笔记、卡片、事件页、文档
 _Avoid_: 段落、分块、chunk
 
 **页面类型**（Page type）：
-细节页页头中的 `type`，取 `incident`（排错）、`decision`（决定）、`entity`（实体）、`work`（工作单元）四种之一。新建时必须给出，`update_header` 可改。`work` 页的「遗留」小节（英文 Leftovers）与 `decision` 页的「推翻记录」小节（英文 Overturned）是服务识别的两个约定小节。
+细节页页头中的 `type`，取 `incident`（排错）、`decision`（决定）、`entity`（实体）、`work`（工作单元）四种之一。新建时必须给出，`update_header` 可改。服务按英文名识别三个约定小节：`work` 页的 `Leftovers`（遗留）、`decision` 页的 `Overturned`（推翻记录）、`incident` 页的 `Lesson`（教训）；Web 界面以界面语言的标签显示它们。
 _Avoid_: 分类、标签、种类
 
 **页头**（Header）：
@@ -176,7 +176,7 @@ _Avoid_: 界面语言、locale
 服务端说明中规定记忆用什么语言书写的一段：记忆内容使用记忆语言，用户原话、代码、路径、命令与专有名词保持原样。
 
 **结构词**（Structure words）：
-记忆文件与 `prompts/rules.md` 中构成格式的固定词，例如节名、`归属：`、`原话`、`改为`（英文 `instead`）；按记忆语言写入，解析时识别所有支持语言的写法。
+记忆文件与 `prompts/rules.md` 中构成格式的固定词，例如节名、`Belongs to:`、`quote`；一律英文，与记忆语言无关，解析时只认英文写法（大小写不限），写成其他语言的当作内容。
 _Avoid_: 关键字、标签
 
 **判断**（Judgment）：
@@ -398,7 +398,7 @@ _Avoid_: action、类型
 _Avoid_: 分类、节名
 
 **原话**（`source`）：
-用户本人的原话，一行，保存为画像条目或活动下的注释；`write_persona` 的 `add`、`replace`、`propose` 必填。这种注释称为原话注释，写作 `<!-- 日期 原话「…」 -->`，日期或原话可缺其一，细节页的小节里也可出现；它的写法只由 Core 解析，记忆页拿到的是解析好的日期与原话。
+用户本人的原话，一行，保存为画像条目或活动下的注释；`write_persona` 的 `add`、`replace`、`propose` 必填。这种注释称为原话注释，写作 `<!-- 日期 quote「…」 -->`，日期或原话可缺其一，细节页的小节里也可出现；它的写法只由 Core 解析，记忆页拿到的是解析好的日期与原话。
 _Avoid_: 引文、出处
 
 **替换标识**（`replaces`）：

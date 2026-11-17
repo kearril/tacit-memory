@@ -45,22 +45,25 @@ public sealed class MemoryApiTests : IAsyncLifetime
     public async Task The_persona_answers_with_its_sections_blocks_candidates_and_files()
     {
         Write("persona.md", """
-            ## 红线
+            ## Red lines
             - 不要删库
-              <!-- 2026-10-25 原话「别删库」 -->
+              <!-- 2026-10-25 quote「别删库」 -->
 
-            ## 领域：network-proxy
-            触发：改代理时
-            ### 偏好
+            ## Preferences
+            随手写的一行
+
+            ## Domain: network-proxy
+            Trigger: 改代理时
+            ### Preferences
             - 测速：取中位数
 
             """);
         Write("candidates.md", """
-            ## 候选
+            ## Candidates
 
             ### 回答先给结论
-            归属：偏好
-            - 2026-11-01 原话「先说结论」
+            Belongs to: Preferences
+            - 2026-11-01 quote「先说结论」
 
             """);
 
@@ -73,8 +76,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.Matches("^[0-9a-f]{6}$", entry["code"]!.GetValue<string>());
         var source = entry["sources"]![0]!;
         Assert.Equal(("2026-10-25", "别删库"), (source["date"]!.GetValue<string>(), source["quote"]!.GetValue<string>()));
-        Assert.Equal("Red line without instead", report["personaFile"]!["problems"]![0]!["kind"]!.GetValue<string>());
-        Assert.Equal(2, report["personaFile"]!["problems"]![0]!["line"]!.GetValue<int>());
+        Assert.Equal("Unrecognized content", report["personaFile"]!["problems"]![0]!["kind"]!.GetValue<string>());
+        Assert.Equal(6, report["personaFile"]!["problems"]![0]!["line"]!.GetValue<int>());
         Assert.Equal("改代理时", report["domains"]![0]!["trigger"]!.GetValue<string>());
         var candidate = report["candidates"]![0]!;
         Assert.Equal(("preferences", "global"), (candidate["section"]!.GetValue<string>(), candidate["scope"]!.GetValue<string>()));
@@ -91,7 +94,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
             Page = "ops/rollback",
             Title = "部署回滚",
             Aliases = ["回滚方案", "部署失败回滚"],
-            Sections = [new PageSectionInput("产出", "回滚脚本。")],
+            Sections = [new PageSectionInput("产出", "回滚脚本。"), new PageSectionInput("Leftovers", "- 还没做回滚演练")],
         });
         Assert.False(created.IsError, created.Text);
 
@@ -103,13 +106,15 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.Equal("部署回滚", page["title"]!.GetValue<string>());
         var section = page["sections"]![0]!;
         Assert.Equal(("产出", "回滚脚本。"), (section["name"]!.GetValue<string>(), section["body"]!.GetValue<string>().Trim()));
+        Assert.Null(section["recognized"]);
+        Assert.Equal("leftovers", page["sections"]![1]!["recognized"]!.GetValue<string>());
         Assert.EndsWith("rollback.md", page["file"]!["path"]!.GetValue<string>());
     }
 
     [Fact]
     public async Task The_workstreams_answer_with_the_list_and_a_brief()
     {
-        Write("workstreams.md", "## 主线\n\n### ops\n背景：运维。\n");
+        Write("workstreams.md", "## Workstream\n\n### ops\nBackground: 运维。\n");
         var created = await _service.WritePageAsync(new WritePageRequest
         {
             Op = "create",
@@ -135,7 +140,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
     public async Task The_activity_answers_with_the_months_and_a_month_by_day()
     {
         Directory.CreateDirectory(Path.Combine(_home.DefaultMemory, "recent"));
-        Write("recent/2026-10.md", "## 2026-10-05\n- [ops] 回滚演练完成\n  <!-- 原话「演练一下」 -->\n## 汇总\n- 2026-W41：演练\n");
+        Write("recent/2026-10.md", "## 2026-10-05\n- [ops] 回滚演练完成\n  <!-- quote「演练一下」 -->\n## Summary\n- 2026-W41：演练\n");
 
         var months = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/activity")))!;
         var month = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/activity/2026-10")))!;

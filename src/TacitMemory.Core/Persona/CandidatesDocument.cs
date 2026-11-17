@@ -14,15 +14,15 @@ internal sealed record CandidateOccurrence(DateOnly Day, string Quote, bool Reje
 internal sealed record PersonaCandidate(string Text, PersonaSection Section, IReadOnlyList<CandidateOccurrence> Occurrences, PersonaScope Scope);
 
 /// <summary>
-/// <c>candidates.md</c> parsed leniently. Under its two <c>## </c> sections, in any language, each <c>### </c> heading
-/// starts a candidate, followed by a <c>归属：</c> line naming its section, an optional <c>作用域：</c> line naming its
+/// <c>candidates.md</c> parsed leniently. Under its two <c>## </c> sections, each <c>### </c> heading
+/// starts a candidate, followed by a <c>Belongs to: </c> line naming its section, an optional <c>Scope: </c> line naming its
 /// scope (global when absent), and dated occurrence lines. A block without a recognized section, and every line that is
 /// not a recognized occurrence, is left out; nothing is reported as an error.
 /// </summary>
 internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candidates, IReadOnlyList<PersonaCandidate> RejectionList)
 {
     private static readonly Regex Occurrence = new(
-        $@"^- (?<day>\d{{4}}-\d{{2}}-\d{{2}}) (?:(?<rejected>{Words(StructureWords.Rejected)}) )?(?:{Words(StructureWords.Quote)})「(?<quote>.*)」$",
+        $@"^- (?<day>\d{{4}}-\d{{2}}-\d{{2}}) (?:(?<rejected>{StructureWords.Rejected}) )?{StructureWords.Quote}「(?<quote>.*)」$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static CandidatesDocument Parse(string text)
@@ -74,31 +74,25 @@ internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candid
         return new CandidatesDocument(candidates, rejectionList);
     }
 
-    private static bool Matches(string heading, Localized word) =>
-        heading == word.Zh || heading.Equals(word.En, StringComparison.OrdinalIgnoreCase);
+    /// <summary>Whether a <c>## </c> heading, without its marker, is the candidates section.</summary>
+    internal static bool IsCandidatesHeading(string heading) => StructureWords.Is(heading, StructureWords.Candidates);
 
-    /// <summary>Whether a <c>## </c> heading, without its marker, is the candidates section, in any language.</summary>
-    internal static bool IsCandidatesHeading(string heading) => Matches(heading, StructureWords.Candidates);
+    /// <summary>Whether a <c>## </c> heading, without its marker, is the rejection list.</summary>
+    internal static bool IsRejectionListHeading(string heading) => StructureWords.Is(heading, StructureWords.RejectionList);
 
-    /// <summary>Whether a <c>## </c> heading, without its marker, is the rejection list, in any language.</summary>
-    internal static bool IsRejectionListHeading(string heading) => Matches(heading, StructureWords.RejectionList);
+    /// <summary>Whether a line is a <c>Belongs to:</c> line, whatever follows it.</summary>
+    internal static bool IsBelongsToLine(string line) => StructureWords.After(line, StructureWords.BelongsTo) is not null;
 
-    private static string Words(Localized word) => $"{Regex.Escape(word.Zh)}|{Regex.Escape(word.En)}";
-
-    /// <summary>The section named by a <c>归属：</c> line, or <c>null</c> when the line is not one or names no section.</summary>
+    /// <summary>The section named by a <c>Belongs to: </c> line, or <c>null</c> when the line is not one or names no section.</summary>
     internal static PersonaSection? BelongsToOf(string line)
     {
-        var prefix = new[] { StructureWords.BelongsTo.Zh, StructureWords.BelongsTo.En }
-            .FirstOrDefault(word => line.StartsWith(word, StringComparison.OrdinalIgnoreCase));
-        return prefix is null ? null : PersonaDocument.KindOf(line[prefix.Length..].Trim());
+        return StructureWords.After(line, StructureWords.BelongsTo) is { } section ? PersonaDocument.KindOf(section) : null;
     }
 
-    /// <summary>The text after a <c>作用域：</c> line's prefix, in either language; <c>null</c> when the line is not one.</summary>
+    /// <summary>The text after a <c>Scope: </c> line's prefix; <c>null</c> when the line is not one.</summary>
     internal static string? ScopeTextOf(string line)
     {
-        var prefix = new[] { StructureWords.Scope.Zh, StructureWords.Scope.En }
-            .FirstOrDefault(word => line.StartsWith(word, StringComparison.OrdinalIgnoreCase));
-        return prefix is null ? null : line[prefix.Length..].Trim();
+        return StructureWords.After(line, StructureWords.Scope);
     }
 
     /// <summary>

@@ -73,9 +73,9 @@ internal static class Initializer
         var skeletonAdded = new[]
         {
             Write(Path.Combine(memory, ".gitignore"), Templates.MemoryGitignore),
-            Write(MemoryLayout.Full(memory, MemoryLayout.Persona), Templates.Persona(language)),
-            Write(MemoryLayout.Full(memory, MemoryLayout.Candidates), Templates.Candidates(language)),
-            Write(MemoryLayout.Full(memory, MemoryLayout.Workstreams), Templates.Workstreams(language)),
+            Write(MemoryLayout.Full(memory, MemoryLayout.Persona), Templates.Persona),
+            Write(MemoryLayout.Full(memory, MemoryLayout.Candidates), Templates.Candidates),
+            Write(MemoryLayout.Full(memory, MemoryLayout.Workstreams), Templates.Workstreams),
             Write(MemoryLayout.Full(memory, MemoryLayout.In(MemoryLayout.Recent, ".gitkeep")), ""),
             Write(MemoryLayout.Full(memory, MemoryLayout.In(MemoryLayout.Pages, ".gitkeep")), ""),
         }.Any(added => added);

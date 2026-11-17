@@ -5,7 +5,7 @@ namespace TacitMemory.Core.Persona;
 
 /// <summary>
 /// Writes entries into <c>persona.md</c> line by line, so every other byte stays as the user left it. Sections are found
-/// by their headings in any language; a missing heading is restored in the standard order. Scope blocks follow the global
+/// by their headings; a missing heading is restored in the standard order. Scope blocks follow the global
 /// sections: domains first, then workstreams, each by name.
 /// </summary>
 internal static class PersonaFile
@@ -16,7 +16,7 @@ internal static class PersonaFile
     /// one, else before the first scope block, else at the end of the file.
     /// </summary>
     /// <returns>The new text, and the index of the entry's first line in it.</returns>
-    public static (string Text, int Line) Append(string text, PersonaSection kind, IReadOnlyList<string> entry, MemoryLanguage language)
+    public static (string Text, int Line) Append(string text, PersonaSection kind, IReadOnlyList<string> entry)
     {
         var cr = TextFile.CarriageReturnOf(text);
         var lines = Lines(text);
@@ -33,7 +33,7 @@ internal static class PersonaFile
         var (at, before, after) = MissingHeading(
             lines,
             kind,
-            "## " + PersonaDocument.HeadingOf(kind).In(language),
+            "## " + PersonaDocument.HeadingOf(kind),
             section => KindHeading(lines, section),
             fallback: block >= 0 ? block : lines.Count,
             fallbackAfter: block >= 0 ? [string.Empty] : []);
@@ -48,14 +48,14 @@ internal static class PersonaFile
     /// </summary>
     /// <returns>The new text, and the index of the entry's first line in it.</returns>
     public static (string Text, int Line) AppendToBlock(
-        string text, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry, MemoryLanguage language)
+        string text, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry)
     {
         var cr = TextFile.CarriageReturnOf(text);
         var lines = Lines(text);
 
         var block = BlockHeading(lines, scope);
         if (block < 0)
-            return CreateBlock(text, lines, scope, trigger, kind, entry, language, cr);
+            return CreateBlock(text, lines, scope, trigger, kind, entry, cr);
 
         var end = NextHeading(lines, block + 1);
         var sub = SubHeading(lines, block, end, kind);
@@ -69,7 +69,7 @@ internal static class PersonaFile
         var (sectionAt, before, after) = MissingHeading(
             lines,
             kind,
-            "### " + PersonaDocument.HeadingOf(kind).In(language),
+            "### " + PersonaDocument.HeadingOf(kind),
             section => SubHeading(lines, block, end, section),
             fallback: MarkdownSections.EndOfSection(lines, block),
             fallbackAfter: []);
@@ -95,12 +95,12 @@ internal static class PersonaFile
     /// entry. It goes before the first existing block that sorts after it, else at the end of the file.
     /// </summary>
     private static (string Text, int Line) CreateBlock(
-        string text, List<string> lines, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry, MemoryLanguage language, string cr)
+        string text, List<string> lines, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry, string cr)
     {
-        List<string> block = ["## " + scope.HeadingIn(language)];
+        List<string> block = ["## " + scope.Heading];
         if (trigger is not null)
-            block.Add(StructureWords.Trigger.In(language) + PersonaScope.Separator(language) + trigger);
-        block.Add("### " + PersonaDocument.HeadingOf(kind).In(language));
+            block.Add(StructureWords.Field(StructureWords.Trigger, trigger));
+        block.Add("### " + PersonaDocument.HeadingOf(kind));
         block.AddRange(entry);
 
         var next = NextBlockHeading(lines, scope);

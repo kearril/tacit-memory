@@ -2,20 +2,20 @@ namespace TacitMemory.Core.Tests;
 
 public sealed class PersonaIndexTests : IDisposable
 {
-    private const string PersonaText = "## 红线\n\n## 协作规则\n\n## 偏好\n- 数据库升级前先备份，再动手\n\n## 档案\n";
+    private const string PersonaText = "## Red lines\n\n## Working rules\n\n## Preferences\n- 数据库升级前先备份，再动手\n\n## Profile\n";
 
     private const string CandidatesText = """
-        ## 候选
+        ## Candidates
 
         ### 数据库升级前先备份
-        归属：偏好
-        - 2026-10-28 原话「升级数据库前先备份」
+        Belongs to: Preferences
+        - 2026-10-28 quote「升级数据库前先备份」
 
-        ## 拒绝列表
+        ## Rejection list
 
         ### 数据库升级不写回滚脚本
-        归属：协作规则
-        - 2026-10-27 原话「升级不用写回滚」
+        Belongs to: Working rules
+        - 2026-10-27 quote「升级不用写回滚」
 
         """;
 
@@ -87,7 +87,7 @@ public sealed class PersonaIndexTests : IDisposable
         Ready();
         Page();
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "随便写的一行\n## 不认识的节\n- 不该参与判断\n### 不是三级标题也不是候选\n");
-        File.WriteAllText(Path.Combine(Memory, "candidates.md"), "没有标题的一行\n## 候选\n### 没有归属的候选\n- 不是出现记录\n## 其他\n### 不该参与\n归属：偏好\n");
+        File.WriteAllText(Path.Combine(Memory, "candidates.md"), "没有标题的一行\n## Candidates\n### 没有归属的候选\n- 不是出现记录\n## 其他\n### 不该参与\nBelongs to: Preferences\n");
 
         var result = await Recall("数据库升级", null);
 
@@ -110,7 +110,7 @@ public sealed class PersonaIndexTests : IDisposable
         await service.SettledAsync();
         Assert.Contains(name, (await service.ServerInstructionsAsync()));
 
-        File.WriteAllText(path, "## 偏好\n- 先说结论\n");
+        File.WriteAllText(path, "## Preferences\n- 先说结论\n");
         _home.Sources!.MemoryChanged(name);
         await service.SettledAsync();
         Assert.DoesNotContain(name, (await service.ServerInstructionsAsync()));

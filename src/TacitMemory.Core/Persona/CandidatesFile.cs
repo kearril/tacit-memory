@@ -5,7 +5,7 @@ namespace TacitMemory.Core.Persona;
 
 /// <summary>
 /// Writes candidates into <c>candidates.md</c> line by line, so every other byte stays as the user left it. Sections are
-/// found by the headings <see cref="CandidatesDocument"/> reads, in any language. A missing candidates heading is restored
+/// found by the headings <see cref="CandidatesDocument"/> reads. A missing candidates heading is restored
 /// before the rejection list, or at the end of the file when there is none.
 /// </summary>
 internal static class CandidatesFile
@@ -15,7 +15,7 @@ internal static class CandidatesFile
     /// the scope line when the scope is not global, and its first occurrence. Returns the new text.
     /// </summary>
     public static string AppendCandidate(
-        string existing, string title, PersonaSection section, PersonaScope scope, DateOnly day, string source, MemoryLanguage language)
+        string existing, string title, PersonaSection section, PersonaScope scope, DateOnly day, string source)
     {
         var cr = TextFile.CarriageReturnOf(existing);
         var lines = existing.Split('\n').ToList();
@@ -25,11 +25,11 @@ internal static class CandidatesFile
         var block = new List<string>
         {
             $"### {title}",
-            $"{StructureWords.BelongsTo.In(language)}{PersonaDocument.HeadingOf(section).In(language)}",
+            StructureWords.Field(StructureWords.BelongsTo, PersonaDocument.HeadingOf(section)),
         };
         if (!scope.IsGlobal)
-            block.Add($"{StructureWords.Scope.In(language)}{scope}");
-        block.Add(Occurrence(day, source, language));
+            block.Add(StructureWords.Field(StructureWords.Scope, scope.ToString()));
+        block.Add(Occurrence(day, source));
 
         var candidates = MarkdownSections.LastHeading(lines, CandidatesDocument.IsCandidatesHeading);
         if (candidates >= 0)
@@ -44,7 +44,7 @@ internal static class CandidatesFile
             var restored = new List<string>();
             if (at > 0 && lines[at - 1].Trim().Length > 0)
                 restored.Add(string.Empty);
-            restored.Add("## " + StructureWords.Candidates.In(language));
+            restored.Add("## " + StructureWords.Candidates);
             restored.Add(string.Empty);
             restored.AddRange(block);
             if (rejection >= 0)
@@ -61,7 +61,7 @@ internal static class CandidatesFile
     /// <c>null</c> when no such candidate exists.
     /// </summary>
     public static string? AppendOccurrence(
-        string existing, string title, PersonaSection section, PersonaScope scope, DateOnly day, string source, MemoryLanguage language)
+        string existing, string title, PersonaSection section, PersonaScope scope, DateOnly day, string source)
     {
         var cr = TextFile.CarriageReturnOf(existing);
         var lines = existing.Split('\n').ToList();
@@ -115,14 +115,14 @@ internal static class CandidatesFile
 
             // The record goes after the last line of the block's header or its records, whichever comes last.
             var at = Math.Max(Math.Max(lastOccurrence, belongsAt), scopeAt) + 1;
-            lines.Insert(at, Occurrence(day, source, language) + cr);
+            lines.Insert(at, Occurrence(day, source) + cr);
             return string.Concat(lines.Select(line => line + "\n"));
         }
 
         return null;
     }
 
-    /// <summary>An occurrence record: the day and the user's own words in the memory language.</summary>
-    private static string Occurrence(DateOnly day, string source, MemoryLanguage language) =>
-        $"- {day:yyyy-MM-dd} {StructureWords.Quote.In(language)}「{source}」";
+    /// <summary>An occurrence record: the day and the user's own words.</summary>
+    private static string Occurrence(DateOnly day, string source) =>
+        $"- {day:yyyy-MM-dd} {StructureWords.Quote}「{source}」";
 }

@@ -92,7 +92,7 @@ internal static class UnitKinds
     /// <summary>A dated line of a month file of the recent activity log.</summary>
     public const string Activity = "activity";
 
-    /// <summary>A summary line of the <c>## 汇总</c> section of a month file: a retrieval unit of the activity kind.</summary>
+    /// <summary>A summary line of the <c>## Summary</c> section of a month file: a retrieval unit of the activity kind.</summary>
     public const string Summary = "summary";
 
     /// <summary>An entry of <c>persona.md</c>; indexed for judgments only, never returned by search.</summary>

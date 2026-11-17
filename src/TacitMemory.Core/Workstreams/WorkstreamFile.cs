@@ -18,9 +18,9 @@ internal sealed record WorkstreamEntry(string Name, string Background, string? R
 internal sealed record WorkstreamParse(IReadOnlyList<WorkstreamEntry> Entries, IReadOnlyList<FormatIssue> Problems, IReadOnlyList<string> Names);
 
 /// <summary>
-/// <c>workstreams.md</c>, the file that decides which workstreams are established. Under one <c>## 主线</c> heading (or
-/// <c>## Workstream</c>), each workstream has a <c>### name</c> heading, a <c>背景：</c> (<c>Background:</c>) line, and an
-/// optional <c>近况：</c> (<c>Recent:</c>) line. A name with a complete entry is established; a name that only appears in a
+/// <c>workstreams.md</c>, the file that decides which workstreams are established. Under one <c>## Workstream</c>
+/// heading, each workstream has a <c>### name</c> heading, a <c>Background:</c> line, and an optional <c>Recent:</c>
+/// line. A name with a complete entry is established; a name that only appears in a
 /// page folder or an activity label is not, and the service leaves it alone. Only the user establishes a workstream, by
 /// having the consolidation write its entry.
 /// </summary>
@@ -65,13 +65,13 @@ internal static class WorkstreamFile
                 continue;
             }
 
-            if (current is not null && TryField(line, StructureWords.Background, out var background) && current.Background is null)
+            if (current is not null && StructureWords.After(line, StructureWords.Background) is { } background && current.Background is null)
             {
                 current.Background = background;
                 continue;
             }
 
-            if (current is not null && TryField(line, StructureWords.Recent, out var recent) && current.Recent is null)
+            if (current is not null && StructureWords.After(line, StructureWords.Recent) is { } recent && current.Recent is null)
             {
                 current.Recent = recent;
                 continue;
@@ -94,7 +94,7 @@ internal static class WorkstreamFile
                     $"The workstream name \"{entry.Name}\" has {counts[entry.Name]} entries; keep one.", FormatHandling.FixDirectly));
             if (string.IsNullOrWhiteSpace(entry.Background))
                 problems.Add(new FormatIssue("", at, "Missing background",
-                    $"The workstream \"{entry.Name}\" has no background line (\"{StructureWords.Background.Zh}：\" or \"{StructureWords.Background.En}:\").", FormatHandling.FixDirectly));
+                    $"The workstream \"{entry.Name}\" has no background line (\"{StructureWords.Background}:\").", FormatHandling.FixDirectly));
 
             if (nameValid && counts[entry.Name] == 1 && !string.IsNullOrWhiteSpace(entry.Background))
                 established.Add(new WorkstreamEntry(entry.Name, entry.Background!, string.IsNullOrWhiteSpace(entry.Recent) ? null : entry.Recent));
@@ -103,27 +103,7 @@ internal static class WorkstreamFile
         return new WorkstreamParse(established, problems, entries.Select(entry => entry.Name).ToList());
     }
 
-    private static bool IsSectionHeading(string heading) =>
-        heading == StructureWords.Workstream.Zh || string.Equals(heading, StructureWords.Workstream.En, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>A field line: the label, then a colon in either form, then the value. Labels match in either language.</summary>
-    private static bool TryField(string line, Localized label, out string value)
-    {
-        foreach (var form in new[] { label.Zh, label.En })
-        {
-            if (!line.StartsWith(form, StringComparison.OrdinalIgnoreCase) || line.Length == form.Length)
-                continue;
-            var separator = line[form.Length];
-            if (separator is '：' or ':')
-            {
-                value = line[(form.Length + 1)..].Trim();
-                return true;
-            }
-        }
-
-        value = "";
-        return false;
-    }
+    private static bool IsSectionHeading(string heading) => StructureWords.Is(heading, StructureWords.Workstream);
 
     private static FormatIssue Unrecognized(string at, string line) =>
         new("", at, "Unrecognized line", $"The line \"{line}\" is neither a workstream heading, a workstream name, nor a background or recent line.", FormatHandling.FixDirectly);

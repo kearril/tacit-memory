@@ -73,7 +73,7 @@ public sealed class ActivityApiTests : IAsyncLifetime
             - [mac-mini] 第三条
             - 没有标注的一条
 
-            ## 汇总
+            ## Summary
             - 2026-W44：汇总不计
             """);
         WriteMonth("2026-11", """

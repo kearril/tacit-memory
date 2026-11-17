@@ -743,6 +743,8 @@ export const zh = {
       trail: "位置",
       notFound: "找不到这个细节页",
       contents: "小节",
+      /** The sections the service recognizes, which keep their English names in the file. */
+      sectionNames: { lesson: "教训", overturned: "推翻记录", leftovers: "遗留" },
       noSections: "这一页没有小节",
       emptySection: "这一节是空的",
       dates: (first: string, last: string) => (first === last ? first : `${first} – ${last}`),

@@ -764,6 +764,8 @@ export const en = {
       trail: "Location",
       notFound: "This page does not exist",
       contents: "Sections",
+      /** The sections the service recognizes, which keep their English names in the file. */
+      sectionNames: { lesson: "Lesson", overturned: "Overturned", leftovers: "Leftovers" },
       noSections: "This page has no sections",
       emptySection: "This section is empty",
       dates: (first, last) => (first === last ? first : `${first} – ${last}`),

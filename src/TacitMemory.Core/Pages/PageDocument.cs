@@ -126,13 +126,26 @@ internal sealed partial class PageDocument
     public static (PageType? Type, string? Written) BrowseTypeOf(string? type) =>
         PageTypeOf(type) is { } known ? (known, null) : (null, type);
 
-    /// <summary>The "Leftovers" section (遗留), which a work page lists its open items under; null when it has none.</summary>
-    public PageSection? Leftovers => SectionNamed(StructureWords.Leftovers);
+    /// <summary>The "Leftovers" section, which a work page lists its open items under; null when it has none.</summary>
+    public PageSection? Leftovers => SectionNamed(RecognizedSection.Leftovers);
 
-    /// <summary>The "Overturned" section (推翻记录), which a decision page names the page that replaced it under; null when it has none.</summary>
-    public PageSection? Overturned => SectionNamed(StructureWords.Overturned);
+    /// <summary>The "Overturned" section, which a decision page names the page that replaced it under; null when it has none.</summary>
+    public PageSection? Overturned => SectionNamed(RecognizedSection.Overturned);
 
-    private PageSection? SectionNamed(Localized word) => Sections.FirstOrDefault(section => word.Matches(section.Name));
+    /// <summary>The "Lesson" section, which an incident page states its rule under; null when it has none.</summary>
+    public PageSection? Lesson => SectionNamed(RecognizedSection.Lesson);
+
+    private PageSection? SectionNamed(RecognizedSection recognized) => Sections.FirstOrDefault(section => RecognizedOf(section.Name) == recognized);
+
+    /// <summary>
+    /// The recognized section a section's name is, ignoring case; null for any other. Only the English word is
+    /// recognized: a section named in another language is content.
+    /// </summary>
+    public static RecognizedSection? RecognizedOf(string name) =>
+        StructureWords.Is(name, StructureWords.Lesson) ? RecognizedSection.Lesson
+        : StructureWords.Is(name, StructureWords.Overturned) ? RecognizedSection.Overturned
+        : StructureWords.Is(name, StructureWords.Leftovers) ? RecognizedSection.Leftovers
+        : null;
 
     private static FormatIssue Fix(string location, string kind, string description) =>
         new("", location, kind, description, FormatHandling.FixDirectly);

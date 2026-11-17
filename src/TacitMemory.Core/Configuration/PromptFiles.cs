@@ -38,12 +38,12 @@ internal static partial class PromptFiles
 
     /// <summary>
     /// The built-in text of a document in the form of its file, which applies while the file is absent: the recording
-    /// criteria are in the memory language, and <c>skill.md</c> has none.
+    /// criteria are English like everything only the agent reads, and <c>skill.md</c> has none.
     /// </summary>
-    public static string DefaultText(PromptName name, MemoryLanguage language) => name switch
+    public static string DefaultText(PromptName name) => name switch
     {
         PromptName.Instructions => ServerInstructionText.DefaultInstructions,
-        PromptName.Rules => RulesFile.Compose(RulesFile.Default(language), language),
+        PromptName.Rules => RulesFile.Compose(RulesFile.Default),
         PromptName.Resident => ResidentFile.Compose(ResidentBlock.Default),
         PromptName.Skill => "",
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
@@ -138,7 +138,7 @@ internal static partial class PromptFiles
         var path = PathOf(tacitHome, name);
         if (!File.Exists(path))
         {
-            var builtIn = DefaultText(name, language);
+            var builtIn = DefaultText(name);
             return new PromptDocumentView(name, builtIn, BuiltIn: true, Hash: null, Measure(language, running, name, builtIn), problem);
         }
         var text = File.ReadAllText(path, Utf8);

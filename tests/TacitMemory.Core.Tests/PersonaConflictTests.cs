@@ -24,21 +24,21 @@ public sealed class PersonaConflictTests : IDisposable
     private string Commits => TestHome.Git(_home.DefaultMemory, "rev-list", "--count", "HEAD").Trim();
 
     private const string Fixture = """
-        ## 红线
+        ## Red lines
         - 不要删库；改为先备份
-          <!-- 2026-10-25 原话「别删库」 -->
+          <!-- 2026-10-25 quote「别删库」 -->
 
-        ## 协作规则
+        ## Working rules
         - 需求不清时 → 先连续追问
-          <!-- 2026-10-20 原话「先问清楚再动手」 -->
+          <!-- 2026-10-20 quote「先问清楚再动手」 -->
 
-        ## 偏好
+        ## Preferences
         - 沟通：先要结论
-          <!-- 2026-10-21 原话「先说结论」 -->
+          <!-- 2026-10-21 quote「先说结论」 -->
 
-        ## 档案
+        ## Profile
         - 主力语言：C#
-          <!-- 2026-10-01 原话「我用 C#」 -->
+          <!-- 2026-10-01 quote「我用 C#」 -->
 
         """;
 
@@ -166,7 +166,7 @@ public sealed class PersonaConflictTests : IDisposable
     [Fact]
     public async Task Without_other_entries_the_decision_model_is_not_asked()
     {
-        WritePersona("## 偏好\n\n## 档案\n");
+        WritePersona("## Preferences\n\n## Profile\n");
 
         var add = await Add("preferences", "先说明影响范围");
         Assert.False(add.IsError, add.Text);
@@ -203,7 +203,7 @@ public sealed class PersonaConflictTests : IDisposable
         var question = body["questions"]!.AsObject().Single().Value!;
         Assert.Equal("choice", question["type"]!.GetValue<string>());
         Assert.StartsWith("The state is a new entry for the user's persona file", question["instructions"]!.GetValue<string>());
-        Assert.Contains("[偏好] 先说明影响范围", body["state"]!.GetValue<string>());
+        Assert.Contains("[Preferences] 先说明影响范围", body["state"]!.GetValue<string>());
     }
 
     [Fact]
@@ -268,17 +268,17 @@ public sealed class PersonaConflictTests : IDisposable
 
     /// <summary>Two domain blocks below the fixture: one with a preference, one with a working rule.</summary>
     private const string DomainBlocks = """
-        ## 领域：network-proxy
-        触发：改代理、分流或测速时
-        ### 偏好
+        ## Domain: network-proxy
+        Trigger: 改代理、分流或测速时
+        ### Preferences
         - 沟通：先展示测速数据
-          <!-- 2026-10-22 原话「先看数据」 -->
+          <!-- 2026-10-22 quote「先看数据」 -->
 
-        ## 领域：release
-        触发：发版时
-        ### 协作规则
+        ## Domain: release
+        Trigger: 发版时
+        ### Working rules
         - 发版前 → 先跑全量测试
-          <!-- 2026-10-23 原话「发版先测」 -->
+          <!-- 2026-10-23 quote「发版先测」 -->
 
         """;
 
@@ -338,8 +338,8 @@ public sealed class PersonaConflictTests : IDisposable
         Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
         Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
         var text = File.ReadAllText(PersonaMd);
-        var domain = text.IndexOf("## 领域：network-proxy", StringComparison.Ordinal);
-        var next = text.IndexOf("## 领域：release", StringComparison.Ordinal);
+        var domain = text.IndexOf("## Domain: network-proxy", StringComparison.Ordinal);
+        var next = text.IndexOf("## Domain: release", StringComparison.Ordinal);
         var replaced = text.IndexOf("- 沟通：先展示测速数据并附依据", StringComparison.Ordinal);
         Assert.True(domain < replaced && replaced < next, text);
     }

@@ -52,15 +52,15 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
     /// One existing entry as the question offers it: its kind, its section and its scope in brackets, then its text, cut to
     /// the option length.
     /// </summary>
-    internal static string OptionText(string kind, PersonaScope scope, PersonaSection section, string text, MemoryLanguage language)
+    internal static string OptionText(string kind, PersonaScope scope, PersonaSection section, string text)
     {
-        var label = $"[{kind} | {PersonaDocument.HeadingOf(section).In(language)} | {scope}] {text}";
+        var label = $"[{kind} | {PersonaDocument.HeadingOf(section)} | {scope}] {text}";
         return label.Length > OptionLength ? label[..OptionLength] : label;
     }
 
     /// <summary>The new preference as the question states it: its section in brackets, then its text.</summary>
-    internal static string StateOf(string text, PersonaSection section, MemoryLanguage language) =>
-        $"[{PersonaDocument.HeadingOf(section).In(language)}] {text}";
+    internal static string StateOf(string text, PersonaSection section) =>
+        $"[{PersonaDocument.HeadingOf(section)}] {text}";
 
     public async Task<SamePreferenceVerdict> RunAsync(string text, PersonaSection section, CancellationToken cancellationToken)
     {
@@ -81,12 +81,12 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
                 var options = index.SearchJudgments(vector[0], Sources, OtherOptions)
                     .Where(hit => hit.Section is not null)
                     .Select(hit => new ChoiceOption<PreferenceMatch>(
-                        OptionText(hit.Kind, hit.Scope, hit.Section!.Value, hit.Text, config.Language),
+                        OptionText(hit.Kind, hit.Scope, hit.Section!.Value, hit.Text),
                         new PreferenceMatch(hit.Kind, hit.Section!.Value, hit.Text, hit.Scope)))
                     .ToList();
                 return options.Count == 0
                     ? PreparedChoice<PreferenceMatch>.Nothing
-                    : new PreparedChoice<PreferenceMatch>(new ChoiceQuestion<PreferenceMatch>(StateOf(text, section, config.Language), Instructions, NoneText, options), null);
+                    : new PreparedChoice<PreferenceMatch>(new ChoiceQuestion<PreferenceMatch>(StateOf(text, section), Instructions, NoneText, options), null);
             },
             config.Decision.SamePreference ?? Judgment.SamePreference,
             cancellationToken);

@@ -67,6 +67,9 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
         var result = json["results"]!.AsArray()[0]!;
         Assert.Equal("page", result["kind"]!.GetValue<string>());
         Assert.Equal("ops/rollback", result["page"]!.GetValue<string>());
+        var shown = result["sections"]!.AsArray()[0]!;
+        Assert.Equal("回滚步骤", shown["name"]!.GetValue<string>());
+        Assert.Null(shown["recognized"]);
         Assert.Contains("ops/rollback", json["text"]!.GetValue<string>());
         var unit = json["units"]!.AsArray().First(unit => unit!["section"]?.GetValue<string>() == "回滚步骤")!;
         Assert.Equal("shown", unit["fate"]!.GetValue<string>());

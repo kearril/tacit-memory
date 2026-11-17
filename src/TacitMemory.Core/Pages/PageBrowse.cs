@@ -57,7 +57,8 @@ internal static class PageBrowse
             .ToList();
         var sections = (document?.Sections ?? [])
             .Select(section => new PageSectionView(
-                section.Name, section.Code, Day(changes.TryGetValue(section.Name, out var day) ? day : null), returns.GetValueOrDefault(section.Name), section.Body, SourceComment.In(section.Body)))
+                section.Name, section.Code, Day(changes.TryGetValue(section.Name, out var day) ? day : null), returns.GetValueOrDefault(section.Name), section.Body,
+                SourceComment.In(section.Body), PageDocument.RecognizedOf(section.Name)))
             .ToList();
         var (type, written) = PageDocument.BrowseTypeOf(header.Type);
         return new PageView(

@@ -34,9 +34,9 @@ public sealed class ConsolidationCandidateTests : IDisposable
     private const string Removal = "Persona candidates to remove";
 
     private const string PersonaWithPreference =
-        "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n\n## 档案\n";
+        "## Red lines\n\n## Working rules\n\n## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-20 quote「先要结论」 -->\n\n## Profile\n";
 
-    private const string EmptyPersona = "## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n";
+    private const string EmptyPersona = "## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n";
 
     private const string Candidate = "回答尽量简短";
 
@@ -49,10 +49,10 @@ public sealed class ConsolidationCandidateTests : IDisposable
     }
 
     /// <summary>A candidates file with the given candidate blocks and an empty rejection list.</summary>
-    private static string Candidates(params string[] blocks) => "## 候选\n\n" + string.Concat(blocks) + "## 拒绝列表\n";
+    private static string Candidates(params string[] blocks) => "## Candidates\n\n" + string.Concat(blocks) + "## Rejection list\n";
 
     private static string Block(string title, params string[] days) =>
-        $"### {title}\n归属：偏好\n" + string.Concat(days.Select(day => $"- {day} 原话「{day}的话」\n")) + "\n";
+        $"### {title}\nBelongs to: Preferences\n" + string.Concat(days.Select(day => $"- {day} quote「{day}的话」\n")) + "\n";
 
     /// <summary>Makes the decision model pick the option whose text contains <paramref name="contains"/> with <paramref name="probability"/>.</summary>
     private void PickOption(string contains, double probability) =>
@@ -91,7 +91,7 @@ public sealed class ConsolidationCandidateTests : IDisposable
     public async Task A_candidate_the_decision_model_is_sure_repeats_a_rejected_candidate_is_listed_for_removal_even_on_one_day()
     {
         Configure();
-        Write(EmptyPersona, "## 候选\n\n" + Block(Candidate, "2026-10-31") + "## 拒绝列表\n\n" + Block(Candidate, "2026-10-20").Replace("原话", "拒绝 原话", StringComparison.Ordinal));
+        Write(EmptyPersona, "## Candidates\n\n" + Block(Candidate, "2026-10-31") + "## Rejection list\n\n" + Block(Candidate, "2026-10-20").Replace("quote", "rejected quote", StringComparison.Ordinal));
         PickOption(Candidate, 0.95);
 
         var report = await Consolidation();
@@ -131,8 +131,8 @@ public sealed class ConsolidationCandidateTests : IDisposable
     public async Task Only_persona_entries_and_rejected_candidates_are_offered_to_the_decision_model()
     {
         Configure();
-        Write(PersonaWithPreference, "## 候选\n\n" + Block(Candidate, "2026-10-30", "2026-10-31") + Block("另一个候选", "2026-10-30")
-            + "## 拒绝列表\n\n" + Block("被拒的偏好", "2026-10-20").Replace("原话", "拒绝 原话", StringComparison.Ordinal));
+        Write(PersonaWithPreference, "## Candidates\n\n" + Block(Candidate, "2026-10-30", "2026-10-31") + Block("另一个候选", "2026-10-30")
+            + "## Rejection list\n\n" + Block("被拒的偏好", "2026-10-20").Replace("quote", "rejected quote", StringComparison.Ordinal));
 
         await Consolidation();
 

@@ -1,7 +1,7 @@
 namespace TacitMemory.Core.Tests;
 
 /// <summary>
-/// Week and month summaries in the <c>## 汇总</c> section of a month file: retrieval, the same-topic check, writing a new
+/// Week and month summaries in the <c>## Summary</c> section of a month file: retrieval, the same-topic check, writing a new
 /// activity next to them, and the same-topic check for activities written next to them.
 /// </summary>
 public sealed class SummaryTests : IDisposable
@@ -44,7 +44,7 @@ public sealed class SummaryTests : IDisposable
     [Fact]
     public async Task A_week_summary_is_recalled_as_an_activity_and_labelled_as_a_summary_of_its_week()
     {
-        Month("## 2026-11-02\n- 想清楚了画像的分工\n\n## 汇总\n- 2026-W45：本周整理了画像与记忆结构\n");
+        Month("## 2026-11-02\n- 想清楚了画像的分工\n\n## Summary\n- 2026-W45：本周整理了画像与记忆结构\n");
 
         var result = await Recall("画像", kind: "activities");
 
@@ -55,9 +55,19 @@ public sealed class SummaryTests : IDisposable
     }
 
     [Fact]
+    public async Task The_summary_heading_is_found_whatever_its_case()
+    {
+        Month("## 2026-11-02\n- 想清楚了画像的分工\n\n## summary\n- 2026-W45：本周整理了画像与记忆结构\n");
+
+        var result = await Recall("画像", kind: "activities");
+
+        Assert.Contains("summary, week starting 2026-11-02", result.Text);
+    }
+
+    [Fact]
     public async Task A_month_summary_is_recalled_and_labelled_with_its_month()
     {
-        Month("## 汇总\n- 2026-11：十一月主要在做记忆重设计\n");
+        Month("## Summary\n- 2026-11：十一月主要在做记忆重设计\n");
 
         var result = await Recall("重设计", kind: "activities");
 
@@ -68,7 +78,7 @@ public sealed class SummaryTests : IDisposable
     [Fact]
     public async Task Summaries_are_left_out_of_pages_workstreams_and_dates_outside_their_period()
     {
-        Month("## 汇总\n- 2026-W45：本周整理了画像\n");
+        Month("## Summary\n- 2026-W45：本周整理了画像\n");
 
         var pages = await Recall("画像", kind: "pages");
         var labelled = await Recall("画像", kind: "activities", workstream: "tacit-memory");
@@ -85,7 +95,7 @@ public sealed class SummaryTests : IDisposable
     public async Task A_week_across_the_year_end_is_found_by_its_iso_week_dates()
     {
         // 2026-W53 runs from Monday 2026-12-28 to Sunday 2027-01-03, and its Thursday is 2026-12-31, so it lives in 2026-12.md.
-        Month("## 汇总\n- 2026-W53：跨年的一周\n", month: "2026-12");
+        Month("## Summary\n- 2026-W53：跨年的一周\n", month: "2026-12");
 
         var onNewYearsDay = await Recall("跨年", kind: "activities", from: "2027-01-01", to: "2027-01-01");
         var afterTheWeek = await Recall("跨年", kind: "activities", from: "2027-01-04", to: "2027-01-10");
@@ -98,7 +108,7 @@ public sealed class SummaryTests : IDisposable
     [Fact]
     public async Task A_summary_is_not_offered_to_the_same_topic_check()
     {
-        Month("## 2026-11-02\n- 今天先做的一件事\n\n## 汇总\n- 2026-W45：汇总里的一句话不该被比对\n");
+        Month("## 2026-11-02\n- 今天先做的一件事\n\n## Summary\n- 2026-W45：汇总里的一句话不该被比对\n");
         IReadOnlyDictionary<string, string>? offered = null;
         _models.Choose = (_, options) =>
         {
@@ -116,24 +126,24 @@ public sealed class SummaryTests : IDisposable
     [Fact]
     public async Task Adding_an_activity_leaves_the_summary_section_and_every_other_byte_alone()
     {
-        Month("## 2026-11-02\n- 早上的活动\n\n## 汇总\n- 2026-W45：本周\n- 2026-11：本月\n");
+        Month("## 2026-11-02\n- 早上的活动\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n");
 
         await Write("下午的活动");
 
         Assert.Equal(
-            "## 2026-11-02\n- 早上的活动\n- 下午的活动\n\n## 汇总\n- 2026-W45：本周\n- 2026-11：本月\n",
+            "## 2026-11-02\n- 早上的活动\n- 下午的活动\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n",
             File.ReadAllText(MonthFile()));
     }
 
     [Fact]
     public async Task An_activity_on_a_day_with_no_heading_gets_a_heading_above_the_summary_section()
     {
-        Month("## 汇总\n- 2026-W45：本周\n- 2026-11：本月\n");
+        Month("## Summary\n- 2026-W45：本周\n- 2026-11：本月\n");
 
         await Write("第一件事");
 
         Assert.Equal(
-            "## 2026-11-02\n- 第一件事\n\n## 汇总\n- 2026-W45：本周\n- 2026-11：本月\n",
+            "## 2026-11-02\n- 第一件事\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n",
             File.ReadAllText(MonthFile()));
     }
 
@@ -144,7 +154,7 @@ public sealed class SummaryTests : IDisposable
         await Recall("记忆结构", kind: "activities");
 
         // Hand edits reach the index on the next write (or a restart, or reindex), as for activities.
-        Month("## 2026-11-02\n- 最早的活动\n\n## 汇总\n- 2026-W45：记忆结构在这一周定下来\n");
+        Month("## 2026-11-02\n- 最早的活动\n\n## Summary\n- 2026-W45：记忆结构在这一周定下来\n");
         await Write("之后的一件事");
         var result = await Recall("记忆结构", kind: "activities");
 

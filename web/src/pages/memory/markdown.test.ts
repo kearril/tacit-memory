@@ -10,8 +10,8 @@ describe("parseMarkdown", () => {
   it("shows a comment on its own line as the source the service read from it, and drops any other comment", () => {
     expect(
       parseMarkdown(
-        "失败先回滚。\n\n<!-- 2026-11-01 原话「先回滚」 -->\n\n<!-- 备注 -->",
-        sources(["<!-- 2026-11-01 原话「先回滚」 -->", "2026-11-01", "先回滚"]),
+        "失败先回滚。\n\n<!-- 2026-11-01 quote「先回滚」 -->\n\n<!-- 备注 -->",
+        sources(["<!-- 2026-11-01 quote「先回滚」 -->", "2026-11-01", "先回滚"]),
       ),
     ).toEqual([
       { type: "paragraph", inlines: [{ type: "text", text: "失败先回滚。" }] },
@@ -38,7 +38,7 @@ describe("parseMarkdown", () => {
   });
 
   it("drops a comment the service did not read as a source, however it looks", () => {
-    expect(parseMarkdown("正文\n\n<!-- 2026-11-01 原话「看着像」 -->", [])).toEqual([
+    expect(parseMarkdown("正文\n\n<!-- 2026-11-01 quote「看着像」 -->", [])).toEqual([
       { type: "paragraph", inlines: [{ type: "text", text: "正文" }] },
     ]);
   });
@@ -46,8 +46,8 @@ describe("parseMarkdown", () => {
   it("reads a source comment under a list item as a source of that item", () => {
     expect(
       parseMarkdown(
-        "- 蓝绿部署\n  <!-- 2026-11-02 原话「用蓝绿」 -->",
-        sources(["<!-- 2026-11-02 原话「用蓝绿」 -->", "2026-11-02", "用蓝绿"]),
+        "- 蓝绿部署\n  <!-- 2026-11-02 quote「用蓝绿」 -->",
+        sources(["<!-- 2026-11-02 quote「用蓝绿」 -->", "2026-11-02", "用蓝绿"]),
       ),
     ).toEqual([
       {

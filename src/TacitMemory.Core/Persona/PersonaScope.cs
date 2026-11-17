@@ -80,46 +80,24 @@ internal sealed record PersonaScope(PersonaScopeKind Kind, string Name)
         return Global;
     }
 
-    /// <summary>The block heading in the memory language: <c>领域：&lt;标签&gt;</c> or <c>Domain: &lt;label&gt;</c>, without its <c>## </c>.</summary>
-    public string HeadingIn(MemoryLanguage language) => Word(language) + Separator(language) + Name;
+    /// <summary>The block heading, <c>Domain: &lt;label&gt;</c> or <c>Workstream: &lt;name&gt;</c>, without its <c>## </c>.</summary>
+    public string Heading => Word + StructureWords.Separator + Name;
 
     /// <summary>The structure word that names the scope's kind; null for the global scope.</summary>
-    public string? Word(MemoryLanguage language) => Kind switch
+    public string? Word => Kind switch
     {
-        PersonaScopeKind.Workstream => StructureWords.Workstream.In(language),
-        PersonaScopeKind.Domain => StructureWords.Domain.In(language),
+        PersonaScopeKind.Workstream => StructureWords.Workstream,
+        PersonaScopeKind.Domain => StructureWords.Domain,
         _ => null,
     };
-
-    /// <summary>The colon after a structure word: the full-width colon in Chinese, a colon and a space in English.</summary>
-    internal static string Separator(MemoryLanguage language) => language == MemoryLanguage.Zh ? "：" : ": ";
 
     /// <summary>The scope a block heading names, as written; null when the heading does not name a domain or a workstream.</summary>
     internal static PersonaScope? OfHeading(string heading)
     {
-        if (StructureWordAfter(heading, StructureWords.Domain) is { } domain)
+        if (StructureWords.After(heading, StructureWords.Domain) is { } domain)
             return new PersonaScope(PersonaScopeKind.Domain, domain);
-        if (StructureWordAfter(heading, StructureWords.Workstream) is { } workstream)
+        if (StructureWords.After(heading, StructureWords.Workstream) is { } workstream)
             return new PersonaScope(PersonaScopeKind.Workstream, workstream);
-        return null;
-    }
-
-    /// <summary>
-    /// The text after a structure word and its colon, trimmed, in either language; null when the line does not start with
-    /// the word followed by a colon. Chinese is matched as written, English ignoring case.
-    /// </summary>
-    internal static string? StructureWordAfter(string line, Localized word)
-    {
-        foreach (var form in new[] { word.Zh, word.En })
-        {
-            var comparison = form == word.Zh ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-            if (!line.StartsWith(form, comparison))
-                continue;
-            var rest = line[form.Length..].TrimStart();
-            if (rest.StartsWith('：') || rest.StartsWith(':'))
-                return rest[1..].Trim();
-        }
-
         return null;
     }
 

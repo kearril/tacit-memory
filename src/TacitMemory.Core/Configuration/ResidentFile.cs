@@ -9,7 +9,7 @@ internal sealed record ResidentSection(string Name, ResidentPart Part, string Ti
 /// <summary>
 /// <c>resident.md</c>: the shell paragraph and the guidance of the resident block. The text before the first
 /// <c>## </c> heading is the shell; the text under each heading in <see cref="Sections"/> is that section's guidance.
-/// Headings match exactly, in every language; the text is kept as written. A heading that is not one of the sections, or a
+/// Headings match exactly; the text is kept as written. A heading that is not one of the sections, or a
 /// repeated one, is refused.
 /// </summary>
 internal static class ResidentFile

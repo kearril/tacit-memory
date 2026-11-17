@@ -13,15 +13,15 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class SummaryMaterial
 {
-    /// <summary>The group of the activities that have no workstream label, in the memory language.</summary>
-    private static readonly Localized OtherGroup = new("其他", "Other");
+    /// <summary>The group of the activities that have no workstream label.</summary>
+    private const string OtherGroup = "Other";
 
     /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by workstream.</summary>
     public static ConsolidationSection Weeks(ConsolidationContext context) =>
         new(ConsolidationTitles.WeeksToSummarize,
             SummaryCalendar.Unsummarized(context.Config.MemoryPath, context.Today)
                 .Where(period => period.Kind == SummaryKind.Week)
-                .Select(period => WeekFinding(context.Config.Language, period))
+                .Select(WeekFinding)
                 .ToList());
 
     /// <summary>Each completed month that lacks a summary, oldest first, with the week summaries written in its file.</summary>
@@ -93,7 +93,7 @@ internal static class SummaryMaterial
     /// One week as a finding: its label and dates, the month file its summary goes into, and its activities grouped by workstream,
     /// the workstreams in name order and the activities that have none last. Each activity is its text as the log holds it.
     /// </summary>
-    private static string WeekFinding(MemoryLanguage language, UnsummarizedPeriod period)
+    private static string WeekFinding(UnsummarizedPeriod period)
     {
         var lines = new List<string>
         {
@@ -105,7 +105,7 @@ internal static class SummaryMaterial
             .ThenBy(group => group.Key, StringComparer.Ordinal);
         foreach (var group in groups)
         {
-            lines.Add($"  - {group.Key ?? OtherGroup.In(language)}:");
+            lines.Add($"  - {group.Key ?? OtherGroup}:");
             lines.AddRange(group.Select(activity => $"    - {Day(activity.Day)} {activity.Body}"));
         }
 

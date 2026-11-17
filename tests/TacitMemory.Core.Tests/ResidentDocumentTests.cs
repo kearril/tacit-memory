@@ -27,16 +27,16 @@ public sealed class ResidentDocumentTests : IDisposable
 
     /// <summary>A persona with one entry under each of the four sections, so every guidance line has something under it.</summary>
     private void WriteFullPersona() => File.WriteAllText(PersonaMd, """
-        ## 红线
+        ## Red lines
         - r1
 
-        ## 协作规则
+        ## Working rules
         - w1
 
-        ## 偏好
+        ## Preferences
         - p1
 
-        ## 档案
+        ## Profile
         - f1
 
         """.ReplaceLineEndings("\n"));
@@ -87,7 +87,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         AssertInOrder(Agents(),
             "## Situational rules\nEach line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.\n",
-            "- network-proxy：改代理、分流或测速时（1 条）\n");
+            "- network-proxy: 改代理、分流或测速时 (1 entry)\n");
     }
 
     [Fact]
@@ -368,25 +368,25 @@ public sealed class ResidentDocumentTests : IDisposable
 
     /// <summary>The global four sections, a domain with one entry, and a workstream block with one entry.</summary>
     private void WriteScopedPersona() => File.WriteAllText(PersonaMd, """
-        ## 红线
+        ## Red lines
         - r1
 
-        ## 协作规则
+        ## Working rules
         - w1
 
-        ## 偏好
+        ## Preferences
         - p1
 
-        ## 档案
+        ## Profile
         - f1
 
-        ## 领域：network-proxy
-        触发：改代理、分流或测速时
-        ### 协作规则
+        ## Domain: network-proxy
+        Trigger: 改代理、分流或测速时
+        ### Working rules
         - 域内规则XYZ
 
-        ## 主线：alpha
-        ### 协作规则
+        ## Workstream: alpha
+        ### Working rules
         - 项目规则QRS
 
         """.ReplaceLineEndings("\n"));
@@ -407,15 +407,15 @@ public sealed class ResidentDocumentTests : IDisposable
     public void The_block_lists_the_domain_index_and_the_workstreams_after_the_global_sections()
     {
         WriteScopedPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在收敛。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 在收敛。\n");
         WriteMonth("2026-11", "## 2026-11-02\n- [alpha] 今天的事\n");
 
         _home.Bind();
 
         AssertInOrder(Agents(),
             "- f1\n\n## Situational rules\n",
-            "- network-proxy：改代理、分流或测速时（1 条）\n",
-            "- alpha：一号主线。 近况：在收敛。\n",
+            "- network-proxy: 改代理、分流或测速时 (1 entry)\n",
+            "- alpha: 一号主线。 Recent: 在收敛。\n",
             "</user_memory>");
         Assert.DoesNotContain("## Recent weeks", Agents());
     }
@@ -425,18 +425,18 @@ public sealed class ResidentDocumentTests : IDisposable
     {
         WriteFullPersona();
         File.WriteAllText(WorkstreamsMd, """
-            ## 主线
+            ## Workstream
             ### gamma
-            背景：三号。
-            近况：静止的近况。
+            Background: 三号。
+            Recent: 静止的近况。
             ### alpha
-            背景：一号。
-            近况：较早的近况。
+            Background: 一号。
+            Recent: 较早的近况。
             ### beta
-            背景：二号。
-            近况：最新的近况。
+            Background: 二号。
+            Recent: 最新的近况。
             ### delta
-            背景：四号。
+            Background: 四号。
 
             """.ReplaceLineEndings("\n"));
         WriteMonth("2026-11", "## 2026-11-01\n- [alpha] 较早的事\n## 2026-11-02\n- [beta] 最新的事\n");
@@ -444,21 +444,21 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
 
         AssertInOrder(Agents(),
-            "- beta：二号。 近况：最新的近况。\n",
-            "- alpha：一号。 近况：较早的近况。\n",
-            "- delta：四号。\n",
-            "- gamma：三号。\n");
+            "- beta: 二号。 Recent: 最新的近况。\n",
+            "- alpha: 一号。 Recent: 较早的近况。\n",
+            "- delta: 四号。\n",
+            "- gamma: 三号。\n");
     }
 
     [Fact]
     public void A_quiet_workstream_shows_only_its_name_and_background()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在收敛。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 在收敛。\n");
 
         _home.Bind();
 
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.DoesNotContain("在收敛", Agents());
     }
 
@@ -466,7 +466,7 @@ public sealed class ResidentDocumentTests : IDisposable
     public void A_workstream_without_a_background_line_or_with_a_bad_name_stays_out_of_the_block()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### nobg\n近况：没有背景。\n### Bad-Name\n背景：名字不合规。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### nobg\nRecent: 没有背景。\n### Bad-Name\nBackground: 名字不合规。\n");
 
         _home.Bind();
 
@@ -477,13 +477,13 @@ public sealed class ResidentDocumentTests : IDisposable
     public void Workstreams_that_only_appear_as_directories_or_activity_labels_stay_out_of_the_block()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\n");
         Directory.CreateDirectory(Path.Combine(Pages, "zeta"));
         WriteMonth("2026-11", "## 2026-11-02\n- [zeta] 未成立的事\n");
 
         _home.Bind();
 
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.DoesNotContain("zeta", Agents());
     }
 
@@ -491,19 +491,19 @@ public sealed class ResidentDocumentTests : IDisposable
     public void Every_domain_gets_an_index_row_however_many_there_are()
     {
         File.WriteAllText(PersonaMd, """
-            ## 领域：dom-a
-            触发：A时
-            ### 偏好
+            ## Domain: dom-a
+            Trigger: A时
+            ### Preferences
             - a1
 
-            ## 领域：dom-b
-            触发：B时
-            ### 偏好
+            ## Domain: dom-b
+            Trigger: B时
+            ### Preferences
             - b1
 
-            ## 领域：dom-c
-            触发：C时
-            ### 偏好
+            ## Domain: dom-c
+            Trigger: C时
+            ### Preferences
             - c1
 
             """.ReplaceLineEndings("\n"));
@@ -511,25 +511,25 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        Assert.Contains("- dom-a：A时（1 条）", text);
-        Assert.Contains("- dom-b：B时（1 条）", text);
-        Assert.Contains("- dom-c：C时（1 条）", text);
+        Assert.Contains("- dom-a: A时 (1 entry)", text);
+        Assert.Contains("- dom-b: B时 (1 entry)", text);
+        Assert.Contains("- dom-c: C时 (1 entry)", text);
     }
 
     [Fact]
     public void A_workstream_leaves_the_active_part_when_the_28_day_window_passes_it()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在做。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 在做。\n");
         WriteMonth("2026-10", "## 2026-10-06\n- [alpha] 窗口的第一天\n");
         _home.Bind();
-        Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。 Recent: 在做。\n", Agents());
 
         // 2026-11-02 counts back 28 days to 2026-10-06; the next day the window starts on 2026-10-07.
         _home.Clock.Advance(TimeSpan.FromDays(1));
         _home.Bind();
 
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.DoesNotContain("在做", Agents());
     }
 
@@ -537,7 +537,7 @@ public sealed class ResidentDocumentTests : IDisposable
     public void A_future_dated_activity_does_not_make_a_workstream_quiet_while_it_has_activity_inside_the_window()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在做。\n### beta\n背景：二号主线。\n近况：最近在做。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 在做。\n### beta\nBackground: 二号主线。\nRecent: 最近在做。\n");
         WriteMonth("2026-10", "## 2026-10-20\n- [alpha] 窗口内的事\n");
         WriteMonth("2026-11", "## 2026-11-01\n- [beta] 较新的事\n## 2026-11-20\n- [alpha] 日期写错的未来活动\n");
 
@@ -546,10 +546,10 @@ public sealed class ResidentDocumentTests : IDisposable
 
         // Today is 2026-11-02: alpha has an activity inside the window, and its newest day not after today is 2026-10-20,
         // so beta, whose newest day is 2026-11-01, comes first.
-        Assert.Contains("- alpha：一号主线。 近况：在做。\n", text);
+        Assert.Contains("- alpha: 一号主线。 Recent: 在做。\n", text);
         AssertInOrder(text,
-            "- beta：二号主线。 近况：最近在做。\n",
-            "- alpha：一号主线。 近况：在做。\n");
+            "- beta: 二号主线。 Recent: 最近在做。\n",
+            "- alpha: 一号主线。 Recent: 在做。\n");
     }
 
     [Fact]
@@ -560,11 +560,11 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        Assert.Contains("- network-proxy：改代理、分流或测速时（1 条）", text);
+        Assert.Contains("- network-proxy: 改代理、分流或测速时 (1 entry)", text);
         Assert.DoesNotContain("域内规则XYZ", text);
         Assert.DoesNotContain("项目规则QRS", text);
-        Assert.DoesNotContain("## 领域", text);
-        Assert.DoesNotContain("## 主线", text);
+        Assert.DoesNotContain("## Domain:", text);
+        Assert.DoesNotContain("## Workstream:", text);
     }
 
     [Fact]
@@ -585,12 +585,12 @@ public sealed class ResidentDocumentTests : IDisposable
     {
         File.WriteAllText(ResidentMd, "SHELL\n\n## situational_rules\nRULES-GUIDE\n\n## workstreams\nWORKSTREAMS-GUIDE\n");
         WriteScopedPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\n");
 
         _home.Bind();
         var text = Agents();
 
-        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha：一号主线。\n</user_memory>");
+        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha: 一号主线。\n</user_memory>");
     }
 
     [Fact]
@@ -608,20 +608,20 @@ public sealed class ResidentDocumentTests : IDisposable
     public async Task Editing_the_workstreams_or_the_activity_log_rerenders_the_block()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：说明。\n近况：在做。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### fresh\nBackground: 说明。\nRecent: 在做。\n");
         _home.Bind();
         using var service = Open();
-        Assert.Contains("- fresh：说明。\n", Agents());
+        Assert.Contains("- fresh: 说明。\n", Agents());
 
         WriteMonth("2026-11", "## 2026-11-02\n- [fresh] 今天的事\n");
         _home.Sources!.MemoryChanged("recent/2026-11.md");
         await service.SettledAsync();
-        Assert.Contains("- fresh：说明。 近况：在做。\n", Agents());
+        Assert.Contains("- fresh: 说明。 Recent: 在做。\n", Agents());
 
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### fresh\n背景：改过的说明。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### fresh\nBackground: 改过的说明。\n");
         _home.Sources!.MemoryChanged("workstreams.md");
         await service.SettledAsync();
-        Assert.Contains("- fresh：改过的说明。\n", Agents());
+        Assert.Contains("- fresh: 改过的说明。\n", Agents());
         Assert.NotNull(service);
     }
 
@@ -629,18 +629,18 @@ public sealed class ResidentDocumentTests : IDisposable
     public async Task The_block_is_rendered_again_when_the_local_date_changes()
     {
         WriteFullPersona();
-        File.WriteAllText(WorkstreamsMd, "## 主线\n### alpha\n背景：一号主线。\n近况：在做。\n");
+        File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 在做。\n");
         WriteMonth("2026-10", "## 2026-10-06\n- [alpha] 窗口的第一天\n");
         _home.Bind();
         using var service = Open();
-        Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。 Recent: 在做。\n", Agents());
 
         // Let the vector fill of the service's start finish first: Elapse would otherwise fire the timeout of a call still in flight.
         await service.SettledAsync();
         _home.Clock.Elapse(TimeSpan.FromDays(1));
 
         await service.SettledAsync();
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.NotNull(service);
     }
 

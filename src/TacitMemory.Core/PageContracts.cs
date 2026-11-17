@@ -16,6 +16,22 @@ public enum PageType
     Work,
 }
 
+/// <summary>
+/// The page sections the service finds by name, in every memory language by their English names; any other section is
+/// content.
+/// </summary>
+public enum RecognizedSection
+{
+    /// <summary><c>Lesson</c>: the rule an incident teaches, which the consolidation report quotes.</summary>
+    Lesson,
+
+    /// <summary><c>Overturned</c>: on a decision page, the page that replaced the decision.</summary>
+    Overturned,
+
+    /// <summary><c>Leftovers</c>: on a work page, the open items the brief lists.</summary>
+    Leftovers,
+}
+
 /// <summary>Every detail page, as the memory page lists them. Reading counts nothing and changes no file.</summary>
 public sealed record PageList(IReadOnlyList<PageListItem> Pages);
 
@@ -73,4 +89,6 @@ public sealed record RelatedPage(string Id, bool Exists);
 /// <param name="Uses">How often <c>recall</c> has returned it.</param>
 /// <param name="Body">Its Markdown as written, without the heading.</param>
 /// <param name="Sources">The source comments in its Markdown, each once, for the page to show where they are.</param>
-public sealed record PageSectionView(string Name, string Code, string? Changed, long Uses, string Body, IReadOnlyList<SourceCommentView> Sources);
+/// <param name="Recognized">Which recognized section it is, for the page to label it; <c>null</c> for any other.</param>
+public sealed record PageSectionView(
+    string Name, string Code, string? Changed, long Uses, string Body, IReadOnlyList<SourceCommentView> Sources, RecognizedSection? Recognized);

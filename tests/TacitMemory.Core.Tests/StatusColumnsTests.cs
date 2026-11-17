@@ -13,7 +13,7 @@ public sealed class StatusColumnsTests : IDisposable
 {
     private static readonly Uri Endpoint = new("http://127.0.0.1:18888/mcp");
 
-    private const string TwoDayCandidate = "## 候选\n\n### 回答尽量简短\n归属：偏好\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n";
+    private const string TwoDayCandidate = "## Candidates\n\n### 回答尽量简短\nBelongs to: Preferences\n- 2026-10-30 quote「别写那么长」\n- 2026-10-31 quote「直接说结论」\n\n## Rejection list\n";
 
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
@@ -383,9 +383,9 @@ public sealed class StatusColumnsTests : IDisposable
     [Fact]
     public async Task The_pending_counts_are_the_numbers_the_consolidation_reminder_shows()
     {
-        File.WriteAllText(PersonaMd, "## 红线\n- 不要删库\n\n## 偏好\n- 沟通：先要结论\n");
+        File.WriteAllText(PersonaMd, "## Red lines\n- 不要删库\n\n## Preferences\n随手写的一行\n- 沟通：先要结论\n");
         File.WriteAllText(CandidatesMd, TwoDayCandidate.ReplaceLineEndings("\n"));
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "workstreams.md"), "## 主线\n### alpha\n背景：有背景的主线。\n");
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "workstreams.md"), "## Workstream\n### alpha\nBackground: 有背景的主线。\n");
         // One candidate is below the default threshold of five, so the reminder is brought by the candidate count alone.
         File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "consolidation:\n  remindCandidates: 1\n");
         var service = Service;
@@ -435,7 +435,7 @@ public sealed class StatusColumnsTests : IDisposable
     [Fact]
     public async Task A_candidates_file_that_is_not_utf8_leaves_its_count_unknown()
     {
-        File.WriteAllBytes(CandidatesMd, Encoding.Latin1.GetBytes("## 候选\n- café\n"));
+        File.WriteAllBytes(CandidatesMd, Encoding.Latin1.GetBytes("## Candidates\n- café\n"));
 
         var pending = (await OfflineReport()).Pending!;
 

@@ -50,7 +50,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.Contains("Memory is written in Chinese.", instructions);
         Assert.Contains("## Recall", instructions);
         Assert.Contains("`recall` first, then update the page", instructions);
-        Assert.Contains("## Worth recording\n- 用户纠正或打断 Agent", instructions);
+        Assert.Contains("## Worth recording\n- The user corrects or interrupts the agent", instructions);
         Assert.Contains("tacit-memory", instructions);
         Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] MCP 接缝测试活动\n</recent_activity>", instructions);
         Assert.DoesNotContain("## Workstreams", instructions);
@@ -495,7 +495,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.NotEqual(true, written.IsError);
         Assert.Matches(@"\[[0-9a-f]{6}\]", Text(written));
         Assert.Contains(
-            "## 偏好\n- 沟通：先要结论\n  <!-- 2026-11-02 原话「先要结论」 -->\n",
+            "## Preferences\n- 沟通：先要结论\n  <!-- 2026-11-02 quote「先要结论」 -->\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
         Assert.True(refused.IsError);
         Assert.Contains("source", Text(refused));
@@ -518,7 +518,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
 
         Assert.NotEqual(true, written.IsError);
         Assert.Contains(
-            "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 切换节点 → 先备份配置\n  <!-- 2026-11-02 原话「先备份」 -->\n",
+            "## Domain: network-proxy\nTrigger: 改代理、分流或测速时\n### Working rules\n- 切换节点 → 先备份配置\n  <!-- 2026-11-02 quote「先备份」 -->\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
     }
 
@@ -527,7 +527,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
     {
         await using var client = await ConnectAsync();
         var persona = Path.Combine(_home.DefaultMemory, "persona.md");
-        File.WriteAllText(persona, "## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n- 反感客套和铺垫\n");
+        File.WriteAllText(persona, "## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-21 quote「先说结论」 -->\n- 反感客套和铺垫\n");
 
         var misplaced = await client.CallToolAsync("write_persona", new Dictionary<string, object?>
         {
@@ -552,7 +552,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.Contains("Call recall with kind=persona", Text(noHash));
         Assert.True(deleteWithText.IsError);
         Assert.Contains("text", Text(deleteWithText));
-        Assert.Equal("## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n- 反感客套和铺垫\n", File.ReadAllText(persona));
+        Assert.Equal("## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-21 quote「先说结论」 -->\n- 反感客套和铺垫\n", File.ReadAllText(persona));
 
         var listed = Text(await client.CallToolAsync("recall", new Dictionary<string, object?> { ["kind"] = "persona" }));
         var code = System.Text.RegularExpressions.Regex.Match(listed, @"\[([0-9a-f]{6})\] 沟通：先要结论").Groups[1].Value;
@@ -572,7 +572,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
 
         Assert.NotEqual(true, replaced.IsError);
         Assert.NotEqual(true, deleted.IsError);
-        Assert.Equal("## 偏好\n- 沟通：先说结论\n  <!-- 2026-11-02 原话「先说结论」 -->\n", File.ReadAllText(persona));
+        Assert.Equal("## Preferences\n- 沟通：先说结论\n  <!-- 2026-11-02 quote「先说结论」 -->\n", File.ReadAllText(persona));
     }
 
     [Fact]
@@ -613,7 +613,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.Contains("Recorded as a new candidate (scope: global)", Text(proposed));
         Assert.DoesNotMatch(@"\[[0-9a-f]{6}", Text(proposed));
         Assert.Contains(
-            "### 沟通：先要结论\n归属：偏好\n- 2026-11-02 原话「先要结论」\n",
+            "### 沟通：先要结论\nBelongs to: Preferences\n- 2026-11-02 quote「先要结论」\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "candidates.md")));
         Assert.True(redLine.IsError);
         Assert.Contains("Refused:", Text(redLine));
@@ -630,8 +630,8 @@ public sealed class ServiceHostTests : IAsyncLifetime
         _models.EmbeddingDown = false;
         File.WriteAllText(
             Path.Combine(_home.DefaultMemory, "candidates.md"),
-            "## 候选\n\n### 沟通：先要结论\n归属：偏好\n- 2026-10-27 原话「先要结论」\n\n"
-            + "## 拒绝列表\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-20 拒绝 原话「算了，别跑了」\n");
+            "## Candidates\n\n### 沟通：先要结论\nBelongs to: Preferences\n- 2026-10-27 quote「先要结论」\n\n"
+            + "## Rejection list\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-20 rejected quote「算了，别跑了」\n");
 
         _models.Choose = (_, options) => options.ToDictionary(
             option => option.Key,
@@ -662,7 +662,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.NotEqual(true, refused.IsError);
         Assert.Contains("2026-10-20", Text(refused));
         Assert.Contains(
-            "- 2026-11-02 原话「先要结论」\n",
+            "- 2026-11-02 quote「先要结论」\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "candidates.md")));
     }
 

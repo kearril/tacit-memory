@@ -66,16 +66,16 @@ public sealed class RestoreTests : IDisposable
     };
 
     private static string PersonaWith(string preference) => $"""
-        ## 红线
+        ## Red lines
         - 不要自行发布版本；改为先请用户确认（理由：影响外部）
-          <!-- 2026-10-25 原话「发布前必须问我」 -->
+          <!-- 2026-10-25 quote「发布前必须问我」 -->
 
-        ## 协作规则
+        ## Working rules
         - 需求不清时 → 先连续追问
 
-        ## 偏好
+        ## Preferences
         - {preference}
-          <!-- 2026-10-25 原话「{preference}」 -->
+          <!-- 2026-10-25 quote「{preference}」 -->
 
         ## Profile
         - 系统：Windows 11 x64
@@ -260,7 +260,7 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task With_config_the_config_and_the_prompts_are_replaced_and_extra_prompt_files_are_deleted()
     {
-        File.WriteAllText(Path.Combine(PromptsFolder, "rules.md"), "## 值得记\n- 备份时的规则\n");
+        File.WriteAllText(Path.Combine(PromptsFolder, "rules.md"), "## Worth recording\n- 备份时的规则\n");
         var backup = await _service.BackupAsync(BackupTarget.Local);
         var backedUpConfig = ReadEntries(backup.Location)["config.yaml"];
         var backedUpRules = ReadEntries(backup.Location)["prompts/rules.md"];
@@ -358,10 +358,10 @@ public sealed class RestoreTests : IDisposable
     public async Task After_the_restore_recall_and_the_resident_block_reflect_the_backup()
     {
         _home.Bind();
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### old-workstream\nBackground: 旧的主线。\n");
         await _service.WritePageAsync(Create("old-workstream/old-page", "旧版本记录", "旧版本内容"));
         var backup = await _service.BackupAsync(BackupTarget.Local);
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### old-workstream\n背景：旧的主线。\n### new-workstream\n背景：新的主线。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### old-workstream\nBackground: 旧的主线。\n### new-workstream\nBackground: 新的主线。\n");
         await _service.WritePageAsync(Create("new-workstream/new-page", "新版本记录", "新版本内容"));
         // The service renders the resident block itself, after its debounce; no second renderer may run beside it.
         await Watchers.Eventually(_service, () => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));

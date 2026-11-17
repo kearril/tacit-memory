@@ -22,47 +22,47 @@ public sealed class MemoryPersonaTests : IDisposable
         File.WriteAllText(Path.Combine(_home.DefaultMemory, file), text.ReplaceLineEndings("\n"));
 
     private const string Persona = """
-        ## 红线
+        ## Red lines
         - 不要删库；改为先备份
-          <!-- 2026-10-25 原话「别删库」 -->
+          <!-- 2026-10-25 quote「别删库」 -->
 
-        ## 协作规则
+        ## Working rules
         - 需求不清时 → 先连续追问
           先列出不清楚的点
-          <!-- 2026-10-20 原话「先问清楚再动手」 -->
-          <!-- 2026-10-28 原话「还是要先问」 -->
+          <!-- 2026-10-20 quote「先问清楚再动手」 -->
+          <!-- 2026-10-28 quote「还是要先问」 -->
 
-        ## 偏好
+        ## Preferences
         - 沟通：先要结论
 
-        ## 档案
+        ## Profile
 
-        ## 主线：tacit-memory
-        ### 协作规则
+        ## Workstream: tacit-memory
+        ### Working rules
         - 发版 → 先跑全量测试
 
-        ## 领域：network-proxy
-        触发：改代理、分流或测速时
-        ### 偏好
+        ## Domain: network-proxy
+        Trigger: 改代理、分流或测速时
+        ### Preferences
         - 测速：取三次的中位数
 
         """;
 
     private const string Candidates = """
-        ## 候选
+        ## Candidates
 
         ### 回答先给结论
-        归属：偏好
-        作用域：workstream:tacit-memory
-        - 2026-11-01 原话「先说结论」
-        - 2026-11-03 原话「结论放前面」
+        Belongs to: Preferences
+        Scope: workstream:tacit-memory
+        - 2026-11-01 quote「先说结论」
+        - 2026-11-03 quote「结论放前面」
 
-        ## 拒绝列表
+        ## Rejection list
 
         ### 每次都跑全量测试
-        归属：协作规则
-        - 2026-10-30 原话「全量跑一下」
-        - 2026-11-02 拒绝 原话「不用每次全量」
+        Belongs to: Working rules
+        - 2026-10-30 quote「全量跑一下」
+        - 2026-11-02 rejected quote「不用每次全量」
 
         """;
 
@@ -70,12 +70,12 @@ public sealed class MemoryPersonaTests : IDisposable
     public async Task An_entry_s_sources_are_read_in_either_language_with_the_day_or_the_words_left_out_and_other_comments_dropped()
     {
         Write(MemoryLayout.Persona, """
-            ## 偏好
+            ## Preferences
             - 沟通：先要结论
               正文的一行
               <!-- 2026-10-01 -->
               <!-- QUOTE「conclusion first」 -->
-              <!-- 2026-10-02 原话「先说结论」 -->
+              <!-- 2026-10-02 quote「先说结论」 -->
               <!-- 随手写的注释 -->
               <!-- 2026-10-03 随手写的注释 -->
 
@@ -161,27 +161,26 @@ public sealed class MemoryPersonaTests : IDisposable
     public async Task Format_problems_are_listed_by_line_and_the_rest_is_read_as_usual()
     {
         Write(MemoryLayout.Persona, """
-            ## 红线
+            ## Red lines
             - 不要删库
             - 不要强推；改为开分支
 
-            ## 偏好
+            ## Preferences
             随手写的一行
             - 沟通：先要结论
 
             """);
         Write(MemoryLayout.Candidates, """
-            ## 候选
+            ## Candidates
 
             ### 没有归属的候选
-            - 2026-11-01 原话「随口一说」
+            - 2026-11-01 quote「随口一说」
 
             """);
 
         var report = await Service.Browse.PersonaAsync();
 
-        var problem = Assert.Single(report.PersonaFile.Problems, problem => problem.Line == 2);
-        Assert.Equal("Red line without instead", problem.Kind);
+        Assert.DoesNotContain(report.PersonaFile.Problems, problem => problem.Line == 2);
         Assert.Contains(report.PersonaFile.Problems, problem => problem.Line == 6 && problem.Kind == "Unrecognized content");
         Assert.Equal(2, report.Global[0].Entries.Count);
         var preferences = report.Global[2].Entries;

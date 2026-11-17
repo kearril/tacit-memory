@@ -42,6 +42,7 @@ import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
+import { sectionLabel } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
 import { requestOf } from "./search";
 import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
@@ -664,7 +665,8 @@ function ResultItem({
   readonly lit: boolean;
   readonly onLight: (number: number | null) => void;
 }) {
-  const text = useDictionary().memory.search;
+  const dictionary = useDictionary().memory;
+  const text = dictionary.search;
   const pageId = result.kind === "page" ? result.page : null;
   return (
     <li
@@ -696,13 +698,13 @@ function ResultItem({
           </Link>
           {result.sections.length === 0 ? null : (
             <p className="flex flex-wrap gap-xs">
-              {result.sections.map((name) => (
+              {result.sections.map((section) => (
                 <Link
-                  key={name}
-                  to={pagePathOf(pageId, name)}
+                  key={section.name}
+                  to={pagePathOf(pageId, section.name)}
                   className="rounded-full bg-surface-raised px-sm text-xs text-ink-muted outline-none hover:text-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
-                  {name}
+                  {sectionLabel(section, dictionary.pages.sectionNames)}
                 </Link>
               ))}
             </p>

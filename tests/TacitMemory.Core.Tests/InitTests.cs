@@ -19,9 +19,9 @@ public sealed class InitTests : IDisposable
 
         var memory = _home.DefaultMemory;
         Assert.Equal(".cache/\n", File.ReadAllText(Path.Combine(memory, ".gitignore")));
-        Assert.Equal("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n", File.ReadAllText(Path.Combine(memory, "persona.md")));
-        Assert.Equal("## 候选\n\n## 拒绝列表\n", File.ReadAllText(Path.Combine(memory, "candidates.md")));
-        Assert.Equal("## 主线\n", File.ReadAllText(Path.Combine(memory, "workstreams.md")));
+        Assert.Equal("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n", File.ReadAllText(Path.Combine(memory, "persona.md")));
+        Assert.Equal("## Candidates\n\n## Rejection list\n", File.ReadAllText(Path.Combine(memory, "candidates.md")));
+        Assert.Equal("## Workstream\n", File.ReadAllText(Path.Combine(memory, "workstreams.md")));
         Assert.Equal("language: zh\n", File.ReadAllText(Path.Combine(_home.TacitHome, "config.yaml")));
 
         Assert.Equal("tacit <tacit@localhost>|init: create memory repo\n", TestHome.Git(memory, "log", "--format=%an <%ae>|%s"));
@@ -52,14 +52,14 @@ public sealed class InitTests : IDisposable
         var config = Path.Combine(_home.TacitHome, "config.yaml");
         var persona = Path.Combine(_home.DefaultMemory, "persona.md");
         File.WriteAllText(config, "language: zh\n");
-        File.WriteAllText(persona, "## 偏好\n- 沟通：先要结论\n");
+        File.WriteAllText(persona, "## Preferences\n- 沟通：先要结论\n");
         File.Delete(Path.Combine(_home.DefaultMemory, "workstreams.md"));
 
         var result = await _home.Tacit().InitAsync(new InitRequest());
 
         Assert.False(result.RepositoryCreated);
         Assert.Equal("language: zh\n", File.ReadAllText(config));
-        Assert.Equal("## 偏好\n- 沟通：先要结论\n", File.ReadAllText(persona));
+        Assert.Equal("## Preferences\n- 沟通：先要结论\n", File.ReadAllText(persona));
         Assert.Equal([Path.Combine(_home.DefaultMemory, "workstreams.md")], result.Created);
         Assert.Contains(config, result.Existing);
         Assert.Contains(persona, result.Existing);
@@ -98,7 +98,7 @@ public sealed class InitTests : IDisposable
     }
 
     [Theory]
-    [InlineData(MemoryLanguage.Zh, "## 红线\n")]
+    [InlineData(MemoryLanguage.Zh, "## Red lines\n")]
     [InlineData(MemoryLanguage.En, "## Red lines\n")]
     public async Task Init_without_a_language_asks_for_one(MemoryLanguage answer, string personaStart)
     {

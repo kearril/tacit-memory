@@ -57,7 +57,7 @@ public sealed class PromptApiTests : IAsyncLifetime
         Assert.All(list.Documents, document => Assert.True(document.BuiltIn));
         Assert.All(list.Documents, document => Assert.Null(document.Hash));
         Assert.Contains("## Recall", list.Documents[0].Text);
-        Assert.StartsWith("## 值得记\n", list.Documents[1].Text);
+        Assert.StartsWith("## Worth recording\n", list.Documents[1].Text);
         Assert.Contains("## red_lines", list.Documents[2].Text);
         Assert.Equal("", list.Documents[3].Text);
     }
@@ -140,7 +140,7 @@ public sealed class PromptApiTests : IAsyncLifetime
     {
         var items = string.Concat(Enumerable.Range(1, 11).Select(i => $"- 条目 {i}\n"));
 
-        using var response = await _local.PostAsync(Url("/api/prompts/rules/check"), Draft("## 值得记\n" + items + "## 不记\n" + items));
+        using var response = await _local.PostAsync(Url("/api/prompts/rules/check"), Draft("## Worth recording\n" + items + "## Not recorded\n" + items));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var check = await Read<PromptCheck>(response);
@@ -228,14 +228,14 @@ public sealed class PromptApiTests : IAsyncLifetime
     [Fact]
     public async Task Delete_returns_the_document_to_its_built_in_text()
     {
-        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 自定义的标准\n");
 
         using var response = await _local.DeleteAsync(Url("/api/prompts/rules"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var restored = await Read<PromptSaved>(response);
         Assert.True(restored.Document.BuiltIn);
-        Assert.StartsWith("## 值得记\n- 用户纠正或打断 Agent", restored.Document.Text);
+        Assert.StartsWith("## Worth recording\n- The user corrects or interrupts the agent", restored.Document.Text);
         Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 

@@ -45,14 +45,14 @@ public sealed class BindingTests : IDisposable
             .ToList();
 
     private const string Persona = """
-        ## 红线
+        ## Red lines
         - 不要自行发布版本；改为先请用户确认（理由：影响外部）
-          <!-- 2026-10-25 原话「发布前必须问我」 -->
+          <!-- 2026-10-25 quote「发布前必须问我」 -->
 
-        ## 协作规则
+        ## Working rules
         - 需求不清时 → 先连续追问
 
-        ## 偏好
+        ## Preferences
 
         ## Profile
         - 系统：Windows 11 x64
@@ -407,7 +407,7 @@ public sealed class BindingTests : IDisposable
             - 沟通：先要结论
             - 格式不对的偏好
 
-            ## 红线
+            ## Red lines
             - 不要删库
             """.ReplaceLineEndings("\n"));
 
@@ -438,7 +438,7 @@ public sealed class BindingTests : IDisposable
         File.WriteAllText(PersonaMd, """
             写在第一个标题之前的话
 
-            ## 偏好
+            ## Preferences
             沟通上喜欢直接，这一段没有写成列表
             * 星号列表也算
             <!-- 2026-10-31 一条独立的注释 -->
@@ -568,7 +568,7 @@ public sealed class BindingTests : IDisposable
         File.WriteAllText(PersonaMd, Persona.ReplaceLineEndings("\n"));
         _home.Bind();
         _home.Bind("beta");
-        File.WriteAllText(PersonaMd, "## 偏好\n- 沟通：先要结论\n");
+        File.WriteAllText(PersonaMd, "## Preferences\n- 沟通：先要结论\n");
 
         var result = Assert.Single(_home.Tacit().RenderBlocks());
 

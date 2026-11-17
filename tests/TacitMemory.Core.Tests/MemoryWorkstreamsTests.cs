@@ -45,7 +45,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
     public async Task The_list_has_the_established_workstreams_and_the_names_in_use_that_are_not()
     {
         Setup();
-        Establish("## 主线\n\n### my-app\n背景：一个应用。\n近况：在做发版。\n\n### quiet\n背景：还没有内容。\n");
+        Establish("## Workstream\n\n### my-app\nBackground: 一个应用。\nRecent: 在做发版。\n\n### quiet\nBackground: 还没有内容。\n");
         await CreatePage("my-app/release", ToolValues.PageTypes.Work, "发版", ("产出", "发了 0.9。"));
         await CreatePage("side/idea", ToolValues.PageTypes.Entity, "点子", ("现状", "还在想。"));
         await Activity("my-app 发版完成，因为测试都过了。", "my-app");
@@ -63,10 +63,21 @@ public sealed class MemoryWorkstreamsTests : IDisposable
     }
 
     [Fact]
+    public async Task Field_words_match_whatever_their_case_and_with_spaces_before_the_colon()
+    {
+        Setup();
+        Establish("## workstream\n\n### my-app\nbackground : 一个应用。\nRECENT:在做发版。\n");
+
+        var list = await Service.Browse.WorkstreamsAsync();
+
+        Assert.Equal(("my-app", "一个应用。", "在做发版。"), (list.Established[0].Name, list.Established[0].Background, list.Established[0].Recent));
+    }
+
+    [Fact]
     public async Task The_list_gives_the_workstreams_file_with_its_problems()
     {
         Setup();
-        Establish("## 主线\n\n### my-app\n背景：一个应用。\n\n### no-background\n近况：缺背景。\n");
+        Establish("## Workstream\n\n### my-app\nBackground: 一个应用。\n\n### no-background\nRecent: 缺背景。\n");
 
         var list = await Service.Browse.WorkstreamsAsync();
 
@@ -79,11 +90,11 @@ public sealed class MemoryWorkstreamsTests : IDisposable
     public async Task The_brief_holds_what_recall_lists_whole_by_type_with_uses_and_counts_nothing()
     {
         Setup();
-        Establish("## 主线\n\n### my-app\n背景：一个应用。\n");
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 主线：my-app\n### 协作规则\n- 发版 → 先跑全量测试\n  <!-- 2026-11-01 原话「先全量」 -->\n");
+        Establish("## Workstream\n\n### my-app\nBackground: 一个应用。\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Workstream: my-app\n### Working rules\n- 发版 → 先跑全量测试\n  <!-- 2026-11-01 quote「先全量」 -->\n");
         await CreatePage("my-app/use-pg", ToolValues.PageTypes.Decision, "采用 PG", ("决定", "用 PG。"));
-        await CreatePage("my-app/old-db", ToolValues.PageTypes.Decision, "旧库", ("决定", "用旧库。"), ("推翻记录", "被 my-app/use-pg 推翻。"));
-        await CreatePage("my-app/release", ToolValues.PageTypes.Work, "发版", ("产出", "发了 0.9。"), ("遗留", "补发布说明\n\n补签名"));
+        await CreatePage("my-app/old-db", ToolValues.PageTypes.Decision, "旧库", ("决定", "用旧库。"), ("Overturned", "被 my-app/use-pg 推翻。"));
+        await CreatePage("my-app/release", ToolValues.PageTypes.Work, "发版", ("产出", "发了 0.9。"), ("Leftovers", "补发布说明\n\n补签名"));
         for (var i = 0; i < 4; i++)
             await Activity($"第 {i} 条进展，因为要测试最近活动只列三条。", "my-app");
         await Service.RecallAsync(new RecallRequest { Page = "my-app/use-pg" });

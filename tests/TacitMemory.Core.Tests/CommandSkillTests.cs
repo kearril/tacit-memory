@@ -155,24 +155,15 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_consolidation_skill_rewrites_only_the_recent_line_of_a_workstream_and_shows_an_entry_in_each_language()
+    public void The_consolidation_skill_rewrites_only_the_recent_line_of_a_workstream_and_shows_an_entry()
     {
         _home.Tacit().GenerateSkills();
-        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
-        Assert.Contains("leave its background line unchanged", chinese, StringComparison.Ordinal);
-        Assert.Contains("Background line of a workstream", chinese, StringComparison.Ordinal);
-        Assert.Contains("Recent line of a workstream", chinese, StringComparison.Ordinal);
-        Assert.Contains("## 主线\n### home-server\n背景：家里的常驻服务器，跑代理分流和自用服务。\n近况：", chinese, StringComparison.Ordinal);
-        Assert.DoesNotContain("summarized weeks it lists", chinese, StringComparison.Ordinal);
+        var skill = File.ReadAllText(SkillFile("tacit-consolidate"));
 
-        using var home = new TestHome();
-        home.InitReady(language: MemoryLanguage.En);
-        home.Tacit().GenerateSkills();
-        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
-        Assert.Contains("leave its background line unchanged", english, StringComparison.Ordinal);
-        Assert.Contains("## Workstream\n### home-server\nBackground: ", english, StringComparison.Ordinal);
-        Assert.Contains("\nRecent: ", english, StringComparison.Ordinal);
-        Assert.DoesNotContain("## 主线", english, StringComparison.Ordinal);
+        Assert.Contains("leave its background line unchanged", skill, StringComparison.Ordinal);
+        Assert.Contains("## Workstream\n### home-server\nBackground: The home server", skill, StringComparison.Ordinal);
+        Assert.Contains("\nRecent: ", skill, StringComparison.Ordinal);
+        Assert.DoesNotContain("summarized weeks it lists", skill, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -226,34 +217,34 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_consolidation_skill_writes_the_structure_words_and_examples_in_the_memory_language()
+    public void The_memory_and_consolidation_skills_are_the_same_in_either_language()
     {
         _home.Tacit().GenerateSkills();
-        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
-        Assert.Contains("拒绝列表", chinese, StringComparison.Ordinal);
-        Assert.Contains("改为", chinese, StringComparison.Ordinal);
-        Assert.Contains("归属：偏好", chinese, StringComparison.Ordinal);
-        Assert.Contains("拒绝 原话「", chinese, StringComparison.Ordinal);
-        foreach (var word in new[] { "作用域：", "领域", "主线", "触发", "遗留", "推翻记录", "教训", "汇总" })
-            Assert.Contains(word, chinese, StringComparison.Ordinal);
-        Assert.Contains("## 领域：network-proxy", chinese, StringComparison.Ordinal);
-        Assert.Contains("作用域：domain:network-proxy", chinese, StringComparison.Ordinal);
-        Assert.Contains("- YYYY-Www：", chinese, StringComparison.Ordinal);
+        using var english = new TestHome();
+        english.InitReady(language: MemoryLanguage.En);
+        english.Tacit().GenerateSkills();
 
-        using var home = new TestHome();
-        home.InitReady(language: MemoryLanguage.En);
-        home.Tacit().GenerateSkills();
-        var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
-        Assert.Contains("Rejection list", english, StringComparison.Ordinal);
-        Assert.Contains("instead", english, StringComparison.Ordinal);
-        Assert.Contains("Belongs to: Preferences", english, StringComparison.Ordinal);
-        Assert.Contains("rejected quote「", english, StringComparison.Ordinal);
-        foreach (var word in new[] { "Scope: ", "Domain", "Workstream", "Trigger", "Leftovers", "Overturned", "Lesson", "Summary" })
-            Assert.Contains(word, english, StringComparison.Ordinal);
-        Assert.Contains("## Domain: network-proxy", english, StringComparison.Ordinal);
-        Assert.Contains("Scope: domain:network-proxy", english, StringComparison.Ordinal);
-        Assert.Contains("- YYYY-Www：", english, StringComparison.Ordinal);
-        Assert.DoesNotContain("拒绝列表", english, StringComparison.Ordinal);
+        foreach (var name in new[] { "tacit-memory", "tacit-consolidate" })
+            Assert.Equal(File.ReadAllText(SkillFile(name)), File.ReadAllText(Path.Combine(english.TacitHome, "skills", name, "SKILL.md")));
+        var memory = File.ReadAllText(SkillFile("tacit-memory"));
+        Assert.DoesNotContain("In a Chinese memory", memory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("## Lesson\n", memory, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_consolidation_skill_shows_the_english_structure_words_in_its_examples()
+    {
+        _home.Tacit().GenerateSkills();
+        var skill = File.ReadAllText(SkillFile("tacit-consolidate"));
+
+        Assert.Contains("## Domain: network-proxy\nTrigger: ", skill, StringComparison.Ordinal);
+        Assert.Contains("## Candidates\n", skill, StringComparison.Ordinal);
+        Assert.Contains("Belongs to: Preferences\nScope: domain:network-proxy\n", skill, StringComparison.Ordinal);
+        Assert.Contains("## Rejection list\n", skill, StringComparison.Ordinal);
+        Assert.Contains("rejected quote「", skill, StringComparison.Ordinal);
+        Assert.Contains("## Summary\n- YYYY-Www：", skill, StringComparison.Ordinal);
+        Assert.DoesNotContain("| Role | Word |", skill, StringComparison.Ordinal);
+        Assert.DoesNotContain("The memory language is", skill, StringComparison.Ordinal);
     }
 
     [Theory]
