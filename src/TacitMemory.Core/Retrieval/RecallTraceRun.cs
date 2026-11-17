@@ -1,50 +1,38 @@
 using System.Globalization;
-using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Localization;
-using TacitMemory.Core.Pages;
-using TacitMemory.Core.Tools;
 
 namespace TacitMemory.Core.Retrieval;
 
 /// <summary>
-/// The recall trace of the management API: checks a request by <c>recall</c>'s rules and the config's ranges, and turns the
+/// The recall trace of the management API: checks a request as <c>recall</c> checks one, and turns the
 /// pipeline's stages into the report the Web interface reads.
 /// </summary>
 internal static class RecallTraceRun
 {
-    /// <summary>The search a request asks for.</summary>
-    public sealed record Search(string Query, IndexFilter Filter, RetrievalOverrides Overrides);
-
     /// <summary>The search <paramref name="request"/> asks for, or every problem with it at once, in the memory language.</summary>
     /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with one problem per parameter at fault.</exception>
-    public static Search Check(RecallTraceRequest request, MemoryLanguage language)
+    public static RecallSearch Check(RecallTraceRequest request, MemoryLanguage language)
     {
-        var problems = new List<ConfigProblem>();
-        if (string.IsNullOrWhiteSpace(request.Query))
-            problems.Add(new ConfigProblem("query", ManagementApiMessages.TraceQueryMissing.In(language)));
-        var from = Date(request.From, "from", language, problems);
-        var to = Date(request.To, "to", language, problems);
-        if (from > to)
-            problems.Add(new ConfigProblem("to", ManagementApiMessages.TraceDatesReversed.In(language)));
-
-        var kind = string.IsNullOrWhiteSpace(request.Kind) ? null : request.Kind.Trim();
-        if (kind is not (null or ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
-            problems.Add(new ConfigProblem("kind", ManagementApiMessages.TraceKindInvalid.Format(language, kind)));
-
-        InRange(request.MinRerankScore, "minRerankScore", "retrieval.minRerankScore", language, problems);
-        InRange(request.TopK, "topK", "retrieval.topK", language, problems);
-        InRange(request.Candidates, "candidates", "retrieval.candidates", language, problems);
-        if (problems.Count > 0)
-            throw new TacitException(TacitError.RequestInvalid, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
-
-        var workstream = string.IsNullOrWhiteSpace(request.Workstream) ? null : request.Workstream.Trim().ToLowerInvariant();
-        var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
-        return new Search(
-            request.Query!,
-            new IndexFilter(workstream, from, to, activities),
-            new RetrievalOverrides(request.MinRerankScore, request.TopK, request.Candidates));
+        var (search, faults) = RecallSearch.Check(new SearchRequest(
+            request.Query, request.Workstream, request.From, request.To, request.Kind,
+            new RetrievalOverrides(request.MinRerankScore, request.TopK, request.Candidates)));
+        if (search is not null)
+            return search;
+        var problems = faults.Select(fault => new ConfigProblem(fault.Parameter, Describe(fault, language))).ToList();
+        throw new TacitException(TacitError.RequestInvalid, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
     }
+
+    /// <summary>A problem of the request, as the Web interface shows it beside the field.</summary>
+    private static string Describe(SearchProblem problem, MemoryLanguage language) => problem.Fault switch
+    {
+        SearchFault.QueryMissing => ManagementApiMessages.TraceQueryMissing.In(language),
+        SearchFault.DateInvalid => ManagementApiMessages.TraceDateInvalid.Format(language, problem.Given!.Trim()),
+        SearchFault.DatesReversed => ManagementApiMessages.TraceDatesReversed.In(language),
+        SearchFault.KindInvalid => ManagementApiMessages.TraceKindInvalid.Format(language, problem.Given),
+        _ => ManagementApiMessages.TraceValueOutOfRange.Format(
+            language, problem.Parameter, problem.Min.ToString(CultureInfo.InvariantCulture), problem.Max.ToString(CultureInfo.InvariantCulture)),
+    };
 
     /// <summary>The report of a trace run under <paramref name="config"/>.</summary>
     public static RecallTraceReport Report(RecallTrace trace, TacitConfig config)
@@ -102,26 +90,4 @@ internal static class RecallTraceRun
         unit.Fate,
         unit.Result);
 
-    private static DateOnly? Date(string? raw, string name, MemoryLanguage language, List<ConfigProblem> problems)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-        if (DateOnly.TryParseExact(raw.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
-            return date;
-        problems.Add(new ConfigProblem(name, ManagementApiMessages.TraceDateInvalid.Format(language, raw.Trim())));
-        return null;
-    }
-
-    /// <summary>Adds a problem when <paramref name="value"/> lies outside the range the config accepts for <paramref name="key"/>.</summary>
-    private static void InRange(double? value, string name, string key, MemoryLanguage language, List<ConfigProblem> problems)
-    {
-        var range = ConfigSchema.Keys.Single(entry => entry.Path == key);
-        if (value is { } given && (given < range.Min || given > range.Max))
-        {
-            problems.Add(new ConfigProblem(
-                name,
-                ManagementApiMessages.TraceValueOutOfRange.Format(
-                    language, name, range.Min!.Value.ToString(CultureInfo.InvariantCulture), range.Max!.Value.ToString(CultureInfo.InvariantCulture))));
-        }
-    }
 }

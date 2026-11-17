@@ -49,12 +49,9 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
         var queryOrPage = hasQuery == hasPage;
         if (queryOrPage)
             problems.Add(hasQuery ? "Give query or page, not both." : "Missing parameter query or page.");
-        var from = Date(request.From, "from", problems);
-        var to = Date(request.To, "to", problems);
-        if (from > to)
-            problems.Add("from is later than to.");
-        if (kind is { Length: > 0 } and not (ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
-            problems.Add($"Unknown kind {ToolText.Quote(kind)}; use pages, activities, rules or persona.");
+        var (search, faults) = RecallSearch.Check(new SearchRequest(request.Query, request.Workstream, request.From, request.To, kind, new RetrievalOverrides()));
+        // A missing query is said above, together with the page it can be traded for.
+        problems.AddRange(faults.Where(fault => fault.Fault != SearchFault.QueryMissing).Select(Describe));
         if (hasDomain)
             problems.Add("Parameter domain applies only to kind=rules.");
         if (problems.Count > 0)
@@ -65,12 +62,18 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
             return ToolText.Refuse(problems, nextStep);
         }
 
-        var workstream = string.IsNullOrWhiteSpace(request.Workstream) ? null : request.Workstream.Trim().ToLowerInvariant();
-        var activities = kind switch { ToolValues.RecallKinds.Activities => true, ToolValues.RecallKinds.Pages => false, _ => (bool?)null };
-        var filter = new IndexFilter(workstream, from, to, activities);
-        var trace = await reader.SearchAsync(request.Query!, filter, new RetrievalOverrides(), Usage.Counted, cancellationToken);
+        var trace = await reader.SearchAsync(search!, Usage.Counted, cancellationToken);
         return ToolText.Ok(trace.Text);
     }
+
+    /// <summary>A problem of the search request, as the agent reads it.</summary>
+    private static string Describe(SearchProblem problem) => problem.Fault switch
+    {
+        SearchFault.DateInvalid => $"{problem.Parameter} {ToolText.Quote(problem.Given!)} must be a date written YYYY-MM-DD.",
+        SearchFault.DatesReversed => "from is later than to.",
+        SearchFault.KindInvalid => $"Unknown kind {ToolText.Quote(problem.Given!)}; use pages, activities, rules or persona.",
+        _ => $"Parameter {problem.Parameter} is not valid.",
+    };
 
     /// <summary>A whole page, with the date each section last changed.</summary>
     private ToolResult ReadPage(string raw)

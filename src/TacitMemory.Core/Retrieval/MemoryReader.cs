@@ -29,11 +29,10 @@ internal sealed class MemoryReader(MemoryIndex index, PageTools pages, RecallPip
     /// The search <c>recall</c> runs, stage by stage; counted, every unit it returned counts once. When a background sync
     /// gave up, every file is synced first.
     /// </summary>
-    public async Task<RecallTrace> SearchAsync(
-        string query, IndexFilter filter, RetrievalOverrides overrides, Usage usage, CancellationToken cancellationToken)
+    public async Task<RecallTrace> SearchAsync(RecallSearch search, Usage usage, CancellationToken cancellationToken)
     {
         index.SyncAllIfStale();
-        var trace = await pipeline.RunAsync(query, filter, overrides, cancellationToken);
+        var trace = await pipeline.RunAsync(search, cancellationToken);
         if (usage == Usage.Counted)
             index.RecordReturns([.. trace.Returned.Select(hit => hit.Id)]);
         return trace;
