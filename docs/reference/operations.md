@@ -120,12 +120,11 @@
 
 GitHub Actions 在 Windows 运行器上运行（`vec0.dll` 只有 Windows 版）。推送到 `main` 时运行格式检查、全量测试与前端检查，只改文档的推送不运行，也可以手动触发；其他分支的推送不运行。检查的大部分时间是测试：运行器只有 2 个核心，测试又频繁启动 git 进程，所以工作流先关闭运行器上的实时扫描（运行器用完即弃）。推送 `v*` tag 后，先运行同样的检查，再用 `build/package.ps1` 打包，用 `build/smoke.ps1` 冒烟，最后创建 Release；手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
 
-在本机打包（需要 .NET 11 SDK 与 Bun）：
+在本机打包（需要 .NET 11 SDK、Bun、`jq` 与 bash；Windows 上用 Git Bash）。包要在它所针对的平台上打：macOS 只在本机构建时给可执行文件签名，Apple 芯片不运行未签名的程序。
 
-```powershell
-dotnet tool restore
-./build/package.ps1 -Output <输出目录>          # 输出目录会先被清空
-./build/smoke.ps1 -PublishDir <输出目录>/tacit
+```bash
+build/package.sh <win-x64|osx-arm64|linux-x64> <输出目录>   # 输出目录会先被清空
+build/smoke.sh <输出目录>/tacit
 ```
 
 冒烟检查什么见 `docs/dev/testing.md`「发行包的冒烟」。

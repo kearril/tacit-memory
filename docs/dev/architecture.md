@@ -142,6 +142,6 @@ flowchart LR
 
 **构建与托管**：`dotnet publish` 时构建前端并复制到发布目录的 `web/`；`dotnet build` 与 `dotnet test` 不触发前端构建。
 
-**发行包**：`build/package.ps1` 生成单文件、裁剪且压缩的可执行文件。裁剪只针对框架，所以全部 JSON 都经构建时生成的契约读写，产品代码每次构建都运行裁剪分析器（警告即错误）。发布规则见 `docs/reference/operations.md`。
+**发行包**：`build/package.sh` 按目标平台生成单文件、裁剪且压缩的可执行文件，并把该平台的向量扩展放在旁边。裁剪只针对框架，所以全部 JSON 都经构建时生成的契约读写，产品代码每次构建都运行裁剪分析器（警告即错误）。发布规则见 `docs/reference/operations.md`。
 
 **开发**：`bun run dev` 启动 Vite 开发服务器，`/api` 代理到本机运行中的服务（端口取 `TACIT_SERVICE_PORT`，缺省 18888）。

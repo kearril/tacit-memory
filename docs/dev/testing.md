@@ -95,10 +95,12 @@ bun run format      # Prettier 就地格式化
 
 ## 8. 发行包的冒烟
 
-`build/smoke.ps1` 检查一个发布目录能否运行，覆盖「源码构建下测试通过、发行包里却少了东西」这类问题。发行包经过裁剪而测试跑在未裁剪的构建上，所以它也是裁剪有没有删掉用得到的东西的唯一检查。
+`build/smoke.sh` 检查一个发布目录能否运行，覆盖「源码构建下测试通过、发行包里却少了东西」这类问题。发行包经过裁剪而测试跑在未裁剪的构建上，所以它也是裁剪有没有删掉用得到的东西的唯一检查。
 
-```powershell
-./build/smoke.ps1 -PublishDir <发布目录> [-ExpectedVersion 0.1.0]
+```bash
+build/smoke.sh <发布目录> [<期望的版本>]
 ```
+
+需要 bash（macOS 自带的 3.2 即可，Windows 上用 Git Bash）、`curl` 与 `jq`。Windows 上的 `jq` 用 scoop 或 winget 安装。
 
 它用临时 `TACIT_HOME` 与空闲端口启动服务，把 CLI、管理 API、四个 MCP 工具、重建索引、备份与恢复预览、Web 界面各走一遍，任何一项失败即以退出码 1 结束。发布工作流在打包后、创建 Release 前运行它。

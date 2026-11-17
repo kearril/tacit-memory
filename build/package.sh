@@ -117,7 +117,8 @@ trim_end() { sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$1"; }
 
     heading 'Apache License 2.0'
     printf 'Applies to the packages above listed under Apache-2.0.\n\n'
-    sed -e '1{/^[[:space:]]*$/d;}' "$root/LICENSE" | trim_end /dev/stdin
+    awk 'started { print; next } /[^[:space:]]/ { sub(/^[[:space:]]+/, ""); started = 1; print }' "$root/LICENSE" |
+        trim_end /dev/stdin
 } > "$publish/THIRD-PARTY-NOTICES.txt"
 
 cp "$root/LICENSE" "$root/NOTICE" "$publish/"
