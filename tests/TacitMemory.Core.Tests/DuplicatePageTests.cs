@@ -131,7 +131,7 @@ public sealed class DuplicatePageTests : IDisposable
         Assert.Contains("PGroonga 没装。", body["state"]!.GetValue<string>());
         var criteria = question["criteria"]!.AsObject();
         Assert.InRange(criteria.Count, 2, 10);
-        Assert.Contains("现象: 升级后中文搜索没有结果。; 解决: 重建扩展并重跑索引。", criteria["p1"]!.GetValue<string>());
+        Assert.Contains(criteria, option => option.Value!.GetValue<string>().Contains("现象: 升级后中文搜索没有结果。; 解决: 重建扩展并重跑索引。", StringComparison.Ordinal));
     }
 
     [Fact]

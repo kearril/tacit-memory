@@ -87,7 +87,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         for (var i = 0; i < 4; i++)
             await Activity($"第 {i} 条进展，因为要测试最近活动只列三条。", "my-app");
         await Service.RecallAsync(new RecallRequest { Page = "my-app/use-pg" });
-        var before = Service.PageUsages();
+        var before = await Service.PageCountsAsync();
 
         var brief = await Service.WorkstreamBriefAsync("my-app");
 
@@ -104,14 +104,14 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         Assert.Equal(("my-app/use-pg", 1L), (decision.Id, decision.Uses));
         Assert.Equal(["my-app/old-db"], brief.Overturned);
         Assert.Equal(3, brief.Activities.Count);
-        Assert.Equal(before, Service.PageUsages());
+        Assert.Equal(before, await Service.PageCountsAsync());
 
         var text = (await Service.RecallAsync(new RecallRequest { Workstream = "my-app" })).Text;
         foreach (var page in brief.Groups.SelectMany(group => group.Pages))
             Assert.Contains($"- {page.Id}: {page.Title}", text);
         foreach (var activity in brief.Activities)
             Assert.Contains($"[{activity.Code}]", text);
-        Assert.NotEqual(before, Service.PageUsages());
+        Assert.NotEqual(before, await Service.PageCountsAsync());
     }
 
     [Fact]

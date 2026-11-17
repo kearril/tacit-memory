@@ -1,4 +1,3 @@
-using System.Globalization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -20,7 +19,7 @@ internal sealed record SamePreferenceVerdict(PreferenceMatch? Same, string? Note
 /// the persona: the nearest of those by embedding, plus "none of these", go to the decision model as a choice question.
 /// Nothing is asked when none of the three exists.
 /// </summary>
-internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
+internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, ChoiceJudge judge)
 {
     /// <summary>Entries offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int OtherOptions = 9;
@@ -34,7 +33,6 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
     public const string EmbeddingDown =
         "Note: the embedding model is unavailable, so whether this preference is already a candidate, on the rejection list or in the persona was not checked.";
 
-    private const string None = "none";
 
     internal const string Instructions =
         "The state is a new preference or working rule proposed from a conversation, with its section in brackets. "
@@ -66,39 +64,32 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
 
     public async Task<SamePreferenceVerdict> RunAsync(string text, PersonaSection section, CancellationToken cancellationToken)
     {
-        if (!index.HasJudgments(Sources))
-            return new SamePreferenceVerdict(null, null);
-
-        var vector = await embedding.EmbedAsync([text], cancellationToken);
-        if (vector is null)
-            return new SamePreferenceVerdict(null, embedding.Configured ? EmbeddingDown : null);
-
-        await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
-        var nearest = index.SearchJudgments(vector[0], Sources, OtherOptions);
-        if (nearest.Count == 0)
-            return new SamePreferenceVerdict(null, null);
-
-        var options = new Dictionary<string, string>(StringComparer.Ordinal);
-        var matches = new Dictionary<string, PreferenceMatch>(StringComparer.Ordinal);
-        foreach (var hit in nearest)
-        {
-            if (hit.Section is not { } hitSection)
-                continue;
-            var key = "o" + (matches.Count + 1).ToString(CultureInfo.InvariantCulture);
-            var match = new PreferenceMatch(hit.Kind, hitSection, hit.Text, hit.Scope);
-            options[key] = OptionText(hit.Kind, hit.Scope, hitSection, hit.Text, config.Language);
-            matches[key] = match;
-        }
-
-        options[None] = NoneText;
-        var state = StateOf(text, section, config.Language);
-        var probabilities = await decision.ChooseAsync(state, Instructions, options, cancellationToken);
-        if (probabilities is null)
-            return new SamePreferenceVerdict(null, decision.Configured ? DecisionDown : null);
-
-        var verdict = Judgment.Choice(probabilities, None, config.Decision.SamePreference ?? Judgment.SamePreference);
-        return verdict.Tier == Tier.Certain
-            ? new SamePreferenceVerdict(matches[verdict.Option!], null)
-            : new SamePreferenceVerdict(null, null);
+        var embeddingFailed = false;
+        var outcome = await judge.AskAsync(
+            Neighbours.PersonaEntries,
+            async token =>
+            {
+                if (!index.HasJudgments(Sources))
+                    return PreparedChoice<PreferenceMatch>.Nothing;
+                var vector = await embedding.EmbedAsync([text], token);
+                if (vector is null)
+                {
+                    embeddingFailed = true;
+                    return new PreparedChoice<PreferenceMatch>(null, ChoiceJudge.NoAnswerReason(embedding.Configured));
+                }
+                await vectors.PrepareSearchAsync(vector[0].Length, token);
+                var options = index.SearchJudgments(vector[0], Sources, OtherOptions)
+                    .Where(hit => hit.Section is not null)
+                    .Select(hit => new ChoiceOption<PreferenceMatch>(
+                        OptionText(hit.Kind, hit.Scope, hit.Section!.Value, hit.Text, config.Language),
+                        new PreferenceMatch(hit.Kind, hit.Section!.Value, hit.Text, hit.Scope)))
+                    .ToList();
+                return options.Count == 0
+                    ? PreparedChoice<PreferenceMatch>.Nothing
+                    : new PreparedChoice<PreferenceMatch>(new ChoiceQuestion<PreferenceMatch>(StateOf(text, section, config.Language), Instructions, NoneText, options), null);
+            },
+            config.Decision.SamePreference ?? Judgment.SamePreference,
+            cancellationToken);
+        return new SamePreferenceVerdict(outcome.Certain, ChoiceJudge.NoteOf(outcome.Reason, embeddingFailed, EmbeddingDown, DecisionDown));
     }
 }

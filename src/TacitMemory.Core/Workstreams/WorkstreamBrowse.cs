@@ -41,9 +41,9 @@ internal static class WorkstreamBrowse
     /// <exception cref="TacitException">
     /// <see cref="TacitError.MemoryNotFound"/> when it is neither established nor used by a page or an activity.
     /// </exception>
-    public static WorkstreamBriefView Brief(TacitConfig config, WorkstreamBrief brief, string workstream)
+    public static WorkstreamBriefView Brief(TacitConfig config, MemoryReader reader, string workstream)
     {
-        if (!PageId.IsWorkstreamName(workstream) || brief.Gather(workstream, null, null) is not { } parts)
+        if (!PageId.IsWorkstreamName(workstream) || reader.Brief(workstream, null, null, Usage.NotCounted)?.Parts is not { } parts)
             throw new TacitException(TacitError.MemoryNotFound, ManagementApiMessages.WorkstreamNotFound.Format(config.Language, workstream));
 
         var established = WorkstreamFile.Established(config.MemoryPath).Any(entry => entry.Name == workstream);

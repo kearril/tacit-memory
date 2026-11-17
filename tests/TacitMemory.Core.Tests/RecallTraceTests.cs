@@ -1,13 +1,10 @@
 using TacitMemory.Core.Index;
-using TacitMemory.Core.Pages;
 using TacitMemory.Core.Retrieval;
 
 namespace TacitMemory.Core.Tests;
 
 public sealed class RecallTraceTests : IDisposable
 {
-    private static readonly IndexFilter Everything = new(null, null, null);
-
     private readonly TestHome _home = new();
     private readonly ModelDouble _models = new();
     private MemoryService? _service;
@@ -40,11 +37,11 @@ public sealed class RecallTraceTests : IDisposable
         Assert.False(result.IsError, result.Text);
     }
 
-    private Task<RecallTrace> Trace(string query, RetrievalOverrides? overrides = null) =>
-        Service.TraceRecallAsync(query, Everything, overrides ?? new RetrievalOverrides());
+    private Task<RecallTraceReport> Trace(string query, RetrievalOverrides? overrides = null) =>
+        Service.TraceRecallAsync(new RecallTraceRequest(query, MinRerankScore: overrides?.MinRerankScore, TopK: overrides?.TopK, Candidates: overrides?.Candidates));
 
-    private static UnitTrace Section(RecallTrace trace, string page, string section) =>
-        trace.Units.Single(unit => unit.Hit.Source == page && unit.Hit.Section == section);
+    private static TraceUnit Section(RecallTraceReport trace, string page, string section) =>
+        trace.Units.Single(unit => unit.Source == page && unit.Section == section);
 
     [Fact]
     public async Task Each_unit_is_shown_beyond_top_k_or_below_the_threshold_and_sections_of_one_page_share_its_result()
@@ -67,8 +64,8 @@ public sealed class RecallTraceTests : IDisposable
         Assert.Equal(UnitFate.BelowThreshold, Section(trace, "ops/noise", "闲聊").Fate);
         Assert.Equal(0.0, Section(trace, "ops/noise", "闲聊").RerankScore);
         var result = Assert.Single(trace.Results);
-        Assert.All(result.Units, unit => Assert.Equal("ops/rollback", unit.Source));
-        Assert.Equal(1, trace.TopK);
+        Assert.Equal("ops/rollback", result.Page);
+        Assert.Equal(1, trace.Settings.TopK.Value);
         Assert.Equal(FullTextMethod.Phrase, trace.FullText);
         Assert.All(trace.Units.Where(unit => unit.FullTextRank is not null), unit => Assert.NotNull(unit.Bm25));
         Assert.All(trace.Units.Where(unit => unit.VectorRank is not null), unit => Assert.NotNull(unit.Distance));
@@ -86,7 +83,7 @@ public sealed class RecallTraceTests : IDisposable
 
         var trace = await Trace("部署", new RetrievalOverrides(Candidates: 2));
 
-        Assert.Equal(2, trace.Candidates);
+        Assert.Equal(2, trace.Settings.Candidates.Value);
         var beyond = trace.Units.Where(unit => unit.Fate == UnitFate.BeyondCandidates).ToList();
         Assert.NotEmpty(beyond);
         Assert.All(beyond, unit => Assert.True(unit.FusedRank > 2 && unit.RerankScore is null));
@@ -141,6 +138,21 @@ public sealed class RecallTraceTests : IDisposable
         Assert.Equal(TacitError.RequestInvalid, refusal.Error);
         Assert.Equal(["query", "from", "kind", "minRerankScore", "topK"], refusal.Problems!.Select(problem => problem.Path));
         Assert.Contains("0 到 1", refusal.Problems!.Single(problem => problem.Path == "minRerankScore").Message);
+    }
+
+    [Theory]
+    [InlineData("2026-13-01", null, null, "from")]
+    [InlineData(null, "11/30", null, "to")]
+    [InlineData("2026-11-30", "2026-11-01", null, "to")]
+    [InlineData(null, null, "everything", "kind")]
+    public async Task Recall_and_the_trace_refuse_the_same_parameter(string? from, string? to, string? kind, string parameter)
+    {
+        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署", From = from, To = to, Kind = kind });
+        var refusal = await Assert.ThrowsAsync<TacitException>(() => Service.TraceRecallAsync(new RecallTraceRequest("部署", null, from, to, kind)));
+
+        Assert.True(recall.IsError);
+        Assert.Contains(parameter, recall.Text.Split('\n')[0]);
+        Assert.Equal(parameter, Assert.Single(refusal.Problems!).Path);
     }
 
     [Fact]
@@ -247,7 +259,7 @@ public sealed class RecallTraceTests : IDisposable
 
         Assert.True(trace.Embedding.Configured);
         Assert.False(trace.Embedding.Answered);
-        Assert.NotNull(trace.Embedding.Elapsed);
+        Assert.NotNull(trace.Embedding.Milliseconds);
         Assert.All(trace.Units, unit => Assert.Null(unit.VectorRank));
         Assert.Equal([RecallPipeline.EmbeddingDown], trace.Notes);
         Assert.Equal(recall.Text, trace.Text);
@@ -276,29 +288,27 @@ public sealed class RecallTraceTests : IDisposable
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
         await Trace("部署");
-        Assert.All(Service.PageUsages(), usage => Assert.Equal(0, usage.Count));
+        Assert.All(await Service.PageCountsAsync(), entry => Assert.Equal(0, entry.Value));
 
         await Service.RecallAsync(new RecallRequest { Query = "部署" });
-        Assert.Contains(Service.PageUsages(), usage => usage.Page == "ops/rollback" && usage.Count > 0);
+        Assert.InRange((await Service.PageCountsAsync())["ops/rollback"], 1, long.MaxValue);
     }
 
     [Fact]
-    public async Task Gathering_a_brief_and_fetching_a_page_count_nothing_while_the_tools_still_count()
+    public async Task Browsing_a_brief_and_a_page_counts_nothing_while_recall_still_counts()
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
-        var parts = await Service.GatherBriefAsync("ops");
-        Assert.True(PageId.TryParse("ops/rollback", out var id, out _));
-        var page = await Service.FetchPageAsync(id);
+        var brief = await Service.WorkstreamBriefAsync("ops");
+        var page = await Service.PageAsync("ops", "rollback");
 
-        Assert.NotNull(parts);
-        Assert.Equal("ops/rollback", Assert.Single(parts.Entries).Id.ToString());
-        Assert.Equal("部署回滚", page?.Header.Title);
-        Assert.All(Service.PageUsages(), usage => Assert.Equal(0, usage.Count));
+        Assert.Equal("ops/rollback", Assert.Single(brief.Groups.SelectMany(group => group.Pages)).Id);
+        Assert.Equal("部署回滚", page.Title);
+        Assert.All(await Service.PageCountsAsync(), entry => Assert.Equal(0, entry.Value));
 
         await Service.RecallAsync(new RecallRequest { Workstream = "ops" });
-        Assert.Equal(1, Service.PageUsages().Single(usage => usage.Page == "ops/rollback").Count);
+        Assert.Equal(1, (await Service.PageCountsAsync())["ops/rollback"]);
         await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
-        Assert.Equal(2, Service.PageUsages().Single(usage => usage.Page == "ops/rollback").Count);
+        Assert.Equal(2, (await Service.PageCountsAsync())["ops/rollback"]);
     }
 }

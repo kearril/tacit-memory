@@ -1,4 +1,3 @@
-using System.Globalization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -16,7 +15,7 @@ internal sealed record RuleConflictVerdict(ConflictingEntry? Conflict, string? N
 /// existing entry of any of the four sections: the nearest entries by embedding, plus "none of these", go to the decision
 /// model as a choice question. The consolidation asks the same question about the entries it finds changed.
 /// </summary>
-internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
+internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, ChoiceJudge judge)
 {
     /// <summary>Entries offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int OtherOptions = 9;
@@ -27,7 +26,6 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
     public const string EmbeddingDown =
         "Note: the embedding model is unavailable, so whether the new entry conflicts with an existing persona entry was not checked.";
 
-    private const string None = "none";
 
     internal const string Instructions =
         "The state is a new entry for the user's persona file, with its section in brackets. "
@@ -50,40 +48,35 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
     public async Task<RuleConflictVerdict> RunAsync(
         string text, PersonaSection section, PersonaScope scope, PersonaDocument persona, PersonaItem? replaced, CancellationToken cancellationToken)
     {
-        var others = persona.KnownEntries()
-            .Where(entry => JudgedAgainst(entry.Scope, scope) && entry.Item.Line != replaced?.Line)
-            .ToList();
-        if (others.Count == 0)
-            return new RuleConflictVerdict(null, null);
-
-        var vector = await embedding.EmbedAsync([text], cancellationToken);
-        if (vector is null)
-            return new RuleConflictVerdict(null, embedding.Configured ? EmbeddingDown : null);
-
-        await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
-        // One more than OtherOptions: the replaced entry may be among the nearest and is skipped by Nearest.
-        var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1, scopes: ScopesJudged(scope));
-
-        var nearest = Nearest(hits, persona, replaced?.Line);
-        if (nearest.Count == 0)
-            return new RuleConflictVerdict(null, null);
-
-        var options = new Dictionary<string, string>(StringComparer.Ordinal);
-        var entries = new Dictionary<string, ConflictingEntry>(StringComparer.Ordinal);
-        foreach (var entry in nearest)
-        {
-            var key = "p" + (entries.Count + 1).ToString(CultureInfo.InvariantCulture);
-            options[key] = OptionText(entry.Section, entry.Item.JudgmentText, config.Language);
-            entries[key] = entry;
-        }
-
-        options[None] = NoneText;
-        var probabilities = await decision.ChooseAsync(StateOf(text, section, config.Language), Instructions, options, cancellationToken);
-        if (probabilities is null)
-            return new RuleConflictVerdict(null, decision.Configured ? DecisionDown : null);
-
-        var verdict = Judgment.Choice(probabilities, None, config.Decision.RuleConflict ?? Judgment.RuleConflict);
-        return new RuleConflictVerdict(verdict.Tier == Tier.Certain ? entries[verdict.Option!] : null, null);
+        var embeddingFailed = false;
+        var outcome = await judge.AskAsync(
+            Neighbours.PersonaEntries,
+            async token =>
+            {
+                var others = persona.KnownEntries()
+                    .Where(entry => JudgedAgainst(entry.Scope, scope) && entry.Item.Line != replaced?.Line)
+                    .ToList();
+                if (others.Count == 0)
+                    return PreparedChoice<ConflictingEntry>.Nothing;
+                var vector = await embedding.EmbedAsync([text], token);
+                if (vector is null)
+                {
+                    embeddingFailed = true;
+                    return new PreparedChoice<ConflictingEntry>(null, ChoiceJudge.NoAnswerReason(embedding.Configured));
+                }
+                await vectors.PrepareSearchAsync(vector[0].Length, token);
+                // One more than OtherOptions: the replaced entry may be among the nearest and is skipped by Nearest.
+                var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1, scopes: ScopesJudged(scope));
+                var options = Nearest(hits, persona, replaced?.Line)
+                    .Select(entry => new ChoiceOption<ConflictingEntry>(OptionText(entry.Section, entry.Item.JudgmentText, config.Language), entry))
+                    .ToList();
+                return options.Count == 0
+                    ? PreparedChoice<ConflictingEntry>.Nothing
+                    : new PreparedChoice<ConflictingEntry>(new ChoiceQuestion<ConflictingEntry>(StateOf(text, section, config.Language), Instructions, NoneText, options), null);
+            },
+            config.Decision.RuleConflict ?? Judgment.RuleConflict,
+            cancellationToken);
+        return new RuleConflictVerdict(outcome.Certain, ChoiceJudge.NoteOf(outcome.Reason, embeddingFailed, EmbeddingDown, DecisionDown));
     }
 
     /// <summary>The new entry as the question states it: its section in brackets, then its text.</summary>

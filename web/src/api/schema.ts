@@ -2442,6 +2442,8 @@ export interface components {
             workstream: null | string;
             text: string;
             continuation: string[];
+            /** Format: int64 */
+            uses: number;
         };
         ActivityMonths: {
             months: string[];

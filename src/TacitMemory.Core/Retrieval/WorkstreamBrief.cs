@@ -28,12 +28,9 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     private const string EntitiesHeading = "Entities";
     private const string UntypedHeading = "Untyped";
 
-    /// <summary>The brief for <paramref name="workstream"/>, or <see cref="RecallTool.NoMemory"/> when it has no pages and no activities.</summary>
-    public string Compose(string workstream, DateOnly? from, DateOnly? to)
+    /// <summary>The text of the brief <paramref name="parts"/> make, and the pages it lists.</summary>
+    public (string Text, IReadOnlyList<PageId> Listed) Compose(Parts parts)
     {
-        if (Gather(workstream, from, to) is not { } parts)
-            return RecallTool.NoMemory;
-
         var limit = config.Limits.Brief;
         var shown = new HashSet<Entry>(parts.Entries);
         var omitted = 0;
@@ -50,13 +47,11 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
 
         text = CutAtLimit(text, limit);
         var listed = shown.Select(entry => entry.Id).Concat(parts.Overturned).Concat(parts.OpenItems.Select(item => item.Id)).Distinct().ToList();
-        index.RecordPagesListed(listed);
-        return text;
+        return (text, listed);
     }
 
     /// <summary>
-    /// Everything the brief lists for <paramref name="workstream"/>, whole and in the brief's order, without counting a return;
-    /// <c>null</c> when the workstream is not established and has no pages and no activities.
+    /// Everything the brief lists for <paramref name="workstream"/>, whole and in the brief's order; <c>null</c> when the workstream is not established and has no pages and no activities.
     /// </summary>
     public Parts? Gather(string workstream, DateOnly? from, DateOnly? to)
     {

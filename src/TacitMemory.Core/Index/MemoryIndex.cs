@@ -137,6 +137,9 @@ internal sealed class MemoryIndex : IDisposable
     private readonly string _databasePath;
     private readonly string? _embeddingModel;
     private readonly Lock _gate = new();
+
+    /// <summary>Set when a background sync gave up; the next search syncs every file first.</summary>
+    private volatile bool _possiblyStale;
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
     private readonly Func<DateOnly> _today;
     private readonly Func<IReadOnlyDictionary<string, DateOnly>> _commitDays;
@@ -215,12 +218,39 @@ internal sealed class MemoryIndex : IDisposable
             _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
             _fullBuild = false;
             _commitDayCache = null;
+            // Cleared only once every file is in step: a sync that meets a held file leaves the mark for the next search.
+            _possiblyStale = false;
+        }
+    }
+
+    /// <summary>
+    /// Marks the index as possibly behind its files: a background sync gave up, and no change may come to start another. It
+    /// is kept in memory only, as a restart syncs every file anyway.
+    /// </summary>
+    public void MarkPossiblyStale() => _possiblyStale = true;
+
+    /// <summary>
+    /// Syncs every file when a background sync gave up since the last full sync, so a search does not read what the files no
+    /// longer say. A file still held leaves the mark for the next search.
+    /// </summary>
+    public void SyncAllIfStale()
+    {
+        if (!_possiblyStale)
+            return;
+        try
+        {
+            SyncAll();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // The give-up was reported already; the search reads what the index holds, and the next one tries again.
         }
     }
 
     /// <summary>
     /// Brings <c>persona.md</c> and <c>candidates.md</c> in line with their files: their units are rebuilt when a hash
-    /// changed. The write path calls it before and after each <c>write_persona</c>, so judgments see the latest text.
+    /// changed. A judgment that offers these entries calls it before its question is prepared, and a consolidation once before
+    /// its judgments, so they see the latest text; the write path calls it after each write, so the next read does.
     /// </summary>
     public void SyncJudgments()
     {

@@ -22,7 +22,7 @@ internal sealed class AuxiliaryModels : IDisposable
 
     public RerankerModel Reranker { get; }
 
-    public IDecisionModel Decision { get; }
+    public SystemOneDecisionModel Decision { get; }
 
     /// <summary>The configured models cooling down after a failed request, by role name. Unconfigured models are never listed.</summary>
     public IReadOnlyList<string> Unavailable =>

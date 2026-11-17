@@ -12,12 +12,12 @@ namespace TacitMemory.Core.Recent;
 /// The workstream list is maintained by the consolidation, which edits <c>workstreams.md</c> directly. Callers serialize writes; this
 /// class assumes it runs one write at a time.
 /// </summary>
-internal sealed class RecentTools(TacitOptions options, TacitConfig config, IDecisionModel decision, MemoryWriter writer)
+internal sealed class RecentTools(TacitOptions options, TacitConfig config, ChoiceJudge judge, MemoryWriter writer)
 {
     /// <summary>Every parameter <c>write_recent</c> takes, listed when an unknown one is refused.</summary>
     private const string Parameters = "text, workstream, source, replaces, confirm_no_secret";
 
-    private readonly SameTopicCheck _sameTopic = new(config, decision);
+    private readonly SameTopicCheck _sameTopic = new(config, judge);
 
     public async Task<ToolResult> WriteAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {

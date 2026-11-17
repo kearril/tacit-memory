@@ -4,27 +4,11 @@ using System.Text.Json.Nodes;
 namespace TacitMemory.Core.Models;
 
 /// <summary>
-/// A model that answers multiple-choice questions with probabilities. The questions are in English; the text they are
-/// about stays as written. Each call returns <c>null</c> when the model cannot be reached or answers wrongly.
-/// </summary>
-internal interface IDecisionModel
-{
-    /// <summary>Whether the model is configured. An unconfigured model is never called and never cools down.</summary>
-    bool Configured { get; }
-
-    ModelHealth Health { get; }
-
-    /// <summary>Probability of each option, by option key; <c>null</c> when the model is not configured or cannot answer.</summary>
-    Task<IReadOnlyDictionary<string, double>?> ChooseAsync(
-        string state, string instructions, IReadOnlyDictionary<string, string> options, CancellationToken cancellationToken);
-}
-
-/// <summary>
 /// The System One protocol, one choice question per request: <c>model</c>, <c>state</c> and <c>questions</c> go to the
 /// configured URL, and the probability of each option is read from <c>answers</c>. TypeSafe's native decision API
 /// speaks it. Cloudflare Workers AI takes the same request and returns the same answer inside its <c>result</c>.
 /// </summary>
-internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? config, ModelHealth health) : IDecisionModel
+internal sealed class SystemOneDecisionModel(ModelClient client, ModelConfig? config, ModelHealth health)
 {
     private const string QuestionId = "q";
 

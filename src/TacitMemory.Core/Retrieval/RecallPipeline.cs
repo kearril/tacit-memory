@@ -112,8 +112,9 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
     /// <summary>The usual constant of reciprocal rank fusion; it damps the weight of the very top ranks.</summary>
     private const int RrfK = 60;
 
-    public async Task<RecallTrace> RunAsync(string query, IndexFilter filter, RetrievalOverrides overrides, CancellationToken cancellationToken)
+    public async Task<RecallTrace> RunAsync(RecallSearch search, CancellationToken cancellationToken)
     {
+        var (query, filter, overrides) = search;
         var candidates = overrides.Candidates ?? config.Retrieval.Candidates;
         var topK = overrides.TopK ?? config.Retrieval.TopK;
         var floor = overrides.MinRerankScore ?? config.Retrieval.MinRerankScore ?? DefaultMinRerankScore;

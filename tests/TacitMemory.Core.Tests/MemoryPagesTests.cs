@@ -111,11 +111,11 @@ public sealed class MemoryPagesTests : IDisposable
     public async Task Reading_the_list_and_a_page_counts_nothing()
     {
         await Create("ops/rollback", "部署回滚", ToolValues.PageTypes.Decision, null, new PageSectionInput("决定", "失败先回滚。"));
-        var before = Service.PageUsages();
+        var before = await Service.PageCountsAsync();
 
         await Service.PagesAsync();
         await Service.PageAsync("ops", "rollback");
 
-        Assert.Equal(before, Service.PageUsages());
+        Assert.Equal(before, await Service.PageCountsAsync());
     }
 }

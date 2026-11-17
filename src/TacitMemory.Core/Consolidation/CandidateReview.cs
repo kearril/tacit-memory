@@ -36,8 +36,6 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
         var candidates = TextFile.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Candidates));
         if (candidates is null)
             return () => Task.FromResult<CandidateReview?>(null);
-        // A manual edit may not have reached the index yet; the judgments search the index, so bring it up to date first.
-        services.Index.SyncJudgments();
 
         var threshold = config.Decision.SamePreference ?? Judgment.SamePreference;
         var submitted = CandidatesDocument.Parse(candidates.Value.Text).Candidates
@@ -64,7 +62,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     {
         var vector = await services.Embedding.EmbedAsync([candidate.Text], cancellationToken);
         if (vector is null)
-            return new PreparedChoice<PreferenceMatch>(null, JudgmentPool.NoAnswerReason(services.Embedding.Configured));
+            return new PreparedChoice<PreferenceMatch>(null, ChoiceJudge.NoAnswerReason(services.Embedding.Configured));
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         var options = new List<ChoiceOption<PreferenceMatch>>();

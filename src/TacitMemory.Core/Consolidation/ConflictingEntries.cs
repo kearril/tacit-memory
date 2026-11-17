@@ -22,9 +22,6 @@ internal static class ConflictingEntries
         if (persona is null)
             return () => Task.FromResult(new ConsolidationSection(ConsolidationTitles.ConflictingEntries, [], NotReadable));
 
-        // The judgments search the index, so bring it up to date with a manual edit first.
-        services.Index.SyncJudgments();
-
         var codes = persona.CodesByLine();
         var entries = persona.KnownEntries()
             .Select(entry => new ConflictingEntry(entry.Scope, entry.Kind, entry.Item, codes[entry.Item.Line]))
@@ -86,7 +83,7 @@ internal static class ConflictingEntries
 
         var vector = await services.Embedding.EmbedAsync([entry.Item.JudgmentText], cancellationToken);
         if (vector is null)
-            return new PreparedChoice<ConflictingEntry>(null, JudgmentPool.NoAnswerReason(services.Embedding.Configured));
+            return new PreparedChoice<ConflictingEntry>(null, ChoiceJudge.NoAnswerReason(services.Embedding.Configured));
 
         await services.Vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
         // One more than the offered count: the entry itself may be among the nearest and is skipped by Nearest.

@@ -1,11 +1,12 @@
 using System.Globalization;
 using TacitMemory.Core.Formats;
+using TacitMemory.Core.Index;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Recent;
 
-/// <summary>The activity log for the memory page: its months, and one month by day. Counts nothing.</summary>
+/// <summary>The activity log for the memory page: its months, and one month by day with each activity's returns. Counts nothing.</summary>
 internal static class ActivityBrowse
 {
     public static ActivityMonths Months(string memoryPath, DateOnly today) =>
@@ -17,7 +18,7 @@ internal static class ActivityBrowse
     /// <see cref="TacitError.RequestInvalid"/> when it is not written yyyy-MM; <see cref="TacitError.MemoryNotFound"/> when
     /// it has no file and is not the current month.
     /// </exception>
-    public static ActivityMonthView Month(TacitConfig config, DateOnly today, string month)
+    public static ActivityMonthView Month(TacitConfig config, MemoryIndex index, DateOnly today, string month)
     {
         if (month.Length != 7
             || !DateOnly.TryParseExact(month + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var first))
@@ -34,10 +35,11 @@ internal static class ActivityBrowse
 
         var text = TextFile.Read(path)?.Text ?? "";
         var lines = text.Split('\n');
+        var uses = index.ActivityUsages();
         var days = RecentFile.Activities(text)
             .GroupBy(activity => activity.Day)
             .OrderBy(group => group.Key)
-            .Select(group => new ActivityDayView(Day(group.Key), [.. group.Select(activity => Item(activity, lines))]))
+            .Select(group => new ActivityDayView(Day(group.Key), [.. group.Select(activity => Item(activity, lines, uses.GetValueOrDefault(activity.Code)))]))
             .ToList();
         var summaries = SummaryLines.All(text)
             .Select(summary => new ActivitySummaryView(
@@ -46,8 +48,8 @@ internal static class ActivityBrowse
         return new ActivityMonthView(month, MemoryFileReport.Of(config, relative), days, summaries);
     }
 
-    /// <summary>An activity with the indented lines under it.</summary>
-    private static ActivityItemView Item(RecentFile.Activity activity, string[] lines)
+    /// <summary>An activity with the indented lines under it and how often it was returned.</summary>
+    private static ActivityItemView Item(RecentFile.Activity activity, string[] lines, long uses)
     {
         var continuation = new List<string>();
         for (var index = activity.Line + 1; index < lines.Length; index++)
@@ -58,7 +60,7 @@ internal static class ActivityBrowse
             continuation.Add(line);
         }
 
-        return new ActivityItemView(activity.Code, activity.Workstream, activity.Body, continuation);
+        return new ActivityItemView(activity.Code, activity.Workstream, activity.Body, continuation, uses);
     }
 
     private static string Day(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
