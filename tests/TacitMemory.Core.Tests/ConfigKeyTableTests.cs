@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using TacitMemory.Core.Configuration;
 
 namespace TacitMemory.Core.Tests;
 
@@ -49,10 +48,16 @@ public sealed class ConfigKeyTableTests : IDisposable
     }
 
     [Fact]
-    public void Every_key_s_path_is_the_wire_name_of_its_contract_path()
+    public void The_settings_page_describes_every_contract_key_path_once_in_its_order()
     {
-        Assert.All(ConfigKeys.All, key => Assert.Equal(key.Path, key.Id.Dotted()));
-        Assert.Equal(Enum.GetValues<ConfigKeyPath>(), ConfigKeys.All.Select(key => key.Id));
+        Assert.Equal(Enum.GetValues<ConfigKeyPath>(), Service.ConfigView().Keys.Select(key => key.Path));
+    }
+
+    [Fact]
+    public void Every_secret_is_read_by_the_wire_name_of_its_key_path()
+    {
+        foreach (var key in Service.ConfigView().Keys.Where(key => key.Secret))
+            Assert.Equal(key.Path == ConfigKeyPath.ModelsDecisionApiKey ? "test-key" : null, Service.Secret(key.Path.Dotted()).Value);
     }
 
     [Fact]

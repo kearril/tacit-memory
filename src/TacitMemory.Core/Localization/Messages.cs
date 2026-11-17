@@ -176,6 +176,4 @@ internal static class Messages
     public static readonly Localized VectorExtensionInvalid = new(
         "向量检索扩展 {0} 缺失或不是 sqlite-vec {1} 的官方发布文件，为安全起见不加载，常驻服务无法启动。请重新安装 TacitMemory。",
         "The vector search extension {0} is missing or is not the official sqlite-vec {1} release, so it is not loaded and the memory service cannot start. Reinstall TacitMemory.");
-
-
 }

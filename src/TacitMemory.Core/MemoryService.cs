@@ -259,7 +259,7 @@ public sealed class MemoryService : IDisposable
     public void CheckExtraListenerAllowed()
     {
         if (Config.ExtraAddress is { } extra && !Access.PasswordSet)
-            throw new TacitException(TacitError.ConfigInvalid, AccessMessages.PasswordRequiredForExtraAddress.Format(Config.Language, extra));
+            throw new TacitException(TacitError.ConfigInvalid, AccessMessages.PasswordRequiredForExtraAddress.Format(Language, extra));
     }
 
     /// <summary>What happened to each bound context file when the service started.</summary>
@@ -303,9 +303,9 @@ public sealed class MemoryService : IDisposable
         var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failureReason);
         _extraListener = listener;
         if (listener.FailureReason is null)
-            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, StatusMessages.ExtraListenerName(listener.Address, Config.Language));
+            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, StatusMessages.ExtraListenerName(listener.Address, Language));
         else
-            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, StatusMessages.ExtraListenerName(listener.Address, Config.Language), listener.FailureReason);
+            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, StatusMessages.ExtraListenerName(listener.Address, Language), listener.FailureReason);
     }
 
     /// <summary>
@@ -344,13 +344,13 @@ public sealed class MemoryService : IDisposable
     public ServiceLogDay ServiceLog(string date, string? after = null)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
-            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogDateInvalid.Format(Config.Language, date));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogDateInvalid.Format(Language, date));
         var skip = 0;
         if (after is not null && !int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out skip))
-            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogAfterInvalid.Format(Config.Language, after));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogAfterInvalid.Format(Language, after));
         var today = _options.Today;
         var entries = ServiceLogReader.Read(_options.TacitHome, day)
-            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, RequestMessages.LogDateNotFound.Format(Config.Language, date)));
+            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, RequestMessages.LogDateNotFound.Format(Language, date)));
         return new ServiceLogDay(day, today, [.. entries.Skip(skip)], entries.Count);
     }
 
@@ -365,7 +365,7 @@ public sealed class MemoryService : IDisposable
     /// client registers.
     /// </summary>
     /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
-    public BindingList Bindings() => new(BindingChecks.Produce(_options, Config.Language).Items, McpServer.On(Config.Port));
+    public BindingList Bindings() => new(BindingChecks.Produce(_options, Language).Items, McpServer.On(Config.Port));
 
     /// <summary>
     /// Binds a client by the rules of <c>tacit connect</c>; a refusal changes no file. Holds the render lock, so the service
@@ -413,8 +413,8 @@ public sealed class MemoryService : IDisposable
     {
         var running = RunningPrompts();
         return new PromptCheck(
-            PromptFiles.Measure(Config.Language, running, name, text),
-            PromptFiles.Check(_options.TacitHome, Config.Language, running, name, text));
+            PromptFiles.Measure(Language, running, name, text),
+            PromptFiles.Check(_options.TacitHome, Language, running, name, text));
     }
 
     /// <summary>The prompt documents the service runs with now.</summary>
@@ -427,7 +427,7 @@ public sealed class MemoryService : IDisposable
     private PromptDocumentView PromptView(PromptName name)
     {
         var (running, problems) = _upkeep.PromptState;
-        return PromptFiles.View(_options.TacitHome, Config.Language, running, name, problems.GetValueOrDefault(name));
+        return PromptFiles.View(_options.TacitHome, Language, running, name, problems.GetValueOrDefault(name));
     }
 
     /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
@@ -446,7 +446,7 @@ public sealed class MemoryService : IDisposable
             if (string.Equals(candidate.ToString(), name, StringComparison.OrdinalIgnoreCase) && name == name.ToLowerInvariant())
                 return candidate;
         }
-        throw new TacitException(TacitError.PromptUnknown, RequestMessages.PromptUnknown.Format(Config.Language, name));
+        throw new TacitException(TacitError.PromptUnknown, RequestMessages.PromptUnknown.Format(Language, name));
     }
 
     /// <summary>
@@ -467,7 +467,7 @@ public sealed class MemoryService : IDisposable
             var path = PromptFiles.PathOf(_options.TacitHome, name);
             var current = PromptView(name);
             if (current.Hash != hash)
-                throw new TacitException(TacitError.PromptChanged, RequestMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
+                throw new TacitException(TacitError.PromptChanged, RequestMessages.PromptChanged.Format(Language, Path.GetFileName(path)));
 
             var content = text.ReplaceLineEndings("\n");
             RefuseUnless(name, content);
@@ -496,7 +496,7 @@ public sealed class MemoryService : IDisposable
             if (!File.Exists(path))
                 return new PromptSaved(PromptView(name), []);
 
-            RefuseUnless(name, PromptFiles.DefaultText(name, Config.Language));
+            RefuseUnless(name, PromptFiles.DefaultText(name, Language));
             File.Delete(path);
             return Applied(name);
         }
@@ -520,7 +520,7 @@ public sealed class MemoryService : IDisposable
     /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
     private void RefuseUnless(PromptName name, string text)
     {
-        var refusals = PromptFiles.Check(_options.TacitHome, Config.Language, RunningPrompts(), name, text);
+        var refusals = PromptFiles.Check(_options.TacitHome, Language, RunningPrompts(), name, text);
         if (refusals.Count == 0)
             return;
         var file = Path.GetFileName(PromptFiles.PathOf(_options.TacitHome, name));
@@ -576,13 +576,13 @@ public sealed class MemoryService : IDisposable
         var path = ConfigFilePath;
         var current = File.ReadAllText(path);
         if (ContentHash.Of(current) != hash)
-            throw new TacitException(TacitError.ConfigChanged, RequestMessages.ConfigChanged.In(Config.Language));
+            throw new TacitException(TacitError.ConfigChanged, RequestMessages.ConfigChanged.In(Language));
 
         var held = ConfigLoader.Read(_options, path, current);
         var unknown = secrets.Keys.Where(key => ConfigKeys.Secrets.All(secret => secret.Path != key)).ToList();
         if (unknown.Count > 0)
         {
-            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.SecretNotSecret.In(Config.Language))).ToList();
+            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.SecretNotSecret.In(Language))).ToList();
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
         }
 
@@ -603,10 +603,10 @@ public sealed class MemoryService : IDisposable
         var (before, after) = (ConfigFile.From(held), ConfigFile.From(saved));
         var problems = ConfigKeys.ReadOnly
             .Where(key => before.ValueAt(key) != after.ValueAt(key))
-            .Select(key => new ConfigProblem(key.Path, RequestMessages.ConfigReadOnly.In(Config.Language)))
+            .Select(key => new ConfigProblem(key.Path, RequestMessages.ConfigReadOnly.In(Language)))
             .ToList();
         if (saved.ExtraAddress is not null && !Access.PasswordSet)
-            problems.Add(new ConfigProblem("server.host", RequestMessages.ConfigExtraNeedsPassword.In(Config.Language)));
+            problems.Add(new ConfigProblem(ConfigKeys.Host.Path, RequestMessages.ConfigExtraNeedsPassword.In(Language)));
         if (problems.Count > 0)
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
 
@@ -645,11 +645,11 @@ public sealed class MemoryService : IDisposable
     public async Task<BackupResult> BackupAsync(BackupTarget target, string? directory = null, CancellationToken cancellationToken = default)
     {
         if (directory is not null && !Path.IsPathFullyQualified(directory))
-            throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupDirectoryNotAbsolute.Format(Config.Language, directory));
+            throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupDirectoryNotAbsolute.Format(Language, directory));
         if (target == BackupTarget.Cloud)
         {
             if (directory is not null)
-                throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupCloudWithDirectory.In(Config.Language));
+                throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupCloudWithDirectory.In(Language));
             return await _remote.RunAsync(_gate, cancellationToken);
         }
 
@@ -701,7 +701,7 @@ public sealed class MemoryService : IDisposable
     /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with every problem of the request.</exception>
     public async Task<RecallTraceReport> TraceRecallAsync(RecallTraceRequest request, CancellationToken cancellationToken = default)
     {
-        var search = RecallTraceRun.Check(request, Config.Language);
+        var search = RecallTraceRun.Check(request, Language);
         using var hold = await _gate.ReadAsync(cancellationToken);
         var trace = await _reader.SearchAsync(search, Usage.NotCounted, cancellationToken);
         return RecallTraceRun.Report(trace, Config);
@@ -781,18 +781,18 @@ public sealed class MemoryService : IDisposable
     {
         var lines = new List<string>
         {
-            MaintenanceMessages.Reindexed.Format(Config.Language, counts.Files, counts.Units, counts.Vectors, elapsed.TotalSeconds),
+            MaintenanceMessages.Reindexed.Format(Language, counts.Files, counts.Units, counts.Vectors, elapsed.TotalSeconds),
         };
         if (skipped.Count > 0)
         {
-            lines.Add(MaintenanceMessages.SkippedFiles.In(Config.Language));
+            lines.Add(MaintenanceMessages.SkippedFiles.In(Language));
             lines.AddRange(skipped.Select(path => $"  {path}"));
         }
 
         if (!_models.Embedding.Configured)
-            lines.Add(MaintenanceMessages.EmbeddingNotConfigured.In(Config.Language));
+            lines.Add(MaintenanceMessages.EmbeddingNotConfigured.In(Language));
         if (vectorsPending)
-            lines.Add(MaintenanceMessages.VectorsPending.In(Config.Language));
+            lines.Add(MaintenanceMessages.VectorsPending.In(Language));
         return string.Join('\n', lines);
     }
 
@@ -836,7 +836,7 @@ public sealed class MemoryService : IDisposable
     public async Task<RestorePreview> PreviewRestoreAsync(string? path, bool remote = false, bool config = false, CancellationToken cancellationToken = default)
     {
         if ((path is not null) == remote)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Config.Language));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
         if (remote)
             return await PreviewRemoteRestoreAsync(config, cancellationToken);
         RequireAbsolutePath(path!);
@@ -858,7 +858,7 @@ public sealed class MemoryService : IDisposable
     private async Task<RestorePreview> PreviewLocalRestoreAsync(string path, bool config, CancellationToken cancellationToken)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        using var archive = RestoreArchive.Open(path, Config.Language, config);
+        using var archive = RestoreArchive.Open(path, Language, config);
         return await RestorePreviewBuilder.BuildAsync(_options, Config, path, archive, config, cancellationToken);
     }
 
@@ -876,9 +876,9 @@ public sealed class MemoryService : IDisposable
     public async Task<RestoreResult> RestoreAsync(string? path, bool remote = false, bool config = false, CancellationToken cancellationToken = default)
     {
         if (remote)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.RemotePreviewFirst.In(Config.Language));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.RemotePreviewFirst.In(Language));
         if (path is null)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Config.Language));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
         RequireAbsolutePath(path);
         var result = await RunMaintenanceAsync("restore", _ => RestoreCoreAsync(path, config), cancellationToken);
         // A restore from the cloud download is done with the download once it has succeeded; a failed one keeps it.
@@ -889,7 +889,7 @@ public sealed class MemoryService : IDisposable
 
     private async Task<RestoreResult> RestoreCoreAsync(string path, bool config)
     {
-        var language = Config.Language;
+        var language = Language;
         // A bad backup is refused here, before the index, the watchers or any file is touched.
         using var archive = RestoreArchive.Open(path, language, config);
         var memory = Path.TrimEndingDirectorySeparator(Config.MemoryPath);
@@ -1002,7 +1002,7 @@ public sealed class MemoryService : IDisposable
     private void RequireAbsolutePath(string path)
     {
         if (!Path.IsPathFullyQualified(path))
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.PathNotAbsolute.Format(Config.Language, path));
+            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.PathNotAbsolute.Format(Language, path));
     }
 
     /// <summary>A task that completes once <paramref name="task"/> has, whether it finished or failed: its failure is reported where it happened.</summary>
@@ -1038,7 +1038,7 @@ public sealed class MemoryService : IDisposable
                 : result.Written ? LogMessages.ToolWritten
                 : LogMessages.ToolDone;
             _log.Record(
-                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, outcome.In(Config.Language),
+                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, outcome.In(Language),
                 (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }
