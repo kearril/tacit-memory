@@ -46,7 +46,7 @@ public sealed record RestartChange(string Path, string Running, string Saved)
     /// <summary>The settings that wait for a restart and differ between <paramref name="running"/> and <paramref name="saved"/>, in a fixed order.</summary>
     internal static IReadOnlyList<RestartChange> Between(TacitConfig running, TacitConfig saved)
     {
-        static string Host(TacitConfig config) => config.ExtraAddress?.ToString() ?? ConfigDefaults.Host;
+        static string Host(TacitConfig config) => config.ExtraAddress?.ToString() ?? ConfigKeys.LoopbackHost;
 
         (string Path, string Running, string Saved)[] all =
         [

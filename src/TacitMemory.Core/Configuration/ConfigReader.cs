@@ -78,25 +78,28 @@ internal sealed class ConfigReader(MemoryLanguage language)
         return text;
     }
 
-    public int Integer(YamlMappingNode? map, string path, string key, int fallback, int min, int max)
+    /// <summary>The whole number at <paramref name="entry"/> within its range; its default when absent or wrong (reported).</summary>
+    public int Integer(YamlMappingNode? map, IntegerEntry entry)
     {
-        var text = Text(map, path, key);
+        var text = Text(map, entry.Section, entry.Key);
         if (text is null)
-            return fallback;
-        if (int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) && value >= min && value <= max)
+            return entry.Default;
+        if (int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value)
+            && value >= entry.Lowest && value <= entry.Highest)
             return value;
-        Error(Join(path, key), Messages.ConfigExpectedInteger, min, max, text);
-        return fallback;
+        Error(entry.Path, Messages.ConfigExpectedInteger, entry.Lowest, entry.Highest, text);
+        return entry.Default;
     }
 
-    public double? Probability(YamlMappingNode? map, string path, string key, bool required = false)
+    /// <summary>The number at <paramref name="entry"/> within its range; <c>null</c> when absent or wrong (reported).</summary>
+    public double? Probability(YamlMappingNode? map, ProbabilityEntry entry, bool required = false)
     {
-        var text = Text(map, path, key, required);
+        var text = Text(map, entry.Section, entry.Key, required);
         if (text is null)
             return null;
-        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value is >= 0 and <= 1)
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= entry.Min && value <= entry.Max)
             return value;
-        Error(Join(path, key), Messages.ConfigExpectedProbability, text);
+        Error(entry.Path, Messages.ConfigExpectedProbability, text);
         return null;
     }
 

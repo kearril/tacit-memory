@@ -42,9 +42,9 @@ internal sealed record RecallSearch(string Query, IndexFilter Filter, RetrievalO
         if (kind is not (null or ToolValues.RecallKinds.Pages or ToolValues.RecallKinds.Activities))
             problems.Add(new SearchProblem("kind", SearchFault.KindInvalid, kind));
 
-        InRange(request.Overrides.MinRerankScore, "minRerankScore", "retrieval.minRerankScore", problems);
-        InRange(request.Overrides.TopK, "topK", "retrieval.topK", problems);
-        InRange(request.Overrides.Candidates, "candidates", "retrieval.candidates", problems);
+        InRange(request.Overrides.MinRerankScore, "minRerankScore", ConfigKeys.MinRerankScore, problems);
+        InRange(request.Overrides.TopK, "topK", ConfigKeys.TopK, problems);
+        InRange(request.Overrides.Candidates, "candidates", ConfigKeys.Candidates, problems);
         if (problems.Count > 0)
             return (null, problems);
 
@@ -74,9 +74,8 @@ internal sealed record RecallSearch(string Query, IndexFilter Filter, RetrievalO
     }
 
     /// <summary>Adds a problem when <paramref name="value"/> lies outside the range the config accepts for <paramref name="key"/>.</summary>
-    private static void InRange(double? value, string name, string key, List<SearchProblem> problems)
+    private static void InRange(double? value, string name, ConfigEntry range, List<SearchProblem> problems)
     {
-        var range = ConfigSchema.Keys.Single(entry => entry.Path == key);
         if (value is { } given && (given < range.Min || given > range.Max))
             problems.Add(new SearchProblem(name, SearchFault.OutOfRange, null, range.Min!.Value, range.Max!.Value));
     }

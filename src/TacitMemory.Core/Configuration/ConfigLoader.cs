@@ -10,9 +10,6 @@ namespace TacitMemory.Core.Configuration;
 /// <summary>Loads <c>config.yaml</c> (schema and defaults as documented) and the prompt documents from <c>TACIT_HOME</c>.</summary>
 internal static class ConfigLoader
 {
-    /// <summary>The port the service listens on when <c>server.port</c> is not given.</summary>
-    internal const int DefaultPort = ConfigDefaults.Port;
-
     public static TacitConfig Load(TacitOptions options)
     {
         var config = Read(options);
@@ -61,14 +58,14 @@ internal static class ConfigLoader
 
         var server = reader.Mapping(root, "", "server");
         reader.OnlyKnown(server, "server", "port", "host");
-        var port = reader.Integer(server, "server", "port", DefaultPort, 1, 65535);
+        var port = reader.Integer(server, ConfigKeys.Port);
         var extraAddress = ReadExtraAddress(reader, server);
 
         var memory = reader.Mapping(root, "", "memory");
         reader.OnlyKnown(memory, "memory", "path");
         var memoryPath = reader.Text(memory, "memory", "path") is { } configured
             ? HomePaths.Expand(configured, options.UserHome)
-            : ConfigDefaults.MemoryPath(options.TacitHome);
+            : ConfigKeys.DefaultMemoryPath(options.TacitHome);
 
         var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
@@ -130,21 +127,21 @@ internal static class ConfigLoader
         {
             var path = Path.Combine(options.TacitHome, "config.yaml");
             if (!File.Exists(path))
-                return new LooseSettings(DefaultPort, fallbackLanguage);
+                return new LooseSettings(ConfigKeys.Port.Default, fallbackLanguage);
             using var file = new StreamReader(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             root = Parse(file, path, fallbackLanguage);
         }
         catch (Exception e) when (e is TacitException or IOException or UnauthorizedAccessException)
         {
-            return new LooseSettings(DefaultPort, fallbackLanguage);
+            return new LooseSettings(ConfigKeys.Port.Default, fallbackLanguage);
         }
 
         var language = LanguageCodes.Parse(Scalar(root, "language")) ?? fallbackLanguage;
         var server = root.Children.TryGetValue(new YamlScalarNode("server"), out var serverNode) ? serverNode as YamlMappingNode : null;
         var port = int.TryParse(Scalar(server, "port"), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value)
-            && value is >= 1 and <= 65535
+            && value >= ConfigKeys.Port.Lowest && value <= ConfigKeys.Port.Highest
             ? value
-            : DefaultPort;
+            : ConfigKeys.Port.Default;
         return new LooseSettings(port, language);
     }
 
@@ -222,24 +219,21 @@ internal static class ConfigLoader
         var models = reader.Mapping(root, "", "models");
         reader.OnlyKnown(models, "models", "embedding", "reranker", "decision");
 
-        ModelConfig? Model(string key, string variable)
+        ModelConfig? Model(ModelKeys keys)
         {
-            var path = ConfigReader.Join("models", key);
-            var map = reader.Mapping(models, "models", key);
+            var path = keys.Path;
+            var map = reader.Mapping(models, "models", keys.Name);
             if (map is null)
                 return null;
-            reader.OnlyKnown(map, path, "provider", "url", "model", "apiKey");
+            reader.OnlyKnown(map, path, keys.Provider.Key, keys.Url.Key, keys.Model.Key, keys.ApiKey.Key);
             var provider = ReadProvider(reader, map, path);
-            var url = reader.Url(map, path, "url");
-            var model = reader.Text(map, path, "model", required: true);
-            var apiKey = ReadSecret(reader, map, path, "apiKey", variable, secrets, required: false);
+            var url = reader.Url(map, path, keys.Url.Key);
+            var model = reader.Text(map, path, keys.Model.Key, required: true);
+            var apiKey = ReadSecret(reader, map, keys.ApiKey, secrets, required: false);
             return url is null || model is null ? null : new ModelConfig(url, model, apiKey, provider);
         }
 
-        return new ModelsConfig(
-            Model("embedding", SecretVariables.EmbeddingApiKey),
-            Model("reranker", SecretVariables.RerankerApiKey),
-            Model("decision", SecretVariables.DecisionApiKey));
+        return new ModelsConfig(Model(ConfigKeys.Embedding), Model(ConfigKeys.Reranker), Model(ConfigKeys.Decision));
     }
 
     /// <summary>
@@ -265,9 +259,7 @@ internal static class ConfigLoader
         var page = reader.Mapping(limits, "limits", "page");
         reader.OnlyKnown(page, "limits.page", "minAliases");
 
-        return new LimitsConfig(
-            Count(reader, limits, "limits", "brief", ConfigDefaults.Brief),
-            new PageLimits(Count(reader, page, "limits.page", "minAliases", ConfigDefaults.MinAliases)));
+        return new LimitsConfig(reader.Integer(limits, ConfigKeys.Brief), new PageLimits(reader.Integer(page, ConfigKeys.MinAliases)));
     }
 
     private static ConsolidationConfig ReadConsolidation(ConfigReader reader, YamlMappingNode root)
@@ -276,12 +268,12 @@ internal static class ConfigLoader
         reader.OnlyKnown(
             consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintItemLength", "hintResidentLength");
         return new ConsolidationConfig(
-            Count(reader, consolidation, "consolidation", "remindAfterDays", ConfigDefaults.RemindAfterDays),
-            Count(reader, consolidation, "consolidation", "budgetSeconds", ConfigDefaults.BudgetSeconds),
-            Count(reader, consolidation, "consolidation", "maxConcurrency", ConfigDefaults.MaxConcurrency),
-            Count(reader, consolidation, "consolidation", "remindCandidates", ConfigDefaults.RemindCandidates),
-            Count(reader, consolidation, "consolidation", "hintItemLength", ConfigDefaults.HintItemLength),
-            Count(reader, consolidation, "consolidation", "hintResidentLength", ConfigDefaults.HintResidentLength));
+            reader.Integer(consolidation, ConfigKeys.RemindAfterDays),
+            reader.Integer(consolidation, ConfigKeys.BudgetSeconds),
+            reader.Integer(consolidation, ConfigKeys.MaxConcurrency),
+            reader.Integer(consolidation, ConfigKeys.RemindCandidates),
+            reader.Integer(consolidation, ConfigKeys.HintItemLength),
+            reader.Integer(consolidation, ConfigKeys.HintResidentLength));
     }
 
     private static DecisionThresholds ReadDecision(ConfigReader reader, YamlMappingNode root)
@@ -289,23 +281,23 @@ internal static class ConfigLoader
         var decision = reader.Mapping(root, "", "decision");
         reader.OnlyKnown(decision, "decision", "samePreference", "samePage", "sameTopic", "ruleConflict");
 
-        Threshold? Read(string key)
+        Threshold? Read(ThresholdKeys keys)
         {
-            var path = ConfigReader.Join("decision", key);
-            var map = reader.Mapping(decision, "decision", key);
+            var map = reader.Mapping(decision, "decision", keys.Name);
             if (map is null)
                 return null;
-            reader.OnlyKnown(map, path, "certain", "unlikely");
-            var certain = reader.Probability(map, path, "certain", required: true);
-            var unlikely = reader.Probability(map, path, "unlikely", required: true);
+            reader.OnlyKnown(map, keys.Path, keys.Certain.Key, keys.Unlikely.Key);
+            var certain = reader.Probability(map, keys.Certain, required: true);
+            var unlikely = reader.Probability(map, keys.Unlikely, required: true);
             if (certain is null || unlikely is null)
                 return null;
             if (unlikely >= certain)
-                reader.Error(path, Messages.ConfigThresholdOrder, unlikely, certain);
+                reader.Error(keys.Path, Messages.ConfigThresholdOrder, unlikely, certain);
             return new Threshold(certain.Value, unlikely.Value);
         }
 
-        return new DecisionThresholds(Read("samePreference"), Read("samePage"), Read("sameTopic"), Read("ruleConflict"));
+        return new DecisionThresholds(
+            Read(ConfigKeys.SamePreference), Read(ConfigKeys.SamePage), Read(ConfigKeys.SameTopic), Read(ConfigKeys.RuleConflict));
     }
 
     private static RetrievalConfig ReadRetrieval(ConfigReader reader, YamlMappingNode root)
@@ -313,16 +305,16 @@ internal static class ConfigLoader
         var retrieval = reader.Mapping(root, "", "retrieval");
         reader.OnlyKnown(retrieval, "retrieval", "candidates", "topK", "minRerankScore");
         return new RetrievalConfig(
-            Count(reader, retrieval, "retrieval", "candidates", ConfigDefaults.Candidates),
-            Count(reader, retrieval, "retrieval", "topK", ConfigDefaults.TopK),
-            reader.Probability(retrieval, "retrieval", "minRerankScore"));
+            reader.Integer(retrieval, ConfigKeys.Candidates),
+            reader.Integer(retrieval, ConfigKeys.TopK),
+            reader.Probability(retrieval, ConfigKeys.MinRerankScore));
     }
 
     private static BackupConfig ReadBackup(ConfigReader reader, YamlMappingNode root, IReadOnlyDictionary<string, string> secrets)
     {
         var backup = reader.Mapping(root, "", "backup");
         reader.OnlyKnown(backup, "backup", "keep", "webdav");
-        return new BackupConfig(reader.Integer(backup, "backup", "keep", ConfigDefaults.Keep, 0, 1000), ReadWebDav(reader, backup, secrets));
+        return new BackupConfig(reader.Integer(backup, ConfigKeys.Keep), ReadWebDav(reader, backup, secrets));
     }
 
     /// <summary>The <c>backup.webdav</c> section, or <c>null</c> when absent or wrong (all reported).</summary>
@@ -333,7 +325,7 @@ internal static class ConfigLoader
         reader.OnlyKnown(webdav, path, "url", "username", "password");
         var url = reader.Url(webdav, path, "url");
         var username = reader.Text(webdav, path, "username");
-        var password = ReadSecret(reader, webdav, path, "password", SecretVariables.WebDavPassword, secrets, required: username is not null);
+        var password = ReadSecret(reader, webdav, ConfigKeys.WebDavPassword, secrets, required: username is not null);
         return url is null ? null : new WebDavConfig(AsDirectory(url), username, password);
     }
 
@@ -342,24 +334,21 @@ internal static class ConfigLoader
         url.AbsolutePath.EndsWith('/') ? url : new UriBuilder(url) { Path = url.AbsolutePath + "/" }.Uri;
 
     /// <summary>
-    /// A secret: the environment variable's value when it is set and not blank, otherwise the plain-text value under
-    /// <paramref name="key"/>. A <paramref name="required"/> secret that has neither is reported with its key path and
+    /// A secret: the environment variable's value when it is set and not blank, otherwise the plain-text value at
+    /// <paramref name="entry"/>. A <paramref name="required"/> secret that has neither is reported with its key path and
     /// the variable's name.
     /// </summary>
     private static SecretValue? ReadSecret(
-        ConfigReader reader, YamlMappingNode? map, string path, string key, string variable, IReadOnlyDictionary<string, string> secrets, bool required)
+        ConfigReader reader, YamlMappingNode? map, ConfigEntry entry, IReadOnlyDictionary<string, string> secrets, bool required)
     {
-        var configured = reader.Text(map, path, key);
+        var variable = entry.SecretVariable!;
+        var configured = reader.Text(map, entry.Section, entry.Key);
         if (secrets.TryGetValue(variable, out var fromEnvironment) && !string.IsNullOrWhiteSpace(fromEnvironment))
             return new SecretValue(fromEnvironment.Trim(), SecretSource.Environment, configured);
         if (configured is not null)
             return new SecretValue(configured, SecretSource.ConfigFile, configured);
         if (required)
-            reader.Error(ConfigReader.Join(path, key), Messages.ConfigSecretMissing, variable);
+            reader.Error(entry.Path, Messages.ConfigSecretMissing, variable);
         return null;
     }
-
-    /// <summary>A positive count with a default.</summary>
-    private static int Count(ConfigReader reader, YamlMappingNode? map, string path, string key, int fallback) =>
-        reader.Integer(map, path, key, fallback, 1, 100_000);
 }
