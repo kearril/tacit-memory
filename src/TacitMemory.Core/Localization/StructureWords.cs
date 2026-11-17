@@ -14,8 +14,8 @@ internal static class StructureWords
     public const string Candidates = "Candidates";
     public const string RejectionList = "Rejection list";
     public const string Summary = "Summary";
-    public const string BelongsTo = "Belongs to: ";
-    public const string Scope = "Scope: ";
+    public const string BelongsTo = "Belongs to";
+    public const string Scope = "Scope";
     public const string Quote = "quote";
     public const string Rejected = "rejected";
     public const string WorthRecording = "Worth recording";
@@ -31,4 +31,22 @@ internal static class StructureWords
 
     /// <summary>What follows a structure word before its value: <c>## Domain: network-proxy</c>, <c>Trigger: …</c>.</summary>
     public const string Separator = ": ";
+
+    /// <summary>Whether a heading or name is <paramref name="word"/>, ignoring case.</summary>
+    public static bool Is(string text, string word) => string.Equals(text, word, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The text after <paramref name="word"/> and its colon, trimmed; null when the line does not start with the word,
+    /// ignoring case, followed by a colon. Spaces may come between the word and the colon.
+    /// </summary>
+    public static string? After(string line, string word)
+    {
+        if (!line.StartsWith(word, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var rest = line[word.Length..].TrimStart();
+        return rest.StartsWith(':') ? rest[1..].Trim() : null;
+    }
+
+    /// <summary>A field line as written: the word, the separator, then the value.</summary>
+    public static string Field(string word, string value) => word + Separator + value;
 }

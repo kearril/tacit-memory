@@ -105,7 +105,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     {
         foreach (var (kind, word) in Headings)
         {
-            if (string.Equals(heading, word, StringComparison.OrdinalIgnoreCase))
+            if (StructureWords.Is(heading, word))
                 return kind;
         }
 
@@ -198,7 +198,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
             var line = lines[i].TrimEnd();
             if (line.Length == 0)
                 continue;
-            if (line[0] is not (' ' or '\t') && PersonaScope.StructureWordAfter(line, StructureWords.Trigger) is { } rest)
+            if (line[0] is not (' ' or '\t') && StructureWords.After(line, StructureWords.Trigger) is { } rest)
             {
                 trigger = rest;
                 triggerLine = i;

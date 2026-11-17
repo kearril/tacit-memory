@@ -63,6 +63,17 @@ public sealed class MemoryWorkstreamsTests : IDisposable
     }
 
     [Fact]
+    public async Task Field_words_match_whatever_their_case_and_with_spaces_before_the_colon()
+    {
+        Setup();
+        Establish("## workstream\n\n### my-app\nbackground : 一个应用。\nRECENT:在做发版。\n");
+
+        var list = await Service.Browse.WorkstreamsAsync();
+
+        Assert.Equal(("my-app", "一个应用。", "在做发版。"), (list.Established[0].Name, list.Established[0].Background, list.Established[0].Recent));
+    }
+
+    [Fact]
     public async Task The_list_gives_the_workstreams_file_with_its_problems()
     {
         Setup();

@@ -89,8 +89,12 @@ public sealed record TraceResult(
     string? Code,
     string? Period,
     string Workstream,
-    IReadOnlyList<string> Sections,
+    IReadOnlyList<TraceSection> Sections,
     string? Text);
+
+/// <summary>A section of a page a result shows.</summary>
+/// <param name="Recognized">Which recognized section it is, for the page to label it; <c>null</c> for any other.</param>
+public sealed record TraceSection(string Name, RecognizedSection? Recognized);
 
 /// <summary>A retrieval unit as a trace saw it. Ranks are 1-based.</summary>
 /// <param name="Kind"><c>section</c>, <c>clue</c> (a page's title and aliases), <c>activity</c> or <c>summary</c>.</param>

@@ -91,7 +91,7 @@ public sealed class Tacit(TacitOptions options)
             return await Viewer.Show(options, LoadConfig(), target, cancellationToken);
         if (target is ShowTarget.Remember or ShowTarget.Consolidation)
             throw NoBuiltInText(target == ShowTarget.Remember ? "remember" : "consolidate");
-        return Viewer.Default(target, ConfigLoader.LanguageOf(options));
+        return Viewer.Default(target);
     }
 
     /// <summary>

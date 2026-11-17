@@ -127,18 +127,25 @@ internal sealed partial class PageDocument
         PageTypeOf(type) is { } known ? (known, null) : (null, type);
 
     /// <summary>The "Leftovers" section, which a work page lists its open items under; null when it has none.</summary>
-    public PageSection? Leftovers => SectionNamed(StructureWords.Leftovers);
+    public PageSection? Leftovers => SectionNamed(RecognizedSection.Leftovers);
 
     /// <summary>The "Overturned" section, which a decision page names the page that replaced it under; null when it has none.</summary>
-    public PageSection? Overturned => SectionNamed(StructureWords.Overturned);
+    public PageSection? Overturned => SectionNamed(RecognizedSection.Overturned);
 
-    private PageSection? SectionNamed(string word) => Sections.FirstOrDefault(section => IsSection(section.Name, word));
+    /// <summary>The "Lesson" section, which an incident page states its rule under; null when it has none.</summary>
+    public PageSection? Lesson => SectionNamed(RecognizedSection.Lesson);
+
+    private PageSection? SectionNamed(RecognizedSection recognized) => Sections.FirstOrDefault(section => RecognizedOf(section.Name) == recognized);
 
     /// <summary>
-    /// Whether a section's name is the structure word of a recognized section, ignoring case. Only the English word is
+    /// The recognized section a section's name is, ignoring case; null for any other. Only the English word is
     /// recognized: a section named in another language is content.
     /// </summary>
-    internal static bool IsSection(string name, string word) => string.Equals(name, word, StringComparison.OrdinalIgnoreCase);
+    public static RecognizedSection? RecognizedOf(string name) =>
+        StructureWords.Is(name, StructureWords.Lesson) ? RecognizedSection.Lesson
+        : StructureWords.Is(name, StructureWords.Overturned) ? RecognizedSection.Overturned
+        : StructureWords.Is(name, StructureWords.Leftovers) ? RecognizedSection.Leftovers
+        : null;
 
     private static FormatIssue Fix(string location, string kind, string description) =>
         new("", location, kind, description, FormatHandling.FixDirectly);

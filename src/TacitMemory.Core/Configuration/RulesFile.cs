@@ -67,8 +67,8 @@ internal static class RulesFile
             if (line.StartsWith("## ", StringComparison.Ordinal))
             {
                 var heading = line[3..].Trim();
-                section = Is(StructureWords.WorthRecording, heading) ? worth
-                    : Is(StructureWords.NotRecorded, heading) ? notRecorded
+                section = StructureWords.Is(heading, StructureWords.WorthRecording) ? worth
+                    : StructureWords.Is(heading, StructureWords.NotRecorded) ? notRecorded
                     : null;
             }
             else if (section is not null && line.StartsWith("- ", StringComparison.Ordinal) && line[2..].Trim() is { Length: > 0 } item)
@@ -81,6 +81,4 @@ internal static class RulesFile
     }
 
     private static string Items(IEnumerable<string> items) => string.Concat(items.Select(item => $"- {item}\n"));
-
-    private static bool Is(string word, string heading) => string.Equals(heading, word, StringComparison.OrdinalIgnoreCase);
 }

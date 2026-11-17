@@ -40,17 +40,6 @@ public sealed class FormatChecksPersonaTests : IDisposable
     private async Task<string> OverLimit(MemoryService service) => await service.ConsolidationReportAsync();
 
     [Fact]
-    public async Task A_red_line_with_instead_in_either_language_is_accepted()
-    {
-        using var service = Open();
-        Write("persona.md", "## Red lines\n- 不要发布版本；改为先请用户确认\n- Don't publish; instead ask the user first\n");
-
-        var violations = await Violations(service);
-
-        Assert.DoesNotContain("Red line without instead", violations);
-    }
-
-    [Fact]
     public async Task An_entry_of_any_length_is_not_reported()
     {
         using var service = Open();

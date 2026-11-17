@@ -72,7 +72,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         Assert.Contains("recent/2026-10.md", section);
         Assert.Contains("tacit-memory", section);
         Assert.Contains("整理了报告骨架", section);
-        Assert.Contains("其他", section);
+        Assert.Contains("  - Other:", section);
         Assert.Contains("随手记的一件事", section);
         Assert.Equal(1, CountOf(section, "2026-W44"));
         Assert.True(section.IndexOf("2026-W44", StringComparison.Ordinal) < section.IndexOf("2026-W45", StringComparison.Ordinal),
@@ -105,7 +105,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
 
         var section = Section(await Report(service), "Weeks to summarize");
 
-        Assert.Contains("其他", section);
+        Assert.Contains("  - Other:", section);
         Assert.Contains("没有项目的活动", section);
         Assert.DoesNotContain("[", section);
     }

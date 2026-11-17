@@ -87,7 +87,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         AssertInOrder(Agents(),
             "## Situational rules\nEach line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.\n",
-            "- network-proxy：改代理、分流或测速时（1 条）\n");
+            "- network-proxy: 改代理、分流或测速时 (1 entry)\n");
     }
 
     [Fact]
@@ -414,8 +414,8 @@ public sealed class ResidentDocumentTests : IDisposable
 
         AssertInOrder(Agents(),
             "- f1\n\n## Situational rules\n",
-            "- network-proxy：改代理、分流或测速时（1 条）\n",
-            "- alpha：一号主线。 近况：在收敛。\n",
+            "- network-proxy: 改代理、分流或测速时 (1 entry)\n",
+            "- alpha: 一号主线。 Recent: 在收敛。\n",
             "</user_memory>");
         Assert.DoesNotContain("## Recent weeks", Agents());
     }
@@ -444,10 +444,10 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
 
         AssertInOrder(Agents(),
-            "- beta：二号。 近况：最新的近况。\n",
-            "- alpha：一号。 近况：较早的近况。\n",
-            "- delta：四号。\n",
-            "- gamma：三号。\n");
+            "- beta: 二号。 Recent: 最新的近况。\n",
+            "- alpha: 一号。 Recent: 较早的近况。\n",
+            "- delta: 四号。\n",
+            "- gamma: 三号。\n");
     }
 
     [Fact]
@@ -458,7 +458,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         _home.Bind();
 
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.DoesNotContain("在收敛", Agents());
     }
 
@@ -483,7 +483,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         _home.Bind();
 
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.DoesNotContain("zeta", Agents());
     }
 
@@ -511,9 +511,9 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        Assert.Contains("- dom-a：A时（1 条）", text);
-        Assert.Contains("- dom-b：B时（1 条）", text);
-        Assert.Contains("- dom-c：C时（1 条）", text);
+        Assert.Contains("- dom-a: A时 (1 entry)", text);
+        Assert.Contains("- dom-b: B时 (1 entry)", text);
+        Assert.Contains("- dom-c: C时 (1 entry)", text);
     }
 
     [Fact]
@@ -523,13 +523,13 @@ public sealed class ResidentDocumentTests : IDisposable
         File.WriteAllText(WorkstreamsMd, "## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 在做。\n");
         WriteMonth("2026-10", "## 2026-10-06\n- [alpha] 窗口的第一天\n");
         _home.Bind();
-        Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。 Recent: 在做。\n", Agents());
 
         // 2026-11-02 counts back 28 days to 2026-10-06; the next day the window starts on 2026-10-07.
         _home.Clock.Advance(TimeSpan.FromDays(1));
         _home.Bind();
 
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.DoesNotContain("在做", Agents());
     }
 
@@ -546,10 +546,10 @@ public sealed class ResidentDocumentTests : IDisposable
 
         // Today is 2026-11-02: alpha has an activity inside the window, and its newest day not after today is 2026-10-20,
         // so beta, whose newest day is 2026-11-01, comes first.
-        Assert.Contains("- alpha：一号主线。 近况：在做。\n", text);
+        Assert.Contains("- alpha: 一号主线。 Recent: 在做。\n", text);
         AssertInOrder(text,
-            "- beta：二号主线。 近况：最近在做。\n",
-            "- alpha：一号主线。 近况：在做。\n");
+            "- beta: 二号主线。 Recent: 最近在做。\n",
+            "- alpha: 一号主线。 Recent: 在做。\n");
     }
 
     [Fact]
@@ -560,7 +560,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        Assert.Contains("- network-proxy：改代理、分流或测速时（1 条）", text);
+        Assert.Contains("- network-proxy: 改代理、分流或测速时 (1 entry)", text);
         Assert.DoesNotContain("域内规则XYZ", text);
         Assert.DoesNotContain("项目规则QRS", text);
         Assert.DoesNotContain("## Domain:", text);
@@ -590,7 +590,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha：一号主线。\n</user_memory>");
+        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha: 一号主线。\n</user_memory>");
     }
 
     [Fact]
@@ -611,17 +611,17 @@ public sealed class ResidentDocumentTests : IDisposable
         File.WriteAllText(WorkstreamsMd, "## Workstream\n### fresh\nBackground: 说明。\nRecent: 在做。\n");
         _home.Bind();
         using var service = Open();
-        Assert.Contains("- fresh：说明。\n", Agents());
+        Assert.Contains("- fresh: 说明。\n", Agents());
 
         WriteMonth("2026-11", "## 2026-11-02\n- [fresh] 今天的事\n");
         _home.Sources!.MemoryChanged("recent/2026-11.md");
         await service.SettledAsync();
-        Assert.Contains("- fresh：说明。 近况：在做。\n", Agents());
+        Assert.Contains("- fresh: 说明。 Recent: 在做。\n", Agents());
 
         File.WriteAllText(WorkstreamsMd, "## Workstream\n### fresh\nBackground: 改过的说明。\n");
         _home.Sources!.MemoryChanged("workstreams.md");
         await service.SettledAsync();
-        Assert.Contains("- fresh：改过的说明。\n", Agents());
+        Assert.Contains("- fresh: 改过的说明。\n", Agents());
         Assert.NotNull(service);
     }
 
@@ -633,14 +633,14 @@ public sealed class ResidentDocumentTests : IDisposable
         WriteMonth("2026-10", "## 2026-10-06\n- [alpha] 窗口的第一天\n");
         _home.Bind();
         using var service = Open();
-        Assert.Contains("- alpha：一号主线。 近况：在做。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。 Recent: 在做。\n", Agents());
 
         // Let the vector fill of the service's start finish first: Elapse would otherwise fire the timeout of a call still in flight.
         await service.SettledAsync();
         _home.Clock.Elapse(TimeSpan.FromDays(1));
 
         await service.SettledAsync();
-        Assert.Contains("- alpha：一号主线。\n", Agents());
+        Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.NotNull(service);
     }
 

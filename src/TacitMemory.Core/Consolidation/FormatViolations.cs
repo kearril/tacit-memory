@@ -64,7 +64,7 @@ internal static class FormatViolations
         if (MemoryLayout.IsIn(relative, MemoryLayout.Pages))
             issues.AddRange(PageFormatCheck.Check(config.MemoryPath, relative, text.Text, config.Limits.Page));
         if (relative == MemoryLayout.Persona)
-            issues.AddRange(PersonaFormatCheck.Check(text.Text, config));
+            issues.AddRange(PersonaFormatCheck.Check(text.Text));
         if (relative == MemoryLayout.Candidates)
             issues.AddRange(CandidatesFormatCheck.Check(text.Text));
         if (relative == MemoryLayout.Workstreams)

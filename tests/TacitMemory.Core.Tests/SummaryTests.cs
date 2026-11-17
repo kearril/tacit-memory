@@ -55,6 +55,16 @@ public sealed class SummaryTests : IDisposable
     }
 
     [Fact]
+    public async Task The_summary_heading_is_found_whatever_its_case()
+    {
+        Month("## 2026-11-02\n- 想清楚了画像的分工\n\n## summary\n- 2026-W45：本周整理了画像与记忆结构\n");
+
+        var result = await Recall("画像", kind: "activities");
+
+        Assert.Contains("summary, week starting 2026-11-02", result.Text);
+    }
+
+    [Fact]
     public async Task A_month_summary_is_recalled_and_labelled_with_its_month()
     {
         Month("## Summary\n- 2026-11：十一月主要在做记忆重设计\n");

@@ -14,7 +14,7 @@ internal sealed record CandidateOccurrence(DateOnly Day, string Quote, bool Reje
 internal sealed record PersonaCandidate(string Text, PersonaSection Section, IReadOnlyList<CandidateOccurrence> Occurrences, PersonaScope Scope);
 
 /// <summary>
-/// <c>candidates.md</c> parsed leniently. Under its two <c>## </c> sections, in any language, each <c>### </c> heading
+/// <c>candidates.md</c> parsed leniently. Under its two <c>## </c> sections, each <c>### </c> heading
 /// starts a candidate, followed by a <c>Belongs to: </c> line naming its section, an optional <c>Scope: </c> line naming its
 /// scope (global when absent), and dated occurrence lines. A block without a recognized section, and every line that is
 /// not a recognized occurrence, is left out; nothing is reported as an error.
@@ -74,27 +74,25 @@ internal sealed record CandidatesDocument(IReadOnlyList<PersonaCandidate> Candid
         return new CandidatesDocument(candidates, rejectionList);
     }
 
-    private static bool Matches(string heading, string word) => heading.Equals(word, StringComparison.OrdinalIgnoreCase);
-
     /// <summary>Whether a <c>## </c> heading, without its marker, is the candidates section.</summary>
-    internal static bool IsCandidatesHeading(string heading) => Matches(heading, StructureWords.Candidates);
+    internal static bool IsCandidatesHeading(string heading) => StructureWords.Is(heading, StructureWords.Candidates);
 
     /// <summary>Whether a <c>## </c> heading, without its marker, is the rejection list.</summary>
-    internal static bool IsRejectionListHeading(string heading) => Matches(heading, StructureWords.RejectionList);
+    internal static bool IsRejectionListHeading(string heading) => StructureWords.Is(heading, StructureWords.RejectionList);
 
-    /// <summary>Whether a line starts with the <c>Belongs to: </c> prefix, whatever follows it.</summary>
-    internal static bool IsBelongsToLine(string line) => line.StartsWith(StructureWords.BelongsTo, StringComparison.OrdinalIgnoreCase);
+    /// <summary>Whether a line is a <c>Belongs to:</c> line, whatever follows it.</summary>
+    internal static bool IsBelongsToLine(string line) => StructureWords.After(line, StructureWords.BelongsTo) is not null;
 
     /// <summary>The section named by a <c>Belongs to: </c> line, or <c>null</c> when the line is not one or names no section.</summary>
     internal static PersonaSection? BelongsToOf(string line)
     {
-        return IsBelongsToLine(line) ? PersonaDocument.KindOf(line[StructureWords.BelongsTo.Length..].Trim()) : null;
+        return StructureWords.After(line, StructureWords.BelongsTo) is { } section ? PersonaDocument.KindOf(section) : null;
     }
 
     /// <summary>The text after a <c>Scope: </c> line's prefix; <c>null</c> when the line is not one.</summary>
     internal static string? ScopeTextOf(string line)
     {
-        return line.StartsWith(StructureWords.Scope, StringComparison.OrdinalIgnoreCase) ? line[StructureWords.Scope.Length..].Trim() : null;
+        return StructureWords.After(line, StructureWords.Scope);
     }
 
     /// <summary>

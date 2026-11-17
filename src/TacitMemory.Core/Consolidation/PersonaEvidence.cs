@@ -18,7 +18,6 @@ internal static class PersonaEvidence
         if (review is null)
             return new ConsolidationSection(ConsolidationTitles.PersonaEvidence, [], CandidateReview.NotReadable);
 
-        var language = context.Config.Language;
         var entries = new List<(DateOnly Day, int Order, string Text)>();
         foreach (var judgment in review.Judgments)
         {

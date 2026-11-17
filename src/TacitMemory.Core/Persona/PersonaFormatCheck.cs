@@ -10,7 +10,7 @@ namespace TacitMemory.Core.Persona;
 internal static class PersonaFormatCheck
 {
     /// <summary>Finds the problems in <paramref name="text"/>; the file must already be valid UTF-8.</summary>
-    public static IReadOnlyList<FormatIssue> Check(string text, TacitConfig config)
+    public static IReadOnlyList<FormatIssue> Check(string text)
     {
         var document = PersonaDocument.Parse(text);
         var issues = new List<FormatIssue>();
@@ -37,12 +37,12 @@ internal static class PersonaFormatCheck
                 issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
         }
 
-        CheckBlocks(document, config, issues);
+        CheckBlocks(document, issues);
         return issues;
     }
 
     /// <summary>The problems of the scope blocks: their names, their trigger lines and their sections.</summary>
-    private static void CheckBlocks(PersonaDocument document, TacitConfig config, List<FormatIssue> issues)
+    private static void CheckBlocks(PersonaDocument document, List<FormatIssue> issues)
     {
         var seen = new HashSet<PersonaScope>();
         foreach (var block in document.Blocks)

@@ -65,13 +65,13 @@ internal static class WorkstreamFile
                 continue;
             }
 
-            if (current is not null && TryField(line, StructureWords.Background, out var background) && current.Background is null)
+            if (current is not null && StructureWords.After(line, StructureWords.Background) is { } background && current.Background is null)
             {
                 current.Background = background;
                 continue;
             }
 
-            if (current is not null && TryField(line, StructureWords.Recent, out var recent) && current.Recent is null)
+            if (current is not null && StructureWords.After(line, StructureWords.Recent) is { } recent && current.Recent is null)
             {
                 current.Recent = recent;
                 continue;
@@ -103,21 +103,7 @@ internal static class WorkstreamFile
         return new WorkstreamParse(established, problems, entries.Select(entry => entry.Name).ToList());
     }
 
-    private static bool IsSectionHeading(string heading) =>
-        string.Equals(heading, StructureWords.Workstream, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>A field line: the label, ignoring case, then a colon, then the value.</summary>
-    private static bool TryField(string line, string label, out string value)
-    {
-        if (line.StartsWith(label, StringComparison.OrdinalIgnoreCase) && line.Length > label.Length && line[label.Length] == ':')
-        {
-            value = line[(label.Length + 1)..].Trim();
-            return true;
-        }
-
-        value = "";
-        return false;
-    }
+    private static bool IsSectionHeading(string heading) => StructureWords.Is(heading, StructureWords.Workstream);
 
     private static FormatIssue Unrecognized(string at, string line) =>
         new("", at, "Unrecognized line", $"The line \"{line}\" is neither a workstream heading, a workstream name, nor a background or recent line.", FormatHandling.FixDirectly);

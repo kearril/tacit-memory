@@ -46,9 +46,8 @@ internal static class ConflictingEntries
                     pairs.Add(entry, other, outcome.Tier.Value);
             }
 
-            var language = config.Language;
             var lines = pairs.Pairs
-                .Select(pair => $"- {(pair.Tier == Tier.Certain ? "Certain" : "Unsure")}: {Describe(pair.First, language)} and {Describe(pair.Second, language)}.")
+                .Select(pair => $"- {(pair.Tier == Tier.Certain ? "Certain" : "Unsure")}: {Describe(pair.First)} and {Describe(pair.Second)}.")
                 .ToList();
             var status = Unanswered.Of(reasons).Status(
                 count => $"Not checked: the decision or embedding model is unavailable, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
@@ -93,12 +92,11 @@ internal static class ConflictingEntries
         if (nearest.Count == 0)
             return new PreparedChoice<ConflictingEntry>(null, null);
 
-        var language = config.Language;
         var options = nearest
-            .Select(other => new ChoiceOption<ConflictingEntry>(RuleConflictCheck.OptionText(other.Section, other.Item.JudgmentText, language), other))
+            .Select(other => new ChoiceOption<ConflictingEntry>(RuleConflictCheck.OptionText(other.Section, other.Item.JudgmentText), other))
             .ToList();
         var question = new ChoiceQuestion<ConflictingEntry>(
-            RuleConflictCheck.StateOf(entry.Item.JudgmentText, entry.Section, language),
+            RuleConflictCheck.StateOf(entry.Item.JudgmentText, entry.Section),
             RuleConflictCheck.Instructions,
             RuleConflictCheck.NoneText,
             options);
@@ -106,10 +104,10 @@ internal static class ConflictingEntries
     }
 
     /// <summary>
-    /// An entry as the report names it: its short code, its text, its section in the memory language, and its scope when it
+    /// An entry as the report names it: its short code, its text, its section, and its scope when it
     /// is not the global one.
     /// </summary>
-    private static string Describe(ConflictingEntry entry, MemoryLanguage language) =>
+    private static string Describe(ConflictingEntry entry) =>
         $"[{entry.Code}] \"{entry.Item.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section)}"
         + (entry.Scope.IsGlobal ? "" : $" of {entry.Scope}");
 }

@@ -23,10 +23,9 @@ internal sealed record ResidentContent(
     /// <summary>Reads the persona's domains and the established workstreams as they stand on <paramref name="today"/>.</summary>
     public static ResidentContent Read(TacitConfig config, DateOnly today, PersonaDocument persona)
     {
-        var language = config.Language;
         var domains = persona.Blocks
             .Where(block => block.Scope.Kind == PersonaScopeKind.Domain)
-            .Select(block => DomainRow(block, language))
+            .Select(DomainRow)
             .ToList();
         return new ResidentContent(persona, domains, WorkstreamRows(config, today));
     }
@@ -53,9 +52,8 @@ internal sealed record ResidentContent(
             .OrderBy(entry => entry.Name, StringComparer.Ordinal)
             .ToList();
 
-        var language = config.Language;
-        return active.Select(entry => ActiveRow(entry, language))
-            .Concat(quiet.Select(entry => ResidentMessages.WorkstreamRow.Format(language, entry.Name, entry.Background)))
+        return active.Select(ActiveRow)
+            .Concat(quiet.Select(entry => WorkstreamRow(entry.Name, entry.Background)))
             .ToList();
     }
 
@@ -77,17 +75,20 @@ internal sealed record ResidentContent(
         return latest;
     }
 
-    private static string ActiveRow(WorkstreamEntry entry, MemoryLanguage language) =>
+    private static string ActiveRow(WorkstreamEntry entry) =>
         entry.Recent is null
-            ? ResidentMessages.WorkstreamRow.Format(language, entry.Name, entry.Background)
-            : ResidentMessages.WorkstreamRowWithRecent.Format(language, entry.Name, entry.Background, entry.Recent);
+            ? WorkstreamRow(entry.Name, entry.Background)
+            : $"{WorkstreamRow(entry.Name, entry.Background)} {StructureWords.Field(StructureWords.Recent, entry.Recent)}";
+
+    /// <summary>A workstream row: the name and the background.</summary>
+    private static string WorkstreamRow(string name, string background) => $"- {name}: {background}";
 
     /// <summary>A domain's index row: its label, its trigger and its entry count, across its four sections.</summary>
-    private static string DomainRow(PersonaBlock block, MemoryLanguage language)
+    private static string DomainRow(PersonaBlock block)
     {
-        var entries = ResidentMessages.Entries(language, block.Entries.Count);
+        var entries = block.Entries.Count == 1 ? "1 entry" : $"{block.Entries.Count} entries";
         return string.IsNullOrWhiteSpace(block.Trigger)
-            ? ResidentMessages.DomainRowWithoutTrigger.Format(language, block.Scope.Name, entries)
-            : ResidentMessages.DomainRow.Format(language, block.Scope.Name, block.Trigger, entries);
+            ? $"- {block.Scope.Name} ({entries})"
+            : $"- {block.Scope.Name}: {block.Trigger} ({entries})";
     }
 }

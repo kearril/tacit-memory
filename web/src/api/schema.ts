@@ -2785,6 +2785,7 @@ export interface components {
             uses: number;
             body: string;
             sources: components["schemas"]["SourceCommentView"][];
+            recognized: null | components["schemas"]["RecognizedSection"];
         };
         /** @enum {unknown} */
         PageType: "incident" | "decision" | "entity" | "work";
@@ -2953,6 +2954,8 @@ export interface components {
             /** Format: int32 */
             candidates?: null | number;
         };
+        /** @enum {unknown} */
+        RecognizedSection: "lesson" | "overturned" | "leftovers";
         ReindexResult: {
             /** Format: int32 */
             files: number;
@@ -3139,8 +3142,12 @@ export interface components {
             code: null | string;
             period: null | string;
             workstream: string;
-            sections: string[];
+            sections: components["schemas"]["TraceSection"][];
             text: null | string;
+        };
+        TraceSection: {
+            name: string;
+            recognized: null | components["schemas"]["RecognizedSection"];
         };
         TraceSetting: {
             /** Format: double */

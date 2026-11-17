@@ -497,7 +497,7 @@ public sealed class MemoryService : IDisposable
             if (!File.Exists(path))
                 return new PromptSaved(PromptView(name), []);
 
-            RefuseUnless(name, PromptFiles.DefaultText(name, Language));
+            RefuseUnless(name, PromptFiles.DefaultText(name));
             File.Delete(path);
             return Applied(name);
         }

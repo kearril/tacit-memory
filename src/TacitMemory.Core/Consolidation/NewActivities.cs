@@ -11,7 +11,7 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class NewActivities
 {
-    /// <summary>A source comment under an activity: its inner text is the quote mark and the quote, in either language.</summary>
+    /// <summary>A source comment under an activity: its inner text is the quote mark and the quote.</summary>
     private static readonly Regex SourceComment = new(
         @"^\s*<!--\s*(?<inner>quote「.*」)\s*-->\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 

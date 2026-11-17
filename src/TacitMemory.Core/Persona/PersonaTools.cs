@@ -130,8 +130,8 @@ internal sealed class PersonaTools(
         // The trigger is written only when this write creates the domain; an existing domain keeps its own.
         var createdTrigger = scope.Kind == PersonaScopeKind.Domain && persona.BlockOf(scope) is null ? trigger : null;
         var (after, line) = scope.IsGlobal
-            ? PersonaFile.Append(existing, sectionKind, entry, config.Language)
-            : PersonaFile.AppendToBlock(existing, scope, createdTrigger, sectionKind, entry, config.Language);
+            ? PersonaFile.Append(existing, sectionKind, entry)
+            : PersonaFile.AppendToBlock(existing, scope, createdTrigger, sectionKind, entry);
         var code = PersonaDocument.Parse(after).CodesByLine()[line];
 
         var reply = scope.IsGlobal
@@ -217,7 +217,6 @@ internal sealed class PersonaTools(
         if (Find(persona, hash) is not { } entry)
             return NoEntry(hash, reasons, "replace");
 
-        // The sentence form is checked against the section the replaced entry is in.
         if (text.Length > 0 && source.Length > 0)
             reasons.AddRange(EntryProblems(text, source));
         if (reasons.Count > 0)
@@ -316,7 +315,7 @@ internal sealed class PersonaTools(
             && await AnswerSameAsync(same, source, existing, hasBom, relative, cancellationToken) is { } answer)
             return answer;
 
-        var after = CandidatesFile.AppendCandidate(existing, text, sectionKind, scope, options.Today, source, config.Language);
+        var after = CandidatesFile.AppendCandidate(existing, text, sectionKind, scope, options.Today, source);
         var code = ShortCode.Of(ShortCode.Normalize(text));
         var reply = $"Recorded as a new candidate (scope: {scope})."
             + (judged.Note is { } note ? $"\n\n{note}" : "");
@@ -355,7 +354,7 @@ internal sealed class PersonaTools(
         if (candidate.Occurrences.Any(occurrence => occurrence.Day == today))
             return ToolText.Ok($"Already recorded today: \"{candidate.Text}\" (scope: {candidate.Scope}).");
 
-        var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, candidate.Scope, today, source, config.Language);
+        var after = CandidatesFile.AppendOccurrence(existing, candidate.Text, candidate.Section, candidate.Scope, today, source);
         if (after is null)
             return null;
 

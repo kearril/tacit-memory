@@ -4080,7 +4080,8 @@
           "changed",
           "uses",
           "body",
-          "sources"
+          "sources",
+          "recognized"
         ],
         "type": "object",
         "properties": {
@@ -4108,6 +4109,16 @@
             "items": {
               "$ref": "#/components/schemas/SourceCommentView"
             }
+          },
+          "recognized": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecognizedSection"
+              }
+            ]
           }
         }
       },
@@ -4873,6 +4884,13 @@
             "format": "int32"
           }
         }
+      },
+      "RecognizedSection": {
+        "enum": [
+          "lesson",
+          "overturned",
+          "leftovers"
+        ]
       },
       "ReindexResult": {
         "required": [
@@ -5729,13 +5747,35 @@
           "sections": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/TraceSection"
             }
           },
           "text": {
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "TraceSection": {
+        "required": [
+          "name",
+          "recognized"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "recognized": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecognizedSection"
+              }
             ]
           }
         }

@@ -51,7 +51,6 @@ internal static class ConsolidationSkill
     {
         var quote = StructureWords.Quote;
         var summary = StructureWords.Summary;
-        var colon = StructureWords.Separator;
         var text = new StringBuilder();
         text.Append("# Memory consolidation\n\n");
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText)
@@ -116,8 +115,8 @@ internal static class ConsolidationSkill
 
         text.Append("Example of a scope block in persona.md:\n");
         text.Append("```\n");
-        text.Append("## ").Append(StructureWords.Domain).Append(colon).Append(ExampleDomain).Append('\n');
-        text.Append(StructureWords.Trigger).Append(colon).Append(ExampleTrigger).Append('\n');
+        text.Append("## ").Append(StructureWords.Field(StructureWords.Domain, ExampleDomain)).Append('\n');
+        text.Append(StructureWords.Field(StructureWords.Trigger, ExampleTrigger)).Append('\n');
         text.Append("### ").Append(StructureWords.WorkingRules).Append('\n');
         text.Append("- ").Append(ExampleComparison).Append(" → ").Append(ExampleScopedText).Append('\n');
         text.Append("  <!-- ").Append(Date).Append(' ').Append(quote).Append("「…」 -->\n");
@@ -127,8 +126,8 @@ internal static class ConsolidationSkill
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.Candidates).Append('\n');
         text.Append("### ").Append(ExampleScopedText).Append('\n');
-        text.Append(StructureWords.BelongsTo).Append(StructureWords.Preferences).Append('\n');
-        text.Append(StructureWords.Scope).Append("domain:").Append(ExampleDomain).Append('\n');
+        text.Append(StructureWords.Field(StructureWords.BelongsTo, StructureWords.Preferences)).Append('\n');
+        text.Append(StructureWords.Field(StructureWords.Scope, "domain:" + ExampleDomain)).Append('\n');
         text.Append("- ").Append(Date).Append(' ').Append(quote).Append('「').Append(ExampleScopedQuote).Append("」\n");
         text.Append("```\n\n");
 
@@ -136,7 +135,7 @@ internal static class ConsolidationSkill
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.RejectionList).Append('\n');
         text.Append("### ").Append(ExampleText).Append('\n');
-        text.Append(StructureWords.BelongsTo).Append(StructureWords.Preferences).Append('\n');
+        text.Append(StructureWords.Field(StructureWords.BelongsTo, StructureWords.Preferences)).Append('\n');
         text.Append("- ").Append(Date).Append(' ').Append(StructureWords.Rejected).Append(' ')
             .Append(quote).Append('「').Append(ExampleQuote).Append("」\n");
         text.Append("```\n\n");
@@ -145,8 +144,8 @@ internal static class ConsolidationSkill
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.Workstream).Append('\n');
         text.Append("### ").Append(ExampleWorkstream).Append('\n');
-        text.Append(StructureWords.Background).Append(colon).Append(ExampleBackground).Append('\n');
-        text.Append(StructureWords.Recent).Append(colon).Append(ExampleRecent).Append('\n');
+        text.Append(StructureWords.Field(StructureWords.Background, ExampleBackground)).Append('\n');
+        text.Append(StructureWords.Field(StructureWords.Recent, ExampleRecent)).Append('\n');
         text.Append("```\n\n");
 
         text.Append("Example of summary lines at the end of a month file:\n");

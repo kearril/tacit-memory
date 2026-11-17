@@ -14,7 +14,7 @@ internal sealed record CandidateJudgment(PersonaCandidate Candidate, int Days, J
 /// list, whatever its days. Both candidate categories read this one review, so each candidate is judged once.
 /// <see cref="PersonaCodes"/> names the persona entries by their short codes.
 /// </summary>
-internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgments, IReadOnlyDictionary<string, string> PersonaCodes, MemoryLanguage Language)
+internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgments, IReadOnlyDictionary<string, string> PersonaCodes)
 {
     /// <summary>The status of both candidate categories when <c>candidates.md</c> is not valid UTF-8.</summary>
     public const string NotReadable = "Not checked: candidates.md is not valid UTF-8.";
@@ -39,7 +39,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
 
         var threshold = config.Decision.SamePreference ?? Judgment.SamePreference;
         var submitted = CandidatesDocument.Parse(candidates.Value.Text).Candidates
-            .Select(candidate => (Candidate: candidate, Job: judgments.Submit(token => PrepareAsync(config.Language, services, candidate, token), threshold)))
+            .Select(candidate => (Candidate: candidate, Job: judgments.Submit(token => PrepareAsync(services, candidate, token), threshold)))
             .ToList();
         var persona = PersonaDocument.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Persona)) ?? PersonaDocument.Parse("");
         var codes = PersonaCodesOf(persona);
@@ -49,7 +49,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
             var judged = new List<CandidateJudgment>(submitted.Count);
             foreach (var (candidate, job) in submitted)
                 judged.Add(new CandidateJudgment(candidate, DayCount(candidate), await judgments.CollectAsync(job)));
-            return new CandidateReview(judged, codes, config.Language);
+            return new CandidateReview(judged, codes);
         };
     }
 
@@ -58,7 +58,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     /// there are none, and the question is not prepared when the embedding model is not reachable.
     /// </summary>
     private static async Task<PreparedChoice<PreferenceMatch>> PrepareAsync(
-        MemoryLanguage language, ConsolidationServices services, PersonaCandidate candidate, CancellationToken cancellationToken)
+        ConsolidationServices services, PersonaCandidate candidate, CancellationToken cancellationToken)
     {
         var vector = await services.Embedding.EmbedAsync([candidate.Text], cancellationToken);
         if (vector is null)
@@ -71,14 +71,14 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
             if (hit.Section is not { } section)
                 continue;
             options.Add(new ChoiceOption<PreferenceMatch>(
-                SamePreferenceCheck.OptionText(hit.Kind, hit.Scope, section, hit.Text, language),
+                SamePreferenceCheck.OptionText(hit.Kind, hit.Scope, section, hit.Text),
                 new PreferenceMatch(hit.Kind, section, hit.Text, hit.Scope)));
         }
 
         if (options.Count == 0)
             return new PreparedChoice<PreferenceMatch>(null, null);
         var question = new ChoiceQuestion<PreferenceMatch>(
-            SamePreferenceCheck.StateOf(candidate.Text, candidate.Section, language),
+            SamePreferenceCheck.StateOf(candidate.Text, candidate.Section),
             SamePreferenceCheck.Instructions,
             SamePreferenceCheck.NoneText,
             options);

@@ -16,7 +16,6 @@ internal static class RedundantCandidates
         if (review is null)
             return new ConsolidationSection(ConsolidationTitles.RedundantCandidates, [], CandidateReview.NotReadable);
 
-        var language = config.Language;
         var findings = new List<string>();
         foreach (var judgment in review.Judgments)
         {

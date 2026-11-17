@@ -1,6 +1,7 @@
 using System.Globalization;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Localization;
+using TacitMemory.Core.Pages;
 
 namespace TacitMemory.Core.Retrieval;
 
@@ -68,7 +69,8 @@ internal static class RecallTraceRun
         {
             UnitKinds.Activity => new TraceResult(result.Number, "activity", null, null, sample.Date, sample.Code, null, sample.Workstream, [], sample.Text),
             UnitKinds.Summary => new TraceResult(result.Number, "summary", null, null, sample.Date, null, sample.Section, sample.Workstream, [], sample.Text),
-            _ => new TraceResult(result.Number, "page", sample.Source, result.Title, null, null, null, sample.Workstream, result.Sections ?? [], null),
+            _ => new TraceResult(result.Number, "page", sample.Source, result.Title, null, null, null, sample.Workstream,
+                [.. (result.Sections ?? []).Select(name => new TraceSection(name, PageDocument.RecognizedOf(name)))], null),
         };
     }
 

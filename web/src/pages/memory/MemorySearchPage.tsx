@@ -698,13 +698,13 @@ function ResultItem({
           </Link>
           {result.sections.length === 0 ? null : (
             <p className="flex flex-wrap gap-xs">
-              {result.sections.map((name) => (
+              {result.sections.map((section) => (
                 <Link
-                  key={name}
-                  to={pagePathOf(pageId, name)}
+                  key={section.name}
+                  to={pagePathOf(pageId, section.name)}
                   className="rounded-full bg-surface-raised px-sm text-xs text-ink-muted outline-none hover:text-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
-                  {sectionLabel(name, dictionary.pages.sectionNames)}
+                  {sectionLabel(section, dictionary.pages.sectionNames)}
                 </Link>
               ))}
             </p>

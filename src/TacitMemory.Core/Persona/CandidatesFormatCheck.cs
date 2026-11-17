@@ -24,7 +24,7 @@ internal static class CandidatesFormatCheck
         {
             if (title is not null && !hasSection)
                 issues.Add(new FormatIssue("", $"line {blockLine + 1}", "Candidate without section",
-                    $"\"{title}\" has no \"{StructureWords.BelongsTo.Trim()}\" line naming its section, so it is not read.", FormatHandling.FixDirectly));
+                    $"\"{title}\" has no \"{StructureWords.BelongsTo}:\" line naming its section, so it is not read.", FormatHandling.FixDirectly));
             title = null;
             hasSection = false;
         }
@@ -72,5 +72,5 @@ internal static class CandidatesFormatCheck
 
     private static FormatIssue UnrecognizedLine(int index, string line) =>
         new("", $"line {index + 1}", "Unrecognized occurrence line",
-            $"\"{line.Trim()}\" is neither a \"{StructureWords.BelongsTo.Trim()}\" line nor a dated occurrence, so it is not read.", FormatHandling.FixDirectly);
+            $"\"{line.Trim()}\" is neither a \"{StructureWords.BelongsTo}:\" line nor a dated occurrence, so it is not read.", FormatHandling.FixDirectly);
 }

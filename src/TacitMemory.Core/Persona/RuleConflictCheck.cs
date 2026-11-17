@@ -68,11 +68,11 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
                 // One more than OtherOptions: the replaced entry may be among the nearest and is skipped by Nearest.
                 var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1, scopes: ScopesJudged(scope));
                 var options = Nearest(hits, persona, replaced?.Line)
-                    .Select(entry => new ChoiceOption<ConflictingEntry>(OptionText(entry.Section, entry.Item.JudgmentText, config.Language), entry))
+                    .Select(entry => new ChoiceOption<ConflictingEntry>(OptionText(entry.Section, entry.Item.JudgmentText), entry))
                     .ToList();
                 return options.Count == 0
                     ? PreparedChoice<ConflictingEntry>.Nothing
-                    : new PreparedChoice<ConflictingEntry>(new ChoiceQuestion<ConflictingEntry>(StateOf(text, section, config.Language), Instructions, NoneText, options), null);
+                    : new PreparedChoice<ConflictingEntry>(new ChoiceQuestion<ConflictingEntry>(StateOf(text, section), Instructions, NoneText, options), null);
             },
             config.Decision.RuleConflict ?? Judgment.RuleConflict,
             cancellationToken);
@@ -80,11 +80,11 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
     }
 
     /// <summary>The new entry as the question states it: its section in brackets, then its text.</summary>
-    internal static string StateOf(string text, PersonaSection section, MemoryLanguage language) =>
+    internal static string StateOf(string text, PersonaSection section) =>
         $"[{PersonaDocument.HeadingOf(section)}] {text}";
 
     /// <summary>One existing entry as the question offers it: its section in brackets, then its text, cut to the option length.</summary>
-    internal static string OptionText(PersonaSection section, string text, MemoryLanguage language)
+    internal static string OptionText(PersonaSection section, string text)
     {
         var description = $"[{PersonaDocument.HeadingOf(section)}] {text.ReplaceLineEndings(" ")}";
         return description.Length > OptionLength ? description[..OptionLength] : description;

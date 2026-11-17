@@ -124,7 +124,7 @@ function SectionTabs({ sections }: { readonly sections: readonly PageSectionView
         {sections.map((section) => (
           <li key={section.name} className="shrink-0">
             <a href={sectionHash(section.name)} className={chipVariants()}>
-              {sectionLabel(section.name, text.sectionNames)}
+              {sectionLabel(section, text.sectionNames)}
             </a>
           </li>
         ))}
@@ -155,7 +155,7 @@ function Section({ section, number }: { readonly section: PageSectionView; reado
           {number}
         </span>
         <h2 id={`${anchor}-title`} className="leading-(--tk-line-height-tight) font-semibold">
-          {sectionLabel(section.name, text.sectionNames)}
+          {sectionLabel(section, text.sectionNames)}
         </h2>
         <span className="ml-auto flex items-center gap-sm text-xs text-ink-muted tabular-nums">
           {section.changed === null ? null : <span>{parts.changed(section.changed)}</span>}

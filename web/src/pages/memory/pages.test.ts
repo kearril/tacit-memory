@@ -70,19 +70,20 @@ describe("sortPages", () => {
 describe("sectionLabel", () => {
   const labels = { lesson: "教训", overturned: "推翻记录", leftovers: "遗留" };
 
-  it("labels the three recognized sections, ignoring case as the service does", () => {
-    expect(["Lesson", "overturned", "LEFTOVERS"].map((name) => sectionLabel(name, labels))).toEqual([
-      "教训",
-      "推翻记录",
-      "遗留",
-    ]);
+  it("labels a section the service recognizes", () => {
+    expect(
+      [
+        { name: "Lesson", recognized: "lesson" as const },
+        { name: "overturned", recognized: "overturned" as const },
+        { name: "LEFTOVERS", recognized: "leftovers" as const },
+      ].map((section) => sectionLabel(section, labels)),
+    ).toEqual(["教训", "推翻记录", "遗留"]);
   });
 
-  it("shows any other section as written, a recognized name in another language included", () => {
-    expect(["现状", "教训", "Lessons", "Fix"].map((name) => sectionLabel(name, labels))).toEqual([
+  it("shows any other section as written", () => {
+    expect(["现状", "教训", "Fix"].map((name) => sectionLabel({ name, recognized: null }, labels))).toEqual([
       "现状",
       "教训",
-      "Lessons",
       "Fix",
     ]);
   });

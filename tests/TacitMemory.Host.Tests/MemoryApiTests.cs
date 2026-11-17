@@ -94,7 +94,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
             Page = "ops/rollback",
             Title = "部署回滚",
             Aliases = ["回滚方案", "部署失败回滚"],
-            Sections = [new PageSectionInput("产出", "回滚脚本。")],
+            Sections = [new PageSectionInput("产出", "回滚脚本。"), new PageSectionInput("Leftovers", "- 还没做回滚演练")],
         });
         Assert.False(created.IsError, created.Text);
 
@@ -106,6 +106,8 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.Equal("部署回滚", page["title"]!.GetValue<string>());
         var section = page["sections"]![0]!;
         Assert.Equal(("产出", "回滚脚本。"), (section["name"]!.GetValue<string>(), section["body"]!.GetValue<string>().Trim()));
+        Assert.Null(section["recognized"]);
+        Assert.Equal("leftovers", page["sections"]![1]!["recognized"]!.GetValue<string>());
         Assert.EndsWith("rollback.md", page["file"]!["path"]!.GetValue<string>());
     }
 

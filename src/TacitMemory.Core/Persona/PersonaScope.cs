@@ -94,23 +94,11 @@ internal sealed record PersonaScope(PersonaScopeKind Kind, string Name)
     /// <summary>The scope a block heading names, as written; null when the heading does not name a domain or a workstream.</summary>
     internal static PersonaScope? OfHeading(string heading)
     {
-        if (StructureWordAfter(heading, StructureWords.Domain) is { } domain)
+        if (StructureWords.After(heading, StructureWords.Domain) is { } domain)
             return new PersonaScope(PersonaScopeKind.Domain, domain);
-        if (StructureWordAfter(heading, StructureWords.Workstream) is { } workstream)
+        if (StructureWords.After(heading, StructureWords.Workstream) is { } workstream)
             return new PersonaScope(PersonaScopeKind.Workstream, workstream);
         return null;
-    }
-
-    /// <summary>
-    /// The text after a structure word and its colon, trimmed; null when the line does not start with the word followed
-    /// by a colon. The word is matched ignoring case.
-    /// </summary>
-    internal static string? StructureWordAfter(string line, string word)
-    {
-        if (!line.StartsWith(word, StringComparison.OrdinalIgnoreCase))
-            return null;
-        var rest = line[word.Length..].TrimStart();
-        return rest.StartsWith(':') ? rest[1..].Trim() : null;
     }
 
     private static int Rank(PersonaScopeKind kind) => kind switch
