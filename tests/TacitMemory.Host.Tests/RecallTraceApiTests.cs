@@ -95,6 +95,7 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        await _logs.WaitForAsync(entry => entry.Message.Contains("/api/recall/trace", StringComparison.Ordinal));
         var traced = _logs.Entries.Where(entry => entry.Message.Contains("/api/recall/trace", StringComparison.Ordinal)).ToList();
         Assert.Contains("400", Assert.Single(traced).Message);
         Assert.DoesNotContain(_logs.Entries, entry => entry.Message.Contains("秘密查询", StringComparison.Ordinal));

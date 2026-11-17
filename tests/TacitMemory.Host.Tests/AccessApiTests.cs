@@ -623,6 +623,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         await Remote(HttpMethod.Post, "/api/session", new { password = "wrong one here" });
         var cookie = await LoginFromRemote();
         await Remote(HttpMethod.Put, "/api/access-password", new { password = Changed, current = Password }, cookie);
+        await _logs.WaitForAsync(entry => entry.Message.Contains("/api/access-password", StringComparison.Ordinal));
 
         var text = _logs.AllText;
 
