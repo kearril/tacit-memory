@@ -31,7 +31,7 @@
     A publish for a runtime, as the release package is made, gives one executable that carries the runtime, with the
     framework's unused code trimmed away and the bundle compressed. Only the framework is trimmed (partial): the product's
     own assemblies and the packages that do not declare themselves trimmable stay whole. Native libraries stay beside the
-    executable, as does vec0.dll, which is loaded by its path.
+    executable, as does the vector extension, which is loaded by its path.
   -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <PublishSingleFile>true</PublishSingleFile>
@@ -68,6 +68,19 @@
   <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
     <TrimmerRootAssembly Include="Microsoft.OpenApi" />
   </ItemGroup>
+
+  <!--
+    The vector extension arrives through Core as the release for the machine doing the build. A publish ships the release
+    for the runtime it targets instead, beside the executable: SQLite loads it by its path, so it cannot be bundled.
+  -->
+  <Target Name="TacitVectorExtension" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(RuntimeIdentifier)' != ''">
+    <ItemGroup>
+      <TacitVectorFile Include="..\..\lib\sqlite-vec\$(RuntimeIdentifier)\vec0.*" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)' == 'vec0'" />
+      <ResolvedFileToPublish Include="@(TacitVectorFile)" RelativePath="%(TacitVectorFile.Filename)%(TacitVectorFile.Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    </ItemGroup>
+    <Error Condition="'@(TacitVectorFile)' == ''" Text="No sqlite-vec release for $(RuntimeIdentifier) under lib/sqlite-vec." />
+  </Target>
 
   <!-- ASP.NET Core's module for hosting inside IIS, which the service never is. -->
   <Target Name="TacitDropIisModule" AfterTargets="ComputeResolvedFilesToPublishList">
