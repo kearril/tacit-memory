@@ -61,7 +61,7 @@ internal static class Binder
         }
         if (skillUsers.Count > 0)
             report.Add(Messages.SkillsFolderShared.Format(language, skillsFolder, SharedPaths.Names(skillUsers)));
-        foreach (var skill in SkillSet.Write(options.TacitHome, language, config.Prompts.Skill).Skills)
+        foreach (var skill in SkillSet.Write(options.TacitHome, config.Prompts.Skill).Skills)
             report.Add((skill.Written ? Messages.SkillWritten : Messages.SkillUnchanged).Format(language, skill.Path));
 
         if (contextUsers.Count > 0)

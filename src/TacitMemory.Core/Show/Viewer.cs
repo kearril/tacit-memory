@@ -89,7 +89,7 @@ internal static class Viewer
             ShowTarget.Resident => Resident(options, config),
             ShowTarget.Skill => Skill(options, config),
             ShowTarget.Remember => Command(RememberSkill.Name, RememberSkill.Compose(), config.Language),
-            ShowTarget.Consolidation => Command(ConsolidationSkill.Name, ConsolidationSkill.Compose(config.Language), config.Language),
+            ShowTarget.Consolidation => Command(ConsolidationSkill.Name, ConsolidationSkill.Compose(), config.Language),
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, null),
         };
     }

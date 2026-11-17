@@ -5,8 +5,8 @@ using TacitMemory.Core.Localization;
 namespace TacitMemory.Core.Skills;
 
 /// <summary>
-/// The <c>tacit-consolidate</c> memory command: the opening, the six steps, the structure words of the memory language, and
-/// examples of a scope block, a candidate block, a rejection list entry, a workstream entry and summary lines. The facts of the moment (the
+/// The <c>tacit-consolidate</c> memory command: the opening, the six steps, and examples of a scope block, a candidate
+/// block, a rejection list entry, a workstream entry and summary lines, which show the structure words. The facts of the moment (the
 /// repository's path, today's date, the baseline and the report) are not here: the agent reads them from the consolidation
 /// report resource. The report's category titles come from <see cref="ConsolidationTitles"/>, the definition the report uses.
 /// </summary>
@@ -29,52 +29,25 @@ internal static class ConsolidationSkill
     private const string Month = "YYYY-MM";
     private const string ExampleDomain = "network-proxy";
 
-    /// <summary>The rejection example's text and the user's words, in each memory language.</summary>
-    private static readonly Localized ExampleText = new("回答尽量简短", "Keep answers short");
-    private static readonly Localized ExampleQuote = new("别写那么长，直接说结论", "Shorter, please, just the conclusion");
+    /// <summary>The rejection example's text and the user's words.</summary>
+    private const string ExampleText = "Keep answers short";
+    private const string ExampleQuote = "Shorter, please, just the conclusion";
 
     /// <summary>The scope examples: a candidate scoped to a domain, the rule it becomes, and the domain's trigger.</summary>
-    private static readonly Localized ExampleScopedText = new("单次测速不作结论", "A single speed test is no conclusion");
-    private static readonly Localized ExampleScopedQuote = new("别拿单次测速下结论", "Do not draw conclusions from one speed test");
-    private static readonly Localized ExampleComparison = new("性能比较", "Performance comparisons");
-    private static readonly Localized ExampleTrigger = new("改代理、分流或测速时", "When changing the proxy, routing or speed tests");
+    private const string ExampleScopedText = "A single speed test is no conclusion";
+    private const string ExampleScopedQuote = "Do not draw conclusions from one speed test";
+    private const string ExampleComparison = "Performance comparisons";
+    private const string ExampleTrigger = "When changing the proxy, routing or speed tests";
 
     /// <summary>The workstream example: its name, its background line and its recent line, which states the phase, not the list of work done.</summary>
     private const string ExampleWorkstream = "home-server";
-    private static readonly Localized ExampleBackground = new(
-        "家里的常驻服务器，跑代理分流和自用服务。", "The home server that runs proxy routing and self-hosted services.");
-    private static readonly Localized ExampleRecent = new(
-        "服务栈搭完后在收敛，砍掉不常用的。", "The service stack is set up and is being trimmed: rarely used services are being removed.");
+    private const string ExampleBackground = "The home server that runs proxy routing and self-hosted services.";
+    private const string ExampleRecent = "The service stack is set up and is being trimmed: rarely used services are being removed.";
 
-    /// <summary>The structure words the files use, by the role each plays.</summary>
-    private static readonly (string Role, string Word)[] Words =
-    [
-        ("Red lines section (persona.md)", StructureWords.RedLines),
-        ("Working rules section (persona.md)", StructureWords.WorkingRules),
-        ("Preferences section (persona.md)", StructureWords.Preferences),
-        ("Profile section (persona.md)", StructureWords.Profile),
-        ("Domain heading (persona.md scope block)", StructureWords.Domain),
-        ("Workstream heading (persona.md scope block)", StructureWords.Workstream),
-        ("Trigger line of a scope block", StructureWords.Trigger),
-        ("Candidates section (candidates.md)", StructureWords.Candidates),
-        ("Rejection list section (candidates.md)", StructureWords.RejectionList),
-        ("Belongs-to line of a candidate", StructureWords.BelongsTo),
-        ("Scope line of a candidate or rejection", StructureWords.Scope),
-        ("Quote of the user's own words", StructureWords.Quote),
-        ("Rejected mark on an occurrence line", StructureWords.Rejected),
-        ("Workstream section (workstreams.md)", StructureWords.Workstream),
-        ("Background line of a workstream (workstreams.md)", StructureWords.Background),
-        ("Recent line of a workstream (workstreams.md)", StructureWords.Recent),
-        ("Summary section (month file)", StructureWords.Summary),
-        ("Leftovers section (work page)", StructureWords.Leftovers),
-        ("Overturned section (decision page)", StructureWords.Overturned),
-        ("Lesson section (incident page)", StructureWords.Lesson),
-    ];
+    /// <summary>The whole file. It depends on the code only.</summary>
+    public static string Compose() => CommandSkill.Compose(Name, Description, Body());
 
-    /// <summary>The whole file. It depends on the code and the memory language only.</summary>
-    public static string Compose(MemoryLanguage language) => CommandSkill.Compose(Name, Description, Body(language));
-
-    private static string Body(MemoryLanguage language)
+    private static string Body()
     {
         var quote = StructureWords.Quote;
         var summary = StructureWords.Summary;
@@ -135,50 +108,45 @@ internal static class ConsolidationSkill
             .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")
             .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"`.\n\n");
 
-        text.Append("## Structure words\n");
-        text.Append("The memory language is ").Append(language == MemoryLanguage.Zh ? "Chinese" : "English")
-            .Append(". Write these words exactly as they appear here.\n\n");
-        text.Append("| Role | Word |\n| :--- | :--- |\n");
-        foreach (var (role, word) in Words)
-            text.Append("| ").Append(role).Append(" | ").Append(word.TrimEnd()).Append(" |\n");
-        text.Append('\n');
-
+        text.Append("## Examples\n");
+        text.Append("The examples show the structure words of the memory files: write them exactly as they appear here, in English, whatever the memory language. ")
+            .Append("Write the content (entries, titles, quotes, background and recent lines, summaries) in the memory language the server instructions name.\n");
         text.Append("In the examples, ").Append(Date).Append(" stands for the date, ").Append(Week).Append(" for an ISO week and ")
             .Append(Month).Append(" for a month.\n\n");
 
         text.Append("Example of a scope block in persona.md:\n");
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.Domain).Append(colon).Append(ExampleDomain).Append('\n');
-        text.Append(StructureWords.Trigger).Append(colon).Append(ExampleTrigger.In(language)).Append('\n');
+        text.Append(StructureWords.Trigger).Append(colon).Append(ExampleTrigger).Append('\n');
         text.Append("### ").Append(StructureWords.WorkingRules).Append('\n');
-        text.Append("- ").Append(ExampleComparison.In(language)).Append(" → ").Append(ExampleScopedText.In(language)).Append('\n');
+        text.Append("- ").Append(ExampleComparison).Append(" → ").Append(ExampleScopedText).Append('\n');
         text.Append("  <!-- ").Append(Date).Append(' ').Append(quote).Append("「…」 -->\n");
         text.Append("```\n\n");
 
         text.Append("Example of a candidate block in candidates.md, scoped to a domain:\n");
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.Candidates).Append('\n');
-        text.Append("### ").Append(ExampleScopedText.In(language)).Append('\n');
+        text.Append("### ").Append(ExampleScopedText).Append('\n');
         text.Append(StructureWords.BelongsTo).Append(StructureWords.Preferences).Append('\n');
         text.Append(StructureWords.Scope).Append("domain:").Append(ExampleDomain).Append('\n');
-        text.Append("- ").Append(Date).Append(' ').Append(quote).Append('「').Append(ExampleScopedQuote.In(language)).Append("」\n");
+        text.Append("- ").Append(Date).Append(' ').Append(quote).Append('「').Append(ExampleScopedQuote).Append("」\n");
         text.Append("```\n\n");
 
         text.Append("Example of an entry in the rejection list of candidates.md:\n");
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.RejectionList).Append('\n');
-        text.Append("### ").Append(ExampleText.In(language)).Append('\n');
+        text.Append("### ").Append(ExampleText).Append('\n');
         text.Append(StructureWords.BelongsTo).Append(StructureWords.Preferences).Append('\n');
         text.Append("- ").Append(Date).Append(' ').Append(StructureWords.Rejected).Append(' ')
-            .Append(quote).Append('「').Append(ExampleQuote.In(language)).Append("」\n");
+            .Append(quote).Append('「').Append(ExampleQuote).Append("」\n");
         text.Append("```\n\n");
 
         text.Append("Example of a workstream entry in workstreams.md. The background line says what the workstream is; the recent line says where it stands and where it is going:\n");
         text.Append("```\n");
         text.Append("## ").Append(StructureWords.Workstream).Append('\n');
         text.Append("### ").Append(ExampleWorkstream).Append('\n');
-        text.Append(StructureWords.Background).Append(colon).Append(ExampleBackground.In(language)).Append('\n');
-        text.Append(StructureWords.Recent).Append(colon).Append(ExampleRecent.In(language)).Append('\n');
+        text.Append(StructureWords.Background).Append(colon).Append(ExampleBackground).Append('\n');
+        text.Append(StructureWords.Recent).Append(colon).Append(ExampleRecent).Append('\n');
         text.Append("```\n\n");
 
         text.Append("Example of summary lines at the end of a month file:\n");

@@ -228,7 +228,7 @@ internal sealed class DerivedUpkeep : IDisposable
             if (what.HasFlag(Refresh.Prompts))
                 _prompts.RunNow();
             if (what.HasFlag(Refresh.Skills))
-                SkillSet.Write(_options.TacitHome, _runtime().Config.Language, PromptState.Running.Skill);
+                SkillSet.Write(_options.TacitHome, PromptState.Running.Skill);
             if (what.HasFlag(Refresh.Instructions))
                 InvalidateInstructions();
             if (what.HasFlag(Refresh.Resident))
@@ -364,7 +364,7 @@ internal sealed class DerivedUpkeep : IDisposable
         var prompts = PromptFiles.Reload(_options.TacitHome, language, current, problems);
         foreach (var problem in problems.Values.Distinct())
             _log.Notify(LogLevel.Warning, Messages.PromptsNotApplied, problem);
-        SkillSet.Write(_options.TacitHome, language, prompts.Skill);
+        SkillSet.Write(_options.TacitHome, prompts.Skill);
         _log.Record(LogLevel.Information, LogMessages.PromptsReloaded);
         lock (_promptsGate)
         {

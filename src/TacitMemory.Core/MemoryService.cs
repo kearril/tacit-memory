@@ -89,7 +89,7 @@ public sealed class MemoryService : IDisposable
         Config = config;
         _log = new ServiceLog(logger, config.Language, notice);
         Access = new AccessControl(options, config, logger);
-        SkillSet.Write(options.TacitHome, config.Language, config.Prompts.Skill);
+        SkillSet.Write(options.TacitHome, config.Prompts.Skill);
         StartupRender = Binder.RenderAll(options, config, config.Prompts);
         _log.Record(LogLevel.Information, LogMessages.Started, ProductVersion.Current, config.Port, config.MemoryPath);
         foreach (var render in StartupRender)

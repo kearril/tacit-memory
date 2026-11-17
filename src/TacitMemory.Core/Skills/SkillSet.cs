@@ -31,14 +31,13 @@ internal static class SkillSet
 
     /// <summary>
     /// Writes every skill, leaving each file alone when it already holds exactly the text it would get.
-    /// <paramref name="userConventions"/> is the text of <c>prompts/skill.md</c>, which only the memory skill carries; the
-    /// consolidation command writes its structure words in <paramref name="language"/>.
+    /// <paramref name="userConventions"/> is the text of <c>prompts/skill.md</c>, which only the memory skill carries.
     /// </summary>
-    public static SkillResult Write(string tacitHome, MemoryLanguage language, string? userConventions) =>
+    public static SkillResult Write(string tacitHome, string? userConventions) =>
         new([
             WriteOne(tacitHome, MemorySkill.Name, MemorySkill.Compose(userConventions)),
             WriteOne(tacitHome, RememberSkill.Name, RememberSkill.Compose()),
-            WriteOne(tacitHome, ConsolidationSkill.Name, ConsolidationSkill.Compose(language)),
+            WriteOne(tacitHome, ConsolidationSkill.Name, ConsolidationSkill.Compose()),
         ]);
 
     private static GeneratedSkill WriteOne(string tacitHome, string name, string text)

@@ -72,7 +72,7 @@ public sealed class Tacit(TacitOptions options)
     public SkillResult GenerateSkills()
     {
         var language = ConfigLoader.LanguageOf(options);
-        return SkillSet.Write(options.TacitHome, language, PromptFiles.ReadSkill(options.TacitHome, language));
+        return SkillSet.Write(options.TacitHome, PromptFiles.ReadSkill(options.TacitHome, language));
     }
 
     /// <summary>

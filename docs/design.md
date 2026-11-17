@@ -266,7 +266,7 @@
 
 ## 9. 整理
 
-用户在任意目录通过 `tacit-consolidate` skill 开始整理（触发方式取决于客户端，附加要求可省略）。该 skill 的正文只取决于代码与记忆语言，不读记忆仓库，依次包含：开场（现在开始整理；先读取资源 `tacit://consolidation-report`，读不到就停下请用户运行 `tacit serve`；记忆仓库的绝对路径；直接用绝对路径改文件，并在该目录中执行 git，不要求当前目录是记忆仓库）、六个步骤、当前记忆语言的结构词对照表，以及作用域块、候选块、拒绝列表条目与汇总行的示例。用户附在命令后的文字可限定本次的范围，如“只做汇总”（只写汇总，不出提案）；“只处理主线”或“只处理主线 名字”（只做主线材料与主线提案，其余类别不动）用于直接指定一条主线。整理报告不在正文中，由该资源现场返回（见 `docs/reference/mcp.md`「资源」）。主会话依据报告直接修改记忆仓库中的文件，最后在记忆仓库中提交，提交信息以 `consolidate:` 开头。
+用户在任意目录通过 `tacit-consolidate` skill 开始整理（触发方式取决于客户端，附加要求可省略）。该 skill 的正文只取决于代码，不读记忆仓库，依次包含：开场（现在开始整理；先读取资源 `tacit://consolidation-report`，读不到就停下请用户运行 `tacit serve`；记忆仓库的绝对路径；直接用绝对路径改文件，并在该目录中执行 git，不要求当前目录是记忆仓库）、六个步骤，以及作用域块、候选块、拒绝列表条目与汇总行的示例（示例里的结构词即文件格式，一律英文）。用户附在命令后的文字可限定本次的范围，如“只做汇总”（只写汇总，不出提案）；“只处理主线”或“只处理主线 名字”（只做主线材料与主线提案，其余类别不动）用于直接指定一条主线。整理报告不在正文中，由该资源现场返回（见 `docs/reference/mcp.md`「资源」）。主会话依据报告直接修改记忆仓库中的文件，最后在记忆仓库中提交，提交信息以 `consolidate:` 开头。
 
 整理步骤（英文，按顺序）：
 
@@ -322,7 +322,7 @@
 | skill | 用途 | 正文依赖 |
 | :--- | :--- | :--- |
 | `tacit-remember` | 让主会话把本会话写进记忆（步骤见 `docs/dev/prompts.md`「记忆指令 skill」） | 仅代码 |
-| `tacit-consolidate` | 让主会话依据整理报告整理记忆仓库（见本文第 9 节） | 代码与记忆语言；报告经资源 `tacit://consolidation-report` 读取 |
+| `tacit-consolidate` | 让主会话依据整理报告整理记忆仓库（见本文第 9 节） | 代码；报告经资源 `tacit://consolidation-report` 读取 |
 
 两者 frontmatter 都含 `disable-model-invocation: true`，只由用户触发（触发方式取决于客户端）。用户附在命令后的文字是本次的重点或附加要求，Agent 须遵从。`tacit-remember` 写完后列出写了什么：页面附页面标识，活动与画像条目附短码，候选附原文；不预先征求确认，与画像矛盾时先问用户。
 
@@ -331,7 +331,7 @@
 - 位置：`TACIT_HOME/skills/tacit-memory/SKILL.md`，由代码生成，用户不直接修改；成品结构与各部分的措辞见 `docs/dev/prompts.md`「记忆 skill」。`prompts/skill.md` 存在且非空白时，末尾接 `## User conventions` 一节。
 - `prompts/skill.md` 的长度与格式规则见 `docs/reference/configuration.md`「提示词文档」。
 - 生成时机：服务启动时；`prompts/` 下的文件变化时；门面的 `GenerateSkills` 操作（返回三个 skill 各自的路径与是否写入），不需要服务运行；`connect` 绑定时也调用它。内容不变时不写文件。
-- 两个记忆指令与记忆 skill 同时生成。`tacit-remember` 的成品只取决于代码，`tacit-consolidate` 只取决于代码与记忆语言；两者都不读取记忆仓库，也不读 `prompts/`，没有覆盖或追加文件，个人要求在触发时附上即可。
+- 两个记忆指令与记忆 skill 同时生成。`tacit-remember` 的成品只取决于代码，`tacit-consolidate` 也只取决于代码；两者都不读取记忆仓库，也不读 `prompts/`，没有覆盖或追加文件，个人要求在触发时附上即可。
 - 不进入自动备份。系统部分正文的措辞验证方式见 `docs/dev/testing.md`「提示词的验证」。
 
 ## 11. 语言
