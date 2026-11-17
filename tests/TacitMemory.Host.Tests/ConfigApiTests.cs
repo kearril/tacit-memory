@@ -72,11 +72,11 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.Equal(18888, view.Defaults.Server.Port);
         Assert.NotNull(view.Defaults.Decision.SamePage);
         Assert.NotEmpty(view.Hash);
-        var topK = Assert.Single(view.Keys, key => key.Path == "retrieval.topK");
+        var topK = Assert.Single(view.Keys, key => key.Path == ConfigKeyPath.RetrievalTopK);
         Assert.Equal(1, topK.Min);
         Assert.False(topK.Restart);
-        Assert.True(Assert.Single(view.Keys, key => key.Path == "server.port").Restart);
-        Assert.True(Assert.Single(view.Keys, key => key.Path == "memory.path").ReadOnly);
+        Assert.True(Assert.Single(view.Keys, key => key.Path == ConfigKeyPath.ServerPort).Restart);
+        Assert.True(Assert.Single(view.Keys, key => key.Path == ConfigKeyPath.MemoryPath).ReadOnly);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var saved = await Read<ConfigSaved>(response);
         Assert.Equal(
-            [new RestartChange("server.port", "18888", "19001"), new RestartChange("limits.page.minAliases", "2", "3")],
+            [new RestartChange(ConfigKeyPath.ServerPort, "18888", "19001"), new RestartChange(ConfigKeyPath.LimitsPageMinAliases, "2", "3")],
             saved.Restart);
         var after = await GetAsync();
         Assert.Equal(19001, after.File.Server.Port);
@@ -200,10 +200,10 @@ public sealed class ConfigApiTests : IAsyncLifetime
 
         Assert.Equal(
             [
-                new SecretState("models.embedding.apiKey", null, "TACIT_EMBEDDING_API_KEY"),
-                new SecretState("models.reranker.apiKey", SecretSource.Environment, "TACIT_RERANKER_API_KEY"),
-                new SecretState("models.decision.apiKey", SecretSource.ConfigFile, "TACIT_DECISION_API_KEY"),
-                new SecretState("backup.webdav.password", null, "TACIT_WEBDAV_PASSWORD"),
+                new SecretState(ConfigKeyPath.ModelsEmbeddingApiKey, null, "TACIT_EMBEDDING_API_KEY"),
+                new SecretState(ConfigKeyPath.ModelsRerankerApiKey, SecretSource.Environment, "TACIT_RERANKER_API_KEY"),
+                new SecretState(ConfigKeyPath.ModelsDecisionApiKey, SecretSource.ConfigFile, "TACIT_DECISION_API_KEY"),
+                new SecretState(ConfigKeyPath.BackupWebDavPassword, null, "TACIT_WEBDAV_PASSWORD"),
             ],
             view.Secrets);
         Assert.DoesNotContain("test-key", JsonSerializer.Serialize(view, ManagementApiJson.Options));
@@ -239,7 +239,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         using (var removed = await PutAsync(new ConfigSave(view.Hash, view.File, new Dictionary<string, string?> { ["models.decision.apiKey"] = null })))
             Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
         Assert.DoesNotContain("apiKey", File.ReadAllText(ConfigPath));
-        Assert.Null((await GetAsync()).Secrets.Single(secret => secret.Path == "models.decision.apiKey").Source);
+        Assert.Null((await GetAsync()).Secrets.Single(secret => secret.Path == ConfigKeyPath.ModelsDecisionApiKey).Source);
     }
 
     [Fact]

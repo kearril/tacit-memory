@@ -37,7 +37,7 @@ internal static class ConfigSchema
         return
         [
             .. ConfigKeys.Secrets.Select(secret => new SecretState(
-                secret.Path,
+                secret.Id,
                 FromEnvironment(options, secret.SecretVariable!) is not null ? SecretSource.Environment
                     : file.ValueAt(secret) is not null ? SecretSource.ConfigFile
                     : null,

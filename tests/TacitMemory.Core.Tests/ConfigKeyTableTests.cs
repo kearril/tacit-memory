@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using TacitMemory.Core.Configuration;
 
 namespace TacitMemory.Core.Tests;
 
@@ -37,14 +38,21 @@ public sealed class ConfigKeyTableTests : IDisposable
         {
             foreach (var beyond in (double[])[key.Max!.Value + 1, key.Min!.Value - 1])
             {
-                WriteConfig(TestHome.Models + "language: zh\n" + Yaml(WithPartner(key.Path, beyond)));
+                WriteConfig(TestHome.Models + "language: zh\n" + Yaml(WithPartner(key.Path.Dotted(), beyond)));
                 var error = Assert.Throws<TacitException>(() => _home.Tacit().LoadConfigFile());
-                if (error.Error != TacitError.ConfigInvalid || (error.Problems ?? []).All(problem => problem.Path != key.Path))
-                    missed.Add($"{key.Path} = {beyond}");
+                if (error.Error != TacitError.ConfigInvalid || (error.Problems ?? []).All(problem => problem.Path != key.Path.Dotted()))
+                    missed.Add($"{key.Path.Dotted()} = {beyond}");
             }
         }
 
         Assert.Empty(missed);
+    }
+
+    [Fact]
+    public void Every_key_s_path_is_the_wire_name_of_its_contract_path()
+    {
+        Assert.All(ConfigKeys.All, key => Assert.Equal(key.Path, key.Id.Dotted()));
+        Assert.Equal(Enum.GetValues<ConfigKeyPath>(), ConfigKeys.All.Select(key => key.Id));
     }
 
     [Fact]
@@ -73,7 +81,7 @@ public sealed class ConfigKeyTableTests : IDisposable
         var values = new Dictionary<string, double>();
         var keys = Ranged;
         foreach (var key in keys)
-            values[key.Path] = key.Path.EndsWith(".unlikely", StringComparison.Ordinal) ? key.Min!.Value : key.Max!.Value;
+            values[key.Path.Dotted()] = key.Path.Dotted().EndsWith(".unlikely", StringComparison.Ordinal) ? key.Min!.Value : key.Max!.Value;
         WriteConfig(TestHome.Models + "language: zh\n" + Yaml(values));
         var before = _home.Tacit().ReadConfigFile();
 
@@ -85,13 +93,13 @@ public sealed class ConfigKeyTableTests : IDisposable
     }
 
     /// <summary>A change to each key that waits for a restart or is read-only; a key described as either needs one here.</summary>
-    private Dictionary<string, Func<ConfigFile, ConfigFile>> Changes() => new()
+    private Dictionary<ConfigKeyPath, Func<ConfigFile, ConfigFile>> Changes() => new()
     {
-        ["server.port"] = file => file with { Server = file.Server with { Port = 19999 } },
-        ["server.host"] = file => file with { Server = file.Server with { Host = "192.168.1.10" } },
-        ["memory.path"] = file => file with { Memory = new MemoryFile(Path.Combine(_home.UserHome, "elsewhere")) },
-        ["language"] = file => file with { Language = "en" },
-        ["limits.page.minAliases"] = file => file with { Limits = file.Limits with { Page = new PageLimitsFile(MinAliases: 4) } },
+        [ConfigKeyPath.ServerPort] = file => file with { Server = file.Server with { Port = 19999 } },
+        [ConfigKeyPath.ServerHost] = file => file with { Server = file.Server with { Host = "192.168.1.10" } },
+        [ConfigKeyPath.MemoryPath] = file => file with { Memory = new MemoryFile(Path.Combine(_home.UserHome, "elsewhere")) },
+        [ConfigKeyPath.Language] = file => file with { Language = "en" },
+        [ConfigKeyPath.LimitsPageMinAliases] = file => file with { Limits = file.Limits with { Page = new PageLimitsFile(MinAliases: 4) } },
     };
 
     [Fact]
@@ -126,7 +134,7 @@ public sealed class ConfigKeyTableTests : IDisposable
             var error = await Assert.ThrowsAsync<TacitException>(() => Service.SaveConfigAsync(changes[key.Path](view.File), view.Hash));
 
             Assert.Equal(TacitError.ConfigRejected, error.Error);
-            Assert.Equal([key.Path], (error.Problems ?? []).Select(problem => problem.Path));
+            Assert.Equal([key.Path.Dotted()], (error.Problems ?? []).Select(problem => problem.Path));
         }
     }
 

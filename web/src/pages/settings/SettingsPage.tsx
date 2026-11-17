@@ -161,7 +161,7 @@ function SettingsEditor({
   const [failure, setFailure] = useState<Failure | null>(null);
 
   const changed = useMemo(() => changedPaths(view, drafts, secrets), [view, drafts, secrets]);
-  const placed = useMemo(() => placeProblems(problems), [problems]);
+  const placed = useMemo(() => placeProblems(view, problems), [view, problems]);
   const pending = useMemo(() => new Map(pendingRestart(view).map((item) => [item.path, item])), [view]);
   const drift = useMemo(() => drifted(view), [view]);
   const dirty = changed.length > 0;
@@ -201,7 +201,7 @@ function SettingsEditor({
   const show = (found: readonly ConfigProblem[]) => {
     setProblems(found);
     // A model with a problem opens to show it, so the first input is reached once the page has drawn the problems.
-    const first = placeProblems(found).first;
+    const first = placeProblems(view, found).first;
     window.setTimeout(() => {
       const input = first === null ? null : document.getElementById(inputIdOf(first));
       input?.scrollIntoView({ block: "center", behavior: "smooth" });

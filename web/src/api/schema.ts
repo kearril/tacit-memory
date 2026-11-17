@@ -2348,7 +2348,8 @@ export interface paths {
                             };
                             notices: string[];
                             restart: {
-                                path: string;
+                                /** @enum {unknown} */
+                                path: "server.port" | "server.host" | "memory.path" | "language" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintItemLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password";
                                 running: string;
                                 saved: string;
                             }[];
@@ -2598,7 +2599,7 @@ export interface components {
             backup: components["schemas"]["BackupFile"];
         };
         ConfigKey: {
-            path: string;
+            path: components["schemas"]["ConfigKeyPath"];
             /** Format: double */
             min: null | number;
             /** Format: double */
@@ -2606,7 +2607,10 @@ export interface components {
             choices: null | string[];
             restart: boolean;
             readOnly: boolean;
+            secret: boolean;
         };
+        /** @enum {unknown} */
+        ConfigKeyPath: "server.port" | "server.host" | "memory.path" | "language" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintItemLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password";
         ConfigProblem: {
             path: string;
             message: string;
@@ -2958,7 +2962,7 @@ export interface components {
             exists: boolean;
         };
         RestartChange: {
-            path: string;
+            path: components["schemas"]["ConfigKeyPath"];
             running: string;
             saved: string;
         };
@@ -3004,7 +3008,7 @@ export interface components {
             items: components["schemas"]["SecretStatus"][];
         };
         SecretState: {
-            path: string;
+            path: components["schemas"]["ConfigKeyPath"];
             source: null | components["schemas"]["SecretSource"];
             variable: string;
         };

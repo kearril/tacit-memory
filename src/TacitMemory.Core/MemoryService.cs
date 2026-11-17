@@ -1075,7 +1075,7 @@ public sealed class MemoryService : IDisposable
             notices.Add(RestoreMessages.PromptsApplied.In(language));
             if (restart.Count > 0)
                 notices.Add(string.Join('\n', restart
-                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, change.Path, change.Running, change.Saved))
+                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, ConfigKeys.Of(change.Path).Path, change.Running, change.Saved))
                     .Prepend(RestoreMessages.RestartPending.In(language))));
             if (restored.Problem is null
                 && !string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
