@@ -12,7 +12,7 @@
    - 测试不读开发机的环境变量，绑定只写入临时用户主目录，从不碰真实的客户端配置。
 2. **`tests/TacitMemory.Host.Tests`：MCP 接缝**
    - 在进程内以真实 HTTP 启动 `ServiceHost`，用 SDK 的 MCP 客户端调用。
-   - 非本机连接用 `127.0.0.2` 模拟：测试经内部入口把「本机」收窄为只有 `127.0.0.1`。
+   - 非本机连接用 `127.0.0.2` 模拟：测试经内部入口把「本机」收窄为只有 `127.0.0.1`。macOS 上需要先加回环别名，见第 5 节。
    - 工具的校验与拒绝规则由门面接缝覆盖，这里不重复。
 3. **`tests/TacitMemory.Cli.Tests`：CLI 接缝**
    - 经 `CommandLine.RunAsync` 在进程内执行真实的命令管道；命令只经 `CliConsole` 读写控制台，这是 CLI 唯一的接缝。
@@ -50,6 +50,8 @@
 ## 5. 运行方式
 
 默认只运行与当前变更直接相关的测试。全量测试、格式检查与前端检查由 GitHub Actions 运行（触发条件见 `docs/reference/operations.md`「发布」）。测试需要 `git` 在 `PATH` 中。
+
+测试在 Windows、Linux 与 macOS 上都能运行。Host 与 Cli 的测试要从 `127.0.0.2` 发起连接：Windows 与 Linux 把整个 `127.0.0.0/8` 当作本机地址，macOS 默认只有 `127.0.0.1`，要先加上 `sudo ifconfig lo0 alias 127.0.0.2 up`（重启后失效，常驻需开机执行）。缺少它时，模拟非本机连接的测试会报出这条命令。模拟「文件被其他程序占用」的少数测试只在 Windows 上有意义，其他系统上直接返回。
 
 ```powershell
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝

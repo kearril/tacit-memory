@@ -417,8 +417,11 @@ public sealed class RestoreTests : IDisposable
     }
 
     [Fact]
-    public async Task A_swap_that_cannot_finish_puts_the_repository_back_and_names_the_safety_backup()
+    public async Task On_windows_a_swap_that_cannot_finish_puts_the_repository_back_and_names_the_safety_backup()
     {
+        // Only Windows refuses to replace or move a file that another handle holds open; elsewhere nothing fails.
+        if (!OperatingSystem.IsWindows())
+            return;
         await _service.WritePageAsync(Create("tacit-memory/before-backup", "备份前页面", "备份前内容"));
         var backup = await _service.BackupAsync(BackupTarget.Local);
         await _service.WritePageAsync(Create("tacit-memory/after-backup", "备份后页面", "备份后内容"));

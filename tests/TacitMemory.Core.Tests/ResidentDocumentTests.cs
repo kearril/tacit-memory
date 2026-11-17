@@ -245,8 +245,11 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public async Task A_render_that_meets_a_reader_of_agents_md_is_retried_after_the_reader_lets_go()
+    public async Task On_windows_a_render_that_meets_a_reader_of_agents_md_is_retried_after_the_reader_lets_go()
     {
+        // Only Windows refuses to replace or move a file that another handle holds open; elsewhere nothing fails.
+        if (!OperatingSystem.IsWindows())
+            return;
         WriteFullPersona();
         _home.Bind();
         using var service = Open();
@@ -267,8 +270,11 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public async Task A_render_still_refused_after_five_retries_is_reported_once_and_a_later_change_renders_again()
+    public async Task On_windows_a_render_still_refused_after_five_retries_is_reported_once_and_a_later_change_renders_again()
     {
+        // Only Windows refuses to replace or move a file that another handle holds open; elsewhere nothing fails.
+        if (!OperatingSystem.IsWindows())
+            return;
         WriteFullPersona();
         _home.Bind();
         using var service = Open();

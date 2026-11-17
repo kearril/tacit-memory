@@ -79,8 +79,11 @@ public sealed class PromptSaveTests : IDisposable
     }
 
     [Fact]
-    public async Task Saving_the_resident_document_while_a_context_file_is_held_returns_the_failed_render()
+    public async Task On_windows_saving_the_resident_document_while_a_context_file_is_held_returns_the_failed_render()
     {
+        // Only Windows refuses to replace or move a file that another handle holds open; elsewhere nothing fails.
+        if (!OperatingSystem.IsWindows())
+            return;
         _home.Bind();
         var context = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
 

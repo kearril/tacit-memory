@@ -6,7 +6,8 @@ namespace TacitMemory.Host.Tests;
 /// <summary>
 /// The two clients of the connection tests. The host counts as local only the connections whose peer is <c>127.0.0.1</c>
 /// (see <see cref="OnlyLoopbackIsLocal"/>), so the remote client binds its end to <c>127.0.0.2</c>, another loopback
-/// address that the host does not count as local. Windows accepts the whole <c>127.0.0.0/8</c> as local addresses.
+/// address that the host does not count as local. Windows and Linux accept the whole <c>127.0.0.0/8</c> as local
+/// addresses; macOS needs <c>127.0.0.2</c> added to <c>lo0</c>.
 /// </summary>
 internal static class PeerClients
 {
@@ -35,6 +36,13 @@ internal static class PeerClients
         {
             socket.Bind(new IPEndPoint(RemoteAddress, 0));
             await socket.ConnectAsync(context.DnsEndPoint, cancellationToken);
+        }
+        catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressNotAvailable)
+        {
+            socket.Dispose();
+            throw new InvalidOperationException(
+                $"{RemoteAddress} is not a local address here. macOS has only 127.0.0.1 on lo0 by default; add the other one with "
+                + $"'sudo ifconfig lo0 alias {RemoteAddress} up' (see docs/dev/testing.md).", e);
         }
         catch
         {
