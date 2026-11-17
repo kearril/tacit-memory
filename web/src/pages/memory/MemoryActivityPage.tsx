@@ -2,7 +2,6 @@ import { cn } from "cn";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { ApiError } from "../../api/client";
 import {
   type ActivityItemView,
   type ActivityMonthView,
@@ -10,15 +9,14 @@ import {
   useActivityMonth,
   useActivityMonths,
 } from "../../api/memory";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary, useSessionStatus } from "../../app/session-context";
 import { StickyBar } from "../../components/ui/sticky-bar";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Select } from "../../components/ui/select";
 import { entryBox } from "../../components/ui/entry-box";
 import { BELOW_BARS } from "../../components/ui/sticky";
-import { errorTextOf } from "../../i18n/messages";
 import { dayText } from "../dashboard/format";
 import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, QuoteList, QuoteToggle, WorkstreamPill } from "./parts";
@@ -53,16 +51,9 @@ export function MemoryActivityPage() {
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) grid-cols-1 gap-md">
       <h1 className="sr-only">{dictionary.memory.views.activity}</h1>
-      {months.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{text.failed}</AlertTitle>
-          <AlertDescription>{errorTextOf(months.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : months.data === undefined ? (
-        <div aria-busy="true" />
-      ) : (
-        <MonthView months={months.data.months} current={months.data.current} />
-      )}
+      <QueryResult query={months} title={text.failed}>
+        {(data) => <MonthView months={data.months} current={data.current} />}
+      </QueryResult>
     </div>
   );
 }
@@ -73,7 +64,6 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
   const [search, setSearch] = useSearchParams();
   const query = activityQueryOf(search, current);
   const view = useActivityMonth(query.month);
-  const missing = view.error instanceof ApiError && view.error.status === 404;
 
   // Every month with a file, the current one, and the one in the address, newest first.
   const choices = useMemo(
@@ -130,16 +120,9 @@ function MonthView({ months, current }: { readonly months: readonly string[]; re
         />
       </MonthBar>
 
-      {view.isError ? (
-        <Alert tone={missing ? "warning" : "danger"}>
-          <AlertTitle>{missing ? text.notFound : text.failed}</AlertTitle>
-          <AlertDescription>{errorTextOf(view.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : view.data === undefined ? (
-        <div aria-busy="true" />
-      ) : (
-        <Timeline view={view.data} timeline={timeline} workstream={query.workstream} />
-      )}
+      <QueryResult query={view} title={text.failed} missing={text.notFound}>
+        {(data) => <Timeline view={data} timeline={timeline} workstream={query.workstream} />}
+      </QueryResult>
     </>
   );
 }

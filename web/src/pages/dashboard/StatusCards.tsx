@@ -52,7 +52,9 @@ import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
-import { BusyIcon, IconAction, InfoRow, ProbeLine } from "./parts";
+import { QueryResult } from "../../components/query-result";
+import { BusyIcon } from "../../components/ui/busy-icon";
+import { IconAction, InfoRow, ProbeLine } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 import { LOGS_PATH } from "../logs/day";
 import { CANDIDATES_ANCHOR, memoryPathOf } from "../memory/views";
@@ -482,60 +484,61 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
           )
         }
       />
-      {list === undefined ? (
-        backups.isError ? (
-          <FailureAlert
-            failure={{ title: dictionary.dashboard.unreadable, message: errorTextOf(backups.error, dictionary) }}
-          />
-        ) : (
-          <div aria-busy="true" className="py-lg" />
-        )
-      ) : (
-        <>
-          {latest === undefined ? (
-            <span className="text-lg font-semibold">{text.none}</span>
-          ) : (
-            <div className="grid gap-xs">
-              <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
-                {timeText(latest.at, locale)}
-              </span>
-              <span className="text-xs text-ink-muted">
-                {text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}
-              </span>
-              <span className="text-xs text-ink-muted">{text.count(list.local.length)}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-md text-sm">
-            <span className="text-ink-muted">{text.cloud}</span>
-            {!list.remoteConfigured ? (
-              <span className="flex items-center gap-sm">
-                <span className="text-ink-muted">{text.cloudNotConfigured}</span>
-                <Link to="/settings#settings-backup" className="text-accent underline-offset-2 hover:underline">
-                  {text.configure}
-                </Link>
-              </span>
-            ) : lastRemote === null ? (
-              <span className="text-ink-muted">{text.cloudNever}</span>
+      <QueryResult
+        query={backups}
+        title={dictionary.dashboard.unreadable}
+        skeleton={<div aria-busy="true" className="py-lg" />}
+        failure={(error) => (
+          <FailureAlert failure={{ title: dictionary.dashboard.unreadable, message: errorTextOf(error, dictionary) }} />
+        )}
+      >
+        {(loaded) => (
+          <>
+            {latest === undefined ? (
+              <span className="text-lg font-semibold">{text.none}</span>
             ) : (
-              <span className="flex min-w-0 items-center gap-sm">
-                <span className="truncate text-xs text-ink-muted">{timeText(lastRemote.at, locale)}</span>
-                {lastRemote.succeeded ? (
-                  <Badge tone="success">
-                    <CircleCheck aria-hidden />
-                    {text.cloudSucceeded}
-                  </Badge>
-                ) : (
-                  <Badge tone="danger" title={lastRemote.error ?? undefined}>
-                    <TriangleAlert aria-hidden />
-                    {text.cloudFailed}
-                  </Badge>
-                )}
-              </span>
+              <div className="grid gap-xs">
+                <span className="text-lg leading-(--tk-line-height-tight) font-semibold">
+                  {timeText(latest.at, locale)}
+                </span>
+                <span className="text-xs text-ink-muted">
+                  {text.latest(text.kinds[latest.kind], sizeOf(latest.bytes, locale))}
+                </span>
+                <span className="text-xs text-ink-muted">{text.count(loaded.local.length)}</span>
+              </div>
             )}
-          </div>
-          <FailureAlert failure={failure} />
-        </>
-      )}
+            <div className="flex items-center justify-between gap-md text-sm">
+              <span className="text-ink-muted">{text.cloud}</span>
+              {!loaded.remoteConfigured ? (
+                <span className="flex items-center gap-sm">
+                  <span className="text-ink-muted">{text.cloudNotConfigured}</span>
+                  <Link to="/settings#settings-backup" className="text-accent underline-offset-2 hover:underline">
+                    {text.configure}
+                  </Link>
+                </span>
+              ) : lastRemote === null ? (
+                <span className="text-ink-muted">{text.cloudNever}</span>
+              ) : (
+                <span className="flex min-w-0 items-center gap-sm">
+                  <span className="truncate text-xs text-ink-muted">{timeText(lastRemote.at, locale)}</span>
+                  {lastRemote.succeeded ? (
+                    <Badge tone="success">
+                      <CircleCheck aria-hidden />
+                      {text.cloudSucceeded}
+                    </Badge>
+                  ) : (
+                    <Badge tone="danger" title={lastRemote.error ?? undefined}>
+                      <TriangleAlert aria-hidden />
+                      {text.cloudFailed}
+                    </Badge>
+                  )}
+                </span>
+              )}
+            </div>
+            <FailureAlert failure={failure} />
+          </>
+        )}
+      </QueryResult>
     </Card>
   );
 }

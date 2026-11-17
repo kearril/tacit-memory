@@ -32,6 +32,7 @@ export interface Dictionary {
   };
   readonly unreachable: string;
   readonly unexpectedAnswer: string;
+  readonly readAgain: string;
   readonly menuOpen: string;
   readonly menuClose: string;
   readonly logout: string;
@@ -99,7 +100,6 @@ export interface Dictionary {
     readonly invalidTitle: string;
     readonly invalidNote: string;
     /** Reading the documents again after they failed to load. */
-    readonly readAgain: string;
     /** The name of the information button beside a document's title. */
     readonly aboutLabel: (title: string) => string;
     readonly residentSections: string;
@@ -155,7 +155,6 @@ export interface Dictionary {
     /** Each level's three-letter code as the file writes it, and its name for screen readers and tooltips. */
     readonly levels: Readonly<Record<ServiceLogLevel, { readonly code: string; readonly name: string }>>;
     readonly loadFailed: string;
-    readonly readAgain: string;
     readonly emptyToday: string;
     readonly emptyDay: string;
     readonly noLog: (date: string) => string;
@@ -180,7 +179,6 @@ export interface Dictionary {
     readonly fileInvalid: string;
     /** That the service runs on with the config it last loaded, and how to go on. */
     readonly fileInvalidNote: string;
-    readonly readAgain: string;
     readonly defaultValue: (value: string) => string;
     readonly outOfRange: (min: string, max: string) => string;
     readonly immediate: string;

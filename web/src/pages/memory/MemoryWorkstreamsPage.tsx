@@ -12,7 +12,6 @@ import {
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { useActivity } from "../../api/activity";
-import { ApiError } from "../../api/client";
 import {
   type BriefPageGroup,
   useWorkstreamBrief,
@@ -21,14 +20,13 @@ import {
   type WorkstreamList,
   type WorkstreamListItem,
 } from "../../api/memory";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { StickyBar } from "../../components/ui/sticky-bar";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
-import { errorTextOf } from "../../i18n/messages";
 import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
 import { PersonaEntryCard, SectionChip } from "./PersonaSections";
@@ -59,35 +57,30 @@ export function MemoryWorkstreamsPage() {
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) grid-cols-1 gap-lg">
       <h1 className="sr-only">{dictionary.memory.views.workstreams}</h1>
-      {list.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{text.failed}</AlertTitle>
-          <AlertDescription>{errorTextOf(list.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : list.data === undefined ? (
-        <div aria-busy="true" />
-      ) : (
-        <>
-          <WorkstreamStrip list={list.data} selected={name} />
-          {name === null ? (
-            <p className="flex items-center gap-sm text-sm text-ink-muted">
-              <MousePointerClick aria-hidden className="size-(--tk-font-size-base)" />
-              {list.data.established.length === 0 && list.data.unestablished.length === 0 ? text.none : text.pick}
-            </p>
-          ) : (
-            <Brief
-              key={name}
-              name={name}
-              item={[...list.data.established, ...list.data.unestablished].find((item) => item.name === name)}
-            />
-          )}
-          <footer className="grid gap-xs px-md text-xs text-ink-muted">
-            <span>{text.sourceFile}</span>
-            <FilePath path={list.data.file.path} />
-            <FileProblems problems={list.data.file.problems} />
-          </footer>
-        </>
-      )}
+      <QueryResult query={list} title={text.failed}>
+        {(data) => (
+          <>
+            <WorkstreamStrip list={data} selected={name} />
+            {name === null ? (
+              <p className="flex items-center gap-sm text-sm text-ink-muted">
+                <MousePointerClick aria-hidden className="size-(--tk-font-size-base)" />
+                {data.established.length === 0 && data.unestablished.length === 0 ? text.none : text.pick}
+              </p>
+            ) : (
+              <Brief
+                key={name}
+                name={name}
+                item={[...data.established, ...data.unestablished].find((item) => item.name === name)}
+              />
+            )}
+            <footer className="grid gap-xs px-md text-xs text-ink-muted">
+              <span>{text.sourceFile}</span>
+              <FilePath path={data.file.path} />
+              <FileProblems problems={data.file.problems} />
+            </footer>
+          </>
+        )}
+      </QueryResult>
     </div>
   );
 }
@@ -216,20 +209,11 @@ function Brief({ name, item }: { readonly name: string; readonly item: Workstrea
   const dictionary = useDictionary();
   const text = dictionary.memory.workstreams;
   const brief = useWorkstreamBrief(name);
-  const missing = brief.error instanceof ApiError && brief.error.status === 404;
-
-  if (brief.isError) {
-    return (
-      <Alert tone={missing ? "warning" : "danger"}>
-        <AlertTitle>{missing ? text.notFound : text.briefFailed}</AlertTitle>
-        <AlertDescription>{errorTextOf(brief.error, dictionary)}</AlertDescription>
-      </Alert>
-    );
-  }
-  if (brief.data === undefined) {
-    return <div aria-busy="true" />;
-  }
-  return <BriefBody brief={brief.data} item={item} />;
+  return (
+    <QueryResult query={brief} title={text.briefFailed} missing={text.notFound}>
+      {(data) => <BriefBody brief={data} item={item} />}
+    </QueryResult>
+  );
 }
 
 /** A card's head: the section's icon in the accent colour, its name, then what goes beside it. */

@@ -3,14 +3,13 @@ import { FolderGit2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { type PageListItem, usePages } from "../../api/memory";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { StickyBar } from "../../components/ui/sticky-bar";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { Chip } from "../../components/ui/chip";
-import { errorTextOf } from "../../i18n/messages";
 import {
   filterPages,
   PAGE_TYPES,
@@ -97,23 +96,21 @@ export function MemoryPagesPage() {
         <TypeChips pages={untyped} type={filter.type} onChange={(type) => update({ type })} />
       </FilterBar>
 
-      {pages.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{text.failed}</AlertTitle>
-          <AlertDescription>{errorTextOf(pages.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : all === undefined ? (
-        <div aria-busy="true" />
-      ) : all.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.noPages}</p>
-      ) : shown.length === 0 ? (
-        <p className="text-sm text-ink-muted">{text.noMatch}</p>
-      ) : (
-        <Card aria-label={dictionary.memory.views.pages}>
-          <p className="text-sm text-ink-muted">{text.total(shown.length)}</p>
-          <PageTable pages={shown} sort={sort} onSort={setSort} />
-        </Card>
-      )}
+      {/* The list is filtered and sorted above, from the same data. */}
+      <QueryResult query={pages} title={text.failed}>
+        {(data) =>
+          data.pages.length === 0 ? (
+            <p className="text-sm text-ink-muted">{text.noPages}</p>
+          ) : shown.length === 0 ? (
+            <p className="text-sm text-ink-muted">{text.noMatch}</p>
+          ) : (
+            <Card aria-label={dictionary.memory.views.pages}>
+              <p className="text-sm text-ink-muted">{text.total(shown.length)}</p>
+              <PageTable pages={shown} sort={sort} onSort={setSort} />
+            </Card>
+          )
+        }
+      </QueryResult>
     </div>
   );
 }

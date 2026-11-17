@@ -1,14 +1,8 @@
-import { LoaderCircle, type LucideIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import type { ProbeResult } from "../../api/probe";
 import { useDictionary } from "../../app/session-context";
 import { Button } from "../../components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
-
-/** The icon of a button that runs a command: its own icon, or a spinner while the command runs. */
-export function BusyIcon({ busy, icon: Icon }: { readonly busy: boolean; readonly icon: LucideIcon }) {
-  return busy ? <LoaderCircle aria-hidden className="motion-safe:animate-spin" /> : <Icon aria-hidden />;
-}
 
 /**
  * One line of a two-column list (a `dl` laid out as `auto` and the rest): its label on the left, its value on the right

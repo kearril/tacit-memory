@@ -2,17 +2,15 @@ import { cn } from "cn";
 import { ChevronRight, Link2, TriangleAlert } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { Link, useParams } from "react-router";
-import { ApiError } from "../../api/client";
 import { type PageListItem, type PageSectionView, type PageView, usePage, usePages } from "../../api/memory";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { BELOW_BARS } from "../../components/ui/sticky";
 import { StickyBar } from "../../components/ui/sticky-bar";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Card, CardTitle } from "../../components/ui/card";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
-import { errorTextOf } from "../../i18n/messages";
 import { sectionAnchor, TOPICS } from "./pages";
 import { CodePill, FilePath, FileProblems, PageTypeBadge, WorkstreamPill } from "./parts";
 import { memoryPathOf } from "./views";
@@ -31,7 +29,6 @@ export function MemoryPagePage() {
   const id = `${workstream}/${slug}`;
   const page = usePage(id);
   useScrollToHash(page.data !== undefined, "start");
-  const missing = page.error instanceof ApiError && page.error.status === 404;
 
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) grid-cols-1 gap-md">
@@ -51,16 +48,9 @@ export function MemoryPagePage() {
           {page.data?.title ?? slug}
         </span>
       </nav>
-      {page.isError ? (
-        <Alert tone={missing ? "warning" : "danger"}>
-          <AlertTitle>{missing ? text.notFound : text.failed}</AlertTitle>
-          <AlertDescription>{errorTextOf(page.error, dictionary)}</AlertDescription>
-        </Alert>
-      ) : page.data === undefined ? (
-        <div aria-busy="true" />
-      ) : (
-        <PageBody page={page.data} />
-      )}
+      <QueryResult query={page} title={text.failed} missing={text.notFound}>
+        {(data) => <PageBody page={data} />}
+      </QueryResult>
     </div>
   );
 }

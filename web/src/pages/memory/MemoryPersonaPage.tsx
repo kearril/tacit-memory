@@ -2,18 +2,23 @@ import { cn } from "cn";
 import { FolderGit2, Globe, Inbox, Tag, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { type CandidateView, type FileProblem, type MemoryFileInfo, usePersona } from "../../api/memory";
+import {
+  type CandidateView,
+  type FileProblem,
+  type MemoryFileInfo,
+  type PersonaReport,
+  usePersona,
+} from "../../api/memory";
+import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
 import { BELOW_BARS } from "../../components/ui/sticky";
 import { Segmented } from "../../components/ui/segmented";
 import { StickyBar } from "../../components/ui/sticky-bar";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
 import { Chip } from "../../components/ui/chip";
 import { entryBox } from "../../components/ui/entry-box";
-import { errorTextOf } from "../../i18n/messages";
 import { FilePath, FileProblems } from "./parts";
 import {
   type PersonaScope,
@@ -35,35 +40,29 @@ import { CANDIDATES_ANCHOR } from "./views";
  */
 export function MemoryPersonaPage() {
   const dictionary = useDictionary();
-  const text = dictionary.memory.persona;
   const persona = usePersona();
-  const [params, setParams] = useSearchParams();
   useScrollToHash(persona.data !== undefined, "start");
 
-  if (persona.isError) {
-    return (
-      <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
-        <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
-        <Alert tone="danger">
-          <AlertTitle>{text.failed}</AlertTitle>
-          <AlertDescription>{errorTextOf(persona.error, dictionary)}</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-  if (persona.data === undefined) {
-    return <div aria-busy="true" />;
-  }
+  return (
+    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
+      <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
+      <QueryResult query={persona} title={dictionary.memory.persona.failed}>
+        {(report) => <PersonaView report={report} />}
+      </QueryResult>
+    </div>
+  );
+}
 
-  const report = persona.data;
+function PersonaView({ report }: { readonly report: PersonaReport }) {
+  const text = useDictionary().memory.persona;
+  const [params, setParams] = useSearchParams();
   const scopes = personaScopes(report);
   const current = scopeKeyOf(params, report);
   const scope = scopes.find((item) => item.key === current) ?? null;
   const problems = report.personaFile.problems;
   const groups = personaSections(report, current);
   return (
-    <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-lg">
-      <h1 className="sr-only">{dictionary.memory.views.persona}</h1>
+    <>
       <StickyBar className="grid gap-xs">
         <ScopeBar
           scopes={scopes}
@@ -91,7 +90,7 @@ export function MemoryPersonaPage() {
         <FilePath path={report.personaFile.path} />
         <FilePath path={report.candidatesFile.path} />
       </footer>
-    </div>
+    </>
   );
 }
 

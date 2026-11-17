@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ApiError } from "../../api/client";
 import {
@@ -27,8 +26,8 @@ import {
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
 import { LeaveGuard } from "../../components/leave-guard";
+import { QueryFailed, QueryResult, type Retry } from "../../components/query-result";
 import { Button } from "../../components/ui/button";
-import { BusyIcon } from "../dashboard/parts";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
 import type { SettingsForm } from "./fields";
@@ -74,19 +73,17 @@ export function SettingsPage() {
     <div className="mx-auto grid w-full max-w-(--tk-size-settings) gap-xl">
       <h1 className="sr-only">{dictionary.nav.settings}</h1>
       <RestartDialog changes={restart} onClose={() => setRestart([])} />
-      {config.data !== undefined ? (
-        // A new hash is a new file: after a save or a reload the inputs start again from it.
-        <SettingsEditor
-          key={config.data.hash}
-          view={config.data}
-          onReload={() => void config.refetch()}
-          onRestart={setRestart}
-        />
-      ) : config.isError ? (
-        <LoadFailed error={config.error} retrying={config.isFetching} onRetry={() => void config.refetch()} />
-      ) : (
-        <div aria-busy="true" className="min-h-dvh" />
-      )}
+      <QueryResult
+        query={config}
+        title={dictionary.settings.loadFailed}
+        skeleton={<div aria-busy="true" className="min-h-dvh" />}
+        failure={(error, retry) => <LoadFailed error={error} retry={retry} />}
+      >
+        {(view) => (
+          // A new hash is a new file: after a save or a reload the inputs start again from it.
+          <SettingsEditor key={view.hash} view={view} onReload={() => void config.refetch()} onRestart={setRestart} />
+        )}
+      </QueryResult>
     </div>
   );
 }
@@ -96,44 +93,28 @@ export function SettingsPage() {
  * names each key that is wrong, says the service runs on with the config it last loaded, and offers to read the file again
  * once it is fixed; any other failure gives the service's explanation.
  */
-function LoadFailed({
-  error,
-  retrying,
-  onRetry,
-}: {
-  readonly error: Error;
-  readonly retrying: boolean;
-  readonly onRetry: () => void;
-}) {
+function LoadFailed({ error, retry }: { readonly error: Error; readonly retry: Retry }) {
   const dictionary = useDictionary();
   const text = dictionary.settings;
-  const invalid = error instanceof ApiError && error.error === "ConfigInvalid";
-
+  if (!(error instanceof ApiError && error.error === "ConfigInvalid")) {
+    return <QueryFailed title={text.loadFailed} error={error} retry={retry} />;
+  }
   return (
-    <Alert tone="danger">
-      <AlertTitle>{invalid ? text.fileInvalid : text.loadFailed}</AlertTitle>
-      <AlertDescription className="grid gap-sm">
-        {invalid && error.problems.length > 0 ? (
-          <ul className="grid gap-xs">
-            {error.problems.map((problem) => (
-              <li key={problem.path} className="flex flex-wrap gap-x-sm">
-                <code className="font-mono">{problem.path}</code>
-                <span>{problem.message}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>{errorTextOf(error, dictionary)}</p>
-        )}
-        {invalid ? <p>{text.fileInvalidNote}</p> : null}
-        <div>
-          <Button type="button" variant="outline" disabled={retrying} onClick={onRetry}>
-            <BusyIcon busy={retrying} icon={RefreshCw} />
-            {text.readAgain}
-          </Button>
-        </div>
-      </AlertDescription>
-    </Alert>
+    <QueryFailed title={text.fileInvalid} error={error} retry={retry}>
+      {error.problems.length > 0 ? (
+        <ul className="grid gap-xs">
+          {error.problems.map((problem) => (
+            <li key={problem.path} className="flex flex-wrap gap-x-sm">
+              <code className="font-mono">{problem.path}</code>
+              <span>{problem.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>{errorTextOf(error, dictionary)}</p>
+      )}
+      <p>{text.fileInvalidNote}</p>
+    </QueryFailed>
   );
 }
 

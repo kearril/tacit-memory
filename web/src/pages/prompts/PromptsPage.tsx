@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin, RefreshCw } from "lucide-react";
+import { BookOpenText, Info, ListChecks, type LucideIcon, PenLine, Pin } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router";
 import { ApiError } from "../../api/client";
@@ -10,6 +10,7 @@ import { STATUS_QUERY_KEY } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
 import { useDebounced } from "../../app/use-debounced";
 import { LeaveGuard } from "../../components/leave-guard";
+import { QueryResult } from "../../components/query-result";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -29,7 +30,6 @@ import { useToast } from "../../components/ui/toast-context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
-import { BusyIcon } from "../dashboard/parts";
 import { lf, stateOf } from "./editor";
 import { measureLines } from "./measure";
 import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf, RESIDENT_SECTIONS } from "./names";
@@ -61,33 +61,21 @@ export function PromptsPage() {
     return <Navigate to={promptPathOf(DEFAULT_PROMPT)} replace />;
   }
 
-  const document = prompts.data?.documents.find((candidate) => candidate.name === name);
+  const skeleton = <div aria-busy="true" className="min-h-dvh" />;
   return (
     <div className="mx-auto grid w-full max-w-(--tk-size-prompts) gap-xl">
       <h1 className="sr-only">{dictionary.nav.prompts}</h1>
-      {document !== undefined ? (
-        <PromptCard key={name} document={document} onReload={() => void prompts.refetch()} />
-      ) : prompts.isError ? (
-        <Alert tone="danger">
-          <AlertTitle>{dictionary.prompts.loadFailed}</AlertTitle>
-          <AlertDescription className="grid gap-sm">
-            <p>{errorTextOf(prompts.error, dictionary)}</p>
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={prompts.isFetching}
-                onClick={() => void prompts.refetch()}
-              >
-                <BusyIcon busy={prompts.isFetching} icon={RefreshCw} />
-                {dictionary.prompts.readAgain}
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <div aria-busy="true" className="min-h-dvh" />
-      )}
+      <QueryResult query={prompts} title={dictionary.prompts.loadFailed} skeleton={skeleton}>
+        {(list) => {
+          // The service always lists the four documents.
+          const document = list.documents.find((candidate) => candidate.name === name);
+          return document === undefined ? (
+            skeleton
+          ) : (
+            <PromptCard key={name} document={document} onReload={() => void prompts.refetch()} />
+          );
+        }}
+      </QueryResult>
     </div>
   );
 }

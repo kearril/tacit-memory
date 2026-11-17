@@ -39,7 +39,7 @@ import { Chip } from "../../components/ui/chip";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
-import { BusyIcon } from "../dashboard/parts";
+import { BusyIcon } from "../../components/ui/busy-icon";
 import { sectionAnchor } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
 import { requestOf, type SearchFields, searchFieldsOf, searchParamsOf } from "./search";
