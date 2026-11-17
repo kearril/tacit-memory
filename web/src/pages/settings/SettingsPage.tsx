@@ -78,7 +78,7 @@ export function SettingsPage() {
         query={config}
         title={dictionary.settings.loadFailed}
         skeleton={<div aria-busy="true" className="min-h-dvh" />}
-        failure={(error, retry) => <LoadFailed error={error} retry={retry} />}
+        failure={(error, retry) => <ConfigLoadFailed error={error} retry={retry} />}
       >
         {(view) => (
           // A new hash is a new file: after a save or a reload the inputs start again from it.
@@ -94,7 +94,7 @@ export function SettingsPage() {
  * names each key that is wrong, says the service runs on with the config it last loaded, and offers to read the file again
  * once it is fixed; any other failure gives the service's explanation.
  */
-function LoadFailed({ error, retry }: { readonly error: Error; readonly retry: Retry }) {
+function ConfigLoadFailed({ error, retry }: { readonly error: Error; readonly retry: Retry }) {
   const dictionary = useDictionary();
   const text = dictionary.settings;
   if (!(error instanceof ApiError && error.error === "ConfigInvalid")) {

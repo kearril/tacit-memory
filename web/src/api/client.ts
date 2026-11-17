@@ -12,9 +12,9 @@ type ReadErrorBody = ErrorBody | { readonly error: null; readonly message: "" };
 
 /**
  * A failed call to the management API. `error` is the service's TacitError name, `null` when the answer is not the
- * service's JSON; `message` is the explanation in the memory language, shown to the user as it is. It is empty when the answer carried no explanation, and then the text to show
- * comes from the dictionary (see `errorTextOf`). `problems` lists each place a refused config or document went wrong, and is
- * empty for every other refusal.
+ * service's JSON; `message` is the explanation in the memory language, shown to the user as it is. It is empty when the
+ * answer carried no explanation, and then the text to show comes from the dictionary (see `errorTextOf`). `problems`
+ * lists each place a refused config or document went wrong, and is empty for every other refusal.
  */
 export class ApiError extends Error {
   readonly status: number;

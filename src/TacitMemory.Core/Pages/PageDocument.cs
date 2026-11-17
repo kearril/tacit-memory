@@ -110,7 +110,7 @@ internal sealed partial class PageDocument
     public static string PageTypeList => string.Join(", ", ToolValues.PageTypes.All);
 
     /// <summary>Whether <paramref name="type"/> is one of the page types, spelled exactly.</summary>
-    public static bool IsPageType(string? type) => type is not null && ToolValues.PageTypes.All.Contains(type, StringComparer.Ordinal);
+    public static bool IsPageType(string? type) => PageTypeOf(type) is not null;
 
     /// <summary>The page type <paramref name="type"/> names, spelled exactly; <c>null</c> for anything else.</summary>
     public static PageType? PageTypeOf(string? type) => type switch

@@ -99,7 +99,6 @@ export interface Dictionary {
     readonly invalid: string;
     readonly invalidTitle: string;
     readonly invalidNote: string;
-    /** Reading the documents again after they failed to load. */
     /** The name of the information button beside a document's title. */
     readonly aboutLabel: (title: string) => string;
     readonly residentSections: string;
