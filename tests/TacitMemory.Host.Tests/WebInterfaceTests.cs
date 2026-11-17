@@ -200,18 +200,38 @@ public sealed class WebInterfaceTests : IAsyncDisposable, IDisposable
     }
 
     [Fact]
-    public async Task The_ui_prefix_and_the_assets_folder_match_whatever_their_letter_case()
+    public async Task The_ui_prefix_matches_whatever_its_letter_case()
     {
         BuildWebDirectory();
         var host = await StartAsync();
         using var client = PeerClients.Local();
 
         using var entry = await client.GetAsync(Url(host, "/UI/"));
-        using var asset = await client.GetAsync(Url(host, "/Ui/ASSETS/app-4f3c2b.js"));
+        using var asset = await client.GetAsync(Url(host, "/Ui/assets/app-4f3c2b.js"));
 
         Assert.Equal(EntryPage, await entry.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, asset.StatusCode);
         Assert.Equal(TimeSpan.FromDays(365), asset.Headers.CacheControl?.MaxAge);
+    }
+
+    [Fact]
+    public async Task A_file_path_in_other_letter_case_is_found_where_the_file_system_ignores_case()
+    {
+        BuildWebDirectory();
+        var host = await StartAsync();
+        using var client = PeerClients.Local();
+
+        using var asset = await client.GetAsync(Url(host, "/ui/ASSETS/app-4f3c2b.js"));
+
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+        {
+            Assert.Equal(HttpStatusCode.OK, asset.StatusCode);
+            Assert.Equal(TimeSpan.FromDays(365), asset.Headers.CacheControl?.MaxAge);
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.NotFound, asset.StatusCode);
+        }
     }
 
     [Fact]
