@@ -1,6 +1,4 @@
 import type { ComponentProps, ReactNode } from "react";
-import type { ProbeResult } from "../../api/probe";
-import { useDictionary } from "../../app/session-context";
 import { Button } from "../../components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 
@@ -43,44 +41,5 @@ export function IconAction({
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
-  );
-}
-
-/**
- * The action bar at the bottom of a settings section that runs commands, under a divider; a short note can stand on the
- * left of the buttons.
- */
-export function CardActions({ note, children }: { readonly note?: string; readonly children: ReactNode }) {
-  return (
-    <footer className="mt-auto flex flex-wrap items-center justify-end gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-      {note === undefined ? null : <span className="mr-auto text-xs text-ink-muted">{note}</span>}
-      {children}
-    </footer>
-  );
-}
-
-/** What the last probe of one model found, on a small line under the model: success, a skip, or how it failed. */
-export function ProbeLine({ result }: { readonly result: ProbeResult }) {
-  const dictionary = useDictionary();
-  const text = dictionary.dashboard.probe;
-  const milliseconds = result.elapsedMilliseconds ?? 0;
-  if (result.outcome === "succeeded") {
-    return <span className="text-xs text-success">{text.succeeded(milliseconds)}</span>;
-  }
-  if (result.outcome === "unconfigured") {
-    return <span className="text-xs text-ink-muted">{text.skipped}</span>;
-  }
-  const reason =
-    result.failure === "httpStatus" && result.statusCode !== null
-      ? text.httpStatus(result.statusCode)
-      : result.failure === "wrongFormat"
-        ? text.wrongFormat
-        : result.failure === "timeout"
-          ? text.timeout
-          : text.network;
-  return (
-    <span title={result.responseBody ?? undefined} className="truncate text-xs text-danger">
-      {text.failed(reason, milliseconds)}
-    </span>
   );
 }

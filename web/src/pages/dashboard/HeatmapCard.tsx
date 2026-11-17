@@ -9,8 +9,16 @@ import { Badge } from "../../components/ui/badge";
 import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
 import { activityPathOf } from "../memory/timeline";
-import { dayText } from "./format";
-import { calendarColumns, dayLevel, fillWindow, HEAT_LEVEL_CLASS, type HeatDay, monthLabels, statsOf } from "./heatmap";
+import { dayText } from "../../lib/format";
+import {
+  calendarColumns,
+  dayLevel,
+  fillWindow,
+  HEAT_LEVEL_CLASS,
+  type HeatDay,
+  monthLabels,
+  statsOf,
+} from "../../lib/heatmap";
 
 /** A `yyyy-MM-dd` date as the interface shows it: month, day and weekday, in the memory language. */
 function dateText(date: string, locale: string): string {

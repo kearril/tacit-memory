@@ -5,7 +5,7 @@ import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
 import type { FullTextMethod, PageType } from "../api/memory";
 import type { MemoryView } from "../pages/memory/views";
-import type { Duration } from "../pages/dashboard/format";
+import type { Duration } from "../lib/format";
 import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
 import { en } from "./en";
 import { zh } from "./zh";

@@ -27,7 +27,7 @@ import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
-import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
+import { HEAT_LEVEL_CLASS } from "../../lib/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
 import { PersonaEntryCard, SectionChip } from "./PersonaSections";
 import { memoryPathOf } from "./views";

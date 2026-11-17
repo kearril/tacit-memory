@@ -1,30 +1,27 @@
 import { Bot, Check } from "lucide-react";
-import type { AgentIcon } from "./agents";
-
-/** The grid the large logo tiles wrap in: as many columns as fit, each a few logos wide. */
-export const LOGO_TILES = "grid grid-cols-[repeat(auto-fill,minmax(calc(var(--tk-size-logo)*2.5),1fr))] gap-sm";
+import type { AgentIcon } from "../lib/agents";
 
 /**
- * An agent's logo on a soft tile: its own colours, a one-colour shape in the colour of the text, or a plain robot. `large`
- * is the tile of the settings page's bindings. `sound`, when given, puts the binding's state on the tile's corner: a tick
+ * An agent's logo on a soft tile: its own colours, a one-colour shape in the colour of the text, or a plain robot, on a tile of
+ * the control's size unless `tileClassName` and `glyphClassName` give another. `sound`, when given, puts the binding's state on the tile's corner: a tick
  * on green while it is sound, an exclamation mark on red while something is wrong; its meaning is for the text around it.
  */
 export function AgentLogo({
   icon,
-  large = false,
   sound,
+  tileClassName = "size-(--tk-size-control) rounded-md",
+  glyphClassName = "size-(--tk-font-size-xl)",
 }: {
   readonly icon: AgentIcon | null;
-  readonly large?: boolean;
   readonly sound?: boolean;
+  /** The tile's size and corners. */
+  readonly tileClassName?: string;
+  /** The logo's size on the tile. */
+  readonly glyphClassName?: string;
 }) {
-  const glyph = large ? "size-(--tk-size-icon-tile)" : "size-(--tk-font-size-xl)";
+  const glyph = glyphClassName;
   return (
-    <span
-      className={`relative grid shrink-0 place-items-center bg-surface-raised text-ink ${
-        large ? "size-(--tk-size-logo) rounded-lg" : "size-(--tk-size-control) rounded-md"
-      }`}
-    >
+    <span className={`relative grid shrink-0 place-items-center bg-surface-raised text-ink ${tileClassName}`}>
       {icon === null ? (
         <Bot aria-hidden className={glyph} />
       ) : icon.monochrome ? (

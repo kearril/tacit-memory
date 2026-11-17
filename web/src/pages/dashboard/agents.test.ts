@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { agentsOf, type BindingCheck, type ClientStatus, type KnownAgent } from "./agents";
+import type { KnownAgent } from "../../lib/agents";
+import { agentsOf, type BindingCheck, type ClientStatus } from "./agents";
 
 const known: KnownAgent[] = [
   { label: "Claude Code", icon: { url: "claude.svg", monochrome: false }, names: ["claude"] },

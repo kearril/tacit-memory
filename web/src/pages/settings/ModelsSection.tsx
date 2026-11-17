@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Activity, ChevronDown } from "lucide-react";
 import { useState } from "react";
@@ -6,7 +7,7 @@ import { useDictionary } from "../../app/session-context";
 import { Button } from "../../components/ui/button";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
-import { CardActions, ProbeLine } from "../dashboard/parts";
+import { ProbeLine } from "../../components/probe-line";
 import { Problems, Rows, Setting, SettingName, SettingRow, type SettingsForm, SettingsSection } from "./fields";
 import { inputIdOf, MODELS, ON } from "./form";
 import { SecretField } from "./SecretField";
@@ -238,5 +239,18 @@ function Switch({
         }`}
       />
     </button>
+  );
+}
+
+/**
+ * The action bar at the bottom of a settings section that runs commands, under a divider; a short note can stand on the
+ * left of the buttons.
+ */
+export function CardActions({ note, children }: { readonly note?: string; readonly children: ReactNode }) {
+  return (
+    <footer className="mt-auto flex flex-wrap items-center justify-end gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
+      {note === undefined ? null : <span className="mr-auto text-xs text-ink-muted">{note}</span>}
+      {children}
+    </footer>
   );
 }

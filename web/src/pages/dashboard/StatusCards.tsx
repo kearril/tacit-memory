@@ -24,7 +24,7 @@ import { BACKUPS_QUERY_KEY, type BackupTarget, runBackup, runReindex, useBackups
 import { runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
 import { useDictionary } from "../../app/session-context";
-import { AgentLogo } from "./AgentLogo";
+import { AgentLogo } from "../../components/agent-logo";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import {
   AlertDialog,
@@ -51,11 +51,12 @@ import { useToast } from "../../components/ui/toast-context";
 import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
-import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "./format";
+import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "../../lib/format";
 import { classifyFailure, type TitledFailure } from "../../components/command-failure";
 import { QueryResult } from "../../components/query-result";
 import { BusyIcon } from "../../components/ui/busy-icon";
-import { IconAction, InfoRow, ProbeLine } from "./parts";
+import { ProbeLine } from "../../components/probe-line";
+import { IconAction, InfoRow } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
 import { LOGS_PATH } from "../logs/day";
 import { CANDIDATES_ANCHOR, memoryPathOf } from "../memory/views";

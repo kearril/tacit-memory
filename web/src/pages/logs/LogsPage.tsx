@@ -17,7 +17,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
 import { IconTile } from "../../components/ui/icon-tile";
-import { dayText } from "../dashboard/format";
+import { dayText } from "../../lib/format";
 import { clockOf, dateOptions, LOGS_PATH, logDateOf, logPathOf } from "./day";
 import { applyFilters, filtersOf, highlightParts, LEVELS, levelCounts, type LogFilters, searchOf } from "./filter";
 import { isAtBottom, unseenOf } from "./follow";

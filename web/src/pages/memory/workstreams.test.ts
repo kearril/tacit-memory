@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BriefPage, BriefPageGroup } from "../../api/memory";
-import type { ActivityReport } from "../dashboard/heatmap";
+import type { ActivityReport } from "../../lib/heatmap";
 import { type DirectorySort, directoryRows, MINI_WEEKS, openItemText, weekLevel, workstreamWeeks } from "./workstreams";
 
 /** A year-long window ending on Wednesday 2026-11-11, as the service gives it: from Monday 2025-11-10. */
