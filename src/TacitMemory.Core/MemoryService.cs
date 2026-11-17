@@ -138,15 +138,16 @@ public sealed class MemoryService : IDisposable
         _vectors = new VectorSync(_index, _models.Embedding);
         _judgments = new JudgmentPool(_index, _models.Decision, _options.Time, config.Consolidation.MaxConcurrency);
         _consolidation = new ConsolidationServices(_index, _models.Embedding, _vectors, _judgments);
+        var judge = new ChoiceJudge(_index, _models.Decision);
         _vectors.FillInBackground();
         var writer = new MemoryWriter(config, _log, _index, _vectors, OnWritten);
         _pages = new PageTools(
-            _options, config, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, _models.Decision), writer);
-        _recent = new RecentTools(_options, config, _models.Decision, writer);
+            _options, config, new DuplicatePageCheck(config, _index, _models.Embedding, _vectors, judge), writer);
+        _recent = new RecentTools(_options, config, judge, writer);
         _persona = new PersonaTools(
             _options, config,
-            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
-            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, _models.Decision),
+            new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, judge),
+            new RuleConflictCheck(config, _index, _models.Embedding, _vectors, judge),
             writer);
         _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
         _brief = new WorkstreamBrief(config, _index);
@@ -938,8 +939,6 @@ public sealed class MemoryService : IDisposable
     private async Task<ToolResult> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
         using var hold = await _gate.WriteAsync(cancellationToken);
-        // Judgments read the index, so it follows a manual edit first; the writer syncs it again after the write.
-        _index.SyncJudgments();
         return await _persona.WriteAsync(request, cancellationToken);
     }
 

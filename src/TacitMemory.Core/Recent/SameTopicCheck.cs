@@ -1,4 +1,3 @@
-using System.Globalization;
 using TacitMemory.Core.Decisions;
 using TacitMemory.Core.Models;
 
@@ -11,15 +10,13 @@ internal sealed record SameTopicVerdict(RecentFile.Activity? Same, string? Note)
 /// Before an activity is added, asks whether today's log already records the same thing: the latest activities of
 /// the day, plus "none of these", go to the decision model as a choice question.
 /// </summary>
-internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision)
+internal sealed class SameTopicCheck(TacitConfig config, ChoiceJudge judge)
 {
     /// <summary>Activities offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int OtherOptions = 9;
 
     public const string DecisionDown =
         "Note: the decision model is unavailable, so whether this activity is about the same thing as one from today was not checked.";
-
-    private const string None = "none";
 
     private const string Instructions =
         "The state is a new activity note from today's log. "
@@ -39,28 +36,16 @@ internal sealed class SameTopicCheck(TacitConfig config, IDecisionModel decision
     /// <summary>Asks the decision model about <paramref name="state"/> against the latest <see cref="OtherOptions"/> of <paramref name="today"/>.</summary>
     public async Task<SameTopicVerdict> RunAsync(string state, IReadOnlyList<RecentFile.Activity> today, CancellationToken cancellationToken)
     {
-        var candidates = today.TakeLast(OtherOptions).ToList();
-        if (candidates.Count == 0)
-            return new SameTopicVerdict(null, null);
-
-        var options = new Dictionary<string, string>(StringComparer.Ordinal);
-        var entries = new Dictionary<string, RecentFile.Activity>(StringComparer.Ordinal);
-        foreach (var entry in candidates)
-        {
-            var key = "p" + (entries.Count + 1).ToString(CultureInfo.InvariantCulture);
-            var text = entry.Labeled;
-            options[key] = text.Length > OptionLength ? text[..OptionLength] : text;
-            entries[key] = entry;
-        }
-
-        options[None] = NoneText;
-        var probabilities = await decision.ChooseAsync(state, Instructions, options, cancellationToken);
-        if (probabilities is null)
-            return new SameTopicVerdict(null, decision.Configured ? DecisionDown : null);
-
-        var verdict = Judgment.Choice(probabilities, None, config.Decision.SameTopic ?? Judgment.SameTopic);
-        return verdict.Tier == Tier.Certain
-            ? new SameTopicVerdict(entries[verdict.Option!], null)
-            : new SameTopicVerdict(null, null);
+        var options = today.TakeLast(OtherOptions)
+            .Select(entry => new ChoiceOption<RecentFile.Activity>(
+                entry.Labeled.Length > OptionLength ? entry.Labeled[..OptionLength] : entry.Labeled, entry))
+            .ToList();
+        var outcome = await judge.AskAsync(
+            _ => Task.FromResult(options.Count == 0
+                ? PreparedChoice<RecentFile.Activity>.Nothing
+                : new PreparedChoice<RecentFile.Activity>(new ChoiceQuestion<RecentFile.Activity>(state, Instructions, NoneText, options), null)),
+            config.Decision.SameTopic ?? Judgment.SameTopic,
+            cancellationToken);
+        return new SameTopicVerdict(outcome.Certain, ChoiceJudge.NoteOf(outcome.Reason, embeddingFailed: false, "", DecisionDown));
     }
 }

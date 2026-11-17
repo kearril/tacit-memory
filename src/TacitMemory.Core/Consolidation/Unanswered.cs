@@ -1,3 +1,5 @@
+using TacitMemory.Core.Decisions;
+
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>

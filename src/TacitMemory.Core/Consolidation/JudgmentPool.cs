@@ -9,44 +9,6 @@ using TacitMemory.Core.Models;
 
 namespace TacitMemory.Core.Consolidation;
 
-/// <summary>One option of a choice question: the text the decision model reads, and the target the consolidation takes when it is chosen.</summary>
-internal sealed record ChoiceOption<T>(string Text, T Target);
-
-/// <summary>
-/// A choice question: its state and instructions, its options, and the text of the "none of these" option that the pool
-/// adds last. Options are keyed by their position.
-/// </summary>
-internal sealed record ChoiceQuestion<T>(string State, string Instructions, string NoneText, IReadOnlyList<ChoiceOption<T>> Options);
-
-/// <summary>
-/// What a judgment prepared before it asks: the question, or <c>null</c> when there is nothing to compare with; or the reason
-/// it is not checked, when the text could not be prepared because a model gave no answer.
-/// </summary>
-internal sealed record PreparedChoice<T>(ChoiceQuestion<T>? Question, UncheckedReason? Unchecked);
-
-/// <summary>
-/// Why a judgment of a consolidation was not answered: the models could not answer it, they are not configured, or the budget
-/// ran out first.
-/// </summary>
-internal enum UncheckedReason
-{
-    ModelUnavailable,
-    Unconfigured,
-    Budget,
-}
-
-/// <summary>
-/// How one judgment ended: its tier and, unless the tier is <see cref="Tier.Unlikely"/>, the target of the option it chose;
-/// or why it was not checked. <see cref="NothingToAsk"/> is a judgment with no option to compare with, which is no match.
-/// </summary>
-internal sealed record JudgmentOutcome<T>(Tier? Tier, T? Target, UncheckedReason? Reason)
-{
-    /// <summary>No option to compare with: nothing matches.</summary>
-    public static JudgmentOutcome<T> NothingToAsk { get; } = new(Decisions.Tier.Unlikely, default, null);
-
-    public static JudgmentOutcome<T> Unchecked(UncheckedReason reason) => new(null, default, reason);
-}
-
 /// <summary>
 /// The choice judgments of the consolidation, shared by every consolidation of the service. At most <c>consolidation.maxConcurrency</c> of
 /// them run at once, each in one slot: its text is prepared (embedded and searched), then its question is answered from
@@ -55,7 +17,7 @@ internal sealed record JudgmentOutcome<T>(Tier? Tier, T? Target, UncheckedReason
 /// not called. Only the consolidation reads and writes the cache; the live judgments never do. A judgment that has started always
 /// runs to its end, so its answer is cached even when the consolidation that asked stopped waiting for it.
 /// </summary>
-internal sealed class JudgmentPool(MemoryIndex index, IDecisionModel decision, TimeProvider time, int maxConcurrency)
+internal sealed class JudgmentPool(MemoryIndex index, SystemOneDecisionModel decision, TimeProvider time, int maxConcurrency)
 {
     /// <summary>The key of the "none of these" option, which every choice question ends with.</summary>
     private const string NoneKey = "none";

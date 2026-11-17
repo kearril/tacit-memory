@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using TacitMemory.Core.Index;
 using TacitMemory.Core.Models;
@@ -14,7 +13,7 @@ internal sealed record DuplicateCheck(PageId? Duplicate, string? Note);
 /// pages by embedding, plus "none of these", go to the decision model as a choice question. The consolidation asks the same
 /// question about changed pages, so the question and its options are built by the members shared below.
 /// </summary>
-internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, IDecisionModel decision)
+internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, EmbeddingModel embedding, VectorSync vectors, ChoiceJudge judge)
 {
     /// <summary>Pages offered besides "none of these"; the decision model takes at most 10 options.</summary>
     public const int OtherOptions = 9;
@@ -24,8 +23,6 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
 
     public const string EmbeddingDown =
         "Note: the embedding model is unavailable, so whether this page repeats an existing one was not checked.";
-
-    private const string None = "none";
 
     /// <summary>The question's instructions, the same for a new page and for a changed one.</summary>
     public const string Instructions =
@@ -44,34 +41,29 @@ internal sealed class DuplicatePageCheck(TacitConfig config, MemoryIndex index, 
 
     public async Task<DuplicateCheck> RunAsync(PageId id, PageHeader header, IReadOnlyList<PageSectionInput> sections, CancellationToken cancellationToken)
     {
-        if (!index.HasOtherPagesInWorkstream(id))
-            return new DuplicateCheck(null, null);
-
-        var vector = await embedding.EmbedAsync([string.Join('\n', [header.Title, .. header.Aliases])], cancellationToken);
-        if (vector is null)
-            return new DuplicateCheck(null, embedding.Configured ? EmbeddingDown : null);
-
-        await vectors.PrepareSearchAsync(vector[0].Length, cancellationToken);
-        var nearest = Nearest(index, id, vector[0]);
-        if (nearest.Count == 0)
-            return new DuplicateCheck(null, null);
-
-        var options = new Dictionary<string, string>(StringComparer.Ordinal);
-        var pages = new Dictionary<string, PageId>(StringComparer.Ordinal);
-        foreach (var (page, description) in Describe(config.MemoryPath, nearest))
-        {
-            var key = "p" + (pages.Count + 1).ToString(CultureInfo.InvariantCulture);
-            options[key] = description;
-            pages[key] = page;
-        }
-
-        options[None] = NoneText;
-        var probabilities = await decision.ChooseAsync(State(header, sections), Instructions, options, cancellationToken);
-        if (probabilities is null)
-            return new DuplicateCheck(null, decision.Configured ? DecisionDown : null);
-
-        var verdict = Judgment.Choice(probabilities, None, config.Decision.SamePage ?? Judgment.SamePage);
-        return verdict.Tier == Tier.Certain ? new DuplicateCheck(pages[verdict.Option!], null) : new DuplicateCheck(null, null);
+        var embeddingFailed = false;
+        var outcome = await judge.AskAsync(
+            async token =>
+            {
+                if (!index.HasOtherPagesInWorkstream(id))
+                    return PreparedChoice<PageId>.Nothing;
+                var vector = await embedding.EmbedAsync([string.Join('\n', [header.Title, .. header.Aliases])], token);
+                if (vector is null)
+                {
+                    embeddingFailed = true;
+                    return new PreparedChoice<PageId>(null, ChoiceJudge.NoAnswerReason(embedding.Configured));
+                }
+                await vectors.PrepareSearchAsync(vector[0].Length, token);
+                var options = Describe(config.MemoryPath, Nearest(index, id, vector[0]))
+                    .Select(described => new ChoiceOption<PageId>(described.Text, described.Page))
+                    .ToList();
+                return options.Count == 0
+                    ? PreparedChoice<PageId>.Nothing
+                    : new PreparedChoice<PageId>(new ChoiceQuestion<PageId>(State(header, sections), Instructions, NoneText, options), null);
+            },
+            config.Decision.SamePage ?? Judgment.SamePage,
+            cancellationToken);
+        return new DuplicateCheck(outcome.Certain, ChoiceJudge.NoteOf(outcome.Reason, embeddingFailed, EmbeddingDown, DecisionDown));
     }
 
     /// <summary>The new page as the decision model reads it: labels in English, content as written.</summary>
