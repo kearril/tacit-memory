@@ -318,11 +318,7 @@ export function placeProblems(view: ConfigView, problems: readonly ConfigProblem
     (byField[problem.path] ??= []).push(problem.message);
     bySection[section] = (bySection[section] ?? 0) + 1;
   }
-  const order = [
-    ...readOnlyOf(view),
-    ...FIELDS.flatMap((field) => [field.group, field.path]),
-    ...secretsOf(view),
-  ];
+  const order = [...readOnlyOf(view), ...FIELDS.flatMap((field) => [field.group, field.path]), ...secretsOf(view)];
   const first = order.find((path) => path !== undefined && byField[path] !== undefined);
   return { byField, bySection, unplaced, first: first ?? null };
 }

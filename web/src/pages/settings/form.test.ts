@@ -270,7 +270,9 @@ describe("secrets", () => {
   });
 
   it("place the service's problems on their own fields", () => {
-    expect(placeProblems(view(), [{ path: "backup.webdav.password", message: "required" }]).bySection).toEqual({ backup: 1 });
+    expect(placeProblems(view(), [{ path: "backup.webdav.password", message: "required" }]).bySection).toEqual({
+      backup: 1,
+    });
   });
 });
 
