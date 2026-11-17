@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PageListItem, PageType } from "../../api/memory";
-import { filterPages, pageFilterOf, pageFilterParams, sortPages } from "./pages";
+import { filterPages, sortPages } from "./pages";
 
 const page = (id: string, title: string, aliases: string[] = [], type: PageType | null = "work"): PageListItem => ({
   id,
@@ -21,24 +21,6 @@ const PAGES = [
   page("_topics/pgroonga", "PGroonga", [], "entity"),
   page("app/login", "登录", [], null),
 ];
-
-describe("pageFilterOf and pageFilterParams", () => {
-  it("read the workstream, the type and the keyword, ignoring a type that is not one", () => {
-    expect(pageFilterOf(new URLSearchParams("workstream=ops&type=decision&q=回滚"))).toEqual({
-      workstream: "ops",
-      type: "decision",
-      q: "回滚",
-    });
-    expect(pageFilterOf(new URLSearchParams("type=nonsense&other=1"))).toEqual({ workstream: "", type: "", q: "" });
-  });
-
-  it("write only what is set, and read back the same", () => {
-    const filter = { workstream: "", type: "entity" as const, q: "pipe" };
-    const params = pageFilterParams(filter);
-    expect(params.toString()).toBe("type=entity&q=pipe");
-    expect(pageFilterOf(params)).toEqual(filter);
-  });
-});
 
 describe("filterPages", () => {
   it("keeps the pages of the workstream and the type", () => {

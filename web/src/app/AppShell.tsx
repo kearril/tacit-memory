@@ -22,22 +22,34 @@ import { logout, SESSION_QUERY_KEY } from "../api/session";
 import { AppIcon } from "../components/app-icon";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet";
-import { MEMORY_PATH, MEMORY_VIEWS, memoryPathOf } from "../pages/memory/views";
-import { PROMPT_NAMES, promptPathOf } from "../pages/prompts/names";
-import { SECTIONS, sectionIdOf } from "../pages/settings/form";
 import { useSectionNav } from "../pages/settings/section-nav";
 import { useDictionary, useSessionStatus } from "./session-context";
+import {
+  DASHBOARD_PATH,
+  LOGIN_PATH,
+  LOGS_PATH,
+  MEMORY_PATH,
+  MEMORY_VIEWS,
+  memoryPathOf,
+  PROMPT_NAMES,
+  promptPathOf,
+  PROMPTS_PATH,
+  sectionIdOf,
+  SECTIONS,
+  SETTINGS_PATH,
+  settingsPathOf,
+} from "../lib/routes";
 
 const navItems: readonly {
   to: string;
   key: "dashboard" | "settings" | "prompts" | "logs" | "memory";
   icon: LucideIcon;
 }[] = [
-  { to: "/dashboard", key: "dashboard", icon: LayoutDashboard },
-  { to: "/settings", key: "settings", icon: Settings },
-  { to: "/prompts", key: "prompts", icon: FileText },
-  { to: "/logs", key: "logs", icon: ScrollText },
-  { to: "/memory", key: "memory", icon: Library },
+  { to: DASHBOARD_PATH, key: "dashboard", icon: LayoutDashboard },
+  { to: SETTINGS_PATH, key: "settings", icon: Settings },
+  { to: PROMPTS_PATH, key: "prompts", icon: FileText },
+  { to: LOGS_PATH, key: "logs", icon: ScrollText },
+  { to: MEMORY_PATH, key: "memory", icon: Library },
 ];
 
 /**
@@ -177,7 +189,7 @@ function SettingsSections({ onNavigate }: { readonly onNavigate: () => void }) {
       return true;
     }
   });
-  if (pathname !== "/settings") {
+  if (pathname !== SETTINGS_PATH) {
     return null;
   }
 
@@ -216,7 +228,7 @@ function SettingsSections({ onNavigate }: { readonly onNavigate: () => void }) {
             return (
               <li key={section}>
                 <Link
-                  to={`/settings#${sectionIdOf(section)}`}
+                  to={settingsPathOf(section)}
                   aria-current={active ? "location" : undefined}
                   onClick={() => {
                     document
@@ -258,7 +270,7 @@ function PromptDocuments({ onNavigate }: { readonly onNavigate: () => void }) {
   const text = dictionary.prompts;
   const { pathname } = useLocation();
   const prompts = usePrompts();
-  if (!pathname.startsWith("/prompts")) {
+  if (!pathname.startsWith(PROMPTS_PATH)) {
     return null;
   }
 
@@ -326,7 +338,7 @@ function Connection() {
     mutationFn: logout,
     onSettled: () => {
       queryClient.setQueryData(SESSION_QUERY_KEY, { ...session, loggedIn: false });
-      navigate("/login", { replace: true });
+      navigate(LOGIN_PATH, { replace: true });
     },
   });
 

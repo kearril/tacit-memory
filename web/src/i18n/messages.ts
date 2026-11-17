@@ -4,11 +4,11 @@ import type { BindingProblem } from "../api/status";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
 import type { FullTextMethod, PageType } from "../api/memory";
-import type { MemoryView } from "../pages/memory/views";
 import type { Duration } from "../lib/format";
-import type { CONSOLIDATION, JUDGMENTS, SectionId } from "../pages/settings/form";
+import type { CONSOLIDATION, JUDGMENTS } from "../pages/settings/form";
 import { en } from "./en";
 import { zh } from "./zh";
+import { type MemoryView, type SectionId } from "../lib/routes";
 
 /** A setting's name and the sentence or two that explains it. */
 export interface Explained {

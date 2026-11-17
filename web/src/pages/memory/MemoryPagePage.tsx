@@ -11,9 +11,9 @@ import { StickyBar } from "../../components/ui/sticky-bar";
 import { Card, CardTitle } from "../../components/ui/card";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
-import { sectionAnchor, TOPICS } from "./pages";
+import { TOPICS } from "./pages";
 import { CodePill, FilePath, FileProblems, PageTypeBadge, WorkstreamPill } from "./parts";
-import { memoryPathOf } from "./views";
+import { memoryPathOf, pagePathOf, pagesPathOf, sectionAnchor } from "../../lib/routes";
 
 const MarkdownBody = lazy(() => import("./MarkdownBody"));
 
@@ -37,10 +37,7 @@ export function MemoryPagePage() {
           {dictionary.memory.views.pages}
         </Link>
         <ChevronRight aria-hidden className="size-(--tk-font-size-sm)" />
-        <Link
-          to={`${memoryPathOf("pages")}?workstream=${encodeURIComponent(workstream)}`}
-          className="hover:text-ink hover:underline"
-        >
+        <Link to={pagesPathOf({ workstream })} className="hover:text-ink hover:underline">
           {workstream === TOPICS ? dictionary.memory.parts.topics : workstream}
         </Link>
         <ChevronRight aria-hidden className="size-(--tk-font-size-sm)" />
@@ -196,7 +193,7 @@ function Related({ page }: { readonly page: PageView }) {
             <li key={related.id} className="grid">
               {related.exists ? (
                 <Link
-                  to={`${memoryPathOf("pages")}/${related.id}`}
+                  to={pagePathOf(related.id)}
                   className="grid content-start gap-xs rounded-md bg-surface-raised px-md py-sm outline-none hover:ring-(length:--tk-border-thin) hover:ring-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
                   <span className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">

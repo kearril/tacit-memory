@@ -10,18 +10,9 @@ import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
 import { Chip } from "../../components/ui/chip";
-import {
-  filterPages,
-  PAGE_TYPES,
-  type PageFilter,
-  type PageSort,
-  pageFilterOf,
-  pageFilterParams,
-  sortPages,
-  TOPICS,
-} from "./pages";
+import { filterPages, type PageSort, sortPages, TOPICS } from "./pages";
 import { PAGE_TYPE_ICONS, PageTypeBadge } from "./parts";
-import { memoryPathOf } from "./views";
+import { PAGE_TYPES, type PageFilter, pageFilterOf, pageFilterParams, pagePathOf } from "../../lib/routes";
 
 /** The table's columns: type, title, workstream, changed and uses on a wide screen; the title and uses on a narrow one. */
 const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]";
@@ -208,7 +199,7 @@ function PageTable({
               </p>
             ) : null}
             <Link
-              to={`${memoryPathOf("pages")}/${page.id}`}
+              to={pagePathOf(page.id)}
               title={page.aliases.length === 0 ? undefined : page.aliases.join(" · ")}
               className={cn(
                 ROW,

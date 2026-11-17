@@ -45,7 +45,8 @@ import { IconTile } from "../../components/ui/icon-tile";
 import { errorTextOf } from "../../i18n/messages";
 import { lf, stateOf } from "./editor";
 import { measureLines } from "./measure";
-import { DEFAULT_PROMPT, FILE_NAMES, promptNameOf, promptPathOf } from "./names";
+import { FILE_NAMES } from "./names";
+import { DEFAULT_PROMPT, promptNameOf, promptPathOf } from "../../lib/routes";
 
 /** The Markdown editor, loaded only once the prompts page opens, so the other pages do not carry it. */
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));

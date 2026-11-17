@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { errorTextOf } from "../../i18n/messages";
-import { activityPathOf } from "../memory/timeline";
 import { dayText } from "../../lib/format";
 import {
   calendarColumns,
@@ -19,6 +18,7 @@ import {
   monthLabels,
   statsOf,
 } from "../../lib/heatmap";
+import { activityPathOf } from "../../lib/routes";
 
 /** A `yyyy-MM-dd` date as the interface shows it: month, day and weekday, in the memory language. */
 function dateText(date: string, locale: string): string {

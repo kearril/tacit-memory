@@ -1,5 +1,6 @@
 import type { ServiceLogDay, ServiceLogEntry } from "../../api/logs";
-import { applyFilters, type LogFilters } from "./filter";
+import { applyFilters } from "./filter";
+import { type LogFilters } from "../../lib/routes";
 
 /** How often the page asks for new events while it follows today's log, in milliseconds. */
 export const FOLLOW_INTERVAL = 2000;

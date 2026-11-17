@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ServiceLogEntry } from "../../api/logs";
-import { ALL_LEVELS, applyFilters, filtersOf, highlightParts, levelCounts, searchOf } from "./filter";
+import { applyFilters, highlightParts, levelCounts } from "./filter";
+import { ALL_LEVELS } from "../../lib/routes";
 
 const entry = (level: ServiceLogEntry["level"], message: string): ServiceLogEntry => ({ time: null, level, message });
 
@@ -10,42 +11,6 @@ const ENTRIES: readonly ServiceLogEntry[] = [
   entry("information", "工具 write_page：已写入"),
   entry("error", "备份失败\nSystem.IO.IOException: Recall disk full"),
 ];
-
-describe("filtersOf", () => {
-  it("shows every level and no keyword by default", () => {
-    expect(filtersOf(new URLSearchParams())).toEqual({ levels: ALL_LEVELS, query: "" });
-  });
-
-  it("reads the levels and the keyword", () => {
-    const filters = filtersOf(new URLSearchParams("level=warning,error&q=recall"));
-    expect([...filters.levels]).toEqual(["warning", "error"]);
-    expect(filters.query).toBe("recall");
-  });
-
-  it("ignores levels it does not know, and shows every level when none is left", () => {
-    expect([...filtersOf(new URLSearchParams("level=warning,debug")).levels]).toEqual(["warning"]);
-    expect(filtersOf(new URLSearchParams("level=debug")).levels).toEqual(ALL_LEVELS);
-  });
-});
-
-describe("searchOf", () => {
-  it("leaves the defaults out", () => {
-    expect(searchOf({ levels: ALL_LEVELS, query: "" })).toBe("");
-  });
-
-  it("writes the levels in their order and the keyword", () => {
-    expect(searchOf({ levels: new Set(["error", "warning"]), query: "re call" })).toBe(
-      "?level=warning%2Cerror&q=re+call",
-    );
-  });
-
-  it("reads back what it writes", () => {
-    const filters = { levels: new Set(["information", "error"] as const), query: "备份" };
-    const read = filtersOf(new URLSearchParams(searchOf(filters)));
-    expect([...read.levels]).toEqual(["information", "error"]);
-    expect(read.query).toBe("备份");
-  });
-});
 
 describe("applyFilters", () => {
   it("keeps the chosen levels", () => {

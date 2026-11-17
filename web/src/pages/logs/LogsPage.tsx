@@ -18,10 +18,11 @@ import {
 import { Input } from "../../components/ui/input";
 import { IconTile } from "../../components/ui/icon-tile";
 import { dayText } from "../../lib/format";
-import { clockOf, dateOptions, LOGS_PATH, logDateOf, logPathOf } from "./day";
-import { applyFilters, filtersOf, highlightParts, LEVELS, levelCounts, type LogFilters, searchOf } from "./filter";
+import { clockOf, dateOptions } from "./day";
+import { applyFilters, highlightParts, levelCounts } from "./filter";
 import { isAtBottom, unseenOf } from "./follow";
 import { useFollowedLog } from "./use-followed-log";
+import { filtersOf, LEVELS, logDateOf, type LogFilters, logPathOf, LOGS_PATH, searchOf } from "../../lib/routes";
 
 /** The colour of each level's code; a warning or an error also tints its whole row. */
 const LEVEL_STYLES: Readonly<

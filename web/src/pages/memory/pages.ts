@@ -1,38 +1,8 @@
-import type { PageListItem, PageType } from "../../api/memory";
-
-/** The page types, in the order the filter lists them. */
-export const PAGE_TYPES = ["incident", "decision", "entity", "work"] as const satisfies readonly PageType[];
+import type { PageListItem } from "../../api/memory";
+import type { PageFilter } from "../../lib/routes";
 
 /** The workstream topic pages belong to; listed after every workstream. */
 export const TOPICS = "_topics";
-
-/** The list's filter, as the address holds it; an empty value filters nothing. */
-export interface PageFilter {
-  readonly workstream: string;
-  readonly type: PageType | "";
-  readonly q: string;
-}
-
-/** The filter the address holds; a type that is not one of the four is left out. */
-export function pageFilterOf(params: URLSearchParams): PageFilter {
-  const type = params.get("type") ?? "";
-  return {
-    workstream: params.get("workstream") ?? "",
-    type: (PAGE_TYPES as readonly string[]).includes(type) ? (type as PageType) : "",
-    q: params.get("q") ?? "",
-  };
-}
-
-/** The address of a filter: only what is set. */
-export function pageFilterParams(filter: PageFilter): URLSearchParams {
-  const params = new URLSearchParams();
-  for (const key of ["workstream", "type", "q"] as const) {
-    if (filter[key] !== "") {
-      params.set(key, filter[key]);
-    }
-  }
-  return params;
-}
 
 /** The pages the filter keeps: of its workstream and type, with the keyword in the title or an alias, ignoring case. */
 export function filterPages(pages: readonly PageListItem[], filter: PageFilter): readonly PageListItem[] {
@@ -69,9 +39,4 @@ export function sortPages(pages: readonly PageListItem[], sort: PageSort): PageL
           ? -1
           : a.workstream.localeCompare(b.workstream),
   );
-}
-
-/** The anchor of a page's section, which the table of contents and the search results lead to. */
-export function sectionAnchor(name: string): string {
-  return `section-${name}`;
 }

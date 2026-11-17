@@ -1,5 +1,4 @@
 import type { ActivityDayView, ActivityMonthView, ActivitySummaryView } from "../../api/memory";
-import { memoryPathOf } from "./views";
 
 /** One entry of a month's timeline: a day with its activities, or a summary between the days. */
 export type TimelineEntry =
@@ -65,50 +64,4 @@ export function shiftMonth(month: string, delta: number): string {
   const [year, number] = month.split("-").map(Number) as [number, number];
   const shifted = new Date(Date.UTC(year, number - 1 + delta, 1));
   return dateOf(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, 1).slice(0, 7);
-}
-
-/** What the activity view shows, as its address holds it. */
-export interface ActivityQuery {
-  /** The month, `yyyy-MM`. */
-  readonly month: string;
-  /** The day to go to, `yyyy-MM-dd`; `null` for none. */
-  readonly day: string | null;
-  /** The workstream to keep; `null` for every one. */
-  readonly workstream: string | null;
-}
-
-const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/u;
-const DAY = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/u;
-
-/**
- * The activity view's query from its address: `month`, `day` and `workstream`. A month that is not `yyyy-MM` falls back
- * to the month of a valid day, or else to `current`.
- */
-export function activityQueryOf(search: URLSearchParams, current: string): ActivityQuery {
-  const day = search.get("day");
-  const validDay = day !== null && DAY.test(day) ? day : null;
-  const month = search.get("month");
-  return {
-    month: month !== null && MONTH.test(month) ? month : (validDay?.slice(0, 7) ?? current),
-    day: validDay,
-    workstream: search.get("workstream") || null,
-  };
-}
-
-/** The address of a query, with only what is set. */
-export function activityParams(query: ActivityQuery): URLSearchParams {
-  const params = new URLSearchParams({ month: query.month });
-  if (query.day !== null) params.set("day", query.day);
-  if (query.workstream !== null) params.set("workstream", query.workstream);
-  return params;
-}
-
-/** The address of the activity view showing a query, for links from the other pages. */
-export function activityPathOf(query: ActivityQuery): string {
-  return `${memoryPathOf("activity")}?${activityParams(query)}`;
-}
-
-/** The anchor of a day on the timeline. */
-export function dayAnchor(date: string): string {
-  return `day-${date}`;
 }

@@ -66,9 +66,14 @@ import { BusyIcon } from "../../components/ui/busy-icon";
 import { ProbeLine } from "../../components/probe-line";
 import { IconAction, InfoRow } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
-import { LOGS_PATH } from "../logs/day";
-import { CANDIDATES_ANCHOR, memoryPathOf } from "../memory/views";
-import { searchOf } from "../logs/filter";
+import {
+  BACKUPS_ANCHOR,
+  CANDIDATES_ANCHOR,
+  LOGS_PATH,
+  logsPathOf,
+  personaPathOf,
+  settingsPathOf,
+} from "../../lib/routes";
 
 interface CardProps {
   readonly report: StatusReport;
@@ -316,13 +321,7 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
         title={dictionary.dashboard.cards.logs}
         actions={
           <IconAction asChild label={text.view}>
-            <Link
-              to={
-                notable === 0
-                  ? LOGS_PATH
-                  : `${LOGS_PATH}${searchOf({ levels: new Set(["warning", "error"]), query: "" })}`
-              }
-            >
+            <Link to={notable === 0 ? LOGS_PATH : logsPathOf({ levels: new Set(["warning", "error"]), query: "" })}>
               <ScrollText aria-hidden />
             </Link>
           </IconAction>
@@ -350,7 +349,7 @@ export function LogsCard({ report, className }: Omit<CardProps, "locale">) {
 }
 
 /** Where the candidates line leads: the candidates on the persona view. */
-const CANDIDATES_PATH = `${memoryPathOf("persona")}#${CANDIDATES_ANCHOR}`;
+const CANDIDATES_PATH = personaPathOf(CANDIDATES_ANCHOR);
 
 /**
  * What waits for the next consolidation, a line for each kind there is any of; format problems in the warning colour.
@@ -444,7 +443,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
   const lastRemote = list?.lastRemote ?? null;
 
   return (
-    <Card variant="flat" id="backups" aria-labelledby="backups-title" className={className}>
+    <Card variant="flat" id={BACKUPS_ANCHOR} aria-labelledby="backups-title" className={className}>
       <CardHeading
         id="backups-title"
         icon={Archive}
@@ -514,7 +513,7 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
               {!loaded.remoteConfigured ? (
                 <span className="flex items-center gap-sm">
                   <span className="text-ink-muted">{text.cloudNotConfigured}</span>
-                  <Link to="/settings#settings-backup" className="text-accent underline-offset-2 hover:underline">
+                  <Link to={settingsPathOf("backup")} className="text-accent underline-offset-2 hover:underline">
                     {text.configure}
                   </Link>
                 </span>
@@ -637,7 +636,7 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
 }
 
 /** Where the bindings are kept: the bindings section of the settings. */
-const BINDINGS_PATH = "/settings#settings-bindings";
+const BINDINGS_PATH = settingsPathOf("bindings");
 
 /** How many chips the clients card shows; past it, the last chip counts the rest. */
 const SHOWN_CLIENTS = 12;

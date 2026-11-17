@@ -42,12 +42,10 @@ import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
-import { sectionAnchor } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
-import { requestOf, type SearchFields, searchFieldsOf, searchParamsOf } from "./search";
-import { activityPathOf } from "./timeline";
+import { requestOf } from "./search";
 import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
-import { memoryPathOf } from "./views";
+import { activityPathOf, pagePathOf, type SearchFields, searchFieldsOf, searchParamsOf } from "../../lib/routes";
 
 /** Each fate's icon and colour: the label beside it says the fate, so the colour is never the only sign. */
 const FATE_STYLES: Readonly<
@@ -667,7 +665,7 @@ function ResultItem({
   readonly onLight: (number: number | null) => void;
 }) {
   const text = useDictionary().memory.search;
-  const page = result.kind === "page" && result.page !== null;
+  const pageId = result.kind === "page" ? result.page : null;
   return (
     <li
       data-lit={lit ? "" : undefined}
@@ -679,7 +677,7 @@ function ResultItem({
         <span className="grid size-(--tk-font-size-xl) shrink-0 place-items-center rounded-full bg-accent-soft font-semibold text-accent tabular-nums">
           {result.number}
         </span>
-        {page ? (
+        {pageId !== null ? (
           <PageTypeBadge type={listed?.type ?? null} written={listed?.writtenType} />
         ) : (
           <Badge>{result.kind === "activity" ? text.unitKinds.activity : text.unitKinds.summary}</Badge>
@@ -688,20 +686,20 @@ function ResultItem({
         {result.date === null ? null : <span className="tabular-nums">{result.date}</span>}
         {result.code === null ? null : <CodePill code={result.code} reveal className="ml-auto" />}
       </div>
-      {page ? (
+      {pageId !== null ? (
         <>
           <Link
-            to={`${memoryPathOf("pages")}/${result.page}`}
+            to={pagePathOf(pageId)}
             className="font-medium underline-offset-2 outline-none hover:text-accent hover:underline focus-visible:underline"
           >
-            {result.title ?? result.page}
+            {result.title ?? pageId}
           </Link>
           {result.sections.length === 0 ? null : (
             <p className="flex flex-wrap gap-xs">
               {result.sections.map((name) => (
                 <Link
                   key={name}
-                  to={`${memoryPathOf("pages")}/${result.page}#${encodeURIComponent(sectionAnchor(name))}`}
+                  to={pagePathOf(pageId, name)}
                   className="rounded-full bg-surface-raised px-sm text-xs text-ink-muted outline-none hover:text-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
                   {name}

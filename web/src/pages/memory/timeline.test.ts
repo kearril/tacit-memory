@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityMonthView } from "../../api/memory";
-import { activityParams, activityQueryOf, monthDays, shiftMonth, timelineOf } from "./timeline";
+import { monthDays, shiftMonth, timelineOf } from "./timeline";
 
 function item(code: string, workstream: string | null = null) {
   return { code, workstream, text: `活动 ${code}`, lines: [], sources: [], uses: 0 };
@@ -101,30 +101,5 @@ describe("shiftMonth", () => {
   it("moves across the year boundary", () => {
     expect(shiftMonth("2026-12", 1)).toBe("2027-01");
     expect(shiftMonth("2026-01", -1)).toBe("2025-12");
-  });
-});
-
-describe("activityQueryOf", () => {
-  it("reads the month, the day and the workstream from the address, the month falling back to the current one", () => {
-    expect(activityQueryOf(new URLSearchParams("month=2026-10&day=2026-10-05&workstream=my-app"), "2026-11")).toEqual({
-      month: "2026-10",
-      day: "2026-10-05",
-      workstream: "my-app",
-    });
-    expect(activityQueryOf(new URLSearchParams("month=latest&day=x"), "2026-11")).toEqual({
-      month: "2026-11",
-      day: null,
-      workstream: null,
-    });
-  });
-
-  it("takes the month from a day given alone", () => {
-    expect(activityQueryOf(new URLSearchParams("day=2026-09-30"), "2026-11").month).toBe("2026-09");
-  });
-
-  it("writes only what is set", () => {
-    expect(activityParams({ month: "2026-10", day: null, workstream: "my-app" }).toString()).toBe(
-      "month=2026-10&workstream=my-app",
-    );
   });
 });
