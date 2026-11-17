@@ -147,7 +147,7 @@ public sealed partial class RecentActivityTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 2026-11-02\n- 记忆库本身就是项目\n  <!-- 原话「其实可以直接把记忆库当成项目」 -->\n",
+            "## 2026-11-02\n- 记忆库本身就是项目\n  <!-- quote「其实可以直接把记忆库当成项目」 -->\n",
             File.ReadAllText(MonthFile));
     }
 
@@ -256,7 +256,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.Equal(ShortOf("[tacit-memory] 改写后的先做的事"), CodeOf(result));
         Assert.Equal(
-            "## 2026-11-02\n- [tacit-memory] 改写后的先做的事\n  <!-- 原话「原话一」 -->\n- 第二件事\n- 第三件事\n",
+            "## 2026-11-02\n- [tacit-memory] 改写后的先做的事\n  <!-- quote「原话一」 -->\n- 第二件事\n- 第三件事\n",
             File.ReadAllText(MonthFile));
         Assert.Equal($"recent: replace {ShortOf("[tacit-memory] 改写后的先做的事")}", Git("log", "-1", "--format=%s").Trim());
         Assert.NotEqual(CodeOf(first), ShortOf("[tacit-memory] 改写后的先做的事"));
@@ -273,7 +273,7 @@ public sealed partial class RecentActivityTests : IDisposable
             Replaces = CodeOf(added),
             Source = "新话",
         });
-        Assert.Equal("## 2026-11-02\n- 一件事改写\n  <!-- 原话「新话」 -->\n", File.ReadAllText(MonthFile));
+        Assert.Equal("## 2026-11-02\n- 一件事改写\n  <!-- quote「新话」 -->\n", File.ReadAllText(MonthFile));
 
         var kept = await _service.WriteRecentAsync(new WriteRecentRequest
         {
@@ -282,7 +282,7 @@ public sealed partial class RecentActivityTests : IDisposable
         });
 
         Assert.False(kept.IsError, kept.Text);
-        Assert.Equal("## 2026-11-02\n- 一件事再改\n  <!-- 原话「新话」 -->\n", File.ReadAllText(MonthFile));
+        Assert.Equal("## 2026-11-02\n- 一件事再改\n  <!-- quote「新话」 -->\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -413,11 +413,11 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Adding_an_activity_leaves_the_workstream_file_alone()
     {
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### alpha\n背景：一号主线。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### alpha\nBackground: 一号主线。\n");
 
         await _service.WriteRecentAsync(Add("一件事"));
 
-        Assert.Equal("## 主线\n### alpha\n背景：一号主线。\n", File.ReadAllText(Path.Combine(Memory, "workstreams.md")));
+        Assert.Equal("## Workstream\n### alpha\nBackground: 一号主线。\n", File.ReadAllText(Path.Combine(Memory, "workstreams.md")));
     }
 
     [Fact]

@@ -4,7 +4,7 @@ using TacitMemory.Core.Localization;
 namespace TacitMemory.Core.Formats;
 
 /// <summary>
-/// The source comment of a persona entry, an activity or a page section: <c>&lt;!-- 2026-10-25 原话「…」 --&gt;</c>, with the
+/// The source comment of a persona entry, an activity or a page section: <c>&lt;!-- 2026-10-25 quote「…」 --&gt;</c>, with the
 /// day or the quote left out when the comment has none. The quote word is read in every language. A comment that names
 /// neither, or names a day followed by anything but a quote, is not a source.
 /// </summary>
@@ -17,7 +17,7 @@ internal static class SourceComment
     private static readonly Regex Day = new(@"^(?<day>\d{4}-\d{2}-\d{2})(?:\s+|$)", RegexOptions.CultureInvariant);
 
     private static readonly Regex Quote = new(
-        $@"^(?:{Regex.Escape(StructureWords.Quote.Zh)}|{Regex.Escape(StructureWords.Quote.En)})「(?<quote>.*)」$",
+        $@"^{Regex.Escape(StructureWords.Quote)}「(?<quote>.*)」$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>Whether <paramref name="line"/> is a comment and nothing else, source or not.</summary>

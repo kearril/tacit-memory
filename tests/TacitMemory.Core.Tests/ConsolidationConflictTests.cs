@@ -40,7 +40,7 @@ public sealed class ConsolidationConflictTests : IDisposable
     private const string Terse = "少用表情";
 
     private const string Baseline =
-        "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n- 回复别太长\n\n## 档案\n";
+        "## Red lines\n\n## Working rules\n\n## Preferences\n- 沟通：先要结论\n- 回复别太长\n\n## Profile\n";
 
     private void Configure() => _home.InitReady("", _models);
 
@@ -127,22 +127,22 @@ public sealed class ConsolidationConflictTests : IDisposable
     {
         Configure();
         CheckedBaseline();
-        File.WriteAllText(PersonaMd, Baseline.Replace("## 红线\n\n", $"## 红线\n- {Changed}\n\n").ReplaceLineEndings("\n"));
+        File.WriteAllText(PersonaMd, Baseline.Replace("## Red lines\n\n", $"## Red lines\n- {Changed}\n\n").ReplaceLineEndings("\n"));
         PickOption(Old, 0.95);
 
         var section = Section(await Consolidation(), Conflicting);
 
-        Assert.Contains($"Certain: [{ShortOf(Changed)}] \"{Changed}\" in section 红线", section);
-        Assert.Contains($"[{ShortOf(Old)}] \"{Old}\" in section 偏好", section);
+        Assert.Contains($"Certain: [{ShortOf(Changed)}] \"{Changed}\" in section Red lines", section);
+        Assert.Contains($"[{ShortOf(Old)}] \"{Old}\" in section Preferences", section);
     }
 
     [Fact]
     public async Task A_pair_judged_from_both_sides_is_listed_once()
     {
         Configure();
-        CheckedBaseline("## 红线\n\n## 协作规则\n\n## 偏好\n- 回复别太长\n\n## 档案\n");
+        CheckedBaseline("## Red lines\n\n## Working rules\n\n## Preferences\n- 回复别太长\n\n## Profile\n");
         // Both entries are new since the consolidation, and each one's nearest other entry is the other.
-        File.WriteAllText(PersonaMd, ("## 红线\n\n## 协作规则\n\n## 偏好\n- 回复别太长\n- " + Old + "\n- " + Changed + "\n\n## 档案\n").ReplaceLineEndings("\n"));
+        File.WriteAllText(PersonaMd, ("## Red lines\n\n## Working rules\n\n## Preferences\n- 回复别太长\n- " + Old + "\n- " + Changed + "\n\n## Profile\n").ReplaceLineEndings("\n"));
         _models.Choose = (_, options) => options.ToDictionary(
             option => option.Key,
             option => option.Value.Contains(Old, StringComparison.Ordinal) || option.Value.Contains(Changed, StringComparison.Ordinal) ? 0.95
@@ -198,8 +198,8 @@ public sealed class ConsolidationConflictTests : IDisposable
     public async Task With_no_other_entry_no_question_is_asked()
     {
         Configure();
-        CheckedBaseline("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n");
-        File.WriteAllText(PersonaMd, "## 红线\n\n## 协作规则\n\n## 偏好\n- " + Changed + "\n\n## 档案\n");
+        CheckedBaseline("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n");
+        File.WriteAllText(PersonaMd, "## Red lines\n\n## Working rules\n\n## Preferences\n- " + Changed + "\n\n## Profile\n");
 
         var section = Section(await Consolidation(), Conflicting);
 

@@ -39,7 +39,7 @@ internal static class ChangedPageFindings
             changed.Add((latest, id.ToString(), $"- {id} ({id.RelativePath}): type: {type}; {size} bytes; sections: {sections}; related: {related}; uses: {count}."));
 
             if (document.Header.Type == ToolValues.PageTypes.Incident
-                && document.Sections.FirstOrDefault(section => StructureWords.Lesson.Matches(section.Name)) is { Body.Length: > 0 } lesson)
+                && document.Sections.FirstOrDefault(section => PageDocument.IsSection(section.Name, StructureWords.Lesson)) is { Body.Length: > 0 } lesson)
             {
                 var day = dates.TryGetValue(lesson.Name, out var lessonDay) ? lessonDay : latest;
                 var body = string.Join('\n', lesson.Body.Split('\n').Select(line => "  " + line));

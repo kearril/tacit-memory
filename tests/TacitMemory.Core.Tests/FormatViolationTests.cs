@@ -137,16 +137,6 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     [Fact]
-    public async Task The_two_page_section_words_count_as_structure_words_in_both_languages()
-    {
-        using var service = Open();
-        WriteFile("pages/tacit-memory/both.md", Page(body: "## 遗留\n- 未决\n\n## Overturned\n- 旧决定\n"));
-
-        var finding = FindingOf(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/both.md");
-        Assert.Contains("Hint only", finding);
-    }
-
-    [Fact]
     public async Task A_related_page_that_does_not_exist_is_listed_and_disappears_once_it_exists()
     {
         using var service = Open();
@@ -219,68 +209,6 @@ public sealed class FormatViolationTests : IDisposable
     }
 
     [Fact]
-    public async Task Mixed_headings_of_the_newer_structure_words_are_a_hint_too()
-    {
-        using var service = Open();
-        WriteFile("pages/tacit-memory/lesson-mixed.md", Page(body: "## 教训\n- 内容\n\n## Lesson\n- content\n"));
-
-        var section = Section(await service.ConsolidationReportAsync(), Category);
-
-        AssertListed(section, "pages/tacit-memory/lesson-mixed.md", "line 11");
-        Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/lesson-mixed.md"));
-    }
-
-    [Theory]
-    [InlineData("领域", "Domain")]
-    [InlineData("主线", "Workstream")]
-    [InlineData("触发", "Trigger")]
-    [InlineData("作用域：", "Scope:")]
-    public async Task Mixed_headings_of_the_persona_structure_words_are_a_hint(string zh, string en)
-    {
-        using var service = Open();
-        WriteFile("pages/tacit-memory/heading-mixed.md", Page(body: $"## {zh}\n- 内容\n\n## {en}\n- content\n"));
-
-        var section = Section(await service.ConsolidationReportAsync(), Category);
-
-        AssertListed(section, "pages/tacit-memory/heading-mixed.md", "line 11");
-        Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/heading-mixed.md"));
-    }
-
-    [Fact]
-    public async Task Structure_words_in_both_languages_are_a_hint_and_disappear_once_one_language_is_used()
-    {
-        using var service = Open();
-        WriteFile("pages/tacit-memory/mixed.md", Page(body: "## 偏好\n- 内容\n\n## Preferences\n- content\n"));
-
-        var section = Section(await service.ConsolidationReportAsync(), Category);
-        AssertListed(section, "pages/tacit-memory/mixed.md", "line 11");
-        Assert.Contains("Hint only", FindingOf(section, "pages/tacit-memory/mixed.md"));
-
-        WriteFile("pages/tacit-memory/mixed.md", Page(body: "## 偏好\n- 内容\n\n## 其他\n- content\n"));
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/mixed.md");
-    }
-
-    [Fact]
-    public async Task Quote_marks_rejected_marks_and_instead_in_a_list_item_count_as_structure_words_in_both_languages()
-    {
-        using var service = Open();
-        WriteFile("pages/tacit-memory/mixed-quote.md", Page(body: "## 偏好\n- 内容\n  <!-- 2026-10-30 原话「要点」 -->\n  <!-- 2026-10-31 quote「要点」 -->\n"));
-        WriteFile("pages/tacit-memory/mixed-rejected.md", Page(body: "## 偏好\n- 内容\n  <!-- 2026-10-30 拒绝 原话「要点」 -->\n  <!-- 2026-10-31 rejected 原话「要点」 -->\n"));
-        WriteFile("pages/tacit-memory/mixed-instead.md", Page(body: "- 不要删库，改为先备份\n- Never delete; instead back up first\n"));
-        WriteFile("pages/tacit-memory/prose.md", Page(body: "## 偏好\n- 内容\n正文里提到 instead 但不是列表项\n"));
-
-        var section = Section(await service.ConsolidationReportAsync(), Category);
-
-        AssertListed(section, "pages/tacit-memory/mixed-quote.md", "line 11");
-        Assert.Contains("\"quote\" on line 11", section);
-        AssertListed(section, "pages/tacit-memory/mixed-rejected.md", "line 11");
-        Assert.Contains("\"rejected\" on line 11", section);
-        AssertListed(section, "pages/tacit-memory/mixed-instead.md", "line 9");
-        Assert.Contains("\"改为\" on line 8 and \"instead\" on line 9", section);
-        AssertNotListed(section, "pages/tacit-memory/prose.md");
-    }
-
-    [Fact]
     public async Task Each_category_lists_at_most_twenty_findings_and_counts_the_rest()
     {
         using var service = Open();
@@ -298,7 +226,7 @@ public sealed class FormatViolationTests : IDisposable
     public async Task A_summary_section_is_not_taken_for_an_unrecognized_date_heading()
     {
         using var service = Open();
-        WriteFile("recent/2026-11.md", "## 2026-11-02\n- 一件事\n\n## 汇总\n- 2026-W45：本周\n- 2026-11：本月\n");
+        WriteFile("recent/2026-11.md", "## 2026-11-02\n- 一件事\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n");
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
@@ -310,7 +238,7 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
         // 2026-W45's Thursday is 2026-11-05, so its summary belongs in 2026-11.md.
-        WriteFile("recent/2026-10.md", "## 汇总\n- 2026-W45：写错了文件\n");
+        WriteFile("recent/2026-10.md", "## Summary\n- 2026-W45：写错了文件\n");
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
@@ -323,8 +251,8 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
         // 2026 has 53 ISO weeks and 2027 has 52, so 2027-W53 does not exist, and neither does 2026-W54.
-        WriteFile("recent/2026-12.md", "## 汇总\n- 2026-W54：没有这一周\n");
-        WriteFile("recent/2027-01.md", "## 汇总\n- 2027-W53：也没有这一周\n");
+        WriteFile("recent/2026-12.md", "## Summary\n- 2026-W54：没有这一周\n");
+        WriteFile("recent/2027-01.md", "## Summary\n- 2027-W53：也没有这一周\n");
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
@@ -338,8 +266,8 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
         // 2026-W53 (2026-12-28 to 2027-01-03) has its Thursday on 2026-12-31; 2027-W01 has its Thursday on 2027-01-07.
-        WriteFile("recent/2026-12.md", "## 汇总\n- 2026-W53：跨年的一周\n");
-        WriteFile("recent/2027-01.md", "## 汇总\n- 2027-W01：新年第一周\n");
+        WriteFile("recent/2026-12.md", "## Summary\n- 2026-W53：跨年的一周\n");
+        WriteFile("recent/2027-01.md", "## Summary\n- 2027-W01：新年第一周\n");
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
@@ -350,7 +278,7 @@ public sealed class FormatViolationTests : IDisposable
     public async Task A_week_of_the_new_year_written_in_the_old_year_file_is_listed()
     {
         using var service = Open();
-        WriteFile("recent/2027-01.md", "## 汇总\n- 2026-W53：这一周的周四在 2026-12-31\n");
+        WriteFile("recent/2027-01.md", "## Summary\n- 2026-W53：这一周的周四在 2026-12-31\n");
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
@@ -362,7 +290,7 @@ public sealed class FormatViolationTests : IDisposable
     public async Task Lines_in_the_summary_section_that_are_neither_week_nor_month_summaries_are_listed()
     {
         using var service = Open();
-        WriteFile("recent/2026-11.md", "## 汇总\n- 2026-11-05：日期不是汇总\n- 2026-11：\n- 2026-13：不存在的月份\n");
+        WriteFile("recent/2026-11.md", "## Summary\n- 2026-11-05：日期不是汇总\n- 2026-11：\n- 2026-13：不存在的月份\n");
 
         var section = Section(await service.ConsolidationReportAsync(), Category);
 
@@ -377,10 +305,10 @@ public sealed class FormatViolationTests : IDisposable
     public async Task Summary_format_problems_disappear_once_fixed()
     {
         using var service = Open();
-        WriteFile("recent/2026-10.md", "## 汇总\n- 2026-W45：写错了文件\n");
+        WriteFile("recent/2026-10.md", "## Summary\n- 2026-W45：写错了文件\n");
         Assert.Contains("Summary in the wrong file", Section(await service.ConsolidationReportAsync(), Category));
 
-        WriteFile("recent/2026-10.md", "## 汇总\n- 2026-W42：放回正确的文件\n");
+        WriteFile("recent/2026-10.md", "## Summary\n- 2026-W42：放回正确的文件\n");
 
         Assert.Contains("None.", Section(await service.ConsolidationReportAsync(), Category));
     }

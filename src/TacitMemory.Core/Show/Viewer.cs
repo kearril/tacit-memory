@@ -186,8 +186,8 @@ internal static class Viewer
         var rules = config.Prompts.Rules;
         var source = rules is null ? ShowSource.BuiltInDefault : ShowSource.UserFile;
         var path = rules is null ? null : PromptFiles.RulesPath(options.TacitHome);
-        var criteria = rules ?? RulesFile.Default(language);
-        var text = RulesFile.Compose(criteria, language).TrimEnd('\n');
+        var criteria = rules ?? RulesFile.Default;
+        var text = RulesFile.Compose(criteria).TrimEnd('\n');
 
         var heading = RulesTitle.Format(
             language, SourceText(language, source, path),

@@ -33,13 +33,8 @@ internal static class PersonaFormatCheck
                 continue;
             }
 
-            foreach (var item in part.Items)
-            {
-                if (!item.IsListItem)
-                    issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
-                else
-                    CheckEntry(item, kind, issues);
-            }
+            foreach (var item in part.Items.Where(item => !item.IsListItem))
+                issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
         }
 
         CheckBlocks(document, config, issues);
@@ -85,13 +80,8 @@ internal static class PersonaFormatCheck
                     continue;
                 }
 
-                foreach (var item in part.Items)
-                {
-                    if (!item.IsListItem)
-                        issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
-                    else
-                        CheckEntry(item, kind, issues);
-                }
+                foreach (var item in part.Items.Where(item => !item.IsListItem))
+                    issues.Add(Issue(item, "Unrecognized content", "This line is not a list item, so it is not an entry."));
             }
         }
     }
@@ -103,18 +93,6 @@ internal static class PersonaFormatCheck
             issues.Add(new FormatIssue("", headingLocation, "Domain without trigger",
                 "The domain has no trigger line under its heading, so the resident index cannot show when it applies. Add one line: trigger: when the domain applies.",
                 FormatHandling.FixDirectly));
-    }
-
-    private static void CheckEntry(PersonaItem item, PersonaSection kind, List<FormatIssue> issues)
-    {
-        if (kind == PersonaSection.RedLines && !PersonaTools.HasStructureWord(item.Text, StructureWords.Instead))
-            issues.Add(Issue(item, "Red line without instead",
-                "A red line must say what to do instead: add \"改为\" (or \"instead\") followed by the alternative.", FormatHandling.FixDirectly));
-
-        if (kind == PersonaSection.WorkingRules && !item.Text.Contains('→'))
-            issues.Add(Issue(item, "Working rule without →",
-                "A working rule must have the form situation → action, with → between them.", FormatHandling.FixDirectly));
-
     }
 
     private static FormatIssue Issue(PersonaItem item, string kind, string description, FormatHandling handling = FormatHandling.FixDirectly) =>

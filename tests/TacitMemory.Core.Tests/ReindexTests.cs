@@ -150,8 +150,8 @@ public sealed class ReindexTests : IDisposable
     private void Write(params string[] candidateTitles)
     {
         File.WriteAllText(Path.Combine(_home.DefaultMemory, "persona.md"), PersonaWithPreference.ReplaceLineEndings("\n"));
-        var blocks = string.Concat(candidateTitles.Select(title => $"### {title}\n归属：偏好\n- 2026-10-30 原话「{title}」\n- 2026-10-31 原话「{title}」\n\n"));
-        File.WriteAllText(Path.Combine(_home.DefaultMemory, "candidates.md"), ("## 候选\n\n" + blocks + "## 拒绝列表\n").ReplaceLineEndings("\n"));
+        var blocks = string.Concat(candidateTitles.Select(title => $"### {title}\nBelongs to: Preferences\n- 2026-10-30 quote「{title}」\n- 2026-10-31 quote「{title}」\n\n"));
+        File.WriteAllText(Path.Combine(_home.DefaultMemory, "candidates.md"), ("## Candidates\n\n" + blocks + "## Rejection list\n").ReplaceLineEndings("\n"));
     }
 
     private void PickPersonaEntry() => _models.Choose = (_, options) => options.ToDictionary(
@@ -161,5 +161,5 @@ public sealed class ReindexTests : IDisposable
             : 0.0);
 
     private const string PersonaWithPreference =
-        "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n\n## 档案\n";
+        "## Red lines\n\n## Working rules\n\n## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-20 quote「先要结论」 -->\n\n## Profile\n";
 }

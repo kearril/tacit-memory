@@ -162,7 +162,7 @@ public sealed class CommandSkillTests : IDisposable
         Assert.Contains("leave its background line unchanged", chinese, StringComparison.Ordinal);
         Assert.Contains("Background line of a workstream", chinese, StringComparison.Ordinal);
         Assert.Contains("Recent line of a workstream", chinese, StringComparison.Ordinal);
-        Assert.Contains("## 主线\n### home-server\n背景：家里的常驻服务器，跑代理分流和自用服务。\n近况：", chinese, StringComparison.Ordinal);
+        Assert.Contains("## Workstream\n### home-server\nBackground: 家里的常驻服务器，跑代理分流和自用服务。\nRecent: ", chinese, StringComparison.Ordinal);
         Assert.DoesNotContain("summarized weeks it lists", chinese, StringComparison.Ordinal);
 
         using var home = new TestHome();
@@ -172,7 +172,6 @@ public sealed class CommandSkillTests : IDisposable
         Assert.Contains("leave its background line unchanged", english, StringComparison.Ordinal);
         Assert.Contains("## Workstream\n### home-server\nBackground: ", english, StringComparison.Ordinal);
         Assert.Contains("\nRecent: ", english, StringComparison.Ordinal);
-        Assert.DoesNotContain("## 主线", english, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -226,34 +225,29 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_consolidation_skill_writes_the_structure_words_and_examples_in_the_memory_language()
+    public void The_consolidation_skill_writes_the_english_structure_words_in_either_language()
     {
         _home.Tacit().GenerateSkills();
         var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
-        Assert.Contains("拒绝列表", chinese, StringComparison.Ordinal);
-        Assert.Contains("改为", chinese, StringComparison.Ordinal);
-        Assert.Contains("归属：偏好", chinese, StringComparison.Ordinal);
-        Assert.Contains("拒绝 原话「", chinese, StringComparison.Ordinal);
-        foreach (var word in new[] { "作用域：", "领域", "主线", "触发", "遗留", "推翻记录", "教训", "汇总" })
-            Assert.Contains(word, chinese, StringComparison.Ordinal);
-        Assert.Contains("## 领域：network-proxy", chinese, StringComparison.Ordinal);
-        Assert.Contains("作用域：domain:network-proxy", chinese, StringComparison.Ordinal);
-        Assert.Contains("- YYYY-Www：", chinese, StringComparison.Ordinal);
 
         using var home = new TestHome();
         home.InitReady(language: MemoryLanguage.En);
         home.Tacit().GenerateSkills();
         var english = File.ReadAllText(Path.Combine(home.TacitHome, "skills", "tacit-consolidate", "SKILL.md"));
-        Assert.Contains("Rejection list", english, StringComparison.Ordinal);
-        Assert.Contains("instead", english, StringComparison.Ordinal);
-        Assert.Contains("Belongs to: Preferences", english, StringComparison.Ordinal);
-        Assert.Contains("rejected quote「", english, StringComparison.Ordinal);
-        foreach (var word in new[] { "Scope: ", "Domain", "Workstream", "Trigger", "Leftovers", "Overturned", "Lesson", "Summary" })
-            Assert.Contains(word, english, StringComparison.Ordinal);
-        Assert.Contains("## Domain: network-proxy", english, StringComparison.Ordinal);
-        Assert.Contains("Scope: domain:network-proxy", english, StringComparison.Ordinal);
-        Assert.Contains("- YYYY-Www：", english, StringComparison.Ordinal);
-        Assert.DoesNotContain("拒绝列表", english, StringComparison.Ordinal);
+
+        foreach (var skill in new[] { chinese, english })
+        {
+            Assert.Contains("Rejection list", skill, StringComparison.Ordinal);
+            Assert.Contains("Belongs to: Preferences", skill, StringComparison.Ordinal);
+            Assert.Contains("rejected quote「", skill, StringComparison.Ordinal);
+            foreach (var word in new[] { "Scope: ", "Domain", "Workstream", "Trigger", "Leftovers", "Overturned", "Lesson", "Summary" })
+                Assert.Contains(word, skill, StringComparison.Ordinal);
+            Assert.Contains("## Domain: network-proxy", skill, StringComparison.Ordinal);
+            Assert.Contains("Scope: domain:network-proxy", skill, StringComparison.Ordinal);
+            Assert.Contains("- YYYY-Www：", skill, StringComparison.Ordinal);
+            foreach (var word in new[] { "拒绝列表", "归属", "领域", "触发", "遗留", "推翻记录", "教训", "汇总" })
+                Assert.DoesNotContain(word, skill, StringComparison.Ordinal);
+        }
     }
 
     [Theory]

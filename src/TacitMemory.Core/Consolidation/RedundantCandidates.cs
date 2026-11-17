@@ -21,7 +21,7 @@ internal static class RedundantCandidates
         foreach (var judgment in review.Judgments)
         {
             if (judgment.Outcome.Tier == Tier.Certain && judgment.Outcome.Target is { } match)
-                findings.Add($"- \"{judgment.Candidate.Text}\"; section: {PersonaDocument.HeadingOf(judgment.Candidate.Section).In(language)}; the same preference as {review.Describe(match)}.");
+                findings.Add($"- \"{judgment.Candidate.Text}\"; section: {PersonaDocument.HeadingOf(judgment.Candidate.Section)}; the same preference as {review.Describe(match)}.");
         }
 
         var status = Unanswered.Of(review.Judgments.Select(judgment => judgment.Outcome.Reason)).Status(

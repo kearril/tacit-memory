@@ -104,7 +104,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     /// <summary>A match as the report names it: the persona entry with its short code, or the rejected candidate.</summary>
     public string Describe(PreferenceMatch match)
     {
-        var heading = PersonaDocument.HeadingOf(match.Section).In(Language);
+        var heading = PersonaDocument.HeadingOf(match.Section);
         var text = match.Text.ReplaceLineEndings(" ");
         var scope = match.Scope.IsGlobal ? "" : $" of {match.Scope}";
         if (match.Kind == UnitKinds.RejectedCandidate)

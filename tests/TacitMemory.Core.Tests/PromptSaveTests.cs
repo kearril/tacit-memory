@@ -98,7 +98,7 @@ public sealed class PromptSaveTests : IDisposable
     [Fact]
     public async Task A_text_that_breaks_its_rules_is_refused_with_the_file_named_and_no_file_is_written()
     {
-        var text = "## 值得记\n" + string.Concat(Enumerable.Range(1, 11).Select(i => $"- 规则 {i}\n"));
+        var text = "## Worth recording\n" + string.Concat(Enumerable.Range(1, 11).Select(i => $"- 规则 {i}\n"));
 
         var error = await Assert.ThrowsAsync<TacitException>(() => _service.SavePromptAsync(PromptName.Rules, null, text));
 
@@ -187,7 +187,7 @@ public sealed class PromptSaveTests : IDisposable
     public async Task Restoring_built_in_criteria_that_do_not_fit_beside_long_core_rules_is_refused_and_keeps_the_file()
     {
         // Short criteria leave room for long core rules; the longer built-in criteria would not fit beside them.
-        await _service.SavePromptAsync(PromptName.Rules, null, "## 值得记\n- 短\n");
+        await _service.SavePromptAsync(PromptName.Rules, null, "## Worth recording\n- 短\n");
         await _service.SavePromptAsync(PromptName.Instructions, null, "## 核心\n" + new string('核', 2394));
 
         var error = await Assert.ThrowsAsync<TacitException>(() => _service.RestorePromptDefaultAsync(PromptName.Rules));

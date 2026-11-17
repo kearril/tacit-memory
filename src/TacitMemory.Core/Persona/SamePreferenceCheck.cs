@@ -54,13 +54,13 @@ internal sealed class SamePreferenceCheck(TacitConfig config, MemoryIndex index,
     /// </summary>
     internal static string OptionText(string kind, PersonaScope scope, PersonaSection section, string text, MemoryLanguage language)
     {
-        var label = $"[{kind} | {PersonaDocument.HeadingOf(section).In(language)} | {scope}] {text}";
+        var label = $"[{kind} | {PersonaDocument.HeadingOf(section)} | {scope}] {text}";
         return label.Length > OptionLength ? label[..OptionLength] : label;
     }
 
     /// <summary>The new preference as the question states it: its section in brackets, then its text.</summary>
     internal static string StateOf(string text, PersonaSection section, MemoryLanguage language) =>
-        $"[{PersonaDocument.HeadingOf(section).In(language)}] {text}";
+        $"[{PersonaDocument.HeadingOf(section)}] {text}";
 
     public async Task<SamePreferenceVerdict> RunAsync(string text, PersonaSection section, CancellationToken cancellationToken)
     {

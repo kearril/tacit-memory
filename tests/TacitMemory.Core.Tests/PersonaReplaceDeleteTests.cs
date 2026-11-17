@@ -38,27 +38,27 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
 
     /// <summary>A persona with every kind of content the rewrite must leave alone: an unknown section, a hand-written comment, a continuation line.</summary>
     private const string Fixture = """
-        ## 红线
+        ## Red lines
         - 不要删库；改为先备份
-          <!-- 2026-10-25 原话「别删库」 -->
+          <!-- 2026-10-25 quote「别删库」 -->
 
-        ## 协作规则
+        ## Working rules
         - 需求不清时 → 先连续追问
-          <!-- 2026-10-20 原话「先问清楚再动手」 -->
+          <!-- 2026-10-20 quote「先问清楚再动手」 -->
 
-        ## 偏好
+        ## Preferences
         - 沟通：先要结论
-          <!-- 2026-10-21 原话「先说结论」 -->
+          <!-- 2026-10-21 quote「先说结论」 -->
         - 反感客套和铺垫
 
         ## 备注
         <!-- 手写的说明 -->
         - 这一节不是四节之一
 
-        ## 档案
+        ## Profile
         - 系统：Windows 11 x64
           另有 WSL 环境
-          <!-- 2026-10-01 原话「我用 Windows」 -->
+          <!-- 2026-10-01 quote「我用 Windows」 -->
         - 主力语言：C#
 
         """;
@@ -106,8 +106,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         Assert.Contains($"[{newCode}]", result.Text);
         Assert.Equal(
             Lf(Fixture).Replace(
-                "- 沟通：先要结论\n  <!-- 2026-10-21 原话「先说结论」 -->\n",
-                $"- 沟通：先说结论，再讲依据\n  <!-- {Today} 原话「先说结论」 -->\n"),
+                "- 沟通：先要结论\n  <!-- 2026-10-21 quote「先说结论」 -->\n",
+                $"- 沟通：先说结论，再讲依据\n  <!-- {Today} quote「先说结论」 -->\n"),
             File.ReadAllText(PersonaMd));
         Assert.Equal($"persona: replace {newCode}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("persona.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
@@ -126,35 +126,29 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         Assert.Equal(
             Lf(Fixture).Replace(
                 "- 反感客套和铺垫\n",
-                $"- 反感客套、铺垫和寒暄\n  <!-- {Today} 原话「别绕弯子」 -->\n"),
+                $"- 反感客套、铺垫和寒暄\n  <!-- {Today} quote「别绕弯子」 -->\n"),
             File.ReadAllText(PersonaMd));
     }
 
     [Fact]
-    public async Task Replacing_checks_the_sentence_form_of_the_section_the_entry_is_in()
+    public async Task Replacing_takes_any_wording_in_any_section()
     {
         CommitPersona(Fixture);
-        var before = File.ReadAllText(PersonaMd);
 
         var redLine = await _service.WritePersonaAsync(Replace(ShortOf("不要删库；改为先备份"), "不要删库"));
         var workingRule = await _service.WritePersonaAsync(Replace(ShortOf("需求不清时 → 先连续追问"), "需求不清时先追问"));
 
-        Assert.True(redLine.IsError);
-        Assert.False(redLine.Written);
-        Assert.Contains("instead", redLine.Text);
-        Assert.True(workingRule.IsError);
-        Assert.False(workingRule.Written);
-        Assert.Contains("→", workingRule.Text);
-        Assert.Equal(before, File.ReadAllText(PersonaMd));
-
-        var preference = await _service.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "需求不清时先追问"));
-        Assert.False(preference.IsError, preference.Text);
+        Assert.False(redLine.IsError, redLine.Text);
+        Assert.False(workingRule.IsError, workingRule.Text);
+        var persona = File.ReadAllText(PersonaMd);
+        Assert.Contains("- 不要删库\n", persona);
+        Assert.Contains("- 需求不清时先追问\n", persona);
     }
 
     [Fact]
     public async Task Replacing_with_the_same_text_and_source_writes_and_commits_nothing()
     {
-        CommitPersona(Fixture.Replace("- 反感客套和铺垫\n", $"- 反感客套和铺垫\n  <!-- {Today} 原话「别绕弯子」 -->\n"));
+        CommitPersona(Fixture.Replace("- 反感客套和铺垫\n", $"- 反感客套和铺垫\n  <!-- {Today} quote「别绕弯子」 -->\n"));
         var head = Git("rev-parse", "HEAD").Trim();
         var before = File.ReadAllText(PersonaMd);
 
@@ -170,7 +164,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     public async Task A_section_over_its_limit_still_takes_replace_and_delete()
     {
         var red = Enumerable.Range(1, 6).Select(i => $"- 不要做{i}；改为做{i}\n").ToList();
-        CommitPersona("## 红线\n" + string.Concat(red) + "\n## 协作规则\n\n## 偏好\n\n## 档案\n");
+        CommitPersona("## Red lines\n" + string.Concat(red) + "\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
         var replaced = await _service.WritePersonaAsync(Replace(ShortOf("不要做6；改为做6"), "不要做六；改为做六"));
         var deleted = await _service.WritePersonaAsync(Delete(ShortOf("不要做5；改为做5")));
@@ -353,7 +347,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         Assert.Contains("系统：Windows 11 x64", result.Text);
         Assert.Contains("另有 WSL 环境", result.Text);
         Assert.Equal(
-            Lf(Fixture).Replace("- 系统：Windows 11 x64\n  另有 WSL 环境\n  <!-- 2026-10-01 原话「我用 Windows」 -->\n", ""),
+            Lf(Fixture).Replace("- 系统：Windows 11 x64\n  另有 WSL 环境\n  <!-- 2026-10-01 quote「我用 Windows」 -->\n", ""),
             File.ReadAllText(PersonaMd));
         Assert.Equal($"persona: delete {code}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("persona.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
@@ -375,19 +369,19 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     [Fact]
     public async Task Deleting_the_last_entry_of_a_section_keeps_its_heading()
     {
-        CommitPersona("## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n\n## 档案\n");
+        CommitPersona("## Red lines\n\n## Working rules\n\n## Preferences\n- 沟通：先要结论\n\n## Profile\n");
 
         var result = await _service.WritePersonaAsync(Delete(ShortOf("沟通：先要结论")));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n", File.ReadAllText(PersonaMd));
+        Assert.Equal("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n", File.ReadAllText(PersonaMd));
     }
 
     [Fact]
     public async Task Delete_takes_the_entries_of_a_section_over_its_limit_down_without_refusal()
     {
         var profile = Enumerable.Range(1, 11).Select(i => $"- 字段{i}：事实{i}\n").ToList();
-        CommitPersona("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n" + string.Concat(profile));
+        CommitPersona("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n" + string.Concat(profile));
 
         var result = await _service.WritePersonaAsync(Delete(ShortOf("字段11：事实11")));
 
@@ -416,15 +410,15 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     [Fact]
     public async Task Replace_finds_an_entry_in_a_domain_and_keeps_its_block_and_section()
     {
-        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先备份\n  <!-- 2026-10-25 原话「先备份」 -->\n");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先备份\n  <!-- 2026-10-25 quote「先备份」 -->\n");
         var code = ShortOf("切换节点 → 先备份");
 
         var result = await _service.WritePersonaAsync(Replace(code, "切换节点 → 先看延迟", "先看延迟"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先看延迟\n"
-            + $"  <!-- {Today} 原话「先看延迟」 -->\n",
+            "## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先看延迟\n"
+            + $"  <!-- {Today} quote「先看延迟」 -->\n",
             File.ReadAllText(PersonaMd));
         Assert.Contains("of domain network-proxy", result.Text);
     }
@@ -432,20 +426,20 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     [Fact]
     public async Task Delete_finds_an_entry_in_a_workstream_block_and_the_block_keeps_its_heading()
     {
-        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 主线：my-app\n### 协作规则\n- 发版 → 先问我\n  <!-- 2026-10-25 原话「发版前问我」 -->\n");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n- 发版 → 先问我\n  <!-- 2026-10-25 quote「发版前问我」 -->\n");
         var code = ShortOf("发版 → 先问我");
 
         var result = await _service.WritePersonaAsync(Delete(code));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 偏好\n- 沟通：先要结论\n\n## 主线：my-app\n### 协作规则\n", File.ReadAllText(PersonaMd));
+        Assert.Equal("## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n", File.ReadAllText(PersonaMd));
         Assert.Contains("of workstream my-app", result.Text);
     }
 
     [Fact]
     public async Task A_short_code_is_refused_without_listing_the_scope_blocks_and_points_to_recall()
     {
-        CommitPersona("## 偏好\n- 沟通：先要结论\n\n## 领域：network-proxy\n触发：改代理时\n### 协作规则\n- 切换节点 → 先备份\n");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先备份\n");
         var before = File.ReadAllText(PersonaMd);
 
         var result = await _service.WritePersonaAsync(Delete("ffffff"));

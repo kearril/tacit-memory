@@ -126,13 +126,19 @@ internal sealed partial class PageDocument
     public static (PageType? Type, string? Written) BrowseTypeOf(string? type) =>
         PageTypeOf(type) is { } known ? (known, null) : (null, type);
 
-    /// <summary>The "Leftovers" section (遗留), which a work page lists its open items under; null when it has none.</summary>
+    /// <summary>The "Leftovers" section, which a work page lists its open items under; null when it has none.</summary>
     public PageSection? Leftovers => SectionNamed(StructureWords.Leftovers);
 
-    /// <summary>The "Overturned" section (推翻记录), which a decision page names the page that replaced it under; null when it has none.</summary>
+    /// <summary>The "Overturned" section, which a decision page names the page that replaced it under; null when it has none.</summary>
     public PageSection? Overturned => SectionNamed(StructureWords.Overturned);
 
-    private PageSection? SectionNamed(Localized word) => Sections.FirstOrDefault(section => word.Matches(section.Name));
+    private PageSection? SectionNamed(string word) => Sections.FirstOrDefault(section => IsSection(section.Name, word));
+
+    /// <summary>
+    /// Whether a section's name is the structure word of a recognized section, ignoring case. Only the English word is
+    /// recognized: a section named in another language is content.
+    /// </summary>
+    internal static bool IsSection(string name, string word) => string.Equals(name, word, StringComparison.OrdinalIgnoreCase);
 
     private static FormatIssue Fix(string location, string kind, string description) =>
         new("", location, kind, description, FormatHandling.FixDirectly);

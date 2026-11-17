@@ -108,7 +108,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task Unestablished_names_from_page_folders_and_activity_labels_are_listed_with_their_page_and_activity_counts()
     {
         _home.InitReady();
-        Workstreams("## 主线\n### alpha\n背景：已成立的主线。\n");
+        Workstreams("## Workstream\n### alpha\nBackground: 已成立的主线。\n");
         WritePage("a1", "甲", "## 现象\n- 内容\n", workstream: "alpha");
         WritePage("n1", "乙", "## 现象\n- 内容\n", workstream: "newone");
         WritePage("n2", "丙", "## 现象\n- 内容\n", workstream: "newone");
@@ -166,7 +166,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.Contains("oldname (unestablished)", Section(await service.ConsolidationReportAsync(), "Workstream proposal material"));
 
         Directory.Move(Path.Combine(Memory, "pages", "oldname"), Path.Combine(Memory, "pages", "target"));
-        Workstreams("## 主线\n### target\n背景：合并后的主线。\n");
+        Workstreams("## Workstream\n### target\nBackground: 合并后的主线。\n");
         CommitAll("consolidate: merge oldname into target");
 
         var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
@@ -200,7 +200,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task No_category_puts_a_section_over_its_limit_to_the_user()
     {
         _home.InitReady();
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n" + string.Concat(Enumerable.Range(1, 15).Select(i => $"- 第{i}条\n")));
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n" + string.Concat(Enumerable.Range(1, 15).Select(i => $"- 第{i}条\n")));
 
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         var report = await service.ConsolidationReportAsync();
@@ -212,7 +212,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task A_persona_entry_longer_than_the_hint_length_is_listed_with_its_place_and_length()
     {
         _home.InitReady("consolidation: { hintItemLength: 20 }\n");
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- 短\n- " + new string('长', 30) + "\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- 短\n- " + new string('长', 30) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Length hints");
@@ -227,7 +227,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task An_entry_within_the_default_hint_length_is_not_listed()
     {
         _home.InitReady();
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- " + new string('长', 120) + "\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 120) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Length hints");
@@ -256,7 +256,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task A_resident_block_longer_than_the_hint_length_gets_one_line_saying_so()
     {
         _home.InitReady("consolidation: { hintResidentLength: 100 }\n");
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- " + new string('长', 120) + "\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 120) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Length hints");
@@ -269,7 +269,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task Raising_the_hint_length_removes_the_hint_and_nothing_is_refused()
     {
         _home.InitReady("consolidation: { hintItemLength: 500 }\n");
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 偏好\n- " + new string('长', 300) + "\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 300) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Length hints");
@@ -380,7 +380,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         _home.InitReady();
         File.WriteAllText(Path.Combine(Memory, "candidates.md"),
-            "## 候选\n\n### 回答尽量简短\n归属：偏好\n作用域：workstream:tacit-memory\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n");
+            "## Candidates\n\n### 回答尽量简短\nBelongs to: Preferences\nScope: workstream:tacit-memory\n- 2026-10-30 quote「别写那么长」\n- 2026-10-31 quote「直接说结论」\n\n## Rejection list\n");
         CommitAll("consolidate: earlier pass");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
@@ -388,7 +388,7 @@ public sealed class ConsolidationReportTests : IDisposable
 
         Assert.Contains("回答尽量简短", section);
         Assert.Contains("workstream:tacit-memory", section);
-        Assert.Contains("偏好", section);
+        Assert.Contains("Preferences", section);
         Assert.Contains("2026-10-30", section);
         Assert.Contains("别写那么长", section);
         Assert.Contains("直接说结论", section);
@@ -398,9 +398,9 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task Quote_annotations_are_listed_only_when_their_activity_is_new_since_the_baseline_by_date_with_code_and_workstream()
     {
         _home.InitReady();
-        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- 原话「旧原话」 -->\n");
+        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n");
         CommitAll("consolidate: earlier pass");
-        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- 原话「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- 原话「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- 原话「新原话一」 -->\n");
+        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Persona evidence");
@@ -416,9 +416,9 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task Lessons_of_incident_pages_are_quoted_only_when_the_page_changed_since_the_baseline()
     {
         _home.InitReady();
-        WritePage("old-incident", "旧的故障", "## 教训\n- 旧教训\n");
+        WritePage("old-incident", "旧的故障", "## Lesson\n- 旧教训\n");
         CommitAll("consolidate: earlier pass");
-        WritePage("new-incident", "新的故障", "## 现象\n- 出错了\n\n## 教训\n- 先看日志再改配置\n");
+        WritePage("new-incident", "新的故障", "## 现象\n- 出错了\n\n## Lesson\n- 先看日志再改配置\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Incident lessons");
@@ -426,6 +426,19 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.Contains("tacit-memory/new-incident", section);
         Assert.Contains("先看日志再改配置", section);
         Assert.DoesNotContain("旧教训", section);
+    }
+
+    [Fact]
+    public async Task A_lesson_under_a_chinese_heading_is_content_and_not_quoted()
+    {
+        _home.InitReady();
+        CommitAll("consolidate: earlier pass");
+        WritePage("chinese-incident", "中文小节的故障", "## 教训\n- 写成中文小节名的教训\n");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var section = Section(await service.ConsolidationReportAsync(), "Incident lessons");
+
+        Assert.DoesNotContain("写成中文小节名的教训", section);
     }
 
     [Fact]
@@ -474,7 +487,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         _home.InitReady();
         File.WriteAllText(Path.Combine(Memory, "persona.md"),
-            "## 红线\n- 不要删库\n\n## 领域：network-proxy\n触发：代理与分流相关的问题\n\n### 协作规则\n- 先看分流规则\n- 再看回退方案\n\n## 领域：lonely\n触发：只有一条的领域\n\n### 协作规则\n- 唯一的一条\n");
+            "## Red lines\n- 不要删库\n\n## Domain: network-proxy\nTrigger: 代理与分流相关的问题\n\n### Working rules\n- 先看分流规则\n- 再看回退方案\n\n## Domain: lonely\nTrigger: 只有一条的领域\n\n### Working rules\n- 唯一的一条\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.ConsolidationReportAsync(), "Domain hygiene");

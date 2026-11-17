@@ -31,38 +31,38 @@ public sealed partial class RecallPersonaTests : IDisposable
 
     /// <summary>A persona with all four global sections, two domains and two workstreams, written out of their sorted order.</summary>
     private const string Fixture = """
-        ## 红线
+        ## Red lines
         - 不要删库；改为先备份
-          <!-- 2026-10-25 原话「别删库」 -->
+          <!-- 2026-10-25 quote「别删库」 -->
 
-        ## 协作规则
+        ## Working rules
         - 需求不清时 → 先连续追问
-          <!-- 2026-10-20 原话「先问清楚再动手」 -->
+          <!-- 2026-10-20 quote「先问清楚再动手」 -->
 
-        ## 偏好
+        ## Preferences
         - 沟通：先要结论
-          <!-- 2026-10-21 原话「先说结论」 -->
+          <!-- 2026-10-21 quote「先说结论」 -->
 
-        ## 档案
+        ## Profile
         - 系统：Windows 11 x64
 
-        ## 领域：network-proxy
-        触发：改代理、分流或测速时
-        ### 协作规则
+        ## Domain: network-proxy
+        Trigger: 改代理、分流或测速时
+        ### Working rules
         - 性能/节点比较 → 不拿单次测速当日常结论
-          <!-- 2026-11-06 原话「别拿单次测速下结论」 -->
+          <!-- 2026-11-06 quote「别拿单次测速下结论」 -->
 
-        ## 主线：tacit-memory
-        ### 协作规则
+        ## Workstream: tacit-memory
+        ### Working rules
         - 发版 → 先跑全量测试
 
-        ## 领域：backup
-        触发：改备份策略时
-        ### 偏好
+        ## Domain: backup
+        Trigger: 改备份策略时
+        ### Preferences
         - 频率：每天一次
 
-        ## 主线：my-app
-        ### 偏好
+        ## Workstream: my-app
+        ### Preferences
         - 游戏内导出：先验收再发版
 
         """;
@@ -141,7 +141,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         Assert.False(result.IsError, result.Text);
         var after = File.ReadAllText(PersonaMd);
         Assert.DoesNotContain("性能/节点比较", after);
-        Assert.Contains("## 领域：network-proxy\n触发：改代理、分流或测速时", after);
+        Assert.Contains("## Domain: network-proxy\nTrigger: 改代理、分流或测速时", after);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     [Fact]
     public async Task An_empty_persona_says_no_relevant_memory()
     {
-        WritePersona("## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n");
+        WritePersona("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
         var result = await Persona();
 
@@ -214,7 +214,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     [Fact]
     public async Task Rules_say_no_relevant_memory_when_the_persona_has_no_domain()
     {
-        WritePersona("## 红线\n- 不要删库；改为先备份\n\n## 主线：tacit-memory\n### 协作规则\n- 发版 → 先跑全量测试\n");
+        WritePersona("## Red lines\n- 不要删库；改为先备份\n\n## Workstream: tacit-memory\n### Working rules\n- 发版 → 先跑全量测试\n");
 
         var result = await Rules();
 

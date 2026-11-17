@@ -85,7 +85,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Choi
 
         var label = RecentFile.Label(workstream);
         var entryLine = $"- {label}{text}";
-        var sourceLine = source is null ? null : $"  <!-- {StructureWords.Quote.In(config.Language)}「{source}」 -->";
+        var sourceLine = source is null ? null : $"  <!-- {StructureWords.Quote}「{source}」 -->";
 
         RecentFile.Activity? replaced = null;
         if (request.Replaces is not null)

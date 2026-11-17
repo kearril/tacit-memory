@@ -60,14 +60,14 @@ internal sealed record PersonaBlock(
 internal sealed record ScopedEntry(PersonaScope Scope, PersonaSection Kind, PersonaItem Item);
 
 /// <summary>
-/// <c>persona.md</c> parsed leniently: global sections are found by <c>## </c> headings in any language, scope blocks by
-/// <c>## 领域：</c>, <c>## 主线：</c> (or their English forms), and items by top-level <c>- </c> lines with their indented
+/// <c>persona.md</c> parsed leniently: global sections are found by their <c>## </c> headings, scope blocks by
+/// <c>## Domain: </c> and <c>## Workstream: </c>, and items by top-level <c>- </c> lines with their indented
 /// continuation lines. Nothing the user wrote is dropped: unknown sections, off-format lines and text before the first
 /// heading are kept as they are.
 /// </summary>
 internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOnlyList<PersonaBlock> Blocks)
 {
-    private static readonly (PersonaSection Kind, Localized Word)[] Headings =
+    private static readonly (PersonaSection Kind, string Word)[] Headings =
     [
         (PersonaSection.RedLines, StructureWords.RedLines),
         (PersonaSection.WorkingRules, StructureWords.WorkingRules),
@@ -105,7 +105,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     {
         foreach (var (kind, word) in Headings)
         {
-            if (string.Equals(heading, word.Zh, StringComparison.Ordinal) || string.Equals(heading, word.En, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(heading, word, StringComparison.OrdinalIgnoreCase))
                 return kind;
         }
 
@@ -113,7 +113,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     }
 
     /// <summary>The structure word that heads a section of <paramref name="kind"/>.</summary>
-    internal static Localized HeadingOf(PersonaSection kind) => Headings.Single(entry => entry.Kind == kind).Word;
+    internal static string HeadingOf(PersonaSection kind) => Headings.Single(entry => entry.Kind == kind).Word;
 
     /// <summary>The list items of every global section of <paramref name="kind"/>, in file order.</summary>
     public IReadOnlyList<PersonaItem> Entries(PersonaSection kind) =>

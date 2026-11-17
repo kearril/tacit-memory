@@ -35,16 +35,16 @@ public sealed class PromptDocumentTests : IDisposable
     }
 
     [Theory]
-    [InlineData("zh", "## Worth recording\n- 用户纠正或打断 Agent\n", "## Not recorded\n- 常规的写代码、改错字、看日志\n")]
-    [InlineData("en", "## Worth recording\n- The user corrects or interrupts the agent\n", "## Not recorded\n- Routine coding, typo fixes and log reading\n")]
-    public async Task Without_rules_md_the_instructions_carry_the_built_in_criteria_in_the_memory_language(string language, string worth, string notRecorded)
+    [InlineData("zh")]
+    [InlineData("en")]
+    public async Task Without_rules_md_the_instructions_carry_the_english_built_in_criteria_in_either_language(string language)
     {
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), $"{TestHome.Models}language: {language}\n");
 
         var instructions = await Open().ServerInstructionsAsync();
 
-        Assert.Contains(worth, instructions);
-        Assert.Contains(notRecorded, instructions);
+        Assert.Contains("## Worth recording\n- The user corrects or interrupts the agent\n", instructions);
+        Assert.Contains("## Not recorded\n- Routine coding, typo fixes and log reading\n", instructions);
         Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 
@@ -52,7 +52,7 @@ public sealed class PromptDocumentTests : IDisposable
     public async Task Deleting_rules_md_while_running_brings_back_the_built_in_criteria()
     {
         Directory.CreateDirectory(Prompts);
-        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 自定义的标准\n");
         using var service = Open();
         Assert.Contains("- 自定义的标准", await service.ServerInstructionsAsync());
 
@@ -60,14 +60,14 @@ public sealed class PromptDocumentTests : IDisposable
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
-        Assert.Contains("- 用户纠正或打断 Agent", (await service.ServerInstructionsAsync()));
+        Assert.Contains("- The user corrects or interrupts the agent", (await service.ServerInstructionsAsync()));
         Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 
     [Fact]
     public void The_old_rules_location_is_not_read()
     {
-        File.WriteAllText(Path.Combine(_home.TacitHome, "rules.md"), "## 值得记\n- 旧位置的条目\n");
+        File.WriteAllText(Path.Combine(_home.TacitHome, "rules.md"), "## Worth recording\n- 旧位置的条目\n");
 
         var rules = _home.Tacit().LoadConfig().Prompts.Rules;
 
@@ -200,7 +200,7 @@ public sealed class PromptDocumentTests : IDisposable
     public void Without_instructions_md_only_rules_md_is_named_when_the_limit_is_broken()
     {
         Directory.CreateDirectory(Prompts);
-        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
 
         var error = Assert.Throws<TacitException>(() => Open());
 
@@ -295,16 +295,16 @@ public sealed class PromptDocumentTests : IDisposable
         using var service = Open();
         var builtIn = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
 
-        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 自定义的标准\n");
         var first = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
-        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 改过的标准\n");
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 改过的标准\n");
         var second = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
 
         Assert.True(builtIn.BuiltIn);
         Assert.Null(builtIn.Hash);
         Assert.Equal((await _home.Tacit().ShowAsync(Show.ShowTarget.Rules, useDefault: true)).Report, builtIn.Text);
         Assert.False(first.BuiltIn);
-        Assert.Equal("## 值得记\n- 自定义的标准\n", first.Text);
+        Assert.Equal("## Worth recording\n- 自定义的标准\n", first.Text);
         Assert.NotNull(first.Hash);
         Assert.NotEqual(first.Hash, second.Hash);
     }

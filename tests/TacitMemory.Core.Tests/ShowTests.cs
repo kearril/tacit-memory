@@ -34,7 +34,7 @@ public sealed class ShowTests : IDisposable
         Assert.Equal(4000, result.Whole!.Limit);
         Assert.True(result.Fixed.Length <= result.Fixed.Limit);
         // The built-in fixed part keeps a margin under its limit, so a user's rules.md has room to grow.
-        Assert.True(result.Fixed.Length <= 2500, $"the built-in fixed part is {result.Fixed.Length} characters");
+        Assert.True(result.Fixed.Length <= 2700, $"the built-in fixed part is {result.Fixed.Length} characters");
         Assert.True(result.Whole.Length >= result.Fixed.Length && result.Whole.Length <= result.Whole.Limit);
         var heading = result.Report.Split('\n')[0];
         Assert.Contains($"{result.Fixed!.Length}/3000", heading);
@@ -126,7 +126,7 @@ public sealed class ShowTests : IDisposable
     public async Task The_criteria_in_the_instructions_name_rules_md_when_it_exists()
     {
         Directory.CreateDirectory(Prompts);
-        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## 值得记\n- 自定义的标准\n");
+        File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 自定义的标准\n");
 
         var criteria = Part(await _home.Tacit().ShowAsync(ShowTarget.Instructions), "criteria");
 
@@ -136,15 +136,15 @@ public sealed class ShowTests : IDisposable
     }
 
     [Fact]
-    public async Task The_rules_show_the_built_in_criteria_in_the_memory_language_with_the_item_counts()
+    public async Task The_rules_show_the_built_in_criteria_in_english_with_the_item_counts()
     {
         var result = await _home.Tacit().ShowAsync(ShowTarget.Rules);
 
         var criteria = Part(result, "criteria");
         Assert.Equal(ShowSource.BuiltInDefault, criteria.Source);
         Assert.Null(criteria.Path);
-        Assert.StartsWith("## 值得记\n- 用户纠正或打断 Agent\n", criteria.Text);
-        Assert.Contains("\n## 不记\n", criteria.Text);
+        Assert.StartsWith("## Worth recording\n- The user corrects or interrupts the agent\n", criteria.Text);
+        Assert.Contains("\n## Not recorded\n", criteria.Text);
         var heading = result.Report.Split('\n')[0];
         Assert.Contains("内置默认", heading);
         Assert.Contains("5/10", heading);
@@ -157,28 +157,28 @@ public sealed class ShowTests : IDisposable
     {
         Directory.CreateDirectory(Prompts);
         var path = Path.Combine(Prompts, "rules.md");
-        File.WriteAllText(path, "## 值得记\n- 自定义的标准\n  续行不算条目\n\n## Not recorded\n- 日常闲聊\n");
+        File.WriteAllText(path, "## Worth recording\n- 自定义的标准\n  续行不算条目\n\n## Not recorded\n- 日常闲聊\n");
 
         var result = await _home.Tacit().ShowAsync(ShowTarget.Rules);
 
         var criteria = Part(result, "criteria");
         Assert.Equal(ShowSource.UserFile, criteria.Source);
         Assert.Equal(path, criteria.Path);
-        Assert.Equal("## 值得记\n- 自定义的标准\n\n## 不记\n- 日常闲聊", criteria.Text);
+        Assert.Equal("## Worth recording\n- 自定义的标准\n\n## Not recorded\n- 日常闲聊", criteria.Text);
         Assert.Contains(path, result.Report.Split('\n')[0]);
         Assert.Contains("1/10", result.Report.Split('\n')[0]);
     }
 
     [Theory]
-    [InlineData("zh", "## 值得记\n- 用户纠正或打断 Agent\n")]
-    [InlineData("en", "## Worth recording\n- The user corrects or interrupts the agent\n")]
-    public async Task The_default_rules_are_the_bare_file_in_the_memory_language(string language, string start)
+    [InlineData("zh")]
+    [InlineData("en")]
+    public async Task The_default_rules_are_the_same_bare_file_in_either_language(string language)
     {
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), $"{TestHome.Models}language: {language}\n");
 
         var result = await _home.Tacit().ShowAsync(ShowTarget.Rules, useDefault: true);
 
-        Assert.StartsWith(start, result.Report);
+        Assert.StartsWith("## Worth recording\n- The user corrects or interrupts the agent\n", result.Report);
         Assert.Equal(ShowSource.BuiltInDefault, Part(result, "text").Source);
     }
 

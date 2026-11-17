@@ -25,10 +25,10 @@ internal static class CandidatesFile
         var block = new List<string>
         {
             $"### {title}",
-            $"{StructureWords.BelongsTo.In(language)}{PersonaDocument.HeadingOf(section).In(language)}",
+            $"{StructureWords.BelongsTo}{PersonaDocument.HeadingOf(section)}",
         };
         if (!scope.IsGlobal)
-            block.Add($"{StructureWords.Scope.In(language)}{scope}");
+            block.Add($"{StructureWords.Scope}{scope}");
         block.Add(Occurrence(day, source, language));
 
         var candidates = MarkdownSections.LastHeading(lines, CandidatesDocument.IsCandidatesHeading);
@@ -44,7 +44,7 @@ internal static class CandidatesFile
             var restored = new List<string>();
             if (at > 0 && lines[at - 1].Trim().Length > 0)
                 restored.Add(string.Empty);
-            restored.Add("## " + StructureWords.Candidates.In(language));
+            restored.Add("## " + StructureWords.Candidates);
             restored.Add(string.Empty);
             restored.AddRange(block);
             if (rejection >= 0)
@@ -124,5 +124,5 @@ internal static class CandidatesFile
 
     /// <summary>An occurrence record: the day and the user's own words in the memory language.</summary>
     private static string Occurrence(DateOnly day, string source, MemoryLanguage language) =>
-        $"- {day:yyyy-MM-dd} {StructureWords.Quote.In(language)}「{source}」";
+        $"- {day:yyyy-MM-dd} {StructureWords.Quote}「{source}」";
 }

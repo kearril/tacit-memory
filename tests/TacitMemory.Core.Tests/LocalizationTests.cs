@@ -19,9 +19,9 @@ public sealed class LocalizationTests
         LocalizedTexts.AssertTranslated(LocalizedTexts.In(typeof(Localized).Assembly).Single(entry => entry.Name == name).Text);
 
     [Fact]
-    public void Structure_words_are_distinct_across_both_languages()
+    public void Structure_words_are_distinct()
     {
-        var words = StructureWordsIn().SelectMany(word => new[] { word.Zh.Trim(), word.En.Trim() }).ToList();
+        var words = StructureWordsIn().Select(word => word.Trim()).ToList();
 
         Assert.Equal(words.Count, words.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
@@ -29,11 +29,11 @@ public sealed class LocalizationTests
     [Theory]
     [InlineData(MemoryLanguage.Zh)]
     [InlineData(MemoryLanguage.En)]
-    public async Task Every_heading_init_writes_and_the_built_in_criteria_has_is_a_structure_word_of_that_language(MemoryLanguage language)
+    public async Task Every_heading_init_writes_and_the_built_in_criteria_has_is_a_structure_word_whatever_the_language(MemoryLanguage language)
     {
         using var home = new TestHome();
         var result = await home.Tacit().InitAsync(new InitRequest { Language = language });
-        var words = StructureWordsIn().Select(word => word.In(language)).ToHashSet();
+        var words = StructureWordsIn().ToHashSet();
 
         var files = new[] { "persona.md", "candidates.md", "workstreams.md" }.Select(name => Path.Combine(result.MemoryPath, name));
         var criteria = (await home.Tacit().ShowAsync(ShowTarget.Rules, useDefault: true)).Report.Split('\n');
@@ -44,17 +44,20 @@ public sealed class LocalizationTests
     }
 
     [Fact]
-    public void The_page_parser_finds_the_leftovers_and_overturned_sections_in_both_languages()
+    public void The_page_parser_finds_the_leftovers_and_overturned_sections_by_their_english_names_only()
     {
-        var english = PageDocument.Parse("## Leftovers\n- a\n\n## Overturned\n- b\n", hasBom: false, "page");
+        var english = PageDocument.Parse("## Leftovers\n- a\n\n## overturned\n- b\n", hasBom: false, "page");
         var chinese = PageDocument.Parse("## 遗留\n- a\n\n## 推翻记录\n- b\n", hasBom: false, "page");
 
         Assert.Equal("Leftovers", english.Leftovers?.Name);
-        Assert.Equal("Overturned", english.Overturned?.Name);
-        Assert.Equal("遗留", chinese.Leftovers?.Name);
-        Assert.Equal("推翻记录", chinese.Overturned?.Name);
+        Assert.Equal("overturned", english.Overturned?.Name);
+        Assert.Null(chinese.Leftovers);
+        Assert.Null(chinese.Overturned);
     }
 
-    private static IEnumerable<Localized> StructureWordsIn() =>
-        typeof(StructureWords).GetFields(BindingFlags.Public | BindingFlags.Static).Select(field => (Localized)field.GetValue(null)!);
+    /// <summary>The structure words, without the separator that follows some of them.</summary>
+    private static IEnumerable<string> StructureWordsIn() =>
+        typeof(StructureWords).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.Name != nameof(StructureWords.Separator))
+            .Select(field => (string)field.GetValue(null)!);
 }

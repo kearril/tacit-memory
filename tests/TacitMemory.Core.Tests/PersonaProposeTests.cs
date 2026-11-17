@@ -66,8 +66,8 @@ public sealed partial class PersonaProposeTests : IDisposable
     public async Task Proposing_a_preference_appends_a_candidate_with_its_section_and_first_occurrence_and_commits_only_candidates()
     {
         WriteCandidates(
-            "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n\n"
-            + "## 拒绝列表\n\n手写的注释\n");
+            "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-27 quote「跑一下全部测试」\n\n"
+            + "## Rejection list\n\n手写的注释\n");
         CommitBaselineWithStagedNotes();
         var persona = File.ReadAllText(PersonaMd);
 
@@ -76,9 +76,9 @@ public sealed partial class PersonaProposeTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
         Assert.Equal(
-            "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n\n"
-            + $"### 沟通：先要结论\n归属：偏好\n- {Today} 原话「先说结论」\n\n"
-            + "## 拒绝列表\n\n手写的注释\n",
+            "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-27 quote「跑一下全部测试」\n\n"
+            + $"### 沟通：先要结论\nBelongs to: Preferences\n- {Today} quote「先说结论」\n\n"
+            + "## Rejection list\n\n手写的注释\n",
             File.ReadAllText(CandidatesMd));
         Assert.Equal(persona, File.ReadAllText(PersonaMd));
         Assert.Contains("new candidate", result.Text);
@@ -93,15 +93,15 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task A_proposal_with_no_candidates_section_restores_the_heading_before_the_rejection_list()
     {
-        WriteCandidates("## 拒绝列表\n\n### 旧的\n归属：偏好\n- 2026-10-20 拒绝 原话「算了」\n");
+        WriteCandidates("## Rejection list\n\n### 旧的\nBelongs to: Preferences\n- 2026-10-20 rejected quote「算了」\n");
 
         var result = await _service.WritePersonaAsync(Propose("working_rules", "需求不清时 → 先追问", "先追问"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 候选\n\n### 需求不清时 → 先追问\n归属：协作规则\n"
-            + $"- {Today} 原话「先追问」\n\n"
-            + "## 拒绝列表\n\n### 旧的\n归属：偏好\n- 2026-10-20 拒绝 原话「算了」\n",
+            "## Candidates\n\n### 需求不清时 → 先追问\nBelongs to: Working rules\n"
+            + $"- {Today} quote「先追问」\n\n"
+            + "## Rejection list\n\n### 旧的\nBelongs to: Preferences\n- 2026-10-20 rejected quote「算了」\n",
             File.ReadAllText(CandidatesMd));
     }
 
@@ -114,29 +114,29 @@ public sealed partial class PersonaProposeTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 其他\n- 手写\n\n## 候选\n\n"
-            + $"### 沟通：先要结论\n归属：偏好\n- {Today} 原话「先要结论」\n",
+            "## 其他\n- 手写\n\n## Candidates\n\n"
+            + $"### 沟通：先要结论\nBelongs to: Preferences\n- {Today} quote「先要结论」\n",
             File.ReadAllText(CandidatesMd));
     }
 
     [Fact]
     public async Task Proposing_into_an_empty_candidates_section_puts_the_candidate_under_its_heading()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var result = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11", "我用 Windows"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 候选\n\n### 系统：Windows 11\n归属：档案\n"
-            + $"- {Today} 原话「我用 Windows」\n\n## 拒绝列表\n",
+            "## Candidates\n\n### 系统：Windows 11\nBelongs to: Profile\n"
+            + $"- {Today} quote「我用 Windows」\n\n## Rejection list\n",
             File.ReadAllText(CandidatesMd));
     }
 
     [Fact]
     public async Task A_red_line_cannot_be_proposed_and_the_refusal_sends_the_agent_to_ask_the_user()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
         var result = await _service.WritePersonaAsync(Propose("red_lines", "不要删库；改为先备份"));
@@ -150,30 +150,27 @@ public sealed partial class PersonaProposeTests : IDisposable
     }
 
     [Fact]
-    public async Task The_proposed_text_is_checked_against_its_section_and_its_length_like_add()
+    public async Task The_proposed_text_and_source_are_checked_like_add()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
-        var rule = await _service.WritePersonaAsync(Propose("working_rules", "需求不清时先追问"));
         var multiLine = await _service.WritePersonaAsync(Propose("preferences", "沟通：\n先要结论"));
         var multiLineSource = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "第一行\n第二行"));
         var commentEnd = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "原话 --> 不对"));
 
-        Assert.True(rule.IsError);
-        Assert.Contains("→", rule.Text);
         Assert.True(multiLine.IsError);
         Assert.True(multiLineSource.IsError);
         Assert.True(commentEnd.IsError);
         Assert.Contains("-->", commentEnd.Text);
-        Assert.All(new[] { rule, multiLine, multiLineSource, commentEnd }, result => Assert.False(result.Written));
+        Assert.All(new[] { multiLine, multiLineSource, commentEnd }, result => Assert.False(result.Written));
         Assert.Equal(before, File.ReadAllText(CandidatesMd));
     }
 
     [Fact]
     public async Task A_proposal_of_any_length_is_recorded_as_a_candidate()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var result = await _service.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 2000)));
 
@@ -207,7 +204,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task A_secret_in_the_text_or_source_of_a_proposal_is_refused_until_the_agent_confirms_it_is_not_one()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var inText = await _service.WritePersonaAsync(Propose("profile", $"密钥：{OpenAiKey}", "放心用"));
         var inSource = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11", $"密钥是 {OpenAiKey}"));
@@ -239,9 +236,9 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task Uncommitted_user_edits_to_candidates_are_committed_with_the_proposal_and_noted_in_the_subject()
     {
-        WriteCandidates("## 候选\n\n### 旧的\n归属：偏好\n- 2026-10-27 原话「旧」\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n### 旧的\nBelongs to: Preferences\n- 2026-10-27 quote「旧」\n\n## Rejection list\n");
         CommitBaselineWithStagedNotes();
-        WriteCandidates("## 候选\n\n### 用户手写的一条\n归属：偏好\n- 2026-10-30 原话「手写」\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n### 用户手写的一条\nBelongs to: Preferences\n- 2026-10-30 quote「手写」\n\n## Rejection list\n");
 
         var result = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
 
@@ -255,7 +252,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task The_first_proposal_of_the_day_leaves_a_backup()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var result = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11"));
         await _service.SettledAsync();
@@ -294,22 +291,22 @@ public sealed partial class PersonaProposeTests : IDisposable
     [InlineData("workstream:my-app")]
     public async Task A_scoped_proposal_writes_its_scope_line_after_the_section_line(string scope)
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var result = await _service.WritePersonaAsync(Propose("preferences", "网络：走固定出口", "走固定出口", scope: scope));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"scope: {scope}", result.Text);
         Assert.Equal(
-            "## 候选\n\n### 网络：走固定出口\n归属：偏好\n"
-            + $"作用域：{scope}\n- {Today} 原话「走固定出口」\n\n## 拒绝列表\n",
+            "## Candidates\n\n### 网络：走固定出口\nBelongs to: Preferences\n"
+            + $"Scope: {scope}\n- {Today} quote「走固定出口」\n\n## Rejection list\n",
             File.ReadAllText(CandidatesMd));
     }
 
     [Fact]
     public async Task A_proposal_with_a_scope_that_is_not_one_is_refused_and_the_next_step_names_op_propose()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
         var result = await _service.WritePersonaAsync(Propose("preferences", "网络：走固定出口", scope: "domain:Bad Name"));
@@ -324,7 +321,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task A_proposal_takes_no_trigger_because_the_candidate_does_not_create_the_domain()
     {
-        WriteCandidates("## 候选\n\n## 拒绝列表\n");
+        WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var request = Propose("preferences", "网络：走固定出口", scope: "domain:network-proxy") with { Trigger = "改代理时" };
         var result = await _service.WritePersonaAsync(request);

@@ -25,8 +25,8 @@ internal static class PersonaEvidence
             var candidate = judgment.Candidate;
             var first = candidate.Occurrences.Count == 0 ? DateOnly.MinValue : candidate.Occurrences.Min(occurrence => occurrence.Day);
             var occurrences = candidate.Occurrences.Select(occurrence =>
-                $"{occurrence.Day:yyyy-MM-dd} {(occurrence.Rejected ? StructureWords.Rejected.In(language) + " " : "")}{StructureWords.Quote.In(language)}「{occurrence.Quote}」");
-            var text = $"- \"{candidate.Text}\"; scope: {candidate.Scope}; section: {PersonaDocument.HeadingOf(candidate.Section).In(language)}; occurrences: {string.Join("; ", occurrences)}.";
+                $"{occurrence.Day:yyyy-MM-dd} {(occurrence.Rejected ? StructureWords.Rejected + " " : "")}{StructureWords.Quote}「{occurrence.Quote}」");
+            var text = $"- \"{candidate.Text}\"; scope: {candidate.Scope}; section: {PersonaDocument.HeadingOf(candidate.Section)}; occurrences: {string.Join("; ", occurrences)}.";
             entries.Add((first, 0, text));
         }
 

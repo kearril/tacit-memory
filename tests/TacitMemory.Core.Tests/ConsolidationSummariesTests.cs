@@ -114,7 +114,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task A_week_that_already_has_a_summary_line_and_the_week_in_progress_are_not_listed()
     {
         using var service = Open();
-        Month("2026-10", "## 2026-10-27\n- 已经汇总的活动\n\n## 汇总\n- 2026-W44：这一周已经汇总\n");
+        Month("2026-10", "## 2026-10-27\n- 已经汇总的活动\n\n## Summary\n- 2026-W44：这一周已经汇总\n");
         Month("2026-11", "## 2026-11-09\n- 本周一的活动\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
@@ -164,7 +164,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task Each_completed_month_without_a_summary_is_listed_with_the_week_summaries_written_in_its_file()
     {
         using var service = Open();
-        Month("2026-10", "## 2026-10-06\n- 十月初的活动\n## 2026-10-27\n- 十月底的活动\n\n## 汇总\n- 2026-W41：第二周的总结\n");
+        Month("2026-10", "## 2026-10-06\n- 十月初的活动\n## 2026-10-27\n- 十月底的活动\n\n## Summary\n- 2026-W41：第二周的总结\n");
         Month("2026-11", "## 2026-11-03\n- 本月的活动\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
@@ -179,7 +179,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task A_month_that_already_has_a_summary_line_is_not_listed()
     {
         using var service = Open();
-        Month("2026-10", "## 2026-10-06\n- 十月的活动\n\n## 汇总\n- 2026-10：十月已经汇总\n");
+        Month("2026-10", "## 2026-10-06\n- 十月的活动\n\n## Summary\n- 2026-10：十月已经汇总\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
         var section = Section(await Report(service), "Months to summarize");
@@ -192,7 +192,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task The_workstream_material_lists_only_workstreams_with_activity_since_the_last_consolidation_with_their_entries_and_activities()
     {
         _home.InitReady();
-        Workstreams("## 主线\n### alpha\n背景：一号主线。\n近况：正在收敛。\n### beta\n背景：二号主线。\n### gamma\n背景：三号主线，没有新活动。\n");
+        Workstreams("## Workstream\n### alpha\nBackground: 一号主线。\nRecent: 正在收敛。\n### beta\nBackground: 二号主线。\n### gamma\nBackground: 三号主线，没有新活动。\n");
         Month("2026-10", "## 2026-10-20\n- [alpha] 整理之前的活动\n");
         CommitAll("consolidate: earlier pass");
         Month("2026-11", "## 2026-11-09\n- [alpha] 本周的新活动\n- [beta] 贝塔的新活动\n");
@@ -221,7 +221,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task The_workstream_material_takes_the_activities_since_the_baseline_whichever_kind_of_baseline_it_is(string baseline)
     {
         _home.InitReady();
-        Workstreams("## 主线\n### alpha\n背景：一号主线。\n");
+        Workstreams("## Workstream\n### alpha\nBackground: 一号主线。\n");
         if (baseline == "consolidation")
         {
             Month("2026-11", "## 2026-11-02\n- [alpha] 整理之前的活动\n");
@@ -249,8 +249,8 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task Without_an_established_workstream_the_workstream_material_says_so_in_one_line()
     {
         using var service = Open();
-        Workstreams("## 主线\n");
-        Month("2026-10", "## 汇总\n- 2026-W44：第五周\n");
+        Workstreams("## Workstream\n");
+        Month("2026-10", "## Summary\n- 2026-W44：第五周\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
         var section = Section(await Report(service), "Workstream material");
@@ -263,7 +263,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
     public async Task An_established_workstream_without_activity_since_the_baseline_is_not_listed()
     {
         _home.InitReady();
-        Workstreams("## 主线\n### alpha\n背景：没有新活动的主线。\n");
+        Workstreams("## Workstream\n### alpha\nBackground: 没有新活动的主线。\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await Report(service), "Workstream material");

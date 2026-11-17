@@ -110,6 +110,6 @@ internal static class ConflictingEntries
     /// is not the global one.
     /// </summary>
     private static string Describe(ConflictingEntry entry, MemoryLanguage language) =>
-        $"[{entry.Code}] \"{entry.Item.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section).In(language)}"
+        $"[{entry.Code}] \"{entry.Item.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section)}"
         + (entry.Scope.IsGlobal ? "" : $" of {entry.Scope}");
 }

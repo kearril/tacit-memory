@@ -59,7 +59,7 @@ public sealed class SamePreferenceTests : IDisposable
                 : 0.0);
 
     private const string WorkingRuleCandidate =
-        "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n\n## 拒绝列表\n";
+        "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-27 quote「跑一下全部测试」\n\n## Rejection list\n";
 
     [Fact]
     public async Task A_candidate_the_decision_model_is_sure_states_the_same_preference_is_merged_and_committed()
@@ -76,8 +76,8 @@ public sealed class SamePreferenceTests : IDisposable
         Assert.DoesNotContain("consolidation", result.Text);
         Assert.DoesNotContain("days", result.Text);
         Assert.Equal(
-            "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n"
-            + "- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「提交前跑全量测试」\n\n## 拒绝列表\n",
+            "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n"
+            + "- 2026-10-27 quote「跑一下全部测试」\n- 2026-11-02 quote「提交前跑全量测试」\n\n## Rejection list\n",
             File.ReadAllText(CandidatesMd));
         Assert.Equal($"candidates: merge {ShortOf("每次提交前都运行全量测试")}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("candidates.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
@@ -87,7 +87,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_candidate_already_recorded_today_is_neither_written_nor_committed()
     {
         Configure();
-        Baseline("## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「先跑全量」\n\n## 拒绝列表\n");
+        Baseline("## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-27 quote「跑一下全部测试」\n- 2026-11-02 quote「先跑全量」\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
         var head = Git("rev-parse", "HEAD");
         PickOption("全量测试", 0.95);
@@ -106,7 +106,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_proposal_matching_a_rejected_candidate_is_not_recorded_and_says_when_and_in_what_words_it_was_refused()
     {
         Configure();
-        Baseline("## 候选\n\n## 拒绝列表\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-20 拒绝 原话「算了，别跑了」\n");
+        Baseline("## Candidates\n\n## Rejection list\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-20 rejected quote「算了，别跑了」\n");
         var before = File.ReadAllText(CandidatesMd);
         var head = Git("rev-parse", "HEAD");
         PickOption("全量测试", 0.95);
@@ -127,7 +127,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_proposal_matching_a_persona_entry_is_not_recorded_and_the_reply_gives_its_short_code()
     {
         Configure();
-        Baseline("## 候选\n\n## 拒绝列表\n", "## 红线\n\n## 协作规则\n\n## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n\n## 档案\n");
+        Baseline("## Candidates\n\n## Rejection list\n", "## Red lines\n\n## Working rules\n\n## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-20 quote「先要结论」 -->\n\n## Profile\n");
         var before = File.ReadAllText(CandidatesMd);
         PickOption("先要结论", 0.95);
 
@@ -143,9 +143,9 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_manual_edit_to_persona_md_is_seen_by_the_judgment_at_once()
     {
         Configure();
-        Baseline("## 候选\n\n## 拒绝列表\n");
+        Baseline("## Candidates\n\n## Rejection list\n");
         _ = Service;
-        File.WriteAllText(PersonaMd, "## 偏好\n- 沟通：先要结论\n  <!-- 2026-10-20 原话「先要结论」 -->\n");
+        File.WriteAllText(PersonaMd, "## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-20 quote「先要结论」 -->\n");
         PickOption("先要结论", 0.95);
 
         var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
@@ -221,7 +221,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task With_nothing_in_candidates_rejection_list_or_persona_the_decision_model_is_not_asked()
     {
         Configure();
-        Baseline("## 候选\n\n## 拒绝列表\n", "## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n");
+        Baseline("## Candidates\n\n## Rejection list\n", "## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
         var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
@@ -235,8 +235,8 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task The_question_offers_at_most_nine_nearest_entries_and_none()
     {
         Configure();
-        var entries = string.Concat(Enumerable.Range(0, 12).Select(i => $"### 偏好 {i}\n归属：偏好\n- 2026-10-2{i % 9} 原话「第{i}条」\n\n"));
-        Baseline($"## 候选\n\n{entries}## 拒绝列表\n");
+        var entries = string.Concat(Enumerable.Range(0, 12).Select(i => $"### 偏好 {i}\nBelongs to: Preferences\n- 2026-10-2{i % 9} quote「第{i}条」\n\n"));
+        Baseline($"## Candidates\n\n{entries}## 拒绝列表\n");
         IReadOnlyDictionary<string, string>? offered = null;
         _models.Choose = (_, options) =>
         {
@@ -269,7 +269,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_merge_keeps_every_other_byte_of_the_candidates_file()
     {
         Configure();
-        var handwritten = "# 手写标题\n<!-- 我的注释 -->\n\n## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n- 2026-10-27 原话「跑一下全部测试」\n\n手写的段落\n\n## 拒绝列表\n\n尾部注释\n";
+        var handwritten = "# 手写标题\n<!-- 我的注释 -->\n\n## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\n- 2026-10-27 quote「跑一下全部测试」\n\n手写的段落\n\n## Rejection list\n\n尾部注释\n";
         Baseline(handwritten);
         PickOption("全量测试", 0.95);
 
@@ -277,7 +277,7 @@ public sealed class SamePreferenceTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            handwritten.Replace("- 2026-10-27 原话「跑一下全部测试」\n", "- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「提交前跑全量测试」\n", StringComparison.Ordinal),
+            handwritten.Replace("- 2026-10-27 quote「跑一下全部测试」\n", "- 2026-10-27 quote「跑一下全部测试」\n- 2026-11-02 quote「提交前跑全量测试」\n", StringComparison.Ordinal),
             File.ReadAllText(CandidatesMd));
     }
 
@@ -294,11 +294,11 @@ public sealed class SamePreferenceTests : IDisposable
     }
 
     private const string DomainCandidate =
-        "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n作用域：domain:network-proxy\n- 2026-10-27 原话「跑一下全部测试」\n\n## 拒绝列表\n";
+        "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n- 2026-10-27 quote「跑一下全部测试」\n\n## Rejection list\n";
 
     private const string DomainPersona =
-        "## 红线\n\n## 协作规则\n\n## 偏好\n\n## 档案\n\n"
-        + "## 领域：network-proxy\n触发：改代理、分流或测速时\n### 协作规则\n- 提交前 → 先运行测试\n  <!-- 2026-10-20 原话「先跑测试」 -->\n";
+        "## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n\n"
+        + "## Domain: network-proxy\nTrigger: 改代理、分流或测速时\n### Working rules\n- 提交前 → 先运行测试\n  <!-- 2026-10-20 quote「先跑测试」 -->\n";
 
     /// <summary>The question's instructions as the check states them; the wording is kept as it was.</summary>
     private const string ExpectedInstructions =
@@ -325,8 +325,8 @@ public sealed class SamePreferenceTests : IDisposable
         Assert.True(result.Written);
         Assert.Contains("domain:network-proxy", result.Text);
         Assert.Equal(
-            "## 候选\n\n### 每次提交前都运行全量测试\n归属：协作规则\n作用域：domain:network-proxy\n"
-            + "- 2026-10-27 原话「跑一下全部测试」\n- 2026-11-02 原话「提交前跑全量测试」\n\n## 拒绝列表\n",
+            "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n"
+            + "- 2026-10-27 quote「跑一下全部测试」\n- 2026-11-02 quote「提交前跑全量测试」\n\n## Rejection list\n",
             File.ReadAllText(CandidatesMd));
     }
 
@@ -365,8 +365,8 @@ public sealed class SamePreferenceTests : IDisposable
         var question = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
         var criteria = question["criteria"]!.AsObject();
         var offered = criteria.Select(option => option.Value!.GetValue<string>()).ToList();
-        Assert.Contains(offered, option => option.StartsWith("[candidate | 协作规则 | domain:network-proxy]", StringComparison.Ordinal));
-        Assert.Contains(offered, option => option.StartsWith("[persona | 协作规则 | domain:network-proxy]", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.StartsWith("[candidate | Working rules | domain:network-proxy]", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.StartsWith("[persona | Working rules | domain:network-proxy]", StringComparison.Ordinal));
         Assert.Equal(ExpectedInstructions, question["instructions"]!.GetValue<string>());
         Assert.Equal(NoneOption, criteria.Single(option => option.Key == "none").Value!.GetValue<string>());
     }
@@ -375,7 +375,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_proposal_matching_a_persona_entry_of_a_domain_gives_that_entrys_short_code()
     {
         Configure();
-        Baseline("## 候选\n\n## 拒绝列表\n", DomainPersona);
+        Baseline("## Candidates\n\n## Rejection list\n", DomainPersona);
         PickOption("先运行测试", 0.95);
 
         var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "先跑测试"));
@@ -389,7 +389,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_proposal_matching_a_rejected_candidate_of_a_domain_is_refused_and_says_so()
     {
         Configure();
-        Baseline("## 候选\n\n## 拒绝列表\n\n### 每次提交前都运行全量测试\n归属：协作规则\n作用域：domain:network-proxy\n- 2026-10-20 拒绝 原话「算了，别跑了」\n");
+        Baseline("## Candidates\n\n## Rejection list\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n- 2026-10-20 rejected quote「算了，别跑了」\n");
         PickOption("全量测试", 0.95);
 
         var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));

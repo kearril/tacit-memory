@@ -103,7 +103,7 @@ internal sealed class PersonaTools(
         if (scopeRefusal is not null)
             return scopeRefusal;
 
-        var problems = EntryProblems(text, source, sectionKind);
+        var problems = EntryProblems(text, source);
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_persona op=add again.");
 
@@ -118,7 +118,7 @@ internal sealed class PersonaTools(
         var (existing, hasBom) = read.Value;
 
         var persona = PersonaDocument.Parse(existing);
-        var name = PersonaDocument.HeadingOf(sectionKind).En;
+        var name = PersonaDocument.HeadingOf(sectionKind);
         if (TriggerRefusal(persona, scope, trigger) is { } untriggered)
             return untriggered;
 
@@ -181,7 +181,7 @@ internal sealed class PersonaTools(
     /// <summary>The reply for an entry added to a domain or a workstream: where it went, the domain's count, and the trigger of a new domain.</summary>
     private string AddedToScopeReply(PersonaDocument persona, PersonaScope scope, PersonaSection kind, string code, string? createdTrigger)
     {
-        var name = PersonaDocument.HeadingOf(kind).En;
+        var name = PersonaDocument.HeadingOf(kind);
         if (scope.Kind == PersonaScopeKind.Workstream)
             return $"Added to the {name} section of workstream {scope.Name} as [{code}].";
 
@@ -219,14 +219,14 @@ internal sealed class PersonaTools(
 
         // The sentence form is checked against the section the replaced entry is in.
         if (text.Length > 0 && source.Length > 0)
-            reasons.AddRange(EntryProblems(text, source, entry.Kind));
+            reasons.AddRange(EntryProblems(text, source));
         if (reasons.Count > 0)
             return ToolText.Refuse(reasons, "Fix these and call write_persona op=replace again with the same hash.");
 
         if (SecretCheck(request, text, source, ToolValues.WritePersonaOps.Replace) is { } secret)
             return secret;
 
-        var name = PersonaDocument.HeadingOf(entry.Kind).En;
+        var name = PersonaDocument.HeadingOf(entry.Kind);
         var lines = EntryLines(text, source);
         var after = PersonaFile.ReplaceEntry(existing, entry.Item, lines);
         if (after == existing)
@@ -261,7 +261,7 @@ internal sealed class PersonaTools(
         if (Find(persona, hash) is not { } entry)
             return NoEntry(hash, [], "delete");
 
-        var name = PersonaDocument.HeadingOf(entry.Kind).En;
+        var name = PersonaDocument.HeadingOf(entry.Kind);
         var after = PersonaFile.ReplaceEntry(existing, entry.Item, []);
         var reply = $"Deleted [{entry.Code}] from the {name} section{ScopePhrase(entry.Scope)}. It read:\n{Listed(entry.Item, entry.Code)}\n"
             + CountNote(persona, entry.Scope, entry.Kind, -1);
@@ -297,7 +297,7 @@ internal sealed class PersonaTools(
         if (scopeRefusal is not null)
             return scopeRefusal;
 
-        var problems = EntryProblems(text, source, sectionKind);
+        var problems = EntryProblems(text, source);
         if (problems.Count > 0)
             return ToolText.Refuse(problems, "Fix these and call write_persona op=propose again.");
 
@@ -407,16 +407,11 @@ internal sealed class PersonaTools(
     private PersonaSection? SectionOf(string name) =>
         Sections.Where(section => section.Name == name).Select(section => (PersonaSection?)section.Kind).FirstOrDefault();
 
-    /// <summary>Whether the text contains the structure word in either language: Chinese as written, English as a whole word.</summary>
-    internal static bool HasStructureWord(string text, Localized word) =>
-        text.Contains(word.Zh, StringComparison.Ordinal)
-        || Regex.IsMatch(text, $@"\b{Regex.Escape(word.En)}\b", RegexOptions.IgnoreCase);
-
     /// <summary>An entry's lines as the file holds them: its text, then the source comment dated today.</summary>
     private List<string> EntryLines(string text, string source) =>
     [
         $"- {text}",
-        $"  <!-- {options.Today:yyyy-MM-dd} {StructureWords.Quote.In(config.Language)}「{source}」 -->",
+        $"  <!-- {options.Today:yyyy-MM-dd} {StructureWords.Quote}「{source}」 -->",
     ];
 
     /// <summary>One entry as a refusal lists it: its short code, its text and any continuation lines.</summary>
@@ -455,22 +450,14 @@ internal sealed class PersonaTools(
     }
 
     /// <summary>
-    /// The problems with an entry written into <paramref name="section"/>: one line each for text and source, the sentence
-    /// form of red lines and working rules, and the source comment's end marker.
+    /// The problems with an entry: one line each for text and source, and the source comment's end marker. The wording is
+    /// the agent's, which the memory skill guides; no sentence form is enforced.
     /// </summary>
-    private List<string> EntryProblems(string text, string source, PersonaSection section)
+    private static List<string> EntryProblems(string text, string source)
     {
         var problems = new List<string>();
         if (text.IndexOfAny(LineBreaks) >= 0)
             problems.Add("Text must be one line.");
-        if (section == PersonaSection.RedLines && !HasStructureWord(text, StructureWords.Instead))
-            problems.Add(
-                "A red line must say what to do instead: name the alternative after \"instead\" (or \"改为\"), "
-                + "for example: Don't publish a release without asking; instead ask the user first.");
-        if (section == PersonaSection.WorkingRules && !text.Contains('→'))
-            problems.Add(
-                "A working rule must have the form situation → action, with → between them, "
-                + "for example: When the request is unclear → ask first, then plan.");
         if (source.IndexOfAny(LineBreaks) >= 0)
             problems.Add("Source must be one line.");
         if (source.Contains("-->", StringComparison.Ordinal))
@@ -551,7 +538,7 @@ internal sealed class PersonaTools(
         "The new entry conflicts with, duplicates or supersedes an existing persona entry.",
         $"Ask the user whether to change that entry instead. Only if they agree, call write_persona again with op=replace, "
         + $"hash={conflict.Code}, and the new text and source; otherwise leave the persona as it is.",
-        $"{PersonaDocument.HeadingOf(conflict.Section).En} section{ScopePhrase(conflict.Scope)}:\n{Listed(conflict.Item, conflict.Code)}");
+        $"{PersonaDocument.HeadingOf(conflict.Section)} section{ScopePhrase(conflict.Scope)}:\n{Listed(conflict.Item, conflict.Code)}");
 
     /// <summary>A success reply, with the note that a skipped judgment adds at its end.</summary>
     private static string WithNote(string reply, string? note) => note is null ? reply : $"{reply}\n\n{note}";

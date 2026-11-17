@@ -81,12 +81,12 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
 
     /// <summary>The new entry as the question states it: its section in brackets, then its text.</summary>
     internal static string StateOf(string text, PersonaSection section, MemoryLanguage language) =>
-        $"[{PersonaDocument.HeadingOf(section).In(language)}] {text}";
+        $"[{PersonaDocument.HeadingOf(section)}] {text}";
 
     /// <summary>One existing entry as the question offers it: its section in brackets, then its text, cut to the option length.</summary>
     internal static string OptionText(PersonaSection section, string text, MemoryLanguage language)
     {
-        var description = $"[{PersonaDocument.HeadingOf(section).In(language)}] {text.ReplaceLineEndings(" ")}";
+        var description = $"[{PersonaDocument.HeadingOf(section)}] {text.ReplaceLineEndings(" ")}";
         return description.Length > OptionLength ? description[..OptionLength] : description;
     }
 

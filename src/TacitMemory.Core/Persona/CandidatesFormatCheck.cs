@@ -24,7 +24,7 @@ internal static class CandidatesFormatCheck
         {
             if (title is not null && !hasSection)
                 issues.Add(new FormatIssue("", $"line {blockLine + 1}", "Candidate without section",
-                    $"\"{title}\" has no \"{StructureWords.BelongsTo.Zh}\" line naming its section, so it is not read.", FormatHandling.FixDirectly));
+                    $"\"{title}\" has no \"{StructureWords.BelongsTo.Trim()}\" line naming its section, so it is not read.", FormatHandling.FixDirectly));
             title = null;
             hasSection = false;
         }
@@ -59,9 +59,9 @@ internal static class CandidatesFormatCheck
                             $"\"{scopeText}\" is not a scope: it must be global, workstream:<name> or domain:<label>, and the name uses only "
                             + "lowercase letters, digits, '.', '_' and '-'. Without a valid scope the candidate is read as global.", FormatHandling.FixDirectly));
                 }
-                else if (!IsBelongsLine(line) && CandidatesDocument.OccurrenceOf(line) is null)
+                else if (!CandidatesDocument.IsBelongsToLine(line) && CandidatesDocument.OccurrenceOf(line) is null)
                     issues.Add(UnrecognizedLine(index, line));
-                else if (IsBelongsLine(line) && CandidatesDocument.BelongsToOf(line) is null)
+                else if (CandidatesDocument.IsBelongsToLine(line) && CandidatesDocument.BelongsToOf(line) is null)
                     issues.Add(UnrecognizedLine(index, line));
             }
         }
@@ -70,11 +70,7 @@ internal static class CandidatesFormatCheck
         return issues;
     }
 
-    private static bool IsBelongsLine(string line) =>
-        line.StartsWith(StructureWords.BelongsTo.Zh, StringComparison.OrdinalIgnoreCase)
-        || line.StartsWith(StructureWords.BelongsTo.En, StringComparison.OrdinalIgnoreCase);
-
     private static FormatIssue UnrecognizedLine(int index, string line) =>
         new("", $"line {index + 1}", "Unrecognized occurrence line",
-            $"\"{line.Trim()}\" is neither a \"{StructureWords.BelongsTo.Zh}\" line nor a dated occurrence, so it is not read.", FormatHandling.FixDirectly);
+            $"\"{line.Trim()}\" is neither a \"{StructureWords.BelongsTo.Trim()}\" line nor a dated occurrence, so it is not read.", FormatHandling.FixDirectly);
 }

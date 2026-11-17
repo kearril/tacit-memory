@@ -47,11 +47,11 @@ public sealed class MemoryActivityTests : IDisposable
         WriteMonth("2026-10", """
             ## 2026-10-05
             - [my-app] 发版完成，因为测试都过了
-              <!-- 原话「发吧」 -->
+              <!-- quote「发吧」 -->
             - 一条没有主线的
             ## 2026-10-30
             - [my-app] 修了回滚
-            ## 汇总
+            ## Summary
             - 2026-W41：一周的汇总
             - 2026-10：一个月的汇总
             """);

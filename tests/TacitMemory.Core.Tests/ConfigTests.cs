@@ -568,7 +568,7 @@ public sealed class ConfigTests : IDisposable
     public void The_recording_criteria_come_from_rules_md()
     {
         WriteConfig("language: zh\n" + Models);
-        File.WriteAllText(RulesPath, "## 值得记\n- 用户纠正 Agent\n  补充说明\n- 环境事实\n\n## Not recorded\n- 常规改动\n");
+        File.WriteAllText(RulesPath, "## Worth recording\n- 用户纠正 Agent\n  补充说明\n- 环境事实\n\n## Not recorded\n- 常规改动\n");
 
         var rules = _home.Tacit().LoadConfig().Prompts.Rules!;
 
@@ -591,12 +591,12 @@ public sealed class ConfigTests : IDisposable
     public void A_rules_section_with_more_than_ten_items_is_refused_with_the_excess()
     {
         WriteConfig("language: zh\n" + Models);
-        File.WriteAllText(RulesPath, "## 值得记\n" + string.Concat(Enumerable.Range(1, 12).Select(i => $"- 规则 {i}\n")) + "\n## 不记\n- 常规改动\n");
+        File.WriteAllText(RulesPath, "## Worth recording\n" + string.Concat(Enumerable.Range(1, 12).Select(i => $"- 规则 {i}\n")) + "\n## Not recorded\n- 常规改动\n");
 
         var error = LoadFails();
 
         Assert.Equal(TacitError.PromptInvalid, error.Error);
-        Assert.Contains("值得记", error.Message);
+        Assert.Contains("Worth recording", error.Message);
         Assert.Contains("2", error.Message);
     }
 

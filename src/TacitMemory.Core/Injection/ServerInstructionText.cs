@@ -93,7 +93,7 @@ internal static class ServerInstructionText
         ## Language
         Memory is written in {LanguageName(language)}. Write `recall` queries in {LanguageName(language)} too. When you quote or record memory, keep the user's words, code, paths, commands and proper nouns as they are.
         """),
-        Part(InstructionPart.RecordingCriteria, Criteria(prompts.Rules ?? RulesFile.Default(language))),
+        Part(InstructionPart.RecordingCriteria, Criteria(prompts.Rules ?? RulesFile.Default)),
     ];
 
     /// <summary>The length of the fixed parts joined, which must stay within <see cref="FixedLimit"/>.</summary>

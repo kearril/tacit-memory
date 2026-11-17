@@ -118,7 +118,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task An_overturned_decision_leaves_the_effective_list_and_appears_only_as_an_identifier_on_one_line()
     {
         Setup();
-        await CreatePage("my-app/old-choice", ToolValues.PageTypes.Decision, "旧决定", ("背景", "旧的理由。"), ("推翻记录", "被 my-app/new-choice 取代。"));
+        await CreatePage("my-app/old-choice", ToolValues.PageTypes.Decision, "旧决定", ("背景", "旧的理由。"), ("Overturned", "被 my-app/new-choice 取代。"));
         await CreatePage("my-app/new-choice", ToolValues.PageTypes.Decision, "新决定", ("背景", "新的理由。"));
 
         var result = await Brief("my-app");
@@ -134,8 +134,8 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task Open_items_are_the_leftovers_of_work_pages_with_their_page_identifiers()
     {
         Setup();
-        await CreatePage("my-app/release-0-9", ToolValues.PageTypes.Work, "发版 0.9", ("记录", "发版过程。"), ("遗留", "- 回填任务还没跑\n- 通知用户升级"));
-        await CreatePage("my-app/odd-incident", ToolValues.PageTypes.Incident, "非工作页", ("现象", "现象。"), ("遗留", "- 不该出现在未决事项里"));
+        await CreatePage("my-app/release-0-9", ToolValues.PageTypes.Work, "发版 0.9", ("记录", "发版过程。"), ("Leftovers", "- 回填任务还没跑\n- 通知用户升级"));
+        await CreatePage("my-app/odd-incident", ToolValues.PageTypes.Incident, "非工作页", ("现象", "现象。"), ("Leftovers", "- 不该出现在未决事项里"));
 
         var result = await Brief("my-app");
 
@@ -143,6 +143,18 @@ public sealed class WorkstreamBriefTests : IDisposable
         Assert.Contains("my-app/release-0-9", result.Text[Position(result.Text, "Open items")..]);
         Assert.Contains("通知用户升级", result.Text);
         Assert.DoesNotContain("不该出现在未决事项里", result.Text);
+    }
+
+    [Fact]
+    public async Task Leftovers_under_a_chinese_heading_are_content_and_not_open_items()
+    {
+        Setup();
+        await CreatePage("my-app/release-1-0", ToolValues.PageTypes.Work, "发版 1.0", ("记录", "发版过程。"), ("遗留", "- 写成中文小节名的遗留"));
+
+        var result = await Brief("my-app");
+
+        Assert.DoesNotContain("Open items", result.Text);
+        Assert.DoesNotContain("写成中文小节名的遗留", result.Text);
     }
 
     [Fact]
@@ -176,9 +188,9 @@ public sealed class WorkstreamBriefTests : IDisposable
             Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "约定甲 → 做法甲", Source = "原话",
         });
-        await CreatePage("my-app/release-0-9", ToolValues.PageTypes.Work, "发版 0.9", ("记录", "发版过程。"), ("遗留", "- 未决乙"));
+        await CreatePage("my-app/release-0-9", ToolValues.PageTypes.Work, "发版 0.9", ("记录", "发版过程。"), ("Leftovers", "- 未决乙"));
         await Activity("最近的活动丙", workstream: "my-app");
-        MonthFile("2026-11", "## 2026-11-02\n- [my-app] 最近的活动丙\n\n## 汇总\n- 2026-W45：本周小结丁\n");
+        MonthFile("2026-11", "## 2026-11-02\n- [my-app] 最近的活动丙\n\n## Summary\n- 2026-W45：本周小结丁\n");
 
         var result = await Brief("my-app");
 
@@ -221,8 +233,8 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task The_latest_weekly_summary_is_that_of_the_latest_week_with_a_summary_in_which_the_workstream_has_activity()
     {
         Setup();
-        MonthFile("2026-10", "## 2026-10-28\n- [my-app] 十月末的活动\n\n## 汇总\n- 2026-W44：第四十四周小结甲\n");
-        MonthFile("2026-11", "## 2026-11-05\n- [my-app] 第四十五周的活动\n\n## 2026-11-10\n- [other-app] 别的项目\n\n## 汇总\n- 2026-W46：第四十六周小结乙\n");
+        MonthFile("2026-10", "## 2026-10-28\n- [my-app] 十月末的活动\n\n## Summary\n- 2026-W44：第四十四周小结甲\n");
+        MonthFile("2026-11", "## 2026-11-05\n- [my-app] 第四十五周的活动\n\n## 2026-11-10\n- [other-app] 别的项目\n\n## Summary\n- 2026-W46：第四十六周小结乙\n");
 
         var result = await Brief("my-app");
 
@@ -265,7 +277,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task An_established_workstream_brief_opens_with_its_background_and_recent_lines()
     {
         Setup();
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### my-app\n背景：一个应用。\n近况：在收尾。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### my-app\nBackground: 一个应用。\nRecent: 在收尾。\n");
         await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
 
         var result = await Brief("my-app");
@@ -277,7 +289,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task An_established_workstream_without_recent_gets_only_the_background_line()
     {
         Setup();
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### my-app\n背景：一个应用。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### my-app\nBackground: 一个应用。\n");
         await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
 
         var result = await Brief("my-app");
@@ -290,7 +302,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task A_name_that_is_not_established_gets_its_brief_without_background_or_recent()
     {
         Setup();
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### other\n背景：别的。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### other\nBackground: 别的。\n");
         await CreatePage("my-app/use-pgroonga", ToolValues.PageTypes.Decision, "采用 PGroonga", ("背景", "中文检索需要它。"));
 
         var result = await Brief("my-app");
@@ -304,7 +316,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task An_established_workstream_with_no_pages_or_activities_still_gets_its_background()
     {
         Setup();
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### my-app\n背景：一个应用。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### my-app\nBackground: 一个应用。\n");
 
         var result = await Brief("my-app");
 

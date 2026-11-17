@@ -12,7 +12,7 @@ internal enum SummaryKind
 }
 
 /// <summary>
-/// One summary line of the <c>## 汇总</c> section of a month file: <c>- 2026-W45：...</c> for a week or
+/// One summary line of the <c>## Summary</c> section of a month file: <c>- 2026-W45：...</c> for a week or
 /// <c>- 2026-11：...</c> for a month.
 /// </summary>
 /// <param name="Line">The line's index in the file.</param>
@@ -40,12 +40,8 @@ internal static partial class SummaryLines
     /// <param name="Body">The text after the colon, trimmed and not empty.</param>
     public sealed record Shape(SummaryKind Kind, int Year, int Number, string Body);
 
-    /// <summary>Whether a line is the summary section's heading, in either memory language.</summary>
-    public static bool IsHeading(string line)
-    {
-        var text = line.Trim();
-        return text == $"## {StructureWords.Summary.Zh}" || text == $"## {StructureWords.Summary.En}";
-    }
+    /// <summary>Whether a line is the summary section's heading.</summary>
+    public static bool IsHeading(string line) => line.Trim() == $"## {StructureWords.Summary}";
 
     /// <summary>The index of the summary heading, or -1 when the file has none.</summary>
     public static int HeadingIndex(IReadOnlyList<string> lines)

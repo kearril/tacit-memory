@@ -13,7 +13,7 @@ internal static class NewActivities
 {
     /// <summary>A source comment under an activity: its inner text is the quote mark and the quote, in either language.</summary>
     private static readonly Regex SourceComment = new(
-        @"^\s*<!--\s*(?<inner>(?:原话|quote)「.*」)\s*-->\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        @"^\s*<!--\s*(?<inner>quote「.*」)\s*-->\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static async Task<IReadOnlyList<(RecentFile.Activity Activity, string? Comment)>> ReadAsync(ConsolidationContext context, CancellationToken cancellationToken)
     {

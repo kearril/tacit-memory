@@ -33,7 +33,7 @@ internal static class PersonaFile
         var (at, before, after) = MissingHeading(
             lines,
             kind,
-            "## " + PersonaDocument.HeadingOf(kind).In(language),
+            "## " + PersonaDocument.HeadingOf(kind),
             section => KindHeading(lines, section),
             fallback: block >= 0 ? block : lines.Count,
             fallbackAfter: block >= 0 ? [string.Empty] : []);
@@ -69,7 +69,7 @@ internal static class PersonaFile
         var (sectionAt, before, after) = MissingHeading(
             lines,
             kind,
-            "### " + PersonaDocument.HeadingOf(kind).In(language),
+            "### " + PersonaDocument.HeadingOf(kind),
             section => SubHeading(lines, block, end, section),
             fallback: MarkdownSections.EndOfSection(lines, block),
             fallbackAfter: []);
@@ -97,10 +97,10 @@ internal static class PersonaFile
     private static (string Text, int Line) CreateBlock(
         string text, List<string> lines, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry, MemoryLanguage language, string cr)
     {
-        List<string> block = ["## " + scope.HeadingIn(language)];
+        List<string> block = ["## " + scope.Heading];
         if (trigger is not null)
-            block.Add(StructureWords.Trigger.In(language) + PersonaScope.Separator(language) + trigger);
-        block.Add("### " + PersonaDocument.HeadingOf(kind).In(language));
+            block.Add(StructureWords.Trigger + StructureWords.Separator + trigger);
+        block.Add("### " + PersonaDocument.HeadingOf(kind));
         block.AddRange(entry);
 
         var next = NextBlockHeading(lines, scope);

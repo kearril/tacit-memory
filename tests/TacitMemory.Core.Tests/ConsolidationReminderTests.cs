@@ -8,7 +8,7 @@ public sealed class ConsolidationReminderTests : IDisposable
 {
     private const string Heading = "## Consolidation reminder";
 
-    private const string TwoDayCandidate = "## 候选\n\n### 回答尽量简短\n归属：偏好\n- 2026-10-30 原话「别写那么长」\n- 2026-10-31 原话「直接说结论」\n\n## 拒绝列表\n";
+    private const string TwoDayCandidate = "## Candidates\n\n### 回答尽量简短\nBelongs to: Preferences\n- 2026-10-30 quote「别写那么长」\n- 2026-10-31 quote「直接说结论」\n\n## Rejection list\n";
 
     private readonly TestHome _home = TestHome.WithManualSources();
     private readonly ModelDouble _models = new();
@@ -33,7 +33,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     private void Ready(string extraConfig = "")
     {
         _home.InitReady(extraConfig, _models);
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n### alpha\n背景：有背景的主线。\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### alpha\nBackground: 有背景的主线。\n");
     }
 
     private MemoryService Open() => _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
@@ -114,8 +114,8 @@ public sealed class ConsolidationReminderTests : IDisposable
     public async Task Candidates_reaching_remind_candidates_bring_the_reminder_with_their_count()
     {
         Ready("consolidation:\n  remindCandidates: 2\n");
-        var second = "\n### 先给结论\n归属：偏好\n- 2026-10-31 原话「直接说结论」\n";
-        WriteCandidates(TwoDayCandidate.Replace("\n## 拒绝列表", second + "\n## 拒绝列表"));
+        var second = "\n### 先给结论\nBelongs to: Preferences\n- 2026-10-31 quote「直接说结论」\n";
+        WriteCandidates(TwoDayCandidate.Replace("\n## Rejection list", second + "\n## Rejection list"));
         using var service = Open();
 
         var instructions = await service.ServerInstructionsAsync();
@@ -159,7 +159,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     public async Task An_empty_workstream_brings_the_reminder_with_the_workstream_line()
     {
         Ready();
-        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## 主线\n");
+        File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n");
         CommitOn(InitDay, "consolidate: pass");
         using var service = Open();
 
@@ -187,7 +187,7 @@ public sealed class ConsolidationReminderTests : IDisposable
     public async Task Format_problems_alone_do_not_bring_the_reminder()
     {
         Ready();
-        File.WriteAllText(PersonaMd, "## 红线\n- 不要删库\n\n## 偏好\n- 沟通：先要结论\n");
+        File.WriteAllText(PersonaMd, "## Red lines\n- 不要删库\n\n## Preferences\n随手写的一行\n- 沟通：先要结论\n");
         using var service = Open();
 
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());

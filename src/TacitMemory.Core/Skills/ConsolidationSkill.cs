@@ -47,7 +47,7 @@ internal static class ConsolidationSkill
         "服务栈搭完后在收敛，砍掉不常用的。", "The service stack is set up and is being trimmed: rarely used services are being removed.");
 
     /// <summary>The structure words the files use, by the role each plays.</summary>
-    private static readonly (string Role, Localized Word)[] Words =
+    private static readonly (string Role, string Word)[] Words =
     [
         ("Red lines section (persona.md)", StructureWords.RedLines),
         ("Working rules section (persona.md)", StructureWords.WorkingRules),
@@ -62,7 +62,6 @@ internal static class ConsolidationSkill
         ("Scope line of a candidate or rejection", StructureWords.Scope),
         ("Quote of the user's own words", StructureWords.Quote),
         ("Rejected mark on an occurrence line", StructureWords.Rejected),
-        ("\"Instead\" in a red line", StructureWords.Instead),
         ("Workstream section (workstreams.md)", StructureWords.Workstream),
         ("Background line of a workstream (workstreams.md)", StructureWords.Background),
         ("Recent line of a workstream (workstreams.md)", StructureWords.Recent),
@@ -77,9 +76,9 @@ internal static class ConsolidationSkill
 
     private static string Body(MemoryLanguage language)
     {
-        var quote = StructureWords.Quote.In(language);
-        var summary = StructureWords.Summary.In(language);
-        var colon = language == MemoryLanguage.Zh ? "：" : ": ";
+        var quote = StructureWords.Quote;
+        var summary = StructureWords.Summary;
+        var colon = StructureWords.Separator;
         var text = new StringBuilder();
         text.Append("# Memory consolidation\n\n");
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText)
@@ -141,7 +140,7 @@ internal static class ConsolidationSkill
             .Append(". Write these words exactly as they appear here.\n\n");
         text.Append("| Role | Word |\n| :--- | :--- |\n");
         foreach (var (role, word) in Words)
-            text.Append("| ").Append(role).Append(" | ").Append(word.In(language).TrimEnd()).Append(" |\n");
+            text.Append("| ").Append(role).Append(" | ").Append(word.TrimEnd()).Append(" |\n");
         text.Append('\n');
 
         text.Append("In the examples, ").Append(Date).Append(" stands for the date, ").Append(Week).Append(" for an ISO week and ")
@@ -149,37 +148,37 @@ internal static class ConsolidationSkill
 
         text.Append("Example of a scope block in persona.md:\n");
         text.Append("```\n");
-        text.Append("## ").Append(StructureWords.Domain.In(language)).Append(colon).Append(ExampleDomain).Append('\n');
-        text.Append(StructureWords.Trigger.In(language)).Append(colon).Append(ExampleTrigger.In(language)).Append('\n');
-        text.Append("### ").Append(StructureWords.WorkingRules.In(language)).Append('\n');
+        text.Append("## ").Append(StructureWords.Domain).Append(colon).Append(ExampleDomain).Append('\n');
+        text.Append(StructureWords.Trigger).Append(colon).Append(ExampleTrigger.In(language)).Append('\n');
+        text.Append("### ").Append(StructureWords.WorkingRules).Append('\n');
         text.Append("- ").Append(ExampleComparison.In(language)).Append(" → ").Append(ExampleScopedText.In(language)).Append('\n');
         text.Append("  <!-- ").Append(Date).Append(' ').Append(quote).Append("「…」 -->\n");
         text.Append("```\n\n");
 
         text.Append("Example of a candidate block in candidates.md, scoped to a domain:\n");
         text.Append("```\n");
-        text.Append("## ").Append(StructureWords.Candidates.In(language)).Append('\n');
+        text.Append("## ").Append(StructureWords.Candidates).Append('\n');
         text.Append("### ").Append(ExampleScopedText.In(language)).Append('\n');
-        text.Append(StructureWords.BelongsTo.In(language)).Append(StructureWords.Preferences.In(language)).Append('\n');
-        text.Append(StructureWords.Scope.In(language)).Append("domain:").Append(ExampleDomain).Append('\n');
+        text.Append(StructureWords.BelongsTo).Append(StructureWords.Preferences).Append('\n');
+        text.Append(StructureWords.Scope).Append("domain:").Append(ExampleDomain).Append('\n');
         text.Append("- ").Append(Date).Append(' ').Append(quote).Append('「').Append(ExampleScopedQuote.In(language)).Append("」\n");
         text.Append("```\n\n");
 
         text.Append("Example of an entry in the rejection list of candidates.md:\n");
         text.Append("```\n");
-        text.Append("## ").Append(StructureWords.RejectionList.In(language)).Append('\n');
+        text.Append("## ").Append(StructureWords.RejectionList).Append('\n');
         text.Append("### ").Append(ExampleText.In(language)).Append('\n');
-        text.Append(StructureWords.BelongsTo.In(language)).Append(StructureWords.Preferences.In(language)).Append('\n');
-        text.Append("- ").Append(Date).Append(' ').Append(StructureWords.Rejected.In(language)).Append(' ')
+        text.Append(StructureWords.BelongsTo).Append(StructureWords.Preferences).Append('\n');
+        text.Append("- ").Append(Date).Append(' ').Append(StructureWords.Rejected).Append(' ')
             .Append(quote).Append('「').Append(ExampleQuote.In(language)).Append("」\n");
         text.Append("```\n\n");
 
         text.Append("Example of a workstream entry in workstreams.md. The background line says what the workstream is; the recent line says where it stands and where it is going:\n");
         text.Append("```\n");
-        text.Append("## ").Append(StructureWords.Workstream.In(language)).Append('\n');
+        text.Append("## ").Append(StructureWords.Workstream).Append('\n');
         text.Append("### ").Append(ExampleWorkstream).Append('\n');
-        text.Append(StructureWords.Background.In(language)).Append(colon).Append(ExampleBackground.In(language)).Append('\n');
-        text.Append(StructureWords.Recent.In(language)).Append(colon).Append(ExampleRecent.In(language)).Append('\n');
+        text.Append(StructureWords.Background).Append(colon).Append(ExampleBackground.In(language)).Append('\n');
+        text.Append(StructureWords.Recent).Append(colon).Append(ExampleRecent.In(language)).Append('\n');
         text.Append("```\n\n");
 
         text.Append("Example of summary lines at the end of a month file:\n");

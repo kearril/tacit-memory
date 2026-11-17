@@ -43,7 +43,7 @@ internal static partial class PromptFiles
     public static string DefaultText(PromptName name, MemoryLanguage language) => name switch
     {
         PromptName.Instructions => ServerInstructionText.DefaultInstructions,
-        PromptName.Rules => RulesFile.Compose(RulesFile.Default(language), language),
+        PromptName.Rules => RulesFile.Compose(RulesFile.Default),
         PromptName.Resident => ResidentFile.Compose(ResidentBlock.Default),
         PromptName.Skill => "",
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),

@@ -42,7 +42,7 @@ internal static class PersonaReading
     private static string GlobalSection(PersonaDocument persona, PersonaSection kind, IReadOnlyDictionary<int, string> codes)
     {
         var entries = persona.Entries(kind);
-        return Lines($"{PersonaDocument.HeadingOf(kind).En}, {Count(entries.Count)}:", entries, codes);
+        return Lines($"{PersonaDocument.HeadingOf(kind)}, {Count(entries.Count)}:", entries, codes);
     }
 
     /// <summary>
@@ -61,7 +61,7 @@ internal static class PersonaReading
         {
             var entries = block.EntriesOf(kind);
             if (entries.Count > 0)
-                text.Append('\n').Append(Lines($"{PersonaDocument.HeadingOf(kind).En}:", entries, codes));
+                text.Append('\n').Append(Lines($"{PersonaDocument.HeadingOf(kind)}:", entries, codes));
         }
 
         return text.ToString();

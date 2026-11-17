@@ -222,11 +222,11 @@ public sealed class DerivedUpkeepTests : IDisposable
     [Fact]
     public async Task A_render_scheduled_before_a_maintenance_operation_runs_before_it()
     {
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Profile\n- 系统：Windows 11\n");
         _home.Bind();
         using var service = Open();
         var agents = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 12\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Profile\n- 系统：Windows 12\n");
         _home.Sources!.MemoryChanged("persona.md");
 
         // The debounce has not passed on the test clock: only the maintenance operation can have run the render.
@@ -241,7 +241,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         _home.Bind();
         using var service = Open();
         var agents = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Profile\n- 系统：Windows 11\n");
         File.WriteAllText(
             Path.Combine(Memory, "recent", $"{TestHome.Today:yyyy-MM}.md"),
             $"## {TestHome.Today:yyyy-MM-dd}\n- 导出脚本改用按月分文件导出，因为单个文件太大。\n");
@@ -264,7 +264,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         using var upkeep = new DerivedUpkeep(options, log, gate, () => throw new InvalidOperationException("no runtime"));
         using var watch = new FileSourceWatch(Memory, _home.TacitHome, upkeep, log);
 
-        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## 档案\n- 系统：Windows 11\n");
+        File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Profile\n- 系统：Windows 11\n");
 
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (!notices.Any(notice => notice.Contains("timer refused", StringComparison.Ordinal)))
