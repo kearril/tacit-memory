@@ -1,6 +1,6 @@
 # TacitMemory 运维
 
-本文档说明日常运维怎么做：文件在哪、怎么备份与恢复、日志看哪里、出了问题怎么排查、怎么安装与升级。命令的完整选项见 `docs/reference/cli.md`，配置项见 `docs/reference/configuration.md`。
+本文档说明日常运维怎么做：文件在哪、怎么备份与恢复、日志看哪里、出了问题怎么排查、怎么安装与升级。命令的完整选项见 `tacit <命令> --help`，配置项见 `docs/reference/configuration.md`。
 
 ## 1. 文件在哪
 
@@ -41,7 +41,7 @@
 
 **恢复**：`tacit restore --from <zip>` 从本地备份恢复，`tacit restore --remote` 从云端备份恢复；先看预览，确认后执行，恢复前自动生成保险备份。默认只恢复记忆仓库，加 `--include-config` 一并恢复 `config.yaml` 与 `prompts/`；`bindings.json` 永不恢复。恢复期间记忆工具的调用排队等待，结束后索引全量重建。`restore --remote` 先把云端备份下载到 `backups/.download/tacit-backup.zip`，恢复成功后删除，失败则保留以便排查。
 
-完整规则见 `docs/design.md` 第 12 节「备份与恢复」。
+完整规则见 `docs/design.md`「运行」中的「备份与恢复」。
 
 ## 3. 日志
 
@@ -63,22 +63,32 @@
 
 派生索引（`memory/.cache/`）损坏或换了嵌入模型时执行 `tacit reindex`（需服务运行）。嵌入模型名或向量维度变化时服务也会自动丢弃旧向量并补齐，`reindex` 用于需要立即全量重建的情况。
 
-换了决策模型后，也建议执行一次 `tacit reindex`。整理的判断缓存不随模型变化而失效（缓存键不含模型名，见 `docs/design.md` 第 9 节），内容没变的提问会沿用旧模型的答案；`reindex` 会清空判断缓存，之后的整理全部改问新模型。对话中实时写入的判断不读缓存，不受影响。
+换了决策模型后，也建议执行一次 `tacit reindex`。整理的判断缓存不随模型变化而失效（缓存键不含模型名，见 `docs/design.md`「整理」），内容没变的提问会沿用旧模型的答案；`reindex` 会清空判断缓存，之后的整理全部改问新模型。对话中实时写入的判断不读缓存，不受影响。
 
 ## 5. 排障
 
-各命令的退出码见 `docs/reference/cli.md`「退出码」。
+所有命令的退出码一致：
 
-- **任何问题先看 `tacit status`**（各栏与退出码见 `docs/reference/cli.md`「`tacit status`」）。
+| 码 | 含义 |
+| :--- | :--- |
+| 0 | 成功；`status` 中表示服务在运行 |
+| 1 | 运行失败：服务拒绝、IO 或权限错误、端口被占、`restore` 未确认、`probe` 有模型失败 |
+| 2 | 用法错误：未知命令或选项、缺参数、参数值非法 |
+| 3 | 配置无效：`config.yaml` 缺失或有错、记忆仓库未初始化、提示词文档违反限制 |
+| 4 | 服务未运行（需要服务的命令：`reindex`、`backup`、`restore`） |
+
+设了环境变量 `NO_COLOR`，或输出不是终端时，命令输出不带颜色与面板的纯文本。
+
+- **任何问题先看 `tacit status`**。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
 - **升级后报未知键**：报错点名的键已删除（清单见 `docs/reference/configuration.md`），从 `config.yaml` 中删去后重启。升级前绑定的 skill 目录里可能还留着旧的 `tacit-checkup` 链接（已改名为 `tacit-consolidate`），它指向已不再生成的目录；`disconnect` 不删除它，需手动删除。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
 - **忘记访问密码**：访问密码只能在本机重设或清除，忘记时在本机处理。先在 `config.yaml` 中去掉 `server.host` 并重启服务（否则清除会被拒绝）；然后在本机调用 `DELETE /api/access-password` 清除，或停止服务后删除 `TACIT_HOME/access.json`。清除后再在本机设置新的访问密码，并把 `server.host` 写回、重启。
 - **`serve` 拒绝启动，提示需要访问密码**：`server.host` 为 `127.0.0.1` 以外的地址而没有访问密码。按上一条先去掉 `server.host` 启动，在本机设置访问密码，再写回 `server.host`。
 - **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
-- **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md` 第 4 节，固定部分的上限见 `docs/design.md` 第 8 节）。
+- **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md`「提示词文档」，固定部分的上限见 `docs/design.md`「注入」）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
-- **辅助模型连不上**：先运行 `tacit probe`，据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md` 第 4 节）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
+- **辅助模型连不上**：先运行 `tacit probe`，据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md`「辅助模型」）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
 - **向量扩展无法加载**：启动时会校验 `vec0.dll` 的存在与哈希，不符即拒绝启动。确认它与 `tacit.exe` 位于同一目录，且未被替换。
 - **客户端中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。
@@ -118,7 +128,7 @@ dotnet tool restore
 ./build/smoke.ps1 -PublishDir <输出目录>/tacit
 ```
 
-冒烟检查什么见 `docs/testing.md` 第 8 节。
+冒烟检查什么见 `docs/dev/testing.md`「发行包的冒烟」。
 
 发行包把 .NET 运行时固定在构建时的补丁版本，运行时的安全补丁随 tacit 的新版本生效。
 

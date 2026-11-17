@@ -18,7 +18,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 
 从 GitHub Releases 下载 `tacit-<版本>-win-x64.zip`，解压到一个空目录。发行包是自包含的，不需要预装 .NET。`tacit.exe`、`vec0.dll` 与 Web 界面的 `web/` 子目录须留在同一目录。把该目录加入 `PATH` 后即可在任意位置运行 `tacit`。
 
-校验下载与升级的步骤见 [`docs/operations.md`](docs/operations.md) 第 6 节。
+校验下载与升级的步骤见 [`docs/reference/operations.md`](docs/reference/operations.md)「发布」。
 
 ### 从源码构建
 
@@ -28,7 +28,7 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 ```
 
-这样得到的是依赖框架的产物，运行时需要预装 ASP.NET Core 11。打出与发行包相同的自包含产物、以及不构建 Web 界面的方法，见 [`docs/operations.md`](docs/operations.md) 第 6 节。CLI 未打包为 dotnet tool。
+这样得到的是依赖框架的产物，运行时需要预装 ASP.NET Core 11。打出与发行包相同的自包含产物、以及不构建 Web 界面的方法，见 [`docs/reference/operations.md`](docs/reference/operations.md)「发布」。CLI 未打包为 dotnet tool。
 
 ## 快速开始
 
@@ -79,7 +79,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 2. 在 `config.yaml` 的 `server` 一节写 `host`（如 Tailscale 地址，或 `0.0.0.0` 表示所有网络接口），然后重启 `tacit serve`。`tacit status` 的服务栏会给出额外监听的地址。
 3. 在另一台设备上打开 `http://<该地址>:<端口>/`，输入访问密码登录。
 
-MCP 端点仍只接受本机连接。连接不加密，访问密码以明文传输，请只在可信的网络（如 Tailscale）中开放。规则见 [`docs/reference/api.md`](docs/reference/api.md) 第 2 节。
+MCP 端点仍只接受本机连接。连接不加密，访问密码以明文传输，请只在可信的网络（如 Tailscale）中开放。规则见 [`docs/design.md`](docs/design.md)「访问与鉴权」。
 
 ## 日常使用
 
@@ -93,19 +93,7 @@ MCP 端点仍只接受本机连接。连接不加密，访问密码以明文传�
 
 ## 文档
 
-| 文档 | 内容 |
-| :--- | :--- |
-| [`docs/reference/cli.md`](docs/reference/cli.md) | 每个命令的语法、选项、输出与退出码 |
-| [`docs/reference/configuration.md`](docs/reference/configuration.md) | `config.yaml`、环境变量、密钥与提示词文档 |
-| [`docs/reference/mcp.md`](docs/reference/mcp.md) | MCP 端点、工具参数、返回格式与资源 |
-| [`docs/reference/api.md`](docs/reference/api.md) | 管理 API 的端点、访问规则与错误 |
-| [`docs/web.md`](docs/web.md) | Web 界面的页面与流程 |
-| [`docs/operations.md`](docs/operations.md) | 文件位置、备份与恢复、日志、排障、发行包与升级 |
-| [`docs/design.md`](docs/design.md) | 记忆如何分层、写入、检索与注入 |
-| [`docs/prompts.md`](docs/prompts.md) | 发给模型的每段文字负责什么 |
-| [`docs/architecture.md`](docs/architecture.md) | 代码结构与各模块的实现状况 |
-| [`docs/testing.md`](docs/testing.md) | 测试方式 |
-| [`GLOSSARY.md`](GLOSSARY.md) | 术语 |
+从 [`docs/overview.md`](docs/overview.md) 读起，它给出全局概览与文档地图。
 
 ## 许可
 

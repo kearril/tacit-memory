@@ -14,8 +14,6 @@ web/*.tsbuildinfo
 AGENTS.local.md
 HANDOFF.md
 .scratch/
-docs/adr/
-docs/agents/
 
 # Third-party licenses the web build records for the release notices
 web/licenses/

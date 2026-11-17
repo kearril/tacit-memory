@@ -257,7 +257,7 @@ Web 界面中为常见客户端预填的一组上下文文件与 skill 目录路
 _Avoid_: 客户端预设、客户端模板、适配
 
 **维护操作**（Maintenance operation）：
-独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md` 第 12 节「服务运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
+独占记忆仓库与派生索引的操作。执行期间，其他读写排队等待，完成后照常执行（范围见 `docs/design.md`「运行」中的「服务运行」）。`tacit reindex` 与 `tacit restore` 都是维护操作。
 _Avoid_: 运维操作、独占操作、锁定操作
 
 **重新加载**（Reload）：
