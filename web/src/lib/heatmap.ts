@@ -1,5 +1,5 @@
-import type { ActivityReport } from "../../api/activity";
-import type { components } from "../../api/schema";
+import type { ActivityReport } from "../api/activity";
+import type { components } from "../api/schema";
 
 export type { ActivityReport };
 export type WorkstreamCount = components["schemas"]["WorkstreamCount"];

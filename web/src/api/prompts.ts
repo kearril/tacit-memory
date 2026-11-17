@@ -1,5 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, call } from "./client";
+import type { Affects } from "./effects";
+import { STATUS_QUERY_KEY } from "./status";
 import type { components } from "./schema";
 
 export type PromptList = components["schemas"]["PromptList"];
@@ -39,6 +41,12 @@ export function savePrompt(name: PromptName, hash: string | null, text: string):
 export function restorePromptDefault(name: PromptName): Promise<PromptSaved> {
   return call(api.DELETE("/api/prompts/{name}", { params: { path: { name } } }));
 }
+
+/**
+ * A save or a return to the default changes the documents (the core rules and the recording criteria are measured
+ * together, so the other one's length as well) and may fix a broken file, which the status lists.
+ */
+export const SAVE_PROMPT_AFFECTS: Affects = [PROMPTS_QUERY_KEY, STATUS_QUERY_KEY];
 
 /** Checks `text` as the document `name` without saving it: its measure, and every refusal a save of it would give. */
 export function checkPrompt(name: PromptName, text: string): Promise<PromptCheck> {

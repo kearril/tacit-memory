@@ -1,6 +1,17 @@
-import type { Dictionary } from "./messages";
+import type { ServiceLogLevel } from "../api/logs";
+import type { FullTextMethod, PageType } from "../api/memory";
+import type { PromptName } from "../api/prompts";
+import type { components } from "../api/schema";
+import type { BindingProblem } from "../api/status";
+import type { Duration } from "../lib/format";
 
-export const zh: Dictionary = {
+type MemoryLanguage = components["schemas"]["MemoryLanguage"];
+
+/**
+ * The text of the interface in Chinese. Its shape is the dictionary's type: every other language is checked against it,
+ * so a dictionary that leaves a key out, adds one or takes other parameters does not compile.
+ */
+export const zh = {
   appName: "TacitMemory",
   mainNav: "主导航",
   nav: {
@@ -24,14 +35,16 @@ export const zh: Dictionary = {
     remote: "其他设备",
     remoteNote: "已凭访问密码登录",
   },
+  /** What the date field says. */
   datePicker: {
     placeholder: "选择日期",
     previous: "上个月",
     next: "下个月",
     today: "今天",
     clear: "清除",
+    /** The weekdays from Monday. */
     weekdays: ["一", "二", "三", "四", "五", "六", "日"],
-    month: (month) => `${month.slice(0, 4)} 年 ${Number(month.slice(5))} 月`,
+    month: (month: string) => `${month.slice(0, 4)} 年 ${Number(month.slice(5))} 月`,
   },
   showPassword: "显示",
   hidePassword: "隐藏",
@@ -62,11 +75,13 @@ export const zh: Dictionary = {
     cancel: "取消",
     cleared: "访问密码已清除。",
     clearFailed: "未能清除访问密码",
-    clearBlocked: (address) =>
+    clearBlocked: (address: string) =>
       `额外监听（${address}）开着时不能清除访问密码，否则其他设备会在没有密码的情况下连上服务。要清除，先在 config.yaml 中删去 server.host 并重启服务。`,
   },
   prompts: {
+    /** The label of the list of documents in the sidebar. */
     documentsNav: "提示词文档",
+    /** Each document's name and the lines on where its text goes, what it holds and when a change takes effect. */
     documents: {
       instructions: {
         title: "核心规则",
@@ -100,25 +115,30 @@ export const zh: Dictionary = {
           "改动后记忆 skill 随之重新生成，Agent 下次读取时生效。",
         ],
       },
-    },
+    } satisfies Record<PromptName, unknown>,
     builtIn: "内置默认",
     builtInNote: "没有这份文件，服务正在使用下面的内置文本。",
     customized: "已自定义",
+    /** The mark in the sidebar, and the title above the editor, of a document whose file the service does not run. */
     invalid: "有误",
     invalidTitle: "文件有误，服务正在使用上一版",
     invalidNote: "下面是文件现在的内容。改正后保存，或恢复默认，服务即改用新的内容。",
-    customizedNote: (file) => `服务正在使用你的文件 prompts/${file}。`,
-    aboutLabel: (title) => `关于${title}`,
+    customizedNote: (file: string) => `服务正在使用你的文件 prompts/${file}。`,
+    /** The name of the information button beside a document's title. */
+    aboutLabel: (title: string) => `关于${title}`,
     residentSections: "允许的节名：",
-    textLabel: (title) => `${title}的内容`,
+    textLabel: (title: string) => `${title}的内容`,
+    /** What an empty editor shows: the built-in `skill.md` is empty. */
     empty: "（空）",
     loadFailed: "未能读取提示词文档",
     customize: "开始自定义",
     unsaved: "有未保存的改动",
     save: "保存",
     saving: "正在保存…",
+    /** After a save: the change reaches the agents with their next session. */
     saved: "已保存，下一个会话生效。",
     restored: "已恢复默认，下一个会话生效。",
+    /** Above what did not go as planned after a save, such as a resident block that could not be rendered again. */
     noticesTitle: "已保存，但有需要留意的地方",
     rejectedTitle: "未能保存：内容不符合要求",
     saveFailed: "未能保存",
@@ -130,48 +150,53 @@ export const zh: Dictionary = {
     discardConfirm: "放弃改动",
     restore: "恢复默认",
     restoreTitle: "恢复默认？",
-    restoreBody: (file) => `将删除 prompts/${file}，服务改用内置文本。文件里的内容不会保留，未保存的改动也会丢弃。`,
+    restoreBody: (file: string) =>
+      `将删除 prompts/${file}，服务改用内置文本。文件里的内容不会保留，未保存的改动也会丢弃。`,
     restoreConfirm: "删除文件并恢复默认",
     reload: "重新载入",
     reloadTitle: "重新载入？",
-    reloadBody: (file) => `未保存的改动将丢弃，页面改为显示 prompts/${file} 现在的内容。`,
+    reloadBody: (file: string) => `未保存的改动将丢弃，页面改为显示 prompts/${file} 现在的内容。`,
     reloadConfirm: "放弃改动并重新载入",
     leaveTitle: "离开这份文档？",
     leaveBody: "还有未保存的改动，离开后将丢失。",
     leaveConfirm: "放弃改动并离开",
+    /** Above the problems the check finds in the text being edited, before any save. */
     problemsTitle: "当前内容不符合要求，保存会被拒绝",
+    /** The measure under the text: characters, the fixed part of the server instructions and what it leaves. */
     measure: {
-      characters: (length, limit) => `${length} / ${limit} 字符`,
-      fixedPart: (length, limit) => `服务端说明固定部分 ${length} / ${limit} 字符`,
-      activityRoom: (room) => `最近活动还能用 ${room} 字符`,
-      noActivityRoom: (short) => `最近活动没有空间，还差 ${short} 字符`,
-      items: (section, count, limit) => `${section} ${count} / ${limit} 条`,
+      characters: (length: number, limit: number) => `${length} / ${limit} 字符`,
+      fixedPart: (length: number, limit: number) => `服务端说明固定部分 ${length} / ${limit} 字符`,
+      activityRoom: (room: number) => `最近活动还能用 ${room} 字符`,
+      noActivityRoom: (short: number) => `最近活动没有空间，还差 ${short} 字符`,
+      items: (section: string, count: number, limit: number) => `${section} ${count} / ${limit} 条`,
       worthRecording: "值得记",
       notRecorded: "不记",
     },
   },
   logs: {
+    /** The label of the button that picks the day. */
     dateLabel: "选择日期",
     today: "今天",
+    /** Each level's three-letter code as the file writes it, and its name for screen readers and tooltips. */
     levels: {
       information: { code: "INF", name: "信息" },
       warning: { code: "WRN", name: "警告" },
       error: { code: "ERR", name: "错误" },
-    },
+    } satisfies Record<ServiceLogLevel, unknown>,
     loadFailed: "读取日志失败",
     emptyToday: "今天还没有日志。服务写下第一条后会出现在这里。",
     emptyDay: "这一天的日志是空的。",
-    noLog: (date) => `${date} 没有日志。日志保留最近 14 天。`,
+    noLog: (date: string) => `${date} 没有日志。日志保留最近 14 天。`,
     backToToday: "回到今天",
     levelsLabel: "按级别筛选",
-    levelToggle: (level, count) => `${level}，${count} 条`,
+    levelToggle: (level: string, count: number) => `${level}，${count} 条`,
     keywordLabel: "筛选关键字",
-    shown: (shown, total) => (shown === total ? `共 ${total} 条` : `显示 ${shown} / 共 ${total} 条`),
+    shown: (shown: number, total: number) => (shown === total ? `共 ${total} 条` : `显示 ${shown} / 共 ${total} 条`),
     noMatch: "没有符合筛选的日志。",
     clearFilters: "清除筛选",
     follow: "实时跟随",
     entriesLabel: "日志条目",
-    unseen: (count) => `${count} 条新日志`,
+    unseen: (count: number) => `${count} 条新日志`,
     offline: "暂时连不上服务，已有的日志保留在页面上，恢复后自动继续。",
   },
   settings: {
@@ -185,19 +210,21 @@ export const zh: Dictionary = {
       advanced: "高级",
     },
     sectionsNav: "设置的各节",
-    problemsIn: (count) => `${count} 处问题`,
+    problemsIn: (count: number) => `${count} 处问题`,
     loadFailed: "未能读取设置",
+    /** The title when `config.yaml` does not load, as when it was broken by hand or restored broken. */
     fileInvalid: "config.yaml 有错误，设置页暂时打不开",
+    /** That the service runs on with the config it last loaded, and how to go on. */
     fileInvalidNote: "服务仍按上次加载的配置运行。在 config.yaml 中改好这些项后，点「重新读取」。",
-    defaultValue: (value) => `默认 ${value}`,
-    outOfRange: (min, max) => `须在 ${min} 到 ${max} 之间`,
+    defaultValue: (value: string) => `默认 ${value}`,
+    outOfRange: (min: string, max: string) => `须在 ${min} 到 ${max} 之间`,
     immediate: "立即生效",
     immediateHelp: "这里的操作立即执行，不经过页面底部的保存。",
     restoreDefault: "恢复默认",
     notANumber: "请填写数字。",
     notAWholeNumber: "请填写整数。",
-    changes: (count) => `${count} 项改动未保存`,
-    changesRestart: (count) => `其中 ${count} 项重启后生效`,
+    changes: (count: number) => `${count} 项改动未保存`,
+    changesRestart: (count: number) => `其中 ${count} 项重启后生效`,
     discard: "放弃",
     save: "保存",
     saving: "正在保存…",
@@ -213,12 +240,12 @@ export const zh: Dictionary = {
     leaveBody: "还有未保存的改动，离开后将丢失。",
     leaveConfirm: "放弃改动并离开",
     restartHelp: "保存后要重启 tacit serve 才生效。",
-    pendingBadge: (running) => `待重启 · 运行中 ${running}`,
+    pendingBadge: (running: string) => `待重启 · 运行中 ${running}`,
     readOnlyNote: "改完 config.yaml 后重启 tacit serve 生效。",
     required: "启用时必填",
     restartTitle: "部分设置要重启后生效",
     restartBody: "其余改动已经生效。以下各项已保存，重启 tacit serve 后生效：",
-    restartLine: (running, saved) => `${running} → ${saved}`,
+    restartLine: (running: string, saved: string) => `${running} → ${saved}`,
     restartOk: "知道了",
     driftTitle: "config.yaml 与运行中的服务不一致",
     driftBody: "文件在服务加载之后被手动修改过，以下各项还没有生效。在本页保存任何改动、或重启 tacit serve 后生效：",
@@ -232,11 +259,11 @@ export const zh: Dictionary = {
       rewrite: "改写",
       clear: "清除",
       undo: "撤销",
-      fromEnvironment: (variable) => `来自环境变量 ${variable}`,
-      environmentNote: (variable) =>
+      fromEnvironment: (variable: string) => `来自环境变量 ${variable}`,
+      environmentNote: (variable: string) =>
         `环境变量 ${variable} 优先于 config.yaml。要修改，请改这个环境变量并重启 tacit serve。`,
-      fileNote: (variable) => `以明文写在 config.yaml 中；也可以改用环境变量 ${variable}。`,
-      unsetNote: (variable) => `填在这里会以明文写入 config.yaml；也可以改用环境变量 ${variable}。`,
+      fileNote: (variable: string) => `以明文写在 config.yaml 中；也可以改用环境变量 ${variable}。`,
+      unsetNote: (variable: string) => `填在这里会以明文写入 config.yaml；也可以改用环境变量 ${variable}。`,
       willClear: "保存后从 config.yaml 中删除",
       newValue: "新的值",
       emptyRewrite: "请填写新的值，或撤销改写。",
@@ -265,21 +292,21 @@ export const zh: Dictionary = {
       summary: "让客户端用上记忆：在它的上下文文件里写入常驻块，并在它的 skill 目录中链接 skill。",
       healthy: "正常",
       broken: "有问题",
-      sharedWith: (names) => `与 ${names} 共用`,
+      sharedWith: (names: string) => `与 ${names} 共用`,
       unbind: "解除绑定",
-      unbindTitle: (client) => `解除 ${client} 的绑定？`,
+      unbindTitle: (client: string) => `解除 ${client} 的绑定？`,
       unbindBody:
         "删除它上下文文件中的常驻块，以及 skill 目录中指向 tacit 的链接，再删除这条绑定。其他绑定仍在使用的文件与链接保留。",
-      unbound: (client) => `已解除 ${client} 的绑定。`,
+      unbound: (client: string) => `已解除 ${client} 的绑定。`,
       unbindFailed: "解除绑定没有完成",
       add: "新增绑定",
       addTile: "新增",
       choose: "选一个客户端，已知客户端会自动填好路径。",
       other: "其他",
       otherTitle: "其他客户端",
-      bindTitle: (name) => `绑定 ${name}`,
+      bindTitle: (name: string) => `绑定 ${name}`,
       back: "换一个",
-      bindingName: (client) => `绑定名 ${client}`,
+      bindingName: (client: string) => `绑定名 ${client}`,
       close: "关闭",
       done: "完成",
       pathsNote: "路径是运行服务的这台主机上的路径，~ 为主机上用户的主目录；skill 目录必须已存在。",
@@ -290,7 +317,7 @@ export const zh: Dictionary = {
       },
       bind: "绑定",
       bindFailed: "绑定没有完成",
-      bound: (client) => `已绑定 ${client}`,
+      bound: (client: string) => `已绑定 ${client}`,
       mcpTitle: "在客户端中注册 MCP 服务",
       mcpNote: "MCP 只接受本机连接：请在这台主机上的客户端中注册，tacit 不替你修改客户端的配置。",
       mcp: { url: "端点", transport: "传输方式", name: "服务名" },
@@ -298,7 +325,7 @@ export const zh: Dictionary = {
     },
     models: {
       summary: "检索和写入时用到的三个模型。关掉的模型保存后从配置中移除，填过的内容留在页面上。",
-      enable: (model) => `启用${model}`,
+      enable: (model: string) => `启用${model}`,
       edit: "编辑",
       collapse: "收起",
       uses: {
@@ -306,11 +333,12 @@ export const zh: Dictionary = {
         reranker: "给检索结果重新排序",
         decision: "写入时判断是否重复或冲突",
       },
-      offLine: (use) => `未启用 · ${use}`,
+      offLine: (use: string) => `未启用 · ${use}`,
       offHint: "未启用：可以先填好，打开开关并保存后生效。",
       noModel: "未填模型 ID",
       probeNote: "探测已保存的配置，看模型能否连通。",
       providers: { generic: "通用协议", cloudflare: "Cloudflare" },
+      /** What each protocol means for each model, in one line under the protocol. */
       protocols: {
         embedding: {
           generic: "按 OpenAI Embeddings 格式请求。URL 原样使用，填完整的接口地址。",
@@ -325,6 +353,7 @@ export const zh: Dictionary = {
           cloudflare: "请求与 System One 相同，响应按 Workers AI 的 result 外层读取。",
         },
       },
+      /** An example of the URL for each model and protocol, as the placeholder of an empty URL; empty for none. */
       urlExamples: {
         embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
         reranker: {
@@ -368,7 +397,9 @@ export const zh: Dictionary = {
     advanced: {
       summary: "一般不需要改动。",
       fileOnly: "只在 config.yaml 中修改",
-      languages: { zh: "中文", en: "English" },
+      languages: { zh: "中文", en: "English" } satisfies Record<MemoryLanguage, string> as Readonly<
+        Record<string, string>
+      >,
       fields: {
         port: {
           label: "端口",
@@ -401,18 +432,29 @@ export const zh: Dictionary = {
       },
     },
   },
+  probe: {
+    button: "探测",
+    succeeded: (milliseconds: number) => `探测成功 · ${milliseconds} ms`,
+    failed: (reason: string, milliseconds: number) => `探测失败 · ${reason} · ${milliseconds} ms`,
+    skipped: "未配置，跳过",
+    httpStatus: (code: number) => `HTTP ${code}`,
+    wrongFormat: "响应格式不对",
+    network: "网络错误",
+    timeout: "超时",
+    failedTitle: "探测没有完成",
+  },
   dashboard: {
-    connectionLost: (time) => `无法连接到常驻服务，以下是 ${time} 的数据。`,
+    connectionLost: (time: string) => `无法连接到常驻服务，以下是 ${time} 的数据。`,
     connectionLostNever: "无法连接到常驻服务。",
     calm: "一切安好",
-    pending: (count) => `有 ${count} 件事等你处理`,
-    uptime: ({ days, hours, minutes }) =>
+    pending: (count: number) => `有 ${count} 件事等你处理`,
+    uptime: ({ days, hours, minutes }: Duration) =>
       days > 0
         ? `已运行 ${days} 天 ${hours} 小时`
         : hours > 0
           ? `已运行 ${hours} 小时 ${minutes} 分`
           : `已运行 ${minutes} 分钟`,
-    consolidated: (days) => (days === 0 ? "今天整理过" : `上次整理在 ${days} 天前`),
+    consolidated: (days: number) => (days === 0 ? "今天整理过" : `上次整理在 ${days} 天前`),
     neverConsolidated: "还没有整理过",
     cards: {
       todos: "待处理",
@@ -425,32 +467,32 @@ export const zh: Dictionary = {
       status: "状态",
     },
     unreadable: "这一栏读不了，详见服务日志。",
-    copy: (what) => `复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,
-    copied: (what) => `已复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,
+    copy: (what: string) => `复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,
+    copied: (what: string) => `已复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,
     modelStates: {
       available: "可用",
-      coolingDown: (clock) => `冷却中 · ${clock}`,
+      coolingDown: (clock: string) => `冷却中 · ${clock}`,
       unconfigured: "未配置",
       cooling: "有模型在冷却",
     },
     logs: {
       today: "今天",
       quiet: "没有警告与错误",
-      warnings: (count) => `${count} 条警告`,
-      errors: (count) => `${count} 条错误`,
+      warnings: (count: number) => `${count} 条警告`,
+      errors: (count: number) => `${count} 条错误`,
       view: "查看日志",
     },
     index: {
       lastConsolidation: "上次整理",
       never: "还没有整理过",
-      daysAgo: (days) => (days === 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`),
-      candidates: (count) => `${count} 条候选等下次整理`,
-      formatProblems: (count) => `${count} 个文件格式有问题`,
-      unsummarizedWeeks: (count) => `${count} 周还没有汇总`,
+      daysAgo: (days: number) => (days === 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`),
+      candidates: (count: number) => `${count} 条候选等下次整理`,
+      formatProblems: (count: number) => `${count} 个文件格式有问题`,
+      unsummarizedWeeks: (count: number) => `${count} 周还没有汇总`,
       clear: "一切正常",
     },
     service: {
-      version: (version) => `版本 ${version}`,
+      version: (version: string) => `版本 ${version}`,
       mcp: "MCP 地址",
       web: "Web 地址",
       extraListener: "额外监听",
@@ -462,8 +504,8 @@ export const zh: Dictionary = {
     backups: {
       none: "还没有本地备份",
       kinds: { auto: "自动备份", manual: "手动备份", preRestore: "恢复前的保险备份" },
-      latest: (kind, size) => `${kind}，${size}`,
-      count: (count) => `本地共 ${count} 份`,
+      latest: (kind: string, size: string) => `${kind}，${size}`,
+      count: (count: number) => `本地共 ${count} 份`,
       cloud: "云端备份",
       cloudNotConfigured: "未配置",
       configure: "去设置",
@@ -473,21 +515,10 @@ export const zh: Dictionary = {
       backUpNow: "立即备份",
       backUpLocal: "本地备份",
       backUpCloud: "云端备份",
-      backedUp: (name) => `已备份：${name}`,
+      backedUp: (name: string) => `已备份：${name}`,
       cloudBackedUp: "云端备份已完成",
       failed: "备份没有成功",
       cloudFailedTitle: "云端备份没有成功",
-    },
-    probe: {
-      button: "探测",
-      succeeded: (milliseconds) => `探测成功 · ${milliseconds} ms`,
-      failed: (reason, milliseconds) => `探测失败 · ${reason} · ${milliseconds} ms`,
-      skipped: "未配置，跳过",
-      httpStatus: (code) => `HTTP ${code}`,
-      wrongFormat: "响应格式不对",
-      network: "网络错误",
-      timeout: "超时",
-      failedTitle: "探测没有完成",
     },
     restore: {
       open: "恢复…",
@@ -508,7 +539,7 @@ export const zh: Dictionary = {
       confirm: "恢复所选备份",
       failed: "恢复没有成功",
       doneTitle: "已恢复",
-      safety: (name) => `恢复前的状态已存为 ${name}，需要时可以从它恢复回来。`,
+      safety: (name: string) => `恢复前的状态已存为 ${name}，需要时可以从它恢复回来。`,
       reindexed: "索引已重建",
       done: "完成",
     },
@@ -518,7 +549,7 @@ export const zh: Dictionary = {
       body: "重新计算全部派生索引（全文与向量）。记忆本身不变，但索引里的使用统计会清空；重建期间检索与写入排队等待，记忆多时要一会儿。",
       confirm: "重建索引",
       cancel: "取消",
-      done: (files, units) => `已重建索引：${files} 个文件、${units} 个片段`,
+      done: (files: number, units: number) => `已重建索引：${files} 个文件、${units} 个片段`,
       failed: "重建索引没有成功",
     },
     agents: {
@@ -527,7 +558,7 @@ export const zh: Dictionary = {
       broken: "绑定有问题",
       today: "今天连接过",
       yesterday: "昨天连接过",
-      lastSeen: (date) => `${date} 连接过`,
+      lastSeen: (date: string) => `${date} 连接过`,
       neverSeen: "还没连接过",
       empty: "还没有绑定，也没有客户端连接过。绑定之后，客户端才能读到画像与规则。",
       noBindings: "还没有绑定，客户端读不到画像与规则。",
@@ -536,61 +567,65 @@ export const zh: Dictionary = {
       bindingsUnreadable: "读不了绑定，无法标出各客户端是否已绑定，详见服务日志。",
       legend: "圆点的含义",
       manage: "管理绑定",
-      more: (count) => `+${count}`,
-      moreLabel: (count) => `还有 ${count} 个客户端，去设置查看`,
+      more: (count: number) => `+${count}`,
+      moreLabel: (count: number) => `还有 ${count} 个客户端，去设置查看`,
     },
     todos: {
       empty: "没有需要处理的事",
-      modelsUnconfigured: (models) =>
+      modelsUnconfigured: (models: readonly string[]) =>
         models.length === 1 ? `${models[0]}未配置` : `${models.length} 个辅助模型未配置`,
-      modelsUnconfiguredDetail: (models) => (models.length === 1 ? "在设置的「模型」一节填写" : models.join("、")),
+      modelsUnconfiguredDetail: (models: readonly string[]) =>
+        models.length === 1 ? "在设置的「模型」一节填写" : models.join("、"),
       noBindings: "还没有绑定任何客户端",
       noBindingsDetail: "客户端还读不到画像与规则",
-      bindingProblem: (client) => `${client} 的绑定有问题`,
-      extraListenerFailed: (address) => `额外监听 ${address} 未能启动`,
+      bindingProblem: (client: string) => `${client} 的绑定有问题`,
+      extraListenerFailed: (address: string) => `额外监听 ${address} 未能启动`,
       cloudBackupFailed: "上一次云端备份失败",
-      cloudBackupFailedDetail: (time) => `${time} 的云端备份没有成功`,
-      promptProblem: (document) => `提示词「${document}」有误，服务正在使用上一版`,
+      cloudBackupFailedDetail: (time: string) => `${time} 的云端备份没有成功`,
+      promptProblem: (document: string) => `提示词「${document}」有误，服务正在使用上一版`,
     },
     models: {
       embedding: "嵌入模型",
       reranker: "重排模型",
       decision: "决策模型",
-    },
+    } as Readonly<Record<string, string>>,
     bindingProblems: {
       contextFileMissing: "上下文文件不存在",
       contextFileNotUtf8: "上下文文件不是 UTF-8",
       contextFileUnreadable: "上下文文件无法读取",
       markersIncomplete: "常驻区块的起止标记不完整或重复",
       skillLinkNotTacit: "skill 链接缺失或没有指向 tacit",
-    },
+    } satisfies Record<BindingProblem, unknown>,
     activity: {
       window: "近一年",
       weekdays: ["一", "二", "三", "四", "五", "六", "日"],
       less: "少",
       more: "多",
       consolidated: "整理日",
-      cell: (date, total, consolidated) => `${date}：${total} 条活动${consolidated ? "，整理过" : ""}`,
-      activities: (count) => `${count} 条活动`,
+      cell: (date: string, total: number, consolidated: boolean) =>
+        `${date}：${total} 条活动${consolidated ? "，整理过" : ""}`,
+      activities: (count: number) => `${count} 条活动`,
       none: "这一天没有活动",
       unlabeled: "未归属",
       total: "活动总数",
       activeDays: "活跃天数",
       longestStreak: "最长连续",
       topWorkstream: "最活跃主线",
-      days: (count) => `${count} 天`,
+      days: (count: number) => `${count} 天`,
       noWorkstream: "暂无",
-      skipped: (files) => `这些活动文件读不了，热力图中缺少它们的日子：${files}`,
+      skipped: (files: string) => `这些活动文件读不了，热力图中缺少它们的日子：${files}`,
       historyUnreadable: "记忆仓库的历史读不了，整理日没有标出。",
     },
   },
   memory: {
+    /** The five views under 记忆 in the sidebar, by their address segment. */
     views: { persona: "画像", workstreams: "主线", pages: "细节页", activity: "活动", search: "检索" },
     viewsNav: "记忆视图",
     search: {
       queryLabel: "查询",
       queryPlaceholder: "像 Agent 一样问一句，看 recall 会给它什么",
-      conditions: (count) => (count === 0 ? "条件" : `条件 · ${count}`),
+      /** The button that unfolds the conditions while the bar floats, with how many are set. */
+      conditions: (count: number) => (count === 0 ? "条件" : `条件 · ${count}`),
       workstreamLabel: "主线",
       workstreamAll: "全部主线",
       fromLabel: "起始日期",
@@ -600,12 +635,16 @@ export const zh: Dictionary = {
       run: "检索",
       idle: "输入查询后点「检索」，看 Agent 用同样的参数调用 recall 时会得到什么、每个检索单元去了哪里。",
       failed: "检索失败",
-      resultsTitle: (count) => `结果 · ${count}`,
+      resultsTitle: (count: number) => `结果 · ${count}`,
       noResults: "没有结果：Agent 会收到「No relevant memory.」",
       unitsTitle: "检索单元的去向",
+      /** How a result and its units light each other up. */
       linkHint: "悬停一条结果，看它由哪些单元组成",
-      partOf: (number) => `属于第 ${number} 条结果`,
-      offscreen: { above: (count) => `上方还有 ${count} 个`, below: (count) => `下方还有 ${count} 个` },
+      /** The number of the result a unit became part of. */
+      partOf: (number: number) => `属于第 ${number} 条结果`,
+      /** Lit rows scrolled out of their column, and the button that brings the first into view. */
+      offscreen: { above: (count: number) => `上方还有 ${count} 个`, below: (count: number) => `下方还有 ${count} 个` },
+      /** The trace's funnel: what each step kept, then a bar of the units by fate. */
       funnel: {
         label: "检索漏斗",
         fullText: "全文",
@@ -614,23 +653,27 @@ export const zh: Dictionary = {
         reranked: "送 reranker",
         passed: "过阈值",
         results: "结果",
-        jump: (fate, count) => `${fate}：${count} 个单元，跳到这一段`,
+        jump: (fate: string, count: number) => `${fate}：${count} 个单元，跳到这一段`,
       },
       columns: { fullText: "全文", vector: "向量", reranker: "reranker" },
       fates: {
         shown: "显示",
         beyondTopK: "超出 topK",
-        belowThreshold: (score) => `低于阈值 ${score}`,
-        beyondCandidates: (candidates) => `融合后在 ${candidates} 之外`,
+        belowThreshold: (score: string) => `低于阈值 ${score}`,
+        beyondCandidates: (candidates: number) => `融合后在 ${candidates} 之外`,
       },
-      shownSummary: (units, results) => `${units} 个单元 → ${results} 条结果`,
-      unitCount: (count) => `${count} 个单元`,
+      shownSummary: (units: number, results: number) => `${units} 个单元 → ${results} 条结果`,
+      unitCount: (count: number) => `${count} 个单元`,
       notReranked: "未送 reranker",
-      share: (percent) => `占全部单元的 ${percent}%`,
+      share: (percent: number) => `占全部单元的 ${percent}%`,
       none: "无",
+      /** How a unit or result is named: a page's title and aliases are its clue. */
       unitKinds: { clue: "线索", activity: "活动", summary: "汇总", week: "周", month: "月" },
-      fullTextMethods: { phrase: "短语匹配", substring: "单字子串匹配", none: "没有可检索的文本" },
-      timing: (method, embedding, reranker) =>
+      fullTextMethods: { phrase: "短语匹配", substring: "单字子串匹配", none: "没有可检索的文本" } satisfies Record<
+        FullTextMethod,
+        unknown
+      >,
+      timing: (method: string, embedding: string | null, reranker: string | null) =>
         [
           `全文：${method}`,
           embedding === null ? null : `嵌入 ${embedding}`,
@@ -638,33 +681,48 @@ export const zh: Dictionary = {
         ]
           .filter((part) => part !== null)
           .join(" · "),
+      /** The three retrieval values a trace may replace for itself alone. */
       overrides: {
         title: "临时替换检索参数",
         help: "只对这次检索生效，不改配置。留空则用配置中的值。",
         labels: { minRerankScore: "最低 rerank 分数", topK: "topK", candidates: "候选数" },
-        pill: (replaced) => (replaced === 0 ? "参数" : `参数 · 已改 ${replaced}`),
-        configured: (value) => `配置中为 ${value}`,
+        /** The pill that opens the values, with how many are replaced. */
+        pill: (replaced: number) => (replaced === 0 ? "参数" : `参数 · 已改 ${replaced}`),
+        configured: (value: string) => `配置中为 ${value}`,
       },
+      /**
+       * A configured model that did not answer: why, in the interface language (`cooling` says it was skipped); the
+       * notes themselves are `recall`'s own, shown as the agent receives them.
+       */
       degraded: {
         title: "检索已降级",
-        embedding: (cooling) => `嵌入模型：${cooling ? "冷却中" : "调用失败"}`,
-        reranker: (cooling) => `reranker：${cooling ? "冷却中" : "调用失败"}`,
+        embedding: (cooling: boolean) => `嵌入模型：${cooling ? "冷却中" : "调用失败"}`,
+        reranker: (cooling: boolean) => `reranker：${cooling ? "冷却中" : "调用失败"}`,
         notes: "Agent 收到的说明",
       },
+      /** The two ways to show the results: as cards, or as the text the agent receives. */
       view: { label: "结果的显示方式", cards: "卡片", raw: "Agent 看到的原文" },
-      unfold: (count) => `展开其余 ${count} 个`,
+      unfold: (count: number) => `展开其余 ${count} 个`,
     },
+    /** The small parts the memory views share. */
     parts: {
-      code: (code) => `短码 ${code}`,
+      /** What a copied short code is called, in the copy button's label and its toast. */
+      code: (code: string) => `短码 ${code}`,
+      /** What a copied file path is called. */
       path: "文件路径",
-      quote: (words) => `原话「${words}」`,
+      quote: (words: string) => `原话「${words}」`,
+      /** The button that opens the user's words kept with an entry. */
       quoteToggle: "原话",
-      pageTypes: { incident: "故障", decision: "决策", entity: "实体", work: "工作" },
+      pageTypes: { incident: "故障", decision: "决策", entity: "实体", work: "工作" } satisfies Record<
+        PageType,
+        unknown
+      >,
       untyped: "无类型",
+      /** What the topic pages' workstream is called. */
       topics: "专题",
-      uses: (count) => `召回 ${count} 次`,
-      changed: (day) => `修改于 ${day}`,
-      problemsTitle: (count) => `${count} 处格式问题`,
+      uses: (count: number) => `召回 ${count} 次`,
+      changed: (day: string) => `修改于 ${day}`,
+      problemsTitle: (count: number) => `${count} 处格式问题`,
     },
     pages: {
       keyword: "关键字",
@@ -676,18 +734,20 @@ export const zh: Dictionary = {
       failed: "读取细节页失败",
       noPages: "还没有细节页",
       noMatch: "没有符合条件的细节页",
-      total: (count) => `共 ${count} 页`,
+      total: (count: number) => `共 ${count} 页`,
+      /** The filter bar's name, for screen readers. */
       filters: "筛选",
       columns: { type: "类型", title: "标题", workstream: "主线", changed: "修改", uses: "召回" },
+      /** The trail from the list to the page, for screen readers. */
       trail: "位置",
       notFound: "找不到这个细节页",
       contents: "小节",
       noSections: "这一页没有小节",
       emptySection: "这一节是空的",
-      dates: (first, last) => (first === last ? first : `${first} – ${last}`),
+      dates: (first: string, last: string) => (first === last ? first : `${first} – ${last}`),
       related: "相关页面",
       missing: "页面不存在",
-      sectionCount: (count) => `${count} 个小节`,
+      sectionCount: (count: number) => `${count} 个小节`,
       sourceFile: "来源文件",
     },
     workstreams: {
@@ -695,10 +755,11 @@ export const zh: Dictionary = {
       listLabel: "主线清单",
       unestablishedHint: "这个名字被细节页或活动用到了，但还没有成立为主线；整理时可以提议成立。",
       none: "还没有主线",
-      pages: (count) => `${count} 页`,
-      lastActivity: (day) => `最近活动 ${day}`,
-      weeks: (count) => `近 ${count} 周的活动`,
-      week: (monday, count) => `${monday} 起的一周：${count} 条`,
+      pages: (count: number) => `${count} 页`,
+      lastActivity: (day: string) => `最近活动 ${day}`,
+      /** The mini activity bar's label, for screen readers and the tooltip. */
+      weeks: (count: number) => `近 ${count} 周的活动`,
+      week: (monday: string, count: number) => `${monday} 起的一周：${count} 条`,
       pick: "从上方选一条主线，查看它的简报。",
       notFound: "找不到这条主线",
       briefFailed: "读取主线简报失败",
@@ -709,11 +770,11 @@ export const zh: Dictionary = {
       directory: "页目录",
       overturned: "已推翻",
       activities: "最近活动",
-      summary: (label) => `周汇总 · ${label}`,
+      summary: (label: string) => `周汇总 · ${label}`,
       viewAll: "在活动中查看全部",
       empty: "暂无",
-      lastUse: (day) => `最近召回 ${day}`,
-      openCount: (count) => `${count} 处未决`,
+      lastUse: (day: string) => `最近召回 ${day}`,
+      openCount: (count: number) => `${count} 处未决`,
       sourceFile: "来源文件",
       columnTitle: "标题",
       sortBy: { type: "类型", changed: "修改", uses: "召回" },
@@ -727,14 +788,15 @@ export const zh: Dictionary = {
       workstream: "主线",
       workstreamAll: "全部主线",
       calendar: "本月各天",
-      day: (date, count) => `${date}：${count} 条活动`,
-      totals: (days, count) => `${days} 天 · ${count} 条`,
+      day: (date: string, count: number) => `${date}：${count} 条活动`,
+      totals: (days: number, count: number) => `${days} 天 · ${count} 条`,
       timeline: "活动时间线",
       empty: "这个月还没有活动",
       noMatch: "这个月没有这条主线的活动",
+      /** What an activity outside every workstream is marked with. */
       noWorkstream: "无主线",
-      weekSummary: (label) => `周汇总 · ${label}`,
-      monthSummary: (label) => `月汇总 · ${label}`,
+      weekSummary: (label: string) => `周汇总 · ${label}`,
+      monthSummary: (label: string) => `月汇总 · ${label}`,
       sourceFile: "来源文件",
     },
     persona: {
@@ -744,27 +806,33 @@ export const zh: Dictionary = {
       globalHint: "每次会话都读入",
       workstreamHint: "在这条主线中读入",
       otherTitle: "其他内容",
-      candidatesWaiting: (count) => `${count} 条候选等下次整理`,
+      candidatesWaiting: (count: number) => `${count} 条候选等下次整理`,
       sourceFiles: "来源文件",
-      sections: { redLines: "红线", workingRules: "协作规则", preferences: "偏好", profile: "档案" },
-      otherSection: (heading) => (heading === null ? "第一个标题之前的内容" : `无法识别的小节「${heading}」`),
+      sections: { redLines: "红线", workingRules: "协作规则", preferences: "偏好", profile: "档案" } satisfies Record<
+        components["schemas"]["PersonaSection"],
+        unknown
+      >,
+      /** A section whose heading is not one of the four; `null` for text before the first heading. */
+      otherSection: (heading: string | null) =>
+        heading === null ? "第一个标题之前的内容" : `无法识别的小节「${heading}」`,
       empty: "暂无条目",
       notEntry: "这一行不是条目，不会被读取",
-      domainTitle: (name) => `领域 · ${name}`,
-      workstreamTitle: (name) => `主线 · ${name}`,
-      trigger: (trigger) => `触发：${trigger}`,
+      domainTitle: (name: string) => `领域 · ${name}`,
+      workstreamTitle: (name: string) => `主线 · ${name}`,
+      trigger: (trigger: string) => `触发：${trigger}`,
       noTrigger: "缺少触发描述",
       candidatesTitle: "画像候选",
       noCandidates: "暂无候选",
+      /** The two views of the candidates card: the candidates waiting, and the rejection list. */
       candidateViews: {
         label: "看待审的候选或拒绝列表",
-        waiting: (count) => `待审 ${count}`,
-        rejected: (count) => `已拒绝 ${count}`,
+        waiting: (count: number) => `待审 ${count}`,
+        rejected: (count: number) => `已拒绝 ${count}`,
       },
       noRejected: "暂无拒绝记录",
       rejectedMark: "拒绝",
-      days: (count) => `出现 ${count} 天`,
-      quote: (words) => `「${words}」`,
+      days: (count: number) => `出现 ${count} 天`,
+      quote: (words: string) => `「${words}」`,
       scopeGlobal: "全局",
     },
   },

@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, call } from "./client";
+import type { Affects } from "./effects";
+import { STATUS_QUERY_KEY } from "./status";
 import type { components } from "./schema";
 
 export type BindingList = components["schemas"]["BindingList"];
@@ -28,3 +30,6 @@ export function connectClient(request: ConnectRequest): Promise<BindingDone> {
 export function disconnectClient(client: string): Promise<BindingDone> {
   return call(api.DELETE("/api/bindings/{client}", { params: { path: { client } } }));
 }
+
+/** A bind or an unbind changes the binding list and the binding problems the status reports. */
+export const BIND_AFFECTS: Affects = [BINDINGS_QUERY_KEY, STATUS_QUERY_KEY];

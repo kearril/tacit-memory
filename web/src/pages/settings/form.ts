@@ -1,10 +1,5 @@
 import type { ConfigFile, ConfigKeyPath, ConfigProblem, ConfigView } from "../../api/config";
-
-/** The sections of the settings page, in the page's order. */
-export const SECTIONS = ["models", "bindings", "judgment", "consolidation", "backup", "access", "advanced"] as const;
-
-/** A section of the settings page. */
-export type SectionId = (typeof SECTIONS)[number];
+import type { SectionId } from "../../lib/routes";
 
 /** What an input holds: a whole number, any number, text, one of fixed choices, or on and off (`ON` or empty). */
 export type FieldKind = "integer" | "number" | "text" | "choice" | "toggle";
@@ -351,11 +346,6 @@ export function fieldsAt(path: string): readonly Field[] {
 export function inputIdOf(path: string): string {
   const field = fieldsAt(path)[0];
   return `setting-${(field?.path ?? path).replaceAll(".", "-")}`;
-}
-
-/** The section's anchor on the page. */
-export function sectionIdOf(section: SectionId): string {
-  return `settings-${section}`;
 }
 
 /**

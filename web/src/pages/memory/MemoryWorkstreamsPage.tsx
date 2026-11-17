@@ -27,21 +27,11 @@ import { Badge } from "../../components/ui/badge";
 import { Card, CardTitle } from "../../components/ui/card";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
-import { HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
+import { HEAT_LEVEL_CLASS } from "../../lib/heatmap";
 import { CodePill, FilePath, FileProblems, PageTypeBadge } from "./parts";
 import { PersonaEntryCard, SectionChip } from "./PersonaSections";
-import { memoryPathOf } from "./views";
 import { type DirectorySort, directoryRows, MINI_WEEKS, openItemText, weekLevel, workstreamWeeks } from "./workstreams";
-
-/** The address of one workstream's brief. */
-function briefPathOf(name: string): string {
-  return `${memoryPathOf("workstreams")}/${encodeURIComponent(name)}`;
-}
-
-/** The address of one detail page. */
-function pagePathOf(id: string): string {
-  return `${memoryPathOf("pages")}/${id}`;
-}
+import { activityPathOf, pagePathOf, workstreamNameOf, workstreamPathOf } from "../../lib/routes";
 
 /**
  * The workstreams view of the memory page, in a reading column. A sticky strip above holds every workstream as a small
@@ -51,7 +41,7 @@ function pagePathOf(id: string): string {
 export function MemoryWorkstreamsPage() {
   const dictionary = useDictionary();
   const text = dictionary.memory.workstreams;
-  const name = useParams().name ?? null;
+  const name = workstreamNameOf(useParams());
   const list = useWorkstreams();
 
   return (
@@ -141,7 +131,7 @@ function StripItem({
     <li className="shrink-0">
       {compact ? (
         <Link
-          to={briefPathOf(item.name)}
+          to={workstreamPathOf(item.name)}
           aria-current={current ? "page" : undefined}
           className={chipVariants({ tone: current ? "current" : faint ? "faint" : "rest" })}
         >
@@ -150,7 +140,7 @@ function StripItem({
         </Link>
       ) : (
         <Link
-          to={briefPathOf(item.name)}
+          to={workstreamPathOf(item.name)}
           aria-current={current ? "page" : undefined}
           title={item.background ?? undefined}
           className={cn("grid w-(--tk-size-sidebar) gap-xs rounded-md px-md py-sm", tone, link)}
@@ -312,7 +302,7 @@ function BriefBody({
       <Card variant="flat" aria-labelledby="brief-activities">
         <CardHead id="brief-activities" quiet icon={History} title={text.activities}>
           <Link
-            to={`${memoryPathOf("activity")}?workstream=${encodeURIComponent(brief.name)}`}
+            to={activityPathOf({ workstream: brief.name })}
             className="ml-auto flex items-center gap-xs text-sm text-accent hover:underline"
           >
             {text.viewAll}

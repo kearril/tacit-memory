@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, call } from "./client";
+import type { Affects } from "./effects";
+import { MEMORY_QUERY_KEY } from "./memory";
+import { STATUS_QUERY_KEY } from "./status";
 import type { components, paths } from "./schema";
 
 export type BackupList = components["schemas"]["BackupList"];
@@ -26,10 +29,16 @@ export function runBackup(target: BackupTarget): Promise<BackupResult> {
   return call(api.POST("/api/backup", { body: { target } }));
 }
 
+/** A backup adds to the backup list and moves the last backup the status reports. */
+export const BACKUP_AFFECTS: Affects = [BACKUPS_QUERY_KEY, STATUS_QUERY_KEY];
+
 /** Rebuilds the derived index; a maintenance operation, so it is refused while another one runs. */
 export function runReindex(): Promise<ReindexResult> {
   return call(api.POST("/api/reindex"));
 }
+
+/** A reindex rebuilds what search reads, so a trace or a use count may change, and the index the status reports. */
+export const REINDEX_AFFECTS: Affects = [MEMORY_QUERY_KEY, STATUS_QUERY_KEY];
 
 // The restore endpoint answers with the preview or the result as the body's `preview` asks, which the document can only
 // give as a choice of both; each function below takes the one its own body asks for.
@@ -53,3 +62,9 @@ export function previewRestore(source: RestoreSource, config: boolean): Promise<
 export function runRestore(path: string, config: boolean): Promise<RestoreResult> {
   return call(api.POST("/api/restore", { body: { path, config, preview: false } })) as Promise<RestoreResult>;
 }
+
+/**
+ * A restore replaces the memory and may replace the config and the prompts, and it writes to the service log: any
+ * query may answer differently. It applies even when the restore failed, which may have changed some files already.
+ */
+export const RESTORE_AFFECTS: Affects = "everything";

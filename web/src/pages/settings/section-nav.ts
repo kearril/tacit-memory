@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { SECTIONS, type SectionId, sectionIdOf } from "./form";
+import { type SectionId, sectionIdOf, SECTIONS } from "../../lib/routes";
 
 /** What the sidebar's list of settings sections shows: the section being read, and how many problems each section has. */
 export interface SectionNav {

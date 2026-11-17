@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ServiceLogDay, ServiceLogEntry } from "../../api/logs";
-import { ALL_LEVELS } from "./filter";
 import { appendPage, dayTurned, isAtBottom, unseenOf } from "./follow";
+import { ALL_LEVELS } from "../../lib/routes";
 
 const entry = (level: ServiceLogEntry["level"], message: string): ServiceLogEntry => ({ time: null, level, message });
 

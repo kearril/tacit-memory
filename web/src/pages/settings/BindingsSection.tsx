@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Link2, PenLine, Plus, Unlink } from "lucide-react";
 import { useState } from "react";
 import {
-  BINDINGS_QUERY_KEY,
+  BIND_AFFECTS,
   type BindingCheck,
   type BindingDone,
   connectClient,
@@ -11,7 +11,7 @@ import {
   type McpServer as McpServerInfo,
   useBindings,
 } from "../../api/bindings";
-import { STATUS_QUERY_KEY } from "../../api/status";
+import { afterCommand } from "../../api/effects";
 import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -22,11 +22,17 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
-import { AgentLogo, LOGO_TILES } from "../dashboard/AgentLogo";
-import { knownAgentOf } from "../dashboard/agents";
+import { AgentLogo } from "../../components/agent-logo";
+import { knownAgentOf } from "../../lib/agents";
 import { BusyIcon } from "../../components/ui/busy-icon";
 import { complete, EMPTY, presetsLeft } from "./bindings";
 import { Explaining, SettingsSection } from "./fields";
+
+/** The grid the large logo tiles wrap in: as many columns as fit, each a few logos wide. */
+const LOGO_TILES = "grid grid-cols-[repeat(auto-fill,minmax(calc(var(--tk-size-logo)*2.5),1fr))] gap-sm";
+
+/** The size of a binding's logo tile, larger than the dashboard's. */
+const LARGE_LOGO = { tileClassName: "size-(--tk-size-logo) rounded-lg", glyphClassName: "size-(--tk-size-icon-tile)" };
 
 /** The name a client goes by on the page: its agent's when the interface knows it, else the binding's own. */
 function nameOf(client: string): string {
@@ -58,7 +64,11 @@ export function BindingsSection() {
                   title={`${nameOf(binding.client)} · ${binding.problem == null ? text.healthy : dictionary.dashboard.bindingProblems[binding.problem]}`}
                   onClick={() => setShown(binding.client)}
                 >
-                  <AgentLogo icon={knownAgentOf(binding.client)?.icon ?? null} large sound={binding.problem == null} />
+                  <AgentLogo
+                    icon={knownAgentOf(binding.client)?.icon ?? null}
+                    {...LARGE_LOGO}
+                    sound={binding.problem == null}
+                  />
                 </Tile>
               </li>
             ))}
@@ -142,10 +152,7 @@ function AddDialog({
     mutationFn: connectClient,
     onSuccess: async (done) => {
       setStep({ kind: "done", done });
-      await Promise.all([
-        queries.invalidateQueries({ queryKey: BINDINGS_QUERY_KEY }),
-        queries.invalidateQueries({ queryKey: STATUS_QUERY_KEY }),
-      ]);
+      await afterCommand(queries, BIND_AFFECTS);
     },
   });
 
@@ -188,7 +195,7 @@ function AddDialog({
             {presetsLeft(bound).map((preset) => (
               <li key={preset.client}>
                 <Choice label={nameOf(preset.client)} onClick={() => start(preset)}>
-                  <AgentLogo icon={knownAgentOf(preset.client)?.icon ?? null} large />
+                  <AgentLogo icon={knownAgentOf(preset.client)?.icon ?? null} {...LARGE_LOGO} />
                 </Choice>
               </li>
             ))}
@@ -320,10 +327,7 @@ function Details({
     onSuccess: async (done) => {
       showToast(text.unbound(nameOf(done.client)));
       close();
-      await Promise.all([
-        queries.invalidateQueries({ queryKey: BINDINGS_QUERY_KEY }),
-        queries.invalidateQueries({ queryKey: STATUS_QUERY_KEY }),
-      ]);
+      await afterCommand(queries, BIND_AFFECTS);
     },
   });
 
@@ -340,7 +344,11 @@ function Details({
           <>
             <DialogHeader>
               <div className="flex items-center gap-md">
-                <AgentLogo icon={knownAgentOf(binding.client)?.icon ?? null} large sound={binding.problem == null} />
+                <AgentLogo
+                  icon={knownAgentOf(binding.client)?.icon ?? null}
+                  {...LARGE_LOGO}
+                  sound={binding.problem == null}
+                />
                 <div className="grid min-w-0 gap-xs">
                   <DialogTitle>{nameOf(binding.client)}</DialogTitle>
                   <DialogDescription>

@@ -20,7 +20,7 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Card, CardGroup } from "../../components/ui/card";
 import { IconTile } from "../../components/ui/icon-tile";
 import type { Dictionary } from "../../i18n/messages";
-import { durationOf, timeText } from "./format";
+import { durationOf, timeText } from "../../lib/format";
 import { HeatmapCard } from "./HeatmapCard";
 import { BackupsCard, ClientsCard, IndexCard, LogsCard, ModelsCard, ServiceCard } from "./StatusCards";
 import { targetOf, type Todo, todosOf } from "./todos";

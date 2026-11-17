@@ -22,7 +22,7 @@ import { copyText } from "../../components/ui/copy-text";
 import { useToast } from "../../components/ui/toast-context";
 import { TOPICS } from "./pages";
 import type { SourceView } from "../../api/memory";
-import { memoryPathOf } from "./views";
+import { workstreamPathOf } from "../../lib/routes";
 
 /** How long a code pill shows its check mark after a copy. */
 const COPIED_MILLISECONDS = 1500;
@@ -195,7 +195,7 @@ export function WorkstreamPill({ name }: { readonly name: string }) {
     <span className={className}>{label}</span>
   ) : (
     <Link
-      to={`${memoryPathOf("workstreams")}/${encodeURIComponent(name)}`}
+      to={workstreamPathOf(name)}
       className={cn(
         className,
         "outline-none hover:underline focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",

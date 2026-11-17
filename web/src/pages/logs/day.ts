@@ -1,22 +1,5 @@
 import type { ServiceLogDays } from "../../api/logs";
 
-/** The address of the logs page; it shows today. */
-export const LOGS_PATH = "/logs";
-
-/** The day an address names, when it is a calendar date written `yyyy-MM-dd`. */
-export function logDateOf(param: string | undefined): string | undefined {
-  if (param === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(param)) {
-    return undefined;
-  }
-  const date = new Date(`${param}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(param) ? param : undefined;
-}
-
-/** The address of a day's log: today is the page's own address, any other day is named in it. */
-export function logPathOf(date: string, today: string): string {
-  return date === today ? LOGS_PATH : `${LOGS_PATH}/${date}`;
-}
-
 /** The days to choose from, newest first: today, which may have no file yet, and every day with one. */
 export function dateOptions(days: Pick<ServiceLogDays, "today" | "dates">): readonly string[] {
   return [days.today, ...days.dates.filter((date) => date !== days.today)];

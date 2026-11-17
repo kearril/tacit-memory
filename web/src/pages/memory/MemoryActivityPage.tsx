@@ -17,18 +17,11 @@ import { Card } from "../../components/ui/card";
 import { Select } from "../../components/ui/select";
 import { entryBox } from "../../components/ui/entry-box";
 import { BELOW_BARS } from "../../components/ui/sticky";
-import { dayText } from "../dashboard/format";
-import { dayLevel, HEAT_LEVEL_CLASS } from "../dashboard/heatmap";
+import { dayText } from "../../lib/format";
+import { dayLevel, HEAT_LEVEL_CLASS } from "../../lib/heatmap";
 import { CodePill, FilePath, FileProblems, QuoteList, QuoteToggle, WorkstreamPill } from "./parts";
-import {
-  type ActivityQuery,
-  activityParams,
-  activityQueryOf,
-  dayAnchor,
-  monthDays,
-  type TimelineEntry,
-  timelineOf,
-} from "./timeline";
+import { monthDays, type TimelineEntry, timelineOf } from "./timeline";
+import { activityParams, type ActivityQuery, activityQueryOf, dayAnchor } from "../../lib/routes";
 
 /** Scrolls a day of the timeline to the top, below the sticky bars. */
 function scrollToDay(date: string) {

@@ -30,11 +30,10 @@ import {
   type Pending,
   type PlacedProblems,
   type SecretEdits,
-  type SectionId,
-  sectionIdOf,
   textOf,
   valueAt,
 } from "./form";
+import { type SectionId, sectionIdOf } from "../../lib/routes";
 
 /** What a section needs to show and edit its settings: the view, the inputs, what changed, and where the problems are. */
 export interface SettingsForm {

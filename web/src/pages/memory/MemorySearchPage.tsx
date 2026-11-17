@@ -35,18 +35,17 @@ import { Input } from "../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { Segmented } from "../../components/ui/segmented";
 import { Select } from "../../components/ui/select";
+import { barBottom, scrollUnderBar, UNDER_BAR, useStickUnderBar } from "../../components/ui/sticky";
 import { StickyBar } from "../../components/ui/sticky-bar";
 import { Chip } from "../../components/ui/chip";
 import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
-import { sectionAnchor } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
-import { requestOf, type SearchFields, searchFieldsOf, searchParamsOf } from "./search";
-import { activityPathOf } from "./timeline";
+import { requestOf } from "./search";
 import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
-import { memoryPathOf } from "./views";
+import { activityPathOf, pagePathOf, type SearchFields, searchFieldsOf, searchParamsOf } from "../../lib/routes";
 
 /** Each fate's icon and colour: the label beside it says the fate, so the colour is never the only sign. */
 const FATE_STYLES: Readonly<
@@ -83,28 +82,6 @@ function fateAnchor(fate: SegmentFate): string {
   return `trace-fate-${fate}`;
 }
 
-/** Where on screen the floating search bar of a trace page ends, with the gap the page leaves under it. */
-function barBottomOf(page: HTMLElement): number {
-  const bar = page.querySelector<HTMLElement>('[role="search"]');
-  if (bar === null) {
-    return 0;
-  }
-  return (
-    (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + (parseFloat(getComputedStyle(page).rowGap) || 0)
-  );
-}
-
-/** Scrolls the page so that `element` starts under the floating search bar. */
-function scrollUnderBar(element: HTMLElement) {
-  const page = element.closest<HTMLElement>("[data-trace]");
-  if (page !== null) {
-    window.scrollTo({
-      top: element.getBoundingClientRect().top + window.scrollY - barBottomOf(page),
-      behavior: "smooth",
-    });
-  }
-}
-
 /**
  * The search view of the memory page: a recall trace. The conditions live in the address: submitting the bar writes them
  * there, and an address with a query runs the trace at once, so a bookmark or a link repeats it. The conditions and,
@@ -118,29 +95,10 @@ export function MemorySearchPage() {
   const applied = searchFieldsOf(search);
   const request = applied.query.trim() === "" ? null : requestOf(applied);
   const trace = useRecallTrace(request);
-  const page = useRef<HTMLDivElement>(null);
   const searchKey = search.toString();
 
-  // Keeps where the bar ends in `--trace-bar-bottom`, for the hints that float under it, as the bar folds and unfolds.
-  // Each search mounts a new bar, so the bar is observed again then.
-  useEffect(() => {
-    const element = page.current;
-    const bar = element?.querySelector<HTMLElement>('[role="search"]');
-    if (element === null || bar === null || bar === undefined) {
-      return;
-    }
-    const measure = () => element.style.setProperty("--trace-bar-bottom", `${barBottomOf(element)}px`);
-    const observer = new ResizeObserver(measure);
-    observer.observe(bar);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [searchKey]);
-
   return (
-    <div ref={page} data-trace className="mx-auto grid w-full max-w-(--tk-size-page) grid-cols-1 content-start gap-md">
+    <div className="mx-auto grid w-full max-w-(--tk-size-page) grid-cols-1 content-start gap-md">
       <h1 className="sr-only">{dictionary.memory.views.search}</h1>
       <SearchBar
         key={searchKey}
@@ -565,37 +523,14 @@ function Column({
   const column = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState({ above: 0, below: 0 });
 
-  useEffect(() => {
-    const element = column.current;
-    const page = element?.closest<HTMLElement>("[data-trace]");
-    if (!sticky || element === null || page === null || page === undefined) {
-      return;
-    }
-    const place = () => {
-      const gap = parseFloat(getComputedStyle(page).rowGap) || 0;
-      element.style.top = `${Math.min(barBottomOf(page), window.innerHeight - element.offsetHeight - gap)}px`;
-    };
-    place();
-    const observer = new ResizeObserver(place);
-    observer.observe(element);
-    // The page writes where the bar ends on its own style, for whichever bar is mounted now.
-    const bar = new MutationObserver(place);
-    bar.observe(page, { attributes: true, attributeFilter: ["style"] });
-    window.addEventListener("resize", place);
-    return () => {
-      observer.disconnect();
-      bar.disconnect();
-      window.removeEventListener("resize", place);
-    };
-  }, [sticky]);
+  useStickUnderBar(column, sticky);
 
   const outside = () => {
     const element = column.current;
-    const page = element?.closest<HTMLElement>("[data-trace]");
-    if (element === null || page === null || page === undefined) {
+    if (element === null) {
       return { above: [], below: [] };
     }
-    const top = barBottomOf(page);
+    const top = barBottom();
     const rows = [...element.querySelectorAll<HTMLElement>("[data-lit]")];
     return {
       above: rows.filter((row) => row.getBoundingClientRect().bottom <= top),
@@ -615,7 +550,7 @@ function Column({
 
   const hint = (edge: "above" | "below") =>
     hidden[edge] === 0 ? null : (
-      <div className={cn("sticky z-(--tk-layer-nav) h-0", edge === "above" ? "top-(--trace-bar-bottom)" : "bottom-md")}>
+      <div className={cn("sticky z-(--tk-layer-nav) h-0", edge === "above" ? UNDER_BAR : "bottom-md")}>
         <button
           type="button"
           onClick={() => {
@@ -730,7 +665,7 @@ function ResultItem({
   readonly onLight: (number: number | null) => void;
 }) {
   const text = useDictionary().memory.search;
-  const page = result.kind === "page" && result.page !== null;
+  const pageId = result.kind === "page" ? result.page : null;
   return (
     <li
       data-lit={lit ? "" : undefined}
@@ -742,7 +677,7 @@ function ResultItem({
         <span className="grid size-(--tk-font-size-xl) shrink-0 place-items-center rounded-full bg-accent-soft font-semibold text-accent tabular-nums">
           {result.number}
         </span>
-        {page ? (
+        {pageId !== null ? (
           <PageTypeBadge type={listed?.type ?? null} written={listed?.writtenType} />
         ) : (
           <Badge>{result.kind === "activity" ? text.unitKinds.activity : text.unitKinds.summary}</Badge>
@@ -751,20 +686,20 @@ function ResultItem({
         {result.date === null ? null : <span className="tabular-nums">{result.date}</span>}
         {result.code === null ? null : <CodePill code={result.code} reveal className="ml-auto" />}
       </div>
-      {page ? (
+      {pageId !== null ? (
         <>
           <Link
-            to={`${memoryPathOf("pages")}/${result.page}`}
+            to={pagePathOf(pageId)}
             className="font-medium underline-offset-2 outline-none hover:text-accent hover:underline focus-visible:underline"
           >
-            {result.title ?? result.page}
+            {result.title ?? pageId}
           </Link>
           {result.sections.length === 0 ? null : (
             <p className="flex flex-wrap gap-xs">
               {result.sections.map((name) => (
                 <Link
                   key={name}
-                  to={`${memoryPathOf("pages")}/${result.page}#${encodeURIComponent(sectionAnchor(name))}`}
+                  to={pagePathOf(pageId, name)}
                   className="rounded-full bg-surface-raised px-sm text-xs text-ink-muted outline-none hover:text-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
                   {name}

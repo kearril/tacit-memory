@@ -1,5 +1,5 @@
 import type { BriefPage, BriefPageGroup, PageType } from "../../api/memory";
-import { type ActivityReport, calendarColumns, fillWindow, type HeatLevel } from "../dashboard/heatmap";
+import { type ActivityReport, calendarColumns, fillWindow, type HeatLevel } from "../../lib/heatmap";
 
 /** How many weeks a workstream's mini activity bar shows: about half a year. */
 export const MINI_WEEKS = 26;

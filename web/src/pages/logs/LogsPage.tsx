@@ -17,11 +17,21 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { Input } from "../../components/ui/input";
 import { IconTile } from "../../components/ui/icon-tile";
-import { dayText } from "../dashboard/format";
-import { clockOf, dateOptions, LOGS_PATH, logDateOf, logPathOf } from "./day";
-import { applyFilters, filtersOf, highlightParts, LEVELS, levelCounts, type LogFilters, searchOf } from "./filter";
+import { dayText } from "../../lib/format";
+import { clockOf, dateOptions } from "./day";
+import { applyFilters, highlightParts, levelCounts } from "./filter";
 import { isAtBottom, unseenOf } from "./follow";
 import { useFollowedLog } from "./use-followed-log";
+import {
+  filtersOf,
+  isCalendarDate,
+  LEVELS,
+  logDateOf,
+  type LogFilters,
+  logPathOf,
+  LOGS_PATH,
+  searchOf,
+} from "../../lib/routes";
 
 /** The colour of each level's code; a warning or an error also tints its whole row. */
 const LEVEL_STYLES: Readonly<
@@ -40,7 +50,8 @@ const LEVEL_STYLES: Readonly<
  */
 export function LogsPage() {
   const dictionary = useDictionary();
-  const param = useParams().date;
+  const params = useParams();
+  const param = params.date;
   const [search, setSearch] = useSearchParams();
   const filters = filtersOf(search);
   // At once rather than as a transition: the keyword box shows the address, and a key pressed before a transitioned
@@ -49,7 +60,7 @@ export function LogsPage() {
     setSearch(new URLSearchParams(searchOf(next)), { replace: true, flushSync: true });
   const days = useLogDays();
   const [following, setFollowing] = useState(true);
-  const named = logDateOf(param);
+  const named = logDateOf(params);
   const today = days.data?.today;
   if (param !== undefined && named !== undefined && named === today) {
     return <Navigate to={{ pathname: LOGS_PATH, search: searchOf(filters) }} replace />;
@@ -113,7 +124,7 @@ function LogHeader({
   const { search } = useLocation();
   // An address that names no calendar day is shown as written.
   const label = (day: string) =>
-    logDateOf(day) === undefined
+    !isCalendarDate(day)
       ? day
       : day === days.today
         ? `${text.today} · ${dayLabel(day, locale)}`

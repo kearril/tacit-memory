@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, call } from "./client";
+import type { Affects } from "./effects";
+import { STATUS_QUERY_KEY } from "./status";
 import type { components } from "./schema";
 
 export type ConfigView = components["schemas"]["ConfigView"];
@@ -42,6 +44,9 @@ export function saveConfig(
 ): Promise<ConfigSaved> {
   return call(api.PUT("/api/config", { body: { hash, config, secrets } }));
 }
+
+/** A save changes the config file and what the status reports of the models and the pending restarts. */
+export const SAVE_CONFIG_AFFECTS: Affects = [CONFIG_QUERY_KEY, STATUS_QUERY_KEY];
 
 /** The value of the secret at the key path `path` as the service would use it: the environment variable's, else the file's. */
 export function getSecret(path: string): Promise<SecretShown> {

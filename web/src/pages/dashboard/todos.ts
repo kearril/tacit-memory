@@ -1,6 +1,6 @@
 import type { PromptName } from "../../api/prompts";
 import type { BindingProblem, StatusReport } from "../../api/status";
-import { promptPathOf } from "../prompts/names";
+import { BACKUPS_ANCHOR, dashboardPathOf, promptPathOf, settingsPathOf } from "../../lib/routes";
 
 /** One thing the user has to deal with, as the status report shows it. */
 export type Todo =
@@ -56,15 +56,15 @@ export function todosOf(report: StatusReport): Todo[] {
 export function targetOf(todo: Todo): string {
   switch (todo.kind) {
     case "modelsUnconfigured":
-      return "/settings#settings-models";
+      return settingsPathOf("models");
     case "noBindings":
     case "bindingProblem":
-      return "/settings#settings-bindings";
+      return settingsPathOf("bindings");
     case "promptProblem":
       return promptPathOf(todo.name);
     case "extraListenerFailed":
-      return "/settings#settings-access";
+      return settingsPathOf("access");
     case "cloudBackupFailed":
-      return "/dashboard#backups";
+      return dashboardPathOf(BACKUPS_ANCHOR);
   }
 }

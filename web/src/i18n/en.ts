@@ -1,6 +1,6 @@
 import type { Dictionary } from "./messages";
 
-export const en: Dictionary = {
+export const en = {
   appName: "TacitMemory",
   mainNav: "Main navigation",
   nav: {
@@ -474,6 +474,17 @@ export const en: Dictionary = {
       },
     },
   },
+  probe: {
+    button: "Probe",
+    succeeded: (milliseconds) => `Probe succeeded · ${milliseconds} ms`,
+    failed: (reason, milliseconds) => `Probe failed · ${reason} · ${milliseconds} ms`,
+    skipped: "Not configured, skipped",
+    httpStatus: (code) => `HTTP ${code}`,
+    wrongFormat: "wrong response format",
+    network: "network error",
+    timeout: "timed out",
+    failedTitle: "The probe did not finish",
+  },
   dashboard: {
     connectionLost: (time) => `The memory service cannot be reached. What follows is from ${time}.`,
     connectionLostNever: "The memory service cannot be reached.",
@@ -548,17 +559,6 @@ export const en: Dictionary = {
       cloudBackedUp: "Cloud backup done",
       failed: "The backup did not succeed",
       cloudFailedTitle: "The cloud backup did not succeed",
-    },
-    probe: {
-      button: "Probe",
-      succeeded: (milliseconds) => `Probe succeeded · ${milliseconds} ms`,
-      failed: (reason, milliseconds) => `Probe failed · ${reason} · ${milliseconds} ms`,
-      skipped: "Not configured, skipped",
-      httpStatus: (code) => `HTTP ${code}`,
-      wrongFormat: "wrong response format",
-      network: "network error",
-      timeout: "timed out",
-      failedTitle: "The probe did not finish",
     },
     restore: {
       open: "Restore…",
@@ -860,4 +860,4 @@ export const en: Dictionary = {
       scopeGlobal: "Global",
     },
   },
-};
+} satisfies Dictionary;

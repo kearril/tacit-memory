@@ -8,6 +8,7 @@ import { TooltipProvider } from "../components/ui/tooltip";
 import { dictionaryFor, errorTextOf } from "../i18n/messages";
 import { destinationAfterLogin, targetOf } from "./return-target";
 import { SessionContext } from "./session-context";
+import { LOGIN_PATH } from "../lib/routes";
 
 /**
  * The gate every page passes. It asks the service for the session first; a connection that is neither local nor logged
@@ -31,10 +32,10 @@ export function RootLayout() {
     return onUnauthorized(() => {
       void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       const current = locationRef.current;
-      if (current.pathname === "/login") {
+      if (current.pathname === LOGIN_PATH) {
         return;
       }
-      navigate("/login", { replace: true, state: { from: targetOf(current) } });
+      navigate(LOGIN_PATH, { replace: true, state: { from: targetOf(current) } });
     });
   }, [navigate, queryClient]);
 
@@ -61,10 +62,10 @@ export function RootLayout() {
   const status = session.data;
   const dictionary = dictionaryFor(status.language);
   const allowed = status.local || status.loggedIn;
-  const onLoginPage = location.pathname === "/login";
+  const onLoginPage = location.pathname === LOGIN_PATH;
 
   if (!allowed && !onLoginPage) {
-    return <Navigate to="/login" replace state={{ from: targetOf(location) }} />;
+    return <Navigate to={LOGIN_PATH} replace state={{ from: targetOf(location) }} />;
   }
   if (allowed && onLoginPage) {
     return <Navigate to={destinationAfterLogin(location.state)} replace />;

@@ -1,36 +1,5 @@
 import type { ServiceLogEntry, ServiceLogLevel } from "../../api/logs";
-
-/** The three levels, in the order the switches show them. */
-export const LEVELS = ["information", "warning", "error"] as const satisfies readonly ServiceLogLevel[];
-
-/** Every level: what the page shows when the address chooses none. */
-export const ALL_LEVELS: ReadonlySet<ServiceLogLevel> = new Set(LEVELS);
-
-/** What the page shows of a day: the levels switched on, and the keyword typed, as written. */
-export interface LogFilters {
-  readonly levels: ReadonlySet<ServiceLogLevel>;
-  readonly query: string;
-}
-
-/** The filters an address carries: `level` lists the levels shown, `q` is the keyword. Unknown levels are ignored. */
-export function filtersOf(search: URLSearchParams): LogFilters {
-  const named = (search.get("level") ?? "").split(",");
-  const levels = LEVELS.filter((level) => named.includes(level));
-  return { levels: levels.length === 0 ? ALL_LEVELS : new Set(levels), query: search.get("q") ?? "" };
-}
-
-/** The query string of the filters, starting with `?`, or empty when they are the defaults. */
-export function searchOf(filters: LogFilters): string {
-  const search = new URLSearchParams();
-  if (filters.levels.size < LEVELS.length) {
-    search.set("level", LEVELS.filter((level) => filters.levels.has(level)).join(","));
-  }
-  if (filters.query !== "") {
-    search.set("q", filters.query);
-  }
-  const text = search.toString();
-  return text === "" ? "" : `?${text}`;
-}
+import type { LogFilters } from "../../lib/routes";
 
 /** The events at a level switched on whose message holds the keyword, in any case; a keyword of spaces only is none. */
 export function applyFilters(entries: readonly ServiceLogEntry[], filters: LogFilters): readonly ServiceLogEntry[] {

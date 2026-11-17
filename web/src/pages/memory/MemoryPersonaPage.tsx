@@ -28,10 +28,9 @@ import {
   personaScopes,
   personaSections,
   scopeKeyOf,
-  scopeParams,
 } from "./persona";
 import { PersonaEntryCard, SCOPE_ICONS, SECTION_ICONS, ScopeChip } from "./PersonaSections";
-import { CANDIDATES_ANCHOR } from "./views";
+import { CANDIDATES_ANCHOR, scopeParams } from "../../lib/routes";
 
 /**
  * The persona view of the memory page, in a reading column, by section: a card for each of the four sections holding

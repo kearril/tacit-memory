@@ -83,7 +83,23 @@
   --default-transition-timing-function: var(--tk-ease-standard);
 }
 
+/* Where the floating top bar ends on screen, with the gap the page leaves under it. A top bar publishes its own measure
+   on the document; until it does, and on a page without one, it is where a bar of one row ends. It is registered as a
+   length so that a script reads it resolved. */
+@property --sticky-bar-bottom {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 @layer base {
+  :root {
+    --sticky-bar-bottom: calc(2 * var(--tk-size-nav-bar) + 2 * var(--tk-space-sm));
+    @variant lg {
+      --sticky-bar-bottom: calc(var(--tk-size-nav-bar) + 2 * var(--tk-space-sm));
+    }
+  }
+
   /* Every scrolling area, the page's own included, has a slim rounded thumb in a quiet colour, with no track and no
      arrows. Chromium and Safari draw it from the scrollbar pseudo-elements, which they ignore once the standard
      properties are set, so those are left to the browsers without the pseudo-elements. */

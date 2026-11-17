@@ -1,3 +1,4 @@
+import { scopeParamOf } from "../../lib/routes";
 import type {
   CandidateOccurrenceView,
   PersonaEntryView,
@@ -34,9 +35,6 @@ export interface PersonaSectionRows {
   readonly section: PersonaSection | null;
   readonly rows: readonly PersonaRow[];
 }
-
-/** The address parameter that names the scope the view is filtered by. */
-const SCOPE_PARAM = "scope";
 
 function countOf(sections: readonly PersonaSectionView[]): number {
   return sections.flatMap((section) => section.entries).filter((entry) => entry.code !== null).length;
@@ -93,13 +91,8 @@ export function personaSections(report: PersonaReport, scopeKey: string | null):
 
 /** The scope the address names, when the persona has it; otherwise `null`, the whole persona. */
 export function scopeKeyOf(params: URLSearchParams, report: PersonaReport): string | null {
-  const key = params.get(SCOPE_PARAM);
+  const key = scopeParamOf(params);
   return personaScopes(report).some((scope) => scope.key === key) ? key : null;
-}
-
-/** The address parameters for a scope; none for the whole persona. */
-export function scopeParams(key: string | null): Record<string, string> {
-  return key === null ? {} : { [SCOPE_PARAM]: key };
 }
 
 /** A day a candidate was said on, once however many records it has; rejected when any of them is. */

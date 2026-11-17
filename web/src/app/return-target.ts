@@ -1,3 +1,5 @@
+import { DASHBOARD_PATH, LOGIN_PATH } from "../lib/routes";
+
 /**
  * The base the interface is served under. Routes inside the interface are written without it. The Vite base in
  * `vite.config.ts` is built from this value, and the router takes it as its basename, so the three never disagree.
@@ -49,8 +51,10 @@ export function destinationAfterLogin(state: unknown): string {
   const from = typeof state === "object" && state !== null ? (state as { from?: unknown }).from : undefined;
   const target = safeReturnTarget(from);
   if (target === null) {
-    return "/dashboard";
+    return DASHBOARD_PATH;
   }
   const path = routerPathOf(target);
-  return path === "/login" || path.startsWith("/login?") || path.startsWith("/login#") ? "/dashboard" : path;
+  return path === LOGIN_PATH || path.startsWith(`${LOGIN_PATH}?`) || path.startsWith(`${LOGIN_PATH}#`)
+    ? DASHBOARD_PATH
+    : path;
 }
