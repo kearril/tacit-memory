@@ -2,180 +2,166 @@ using System.Net;
 
 namespace TacitMemory.Core.Localization;
 
-/// <summary>Human-facing text of the status report, the management API's refusals and the hints for commands that need the service.</summary>
-internal static class ManagementApiMessages
+/// <summary>Human-facing text of the status report, the bindings check and the hints for commands that need the service.</summary>
+internal static class StatusMessages
 {
     public static readonly Localized ConfigTitle = new("配置", "Config");
 
     public static readonly Localized ServiceTitle = new("服务", "Service");
+
     public static readonly Localized ServiceRunning = new("运行中", "Running");
+
     public static readonly Localized ServiceAddress = new("地址：{0}", "Address: {0}");
+
     public static readonly Localized ServiceVersion = new("版本：{0}", "Version: {0}");
+
     public static readonly Localized ServiceUptime = new("已运行：{0}", "Up for: {0}");
+
     public static readonly Localized ServiceNotRunning = new("服务未运行", "The service is not running");
+
     public static readonly Localized ServiceNotRunningOtherProgram = new(
         "服务未运行：端口 {0} 有其他程序在回答",
         "The service is not running: port {0} is answered by another program");
+
     public static readonly Localized UptimeDays = new("{0} 天", "{0} d");
+
     public static readonly Localized UptimeHours = new("{0} 小时", "{0} h");
+
     public static readonly Localized UptimeMinutes = new("{0} 分钟", "{0} min");
+
     public static readonly Localized UptimeSeconds = new("{0} 秒", "{0} s");
 
     public static readonly Localized ModelsTitle = new("辅助模型", "Auxiliary models");
+
     public static readonly Localized ModelAvailable = new("{0}：可用", "{0}: available");
+
     public static readonly Localized ModelCoolingDown = new("{0}：冷却中，剩余 {1} 秒", "{0}: cooling down, {1} s left");
+
     public static readonly Localized ModelUnconfigured = new("{0}：未配置", "{0}: not configured");
 
     public static readonly Localized ClientsTitle = new("客户端", "Clients");
+
     public static readonly Localized ClientsNone = new("尚未有客户端连接过服务。", "No client has connected to the service yet.");
+
     public static readonly Localized ClientsUnreadable = new("无法读取客户端能力记录：{0}", "The client record cannot be read: {0}");
+
     public static readonly Localized ClientLine = new(
         "{0}：最近连接 {1}，协议 {2}，能力：{3}，扩展：{4}",
         "{0}: last connected {1}, protocol {2}, capabilities: {3}, extensions: {4}");
+
     public static readonly Localized ClientNothingDeclared = new("无", "none");
 
     public static readonly Localized LogsTitle = new("日志", "Logs");
+
     public static readonly Localized LogsDirectory = new("目录：{0}", "Directory: {0}");
+
     public static readonly Localized LogsToday = new("今天：{0} 条警告，{1} 条错误", "Today: {0} warnings, {1} errors");
+
     public static readonly Localized LogsTodayQuiet = new("今天没有警告与错误", "No warnings or errors today");
+
     public static readonly Localized LogsTodayUnreadable = new("无法读取今天的日志：{0}", "Today's log cannot be read: {0}");
 
     public static readonly Localized NotRunningHint = new(
         "服务未运行，先执行 tacit serve。",
         "The service is not running. Run tacit serve first.");
+
     public static readonly Localized NotRunningHintOtherProgram = new(
         "端口 {0} 有其他程序在回答，常驻服务未运行。请先执行 tacit serve，或在 config.yaml 中修改 server.port。",
         "Port {0} is answered by another program, so the memory service is not running. Run tacit serve first, or change server.port in config.yaml.");
 
-    public static readonly Localized ApiOriginRefused = new(
-        "管理 API 只接受与请求自身同源的 Origin。",
-        "The management API only accepts an Origin that is the origin of the request itself.");
-    public static readonly Localized ApiHostRefused = new(
-        "管理 API 对本机连接只接受 Host 为 127.0.0.1、localhost 或 [::1] 的请求。",
-        "The management API only accepts local requests whose Host is 127.0.0.1, localhost or [::1].");
-    public static readonly Localized ApiContentTypeRefused = new(
-        "管理 API 的 POST 与 PUT 请求必须是 Content-Type: application/json。",
-        "POST and PUT requests to the management API must have Content-Type: application/json.");
-    public static readonly Localized ApiUnauthorized = new(
-        "其他设备须先登录才能使用管理 API。",
-        "Other devices must log in before they can use the management API.");
-    public static readonly Localized WebNotBuilt = new(
-        "Web 界面未构建",
-        "The web interface is not built");
-    public static readonly Localized McpRemoteRefused = new(
-        "MCP 端点只接受本机连接。",
-        "The MCP endpoint only accepts connections from this machine.");
-    public static readonly Localized RemotePathRefused = new(
-        "其他设备只能访问 /、/ui 与 /api 下的路径，其余路径一律拒绝。",
-        "Other devices may only use /, /ui and /api; every other path is refused.");
-
     public static readonly Localized WebAddress = new("Web 界面：{0}", "Web interface: {0}");
+
     public static readonly Localized ExtraListenerAddress = new("额外监听：{0}", "Extra listener: {0}");
+
     public static readonly Localized ExtraListenerAllInterfaces = new("所有网络接口，端口 {0}", "all network interfaces, port {0}");
+
     public static readonly Localized ExtraListenerFailed = new("额外监听失败：{0}，{1}", "Extra listener failed: {0}, {1}");
+
     public static readonly Localized ExtraListenerNotRunning = new("额外监听：{0}（服务未运行）", "Extra listener: {0} (the service is not running)");
-    public static readonly Localized ExtraPortInUse = new("端口 {0} 已被占用", "port {0} is already in use");
-    public static readonly Localized ExtraAddressUnavailable = new("{0} 不是本机的地址", "{0} is not an address of this machine");
-    public static readonly Localized ConfigChanged = new(
-        "config.yaml 在你打开设置页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
-        "config.yaml was changed after you opened the settings page, and saving would overwrite that change. Load it again, then make your changes.");
-    public static readonly Localized SecretUnknown = new("{0} 不是密钥。", "{0} is not a secret.");
-    public static readonly Localized PromptUnknown = new(
-        "{0} 不是提示词文档。提示词文档有 instructions、rules、resident、skill。",
-        "{0} is not a prompt document. The prompt documents are instructions, rules, resident and skill.");
-    public static readonly Localized PromptChanged = new(
-        "prompts/{0} 在你打开提示词页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
-        "prompts/{0} was changed after you opened the prompts page, and saving would overwrite that change. Load it again, then make your changes.");
-    public static readonly Localized LogDateInvalid = new("{0} 不是日期，请写成 2026-11-14 这样的形式。", "{0} is not a date; write it like 2026-11-14.");
-    public static readonly Localized LogAfterInvalid = new("after 应为已读到的条数（0 或正整数），而不是 {0}。", "after is the number of events already read (0 or more), not {0}.");
-    public static readonly Localized WorkstreamNotFound = new("没有主线 {0}：它既未成立，也没有细节页或活动。", "There is no workstream {0}: it is not established and has no pages or activities.");
-    public static readonly Localized ActivityMonthInvalid = new("{0} 不是 yyyy-MM 格式的月份。", "{0} is not a month written yyyy-MM.");
-    public static readonly Localized ActivityMonthNotFound = new("{0} 没有活动文件。", "There is no activity file for {0}.");
-    public static readonly Localized PageNotFound = new("没有细节页 {0}。", "There is no page {0}.");
-    public static readonly Localized PageIdInvalid = new("{0} 不是有效的页面标识：{1}", "{0} is not a valid page ID: {1}");
-    public static readonly Localized LogDateNotFound = new("{0} 没有日志。", "There is no log for {0}.");
-    public static readonly Localized SecretNotSecret = new("不是密钥，不能按密钥修改", "not a secret, so it cannot be changed as one");
-    public static readonly Localized ConfigReadOnly = new(
-        "设置页不能修改这一项：请在 config.yaml 中修改，重启 tacit serve 后生效。",
-        "The settings page cannot change this: edit it in config.yaml, and it takes effect when tacit serve restarts.");
-    public static readonly Localized ConfigExtraNeedsPassword = new(
-        "额外监听地址让其他设备能连上服务，必须先在「访问」一节设置访问密码。",
-        "An extra listener lets other devices reach the service; set an access password in the Access section first.");
-    public static readonly Localized TraceQueryMissing = new("请填写查询。", "Enter a query.");
-    public static readonly Localized TraceDateInvalid = new("{0} 不是 YYYY-MM-DD 格式的日期。", "{0} is not a date written YYYY-MM-DD.");
-    public static readonly Localized TraceDatesReversed = new("起始日期晚于结束日期。", "The start date is later than the end date.");
-    public static readonly Localized TraceKindInvalid = new("范围只能是 pages 或 activities，不能是 {0}。", "The kind must be pages or activities, not {0}.");
-    public static readonly Localized TraceValueOutOfRange = new("{0} 应在 {1} 到 {2} 之间。", "{0} must be between {1} and {2}.");
-    public static readonly Localized ApiBodyInvalid = new(
-        "请求体无效：应为 JSON 对象，格式见管理 API 说明。",
-        "The request body is invalid: it must be a JSON object, as the management API describes.");
-    public static readonly Localized ApiBodyInvalidField = new(
-        "请求体无效：字段 {0} 的类型或取值不对。",
-        "The request body is invalid: the value of {0} has the wrong type or value.");
 
     public static readonly Localized BindingsTitle = new("绑定", "Bindings");
+
     public static readonly Localized PromptsTitle = new("提示词文档有误", "Prompt documents with errors");
+
     public static readonly Localized PromptKept = new(
         "{0} 有误，服务正在使用上一版：{1}",
         "{0} has an error, and the service runs its previous version: {1}");
+
     public static readonly Localized BindingsNone = new("没有绑定的客户端。", "No client is bound.");
+
     public static readonly Localized BindingsUnreadable = new("bindings.json 无法读取：{0}", "bindings.json cannot be read: {0}");
+
     public static readonly Localized BindingOk = new("{0}：正常（上下文文件 {1}；skill 目录 {2}）", "{0}: fine (context file {1}; skills folder {2})");
+
     public static readonly Localized BindingContextFileMissing = new(
         "{0}：上下文文件不存在（{1}；skill 目录 {2}）",
         "{0}: the context file is missing ({1}; skills folder {2})");
+
     public static readonly Localized BindingContextFileNotUtf8 = new(
         "{0}：上下文文件不是 UTF-8（{1}；skill 目录 {2}）",
         "{0}: the context file is not UTF-8 ({1}; skills folder {2})");
+
     public static readonly Localized BindingContextFileUnreadable = new(
         "{0}：上下文文件无法读取（{1}；skill 目录 {2}）",
         "{0}: the context file cannot be read ({1}; skills folder {2})");
+
     public static readonly Localized BindingMarkersIncomplete = new(
         "{0}：常驻区块的起止标记不完整或重复（{1}；skill 目录 {2}）",
         "{0}: the resident block's markers are incomplete or repeated ({1}; skills folder {2})");
+
     public static readonly Localized BindingSkillLinkNotTacit = new(
         "{0}：skill 链接 {3} 缺失或没有指向 tacit（上下文文件 {1}；skill 目录 {2}）",
         "{0}: the skill link {3} is missing or does not point at tacit (context file {1}; skills folder {2})");
+
     public static readonly Localized BindingSharedWith = new("（与 {0} 共用路径）", " (shares paths with {0})");
 
     public static readonly Localized ConsolidationTitle = new("上次整理", "Last consolidation");
+
     public static readonly Localized ConsolidationOn = new("上次整理：{0}，{1}", "Last consolidation: {0}, {1}");
+
     public static readonly Localized ConsolidationFromInit = new("尚未整理，从初始化提交（{0}）起算，{1}", "No consolidation yet; counting from the init commit ({0}), {1}");
+
     public static readonly Localized ConsolidationNever = new("从未整理（仓库没有 consolidate: 或 init: 提交）", "Never checked (the repository has no consolidate: or init: commit)");
+
     public static readonly Localized DaysAgo = new("距今 {0} 天", "{0} days ago");
+
     public static readonly Localized DayAgo = new("距今 1 天", "1 day ago");
+
     public static readonly Localized ConsolidationUnreadable = new("无法读取记忆仓库的历史：{0}", "The repository's history cannot be read: {0}");
 
     public static readonly Localized PendingTitle = new("待处理问题", "Pending issues");
+
     public static readonly Localized PendingCandidates = new("候选：{0}", "Candidates: {0}");
+
     public static readonly Localized PendingCandidatesUnknown = new(
         "候选：未统计（candidates.md 不是 UTF-8）",
         "Candidates: not counted (candidates.md is not UTF-8)");
+
     public static readonly Localized PendingFormatProblems = new("格式问题：{0}", "Format and rule problems: {0}");
+
     public static readonly Localized PendingWorkstreamEmpty = new("主线：为空", "Workstream: empty");
+
     public static readonly Localized PendingWorkstreamSet = new("主线：已设定", "Workstream: set");
 
     public static readonly Localized PendingWeeks = new("待汇总的周：{0}", "Weeks to summarize: {0}");
+
     public static readonly Localized PendingUnreadable = new("无法统计待处理问题：{0}", "Pending issues cannot be counted: {0}");
 
-
     public static readonly Localized SecretsTitle = new("密钥", "Secrets");
+
     public static readonly Localized SecretFromEnvironment = new("{0}：来自环境变量 {1}", "{0}: from the environment variable {1}");
+
     public static readonly Localized SecretFromEnvironmentOverridden = new(
         "{0}：来自环境变量 {1}，配置文件中的值未生效",
         "{0}: from the environment variable {1}; the value in config.yaml is ignored");
+
     public static readonly Localized SecretFromConfig = new("{0}：来自配置文件", "{0}: from config.yaml");
+
     public static readonly Localized SecretMissing = new(
         "{0}：未设置（环境变量 {1} 与配置文件都没有）",
         "{0}: not set (neither the environment variable {1} nor config.yaml holds it)");
-    public static readonly Localized SecretNotConfigured = new("{0}：未配置，不需要密钥", "{0}: not configured, no secret needed");
 
-    public static readonly Localized ApiFileFailed = new(
-        "无法读写文件或文件夹：{0}",
-        "A file or folder cannot be read or written: {0}");
-    public static readonly Localized ApiInternalFailure = new(
-        "服务内部出错，详情见 logs 目录中的日志。",
-        "The service failed unexpectedly; the details are in the logs folder.");
+    public static readonly Localized SecretNotConfigured = new("{0}：未配置，不需要密钥", "{0}: not configured, no secret needed");
 
     /// <summary>
     /// The extra listener's address as people read it: a wildcard address names every network interface and the port,

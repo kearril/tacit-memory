@@ -138,7 +138,7 @@ public sealed class ReloadTests : IDisposable
     [Fact]
     public async Task The_start_time_and_the_extra_listener_outlive_a_reload()
     {
-        Service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failure: null);
+        Service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failureReason: null);
         var listener = Service.ExtraListener;
         _home.Clock.Advance(TimeSpan.FromMinutes(5));
         var before = await Service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));

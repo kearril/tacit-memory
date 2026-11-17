@@ -50,7 +50,7 @@ internal static class ConfigSchema
     public static string? SecretValue(TacitConfig config, TacitOptions options, string path)
     {
         var secret = ConfigKeys.Secrets.FirstOrDefault(secret => secret.Path == path)
-            ?? throw new TacitException(TacitError.SecretUnknown, ManagementApiMessages.SecretUnknown.Format(config.Language, path));
+            ?? throw new TacitException(TacitError.SecretUnknown, RequestMessages.SecretUnknown.Format(config.Language, path));
         return FromEnvironment(options, secret.SecretVariable!) ?? ConfigFile.From(config).ValueAt(secret);
     }
 

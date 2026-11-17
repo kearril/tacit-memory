@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.OpenApi;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 using TacitMemory.Core;
+using TacitMemory.Host.Localization;
 
 namespace TacitMemory.Host.Api;
 
@@ -125,6 +126,19 @@ internal static class ManagementApi
 {
     private const string Prefix = "/api";
 
+    /// <summary>The route of the recall trace under <see cref="Prefix"/>, which reads like a GET though it is a POST.</summary>
+    private const string RecallTraceRoute = "/recall/trace";
+
+    /// <summary>
+    /// Whether a call is a successful read, which the log leaves out: a GET, or a recall trace, changed nothing, and the Web
+    /// UI's polling or a user trying query after query would otherwise fill the log.
+    /// </summary>
+    private static bool IsQuietRead(string method, string route, int status) =>
+        status is >= 200 and < 300
+        && (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(route, Prefix + RecallTraceRoute, StringComparison.OrdinalIgnoreCase)));
+
     /// <summary>
     /// The Host names a local request may carry: the IPv4 loopback address, <c>localhost</c> and the IPv6 loopback address,
     /// with or without a port. The port is not checked: only the name matters for DNS rebinding.
@@ -150,11 +164,11 @@ internal static class ManagementApi
             {
                 if (Refusal(context, local) is { } refusal)
                 {
-                    await Json(new ApiError(refusal.Error.ToString(), service.RefusalMessage(refusal.Error)), refusal.Status).ExecuteAsync(context);
+                    await Json(new ApiError(refusal.Error.ToString(), HostMessages.Refusal(refusal.Error, service.Language)), refusal.Status).ExecuteAsync(context);
                 }
                 else if (!(local || IsSessionEndpoint(context) || service.Access.IsSession(Cookie(context))))
                 {
-                    await Json(new ApiError(nameof(TacitError.ApiUnauthorized), service.RefusalMessage(TacitError.ApiUnauthorized)), StatusCodes.Status401Unauthorized)
+                    await Json(new ApiError(nameof(TacitError.ApiUnauthorized), HostMessages.Refusal(TacitError.ApiUnauthorized, service.Language)), StatusCodes.Status401Unauthorized)
                         .ExecuteAsync(context);
                 }
                 else
@@ -178,7 +192,9 @@ internal static class ManagementApi
             }
             finally
             {
-                service.RecordApiCall(context.Request.Method, context.Request.Path.Value ?? "/", status, Stopwatch.GetElapsedTime(started));
+                var route = context.Request.Path.Value ?? "/";
+                if (!IsQuietRead(context.Request.Method, route, status))
+                    service.RecordApiCall(context.Request.Method, route, status, Stopwatch.GetElapsedTime(started));
             }
         });
 
@@ -239,7 +255,7 @@ internal static class ManagementApi
         })
             .Produces<ProbeReport>()
             .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
-        api.MapPost("/recall/trace", async (HttpContext context) =>
+        api.MapPost(RecallTraceRoute, async (HttpContext context) =>
         {
             var body = await ReadBody<RecallTraceRequest>(context, service);
             return Json(await service.TraceRecallAsync(body, context.RequestAborted));
@@ -488,24 +504,39 @@ internal static class ManagementApi
         }
         catch (JsonException e)
         {
-            throw service.InvalidRequestBody(e.Path);
+            var field = e.Path?.TrimStart('$').TrimStart('.');
+            throw new TacitException(
+                TacitError.RequestInvalid,
+                string.IsNullOrEmpty(field)
+                    ? HostMessages.ApiBodyInvalid.In(service.Language)
+                    : HostMessages.ApiBodyInvalidField.Format(service.Language, field));
         }
     }
 
-    /// <summary>The refusal an exception from an operation becomes: a refused operation as it is, a file failure or any other failure as the service words it.</summary>
-    private static TacitException Failure(MemoryService service, Exception e) => e switch
+    /// <summary>
+    /// The refusal an exception from an operation becomes: a refused operation as it is; a file failure naming the reason the
+    /// system gave; any other failure logged with its kind and message by the service, and answered without them.
+    /// </summary>
+    private static TacitException Failure(MemoryService service, Exception e)
     {
-        TacitException refused => refused,
-        IOException or UnauthorizedAccessException => service.FileFailure(e),
-        _ => service.UnexpectedFailure(e),
-    };
+        switch (e)
+        {
+            case TacitException refused:
+                return refused;
+            case IOException or UnauthorizedAccessException:
+                return new TacitException(TacitError.FileSystemFailed, HostMessages.ApiFileFailed.Format(service.Language, e.Message), e);
+            default:
+                service.RecordUnexpectedFailure(e);
+                return new TacitException(TacitError.InternalFailure, HostMessages.ApiInternalFailure.In(service.Language), e);
+        }
+    }
 
     /// <summary>The name of the session cookie. The management API reads and sets it, and its path is <c>/api</c>.</summary>
     private const string SessionCookie = "tacit_session";
 
     /// <summary>What the session endpoints and the access-password endpoints answer about the caller and the service.</summary>
     private static SessionStatus SessionOf(MemoryService service, bool local, bool loggedIn) =>
-        new(local, loggedIn, service.Access.PasswordSet, service.Config.Language, service.Version);
+        new(local, loggedIn, service.Access.PasswordSet, service.Language, service.Version);
 
     /// <summary>The session cookie the request carries, if any.</summary>
     private static string? Cookie(HttpContext context) => context.Request.Cookies[SessionCookie];

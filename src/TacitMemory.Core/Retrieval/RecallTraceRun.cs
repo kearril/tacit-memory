@@ -26,11 +26,11 @@ internal static class RecallTraceRun
     /// <summary>A problem of the request, as the Web interface shows it beside the field.</summary>
     private static string Describe(SearchProblem problem, MemoryLanguage language) => problem.Fault switch
     {
-        SearchFault.QueryMissing => ManagementApiMessages.TraceQueryMissing.In(language),
-        SearchFault.DateInvalid => ManagementApiMessages.TraceDateInvalid.Format(language, problem.Given!.Trim()),
-        SearchFault.DatesReversed => ManagementApiMessages.TraceDatesReversed.In(language),
-        SearchFault.KindInvalid => ManagementApiMessages.TraceKindInvalid.Format(language, problem.Given),
-        _ => ManagementApiMessages.TraceValueOutOfRange.Format(
+        SearchFault.QueryMissing => RequestMessages.TraceQueryMissing.In(language),
+        SearchFault.DateInvalid => RequestMessages.TraceDateInvalid.Format(language, problem.Given!.Trim()),
+        SearchFault.DatesReversed => RequestMessages.TraceDatesReversed.In(language),
+        SearchFault.KindInvalid => RequestMessages.TraceKindInvalid.Format(language, problem.Given),
+        _ => RequestMessages.TraceValueOutOfRange.Format(
             language, problem.Parameter, problem.Min.ToString(CultureInfo.InvariantCulture), problem.Max.ToString(CultureInfo.InvariantCulture)),
     };
 

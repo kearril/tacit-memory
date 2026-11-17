@@ -324,7 +324,7 @@ public sealed class StatusTests : IDisposable
     public async Task A_bound_extra_listener_is_shown_in_the_service_column_with_its_address()
     {
         var service = Service;
-        service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failure: null);
+        service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failureReason: null);
 
         var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
 
@@ -337,7 +337,7 @@ public sealed class StatusTests : IDisposable
     public async Task An_extra_listener_that_did_not_bind_is_a_problem_with_the_reason_in_the_service_column()
     {
         var service = Service;
-        service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.AddressNotAvailable));
+        service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, "192.0.2.1 不是本机的地址");
 
         var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
 
@@ -349,23 +349,12 @@ public sealed class StatusTests : IDisposable
     }
 
     [Fact]
-    public async Task A_port_taken_on_the_extra_address_is_named_as_taken()
-    {
-        var service = Service;
-        service.RecordExtraListener(System.Net.IPAddress.Parse("127.0.0.2"), 18888, new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.AddressAlreadyInUse));
-
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
-
-        Assert.Equal("额外监听失败：http://127.0.0.2:18888/，端口 18888 已被占用", column.Lines[^1]);
-    }
-
-    [Fact]
     public void A_failed_extra_listener_is_logged_as_a_warning_naming_the_address()
     {
         var logs = new CapturingLoggerFactory();
         using var service = _home.Tacit().OpenService(_ => { }, logs);
 
-        service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.AddressNotAvailable));
+        service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, "192.0.2.1 不是本机的地址");
 
         var warning = Assert.Single(logs.Entries, entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning);
         Assert.Contains("http://192.0.2.1:18888/", warning.Message);

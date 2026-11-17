@@ -5,6 +5,7 @@ using TacitMemory.Core;
 using TacitMemory.Core.Show;
 using TacitMemory.Host;
 using TacitMemory.Host.Api;
+using TacitMemory.Host.Localization;
 using TacitMemory.Host.Mcp;
 
 namespace TacitMemory.Cli;
@@ -74,18 +75,18 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             await using var host = await ServiceHost.TryStartAsync(service, service.Config.Port, log.Provider, cancellationToken);
             if (host is null)
             {
-                var busy = service.PortInUseMessage();
+                var busy = HostMessages.PortInUse.Format(service.Language, service.Config.Port, Path.Combine(options.TacitHome, "config.yaml"));
                 log.Output.LogWarning("{Text}", busy);
                 console.Error.WriteLine(busy);
                 return 1;
             }
 
-            var listening = service.ListeningMessage(host.Endpoint);
+            var listening = HostMessages.ServiceListening.Format(service.Language, host.Endpoint);
             log.Output.LogInformation("{Text}", listening);
             console.Out.WriteLine(listening);
             if (service.ExtraListener is { FailureReason: null } extra)
             {
-                var extraLine = service.ExtraListeningMessage(extra.Address);
+                var extraLine = extra.Line(service.Language);
                 log.Output.LogInformation("{Text}", extraLine);
                 console.Out.WriteLine(extraLine);
             }

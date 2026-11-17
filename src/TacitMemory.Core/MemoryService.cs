@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
-using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -239,6 +238,9 @@ public sealed class MemoryService : IDisposable
     /// <summary>The config the service runs with: the one it started with, or the one the last reload put in place.</summary>
     public TacitConfig Config { get; private set; }
 
+    /// <summary>The memory language the service words everything in: the language of the config it runs.</summary>
+    public MemoryLanguage Language => Config.Language;
+
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
 
@@ -282,49 +284,25 @@ public sealed class MemoryService : IDisposable
         return await ConsolidationResource.RenderAsync(_options, Config, _consolidation, cancellationToken);
     }
 
-    /// <summary>The line to show once the MCP endpoint at <paramref name="endpoint"/> accepts connections.</summary>
-    public string ListeningMessage(Uri endpoint) => Messages.ServiceListening.Format(Config.Language, endpoint);
-
     /// <summary>The extra listener <c>server.host</c> names, as the host bound it when the service started; <c>null</c> when none is named.</summary>
     public ExtraListenerStatus? ExtraListener => _extraListener;
 
-    /// <summary>The text the web interface answers with when its files were not built, in the memory language.</summary>
-    public string WebNotBuiltMessage() => ManagementApiMessages.WebNotBuilt.In(Config.Language);
-
-    /// <summary>The line to show for a bound extra listener at <paramref name="address"/>, in the memory language.</summary>
-    public string ExtraListeningMessage(Uri address) =>
-        ManagementApiMessages.ExtraListenerAddress.Format(Config.Language, ManagementApiMessages.ExtraListenerName(address, Config.Language));
-
     /// <summary>
     /// Records the outcome of the host's attempt to bind the address <c>server.host</c> names, at <paramref name="port"/>. A
-    /// failure is logged as a warning, shown to the user, and kept for the status report; the reason is the system's error
-    /// put in words where it can be, such as a port that is taken.
+    /// failure is logged as a warning, shown to the user, and kept for the status report.
     /// </summary>
     /// <param name="address">The address that was to be listened on besides loopback.</param>
     /// <param name="port">The port of the service.</param>
-    /// <param name="failure">The error the bind failed with; <c>null</c> when the address answers.</param>
-    public void RecordExtraListener(IPAddress address, int port, Exception? failure)
+    /// <param name="failureReason">Why the bind failed, in the memory language; <c>null</c> when the address answers.</param>
+    public void RecordExtraListener(IPAddress address, int port, string? failureReason)
     {
-        var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failure is null ? null : FailureReason(address, port, failure));
+        var listener = new ExtraListenerStatus(ExtraListenerStatus.AddressOf(address, port), failureReason);
         _extraListener = listener;
         if (listener.FailureReason is null)
-            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language));
+            _log.Record(LogLevel.Information, LogMessages.ExtraListenerBound, StatusMessages.ExtraListenerName(listener.Address, Config.Language));
         else
-            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, ManagementApiMessages.ExtraListenerName(listener.Address, Config.Language), listener.FailureReason);
+            _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, StatusMessages.ExtraListenerName(listener.Address, Config.Language), listener.FailureReason);
     }
-
-    private string FailureReason(IPAddress address, int port, Exception failure) => failure is SocketException socket
-        ? socket.SocketErrorCode switch
-        {
-            SocketError.AddressAlreadyInUse => ManagementApiMessages.ExtraPortInUse.Format(Config.Language, port),
-            SocketError.AddressNotAvailable => ManagementApiMessages.ExtraAddressUnavailable.Format(Config.Language, address),
-            _ => socket.Message,
-        }
-        : failure.Message;
-
-    /// <summary>The line to show when <see cref="TacitConfig.Port"/> is taken by another program.</summary>
-    public string PortInUseMessage() =>
-        Messages.PortInUse.Format(Config.Language, Config.Port, Path.Combine(_options.TacitHome, "config.yaml"));
 
     /// <summary>
     /// The status report of this running service, reachable at <paramref name="endpoint"/>: its version, uptime, the
@@ -362,13 +340,13 @@ public sealed class MemoryService : IDisposable
     public ServiceLogDay ServiceLog(string date, string? after = null)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
-            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogDateInvalid.Format(Config.Language, date));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogDateInvalid.Format(Config.Language, date));
         var skip = 0;
         if (after is not null && !int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out skip))
-            throw new TacitException(TacitError.RequestInvalid, ManagementApiMessages.LogAfterInvalid.Format(Config.Language, after));
+            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogAfterInvalid.Format(Config.Language, after));
         var today = _options.Today;
         var entries = ServiceLogReader.Read(_options.TacitHome, day)
-            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, ManagementApiMessages.LogDateNotFound.Format(Config.Language, date)));
+            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, RequestMessages.LogDateNotFound.Format(Config.Language, date)));
         return new ServiceLogDay(day, today, [.. entries.Skip(skip)], entries.Count);
     }
 
@@ -464,7 +442,7 @@ public sealed class MemoryService : IDisposable
             if (string.Equals(candidate.ToString(), name, StringComparison.OrdinalIgnoreCase) && name == name.ToLowerInvariant())
                 return candidate;
         }
-        throw new TacitException(TacitError.PromptUnknown, ManagementApiMessages.PromptUnknown.Format(Config.Language, name));
+        throw new TacitException(TacitError.PromptUnknown, RequestMessages.PromptUnknown.Format(Config.Language, name));
     }
 
     /// <summary>
@@ -485,7 +463,7 @@ public sealed class MemoryService : IDisposable
             var path = PromptFiles.PathOf(_options.TacitHome, name);
             var current = PromptView(name);
             if (current.Hash != hash)
-                throw new TacitException(TacitError.PromptChanged, ManagementApiMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
+                throw new TacitException(TacitError.PromptChanged, RequestMessages.PromptChanged.Format(Config.Language, Path.GetFileName(path)));
 
             var content = text.ReplaceLineEndings("\n");
             RefuseUnless(name, content);
@@ -594,13 +572,13 @@ public sealed class MemoryService : IDisposable
         var path = ConfigFilePath;
         var current = File.ReadAllText(path);
         if (ContentHash.Of(current) != hash)
-            throw new TacitException(TacitError.ConfigChanged, ManagementApiMessages.ConfigChanged.In(Config.Language));
+            throw new TacitException(TacitError.ConfigChanged, RequestMessages.ConfigChanged.In(Config.Language));
 
         var held = ConfigLoader.Read(_options, path, current);
         var unknown = secrets.Keys.Where(key => ConfigKeys.Secrets.All(secret => secret.Path != key)).ToList();
         if (unknown.Count > 0)
         {
-            var refused = unknown.Select(key => new ConfigProblem(key, ManagementApiMessages.SecretNotSecret.In(Config.Language))).ToList();
+            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.SecretNotSecret.In(Config.Language))).ToList();
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
         }
 
@@ -621,10 +599,10 @@ public sealed class MemoryService : IDisposable
         var (before, after) = (ConfigFile.From(held), ConfigFile.From(saved));
         var problems = ConfigKeys.ReadOnly
             .Where(key => before.ValueAt(key) != after.ValueAt(key))
-            .Select(key => new ConfigProblem(key.Path, ManagementApiMessages.ConfigReadOnly.In(Config.Language)))
+            .Select(key => new ConfigProblem(key.Path, RequestMessages.ConfigReadOnly.In(Config.Language)))
             .ToList();
         if (saved.ExtraAddress is not null && !Access.PasswordSet)
-            problems.Add(new ConfigProblem("server.host", ManagementApiMessages.ConfigExtraNeedsPassword.In(Config.Language)));
+            problems.Add(new ConfigProblem("server.host", RequestMessages.ConfigExtraNeedsPassword.In(Config.Language)));
         if (problems.Count > 0)
             throw new TacitException(TacitError.ConfigRejected, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
 
@@ -649,39 +627,9 @@ public sealed class MemoryService : IDisposable
     private static ConfigFile WithoutSecrets(ConfigFile file) =>
         ConfigKeys.Secrets.Aggregate(file, (result, secret) => result.WithSecret(secret, null));
 
-    /// <summary>The refusal for a request body the management API cannot read, in the memory language; <paramref name="jsonPath"/> is the member at fault, when the parser names one.</summary>
-    public TacitException InvalidRequestBody(string? jsonPath)
-    {
-        var field = jsonPath?.TrimStart('$').TrimStart('.');
-        return new TacitException(
-            TacitError.RequestInvalid,
-            string.IsNullOrEmpty(field)
-                ? ManagementApiMessages.ApiBodyInvalid.In(Config.Language)
-                : ManagementApiMessages.ApiBodyInvalidField.Format(Config.Language, field));
-    }
-
-    /// <summary>The refusal for a file or folder the operation could not use; the message names the reason the system gave.</summary>
-    public TacitException FileFailure(Exception cause) =>
-        new(TacitError.FileSystemFailed, ManagementApiMessages.ApiFileFailed.Format(Config.Language, cause.Message), cause);
-
-    /// <summary>The refusal for a failure no operation expected: logged with its kind and message, answered without them.</summary>
-    public TacitException UnexpectedFailure(Exception cause)
-    {
+    /// <summary>The failure no operation expected, logged with its kind and message; the host answers without them.</summary>
+    public void RecordUnexpectedFailure(Exception cause) =>
         _log.Record(LogLevel.Error, LogMessages.UnexpectedFailure, cause.GetType().Name, cause.Message);
-        return new TacitException(TacitError.InternalFailure, ManagementApiMessages.ApiInternalFailure.In(Config.Language), cause);
-    }
-
-    /// <summary>The message for a request the host refuses (the management API's guards, its connection rule, or the MCP endpoint's), in the memory language.</summary>
-    public string RefusalMessage(TacitError error) => error switch
-    {
-        TacitError.ApiOriginRefused => ManagementApiMessages.ApiOriginRefused.Format(Config.Language),
-        TacitError.ApiHostRefused => ManagementApiMessages.ApiHostRefused.Format(Config.Language),
-        TacitError.ApiContentTypeRefused => ManagementApiMessages.ApiContentTypeRefused.Format(Config.Language),
-        TacitError.ApiUnauthorized => ManagementApiMessages.ApiUnauthorized.Format(Config.Language),
-        TacitError.McpRemoteRefused => ManagementApiMessages.McpRemoteRefused.Format(Config.Language),
-        TacitError.RemotePathRefused => ManagementApiMessages.RemotePathRefused.Format(Config.Language),
-        _ => throw new ArgumentOutOfRangeException(nameof(error), error, "Not a host refusal."),
-    };
 
     /// <summary>
     /// Makes a backup now. A local one waits in the write queue like a write does, so the archive holds the repository as
@@ -725,22 +673,12 @@ public sealed class MemoryService : IDisposable
     /// </summary>
     public void RecordClient(ClientObservation observation) => _clients.Observe(observation);
 
-    /// <summary>The route of the recall trace, which reads like a GET though it is a POST.</summary>
-    public const string RecallTracePath = "/api/recall/trace";
-
     /// <summary>
-    /// Writes the management API's event for one call: its method, route, status code and time taken. A successful read is not
-    /// written: a GET, or a recall trace, changed nothing, and the Web UI's polling or a user trying query after query would
-    /// otherwise fill the log. The event never holds a request body, so a trace's query is never written.
+    /// Writes the management API's event for one call: its method, route, status code and time taken. The host decides which
+    /// calls are written; the event never holds a request body.
     /// </summary>
-    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed)
-    {
-        var read = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase)
-            || (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase) && string.Equals(route, RecallTracePath, StringComparison.OrdinalIgnoreCase));
-        if (read && statusCode is >= 200 and < 300)
-            return;
+    public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
-    }
 
     /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>

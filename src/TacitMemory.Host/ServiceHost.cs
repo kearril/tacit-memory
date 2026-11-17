@@ -13,6 +13,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using TacitMemory.Core;
 using TacitMemory.Host.Api;
+using TacitMemory.Host.Localization;
 using TacitMemory.Host.Mcp;
 using TacitMemory.Host.Web;
 
@@ -94,7 +95,8 @@ public sealed class ServiceHost : IAsyncDisposable
         }
 
         if (extra is not null)
-            service.RecordExtraListener(extra, port, extraFailure);
+            service.RecordExtraListener(
+                extra, port, extraFailure is null ? null : HostMessages.ExtraListenerFailure(extraFailure, extra, port, service.Language));
         return host;
     }
 
@@ -177,7 +179,7 @@ public sealed class ServiceHost : IAsyncDisposable
                 var error = context.Request.Path.StartsWithSegments(McpPath, StringComparison.OrdinalIgnoreCase)
                     ? TacitError.McpRemoteRefused
                     : TacitError.RemotePathRefused;
-                await ManagementApi.Json(new ApiError(error.ToString(), service.RefusalMessage(error)), StatusCodes.Status403Forbidden)
+                await ManagementApi.Json(new ApiError(error.ToString(), HostMessages.Refusal(error, service.Language)), StatusCodes.Status403Forbidden)
                     .ExecuteAsync(context);
                 return;
             }
