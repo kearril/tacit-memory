@@ -266,7 +266,7 @@ export const zh = {
       summary: "什么时候提醒整理，一次整理能用多久，以及报告里的篇幅提示。",
       fields: {
         remindAfterDays: { label: "提醒天数", help: "距上次整理达到该天数时，服务端说明中出现整理提示。" },
-        remindCandidates: { label: "提醒候选数", help: "画像候选达到该个数时，服务端说明中出现整理提示。" },
+        remindCandidates: { label: "提醒候选数", help: "上次整理之后有新出现记录的画像候选达到该个数时，服务端说明中出现整理提示。" },
         budgetSeconds: {
           label: "时限（秒）",
           help: "一次整理最多等模型的秒数；到点照常出报告，没算完的项下次接着算。",

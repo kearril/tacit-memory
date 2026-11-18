@@ -14,6 +14,10 @@ namespace TacitMemory.Core.Consolidation;
 /// <param name="DaysSince">Days from the baseline's commit to today; <c>null</c> when there is no baseline commit.</param>
 /// <param name="CandidatesReadable">Whether <c>candidates.md</c> is valid UTF-8; the candidate count is zero otherwise.</param>
 /// <param name="Candidates">The candidates in <c>candidates.md</c>; zero when the file is not readable.</param>
+/// <param name="NewCandidates">
+/// The candidates with an occurrence dated after the last consolidation's day: the ones a consolidation has not seen yet.
+/// Every candidate counts when no consolidation has run.
+/// </param>
 /// <param name="Problems">Format and rule problems.</param>
 /// <param name="WorkstreamEmpty">Whether no workstream is established.</param>
 /// <param name="UnsummarizedWeeks">Completed ISO weeks that have activities and no summary line yet.</param>
@@ -22,6 +26,7 @@ internal sealed record ConsolidationSummary(
     int? DaysSince,
     bool CandidatesReadable,
     int Candidates,
+    int NewCandidates,
     int Problems,
     bool WorkstreamEmpty,
     int UnsummarizedWeeks)
@@ -37,25 +42,29 @@ internal sealed record ConsolidationSummary(
         var git = new GitCli(config.MemoryPath, config.Language);
         var baseline = await ConsolidationBaseline.ReadAsync(git, cancellationToken);
         var context = new ConsolidationContext(config, today, git, baseline);
-        // Candidates are counted without a model: every candidate in the file counts.
+        // Candidates are counted without a model: every candidate in the file counts, and the ones with an occurrence after
+        // the last consolidation count as new, so candidates a consolidation left to keep observing do not bring it back.
         var candidates = TextFile.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Candidates));
-        var candidateCount = candidates is { } read ? CandidatesDocument.Parse(read.Text).Candidates.Count : 0;
+        var parsed = candidates is { } read ? CandidatesDocument.Parse(read.Text).Candidates : [];
+        var newCandidates = baseline.Kind == BaselineKind.Consolidation
+            ? parsed.Count(candidate => candidate.Occurrences.Any(occurrence => !occurrence.Rejected && occurrence.Day > baseline.Commit!.Day))
+            : parsed.Count;
         var problems = FormatViolations.Issues(context).Count;
         var workstreamEmpty = WorkstreamFile.Established(config.MemoryPath).Count == 0;
         var unsummarizedWeeks = SummaryCalendar.Unsummarized(config.MemoryPath, today).Count(period => period.Kind == SummaryKind.Week);
 
         var days = baseline.Commit is { } commit ? today.DayNumber - commit.Day.DayNumber : (int?)null;
-        return new ConsolidationSummary(baseline, days, candidates is not null, candidateCount, problems, workstreamEmpty, unsummarizedWeeks);
+        return new ConsolidationSummary(baseline, days, candidates is not null, parsed.Count, newCandidates, problems, workstreamEmpty, unsummarizedWeeks);
     }
 
     /// <summary>
     /// Whether a consolidation is due. Each trigger makes it due on its own: the last consolidation is at least
     /// <c>consolidation.remindAfterDays</c> days old (or there is no baseline commit), a completed week waits for its summary,
-    /// the candidates reach <c>consolidation.remindCandidates</c>, or the workstream is empty. Format problems alone never do.
+    /// the new candidates reach <c>consolidation.remindCandidates</c>, or the workstream is empty. Format problems alone never do.
     /// </summary>
     public bool IsDue(ConsolidationConfig config) =>
         DaysSince is null || DaysSince >= config.RemindAfterDays
         || UnsummarizedWeeks > 0
-        || (Candidates > 0 && Candidates >= config.RemindCandidates)
+        || (NewCandidates > 0 && NewCandidates >= config.RemindCandidates)
         || WorkstreamEmpty;
 }

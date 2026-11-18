@@ -36,7 +36,7 @@ internal static class ConsolidationReminder
             "## Consolidation reminder",
             BaselineLine(summary.Baseline, summary.DaysSince),
             $"- Weeks to summarize: {summary.UnsummarizedWeeks}.",
-            $"- Persona candidates: {summary.Candidates}.",
+            CandidatesLine(summary),
             $"- Format and rule problems: {summary.Problems}.",
             summary.WorkstreamEmpty ? "- Workstream: empty." : "- Workstream: not empty.",
             "The user can run the tacit-consolidate skill to start a consolidation; suggest it when the moment fits, and do not start one unasked.",
@@ -50,4 +50,8 @@ internal static class ConsolidationReminder
     };
 
     private static string Days(int count) => count == 1 ? "1 day" : $"{count} days";
+
+    private static string CandidatesLine(ConsolidationSummary summary) => summary.Baseline.Kind == BaselineKind.Consolidation
+        ? $"- Persona candidates: {summary.Candidates}, {summary.NewCandidates} with new occurrences since the last consolidation."
+        : $"- Persona candidates: {summary.Candidates}.";
 }
