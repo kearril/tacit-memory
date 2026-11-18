@@ -3672,7 +3672,6 @@
       "FullTextMethod": {
         "enum": [
           "phrase",
-          "substring",
           "none"
         ]
       },
@@ -5588,7 +5587,6 @@
           "PromptChanged",
           "LogDateNotFound",
           "MemoryNotFound",
-          "VectorExtensionInvalid",
           "ApiOriginRefused",
           "ApiHostRefused",
           "ApiContentTypeRefused",

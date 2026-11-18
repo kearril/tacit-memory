@@ -21,9 +21,8 @@ if [ $# -ne 2 ]; then
 fi
 runtime=$1
 case $runtime in
-    win-x64) executable=tacit.exe vector=vec0.dll ;;
-    osx-arm64) executable=tacit vector=vec0.dylib ;;
-    linux-x64) executable=tacit vector=vec0.so ;;
+    win-x64) executable=tacit.exe ;;
+    osx-arm64 | linux-x64) executable=tacit ;;
     *) echo "unknown runtime '$runtime': win-x64, osx-arm64 or linux-x64" >&2; exit 2 ;;
 esac
 
@@ -59,12 +58,6 @@ nuget_json=$output/nuget-licenses.json
         -fo "$nuget_json"
 ) >&2
 
-sqlite_vec_mit=$root/lib/sqlite-vec/LICENSE-MIT
-if ! grep -q 'Permission is hereby granted' "$sqlite_vec_mit"; then
-    echo "lib/sqlite-vec/LICENSE-MIT no longer holds the MIT permission text." >&2
-    exit 1
-fi
-
 # jq on Windows may end lines with CR LF; the notices use LF only.
 jq_text() { jq "$@" | tr -d '\r'; }
 heading() { printf '\n%s\n' "$1"; printf '%*s\n' "${#1}" '' | tr ' ' '='; printf '\n'; }
@@ -82,11 +75,6 @@ trim_end() { sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$1"; }
     printf 'https://github.com/dotnet/aspnetcore\n'
     printf 'Their own third-party notices: https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT and\n'
     printf 'https://github.com/dotnet/aspnetcore/blob/main/THIRD-PARTY-NOTICES.txt\n'
-
-    heading "sqlite-vec ($vector)"
-    printf 'Version 0.1.9. Dual licensed under MIT or Apache-2.0; used here under MIT.\n'
-    printf 'https://github.com/asg017/sqlite-vec\n\n'
-    trim_end "$sqlite_vec_mit"
 
     heading 'NuGet packages'
     jq_text -r 'sort_by(.PackageId | ascii_downcase)[]
@@ -113,7 +101,25 @@ trim_end() { sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$1"; }
     heading 'MIT License'
     printf 'Applies to the packages above listed under MIT, with the copyright statement given beside each.\n\n'
     # The MIT text without its title and copyright line, for the packages whose metadata carries only a copyright statement.
-    sed -n '/Permission is hereby granted/,$p' "$sqlite_vec_mit" | trim_end /dev/stdin
+    cat <<'EOF'
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+EOF
 
     heading 'Apache License 2.0'
     printf 'Applies to the packages above listed under Apache-2.0.\n\n'

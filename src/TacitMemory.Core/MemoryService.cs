@@ -117,7 +117,7 @@ public sealed class MemoryService : IDisposable
             OnOpening?.Invoke(config);
             models = new AuxiliaryModels(config, _options.ModelClock, _log);
             index = new MemoryIndex(
-                config.MemoryPath, config.Models.Embedding?.Model, config.Language,
+                config.MemoryPath, config.Models.Embedding?.Model,
                 () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
             index.SyncAll();
             sources = _options.Sources?.Attach(_upkeep) ?? new FileSourceWatch(config.MemoryPath, _options.TacitHome, _upkeep, _log);
@@ -689,10 +689,11 @@ public sealed class MemoryService : IDisposable
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
         RecordToolCall("recall", null, Targets(request.Page), () => RecallCoreAsync(request, cancellationToken));
 
-    private async Task<ToolResult> RecallCoreAsync(RecallRequest request, CancellationToken cancellationToken)
+    private async Task<(ToolResult, string)> RecallCoreAsync(RecallRequest request, CancellationToken cancellationToken)
     {
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return await _recall.RunAsync(request, cancellationToken);
+        var (result, results) = await _recall.RunAsync(request, cancellationToken);
+        return (result, RecallTool.LogDetails(request, results, Language));
     }
 
     /// <summary>
@@ -1019,27 +1020,32 @@ public sealed class MemoryService : IDisposable
         _gate.Dispose();
     }
 
+    /// <summary>Runs a memory tool whose event adds nothing to the targets; see the overload that takes details.</summary>
+    private Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<ToolResult>> call) =>
+        RecordToolCall(tool, op, targets, async () => (await call(), ""));
+
     /// <summary>
-    /// Runs one memory tool and writes its event: the tool, its op, the page IDs and short codes the call names, the outcome
-    /// and the time taken. It is the only place tool calls are logged, and no event carries the text a call sends.
+    /// Runs one memory tool and writes its event: the tool, its op, the page IDs and short codes the call names, the details
+    /// the call adds, the outcome and the time taken. It is the only place tool calls are logged. No event carries the text a
+    /// call sends, except the query of a <c>recall</c> search, which the details hold.
     /// </summary>
-    private async Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<ToolResult>> call)
+    private async Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<(ToolResult Result, string Details)>> call)
     {
         var started = Stopwatch.GetTimestamp();
-        ToolResult? result = null;
+        (ToolResult Result, string Details)? done = null;
         try
         {
-            result = await call();
-            return result;
+            done = await call();
+            return done.Value.Result;
         }
         finally
         {
-            var outcome = result is null ? LogMessages.ToolAborted
+            var outcome = done is not { Result: var result } ? LogMessages.ToolAborted
                 : result.IsError ? LogMessages.ToolRefused
                 : result.Written ? LogMessages.ToolWritten
                 : LogMessages.ToolDone;
             _log.Record(
-                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, outcome.In(Language),
+                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, done?.Details ?? "", outcome.In(Language),
                 (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }

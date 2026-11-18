@@ -91,6 +91,8 @@ internal static class ConsolidationSkill
             .Append("\": draft one proposal per workstream change: a new workstream (its name, a background line, a recent line, and the detail pages it takes into its folder), ")
             .Append("an unestablished name merged into an existing workstream or its label dropped, a split of a workstream, or a merge of two. ")
             .Append("Each proposal names the pages it moves. Topic pages under a listed prefix may form a new workstream when they belong together; otherwise they stay in topics.\n");
+        text.Append("   When a proposal above other than a shorter wording merges, splits, moves or rewrites pages or entries, keep every fact of the original in the result. ")
+            .Append("If it would drop a fact, including text a pointer replaces, list each dropped fact under that item, so the user decides.\n");
         text.Append("   Give each item a number, what would change, and its evidence (a short code, a quote or a page identifier). ")
             .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to workstream scope`. An item the reply does not mention is deferred.\n");
         text.Append("4. Carry out the reply item by item. Changes to persona entries, scope blocks and pages happen only after the user confirms the item:\n");
@@ -102,6 +104,7 @@ internal static class ConsolidationSkill
         text.Append("   - a confirmed workstream item is carried out by editing the entries in workstreams.md (add, remove or change one), moving the detail pages into their new folder and fixing the related lines of other pages that name them. ")
             .Append("For a merge, also move the entries of the merged workstream's scope block in persona.md into the target's block and set their scope to the target. ")
             .Append("Leave the labels of past activities as they are.\n");
+        text.Append("   Whatever the item, make only the change it proposes: drop no fact of a page, persona entry or workstream entry that the item does not list.\n");
         text.Append("5. Show the user the summaries you wrote and the workstream entries you changed.\n");
         text.Append("6. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
             .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")

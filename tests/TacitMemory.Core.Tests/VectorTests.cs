@@ -119,6 +119,49 @@ public sealed class VectorTests : IDisposable
         Assert.Contains("company/reimburse", (await Recall("出差的钱怎么拿回来")).Text);
     }
 
+    [Fact]
+    public async Task A_section_is_embedded_with_its_page_title_and_the_title_unit_as_it_was()
+    {
+        var embedded = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var stored = _models.Embed;
+        _models.Embed = text => { embedded.Add(text); return stored(text); };
+
+        await Create("company/backup", "云端备份", "改成了 WebDAV。");
+        await Service.SettledAsync();
+
+        Assert.Contains("云端备份\n内容\n改成了 WebDAV。", embedded);
+        Assert.Contains("云端备份\n云端备份别名\n云端备份又名", embedded);
+    }
+
+    [Fact]
+    public async Task A_section_whose_page_title_alone_names_the_topic_is_found_and_kept_by_the_reranker()
+    {
+        // The reranker judges a section on the topic only when it can see the title; the title unit itself scores nothing.
+        _models.Score = (_, document) => document.Contains("别名", StringComparison.Ordinal) ? 0 : document.Contains("差旅", StringComparison.Ordinal) ? 1 : 0;
+        await Create("company/reimburse", "差旅报销流程", "票据贴好后交给财务，月底统一打款。");
+
+        var result = await Recall("出差的钱怎么拿回来");
+
+        Assert.Contains("### 内容", result.Text);
+        Assert.Contains("月底统一打款", result.Text);
+    }
+
+    [Fact]
+    public async Task Renaming_a_page_embeds_its_sections_again_under_the_new_title()
+    {
+        await Create("company/backup", "云端备份", "改成了 WebDAV。");
+        await Service.SettledAsync();
+        var embedded = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var stored = _models.Embed;
+        _models.Embed = text => { embedded.Add(text); return stored(text); };
+
+        var renamed = await Service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "company/backup", Title = "异地备份" });
+        Assert.False(renamed.IsError, renamed.Text);
+        await Service.SettledAsync();
+
+        Assert.Contains("异地备份\n内容\n改成了 WebDAV。", embedded);
+    }
+
     private static float[] Unit(int axis)
     {
         var vector = new float[2];

@@ -65,7 +65,7 @@ flowchart LR
 | 仓库布局 | `MemoryLayout`：记忆仓库里每种文件的路径，读写两侧都经它取 |
 | 各类记忆文件 | 画像与候选、细节页、近期活动、主线文件、汇总，各有解析与按行修改；解析时同时报告格式问题 |
 | 判断 | 写入前的检查与整理的判断都把选择题交给 `ChoiceJudge`，它补上「都不是」、调用决策模型、按阈值分三档 |
-| 派生索引与检索 | SQLite FTS5 + `vec0`，按来源组织；`RecallPipeline` 做筛选、全文、向量、RRF、精排；读取入口 `MemoryReader` 必须写明是否计入使用统计 |
+| 派生索引与检索 | SQLite FTS5 加以 BLOB 存放、在 C# 中计算余弦距离的向量，按来源组织；`RecallPipeline` 做筛选、全文、向量、RRF、精排；读取入口 `MemoryReader` 必须写明是否计入使用统计 |
 | 主线简报 | `WorkstreamBrief`：只给主线名的 `recall`，直接读文件组装，不经检索 |
 | 记忆浏览与检索追踪 | Web 界面的只读视图与 `recall` 的逐阶段明细，都不计入使用统计 |
 | 辅助模型 | 三个模型共用请求内重试与冷却；提供方差异只在构造请求与读取响应两处 |
@@ -92,7 +92,7 @@ flowchart LR
 
 ### 检索
 
-按主线与日期筛选 → 全文（FTS5，中文两字切分）与向量（`vec0`）各取候选 → RRF 合并 → reranker 精排 → 按阈值过滤与截取。`recall` 计入使用统计，记忆浏览与检索追踪不计入。
+按主线与日期筛选 → 全文（FTS5，中文两字切分）与向量（SQL 筛选后在 C# 中计算余弦距离）各取候选 → RRF 合并 → reranker 精排 → 按阈值过滤与截取。`recall` 计入使用统计，记忆浏览与检索追踪不计入。
 
 ### 注入
 
@@ -119,13 +119,12 @@ flowchart LR
 | CLI 与输出美化 | `ConsoleAppFramework`；`Spectre.Console` 只在 CLI 中用 |
 | 调用 `git` | `SimpleExec` |
 | 索引 | `Microsoft.Data.Sqlite`（关闭连接池，以便删除重建）、`Dapper` |
-| 向量 | `sqlite-vec` 官方发布的 loadable 扩展，按平台存于 `lib/sqlite-vec/<rid>/`，加载前校验 SHA-256 |
 | 辅助模型、WebDAV | 只用 `HttpClient`，不引入 SDK |
 | 日志 | `Serilog`；Core 只引用日志抽象 |
 | 版本与许可清单 | `MinVer`；`nuget-license` 与 `rollup-plugin-license` |
 | 前端 | Bun、Vite、React、React Router、TanStack Query、Tailwind、`radix-ui`、CodeMirror、`@lezer/markdown` |
 
-依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包；进入发行包的依赖必须是与 Apache-2.0 相容的宽松许可，打包时校验，不合即失败。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5、`vec0` 虚拟表不合）。不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。
+依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包；进入发行包的依赖必须是与 Apache-2.0 相容的宽松许可，打包时校验，不合即失败。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5 虚拟表不合）。不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。
 
 ## 7. 前端工程（`web/`）
 
@@ -142,6 +141,6 @@ flowchart LR
 
 **构建与托管**：`dotnet publish` 时构建前端并复制到发布目录的 `web/`；`dotnet build` 与 `dotnet test` 不触发前端构建。
 
-**发行包**：`build/package.sh` 按目标平台生成单文件、裁剪且压缩的可执行文件，并把该平台的向量扩展放在旁边。向量扩展由两处分工：Core 在普通构建时拷贝构建所在平台的那份，供构建与测试加载；发布时 RID 不传给被引用的项目，所以由 Cli 的发布目标换成目标平台的那份。改动其中一处时要一并看另一处。裁剪只针对框架，所以全部 JSON 都经构建时生成的契约读写，产品代码每次构建都运行裁剪分析器（警告即错误）。发布规则见 `docs/reference/operations.md`。
+**发行包**：`build/package.sh` 按目标平台生成单文件、裁剪且压缩的可执行文件。裁剪只针对框架，所以全部 JSON 都经构建时生成的契约读写，产品代码每次构建都运行裁剪分析器（警告即错误）。发布规则见 `docs/reference/operations.md`。
 
 **开发**：`bun run dev` 启动 Vite 开发服务器，`/api` 代理到本机运行中的服务（端口取 `TACIT_SERVICE_PORT`，缺省 18888）。

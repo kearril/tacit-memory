@@ -4,8 +4,8 @@ namespace TacitMemory.Core.Tests;
 
 /// <summary>
 /// What the service writes to its log, read through a logger factory that keeps every event. A tool call names its page
-/// or short code and never carries the text it sends; no event holds a secret; the startup, the cooldown of a model that
-/// finally failed and the automatic backup are logged; a notice is both shown and logged.
+/// or short code and never carries the text it sends, except the query of a recall search; no event holds a secret; the
+/// startup, the cooldown of a model that finally failed and the automatic backup are logged; a notice is both shown and logged.
 /// </summary>
 public sealed class LogTests : IDisposable
 {
@@ -67,17 +67,26 @@ public sealed class LogTests : IDisposable
     }
 
     [Fact]
-    public async Task A_recall_is_logged_with_its_page_and_never_its_query()
+    public async Task A_recall_is_logged_with_its_mode_filters_query_on_one_line_and_result_count()
     {
         await Service.WritePageAsync(Create("my-app/deploy"));
 
         await Service.RecallAsync(new RecallRequest { Page = "my-app/deploy" });
-        await Service.RecallAsync(new RecallRequest { Query = QueryMarker });
+        await Service.RecallAsync(new RecallRequest { Query = QueryMarker + "\n  第二行", Workstream = "my-app", From = "2026-01-01" });
+        await Service.RecallAsync(new RecallRequest { Query = QueryMarker, Page = "my-app/deploy" });
 
         var reads = EventsOf("recall").Select(entry => entry.Message).ToList();
-        Assert.Equal(2, reads.Count);
-        Assert.Contains(reads, line => line.Contains("my-app/deploy", StringComparison.Ordinal));
-        Assert.DoesNotContain(QueryMarker, _logs.AllText, StringComparison.Ordinal);
+        Assert.Equal(3, reads.Count);
+        Assert.Contains("my-app/deploy", reads[0], StringComparison.Ordinal);
+        Assert.Contains("方式 page", reads[0], StringComparison.Ordinal);
+        Assert.Contains("方式 search", reads[1], StringComparison.Ordinal);
+        Assert.Contains("筛选 workstream=my-app from=2026-01-01", reads[1], StringComparison.Ordinal);
+        Assert.Contains($"查询「{QueryMarker} 第二行」", reads[1], StringComparison.Ordinal);
+        Assert.Matches(@"结果 \d+ 条", reads[1]);
+        Assert.DoesNotContain("\n", reads[1], StringComparison.Ordinal);
+        // A refused search names its query but has no results to count.
+        Assert.Contains("已拒绝", reads[2], StringComparison.Ordinal);
+        Assert.DoesNotContain("结果", reads[2], StringComparison.Ordinal);
     }
 
     [Fact]

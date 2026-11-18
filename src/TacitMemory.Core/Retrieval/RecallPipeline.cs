@@ -16,7 +16,7 @@ public enum UnitFate
     /// <summary>The result the unit belongs to was shown.</summary>
     Shown,
 
-    /// <summary>The unit passed every stage, but its result came after the first <c>topK</c> results.</summary>
+    /// <summary>The unit passed every stage, but <c>topK</c> results were shown before its result was reached.</summary>
     BeyondTopK,
 
     /// <summary>The reranker scored the unit below the minimum score.</summary>
@@ -25,13 +25,13 @@ public enum UnitFate
     /// <summary>The unit ranked after the candidates kept by fusion, so the reranker never saw it.</summary>
     BeyondCandidates,
 
-    /// <summary>The unit's result was among the first <c>topK</c>, but its page could no longer be read, so it was left out.</summary>
+    /// <summary>The unit's page could no longer be read when its result was reached, so it was left out and the next result took its place.</summary>
     Unreadable,
 }
 
 /// <summary>One retrieval unit as a search saw it, stage by stage. Ranks are 1-based.</summary>
 /// <param name="FullTextRank">The unit's rank in the full-text search; <c>null</c> when that search did not return it.</param>
-/// <param name="Bm25">The unit's BM25 value (lower is better); <c>null</c> when it was not returned or matched as a substring.</param>
+/// <param name="Bm25">The unit's BM25 value (lower is better); <c>null</c> when full text did not return it.</param>
 /// <param name="VectorRank">The unit's rank in the vector search; <c>null</c> when that search did not return it.</param>
 /// <param name="Distance">The unit's cosine distance to the query; <c>null</c> when the vector search did not return it.</param>
 /// <param name="Rrf">The unit's reciprocal rank fusion score.</param>
@@ -141,7 +141,7 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
         var kept = fused.Take(candidates).Select(unit => unit.Hit).ToList();
         var rerankerCooling = reranker.Configured && reranker.Health.CoolingDown;
         clock.Restart();
-        var scores = await reranker.ScoreAsync(query, kept.Select(unit => unit.Text).ToList(), cancellationToken);
+        var scores = await reranker.ScoreAsync(query, kept.Select(unit => unit.Passage).ToList(), cancellationToken);
         var rerankerStage = new ModelStage(reranker.Configured, scores is not null, rerankerCooling, reranker.Configured ? clock.Elapsed : null);
         var scoreOf = new Dictionary<IndexHit, double>();
         List<IndexHit> ranked;
@@ -160,17 +160,16 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
 
         // Pages group by source. Each activity and each summary is a result of its own, so two of one month file stay apart.
         var groups = ranked.GroupBy(GroupKey).ToList();
-        var (text, results) = Format(groups.Take(topK).ToList());
+        var (text, results, unreadable) = Format(groups, topK);
         if (notes.Count > 0)
             text += "\n\n" + string.Join('\n', notes);
 
         var resultOf = results.SelectMany(result => result.Units.Select(unit => (unit, result.Number))).ToDictionary(pair => pair.unit, pair => pair.Number);
-        var withinTopK = groups.Take(topK).SelectMany(group => group).ToHashSet();
         var passed = ranked.ToHashSet();
         var traces = fused.Select((unit, position) =>
         {
             var fate = resultOf.ContainsKey(unit.Hit) ? UnitFate.Shown
-                : withinTopK.Contains(unit.Hit) ? UnitFate.Unreadable
+                : unreadable.Contains(unit.Hit) ? UnitFate.Unreadable
                 : passed.Contains(unit.Hit) ? UnitFate.BeyondTopK
                 : position < candidates ? UnitFate.BelowThreshold
                 : UnitFate.BeyondCandidates;
@@ -212,15 +211,21 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
     }
 
     /// <summary>
-    /// The text of the results, and the results it shows: every unit of a shown result counts as returned. A page shown only
-    /// for its title or aliases counts its clue unit, not the sections it displays.
+    /// The text of the results, the results it shows and the units of the pages it could not read. Groups are taken in
+    /// order until <paramref name="topK"/> are shown: a page that cannot be read is skipped and the next group takes its
+    /// place. Every unit of a shown result counts as returned. A page shown only for its title or aliases counts its clue
+    /// unit, not the sections it displays.
     /// </summary>
-    private (string Text, List<ShownResult> Results) Format(IReadOnlyList<IGrouping<(string, string?, string?), IndexHit>> groups)
+    private (string Text, List<ShownResult> Results, HashSet<IndexHit> Unreadable) Format(
+        IReadOnlyList<IGrouping<(string, string?, string?), IndexHit>> groups, int topK)
     {
         var text = new StringBuilder();
         var results = new List<ShownResult>();
+        var unreadable = new HashSet<IndexHit>();
         foreach (var result in groups)
         {
+            if (results.Count == topK)
+                break;
             var sample = result.First();
             if (sample.Kind == UnitKinds.Activity)
             {
@@ -238,7 +243,11 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
             }
 
             if (!PageId.TryParse(sample.Source, out var id, out _) || PageDocument.TryLoad(config.MemoryPath, id) is not { } document)
+            {
+                unreadable.UnionWith(result);
                 continue;
+            }
+
             var matched = result.Select(hit => hit.Section).OfType<string>().ToHashSet(StringComparer.Ordinal);
             var sections = matched.Count > 0
                 ? document.Sections.Where(section => matched.Contains(section.Name)).ToList()
@@ -259,7 +268,7 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
         var body = results.Count == 0
             ? NoMemory
             : $"{results.Count} result(s). Short codes in brackets identify sections for write_page and activities for write_recent; read a whole page with recall page=<page ID>.\n{text}";
-        return (body, results);
+        return (body, results, unreadable);
     }
 
     /// <summary>Hits of one activity or summary are one result each; the hits of a page's sections share the page's result.</summary>

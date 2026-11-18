@@ -109,7 +109,7 @@ public sealed class RerankTests : IDisposable
     [Fact]
     public async Task Only_the_sections_scored_above_the_floor_are_shown()
     {
-        await Create("ops/rollback", "部署回滚", new("回滚步骤", "部署失败时先回滚。"), new("无关", "部署的历史沿革。"));
+        await Create("ops/rollback", "部署记录", new("回滚步骤", "部署失败时先回滚。"), new("无关", "部署的历史沿革。"));
         _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9 : 0.0;
 
         var result = await Recall("部署");
@@ -119,13 +119,13 @@ public sealed class RerankTests : IDisposable
     }
 
     [Fact]
-    public async Task The_reranker_is_sent_each_section_as_its_name_and_body()
+    public async Task The_reranker_is_sent_each_section_as_its_page_title_name_and_body()
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"), new PageSectionInput("无关", "部署的历史沿革。"));
 
         await Recall("部署");
 
-        Assert.Contains(_models.RerankedDocuments, document => document.StartsWith("回滚步骤\n", StringComparison.Ordinal) && document.Contains("先回滚", StringComparison.Ordinal));
+        Assert.Contains(_models.RerankedDocuments, document => document.StartsWith("部署回滚\n回滚步骤\n", StringComparison.Ordinal) && document.Contains("先回滚", StringComparison.Ordinal));
     }
 
     [Fact]

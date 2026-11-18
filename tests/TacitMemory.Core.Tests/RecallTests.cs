@@ -129,14 +129,27 @@ public sealed class RecallTests : IDisposable
         Assert.Equal(before.Text, after.Text);
     }
 
-    [Fact]
-    public async Task A_single_character_query_matches_as_a_substring()
+    [Theory]
+    [InlineData("这次的坑在路径转义。")]
+    [InlineData("路径转义又是一个坑。")]
+    [InlineData("路径转义：坑")]
+    public async Task A_single_character_query_matches_the_character_wherever_it_stands(string body)
     {
-        Hand("tacit-memory", "pit", "又踩坑了", "## 经过\n这次的坑在路径转义。");
+        Hand("tacit-memory", "pit", "又一次", "## 经过\n" + body);
 
         var result = await Recall("坑");
 
         Assert.Contains("tacit-memory/pit", result.Text);
+    }
+
+    [Fact]
+    public async Task A_single_character_beside_an_english_word_takes_part_in_the_match()
+    {
+        Hand("tacit-memory", "rename", "命名", "## 经过\n文件名要改。");
+
+        var result = await Recall("改 bug");
+
+        Assert.Contains("tacit-memory/rename", result.Text);
     }
 
     [Theory]

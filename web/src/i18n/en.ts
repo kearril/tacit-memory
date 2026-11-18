@@ -709,7 +709,6 @@ export const en = {
       unitKinds: { clue: "clue", activity: "activity", summary: "summary", week: "week", month: "month" },
       fullTextMethods: {
         phrase: "phrase match",
-        substring: "single-character substring match",
         none: "nothing to search for",
       },
       timing: (method, embedding, reranker) =>

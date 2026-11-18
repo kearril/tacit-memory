@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using TacitMemory.Core.Index;
+using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Tools;
@@ -31,39 +33,88 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
         [ToolValues.RecallKinds.Rules] = "Call recall again with kind=rules, and domain set to one domain label or left out for every domain.",
     };
 
-    public async Task<ToolResult> RunAsync(RecallRequest request, CancellationToken cancellationToken)
+    /// <summary>What a call asks for, decided from its parameters alone: <c>brief</c>, <c>page</c>, <c>persona</c>, <c>rules</c> or <c>search</c>.</summary>
+    public static string ModeOf(RecallRequest request)
     {
         var hasQuery = !string.IsNullOrWhiteSpace(request.Query);
         var hasPage = !string.IsNullOrWhiteSpace(request.Page);
-        var hasDomain = !string.IsNullOrWhiteSpace(request.Domain);
-        var unknown = ToolText.UnknownParameters(request.UnknownParameters);
-        var kind = request.Kind?.Trim();
-        if (kind is ToolValues.RecallKinds.Persona or ToolValues.RecallKinds.Rules)
-            return ReadStructured(request, kind, unknown);
+        if (request.Kind?.Trim() is ToolValues.RecallKinds.Persona or ToolValues.RecallKinds.Rules)
+            return request.Kind.Trim();
         if (!hasQuery && !hasPage && !string.IsNullOrWhiteSpace(request.Workstream))
-            return WorkstreamBriefCall(request, unknown);
-        if (hasPage && !hasQuery && !hasDomain)
-            return unknown.Count == 0 ? ReadPage(request.Page!) : ToolText.Refuse(unknown, ParametersStep);
+            return Modes.Brief;
+        if (hasPage && !hasQuery && string.IsNullOrWhiteSpace(request.Domain))
+            return Modes.Page;
+        return Modes.Search;
+    }
 
+    /// <summary>The modes of <see cref="ModeOf"/> that are not a kind.</summary>
+    public static class Modes
+    {
+        public const string Brief = "brief";
+        public const string Page = "page";
+        public const string Search = "search";
+    }
+
+    /// <summary>
+    /// What the log adds for a call: its mode, the filters given, and for a search its query, with each run of whitespace
+    /// as one space so the event stays on one line, and the number of results when the search ran.
+    /// </summary>
+    public static string LogDetails(RecallRequest request, int? results, MemoryLanguage language)
+    {
+        var mode = ModeOf(request);
+        var details = new List<string> { LogMessages.RecallMode.Format(language, mode) };
+        var filters = new (string Name, string? Value)[]
+        {
+            ("workstream", request.Workstream), ("from", request.From), ("to", request.To), ("kind", request.Kind), ("domain", request.Domain),
+        }.Where(filter => !string.IsNullOrWhiteSpace(filter.Value)).Select(filter => $"{filter.Name}={OneLine(filter.Value!)}").ToList();
+        if (filters.Count > 0)
+            details.Add(LogMessages.RecallFilters.Format(language, string.Join(' ', filters)));
+        if (mode == Modes.Search && !string.IsNullOrWhiteSpace(request.Query))
+            details.Add(LogMessages.RecallQuery.Format(language, OneLine(request.Query)));
+        if (results is { } count)
+            details.Add(LogMessages.RecallResults.Format(language, count));
+        return string.Concat(details.Select(detail => LogMessages.ToolDetail.Format(language, detail)));
+    }
+
+    private static readonly Regex Whitespace = new(@"\s+", RegexOptions.CultureInvariant);
+
+    private static string OneLine(string text) => Whitespace.Replace(text.Trim(), " ");
+
+    /// <returns>The answer, and for a search that ran, how many results it shows.</returns>
+    public async Task<(ToolResult Result, int? Results)> RunAsync(RecallRequest request, CancellationToken cancellationToken)
+    {
+        var unknown = ToolText.UnknownParameters(request.UnknownParameters);
+        switch (ModeOf(request))
+        {
+            case ToolValues.RecallKinds.Persona or ToolValues.RecallKinds.Rules:
+                return (ReadStructured(request, request.Kind!.Trim(), unknown), null);
+            case Modes.Brief:
+                return (WorkstreamBriefCall(request, unknown), null);
+            case Modes.Page:
+                return (unknown.Count == 0 ? ReadPage(request.Page!) : ToolText.Refuse(unknown, ParametersStep), null);
+        }
+
+        var hasQuery = !string.IsNullOrWhiteSpace(request.Query);
+        var hasPage = !string.IsNullOrWhiteSpace(request.Page);
         var problems = new List<string>(unknown);
         var queryOrPage = hasQuery == hasPage;
         if (queryOrPage)
             problems.Add(hasQuery ? "Give query or page, not both." : "Missing parameter query or page.");
-        var (search, faults) = RecallSearch.Check(new SearchRequest(request.Query, request.Workstream, request.From, request.To, kind, new RetrievalOverrides()));
+        var (search, faults) = RecallSearch.Check(new SearchRequest(request.Query, request.Workstream, request.From, request.To, request.Kind?.Trim(), new RetrievalOverrides()));
         // A missing query is said above, together with the page it can be traded for.
         problems.AddRange(faults.Where(fault => fault.Fault != SearchFault.QueryMissing).Select(Describe));
-        if (hasDomain)
+        if (!string.IsNullOrWhiteSpace(request.Domain))
             problems.Add("Parameter domain applies only to kind=rules.");
         if (problems.Count > 0)
         {
             var nextStep = unknown.Count > 0 ? ParametersStep
                 : queryOrPage ? "Call recall again with query (what to look for, in the memory language) or page (a page ID to read in full)."
                 : "Fix these and call recall again.";
-            return ToolText.Refuse(problems, nextStep);
+            return (ToolText.Refuse(problems, nextStep), null);
         }
 
         var trace = await reader.SearchAsync(search!, Usage.Counted, cancellationToken);
-        return ToolText.Ok(trace.Text);
+        return (ToolText.Ok(trace.Text), trace.Results.Count);
     }
 
     /// <summary>A problem of the search request, as the agent reads it.</summary>

@@ -66,7 +66,7 @@ if [ -n "$expected" ] && [ "$version" != "$expected" ]; then
 fi
 echo "version: $version"
 
-"$tacit" init > /dev/null || fail "tacit init exited with $?"
+"$tacit" init --language en > /dev/null || fail "tacit init exited with $?"
 
 # A port nothing answers on: curl's exit code 7 is a refused connection.
 port=

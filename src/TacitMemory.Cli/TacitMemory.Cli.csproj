@@ -69,19 +69,6 @@
     <TrimmerRootAssembly Include="Microsoft.OpenApi" />
   </ItemGroup>
 
-  <!--
-    The vector extension arrives through Core as the release for the machine doing the build. A publish ships the release
-    for the runtime it targets instead, beside the executable: SQLite loads it by its path, so it cannot be bundled.
-  -->
-  <Target Name="TacitVectorExtension" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(RuntimeIdentifier)' != ''">
-    <ItemGroup>
-      <TacitVectorFile Include="..\..\lib\sqlite-vec\$(RuntimeIdentifier)\vec0.*" />
-      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)' == 'vec0'" />
-      <ResolvedFileToPublish Include="@(TacitVectorFile)" RelativePath="%(TacitVectorFile.Filename)%(TacitVectorFile.Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
-    </ItemGroup>
-    <Error Condition="'@(TacitVectorFile)' == ''" Text="No sqlite-vec release for $(RuntimeIdentifier) under lib/sqlite-vec." />
-  </Target>
-
   <!-- ASP.NET Core's module for hosting inside IIS, which the service never is. -->
   <Target Name="TacitDropIisModule" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>

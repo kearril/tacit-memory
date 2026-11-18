@@ -40,8 +40,13 @@ internal static class LogMessages
         "额外监听（{0}）绑定失败，服务只在回环地址上运行：{1}",
         "The extra listener ({0}) did not bind, so the service runs on loopback only: {1}");
     public static readonly Localized ToolCall = new(
-        "工具 {0}（op {1}，目标 {2}）：{3}，耗时 {4} 毫秒",
-        "Tool {0} (op {1}, target {2}): {3}, {4} ms");
+        "工具 {0}（op {1}，目标 {2}{3}）：{4}，耗时 {5} 毫秒",
+        "Tool {0} (op {1}, target {2}{3}): {4}, {5} ms");
+    public static readonly Localized ToolDetail = new("，{0}", ", {0}");
+    public static readonly Localized RecallMode = new("方式 {0}", "mode {0}");
+    public static readonly Localized RecallFilters = new("筛选 {0}", "filters {0}");
+    public static readonly Localized RecallQuery = new("查询「{0}」", "query \"{0}\"");
+    public static readonly Localized RecallResults = new("结果 {0} 条", "{0} result(s)");
     public static readonly Localized ToolWritten = new("已写入", "written");
     public static readonly Localized ToolDone = new("完成", "done");
     public static readonly Localized ToolRefused = new("已拒绝", "refused");
