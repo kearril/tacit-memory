@@ -371,6 +371,19 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
         });
     });
 
+    /// <summary>Say whether a consolidation is due, by the rule of the consolidation reminder. Needs the running service.</summary>
+    /// <remarks>The exit code is 0 whether or not one is due; the answer is the printed line.</remarks>
+    [Command("consolidation")]
+    public Task<int> Consolidation(ConsoleAppContext context, CancellationToken cancellationToken = default) => Execute(async () =>
+    {
+        RejectArguments(context);
+        var config = _tacit.LoadConfig();
+        using var api = new ManagementApiClient(config.Port, config.Language, _tacit);
+        var answer = await api.GetAsync<ConsolidationDue>("consolidation", cancellationToken: cancellationToken);
+        console.Out.WriteLine((answer.Due ? HostMessages.ConsolidationDueLine : HostMessages.ConsolidationNotDueLine).In(config.Language));
+        return 0;
+    });
+
     /// <summary>Back up the memory repository, config, prompts and bindings. Needs the running service.</summary>
     /// <param name="to">Directory to write the backup into.</param>
     /// <param name="remote">Upload the backup to the cloud (backup.webdav) instead.</param>

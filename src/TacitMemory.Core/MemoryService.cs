@@ -327,6 +327,18 @@ public sealed class MemoryService : IDisposable
     public Task<ActivityReport> ActivityAsync(CancellationToken cancellationToken = default) =>
         ActivityCounts.ReadAsync(Config, _options.Today, cancellationToken);
 
+    /// <summary>
+    /// Whether a consolidation is due, by the rule of the consolidation reminder. Computed when asked from files and the
+    /// repository's history; calls no model, and does not wait for a maintenance operation.
+    /// </summary>
+    /// <exception cref="TacitException">The repository's history cannot be read.</exception>
+    public async Task<ConsolidationDue> ConsolidationDueAsync(CancellationToken cancellationToken = default)
+    {
+        var config = Config;
+        var summary = await ConsolidationSummary.ReadAsync(config, _options.Today, cancellationToken);
+        return new ConsolidationDue(summary.IsDue(config.Consolidation));
+    }
+
     /// <summary>The days the service log has a file for, newest first, and today. Reads the directory only.</summary>
     public ServiceLogDays LogDays() => new(_options.Today, ServiceLogReader.Days(_options.TacitHome));
 

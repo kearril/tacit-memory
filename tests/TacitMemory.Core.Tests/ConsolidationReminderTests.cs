@@ -72,31 +72,55 @@ public sealed class ConsolidationReminderTests : IDisposable
     }
 
     [Fact]
-    public async Task The_reminder_appears_once_the_last_consolidation_is_seven_days_old()
+    public async Task The_reminder_appears_once_the_last_consolidation_is_three_days_old()
     {
         Ready();
         using var service = Open();
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
 
-        ClockOn(InitDay.AddDays(6));
+        ClockOn(InitDay.AddDays(2));
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
 
-        ClockOn(InitDay.AddDays(7));
+        ClockOn(InitDay.AddDays(3));
         var instructions = await service.ServerInstructionsAsync();
-        Assert.Contains($"{Heading}\nNo consolidation has been run yet; the repository was set up 7 days ago, on {InitDay:yyyy-MM-dd}.", instructions);
+        Assert.Contains($"{Heading}\nNo consolidation has been run yet; the repository was set up 3 days ago, on {InitDay:yyyy-MM-dd}.", instructions);
         Assert.EndsWith("suggest it when the moment fits, and do not start one unasked.", instructions);
+    }
+
+    [Fact]
+    public async Task Consolidation_due_turns_true_when_the_reminder_would_appear()
+    {
+        Ready();
+        using var service = Open();
+        Assert.False((await service.ConsolidationDueAsync()).Due);
+
+        ClockOn(InitDay.AddDays(3));
+
+        Assert.True((await service.ConsolidationDueAsync()).Due);
+    }
+
+    [Fact]
+    public async Task Consolidation_due_is_refused_when_git_cannot_read_the_memory_repository()
+    {
+        Ready();
+        using var service = Open();
+        Directory.Move(Path.Combine(Memory, ".git"), Path.Combine(Memory, ".git-away"));
+
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.ConsolidationDueAsync());
+
+        Assert.Equal(TacitError.GitFailed, error.Error);
     }
 
     [Fact]
     public async Task The_days_come_from_consolidation_remind_after_days()
     {
-        Ready("consolidation:\n  remindAfterDays: 3\n");
+        Ready("consolidation:\n  remindAfterDays: 5\n");
         using var service = Open();
 
-        ClockOn(InitDay.AddDays(2));
+        ClockOn(InitDay.AddDays(4));
         Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
 
-        ClockOn(InitDay.AddDays(3));
+        ClockOn(InitDay.AddDays(5));
         Assert.Contains(Heading, await service.ServerInstructionsAsync());
     }
 
@@ -113,15 +137,16 @@ public sealed class ConsolidationReminderTests : IDisposable
     [Fact]
     public async Task Candidates_reaching_remind_candidates_bring_the_reminder_with_their_count()
     {
-        Ready("consolidation:\n  remindCandidates: 2\n");
-        var second = "\n### 先给结论\nBelongs to: Preferences\n- 2026-10-31 quote「直接说结论」\n";
-        WriteCandidates(TwoDayCandidate.Replace("\n## Rejection list", second + "\n## Rejection list"));
+        Ready("consolidation:\n  remindCandidates: 3\n");
+        var more = "\n### 先给结论\nBelongs to: Preferences\n- 2026-10-31 quote「直接说结论」\n"
+            + "\n### 少用比喻\nBelongs to: Preferences\n- 2026-10-31 quote「别打比方」\n";
+        WriteCandidates(TwoDayCandidate.Replace("\n## Rejection list", more + "\n## Rejection list"));
         using var service = Open();
 
         var instructions = await service.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
-        Assert.Contains("- Persona candidates: 2.", instructions);
+        Assert.Contains("- Persona candidates: 3.", instructions);
     }
 
     [Fact]

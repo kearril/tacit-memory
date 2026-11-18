@@ -181,8 +181,8 @@ internal static class ConfigKeys
         Value = file => Number(file.Limits.Page?.MinAliases ?? MinAliases!.Default),
     };
 
-    public static readonly IntegerEntry RemindAfterDays = Count(ConfigKeyPath.ConsolidationRemindAfterDays, "consolidation.remindAfterDays", 7);
-    public static readonly IntegerEntry RemindCandidates = Count(ConfigKeyPath.ConsolidationRemindCandidates, "consolidation.remindCandidates", 5);
+    public static readonly IntegerEntry RemindAfterDays = Count(ConfigKeyPath.ConsolidationRemindAfterDays, "consolidation.remindAfterDays", 3);
+    public static readonly IntegerEntry RemindCandidates = Count(ConfigKeyPath.ConsolidationRemindCandidates, "consolidation.remindCandidates", 2);
     public static readonly IntegerEntry BudgetSeconds = Count(ConfigKeyPath.ConsolidationBudgetSeconds, "consolidation.budgetSeconds", 20);
     public static readonly IntegerEntry MaxConcurrency = Count(ConfigKeyPath.ConsolidationMaxConcurrency, "consolidation.maxConcurrency", 5);
     public static readonly IntegerEntry HintItemLength = Count(ConfigKeyPath.ConsolidationHintItemLength, "consolidation.hintItemLength", 200);

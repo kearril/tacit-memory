@@ -19,7 +19,7 @@ public sealed class ConfigWriterTests : IDisposable
             server: { port: 19999, host: 192.168.1.10 }
             language: zh
             limits: { brief: 1500, page: { minAliases: 3 } }
-            consolidation: { remindAfterDays: 3, hintItemLength: 120 }
+            consolidation: { remindAfterDays: 5, hintItemLength: 120 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { topK: 8, minRerankScore: 0.3 }
             backup: { keep: 0, webdav: { url: 'https://dav.example/tacit/', username: me, password: pw } }

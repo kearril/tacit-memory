@@ -29,7 +29,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(_home.DefaultMemory, config.MemoryPath);
         Assert.Equal(MemoryLanguage.En, config.Language);
         Assert.Equal(new LimitsConfig(3000, new PageLimits(2)), config.Limits);
-        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5, 200, 6000), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(3, 20, 5, 2, 200, 6000), config.Consolidation);
         Assert.Equal(new DecisionThresholds(null, null, null, null), config.Decision);
         Assert.Equal(new RetrievalConfig(30, 5, null), config.Retrieval);
         Assert.Equal(new BackupConfig(7, null), config.Backup);
@@ -83,7 +83,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(Path.Combine(_home.UserHome, "notes", "memory"), config.MemoryPath);
         Assert.Equal(MemoryLanguage.En, config.Language);
         Assert.Equal(new LimitsConfig(1500, new PageLimits(3)), config.Limits);
-        Assert.Equal(new ConsolidationConfig(7, 20, 5, 5, 120, 4000), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(3, 20, 5, 2, 120, 4000), config.Consolidation);
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
@@ -607,7 +607,7 @@ public sealed class ConfigTests : IDisposable
 
         var config = _home.Tacit().LoadConfig();
 
-        Assert.Equal(new ConsolidationConfig(7, 5, 2, 3, 200, 6000), config.Consolidation);
+        Assert.Equal(new ConsolidationConfig(3, 5, 2, 3, 200, 6000), config.Consolidation);
     }
 
     [Theory]

@@ -215,6 +215,13 @@ internal static class ManagementApi
         })
             .Produces<ActivityReport>()
             .ProducesErrors();
+        api.MapGet("/consolidation", async (HttpContext context) =>
+        {
+            var due = await service.ConsolidationDueAsync(context.RequestAborted);
+            return Json(due);
+        })
+            .Produces<ConsolidationDue>()
+            .ProducesErrors();
         api.MapGet("/logs", () => Json(service.LogDays()))
             .Produces<ServiceLogDays>()
             .ProducesErrors();

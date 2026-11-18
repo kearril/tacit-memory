@@ -12,6 +12,7 @@ namespace TacitMemory.Host;
 [JsonSerializable(typeof(ApiError))]
 [JsonSerializable(typeof(StatusReport))]
 [JsonSerializable(typeof(ActivityReport))]
+[JsonSerializable(typeof(ConsolidationDue))]
 [JsonSerializable(typeof(ServiceLogDays))]
 [JsonSerializable(typeof(ServiceLogDay))]
 [JsonSerializable(typeof(BackupList))]

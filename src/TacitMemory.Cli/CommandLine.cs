@@ -69,7 +69,7 @@ public static class CommandLine
     }
 
     /// <summary>The command names. Their match ignores case, so <c>tacit CONNECT</c> is <c>tacit connect</c>.</summary>
-    private static readonly string[] CommandNames = ["init", "serve", "connect", "disconnect", "show", "probe", "status", "reindex", "backup", "restore"];
+    private static readonly string[] CommandNames = ["init", "serve", "connect", "disconnect", "show", "probe", "status", "consolidation", "reindex", "backup", "restore"];
 
     /// <summary>The <c>show</c> subcommands. Their match ignores case, like the command names.</summary>
     private static readonly string[] ShowNames = ["instructions", "rules", "resident", "skill", "tools", "remember", "consolidate"];

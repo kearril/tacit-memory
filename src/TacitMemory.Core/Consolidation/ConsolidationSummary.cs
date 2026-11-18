@@ -47,4 +47,15 @@ internal sealed record ConsolidationSummary(
         var days = baseline.Commit is { } commit ? today.DayNumber - commit.Day.DayNumber : (int?)null;
         return new ConsolidationSummary(baseline, days, candidates is not null, candidateCount, problems, workstreamEmpty, unsummarizedWeeks);
     }
+
+    /// <summary>
+    /// Whether a consolidation is due. Each trigger makes it due on its own: the last consolidation is at least
+    /// <c>consolidation.remindAfterDays</c> days old (or there is no baseline commit), a completed week waits for its summary,
+    /// the candidates reach <c>consolidation.remindCandidates</c>, or the workstream is empty. Format problems alone never do.
+    /// </summary>
+    public bool IsDue(ConsolidationConfig config) =>
+        DaysSince is null || DaysSince >= config.RemindAfterDays
+        || UnsummarizedWeeks > 0
+        || (Candidates > 0 && Candidates >= config.RemindCandidates)
+        || WorkstreamEmpty;
 }

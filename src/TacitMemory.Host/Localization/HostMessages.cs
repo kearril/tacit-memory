@@ -18,6 +18,10 @@ public static class HostMessages
         "端口 {0} 已被占用，常驻服务无法启动。请在 {1} 中修改 server.port。",
         "Port {0} is already in use, so the memory service cannot start. Change server.port in {1}.");
 
+    /// <summary>The answers <c>tacit consolidation</c> prints.</summary>
+    public static readonly Localized ConsolidationDueLine = new("该整理了", "A consolidation is due");
+    public static readonly Localized ConsolidationNotDueLine = new("暂不需要整理", "No consolidation is due");
+
     public static readonly Localized ApiOriginRefused = new(
         "管理 API 只接受与请求自身同源的 Origin。",
         "The management API only accepts an Origin that is the origin of the request itself.");

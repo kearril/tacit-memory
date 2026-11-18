@@ -1,19 +1,14 @@
 namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
-/// The consolidation reminder the server instructions end with. When one of its four triggers is set off it says how long ago the
-/// last consolidation was, how many weeks wait for a summary, how many candidates there are, how many format problems
-/// there are and whether the workstream is empty. Every count comes from <see cref="ConsolidationSummary"/>, which asks no model,
-/// so building the reminder never calls one.
+/// The consolidation reminder the server instructions end with. When a consolidation is due (see
+/// <see cref="ConsolidationSummary.IsDue"/>) it says how long ago the last consolidation was, how many weeks wait for a summary,
+/// how many candidates there are, how many format problems there are and whether the workstream is empty. Every count comes
+/// from <see cref="ConsolidationSummary"/>, which asks no model, so building the reminder never calls one.
 /// </summary>
 internal static class ConsolidationReminder
 {
-    /// <summary>
-    /// The reminder text, or null when none is due. Each trigger brings it on its own: the last consolidation is at least
-    /// <c>consolidation.remindAfterDays</c> days old (or there is no baseline commit), a completed week waits for its summary,
-    /// the candidates reach <c>consolidation.remindCandidates</c>, or the workstream is empty. Format problems alone
-    /// never bring it.
-    /// </summary>
+    /// <summary>The reminder text, or null when no consolidation is due.</summary>
     /// <remarks>
     /// The reminder is advice, so a repository that cannot be read gives no reminder rather than stopping the service.
     /// </remarks>
@@ -22,14 +17,7 @@ internal static class ConsolidationReminder
         try
         {
             var summary = await ConsolidationSummary.ReadAsync(config, today, cancellationToken);
-            var due = summary.DaysSince is null || summary.DaysSince >= config.Consolidation.RemindAfterDays
-                || summary.UnsummarizedWeeks > 0
-                || (summary.Candidates > 0 && summary.Candidates >= config.Consolidation.RemindCandidates)
-                || summary.WorkstreamEmpty;
-            if (!due)
-                return null;
-
-            return Render(summary);
+            return summary.IsDue(config.Consolidation) ? Render(summary) : null;
         }
         catch (TacitException e) when (e.Error == TacitError.GitFailed)
         {

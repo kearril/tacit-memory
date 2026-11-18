@@ -20,6 +20,7 @@ public sealed class ServiceExitCodeTests : IDisposable
         { ["reindex"] },
         { ["backup"] },
         { ["restore", "--from", "missing.zip"] },
+        { ["consolidation"] },
     };
 
     [Theory]
