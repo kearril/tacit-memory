@@ -91,11 +91,14 @@ internal static class ConsolidationSkill
             .Append("\": draft one proposal per workstream change: a new workstream (its name, a background line, a recent line, and the detail pages it takes into its folder), ")
             .Append("an unestablished name merged into an existing workstream or its label dropped, a split of a workstream, or a merge of two. ")
             .Append("Each proposal names the pages it moves. Topic pages under a listed prefix may form a new workstream when they belong together; otherwise they stay in topics.\n");
+        text.Append("   When a proposal above other than a shorter wording merges, splits, moves or rewrites pages or entries, keep every fact of the original in the result. ")
+            .Append("If it would drop a fact, including text a pointer replaces, list each dropped fact under that item, so the user decides.\n");
         text.Append("   Give each item a number, what would change, and its evidence (a short code, a quote or a page identifier). ")
             .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to workstream scope`. An item the reply does not mention is deferred.\n");
         text.Append("4. Carry out the reply item by item. Changes to persona entries, scope blocks and pages happen only after the user confirms the item:\n");
         text.Append("   - confirm: write the item as proposed. A persona entry goes into its section or scope block, with an indented line below it `<!-- ")
-            .Append(Date).Append(' ').Append(quote).Append("「…」 -->` holding today's date and the user's words; a candidate is then deleted from candidates.md. A page change is applied.\n");
+            .Append(Date).Append(' ').Append(quote).Append("「…」 -->` holding today's date and the user's words; a candidate is then deleted from candidates.md. ")
+            .Append("A page change is applied exactly as proposed: drop no fact the item does not list.\n");
         text.Append("   - reject: for a candidate, move it into the rejection list, with its scope line if it has one, and add an occurrence line marked as rejected, dated today. For any other item, leave it unchanged.\n");
         text.Append("   - change: apply the version the user gave, and treat it as confirmed.\n");
         text.Append("   - defer, or no reply: leave the item exactly as it is. A candidate stays in candidates.md and comes back at the next consolidation; any other item comes back only when it changes again.\n");
