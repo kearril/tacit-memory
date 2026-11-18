@@ -426,14 +426,14 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     [Fact]
     public async Task Delete_finds_an_entry_in_a_workstream_block_and_the_block_keeps_its_heading()
     {
-        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n- 发版 → 先问我\n  <!-- 2026-10-25 quote「发版前问我」 -->\n");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n- 发版 → 先问我\n  <!-- 2026-10-25 quote「发版前问我」 -->\n");
         var code = ShortOf("发版 → 先问我");
 
         var result = await _service.WritePersonaAsync(Delete(code));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n", File.ReadAllText(PersonaMd));
-        Assert.Contains("of workstream my-app", result.Text);
+        Assert.Equal("## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n", File.ReadAllText(PersonaMd));
+        Assert.Contains("of workstream photo-sorter", result.Text);
     }
 
     [Fact]

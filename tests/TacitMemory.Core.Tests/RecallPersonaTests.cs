@@ -61,9 +61,9 @@ public sealed partial class RecallPersonaTests : IDisposable
         ### Preferences
         - 频率：每天一次
 
-        ## Workstream: my-app
+        ## Workstream: photo-sorter
         ### Preferences
-        - 游戏内导出：先验收再发版
+        - 批量导出：先验收再发版
 
         """;
 
@@ -90,7 +90,7 @@ public sealed partial class RecallPersonaTests : IDisposable
             "Profile, 1 entry:",
             "Domain backup, 1 entry. Trigger: 改备份策略时",
             "Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时",
-            "Workstream my-app, 1 entry:",
+            "Workstream photo-sorter, 1 entry:",
             "Workstream tacit-memory, 1 entry:",
         };
         var positions = order.Select(text => result.Text.IndexOf(text, StringComparison.Ordinal)).ToList();
@@ -194,7 +194,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         var proxy = result.Text.IndexOf("Domain network-proxy,", StringComparison.Ordinal);
         Assert.True(backup >= 0 && proxy > backup, result.Text);
         Assert.DoesNotContain("发版", result.Text);
-        Assert.DoesNotContain("游戏内导出", result.Text);
+        Assert.DoesNotContain("批量导出", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);
     }
 

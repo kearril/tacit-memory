@@ -446,13 +446,13 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Scope_blocks_follow_the_global_sections_with_domains_first_and_each_kind_sorted_by_name()
     {
-        WritePersona("## Red lines\n\n## Preferences\n- 沟通：先要结论\n\n## Domain: zeta\nTrigger: 收尾时\n### Preferences\n- 收尾：先列清单\n\n## Workstream: my-app\n### Preferences\n- 发布：先打标签\n");
+        WritePersona("## Red lines\n\n## Preferences\n- 沟通：先要结论\n\n## Domain: zeta\nTrigger: 收尾时\n### Preferences\n- 收尾：先列清单\n\n## Workstream: photo-sorter\n### Preferences\n- 发布：先打标签\n");
 
         Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
         Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "workstream:alpha"))).IsError);
 
         var text = File.ReadAllText(PersonaMd);
-        var headings = new[] { "\n## Preferences", "\n## Domain: alpha", "\n## Domain: zeta", "\n## Workstream: alpha", "\n## Workstream: my-app" };
+        var headings = new[] { "\n## Preferences", "\n## Domain: alpha", "\n## Domain: zeta", "\n## Workstream: alpha", "\n## Workstream: photo-sorter" };
         var positions = headings.Select(heading => text.IndexOf(heading, StringComparison.Ordinal)).ToArray();
         Assert.All(positions, position => Assert.True(position >= 0, text));
         Assert.Equal(positions.Order().ToArray(), positions);
@@ -494,14 +494,14 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Preferences\n- 沟通：先要结论\n");
 
-        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:my-app"));
+        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:photo-sorter"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n- 发版 → 先问我\n"
+            "## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n- 发版 → 先问我\n"
             + $"  <!-- {Today} quote「发版前问我」 -->\n",
             File.ReadAllText(PersonaMd));
-        Assert.Contains("workstream my-app", result.Text);
+        Assert.Contains("workstream photo-sorter", result.Text);
     }
 
     [Fact]
