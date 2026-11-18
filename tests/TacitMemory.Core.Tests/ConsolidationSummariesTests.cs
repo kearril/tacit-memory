@@ -63,7 +63,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         using var service = Open();
         // Week 2026-W44 runs from Monday 10-26 to Sunday 11-01; its Thursday is 10-29, so its summary goes into the October file.
         Month("2026-10", "## 2026-10-27\n- [tacit-memory] 整理了报告骨架\n");
-        Month("2026-11", "## 2026-11-01\n- 随手记的一件事\n## 2026-11-04\n- [my-app] 发布准备\n");
+        Month("2026-11", "## 2026-11-01\n- 随手记的一件事\n## 2026-11-04\n- [photo-sorter] 发布准备\n");
         ClockOn(new DateOnly(2026, 11, 9));
 
         var section = Section(await Report(service), "Weeks to summarize");

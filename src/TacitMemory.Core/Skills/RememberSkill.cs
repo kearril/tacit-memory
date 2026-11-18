@@ -19,10 +19,10 @@ internal static class RememberSkill
         {CommandSkill.UserText}
 
         ## Steps
-        1. Go through this session against the "Worth recording" rules.
-        2. Pages: `recall` first. Update the page that covers the matter with write_page upsert_section, using the hash recall shows; create one with its type only when no existing page fits.
-        3. Activities with write_recent: one for each workstream this session advanced, with its workstream set, each a single conclusion and its reason. A matter that fits no workstream gets no label. If this session already wrote an activity for a workstream, rewrite it with `replaces`, using its short code from the earlier reply.
-        4. Persona: for each correction or stated rule, ask the user once whether to keep it as a lasting rule, then `add` after they agree. A habit you observed goes in with `op=propose`. If something contradicts a persona entry, ask the user first.
+        1. Go through this session against the "Worth recording" rules; skip low-value details when nothing lasting happened.
+        2. Pages: `recall` first. Update the page that covers the matter with write_page upsert_section (using the hash recall shows), or use op=update_header to add aliases or related links; create one with its type only when no existing page fits.
+        3. Activities with write_recent: one for each workstream this session advanced, with its workstream set (leave workstream unset when none matches; never invent a name), each a single conclusion and its reason. If this session already wrote an activity for a workstream, rewrite it with `replaces`, using its short code from the earlier reply.
+        4. Persona: for each correction or stated rule, ask the user once whether to keep it as a lasting rule, then `add` after they agree. Propose an observed habit with `op=propose` only when it repeated or clearly applies across sessions, not for a one-off workaround. If something contradicts a persona entry, ask the user first.
         5. List what you wrote, one line each: pages by page ID, activities and persona entries by short code, candidates by their text.
         """;
 

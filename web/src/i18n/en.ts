@@ -253,7 +253,7 @@ export const en = {
         },
         remindCandidates: {
           label: "Remind at candidates",
-          help: "Once there are this many persona candidates, the server instructions remind you.",
+          help: "Once this many persona candidates have new occurrences since the last consolidation, the server instructions remind you.",
         },
         budgetSeconds: {
           label: "Time limit (s)",

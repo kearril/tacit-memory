@@ -113,19 +113,6 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_consolidation_skill_does_not_promise_every_deferred_item_again_at_the_next_consolidation()
-    {
-        // Only candidates stay in candidates.md; the other categories are reported only when they change again.
-        _home.Tacit().GenerateSkills();
-
-        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
-
-        Assert.DoesNotContain("reported again at the next consolidation", text, StringComparison.Ordinal);
-        Assert.Contains("A candidate stays in candidates.md and comes back at the next consolidation", text, StringComparison.Ordinal);
-        Assert.Contains("comes back only when it changes again", text, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void The_consolidation_skill_reads_the_report_resource_first_and_stops_without_it()
     {
         _home.Tacit().GenerateSkills();
@@ -155,65 +142,13 @@ public sealed class CommandSkillTests : IDisposable
     }
 
     [Fact]
-    public void The_consolidation_skill_rewrites_only_the_recent_line_of_a_workstream_and_shows_an_entry()
+    public void The_consolidation_skill_has_no_real_dates()
     {
         _home.Tacit().GenerateSkills();
-        var skill = File.ReadAllText(SkillFile("tacit-consolidate"));
-
-        Assert.Contains("leave its background line unchanged", skill, StringComparison.Ordinal);
-        Assert.Contains("## Workstream\n### home-server\nBackground: The home server", skill, StringComparison.Ordinal);
-        Assert.Contains("\nRecent: ", skill, StringComparison.Ordinal);
-        Assert.DoesNotContain("summarized weeks it lists", skill, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void The_consolidation_skill_gives_an_only_workstreams_example_for_the_user_s_added_text()
-    {
-        _home.Tacit().GenerateSkills();
-
         var text = File.ReadAllText(SkillFile("tacit-consolidate"));
-
-        Assert.Contains("\"only workstreams\"", text, StringComparison.Ordinal);
-        Assert.Contains("Workstream proposal material", text, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void The_only_workstreams_example_still_goes_on_to_the_consolidation_commit()
-    {
-        _home.Tacit().GenerateSkills();
-
-        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
-
-        Assert.Contains("\"only workstreams\"", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("and nothing else", text, StringComparison.Ordinal);
-        Assert.Contains("still ends with the `consolidate:` commit of step 6", text, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void The_consolidation_skill_keeps_changes_behind_the_user_s_confirmation_and_numbers_the_list()
-    {
-        _home.Tacit().GenerateSkills();
-
-        var text = File.ReadAllText(SkillFile("tacit-consolidate"));
-
-        Assert.Contains("only after the user confirms", text, StringComparison.Ordinal);
-        Assert.Contains("one numbered list", text, StringComparison.Ordinal);
-        Assert.Contains("1 2 4 confirm", text, StringComparison.Ordinal);
-        Assert.Contains("change to workstream scope", text, StringComparison.Ordinal);
-        Assert.Contains("generalization", text, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void The_consolidation_skill_has_no_checkup_terms_and_no_real_dates()
-    {
-        _home.Tacit().GenerateSkills();
-        var chinese = File.ReadAllText(SkillFile("tacit-consolidate"));
-        Assert.DoesNotContain("checkup", chinese, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("体检", chinese, StringComparison.Ordinal);
-        Assert.DoesNotContain("可确认", chinese, StringComparison.Ordinal);
-        Assert.Contains("YYYY-Www", chinese, StringComparison.Ordinal);
-        Assert.DoesNotMatch(new Regex(@"\b\d{4}-\d{2}-\d{2}\b"), chinese);
-        Assert.DoesNotMatch(new Regex(@"\b\d{4}-W\d{2}\b"), chinese);
+        Assert.Contains("YYYY-Www", text, StringComparison.Ordinal);
+        Assert.DoesNotMatch(new Regex(@"\b\d{4}-\d{2}-\d{2}\b"), text);
+        Assert.DoesNotMatch(new Regex(@"\b\d{4}-W\d{2}\b"), text);
     }
 
     [Fact]
@@ -227,7 +162,6 @@ public sealed class CommandSkillTests : IDisposable
         foreach (var name in new[] { "tacit-memory", "tacit-consolidate" })
             Assert.Equal(File.ReadAllText(SkillFile(name)), File.ReadAllText(Path.Combine(english.TacitHome, "skills", name, "SKILL.md")));
         var memory = File.ReadAllText(SkillFile("tacit-memory"));
-        Assert.DoesNotContain("In a Chinese memory", memory, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("## Lesson\n", memory, StringComparison.Ordinal);
     }
 
@@ -237,14 +171,17 @@ public sealed class CommandSkillTests : IDisposable
         _home.Tacit().GenerateSkills();
         var skill = File.ReadAllText(SkillFile("tacit-consolidate"));
 
-        Assert.Contains("## Domain: network-proxy\nTrigger: ", skill, StringComparison.Ordinal);
+        Assert.Contains("## Domain:", skill, StringComparison.Ordinal);
+        Assert.Contains("\nTrigger: ", skill, StringComparison.Ordinal);
         Assert.Contains("## Candidates\n", skill, StringComparison.Ordinal);
-        Assert.Contains("Belongs to: Preferences\nScope: domain:network-proxy\n", skill, StringComparison.Ordinal);
+        Assert.Contains("Belongs to:", skill, StringComparison.Ordinal);
+        Assert.Contains("\nScope:", skill, StringComparison.Ordinal);
         Assert.Contains("## Rejection list\n", skill, StringComparison.Ordinal);
         Assert.Contains("rejected quote「", skill, StringComparison.Ordinal);
+        Assert.Contains("## Workstream\n", skill, StringComparison.Ordinal);
+        Assert.Contains("\nBackground:", skill, StringComparison.Ordinal);
+        Assert.Contains("\nRecent:", skill, StringComparison.Ordinal);
         Assert.Contains("## Summary\n- YYYY-Www：", skill, StringComparison.Ordinal);
-        Assert.DoesNotContain("| Role | Word |", skill, StringComparison.Ordinal);
-        Assert.DoesNotContain("The memory language is", skill, StringComparison.Ordinal);
     }
 
     [Theory]

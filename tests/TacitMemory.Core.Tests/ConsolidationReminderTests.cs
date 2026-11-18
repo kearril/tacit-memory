@@ -164,6 +164,28 @@ public sealed class ConsolidationReminderTests : IDisposable
     }
 
     [Fact]
+    public async Task Candidates_a_consolidation_left_in_place_bring_the_reminder_back_only_with_new_occurrences()
+    {
+        Ready();
+        string Candidate(string title, DateOnly day) =>
+            $"\n### {title}\nBelongs to: Preferences\n- {day:yyyy-MM-dd} quote「{title}」\n";
+        var seen = Candidate("先给结论", InitDay) + Candidate("少用比喻", InitDay);
+        WriteCandidates("## Candidates\n" + seen + "\n## Rejection list\n");
+        CommitOn(InitDay, "consolidate: pass");
+        ClockOn(InitDay.AddDays(1));
+        using var service = Open();
+
+        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+
+        WriteCandidates("## Candidates\n" + seen + "- " + InitDay.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + " quote「再说一次」\n"
+            + Candidate("先列清单", InitDay.AddDays(1)) + "\n## Rejection list\n");
+        _home.Sources!.MemoryChanged("candidates.md");
+        await service.SettledAsync();
+
+        Assert.Contains("- Persona candidates: 3, 2 with new occurrences since the last consolidation.", await service.ServerInstructionsAsync());
+    }
+
+    [Fact]
     public async Task A_completed_week_without_a_summary_brings_the_reminder_with_the_weeks_count()
     {
         Ready();

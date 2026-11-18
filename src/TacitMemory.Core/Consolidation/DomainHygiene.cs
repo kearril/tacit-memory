@@ -15,7 +15,7 @@ internal static class DomainHygiene
             return [];
         return persona.Blocks
             .Where(block => block.Scope.Kind == PersonaScopeKind.Domain && block.Entries.Count == 1)
-            .Select(block => $"- {block.Scope} has only 1 entry; consider moving it to the global persona or merging it with another domain.")
+            .Select(block => $"- {block.Scope} has only 1 entry.")
             .ToList();
     }
 }

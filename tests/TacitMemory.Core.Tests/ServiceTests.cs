@@ -39,7 +39,6 @@ public sealed class ServiceTests : IDisposable
         Assert.DoesNotContain("my-app", instructions);
         Assert.DoesNotContain("_topics", instructions);
         Assert.Contains("## Recall", instructions);
-        Assert.Contains("`recall` first, then update the page", instructions);
         Assert.Contains("Write `recall` queries in Chinese too.", instructions);
     }
 

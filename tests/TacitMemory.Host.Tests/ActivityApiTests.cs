@@ -70,7 +70,7 @@ public sealed class ActivityApiTests : IAsyncLifetime
               续行不计
               <!-- 来源「对话」 -->
             - [tacit-memory] 第二条
-            - [mac-mini] 第三条
+            - [home-server] 第三条
             - 没有标注的一条
 
             ## Summary
@@ -78,9 +78,9 @@ public sealed class ActivityApiTests : IAsyncLifetime
             """);
         WriteMonth("2026-11", """
             ## 2026-11-02
-            - [mac-mini] 今天
+            - [home-server] 今天
             ## 2026-11-03
-            - [mac-mini] 明天之后不返回
+            - [home-server] 明天之后不返回
             """);
 
         var report = await ReadAsync();
@@ -89,9 +89,9 @@ public sealed class ActivityApiTests : IAsyncLifetime
         Assert.Equal(new DateOnly(2026, 11, 2), report.To);
         Assert.Equal([new DateOnly(2026, 10, 30), new DateOnly(2026, 11, 2)], report.Days.Select(day => day.Day));
         var october = report.Days[0];
-        Assert.Equal([new WorkstreamCount("tacit-memory", 2), new WorkstreamCount("mac-mini", 1)], october.Workstreams);
+        Assert.Equal([new WorkstreamCount("tacit-memory", 2), new WorkstreamCount("home-server", 1)], october.Workstreams);
         Assert.Equal(1, october.Unlabeled);
-        Assert.Equal([new WorkstreamCount("mac-mini", 1)], report.Days[1].Workstreams);
+        Assert.Equal([new WorkstreamCount("home-server", 1)], report.Days[1].Workstreams);
         Assert.Empty(report.SkippedFiles);
     }
 
@@ -123,7 +123,7 @@ public sealed class ActivityApiTests : IAsyncLifetime
         File.WriteAllBytes(Path.Combine(Recent, "2026-09.md"), [0x23, 0x23, 0x20, 0xC3, 0x28]);
         WriteMonth("2026-10", """
             ## 2026-10-01
-            - [mac-mini] 照常计数
+            - [home-server] 照常计数
             """);
 
         var report = await ReadAsync();

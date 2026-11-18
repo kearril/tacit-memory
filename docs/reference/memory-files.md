@@ -79,7 +79,7 @@ Trigger: 改代理、分流或测速时
 - 性能/节点比较 → 不拿单次测速当日常结论
   <!-- 2026-11-06 quote「……」 -->
 
-## Workstream: my-app
+## Workstream: photo-sorter
 ### Working rules
 - 发版 → 先跑全量测试
 ```
@@ -117,8 +117,8 @@ Belongs to: Working rules
 
 ```markdown
 ## Workstream
-### mac-mini
-Background: 家里的常驻服务器，跑代理分流和自用服务。
+### home-server
+Background: 家里的常驻服务器，跑自用服务。
 Recent: 服务栈搭完后在收敛，砍掉不常用的。
 ```
 

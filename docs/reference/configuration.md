@@ -92,7 +92,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 ### `consolidation`
 
 - `remindAfterDays`（默认 3）：距上次整理达到该天数时即该整理，服务端说明出现整理提示。四个触发条件见 `docs/design.md`「注入」。
-- `remindCandidates`（默认 2）：候选达到该个数时即该整理。
+- `remindCandidates`（默认 2）：上次整理之后有新出现记录的候选达到该个数时即该整理。
 - `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
 - `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
 - `hintItemLength`（默认 200）：画像条目或上次整理以来新增的活动超过该字符数时，整理报告的"篇幅提示"列出它的位置与长度。只提示，不拒绝写入。

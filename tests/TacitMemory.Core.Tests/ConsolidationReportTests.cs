@@ -126,7 +126,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task Topic_pages_sharing_a_prefix_of_three_or_more_are_listed_with_the_longest_shared_prefix_of_the_group()
     {
         _home.InitReady();
-        foreach (var slug in new[] { "mac-mini", "mac-mini-proxy", "mac-mini-proxy-scope" })
+        foreach (var slug in new[] { "home-server", "home-server-proxy", "home-server-proxy-scope" })
             WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
         foreach (var slug in new[] { "cloud-a-x", "cloud-a-y", "cloud-b" })
             WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
@@ -136,7 +136,7 @@ public sealed class ConsolidationReportTests : IDisposable
 
         var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
 
-        Assert.Contains("prefix mac-mini: _topics/mac-mini, _topics/mac-mini-proxy, _topics/mac-mini-proxy-scope", section);
+        Assert.Contains("prefix home-server: _topics/home-server, _topics/home-server-proxy, _topics/home-server-proxy-scope", section);
         Assert.Contains("prefix cloud: _topics/cloud-a-x, _topics/cloud-a-y, _topics/cloud-b", section);
         Assert.DoesNotContain("pgroonga", section);
     }

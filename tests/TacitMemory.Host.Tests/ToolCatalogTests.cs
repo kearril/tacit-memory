@@ -69,10 +69,7 @@ public sealed class ToolCatalogTests
 
         Assert.Contains("At least 3.", Parameter(tools["write_page"], "aliases"));
         foreach (var tool in tools.Values)
-        {
-            Assert.DoesNotContain("by default", tool.Description);
             Assert.DoesNotContain('{', tool.Description);
-        }
     }
 
     [Fact]

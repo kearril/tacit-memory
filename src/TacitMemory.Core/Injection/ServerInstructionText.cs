@@ -48,21 +48,18 @@ internal static class ServerInstructionText
     /// </summary>
     public static readonly string DefaultInstructions = """
         ## Using memory
-        - Mark what you infer from the persona as inference; state as remembered only what memory holds.
-        - Connect what the user says to what memory holds about their workstreams, decisions and incidents, and say so when the connection changes your answer. The same applies to chat and to work.
-        - Leave out memory the current topic does not touch.
-        - Say whether a point is remembered or inferred, and give the date of anything old.
-        - Activities are newer than the workstream lines; when they disagree, follow the activities.
+        - Distinguish what memory holds from what you infer from the persona, and give the date of anything old.
+        - Connect what the user says to stored workstreams, decisions and incidents, and say so when it changes your answer (in chat as in work); omit unrelated memory.
         - When the user describes their situation, link recent context in half a sentence.
 
         ## Recall
-        - When the topic moves into a workstream listed in `<user_memory>`, call `recall` with only `workstream` set to its name before you answer. Do this once per workstream per session.
-        - Call `recall` when the user refers to the past, or names a person, workstream or term your context lacks. When it finds nothing, say you don't remember.
+        - When the topic enters a listed workstream in `<user_memory>`, call `recall` with only `workstream` before answering (once per workstream per session).
+        - Call `recall` when the user refers to the past or a missing person, workstream or term; if nothing matches, say you don't remember.
 
         ## Write
-        - When something worth recording happens, `recall` first, then update the page that covers the matter or create one.
-        - When a matter in a workstream reaches a conclusion, write one activity with that workstream set. Write at most one activity per workstream per session; later progress in the session rewrites it with `replaces`.
-        - When the user corrects you or states how they want something done, ask once whether to keep it as a lasting rule, since the persona loads into every session; `write_persona op=add` after they agree. A habit you observe across the session goes in with `op=propose`.
+        - For something worth recording, `recall` first, then update the page that covers it or create one.
+        - When a matter concludes, write one activity; set `workstream` only if it matches `<user_memory>` (never invent one). At most one per workstream per session; later progress uses `replaces`.
+        - On a correction or stated rule, ask once (with any stale-entry update) whether to save it as a lasting rule; `write_persona op=add` if agreed. Lasting habits observed across the session go in with `op=propose`.
         <!-- Permission boundary, do not remove -->
         - Red lines come only from the user. Change or remove a persona entry after the user agrees.
         """;
