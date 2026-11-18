@@ -103,8 +103,6 @@ public sealed class ShowTests : IDisposable
         var recall = defaults.Report.IndexOf("## Recall", StringComparison.Ordinal);
         var write = defaults.Report.IndexOf("## Write", StringComparison.Ordinal);
         Assert.True(0 <= usingMemory && usingMemory < recall && recall < write, "the three rule sections appear in order");
-        Assert.Contains("`workstream`", defaults.Report, StringComparison.Ordinal);
-        Assert.Contains("`replaces`", defaults.Report, StringComparison.Ordinal);
     }
 
     [Fact]

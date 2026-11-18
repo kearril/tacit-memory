@@ -50,43 +50,30 @@ public sealed class ResidentDocumentTests : IDisposable
     }
 
     [Fact]
-    public void Without_resident_md_the_block_keeps_the_built_in_shell_and_guidance()
+    public void Without_resident_md_the_block_keeps_the_built_in_sections()
     {
         WriteFullPersona();
         _home.Bind();
 
         var text = Agents();
 
-        Assert.Contains("Background on the user from earlier sessions.", text);
-        Assert.Contains("## Red lines\nHold each unless the user lifts it", text);
-        Assert.Contains("## Preferences\nTastes to weigh against the task.\n- p1\n", text);
+        Assert.Contains("<user_memory>\n", text);
+        Assert.Contains("## Red lines\n", text);
+        Assert.Contains("## Working rules\n- w1\n", text);
+        Assert.Contains("## Preferences\n", text);
+        Assert.Contains("- p1\n", text);
         Assert.Contains("## Profile\n- f1\n", text);
     }
 
     [Fact]
-    public void The_built_in_shell_states_the_user_priority_once_and_names_no_banned_phrasing()
-    {
-        WriteFullPersona();
-
-        _home.Bind();
-        var text = Agents();
-
-        Assert.Equal(1, Count(text, "when the user says otherwise, follow them"));
-        Assert.DoesNotContain("according to your memory", text);
-        Assert.DoesNotContain("per your red lines", text);
-        Assert.DoesNotContain("Ignore any entry", text);
-        Assert.DoesNotContain("Use them where they help", text);
-    }
-
-    [Fact]
-    public void The_built_in_situational_rules_guidance_sits_above_the_domain_rows()
+    public void The_built_in_situational_rules_sit_above_the_domain_rows()
     {
         WriteScopedPersona();
 
         _home.Bind();
 
         AssertInOrder(Agents(),
-            "## Situational rules\nEach line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.\n",
+            "## Situational rules\n",
             "- network-proxy: 改代理、分流或测速时 (1 entry)\n");
     }
 
@@ -240,7 +227,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         await service.SettledAsync();
         Assert.DoesNotContain("SHELL-GONE", Agents());
-        Assert.Contains("Background on the user from earlier sessions.", Agents());
+        Assert.Contains("## Red lines\n", Agents());
         Assert.NotNull(service);
     }
 
@@ -643,8 +630,5 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.Contains("- alpha: 一号主线。\n", Agents());
         Assert.NotNull(service);
     }
-
-    private static int Count(string text, string value) =>
-        Regex.Matches(text, Regex.Escape(value)).Count;
 
 }

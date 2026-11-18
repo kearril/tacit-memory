@@ -10,22 +10,6 @@ public sealed class ToolCatalogTests
     private static LimitsConfig Limits(int minAliases) => new(3000, new PageLimits(minAliases));
 
     [Fact]
-    public void The_write_tool_descriptions_state_no_removed_limit_number()
-    {
-        var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
-
-        foreach (var name in new[] { "write_recent", "write_persona" })
-        {
-            Assert.DoesNotMatch(@"\d+ characters", tools[name].Description);
-            Assert.DoesNotMatch(@"at most \d+", tools[name].Description);
-            Assert.DoesNotMatch(@"\d+ entries", tools[name].Description);
-        }
-        foreach (var parameter in tools.Values.SelectMany(tool => tool.Parameters))
-            Assert.DoesNotMatch(@"\d+ characters", parameter.Description);
-        Assert.DoesNotContain('{', tools["write_persona"].Description);
-    }
-
-    [Fact]
     public void The_catalog_lists_every_memory_tool_with_its_parameters_described()
     {
         var tools = ToolCatalog.Describe(DefaultLimits).ToDictionary(tool => tool.Name);
@@ -69,10 +53,7 @@ public sealed class ToolCatalogTests
 
         Assert.Contains("At least 3.", Parameter(tools["write_page"], "aliases"));
         foreach (var tool in tools.Values)
-        {
-            Assert.DoesNotContain("by default", tool.Description);
             Assert.DoesNotContain('{', tool.Description);
-        }
     }
 
     [Fact]

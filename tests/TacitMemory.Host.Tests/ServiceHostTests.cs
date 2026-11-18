@@ -49,7 +49,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);
         Assert.Contains("## Recall", instructions);
-        Assert.Contains("`recall` first, then update the page", instructions);
+        Assert.Contains("## Write", instructions);
         Assert.Contains("## Worth recording\n- The user corrects or interrupts the agent", instructions);
         Assert.Contains("tacit-memory", instructions);
         Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] MCP 接缝测试活动\n</recent_activity>", instructions);

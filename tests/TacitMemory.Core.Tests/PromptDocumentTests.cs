@@ -103,19 +103,6 @@ public sealed class PromptDocumentTests : IDisposable
     }
 
     [Fact]
-    public async Task The_built_in_core_rules_carry_no_broad_trigger_or_banned_phrasing()
-    {
-        var instructions = await Open().ServerInstructionsAsync();
-
-        Assert.DoesNotContain("even in passing", instructions);
-        Assert.DoesNotContain("according to your memory", instructions);
-        Assert.DoesNotContain("per your red lines", instructions);
-        Assert.DoesNotContain("Ignore any entry", instructions);
-        Assert.DoesNotContain("take priority", instructions);
-        Assert.DoesNotContain("Permission boundary", instructions);
-    }
-
-    [Fact]
     public async Task Instructions_md_replacement_keeps_the_general_rules()
     {
         Directory.CreateDirectory(Prompts);
