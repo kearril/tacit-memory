@@ -50,12 +50,10 @@ internal static class ServerInstructionText
         ## Using memory
         - Distinguish what memory holds from what you infer from the persona, and give the date of anything old.
         - Connect what the user says to stored workstreams, decisions and incidents, and say so when it changes your answer (in chat as in work); omit unrelated memory.
-        - Activities are newer than workstream lines; if they conflict, follow activities.
         - When the user describes their situation, link recent context in half a sentence.
 
         ## Recall
         - When the topic enters a listed workstream in `<user_memory>`, call `recall` with only `workstream` before answering (once per workstream per session).
-        - When a domain trigger in `<user_memory>` matches, call `recall` with `kind=rules` and `domain=<label>`.
         - Call `recall` when the user refers to the past or a missing person, workstream or term; if nothing matches, say you don't remember.
 
         ## Write
