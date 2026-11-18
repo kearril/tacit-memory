@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using TacitMemory.Core.Index;
+using TacitMemory.Core.Localization;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Tools;
@@ -52,6 +54,31 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
         public const string Page = "page";
         public const string Search = "search";
     }
+
+    /// <summary>
+    /// What the log adds for a call: its mode, the filters given, and for a search its query, with each run of whitespace
+    /// as one space so the event stays on one line, and the number of results when the search ran.
+    /// </summary>
+    public static string LogDetails(RecallRequest request, int? results, MemoryLanguage language)
+    {
+        var mode = ModeOf(request);
+        var details = new List<string> { LogMessages.RecallMode.Format(language, mode) };
+        var filters = new (string Name, string? Value)[]
+        {
+            ("workstream", request.Workstream), ("from", request.From), ("to", request.To), ("kind", request.Kind), ("domain", request.Domain),
+        }.Where(filter => !string.IsNullOrWhiteSpace(filter.Value)).Select(filter => $"{filter.Name}={OneLine(filter.Value!)}").ToList();
+        if (filters.Count > 0)
+            details.Add(LogMessages.RecallFilters.Format(language, string.Join(' ', filters)));
+        if (mode == Modes.Search && !string.IsNullOrWhiteSpace(request.Query))
+            details.Add(LogMessages.RecallQuery.Format(language, OneLine(request.Query)));
+        if (results is { } count)
+            details.Add(LogMessages.RecallResults.Format(language, count));
+        return string.Concat(details.Select(detail => LogMessages.ToolDetail.Format(language, detail)));
+    }
+
+    private static readonly Regex Whitespace = new(@"\s+", RegexOptions.CultureInvariant);
+
+    private static string OneLine(string text) => Whitespace.Replace(text.Trim(), " ");
 
     /// <returns>The answer, and for a search that ran, how many results it shows.</returns>
     public async Task<(ToolResult Result, int? Results)> RunAsync(RecallRequest request, CancellationToken cancellationToken)

@@ -27,7 +27,7 @@ internal sealed class VectorSync(MemoryIndex index, EmbeddingModel model)
                 var pending = index.PendingUnits(EmbeddingModel.BatchSize * 4);
                 if (pending.Count == 0)
                     return true;
-                var vectors = await model.EmbedAsync(pending.Select(unit => unit.Text).ToList(), cancellationToken);
+                var vectors = await model.EmbedAsync(pending.Select(unit => unit.Passage).ToList(), cancellationToken);
                 if (vectors is null)
                     return false;
                 index.StoreVectors(pending.Zip(vectors).ToList());

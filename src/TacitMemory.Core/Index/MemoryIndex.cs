@@ -57,7 +57,7 @@ public enum FullTextMethod
 internal sealed record FullTextSearch(FullTextMethod Method, IReadOnlyList<ScoredHit> Hits);
 
 /// <summary>A unit that has no vector yet, with the passage to embed.</summary>
-internal sealed record PendingUnit(long Id, string Text);
+internal sealed record PendingUnit(long Id, string Passage);
 
 /// <summary>What the index holds: its files, its units and the units that have a vector.</summary>
 internal sealed record IndexCounts(int Files, int Units, int Vectors);
@@ -443,7 +443,7 @@ internal sealed class MemoryIndex : IDisposable
         lock (_gate)
         {
             return _connection.Query<PendingUnit>(
-                "SELECT id AS Id, passage AS Text FROM units WHERE id NOT IN (SELECT id FROM units_vectors) ORDER BY id LIMIT @limit",
+                "SELECT id AS Id, passage AS Passage FROM units WHERE id NOT IN (SELECT id FROM units_vectors) ORDER BY id LIMIT @limit",
                 new { limit }).ToList();
         }
     }
@@ -469,7 +469,7 @@ internal sealed class MemoryIndex : IDisposable
             foreach (var (unit, vector) in vectors)
             {
                 var current = _connection.QuerySingleOrDefault<string>("SELECT passage FROM units WHERE id = @Id", unit, transaction);
-                if (current != unit.Text)
+                if (current != unit.Passage)
                     continue;
                 _connection.Execute(
                     "INSERT INTO units_vectors (id, embedding) VALUES (@id, @vector) ON CONFLICT (id) DO UPDATE SET embedding = excluded.embedding",
