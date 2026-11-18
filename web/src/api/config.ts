@@ -12,15 +12,14 @@ export type ConfigProblem = components["schemas"]["ConfigProblem"];
 export type ConfigSaved = components["schemas"]["ConfigSaved"];
 export type RestartChange = components["schemas"]["RestartChange"];
 export type SecretState = components["schemas"]["SecretState"];
-export type SecretShown = components["schemas"]["SecretShown"];
 
 /** The query key of the settings. */
 export const CONFIG_QUERY_KEY = ["config"] as const;
 
 /**
- * The settings as `config.yaml` holds them, as the service runs them, and their defaults, with each key's limits and the
- * file's hash. Fetched once per visit of the settings page and after a save; not on window focus, as a fetch while
- * the user edits must not move the page under them.
+ * The settings as `config.yaml` holds them, as the service runs them, and their defaults, with each key's limits, the
+ * file's hash, and where each secret comes from (with the file's value of those it holds). Fetched once per visit of the
+ * settings page and after a save; not on window focus, as a fetch while the user edits must not move the page under them.
  */
 export function useConfig() {
   return useQuery({
@@ -47,8 +46,3 @@ export function saveConfig(
 
 /** A save changes the config file and what the status reports of the models and the pending restarts. */
 export const SAVE_CONFIG_AFFECTS: Affects = [CONFIG_QUERY_KEY, STATUS_QUERY_KEY];
-
-/** The value of the secret at the key path `path` as the service would use it: the environment variable's, else the file's. */
-export function getSecret(path: string): Promise<SecretShown> {
-  return call(api.GET("/api/config/secrets/{path}", { params: { path: { path } } }));
-}

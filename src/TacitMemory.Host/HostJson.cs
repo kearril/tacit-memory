@@ -24,7 +24,6 @@ namespace TacitMemory.Host;
 [JsonSerializable(typeof(ConfigView))]
 [JsonSerializable(typeof(ConfigSave))]
 [JsonSerializable(typeof(ConfigSaved))]
-[JsonSerializable(typeof(SecretShown))]
 [JsonSerializable(typeof(BindingList))]
 [JsonSerializable(typeof(ConnectRequest))]
 [JsonSerializable(typeof(BindingDone))]

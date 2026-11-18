@@ -1,5 +1,3 @@
-using TacitMemory.Core.Localization;
-
 namespace TacitMemory.Core.Configuration;
 
 /// <summary>
@@ -29,29 +27,21 @@ internal static class ConfigSchema
 
     /// <summary>
     /// Where each secret of <paramref name="config"/> comes from: its variable when set, else the file; a secret whose model
-    /// or cloud backup is not configured follows its variable alone.
+    /// or cloud backup is not configured follows its variable alone. The file's value goes with a secret that comes from it.
     /// </summary>
     public static IReadOnlyList<SecretState> SecretStates(TacitConfig config, TacitOptions options)
     {
         var file = ConfigFile.From(config);
         return
         [
-            .. ConfigKeys.Secrets.Select(secret => new SecretState(
-                secret.Id,
-                FromEnvironment(options, secret.SecretVariable!) is not null ? SecretSource.Environment
-                    : file.ValueAt(secret) is not null ? SecretSource.ConfigFile
-                    : null,
-                secret.SecretVariable!)),
+            .. ConfigKeys.Secrets.Select(secret =>
+            {
+                if (FromEnvironment(options, secret.SecretVariable!) is not null)
+                    return new SecretState(secret.Id, SecretSource.Environment, secret.SecretVariable!, null);
+                var value = file.ValueAt(secret);
+                return new SecretState(secret.Id, value is null ? null : SecretSource.ConfigFile, secret.SecretVariable!, value);
+            }),
         ];
-    }
-
-    /// <summary>The value a secret takes: its variable's, else the file's; <c>null</c> when neither holds it.</summary>
-    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretNotFound"/>).</exception>
-    public static string? SecretValue(TacitConfig config, TacitOptions options, string path)
-    {
-        var secret = ConfigKeys.Secrets.FirstOrDefault(secret => secret.Path == path)
-            ?? throw new TacitException(TacitError.SecretNotFound, RequestMessages.SecretNotFound.Format(config.Language, path));
-        return FromEnvironment(options, secret.SecretVariable!) ?? ConfigFile.From(config).ValueAt(secret);
     }
 
     private static string? FromEnvironment(TacitOptions options, string variable) =>

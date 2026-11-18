@@ -194,31 +194,21 @@ public sealed class ConfigApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Gives_where_each_secret_comes_from_without_its_value()
+    public async Task Gives_where_each_secret_comes_from_and_the_file_s_value_alone()
     {
-        var view = await GetAsync();
+        using var response = await _local.GetAsync(Url);
+        var view = await Read<ConfigView>(response);
 
         Assert.Equal(
             [
-                new SecretState(ConfigKeyPath.ModelsEmbeddingApiKey, null, "TACIT_EMBEDDING_API_KEY"),
-                new SecretState(ConfigKeyPath.ModelsRerankerApiKey, SecretSource.Environment, "TACIT_RERANKER_API_KEY"),
-                new SecretState(ConfigKeyPath.ModelsDecisionApiKey, SecretSource.ConfigFile, "TACIT_DECISION_API_KEY"),
-                new SecretState(ConfigKeyPath.BackupWebDavPassword, null, "TACIT_WEBDAV_PASSWORD"),
+                new SecretState(ConfigKeyPath.ModelsEmbeddingApiKey, null, "TACIT_EMBEDDING_API_KEY", null),
+                new SecretState(ConfigKeyPath.ModelsRerankerApiKey, SecretSource.Environment, "TACIT_RERANKER_API_KEY", null),
+                new SecretState(ConfigKeyPath.ModelsDecisionApiKey, SecretSource.ConfigFile, "TACIT_DECISION_API_KEY", "test-key"),
+                new SecretState(ConfigKeyPath.BackupWebDavPassword, null, "TACIT_WEBDAV_PASSWORD", null),
             ],
             view.Secrets);
-        Assert.DoesNotContain("test-key", JsonSerializer.Serialize(view, ManagementApiJson.Options));
-    }
-
-    [Fact]
-    public async Task Gives_a_secret_s_value_when_asked_the_environment_s_first()
-    {
-        Assert.Equal("test-key", (await SecretAsync("models.decision.apiKey")).Value);
-        Assert.Equal("env-key", (await SecretAsync("models.reranker.apiKey")).Value);
-        Assert.Null((await SecretAsync("models.embedding.apiKey")).Value);
-
-        using var other = await _local.GetAsync(new Uri(Url, "config/secrets/retrieval.topK"));
-        Assert.Equal(HttpStatusCode.NotFound, other.StatusCode);
-        Assert.Equal(TacitError.SecretNotFound, (await Read<ApiError>(other)).Error);
+        Assert.DoesNotContain("env-key", JsonSerializer.Serialize(view, ManagementApiJson.Options));
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
 
     [Fact]
@@ -233,7 +223,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         using (var written = await PutAsync(new ConfigSave(view.Hash, view.File, new Dictionary<string, string?> { ["models.decision.apiKey"] = "new-key" })))
             Assert.Equal(HttpStatusCode.OK, written.StatusCode);
         Assert.Contains("apiKey: new-key", File.ReadAllText(ConfigPath));
-        Assert.Equal("new-key", (await SecretAsync("models.decision.apiKey")).Value);
+        Assert.Equal("new-key", (await GetAsync()).Secrets.Single(secret => secret.Path == ConfigKeyPath.ModelsDecisionApiKey).Value);
 
         view = await GetAsync();
         using (var removed = await PutAsync(new ConfigSave(view.Hash, view.File, new Dictionary<string, string?> { ["models.decision.apiKey"] = null })))
@@ -286,17 +276,8 @@ public sealed class ConfigApiTests : IAsyncLifetime
     {
         using var read = await _remote.GetAsync(Url);
         using var save = await PutAsync(new ConfigSave("x", new ConfigFile()), _remote);
-        using var secret = await _remote.GetAsync(new Uri(Url, "config/secrets/models.decision.apiKey"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, read.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, save.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, secret.StatusCode);
-    }
-
-    private async Task<SecretShown> SecretAsync(string path)
-    {
-        using var response = await _local.GetAsync(new Uri(Url, $"config/secrets/{path}"));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return await Read<SecretShown>(response);
     }
 }

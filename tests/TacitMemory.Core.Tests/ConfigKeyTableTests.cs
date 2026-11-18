@@ -54,13 +54,6 @@ public sealed class ConfigKeyTableTests : IDisposable
     }
 
     [Fact]
-    public void Every_secret_is_read_by_the_wire_name_of_its_key_path()
-    {
-        foreach (var key in Service.ConfigView().Keys.Where(key => key.Secret))
-            Assert.Equal(key.Path == ConfigKeyPath.ModelsDecisionApiKey ? "test-key" : null, Service.Secret(key.Path.Dotted()).Value);
-    }
-
-    [Fact]
     public void The_defaults_the_settings_page_shows_are_written_as_nothing()
     {
         var defaults = Service.ConfigView().Defaults;

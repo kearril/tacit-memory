@@ -41,8 +41,9 @@ export const JUDGMENTS = ["samePreference", "samePage", "sameTopic", "ruleConfli
 
 /**
  * How the page shows each key of `config.yaml`: the section that holds it and, for a key edited with the other fields, its
- * input, the pair of thresholds it belongs to and the toggle it sits under. A secret or a read-only key has no input here;
- * the page shows it apart. Every key the service describes needs an entry, so a new key does not compile until it has one.
+ * input, the pair of thresholds it belongs to and the toggle it sits under. A secret or a read-only key has no entry in
+ * `FIELDS`; the page shows it apart (a secret's input still holds its draft). Every key the service describes needs an
+ * entry, so a new key does not compile until it has one.
  */
 export interface Presentation {
   readonly section: SectionId;
@@ -109,7 +110,7 @@ export const FIELDS: readonly Field[] = Object.entries(PRESENTATION).flatMap(([p
     : [field];
 });
 
-/** The secrets the service describes, by key path. They are changed apart from the other fields. */
+/** The secrets the service describes, by key path. They are saved apart from the other fields. */
 function secretsOf(view: ConfigView): ConfigKeyPath[] {
   return view.keys.filter((key) => key.secret).map((key) => key.path);
 }
@@ -120,18 +121,21 @@ function readOnlyOf(view: ConfigView): ConfigKeyPath[] {
 }
 
 /**
- * The secrets changed on the page, by key path: a text is the new value to write into `config.yaml`, `null` removes the
- * secret from the file. A secret not named keeps what the file holds.
+ * The secrets to change, by key path: a text is the new value to write into `config.yaml`, `null` removes the secret
+ * from the file. A secret not named keeps what the file holds.
  */
 export type SecretEdits = Readonly<Record<string, string | null>>;
 
-/** What each field's input holds, by key path: the text as typed, so a half-typed number is kept as it is. */
+/**
+ * What each input holds, by key path: the text as typed, so a half-typed number is kept as it is. A secret's input is
+ * here too, holding the value `config.yaml` gives it until it is changed.
+ */
 export type Drafts = Readonly<Record<string, string>>;
 
 /** The inputs as the view gives them: the file's value, or the default where the file leaves the setting out. */
 export function draftsOf(view: ConfigView): Drafts {
-  return Object.fromEntries(
-    FIELDS.map((field) => [
+  return Object.fromEntries([
+    ...FIELDS.map((field) => [
       field.path,
       field.kind === "toggle"
         ? present(view.file, field.path)
@@ -139,7 +143,8 @@ export function draftsOf(view: ConfigView): Drafts {
           : ""
         : textOf(effective(view, "file", field.path)),
     ]),
-  );
+    ...view.secrets.map((secret) => [secret.path, secret.value ?? ""]),
+  ]);
 }
 
 /** The drafts with the input at `path` changed to `text`. */
@@ -157,14 +162,33 @@ export function restoreDefault(view: ConfigView, drafts: Drafts, path: string): 
 }
 
 /** The fields whose input no longer holds the value the view gave, then the secrets changed, in the page's order. */
-export function changedPaths(view: ConfigView, drafts: Drafts, secrets: SecretEdits = {}): string[] {
+export function changedPaths(view: ConfigView, drafts: Drafts): string[] {
   const original = draftsOf(view);
   return [
     ...FIELDS.filter((field) => !isOff(drafts, field.path))
       .filter((field) => !sameInput(drafts[field.path] ?? "", original[field.path] ?? "", field.kind))
       .map((field) => field.path),
-    ...secretsOf(view).filter((path) => path in secrets && !isOff(drafts, path)),
+    ...Object.keys(secretEdits(view, drafts)),
   ];
+}
+
+/**
+ * The secrets whose input differs from what `config.yaml` holds, in the page's order: an input of blanks removes the
+ * secret. One from its environment variable, or under a toggle that is off, is never changed.
+ */
+function secretEdits(view: ConfigView, drafts: Drafts): SecretEdits {
+  const edits: Record<string, string | null> = {};
+  for (const secret of view.secrets) {
+    if (secret.source === "environment" || isOff(drafts, secret.path)) {
+      continue;
+    }
+    const typed = drafts[secret.path] ?? "";
+    const value = typed.trim() === "" ? null : typed;
+    if (value !== (secret.value ?? null)) {
+      edits[secret.path] = value;
+    }
+  }
+  return edits;
 }
 
 /** Whether the setting at `path`, or either threshold of the pair at `path`, holds something other than its default. */
@@ -201,12 +225,11 @@ export function restartsAmong(view: ConfigView, paths: readonly string[]): numbe
  * is left out (`null`), so the file follows the default from then on; a pair of thresholds is written whole once either
  * differs from its default. An emptied input is the default. A cloud backup with neither an address nor a user name is
  * no cloud backup. The secrets go apart, only those changed. `invalid` names the inputs that do not hold a number (or a
- * whole number where one is needed) and the secrets being rewritten to nothing; a config with any is not to be sent.
+ * whole number where one is needed); a config with any is not to be sent.
  */
 export function bodyOf(
   view: ConfigView,
   drafts: Drafts,
-  secrets: SecretEdits = {},
 ): { readonly config: ConfigFile; readonly secrets: SecretEdits; readonly invalid: string[] } {
   const invalid: string[] = [];
   const values = new Map<string, Value>();
@@ -238,13 +261,7 @@ export function bodyOf(
   if (valueAt(config, "backup.webdav.url") === null && valueAt(config, "backup.webdav.username") === null) {
     config = setAt(config, "backup.webdav", null);
   }
-  const sent = Object.fromEntries(Object.entries(secrets).filter(([path]) => !isOff(drafts, path)));
-  for (const path of secretsOf(view)) {
-    if (sent[path]?.trim() === "") {
-      invalid.push(path);
-    }
-  }
-  return { config, secrets: sent, invalid };
+  return { config, secrets: secretEdits(view, drafts), invalid };
 }
 
 /** A setting that waits for a restart, with the value the service runs and the one `config.yaml` holds. */

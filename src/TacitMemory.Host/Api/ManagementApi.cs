@@ -313,7 +313,12 @@ internal static class ManagementApi
         })
             .Produces<PageView>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
-        api.MapGet("/config", () => Json(service.ConfigView()))
+        api.MapGet("/config", (HttpContext context) =>
+        {
+            // The view carries the secrets the file holds, so no cache keeps a copy.
+            context.Response.Headers.CacheControl = "no-store";
+            return Json(service.ConfigView());
+        })
             .Produces<ConfigView>()
             .ProducesErrors(StatusCodes.Status409Conflict);
         api.MapPut("/config", async (HttpContext context) =>
@@ -324,9 +329,6 @@ internal static class ManagementApi
             .Accepts<ConfigSave>("application/json")
             .Produces<ConfigSaved>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
-        api.MapGet("/config/secrets/{path}", (string path) => Json(service.Secret(path)))
-            .Produces<SecretShown>()
-            .ProducesErrors(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapGet("/bindings", () => Json(service.Bindings()))
             .Produces<BindingList>()
             .ProducesErrors(StatusCodes.Status409Conflict);
@@ -629,7 +631,7 @@ internal static class ManagementApi
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
         TacitError.PasswordWrong => StatusCodes.Status401Unauthorized,
         TacitError.PasswordClearRemoteRefused => StatusCodes.Status403Forbidden,
-        TacitError.SecretNotFound or TacitError.BindingNotFound or TacitError.PromptUnknown
+        TacitError.BindingNotFound or TacitError.PromptUnknown
             or TacitError.LogDateNotFound or TacitError.MemoryNotFound => StatusCodes.Status404NotFound,
         TacitError.LoginLimited => StatusCodes.Status429TooManyRequests,
         _ => StatusCodes.Status409Conflict,

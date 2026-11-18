@@ -1,18 +1,14 @@
-import { Eye, EyeOff, Lock, PenLine, Trash2, Undo2 } from "lucide-react";
-import { useState } from "react";
-import { getSecret } from "../../api/config";
+import { Lock } from "lucide-react";
 import { useDictionary } from "../../app/session-context";
-import { Button } from "../../components/ui/button";
 import { PasswordInput } from "../../components/ui/password-input";
-import { errorTextOf, type Explained } from "../../i18n/messages";
+import type { Explained } from "../../i18n/messages";
 import { Explaining, Problems, SettingName, SettingRow, type SettingsForm } from "./fields";
 import { inputIdOf } from "./form";
 
 /**
  * A secret as a row of the section. One from its environment variable is read-only here: the row only names the variable,
- * and hovering it says how to change it. One from `config.yaml`, or one not set, shows a box that keeps the value hidden
- * until "Show" fetches it; it can be changed (an input takes the new value) and one in the file can be cleared, either
- * counting as a change of the page until saved or undone.
+ * and hovering it says how to change it. Otherwise it is an input like any setting's, masked: it holds what `config.yaml`
+ * holds, a change counts as one of the page's until saved or discarded, and emptying it removes the secret on save.
  */
 export function SecretField({
   form,
@@ -29,27 +25,8 @@ export function SecretField({
   const state = form.view.secrets.find((secret) => secret.path === path);
   const source = state?.source ?? null;
   const variable = state?.variable ?? "";
-  const edit = form.secrets[path];
+  const draft = form.drafts[path] ?? "";
   const errors = form.problems.byField[path] ?? [];
-  const [shown, setShown] = useState<string | null>(null);
-  const [showing, setShowing] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-
-  const toggle = async () => {
-    if (shown !== null) {
-      setShown(null);
-      return;
-    }
-    setShowing(true);
-    setFailure(null);
-    try {
-      setShown((await getSecret(path)).value ?? "");
-    } catch (error) {
-      setFailure(errorTextOf(error, dictionary));
-    } finally {
-      setShowing(false);
-    }
-  };
 
   if (source === "environment") {
     return (
@@ -73,96 +50,28 @@ export function SecretField({
     );
   }
 
-  const control =
-    typeof edit === "string" ? (
-      <div className="flex items-center gap-xs">
-        <div className="min-w-0 flex-1">
-          <PasswordInput
-            id={id}
-            autoComplete="off"
-            autoFocus
-            placeholder={words.newValue}
-            showLabel={words.show}
-            hideLabel={words.hide}
-            aria-label={`${text.label}: ${words.newValue}`}
-            aria-invalid={errors.length > 0}
-            className="border-accent"
-            value={edit}
-            onChange={(event) => form.editSecret(path, event.target.value)}
-          />
-        </div>
-        <Button type="button" variant="ghost" onClick={() => form.editSecret(path, undefined)}>
-          <Undo2 aria-hidden />
-          {words.undo}
-        </Button>
-      </div>
-    ) : (
-      <div className="flex items-center gap-xs">
-        <p
-          id={id}
-          tabIndex={-1}
-          className={`flex min-h-control min-w-0 flex-1 items-center rounded-md bg-surface-raised px-md font-mono text-sm outline-none ${
-            edit === null ? "text-ink-muted line-through" : shown === null ? "text-ink-muted" : "text-ink"
-          }`}
-        >
-          <span className="min-w-0 break-all">
-            {edit === null
-              ? words.willClear
-              : shown !== null
-                ? shown || words.unset
-                : source === null
-                  ? words.unset
-                  : "••••••••"}
-          </span>
-        </p>
-        {source === null || edit === null ? null : (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label={shown === null ? words.show : words.hide}
-            aria-pressed={shown !== null}
-            disabled={showing}
-            onClick={() => void toggle()}
-          >
-            {shown === null ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
-          </Button>
-        )}
-        {edit === null ? (
-          <Button type="button" variant="ghost" onClick={() => form.editSecret(path, undefined)}>
-            <Undo2 aria-hidden />
-            {words.undo}
-          </Button>
-        ) : (
-          <>
-            <Button type="button" variant="outline" onClick={() => form.editSecret(path, "")}>
-              <PenLine aria-hidden />
-              {words.rewrite}
-            </Button>
-            {source === "configFile" ? (
-              <Button type="button" variant="ghost" onClick={() => form.editSecret(path, null)}>
-                <Trash2 aria-hidden />
-                {words.clear}
-              </Button>
-            ) : null}
-          </>
-        )}
-      </div>
-    );
-
+  const emptied = draft.trim() === "";
   return (
-    <SettingRow name={<SettingName form={form} path={path} text={text} id={`${id}-label`} />} control={control}>
-      {edit === undefined && source === null ? (
-        <p className="text-xs text-ink-muted">{words.unsetNote(variable)}</p>
-      ) : null}
-      {source === "configFile" || typeof edit === "string" ? (
-        <p className="text-xs text-ink-muted">{words.fileNote(variable)}</p>
-      ) : null}
-      {failure === null ? null : (
-        <p role="alert" className="text-sm text-danger">
-          {failure}
-        </p>
-      )}
+    <SettingRow
+      name={<SettingName form={form} path={path} text={text} htmlFor={id} />}
+      control={
+        <PasswordInput
+          id={id}
+          autoComplete="new-password"
+          placeholder={words.unset}
+          showLabel={dictionary.showPassword(text.label)}
+          hideLabel={dictionary.hidePassword(text.label)}
+          aria-invalid={errors.length > 0}
+          aria-describedby={errors.length > 0 ? `${id}-error` : undefined}
+          className={`font-mono ${form.changed.has(path) ? "border-accent" : ""}`}
+          value={draft}
+          onChange={(event) => form.edit(path, event.target.value)}
+        />
+      }
+    >
+      <p className="text-xs text-ink-muted">
+        {!emptied ? words.fileNote(variable) : source === null ? words.unsetNote(variable) : words.willClear}
+      </p>
       <Problems id={`${id}-error`} messages={errors} />
     </SettingRow>
   );

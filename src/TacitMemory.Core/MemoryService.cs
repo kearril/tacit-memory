@@ -533,8 +533,8 @@ public sealed class MemoryService : IDisposable
 
     /// <summary>
     /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
-    /// each key accepts and the hash a save must name. Secrets carry no value. Reads the file only, so it does not wait for a
-    /// maintenance operation.
+    /// each key accepts and the hash a save must name. Secrets are given apart, with the file's value of those it holds.
+    /// Reads the file only, so it does not wait for a maintenance operation.
     /// </summary>
     /// <exception cref="TacitException">The file does not load, as when it was broken by hand after the service started.</exception>
     public ConfigView ConfigView()
@@ -550,14 +550,6 @@ public sealed class MemoryService : IDisposable
             ConfigSchema.Keys,
             ConfigSchema.SecretStates(loaded, _options));
     }
-
-    /// <summary>
-    /// The value of the secret at <paramref name="path"/> as the service would use it with <c>config.yaml</c> as it is now:
-    /// the environment variable's, else the file's.
-    /// </summary>
-    /// <exception cref="TacitException"><paramref name="path"/> is not a secret (<see cref="TacitError.SecretNotFound"/>).</exception>
-    public SecretShown Secret(string path) =>
-        new(ConfigSchema.SecretValue(ConfigLoader.Read(_options, ConfigFilePath, File.ReadAllText(ConfigFilePath)), _options, path));
 
     /// <summary>
     /// Saves <paramref name="file"/> as <c>config.yaml</c> and reloads, as one maintenance operation. <paramref name="hash"/>

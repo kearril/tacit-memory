@@ -71,8 +71,8 @@ export function LoginPage() {
               id="login-password"
               autoComplete="current-password"
               placeholder={dictionary.login.passwordPlaceholder}
-              showLabel={dictionary.showPassword}
-              hideLabel={dictionary.hidePassword}
+              showLabel={dictionary.showPassword(dictionary.login.passwordLabel)}
+              hideLabel={dictionary.hidePassword(dictionary.login.passwordLabel)}
               aria-invalid={showError}
               aria-describedby={showError ? "login-error" : undefined}
               {...passwordField}

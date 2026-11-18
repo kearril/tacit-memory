@@ -7,8 +7,6 @@ internal static class RequestMessages
         "config.yaml 在你打开设置页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
         "config.yaml was changed after you opened the settings page, and saving would overwrite that change. Load it again, then make your changes.");
 
-    public static readonly Localized SecretNotFound = new("{0} 不是密钥。", "{0} is not a secret.");
-
     public static readonly Localized PromptUnknown = new(
         "{0} 不是提示词文档。提示词文档有 instructions、rules、resident、skill。",
         "{0} is not a prompt document. The prompt documents are instructions, rules, resident and skill.");

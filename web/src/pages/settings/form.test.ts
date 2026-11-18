@@ -251,22 +251,54 @@ describe("text settings", () => {
 });
 
 describe("secrets", () => {
-  it("are sent only when changed, and count as changes whether rewritten or removed", () => {
-    const secrets = { "backup.webdav.password": "s3cret", "models.decision.apiKey": null };
-    const modelled = withDecision();
+  /** A view whose file holds the decision model's key, with the reranker's from its environment variable. */
+  function withSecrets(): ConfigView {
+    const base = withDecision();
+    return {
+      ...base,
+      secrets: [
+        { path: "models.embedding.apiKey", source: null, variable: "TACIT_EMBEDDING_API_KEY", value: null },
+        { path: "models.reranker.apiKey", source: "environment", variable: "TACIT_RERANKER_API_KEY", value: null },
+        { path: "models.decision.apiKey", source: "configFile", variable: "TACIT_DECISION_API_KEY", value: "old-key" },
+        { path: "backup.webdav.password", source: null, variable: "TACIT_WEBDAV_PASSWORD", value: null },
+      ],
+    };
+  }
 
-    expect(bodyOf(modelled, draftsOf(modelled)).secrets).toEqual({});
-    expect(bodyOf(modelled, draftsOf(modelled), secrets).secrets).toEqual(secrets);
-    expect(changedPaths(modelled, draftsOf(modelled), secrets)).toEqual([
-      "models.decision.apiKey",
-      "backup.webdav.password",
-    ]);
+  it("start as the file holds them, and are not sent until changed", () => {
+    const secrets = withSecrets();
+
+    expect(draftsOf(secrets)["models.decision.apiKey"]).toBe("old-key");
+    expect(draftsOf(secrets)["backup.webdav.password"]).toBe("");
+    expect(bodyOf(secrets, draftsOf(secrets)).secrets).toEqual({});
+    expect(changedPaths(secrets, draftsOf(secrets))).toEqual([]);
   });
 
-  it("are not rewritten to nothing", () => {
-    expect(bodyOf(view(), draftsOf(view()), { "backup.webdav.password": " " }).invalid).toEqual([
-      "backup.webdav.password",
-    ]);
+  it("write what is typed, and remove one whose input is emptied", () => {
+    const secrets = withSecrets();
+    let drafts = edit(draftsOf(secrets), "models.decision.apiKey", "");
+    drafts = edit(drafts, "backup.webdav.password", "s3cret");
+
+    expect(bodyOf(secrets, drafts).secrets).toEqual({
+      "models.decision.apiKey": null,
+      "backup.webdav.password": "s3cret",
+    });
+    expect(changedPaths(secrets, drafts)).toEqual(["models.decision.apiKey", "backup.webdav.password"]);
+  });
+
+  it("take an input of blanks as empty, so one not set stays unchanged", () => {
+    const secrets = withSecrets();
+    const drafts = edit(draftsOf(secrets), "backup.webdav.password", "  ");
+
+    expect(bodyOf(secrets, drafts).secrets).toEqual({});
+    expect(changedPaths(secrets, drafts)).toEqual([]);
+  });
+
+  it("never send one that comes from its environment variable", () => {
+    const secrets = withSecrets();
+    const drafts = edit(draftsOf(secrets), "models.reranker.apiKey", "typed");
+
+    expect(bodyOf(secrets, drafts).secrets).toEqual({});
   });
 
   it("place the service's problems on their own fields", () => {
@@ -338,9 +370,10 @@ describe("model toggles", () => {
   });
 
   it("leave out the secret of a model switched off", () => {
-    const drafts = edit(draftsOf(withDecision()), "models.decision", "");
+    let drafts = edit(draftsOf(withDecision()), "models.decision.apiKey", "k");
+    drafts = edit(drafts, "models.decision", "");
 
-    expect(bodyOf(withDecision(), drafts, { "models.decision.apiKey": "k" }).secrets).toEqual({});
+    expect(bodyOf(withDecision(), drafts).secrets).toEqual({});
   });
 });
 

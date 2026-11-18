@@ -1361,85 +1361,6 @@
         }
       }
     },
-    "/api/config/secrets/{path}": {
-      "get": {
-        "tags": [
-          "management"
-        ],
-        "parameters": [
-          {
-            "name": "path",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SecretShown"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/bindings": {
       "get": {
         "tags": [
@@ -5105,20 +5026,6 @@
           }
         }
       },
-      "SecretShown": {
-        "required": [
-          "value"
-        ],
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "SecretSource": {
         "enum": [
           "environment",
@@ -5154,7 +5061,8 @@
         "required": [
           "path",
           "source",
-          "variable"
+          "variable",
+          "value"
         ],
         "type": "object",
         "properties": {
@@ -5173,6 +5081,12 @@
           },
           "variable": {
             "type": "string"
+          },
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -5581,7 +5495,6 @@
           "ConfigRejected",
           "ConfigChanged",
           "ReloadFailed",
-          "SecretNotFound",
           "PromptUnknown",
           "PromptRejected",
           "PromptChanged",

@@ -25,7 +25,7 @@ import { Label } from "../../components/ui/label";
 import { PasswordInput } from "../../components/ui/password-input";
 import { useToast } from "../../components/ui/toast-context";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
-import { Immediate, Setting, SettingRow, SettingsGroup, type SettingsForm, SettingsSection } from "./fields";
+import { Immediate, Problems, Setting, SettingRow, SettingsGroup, type SettingsForm, SettingsSection } from "./fields";
 
 interface PasswordValues {
   password: string;
@@ -62,6 +62,7 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
     mutationFn: (values: PasswordValues) => setAccessPassword(bodyFor(values, session.local)),
     onSuccess: (status) => {
       queryClient.setQueryData(SESSION_QUERY_KEY, status);
+      form.reset();
       showToast(dictionary.access.saved);
     },
     onError: (error) => {
@@ -120,6 +121,7 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
               id="access-current-password"
               label={dictionary.access.currentPassword}
               placeholder={dictionary.access.currentPlaceholder}
+              autoComplete="current-password"
               registration={form.register("current")}
               error={errors.current?.message}
             />
@@ -128,6 +130,7 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
             id="access-new-password"
             label={dictionary.access.newPassword}
             placeholder={dictionary.access.newPlaceholder}
+            autoComplete="new-password"
             registration={form.register("password")}
             error={errors.password?.message}
           />
@@ -220,12 +223,13 @@ interface PasswordFieldProps {
   readonly id: string;
   readonly label: string;
   readonly placeholder: string;
+  readonly autoComplete: "current-password" | "new-password";
   readonly registration: UseFormRegisterReturn;
   readonly error: string | undefined;
 }
 
 /** A password input as a row, its name on the left, the eye toggle inside it, and the service's explanation under it when refused. */
-function PasswordField({ id, label, placeholder, registration, error }: PasswordFieldProps) {
+function PasswordField({ id, label, placeholder, autoComplete, registration, error }: PasswordFieldProps) {
   const dictionary = useDictionary();
   const errorId = `${id}-error`;
   return (
@@ -235,10 +239,10 @@ function PasswordField({ id, label, placeholder, registration, error }: Password
         <div className="w-(--tk-size-tile) max-w-full">
           <PasswordInput
             id={id}
-            autoComplete="off"
+            autoComplete={autoComplete}
             placeholder={placeholder}
-            showLabel={dictionary.showPassword}
-            hideLabel={dictionary.hidePassword}
+            showLabel={dictionary.showPassword(label)}
+            hideLabel={dictionary.hidePassword(label)}
             aria-invalid={error !== undefined}
             aria-describedby={error === undefined ? undefined : errorId}
             {...registration}
@@ -246,11 +250,7 @@ function PasswordField({ id, label, placeholder, registration, error }: Password
         </div>
       }
     >
-      {error === undefined ? null : (
-        <p id={errorId} role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      <Problems id={errorId} messages={error === undefined ? [] : [error]} />
     </SettingRow>
   );
 }

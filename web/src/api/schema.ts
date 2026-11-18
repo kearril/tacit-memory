@@ -1470,88 +1470,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/config/secrets/{path}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    path: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SecretShown"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/bindings": {
         parameters: {
             query?: never;
@@ -3011,9 +2929,6 @@ export interface components {
             /** Format: double */
             minRerankScore?: null | number;
         };
-        SecretShown: {
-            value: null | string;
-        };
         /** @enum {unknown} */
         SecretSource: "environment" | "configFile";
         SecretsStatus: {
@@ -3025,6 +2940,7 @@ export interface components {
             path: components["schemas"]["ConfigKeyPath"];
             source: null | components["schemas"]["SecretSource"];
             variable: string;
+            value: null | string;
         };
         SecretStatus: {
             key: string;
@@ -3104,7 +3020,7 @@ export interface components {
             secrets?: null | components["schemas"]["SecretsStatus"];
         };
         /** @enum {unknown} */
-        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "FolderIsAFile" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "SecretNotFound" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
+        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "FolderIsAFile" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
         ThresholdFile: {
             /** Format: double */
             certain: null | number;

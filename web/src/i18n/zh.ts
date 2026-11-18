@@ -46,8 +46,9 @@ export const zh = {
     weekdays: ["一", "二", "三", "四", "五", "六", "日"],
     month: (month: string) => `${month.slice(0, 4)} 年 ${Number(month.slice(5))} 月`,
   },
-  showPassword: "显示",
-  hidePassword: "隐藏",
+  /** The toggle of a password or secret input, naming the input so two on one page are told apart. */
+  showPassword: (label: string) => `显示${label}`,
+  hidePassword: (label: string) => `隐藏${label}`,
   login: {
     title: "登录",
     description: "此连接来自其他设备，请输入访问密码。",
@@ -254,19 +255,12 @@ export const zh = {
     reloadConfirm: "放弃改动并重新载入",
     secret: {
       unset: "未设置",
-      show: "显示",
-      hide: "隐藏",
-      rewrite: "改写",
-      clear: "清除",
-      undo: "撤销",
       fromEnvironment: (variable: string) => `来自环境变量 ${variable}`,
       environmentNote: (variable: string) =>
         `环境变量 ${variable} 优先于 config.yaml。要修改，请改这个环境变量并重启 tacit serve。`,
       fileNote: (variable: string) => `以明文写在 config.yaml 中；也可以改用环境变量 ${variable}。`,
       unsetNote: (variable: string) => `填在这里会以明文写入 config.yaml；也可以改用环境变量 ${variable}。`,
-      willClear: "保存后从 config.yaml 中删除",
-      newValue: "新的值",
-      emptyRewrite: "请填写新的值，或撤销改写。",
+      willClear: "已清空，保存后从 config.yaml 中删除。",
     },
     consolidation: {
       summary: "什么时候提醒整理，一次整理能用多久，以及报告里的篇幅提示。",

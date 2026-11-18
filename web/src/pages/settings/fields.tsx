@@ -29,7 +29,6 @@ import {
   outOfRange,
   type Pending,
   type PlacedProblems,
-  type SecretEdits,
   textOf,
   valueAt,
 } from "./form";
@@ -45,10 +44,6 @@ export interface SettingsForm {
   readonly pending: ReadonlyMap<string, Pending>;
   readonly edit: (path: string, text: string) => void;
   readonly restore: (path: string) => void;
-  /** The secrets changed on the page; see `SecretEdits`. */
-  readonly secrets: SecretEdits;
-  /** Rewrites a secret (a text), clears it (`null`), or undoes either (`undefined`). */
-  readonly editSecret: (path: string, value: string | null | undefined) => void;
 }
 
 /** The icon of each section, in the head of its card; the models and the backups take the dashboard's icons for them. */

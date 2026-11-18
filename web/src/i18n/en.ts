@@ -34,8 +34,8 @@ export const en = {
     month: (month) =>
       new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en", { month: "long", year: "numeric", timeZone: "UTC" }),
   },
-  showPassword: "Show",
-  hidePassword: "Hide",
+  showPassword: (label) => `Show ${label}`,
+  hidePassword: (label) => `Hide ${label}`,
   login: {
     title: "Log in",
     description: "This connection comes from another device. Enter the access password.",
@@ -234,11 +234,6 @@ export const en = {
     reloadConfirm: "Discard changes and load again",
     secret: {
       unset: "Not set",
-      show: "Show",
-      hide: "Hide",
-      rewrite: "Change",
-      clear: "Clear",
-      undo: "Undo",
       fromEnvironment: (variable) => `From the environment variable ${variable}`,
       environmentNote: (variable) =>
         `The environment variable ${variable} wins over config.yaml. To change it, change that variable and restart tacit serve.`,
@@ -246,9 +241,7 @@ export const en = {
         `Written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
       unsetNote: (variable) =>
         `What you enter here is written in plain text in config.yaml; the environment variable ${variable} can hold it instead.`,
-      willClear: "Removed from config.yaml on save",
-      newValue: "New value",
-      emptyRewrite: "Enter the new value, or undo the change.",
+      willClear: "Emptied: removed from config.yaml on save.",
     },
     consolidation: {
       summary:

@@ -81,9 +81,6 @@ public enum TacitError
     /// <summary>A reload could not open the service with the new config. It runs on with the config it had, unless the message says that failed too.</summary>
     ReloadFailed,
 
-    /// <summary>A key path asked for as a secret that is not one.</summary>
-    SecretNotFound,
-
     /// <summary>A name that is not one of the four prompt documents.</summary>
     PromptUnknown,
 

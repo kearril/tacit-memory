@@ -46,7 +46,6 @@ import {
   placeProblems,
   restartsAmong,
   restoreDefault,
-  type SecretEdits,
 } from "./form";
 import { AdvancedSection } from "./AdvancedSection";
 import { BackupSection } from "./BackupSection";
@@ -137,10 +136,9 @@ function SettingsEditor({
   const showToast = useToast();
   const [drafts, setDrafts] = useState<Drafts>(() => draftsOf(view));
   const [problems, setProblems] = useState<readonly ConfigProblem[]>([]);
-  const [secrets, setSecrets] = useState<SecretEdits>({});
   const [failure, setFailure] = useState<Failure | null>(null);
 
-  const changed = useMemo(() => changedPaths(view, drafts, secrets), [view, drafts, secrets]);
+  const changed = useMemo(() => changedPaths(view, drafts), [view, drafts]);
   const placed = useMemo(() => placeProblems(view, problems), [view, problems]);
   const pending = useMemo(() => new Map(pendingRestart(view).map((item) => [item.path, item])), [view]);
   const drift = useMemo(() => drifted(view), [view]);
@@ -149,7 +147,7 @@ function SettingsEditor({
 
   const save = useMutation({
     mutationFn: async () => {
-      const body = bodyOf(view, drafts, secrets);
+      const body = bodyOf(view, drafts);
       const saved = await saveConfig(view.hash, body.config, body.secrets);
       // The service lists every setting still waiting for a restart; the dialog is about the ones this save changed, as the
       // others are already marked on the page.
@@ -188,23 +186,23 @@ function SettingsEditor({
 
   const onSave = () => {
     setFailure(null);
-    const { invalid } = bodyOf(view, drafts, secrets);
+    const { invalid } = bodyOf(view, drafts);
     if (invalid.length > 0) {
-      show(invalid.map((path) => ({ path, message: invalidText(path) })));
+      show(
+        invalid.map((path) => ({
+          path,
+          message:
+            FIELDS.find((field) => field.path === path)?.kind === "integer" ? text.notAWholeNumber : text.notANumber,
+        })),
+      );
       return;
     }
     setProblems([]);
     save.mutate();
   };
 
-  const invalidText = (path: string) => {
-    const kind = FIELDS.find((field) => field.path === path)?.kind;
-    return kind === undefined ? text.secret.emptyRewrite : kind === "integer" ? text.notAWholeNumber : text.notANumber;
-  };
-
   const onDiscard = () => {
     setDrafts(draftsOf(view));
-    setSecrets({});
     setProblems([]);
     setFailure(null);
   };
@@ -222,14 +220,6 @@ function SettingsEditor({
     restore: (path) => {
       setDrafts((current) => restoreDefault(view, current, path));
       setProblems((current) => current.filter((problem) => !touches(problem.path, path)));
-    },
-    secrets,
-    editSecret: (path, value) => {
-      setSecrets((current) => {
-        const rest = Object.fromEntries(Object.entries(current).filter(([key]) => key !== path));
-        return value === undefined ? rest : { ...rest, [path]: value };
-      });
-      setProblems((current) => current.filter((problem) => problem.path !== path));
     },
   };
 
