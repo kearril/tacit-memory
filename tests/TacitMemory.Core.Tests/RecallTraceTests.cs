@@ -234,18 +234,17 @@ public sealed class RecallTraceTests : IDisposable
     }
 
     [Fact]
-    public async Task A_single_character_query_matches_substrings_with_no_bm25_value()
+    public async Task A_single_character_query_is_matched_through_the_full_text_index_with_bm25_values()
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
         _models.EmbeddingDown = true;
 
         var trace = await Trace("滚");
 
-        Assert.Equal(FullTextMethod.Substring, trace.FullText);
+        Assert.Equal(FullTextMethod.Phrase, trace.FullText);
         var matched = trace.Units.Where(unit => unit.FullTextRank is not null).ToList();
         Assert.NotEmpty(matched);
-        Assert.All(matched, unit => Assert.Null(unit.Bm25));
-        Assert.Equal(Enumerable.Range(1, matched.Count), matched.Select(unit => unit.FullTextRank!.Value).Order());
+        Assert.All(matched, unit => Assert.NotNull(unit.Bm25));
     }
 
     [Fact]

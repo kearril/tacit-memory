@@ -31,7 +31,7 @@ public enum UnitFate
 
 /// <summary>One retrieval unit as a search saw it, stage by stage. Ranks are 1-based.</summary>
 /// <param name="FullTextRank">The unit's rank in the full-text search; <c>null</c> when that search did not return it.</param>
-/// <param name="Bm25">The unit's BM25 value (lower is better); <c>null</c> when it was not returned or matched as a substring.</param>
+/// <param name="Bm25">The unit's BM25 value (lower is better); <c>null</c> when full text did not return it.</param>
 /// <param name="VectorRank">The unit's rank in the vector search; <c>null</c> when that search did not return it.</param>
 /// <param name="Distance">The unit's cosine distance to the query; <c>null</c> when the vector search did not return it.</param>
 /// <param name="Rrf">The unit's reciprocal rank fusion score.</param>

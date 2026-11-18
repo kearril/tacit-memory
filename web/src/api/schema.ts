@@ -2686,7 +2686,7 @@ export interface components {
             description: string;
         };
         /** @enum {unknown} */
-        FullTextMethod: "phrase" | "substring" | "none";
+        FullTextMethod: "phrase" | "none";
         LimitsFile: {
             /** Format: int32 */
             brief?: null | number;

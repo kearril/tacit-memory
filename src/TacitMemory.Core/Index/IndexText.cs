@@ -6,22 +6,29 @@ namespace TacitMemory.Core.Index;
 /// <summary>
 /// Text as the full-text index sees it. FTS5's <c>unicode61</c> tokenizer keeps a run of Chinese characters as one
 /// token, so runs are cut into overlapping two-character tokens before indexing and before querying; everything
-/// else is left to <c>unicode61</c>, which splits at punctuation.
+/// else is left to <c>unicode61</c>, which splits at punctuation. The last character of a run is also a token of its
+/// own, so every occurrence of a character starts some token and a single character can match as a prefix.
 /// </summary>
 internal static class IndexText
 {
-    /// <summary>The text to put in the index: CJK runs become space-separated bigrams.</summary>
+    /// <summary>The text to put in the index: CJK runs become space-separated bigrams and their last character.</summary>
     public static string ForIndex(string text)
     {
-        var output = new StringBuilder(text.Length * 2);
+        var output = new StringBuilder(text.Length * 3);
         foreach (var (run, isCjk) in Runs(text))
+        {
             output.Append(' ').Append(isCjk ? string.Join(' ', Bigrams(run)) : run).Append(' ');
+            if (isCjk && run.Length > 1)
+                output.Append(run[^1]).Append(' ');
+        }
+
         return output.ToString();
     }
 
     /// <summary>
-    /// An FTS5 query matching any of the query's terms, or <c>null</c> when it has none: each CJK bigram is a term,
-    /// and each whitespace-separated word of other text is a phrase, so <c>env.ps1</c> must match as written.
+    /// An FTS5 query matching any of the query's terms, or <c>null</c> when it has none: each CJK bigram is a term, a
+    /// single CJK character matches every token it starts, and each whitespace-separated word of other text is a phrase,
+    /// so <c>env.ps1</c> must match as written.
     /// </summary>
     public static string? ForQuery(string query)
     {
@@ -29,17 +36,15 @@ internal static class IndexText
         foreach (var (run, isCjk) in Runs(query))
         {
             if (isCjk)
-                terms.AddRange(run.Length > 1 ? Bigrams(run) : []);
+                terms.AddRange(run.Length > 1 ? Bigrams(run).Select(Phrase) : [Phrase(run) + "*"]);
             else
-                terms.AddRange(run.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Where(word => word.Any(char.IsLetterOrDigit)));
+                terms.AddRange(run.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Where(word => word.Any(char.IsLetterOrDigit)).Select(Phrase));
         }
 
-        return terms.Count == 0 ? null : string.Join(" OR ", terms.Distinct(StringComparer.Ordinal).Select(term => $"\"{term.Replace("\"", "\"\"", StringComparison.Ordinal)}\""));
+        return terms.Count == 0 ? null : string.Join(" OR ", terms.Distinct(StringComparer.Ordinal));
     }
 
-    /// <summary>The single CJK characters of a query that has nothing else to search for; matched as substrings.</summary>
-    public static IReadOnlyList<string> SingleCharacters(string query) =>
-        Runs(query).Where(run => run.IsCjk && run.Text.Length == 1).Select(run => run.Text).Distinct(StringComparer.Ordinal).ToList();
+    private static string Phrase(string term) => $"\"{term.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 
     private static IEnumerable<string> Bigrams(string run)
     {

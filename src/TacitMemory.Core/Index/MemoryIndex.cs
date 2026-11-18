@@ -46,11 +46,8 @@ internal sealed record ScoredHit(IndexHit Hit, double? Score);
 /// <summary>How a full-text search matched the query.</summary>
 public enum FullTextMethod
 {
-    /// <summary>The query's words and character pairs matched through the full-text index, ranked by BM25.</summary>
+    /// <summary>The query's words, character pairs and single characters matched through the full-text index, ranked by BM25.</summary>
     Phrase,
-
-    /// <summary>The query held only single CJK characters, matched as substrings and ranked by date, with no score.</summary>
-    Substring,
 
     /// <summary>The query held nothing to search for.</summary>
     None,
@@ -120,7 +117,7 @@ internal static class UnitKinds
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "11";
+    private const string SchemaVersion = "12";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
@@ -307,39 +304,21 @@ internal sealed class MemoryIndex : IDisposable
     }
 
     /// <summary>
-    /// The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first, each with its BM25 value;
-    /// a query of single CJK characters falls back to substring matching, which has no score.
+    /// The best <paramref name="limit"/> units for <paramref name="query"/> by full text, best first, each with its BM25 value.
     /// </summary>
     public FullTextSearch Search(string query, IndexFilter filter, int limit)
     {
-        var match = IndexText.ForQuery(query);
+        if (IndexText.ForQuery(query) is not { } match)
+            return new FullTextSearch(FullTextMethod.None, []);
         lock (_gate)
         {
-            if (match is not null)
-            {
-                var rows = _connection.Query<ScoredRow>($"""
-                    SELECT {HitColumns}, bm25(units_fts) AS Score
-                    FROM units_fts JOIN units u ON u.id = units_fts.rowid
-                    WHERE units_fts MATCH @match AND {Filters}
-                    ORDER BY bm25(units_fts) LIMIT @limit
-                    """, Parameters(filter, limit, new { match }));
-                return new FullTextSearch(FullTextMethod.Phrase, rows.Select(row => row.ToHit()).ToList());
-            }
-
-            var characters = IndexText.SingleCharacters(query);
-            var hits = new List<IndexHit>();
-            foreach (var character in characters)
-            {
-                hits.AddRange(_connection.Query<IndexHit>($"""
-                    SELECT {HitColumns}
-                    FROM units u
-                    WHERE instr(u.raw, @character) > 0 AND {Filters}
-                    ORDER BY u.last DESC, u.source_id, u.ordinal LIMIT @limit
-                    """, Parameters(filter, limit, new { character })));
-            }
-
-            var method = characters.Count == 0 ? FullTextMethod.None : FullTextMethod.Substring;
-            return new FullTextSearch(method, hits.Distinct().Take(limit).Select(hit => new ScoredHit(hit, null)).ToList());
+            var rows = _connection.Query<ScoredRow>($"""
+                SELECT {HitColumns}, bm25(units_fts) AS Score
+                FROM units_fts JOIN units u ON u.id = units_fts.rowid
+                WHERE units_fts MATCH @match AND {Filters}
+                ORDER BY bm25(units_fts) LIMIT @limit
+                """, Parameters(filter, limit, new { match }));
+            return new FullTextSearch(FullTextMethod.Phrase, rows.Select(row => row.ToHit()).ToList());
         }
     }
 

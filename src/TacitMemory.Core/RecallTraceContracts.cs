@@ -103,8 +103,8 @@ public sealed record TraceSection(string Name, RecognizedSection? Recognized);
 /// <param name="Code">The activity's short code; <c>null</c> otherwise.</param>
 /// <param name="Date">The activity's day, or the first day of the summary's period; <c>null</c> for a page's unit.</param>
 /// <param name="Workstream">The unit's workstream; empty when an activity has none.</param>
-/// <param name="Text">The unit's indexed text, as the reranker reads it.</param>
-/// <param name="Bm25">The BM25 value, lower is better; <c>null</c> when full text did not return the unit or matched it as a substring.</param>
+/// <param name="Text">The unit's indexed text; a section's reranker passage also carries its page title.</param>
+/// <param name="Bm25">The BM25 value, lower is better; <c>null</c> when full text did not return the unit.</param>
 /// <param name="Distance">The cosine distance to the query; <c>null</c> when the vector search did not return the unit.</param>
 /// <param name="Rrf">The reciprocal rank fusion score.</param>
 /// <param name="RerankScore">The reranker's score; <c>null</c> when the unit was not scored.</param>

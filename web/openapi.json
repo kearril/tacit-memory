@@ -3672,7 +3672,6 @@
       "FullTextMethod": {
         "enum": [
           "phrase",
-          "substring",
           "none"
         ]
       },
