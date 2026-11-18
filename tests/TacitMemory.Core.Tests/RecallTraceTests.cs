@@ -44,6 +44,29 @@ public sealed class RecallTraceTests : IDisposable
         trace.Units.Single(unit => unit.Source == page && unit.Section == section);
 
     [Fact]
+    public async Task A_page_that_cannot_be_read_is_skipped_and_the_next_result_takes_its_place()
+    {
+        // The index is not told of the deletion, so it still returns the page that is gone.
+        _home.UseManualSources();
+        await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
+        await Create("ops/health", "部署健康检查", new PageSectionInput("检查", "部署后检查健康状况。"));
+        await Create("ops/noise", "部署杂谈", new PageSectionInput("闲聊", "部署这个词只是顺口提到。"));
+        _models.Score = (_, document) =>
+            document.Contains("回滚", StringComparison.Ordinal) ? 0.9
+            : document.Contains("健康", StringComparison.Ordinal) ? 0.5
+            : 0.2;
+        File.Delete(Path.Combine(_home.DefaultMemory, "pages", "ops", "rollback.md"));
+
+        var trace = await Trace("部署", new RetrievalOverrides(TopK: 2));
+
+        Assert.Equal(UnitFate.Unreadable, Section(trace, "ops/rollback", "回滚步骤").Fate);
+        Assert.Equal(1, Section(trace, "ops/health", "检查").Result);
+        Assert.Equal(2, Section(trace, "ops/noise", "闲聊").Result);
+        Assert.Equal(2, trace.Results.Count);
+        Assert.Contains("2 result(s)", trace.Text);
+    }
+
+    [Fact]
     public async Task Each_unit_is_shown_beyond_top_k_or_below_the_threshold_and_sections_of_one_page_share_its_result()
     {
         await Create("ops/rollback", "部署回滚", new("回滚步骤", "部署失败时先回滚。"), new("回滚记录", "部署回滚做过两次。"));
