@@ -190,7 +190,7 @@
 
 - **决定**：只出 `win-x64`、`osx-arm64` 与 `linux-x64`（glibc）。打包与冒烟只用一套 bash 脚本，三个平台共用。推送到 `main` 时在 Linux 上跑全量测试；发版时 Linux 与 Windows 各跑一遍，再在三个平台各自的运行器上打包与冒烟，全部通过后汇总成一个 Release。路径是否忽略大小写按平台判断：Windows 与 macOS 忽略，Linux 区分。
 - **理由**：三者覆盖主流。macOS 只在本机构建时给可执行文件做 ad-hoc 签名，而 Apple 芯片不运行未签名的程序，所以 mac 包不能交叉打包。私有仓库里 macOS 运行器的计费是 Linux 的十倍、Windows 的两倍；Linux 跑测试最便宜也最快，又覆盖 macOS 与它共用的代码路径。macOS 的文件系统默认不区分大小写，按「是不是 Windows」判断会把同一个目录当成两处。
-- **没选**：`win-arm64` 与 musl 系 Linux（没有使用需求，每多一个平台就多一份打包与冒烟）；`osx-x64`（Intel Mac 已停售）；PowerShell 与 bash 两套脚本；在一台机器上交叉打出三个包；日常就在三个平台全测（私有仓库的额度，公开后再加回）。
+- **没选**：`win-arm64` 与 musl 系 Linux；`osx-x64`（Intel Mac 已停售）；PowerShell 与 bash 两套脚本；在一台机器上交叉打出三个包；日常就在三个平台全测（私有仓库的额度，公开后再加回）。
 - **代价**：mac 包未经公证，浏览器下载的包会被 Gatekeeper 拦下；只在 Windows 上出现的问题要到发版时才被 CI 发现，平时靠本机测试。
 
 ### GitHub Releases 分发，Apache-2.0 许可
