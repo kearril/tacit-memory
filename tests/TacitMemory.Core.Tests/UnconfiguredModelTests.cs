@@ -328,7 +328,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     private int StoredVectors(string? model)
     {
         StopService();
-        using var index = new MemoryIndex(MemoryPath, model, MemoryLanguage.Zh, () => TestHome.Today, () => new Dictionary<string, DateOnly>());
+        using var index = new MemoryIndex(MemoryPath, model, () => TestHome.Today, () => new Dictionary<string, DateOnly>());
         return index.Counts().Vectors;
     }
 }

@@ -5588,7 +5588,6 @@
           "PromptChanged",
           "LogDateNotFound",
           "MemoryNotFound",
-          "VectorExtensionInvalid",
           "ApiOriginRefused",
           "ApiHostRefused",
           "ApiContentTypeRefused",

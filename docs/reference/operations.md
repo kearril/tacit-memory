@@ -89,7 +89,6 @@
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md`「提示词文档」，固定部分的上限见 `docs/design.md`「注入」）。
 - **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。
 - **辅助模型连不上**：先运行 `tacit probe`，据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md`「辅助模型」）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
-- **向量扩展无法加载**：启动时会校验本平台向量扩展（`vec0.dll`、`vec0.dylib` 或 `vec0.so`）的存在与哈希，不符即拒绝启动。确认它与可执行文件位于同一目录，且未被替换，并且发行包与所在平台一致。
 - **客户端中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。
 
@@ -97,7 +96,7 @@
 
 ### 发行包
 
-每个版本在 GitHub Releases 上有三个发行包，各附一个 `.sha256`：`tacit-<版本>-win-x64.zip`、`tacit-<版本>-osx-arm64.tar.gz` 与 `tacit-<版本>-linux-x64.tar.gz`。发行包是自包含的：解压即可运行，不需要预装 .NET。可执行文件（Windows 上为 `tacit.exe`，其他平台为 `tacit`）是单个文件，内含运行时与全部托管依赖（框架中用不到的部分在发布时裁掉，整体压缩）；旁边是两个按路径加载的原生库，即 SQLite 与向量扩展（Windows 上为 `e_sqlite3.dll` 与 `vec0.dll`，macOS 上为 `libe_sqlite3.dylib` 与 `vec0.dylib`，Linux 上为 `libe_sqlite3.so` 与 `vec0.so`），以及 `web/`、tacit 自己的 pdb、`LICENSE`、`NOTICE` 与 `THIRD-PARTY-NOTICES.txt`。tar.gz 保留可执行位。macOS 包的可执行文件带 ad-hoc 签名，未经公证。
+每个版本在 GitHub Releases 上有三个发行包，各附一个 `.sha256`：`tacit-<版本>-win-x64.zip`、`tacit-<版本>-osx-arm64.tar.gz` 与 `tacit-<版本>-linux-x64.tar.gz`。发行包是自包含的：解压即可运行，不需要预装 .NET。可执行文件（Windows 上为 `tacit.exe`，其他平台为 `tacit`）是单个文件，内含运行时与全部托管依赖（框架中用不到的部分在发布时裁掉，整体压缩）；旁边是按路径加载的原生库 SQLite（Windows 上为 `e_sqlite3.dll`，macOS 上为 `libe_sqlite3.dylib`，Linux 上为 `libe_sqlite3.so`），以及 `web/`、tacit 自己的 pdb、`LICENSE`、`NOTICE` 与 `THIRD-PARTY-NOTICES.txt`。tar.gz 保留可执行位。macOS 包的可执行文件带 ad-hoc 签名，未经公证。
 
 校验下载（与 `.sha256` 文件中的值比对）：
 
@@ -134,7 +133,7 @@ build/smoke.sh <输出目录>/tacit
 
 ### 从源码构建
 
-`dotnet publish src/TacitMemory.Cli` 默认得到依赖框架的产物，运行时需要预装 ASP.NET Core 11。它需要 Bun，它在 `web/` 下按锁文件安装依赖并构建 Web 界面，产物复制到输出目录的 `web/` 子目录。服务只读取这个目录，不写入。找不到 Bun 时发布失败。`dotnet build` 与 `dotnet test` 不构建 Web 界面，也不需要 Bun。构建要用微软发布的 .NET SDK：Linux 发行版自己构建的 SDK 可能以发行版命名平台（如 `ubuntu.24.04-x64`），找不到对应的向量扩展，构建会失败。
+`dotnet publish src/TacitMemory.Cli` 默认得到依赖框架的产物，运行时需要预装 ASP.NET Core 11。它需要 Bun，它在 `web/` 下按锁文件安装依赖并构建 Web 界面，产物复制到输出目录的 `web/` 子目录。服务只读取这个目录，不写入。找不到 Bun 时发布失败。`dotnet build` 与 `dotnet test` 不构建 Web 界面，也不需要 Bun。
 
 - 不需要 Web 界面时，发布加上 `/p:TacitSkipWebBuild=true`：不需要 Bun，输出目录没有 `web/`，访问 `/ui` 得到「Web 界面未构建」，服务的其余部分照常。
 - 发布先删除输出目录下的 `web/`，旧版本的前端资源不会留下；输出目录中的其他文件只覆盖同名文件，不删除。需要完全干净的输出时，发布前删除输出目录。

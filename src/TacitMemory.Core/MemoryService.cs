@@ -117,7 +117,7 @@ public sealed class MemoryService : IDisposable
             OnOpening?.Invoke(config);
             models = new AuxiliaryModels(config, _options.ModelClock, _log);
             index = new MemoryIndex(
-                config.MemoryPath, config.Models.Embedding?.Model, config.Language,
+                config.MemoryPath, config.Models.Embedding?.Model,
                 () => _options.Today, () => new GitCli(config.MemoryPath, config.Language).LastCommitDays(MemoryLayout.Pages));
             index.SyncAll();
             sources = _options.Sources?.Attach(_upkeep) ?? new FileSourceWatch(config.MemoryPath, _options.TacitHome, _upkeep, _log);

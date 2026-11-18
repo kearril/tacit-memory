@@ -24,14 +24,14 @@ TacitMemory 是一个跨客户端的个人记忆系统。它把你的偏好、�
 | macOS（Apple 芯片） | `tacit-<版本>-osx-arm64.tar.gz` |
 | Linux x64 | `tacit-<版本>-linux-x64.tar.gz` |
 
-可执行文件（`tacit.exe` 或 `tacit`）、向量扩展（`vec0.dll`、`vec0.dylib` 或 `vec0.so`）与 Web 界面的 `web/` 子目录须留在同一目录。把该目录加入 `PATH`，或在 `PATH` 中的目录里放一个指向可执行文件的符号链接，即可在任意位置运行 `tacit`：
+可执行文件（`tacit.exe` 或 `tacit`）、SQLite 原生库（`e_sqlite3.dll`、`libe_sqlite3.dylib` 或 `libe_sqlite3.so`）与 Web 界面的 `web/` 子目录须留在同一目录。把该目录加入 `PATH`，或在 `PATH` 中的目录里放一个指向可执行文件的符号链接，即可在任意位置运行 `tacit`：
 
 ```bash
 mkdir -p <安装目录> && tar -xzf tacit-<版本>-osx-arm64.tar.gz -C <安装目录>
 ln -s <安装目录>/tacit ~/.local/bin/tacit
 ```
 
-macOS 的发行包只有 ad-hoc 签名，未经公证。用浏览器下载的文件带隔离标记，Gatekeeper 会拒绝运行其中的 `tacit` 与 `vec0.dylib`；用 `gh release download` 或 `curl -LO` 下载则不会带上它。已经带上时，解压后执行 `xattr -dr com.apple.quarantine <安装目录>`。
+macOS 的发行包只有 ad-hoc 签名，未经公证。用浏览器下载的文件带隔离标记，Gatekeeper 会拒绝运行其中的 `tacit` 与 `libe_sqlite3.dylib`；用 `gh release download` 或 `curl -LO` 下载则不会带上它。已经带上时，解压后执行 `xattr -dr com.apple.quarantine <安装目录>`。
 
 校验下载与升级的步骤见 [`docs/reference/operations.md`](docs/reference/operations.md)「发布」。
 

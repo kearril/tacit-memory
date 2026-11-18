@@ -110,13 +110,13 @@ internal static class UnitKinds
 /// file of the activity log, or one of the two persona files. One row per source with its file hash; one unit per
 /// section and one for the title and aliases of a page, one per dated line and one per summary line of a month file, and one per entry of
 /// <c>persona.md</c> or candidate of <c>candidates.md</c>, each carrying its kind, workstream and dates. Persona units
-/// serve judgments only. An FTS5 table over the units and a <c>vec0</c> table of their vectors.
+/// serve judgments only. An FTS5 table over the units and a table of their vectors, compared by cosine distance in code.
 /// It can be deleted at any time and is rebuilt from the Markdown files. One connection, used by one caller at a time.
 /// </summary>
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "9";
+    private const string SchemaVersion = "10";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
@@ -159,7 +159,7 @@ internal sealed class MemoryIndex : IDisposable
     /// <param name="today">The local date today, which a section changed now carries.</param>
     /// <param name="commitDays">The last commit date of each page file, keyed by relative path; asked for once per full build.</param>
     public MemoryIndex(
-        string memoryPath, string? embeddingModel, MemoryLanguage language,
+        string memoryPath, string? embeddingModel,
         Func<DateOnly> today, Func<IReadOnlyDictionary<string, DateOnly>> commitDays)
     {
         _memoryPath = memoryPath;
@@ -168,7 +168,6 @@ internal sealed class MemoryIndex : IDisposable
         _today = today;
         _commitDays = commitDays;
         Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
-        VectorExtension.Verify(language);
         _connection = OpenCurrent();
         if (embeddingModel is not null && Meta("embedding_model") != embeddingModel)
         {
@@ -350,12 +349,13 @@ internal sealed class MemoryIndex : IDisposable
         {
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
-            return _connection.Query<ScoredRow>($"""
-                SELECT {HitColumns}, vec_distance_cosine(v.embedding, @vector) AS Score
-                FROM units_vec v JOIN units u ON u.id = v.rowid
+            var rows = _connection.Query<ScoredRow>($"""
+                SELECT {HitColumns}, v.embedding AS Embedding
+                FROM units_vectors v JOIN units u ON u.id = v.id
                 WHERE {Filters}
-                ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
-                """, Parameters(filter, limit, new { vector = Blob(vector) })).Select(row => row.ToHit()).ToList();
+                ORDER BY u.id
+                """, Parameters(filter, limit, new { }));
+            return Nearest(rows, row => row.Embedding, vector, limit).Select(nearest => nearest.Row.ToHit() with { Score = nearest.Distance }).ToList();
         }
     }
 
@@ -377,27 +377,50 @@ internal sealed class MemoryIndex : IDisposable
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
             var scopeFilter = scopes is null ? "" : "AND u.scope IN @scopes";
-            return _connection.Query<JudgmentRow>($"""
-                SELECT u.kind AS Kind, u.section AS Section, u.raw AS Text, u.scope AS Scope
-                FROM units_vec v JOIN units u ON u.id = v.rowid JOIN sources s ON s.id = u.source_id
+            var rows = _connection.Query<JudgmentRow>($"""
+                SELECT u.kind AS Kind, u.section AS Section, u.raw AS Text, u.scope AS Scope, v.embedding AS Embedding
+                FROM units_vectors v JOIN units u ON u.id = v.id JOIN sources s ON s.id = u.source_id
                 WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds {scopeFilter}
-                ORDER BY vec_distance_cosine(v.embedding, @vector) LIMIT @limit
+                ORDER BY u.id
                 """,
                 new
                 {
                     sourceKinds = sourceKinds.ToList(),
                     unitKinds = (unitKinds ?? JudgmentKinds).ToList(),
                     scopes = scopes?.Select(scope => scope.ToString()).ToList(),
-                    vector = Blob(vector),
-                    limit,
-                })
+                });
+            return Nearest(rows, row => row.Embedding, vector, limit)
+                .Select(nearest => nearest.Row)
                 .Select(row => new JudgmentHit(row.Kind, PersonaSectionNamed(row.Section), row.Text, PersonaScope.Stored(row.Scope ?? "global")))
                 .ToList();
         }
     }
 
-    /// <summary>A judgment unit as a search reads it: its kind, its stored section and scope names, and its text.</summary>
-    private sealed record JudgmentRow(string Kind, string? Section, string Text, string? Scope);
+    /// <summary>A judgment unit as a search reads it: its kind, its stored section and scope names, its text and its vector.</summary>
+    private sealed record JudgmentRow(string Kind, string? Section, string Text, string? Scope, byte[] Embedding);
+
+    /// <summary>
+    /// The <paramref name="limit"/> rows whose stored vector is nearest to <paramref name="vector"/> by cosine distance, nearest
+    /// first; rows at the same distance keep their order. Every vector search goes through here.
+    /// </summary>
+    private static IEnumerable<(T Row, double Distance)> Nearest<T>(IEnumerable<T> rows, Func<T, byte[]> embedding, float[] vector, int limit) =>
+        rows.Select(row => (Row: row, Distance: CosineDistance(MemoryMarshal.Cast<byte, float>(embedding(row)), vector)))
+            .OrderBy(nearest => nearest.Distance)
+            .Take(limit);
+
+    /// <summary>One minus the cosine similarity; vectors need not be normalized. A zero vector is at distance 1 from any other.</summary>
+    private static double CosineDistance(ReadOnlySpan<float> stored, ReadOnlySpan<float> query)
+    {
+        double dot = 0, storedNorm = 0, queryNorm = 0;
+        for (var i = 0; i < stored.Length; i++)
+        {
+            dot += (double)stored[i] * query[i];
+            storedNorm += (double)stored[i] * stored[i];
+            queryNorm += (double)query[i] * query[i];
+        }
+
+        return storedNorm == 0 || queryNorm == 0 ? 1 : 1 - dot / Math.Sqrt(storedNorm * queryNorm);
+    }
 
     /// <summary>The persona section a stored section name stands for; <c>null</c> when it is none of the four.</summary>
     private static PersonaSection? PersonaSectionNamed(string? name) => Enum.TryParse<PersonaSection>(name, out var section) ? section : null;
@@ -436,10 +459,9 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
-            var missing = HasVectorTable()
-                ? "SELECT id AS Id, raw AS Text FROM units WHERE id NOT IN (SELECT rowid FROM units_vec) ORDER BY id LIMIT @limit"
-                : "SELECT id AS Id, raw AS Text FROM units ORDER BY id LIMIT @limit";
-            return _connection.Query<PendingUnit>(missing, new { limit }).ToList();
+            return _connection.Query<PendingUnit>(
+                "SELECT id AS Id, raw AS Text FROM units WHERE id NOT IN (SELECT id FROM units_vectors) ORDER BY id LIMIT @limit",
+                new { limit }).ToList();
         }
     }
 
@@ -457,7 +479,6 @@ internal sealed class MemoryIndex : IDisposable
             if (Meta("dimension") != dimension.ToString(CultureInfo.InvariantCulture))
             {
                 DropVectors();
-                _connection.Execute($"CREATE VIRTUAL TABLE units_vec USING vec0 (embedding float[{dimension}])");
                 SetMeta("dimension", dimension.ToString(CultureInfo.InvariantCulture));
             }
 
@@ -467,8 +488,9 @@ internal sealed class MemoryIndex : IDisposable
                 var current = _connection.QuerySingleOrDefault<string>("SELECT raw FROM units WHERE id = @Id", unit, transaction);
                 if (current != unit.Text)
                     continue;
-                _connection.Execute("DELETE FROM units_vec WHERE rowid = @Id", unit, transaction);
-                _connection.Execute("INSERT INTO units_vec (rowid, embedding) VALUES (@id, @vector)", new { id = unit.Id, vector = Blob(vector) }, transaction);
+                _connection.Execute(
+                    "INSERT INTO units_vectors (id, embedding) VALUES (@id, @vector) ON CONFLICT (id) DO UPDATE SET embedding = excluded.embedding",
+                    new { id = unit.Id, vector = Blob(vector) }, transaction);
             }
 
             transaction.Commit();
@@ -586,11 +608,10 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
         {
-            var vectors = HasVectorTable() ? _connection.ExecuteScalar<long>("SELECT count(*) FROM units_vec") : 0;
             return new IndexCounts(
                 (int)_connection.ExecuteScalar<long>("SELECT count(*) FROM sources"),
                 (int)_connection.ExecuteScalar<long>("SELECT count(*) FROM units"),
-                (int)vectors);
+                (int)_connection.ExecuteScalar<long>("SELECT count(*) FROM units_vectors"));
         }
     }
 
@@ -611,7 +632,7 @@ internal sealed class MemoryIndex : IDisposable
         return parameters;
     }
 
-    /// <summary>A vector as <c>vec0</c> reads it: little-endian float32s.</summary>
+    /// <summary>A vector as stored: its float32s in the machine's byte order, read back by <see cref="Nearest"/>.</summary>
     private static byte[] Blob(float[] vector) => MemoryMarshal.AsBytes(vector.AsSpan()).ToArray();
 
     private void Sync(PageId id, string fullPath, string? knownHash)
@@ -718,6 +739,7 @@ internal sealed class MemoryIndex : IDisposable
         public string? Date { get; init; }
         public string? Code { get; init; }
         public double Score { get; init; }
+        public byte[] Embedding { get; init; } = [];
 
         public ScoredHit ToHit() => new(new IndexHit(Id, Source, Kind, Section, Text, Workstream, Date, Code), Score);
     }
@@ -873,8 +895,7 @@ internal sealed class MemoryIndex : IDisposable
         if (source is null)
             return;
         _connection.Execute("DELETE FROM units_fts WHERE rowid IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
-        if (HasVectorTable(transaction))
-            _connection.Execute("DELETE FROM units_vec WHERE rowid IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
+        _connection.Execute("DELETE FROM units_vectors WHERE id IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
         _connection.Execute("DELETE FROM units WHERE source_id = @source", new { source }, transaction);
         _connection.Execute("DELETE FROM sources WHERE id = @source", new { source }, transaction);
     }
@@ -882,12 +903,9 @@ internal sealed class MemoryIndex : IDisposable
     private string? KnownHash(string relativePath) =>
         _connection.QuerySingleOrDefault<string>("SELECT hash FROM sources WHERE path = @relativePath", new { relativePath });
 
-    private bool HasVectorTable(SqliteTransaction? transaction = null) =>
-        _connection.ExecuteScalar<long>("SELECT count(*) FROM sqlite_master WHERE name = 'units_vec'", transaction: transaction) > 0;
-
     private void DropVectors()
     {
-        _connection.Execute("DROP TABLE IF EXISTS units_vec; DELETE FROM meta WHERE key = 'dimension';");
+        _connection.Execute("DELETE FROM units_vectors; DELETE FROM meta WHERE key = 'dimension';");
     }
 
     private string? Meta(string key) => _connection.QuerySingleOrDefault<string?>("SELECT value FROM meta WHERE key = @key", new { key });
@@ -944,6 +962,7 @@ internal sealed class MemoryIndex : IDisposable
             CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, workstream TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
+            CREATE TABLE units_vectors (id INTEGER PRIMARY KEY, embedding BLOB NOT NULL);
             CREATE TABLE judgment_cache (cache_key TEXT PRIMARY KEY, probabilities TEXT NOT NULL, written TEXT NOT NULL);
             INSERT INTO meta (key, value) VALUES ('schema', '{SchemaVersion}');
             """);
@@ -957,8 +976,6 @@ internal sealed class MemoryIndex : IDisposable
         connection.Open();
         try
         {
-            connection.EnableExtensions();
-            connection.LoadExtension(VectorExtension.FilePath);
             connection.Execute("PRAGMA journal_mode = WAL;");
             return connection;
         }

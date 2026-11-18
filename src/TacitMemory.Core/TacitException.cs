@@ -99,9 +99,6 @@ public enum TacitError
     /// <summary>A page, workstream or month of the activity log that the memory has nothing for.</summary>
     MemoryNotFound,
 
-    /// <summary>The bundled sqlite-vec extension is missing or not the release TacitMemory was built with.</summary>
-    VectorExtensionInvalid,
-
     /// <summary>The management API refused a request whose Origin is not the origin of the request itself (a browser page on another site).</summary>
     ApiOriginRefused,
 

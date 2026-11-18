@@ -619,11 +619,11 @@ internal static class ManagementApi
     /// <summary>
     /// The status code of a refused operation: 409 when the memory or the configuration is not in a state the operation
     /// accepts, which the user can fix; 400 for a request the operation does not accept; 500 when the environment failed
-    /// (<c>git</c>, the vector extension, the cloud service, the file system) or the service failed unexpectedly.
+    /// (<c>git</c>, the cloud service, the file system) or the service failed unexpectedly.
     /// </summary>
     private static int StatusOf(TacitError error) => error switch
     {
-        TacitError.GitFailed or TacitError.VectorExtensionInvalid or TacitError.CloudBackupFailed or TacitError.RestoreFailed
+        TacitError.GitFailed or TacitError.CloudBackupFailed or TacitError.RestoreFailed
             or TacitError.ReloadFailed or TacitError.FileSystemFailed or TacitError.InternalFailure => StatusCodes.Status500InternalServerError,
         TacitError.RequestInvalid or TacitError.PasswordTooShort or TacitError.ConfigRejected or TacitError.PromptRejected
             or TacitError.ClientNameInvalid => StatusCodes.Status400BadRequest,
