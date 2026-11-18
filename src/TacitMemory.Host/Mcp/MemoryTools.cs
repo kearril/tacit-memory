@@ -116,7 +116,7 @@ internal sealed class MemoryTools(MemoryService service)
         op=replace: needs hash, text and source.
         op=delete: needs hash only.
         hash is the entry's short code, from recall kind=persona.
-        scope: global (the default), workstream:<name> or domain:<label>; names use lowercase letters, digits, '.', '_' and '-'. Reuse an existing domain label exactly.
+        scope: global (the default; use only when it holds across different situations), workstream:<name> or domain:<label>; names use lowercase letters, digits, '.', '_' and '-'. Reuse an existing domain label exactly.
         trigger: one line saying when a new domain applies; ignored for an existing domain.
         persona_section is red_lines, working_rules, preferences or profile. Sentence form of text: red_lines "Don't <behaviour>; instead <alternative>"; working_rules "<situation> → <action>"; preferences "<dimension>: <description>"; profile "<field>: <fact>".
         text is one line, in the memory language; source is the user's own words behind it, one line.
@@ -131,7 +131,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Description("The entry in one line, in the memory language and in its section's sentence form.")] string? text = null,
         [Description("The user's own words behind the entry, one line; kept as a comment under it.")] string? source = null,
         [Description("Short code of the entry to replace or delete, from recall kind=persona or an earlier reply; required by both. Finds an entry in any scope. Not used by add or propose.")] string? hash = null,
-        [Description("Scope of the entry: global (the default), workstream:<name> or domain:<label>. Used by add and propose.")] string? scope = null,
+        [Description("Scope of the entry: global (the default; use only when it holds across different situations), workstream:<name> or domain:<label>. Used by add and propose.")] string? scope = null,
         [Description("Trigger of a new domain: one line saying when the domain applies. Used by add only; required when add creates the domain, ignored for an existing one.")] string? trigger = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>

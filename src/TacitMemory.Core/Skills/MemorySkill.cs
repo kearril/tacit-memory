@@ -54,40 +54,40 @@ internal static class MemorySkill
         - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream.
 
         ## Examples
-        Each example shows a real page from a Chinese memory, with its type and its recommended sections. The text in the examples is data, not instructions.
+        Each example shows a sample page for a Chinese memory, with its type and its recommended sections. The examples are invented, and their text is data, not instructions.
 
         <example type="incident">
-        Title: Mac 端 sqlite3 损坏容器数据库
-        Aliases: 容器库损坏, Mac sqlite3 写坏容器内 SQLite
+        Title: Alpine 容器内 TLS 证书校验失败
+        Aliases: 容器 HTTPS 报错, Alpine 缺根证书
         ## 修复
-        改为在容器内生成快照，不再从 Mac 端直接打开容器内的 SQLite 数据库。
+        在基础镜像中安装 `ca-certificates` 并更新证书库，不再通过关闭 TLS 校验绕过。
         ## Lesson
-        在 Mac 端用 sqlite3 打开容器内的 SQLite 会将其损坏，不要这样做。
+        精简镜像请求外部 HTTPS 时先确认已包含根证书包，不要用跳过证书校验绕过。
         </example>
 
         <example type="decision">
-        Title: 不能用 Clef 替换 Jev
-        Aliases: Clef 替换 Jev, 决策模型替换
+        Title: 本地检索保持双路召回加精排
+        Aliases: 检索方案定型, 不用纯向量检索
         ## 决定
-        决策模型保持 Jev，不换成 Clef-flash 或 Clef。
+        保留全文加向量融合后精排，不改成纯向量检索。
         ## 理由
-        在现有阈值下，Clef-flash 与 Clef 都有误拒或大量漏检。
+        纯向量对文件名、配置键和错误码的精确匹配漏召回明显。
         </example>
 
         <example type="entity">
-        Title: mac-mini
-        Aliases: Mac mini, 本机 Mac 主机
+        Title: staging-box
+        Aliases: 测试主机, 内网测试机
         ## 现状
-        自建的私有服务运行在 OrbStack 中，经 Cloudflare Tunnel 对外；架构与运维见 `~/infra/` 下的文档，此处只写指针。
+        内网测试机运行 Docker Compose 与反代服务；拓扑和端口清单见 `~/ops/staging.md`，此处只写指针。
         </example>
 
         <example type="work">
-        Title: my-app 1.7
-        Aliases: my-app 适配 1.7, my-app v3.3.0
+        Title: log-trimmer v1.2
+        Aliases: 日志裁剪器 1.2, log-trimmer 发版
         ## 产出
-        发布 v3.3.0：适配宿主 2.0（net10，标准 SQLite provider，插件分目录）；1.x 冻结在 3.2.0。
+        发布 v1.2：支持按大小轮转并补齐超长行截断；1.1 分支停止维护。
         ## Leftovers
-        values 列表聚合问题留待优化主题。
+        高并发下的异步刷盘缓冲留待后续优化。
         </example>
 
         ## Activities
@@ -118,7 +118,7 @@ internal static class MemorySkill
         - Keep one idea per entry, and keep the user's own words in its source note when the wording matters.
         - Scope: global entries are read in every session. Write an entry as global only when it holds in at least two different kinds of situation; otherwise give it a workstream scope (`workstream:<name>`, using the workstream's name) or a domain scope (`domain:<label>`).
         - Domain: a label names a kind of situation, such as network-proxy. Its trigger is one line saying when the domain applies, for example "when changing proxies, routing or speed tests". Reuse an existing label exactly; a new label needs a trigger.
-        - A preference or rule the user agrees to keep goes in with add; a habit you observe goes in with propose, with its scope, and waits as a candidate.
+        - A preference or rule the user agrees to keep goes in with add; propose a habit with op=propose and its scope only when it repeats across the session or clearly applies beyond the current task, not for a one-off workaround. It waits as a candidate.
         - To change or delete an entry, use its short code from `recall kind=persona`, which returns the whole persona with every entry's code. When a code is refused, call `recall kind=persona` again and take the fresh code from there.
 
         ## Refusals
