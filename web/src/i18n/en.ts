@@ -524,6 +524,8 @@ export const en = {
       formatProblems: (count) => (count === 1 ? "1 file has a format problem" : `${count} files have format problems`),
       unsummarizedWeeks: (count) => (count === 1 ? "1 week to summarize" : `${count} weeks to summarize`),
       clear: "All in order",
+      copySchedule: "Copy the instruction that sets up a scheduled reminder",
+      scheduleCopied: "Copied. Paste it to your agent to set up the scheduled reminder",
     },
     service: {
       version: (version) => `Version ${version}`,

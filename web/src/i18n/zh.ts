@@ -485,6 +485,8 @@ export const zh = {
       formatProblems: (count: number) => `${count} 个文件格式有问题`,
       unsummarizedWeeks: (count: number) => `${count} 周还没有汇总`,
       clear: "一切正常",
+      copySchedule: "复制定时提醒的配置指令",
+      scheduleCopied: "已复制，粘贴给你的 Agent 即可配好定时提醒",
     },
     service: {
       version: (version: string) => `版本 ${version}`,

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Archive,
+  CalendarClock,
   ChevronDown,
   CircleCheck,
   CloudUpload,
@@ -49,6 +50,7 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardTitle } from "../../components/ui/card";
 import { CopyButton } from "../../components/ui/copy-button";
+import { copyText } from "../../components/ui/copy-text";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +68,7 @@ import { BusyIcon } from "../../components/ui/busy-icon";
 import { ProbeLine } from "../../components/probe-line";
 import { IconAction, InfoRow } from "./parts";
 import { RestoreDialog } from "./RestoreDialog";
+import { scheduleInstruction } from "./schedule-instruction";
 import {
   BACKUPS_ANCHOR,
   CANDIDATES_ANCHOR,
@@ -249,7 +252,8 @@ export function ModelsCard({
  * How long ago the memory was last consolidated, with the day once it is more than a day ago, and what waits for the next
  * consolidation in words: candidates, files with format problems, weeks to summarize, each only when there is any, or one
  * line that all is well. The index can be rebuilt from here after a confirmation; the result shows as a toast, a failure (a
- * maintenance operation already running among them) as the service's explanation in the card.
+ * maintenance operation already running among them) as the service's explanation in the card. Beside it, a button copies
+ * the instruction that has a local agent set up a daily check of whether a consolidation is due.
  */
 export function IndexCard({ report, locale, className }: CardProps) {
   const dictionary = useDictionary();
@@ -275,7 +279,12 @@ export function IndexCard({ report, locale, className }: CardProps) {
         id="index-title"
         icon={DatabaseZap}
         title={dictionary.dashboard.cards.index}
-        actions={<ReindexButton busy={reindex.isPending} onConfirm={() => reindex.mutate()} />}
+        actions={
+          <>
+            {report.service == null ? null : <ScheduleButton webAddress={report.service.webAddress} />}
+            <ReindexButton busy={reindex.isPending} onConfirm={() => reindex.mutate()} />
+          </>
+        }
       />
       {consolidation == null ? (
         <Unreadable />
@@ -297,6 +306,29 @@ export function IndexCard({ report, locale, className }: CardProps) {
       {pending == null ? null : <Waiting pending={pending} />}
       <FailureAlert failure={failure} />
     </Card>
+  );
+}
+
+/**
+ * Copies the scheduled-reminder instruction. Its address is the service's loopback address, never the page's own, since a
+ * page opened from another device reaches the service by an address a local task would have to log in through.
+ */
+function ScheduleButton({ webAddress }: { readonly webAddress: string }) {
+  const dictionary = useDictionary();
+  const text = dictionary.dashboard.index;
+  const showToast = useToast();
+  return (
+    <IconAction
+      type="button"
+      label={text.copySchedule}
+      onClick={async () => {
+        if (await copyText(scheduleInstruction(new URL("/api/consolidation", webAddress).href))) {
+          showToast(text.scheduleCopied);
+        }
+      }}
+    >
+      <CalendarClock aria-hidden />
+    </IconAction>
   );
 }
 
