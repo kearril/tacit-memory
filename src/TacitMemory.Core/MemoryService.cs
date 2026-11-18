@@ -689,11 +689,37 @@ public sealed class MemoryService : IDisposable
     public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
         RecordToolCall("recall", null, Targets(request.Page), () => RecallCoreAsync(request, cancellationToken));
 
-    private async Task<ToolResult> RecallCoreAsync(RecallRequest request, CancellationToken cancellationToken)
+    private async Task<(ToolResult, string)> RecallCoreAsync(RecallRequest request, CancellationToken cancellationToken)
     {
+        var mode = RecallTool.ModeOf(request);
         using var hold = await _gate.ReadAsync(cancellationToken);
-        return await _recall.RunAsync(request, cancellationToken);
+        var (result, results) = await _recall.RunAsync(request, cancellationToken);
+        return (result, RecallDetails(request, mode, results));
     }
+
+    /// <summary>
+    /// What the log adds for a <c>recall</c>: its mode, the filters given, and for a search its query, with each run of
+    /// whitespace as one space so the event stays on one line, and the number of results when the search ran.
+    /// </summary>
+    private string RecallDetails(RecallRequest request, string mode, int? results)
+    {
+        var details = new List<string> { LogMessages.RecallMode.Format(Language, mode) };
+        var filters = new (string Name, string? Value)[]
+        {
+            ("workstream", request.Workstream), ("from", request.From), ("to", request.To), ("kind", request.Kind), ("domain", request.Domain),
+        }.Where(filter => !string.IsNullOrWhiteSpace(filter.Value)).Select(filter => $"{filter.Name}={OneLine(filter.Value!)}").ToList();
+        if (filters.Count > 0)
+            details.Add(LogMessages.RecallFilters.Format(Language, string.Join(' ', filters)));
+        if (mode == RecallTool.Modes.Search && !string.IsNullOrWhiteSpace(request.Query))
+            details.Add(LogMessages.RecallQuery.Format(Language, OneLine(request.Query)));
+        if (results is { } count)
+            details.Add(LogMessages.RecallResults.Format(Language, count));
+        return string.Concat(details.Select(detail => LogMessages.ToolDetail.Format(Language, detail)));
+    }
+
+    private static readonly Regex Whitespace = new(@"\s+", RegexOptions.CultureInvariant);
+
+    private static string OneLine(string text) => Whitespace.Replace(text.Trim(), " ");
 
     /// <summary>
     /// A recall trace for the management API: the search <c>recall</c> runs for the same parameters, stage by stage, with
@@ -712,10 +738,10 @@ public sealed class MemoryService : IDisposable
     public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>
         RecordToolCall("write_page", request.Op, Targets(request.Page, request.Hash), () => WritePageCoreAsync(request, cancellationToken));
 
-    private async Task<ToolResult> WritePageCoreAsync(WritePageRequest request, CancellationToken cancellationToken)
+    private async Task<(ToolResult, string)> WritePageCoreAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
         using var hold = await _gate.WriteAsync(cancellationToken);
-        return await _pages.WriteAsync(request, cancellationToken);
+        return (await _pages.WriteAsync(request, cancellationToken), "");
     }
 
     /// <summary>
@@ -732,10 +758,10 @@ public sealed class MemoryService : IDisposable
     public Task<ToolResult> WriteRecentAsync(WriteRecentRequest request, CancellationToken cancellationToken = default) =>
         RecordToolCall("write_recent", null, Targets(request.Replaces), () => WriteRecentCoreAsync(request, cancellationToken));
 
-    private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
+    private async Task<(ToolResult, string)> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
         using var hold = await _gate.WriteAsync(cancellationToken);
-        return await _recent.WriteAsync(request, cancellationToken);
+        return (await _recent.WriteAsync(request, cancellationToken), "");
     }
 
     /// <summary>
@@ -745,10 +771,10 @@ public sealed class MemoryService : IDisposable
     public Task<ToolResult> WritePersonaAsync(WritePersonaRequest request, CancellationToken cancellationToken = default) =>
         RecordToolCall("write_persona", request.Op, Targets(request.Hash), () => WritePersonaCoreAsync(request, cancellationToken));
 
-    private async Task<ToolResult> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
+    private async Task<(ToolResult, string)> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
         using var hold = await _gate.WriteAsync(cancellationToken);
-        return await _persona.WriteAsync(request, cancellationToken);
+        return (await _persona.WriteAsync(request, cancellationToken), "");
     }
 
     /// <summary>
@@ -1020,26 +1046,27 @@ public sealed class MemoryService : IDisposable
     }
 
     /// <summary>
-    /// Runs one memory tool and writes its event: the tool, its op, the page IDs and short codes the call names, the outcome
-    /// and the time taken. It is the only place tool calls are logged, and no event carries the text a call sends.
+    /// Runs one memory tool and writes its event: the tool, its op, the page IDs and short codes the call names, the details
+    /// the call adds, the outcome and the time taken. It is the only place tool calls are logged. No event carries the text a
+    /// call sends, except the query of a <c>recall</c> search, which the details hold.
     /// </summary>
-    private async Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<ToolResult>> call)
+    private async Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<(ToolResult Result, string Details)>> call)
     {
         var started = Stopwatch.GetTimestamp();
-        ToolResult? result = null;
+        (ToolResult Result, string Details)? done = null;
         try
         {
-            result = await call();
-            return result;
+            done = await call();
+            return done.Value.Result;
         }
         finally
         {
-            var outcome = result is null ? LogMessages.ToolAborted
+            var outcome = done is not { Result: var result } ? LogMessages.ToolAborted
                 : result.IsError ? LogMessages.ToolRefused
                 : result.Written ? LogMessages.ToolWritten
                 : LogMessages.ToolDone;
             _log.Record(
-                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, outcome.In(Language),
+                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, done?.Details ?? "", outcome.In(Language),
                 (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }
