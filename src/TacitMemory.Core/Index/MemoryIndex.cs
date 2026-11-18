@@ -21,7 +21,11 @@ namespace TacitMemory.Core.Index;
 /// <param name="Workstream">The unit's workstream; empty when an activity has no workstream label.</param>
 /// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
 /// <param name="Code">An activity's short code; <c>null</c> for pages.</param>
-internal sealed record IndexHit(long Id, string Source, string Kind, string? Section, string Text, string Workstream, string? Date, string? Code);
+/// <param name="Passage">
+/// The text the embedding model and the reranker read: a section's page title, name and body; the indexed text for the
+/// other kinds of unit.
+/// </param>
+internal sealed record IndexHit(long Id, string Source, string Kind, string? Section, string Text, string Workstream, string? Date, string? Code, string Passage);
 
 /// <summary>A judgment unit a judgment compares a new text with: its kind, the persona section it belongs to, and its text.</summary>
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
@@ -55,7 +59,7 @@ public enum FullTextMethod
 /// <summary>The units a full-text search returned, best first, and how it matched.</summary>
 internal sealed record FullTextSearch(FullTextMethod Method, IReadOnlyList<ScoredHit> Hits);
 
-/// <summary>A unit that has no vector yet, with the text to embed.</summary>
+/// <summary>A unit that has no vector yet, with the passage to embed.</summary>
 internal sealed record PendingUnit(long Id, string Text);
 
 /// <summary>What the index holds: its files, its units and the units that have a vector.</summary>
@@ -116,7 +120,7 @@ internal static class UnitKinds
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "10";
+    private const string SchemaVersion = "11";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
@@ -131,7 +135,7 @@ internal sealed class MemoryIndex : IDisposable
     private static readonly string[] JudgmentKinds = [UnitKinds.PersonaEntry, UnitKinds.Candidate, UnitKinds.RejectedCandidate];
 
     /// <summary>The columns every search reads into an <see cref="IndexHit"/>.</summary>
-    private const string HitColumns = "u.id AS Id, u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.workstream AS Workstream, u.first AS Date, u.code AS Code";
+    private const string HitColumns = "u.id AS Id, u.source_id AS Source, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.workstream AS Workstream, u.first AS Date, u.code AS Code, u.passage AS Passage";
 
     private readonly string _memoryPath;
     private readonly string _databasePath;
@@ -460,13 +464,13 @@ internal sealed class MemoryIndex : IDisposable
         lock (_gate)
         {
             return _connection.Query<PendingUnit>(
-                "SELECT id AS Id, raw AS Text FROM units WHERE id NOT IN (SELECT id FROM units_vectors) ORDER BY id LIMIT @limit",
+                "SELECT id AS Id, passage AS Text FROM units WHERE id NOT IN (SELECT id FROM units_vectors) ORDER BY id LIMIT @limit",
                 new { limit }).ToList();
         }
     }
 
     /// <summary>
-    /// Stores vectors for units that still exist with the same text. Vectors of another length than the stored ones
+    /// Stores vectors for units that still exist with the same passage. Vectors of another length than the stored ones
     /// mean the model changed: every stored vector is dropped and the new length recorded.
     /// </summary>
     public void StoreVectors(IReadOnlyList<(PendingUnit Unit, float[] Vector)> vectors)
@@ -485,7 +489,7 @@ internal sealed class MemoryIndex : IDisposable
             using var transaction = _connection.BeginTransaction();
             foreach (var (unit, vector) in vectors)
             {
-                var current = _connection.QuerySingleOrDefault<string>("SELECT raw FROM units WHERE id = @Id", unit, transaction);
+                var current = _connection.QuerySingleOrDefault<string>("SELECT passage FROM units WHERE id = @Id", unit, transaction);
                 if (current != unit.Text)
                     continue;
                 _connection.Execute(
@@ -679,7 +683,8 @@ internal sealed class MemoryIndex : IDisposable
             var contentHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw.TrimEnd())));
             var unchanged = previous.TryGetValue(section.Name, out var before) && before.Hash == contentHash && before.Changed is not null;
             var changed = unchanged ? before!.Changed! : DateText(firstSeen)!;
-            AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed, carried: carried);
+            AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed, carried: carried,
+                passage: header.Title + "\n" + raw);
         }
 
         transaction.Commit();
@@ -738,10 +743,11 @@ internal sealed class MemoryIndex : IDisposable
         public string Workstream { get; init; } = "";
         public string? Date { get; init; }
         public string? Code { get; init; }
+        public string Passage { get; init; } = "";
         public double Score { get; init; }
         public byte[] Embedding { get; init; } = [];
 
-        public ScoredHit ToHit() => new(new IndexHit(Id, Source, Kind, Section, Text, Workstream, Date, Code), Score);
+        public ScoredHit ToHit() => new(new IndexHit(Id, Source, Kind, Section, Text, Workstream, Date, Code, Passage), Score);
     }
 
     private sealed record UsageState(long Returns, string? Returned);
@@ -861,18 +867,20 @@ internal sealed class MemoryIndex : IDisposable
     /// The usage counts of the source's units before this sync, by <see cref="UsageKey"/>. A unit that matches one takes its
     /// counts, and each old unit passes its counts on once.
     /// </param>
+    /// <param name="passage">What the embedding model and the reranker read; <c>null</c> for the indexed text itself.</param>
     private void AddUnit(
         string source, string kind, string? section, int ordinal, string raw, UnitScope scope, SqliteTransaction transaction,
         string? code = null, string? hash = null, string? changed = null, string? judgmentScope = null,
-        Dictionary<string, UsageState>? carried = null)
+        Dictionary<string, UsageState>? carried = null, string? passage = null)
     {
         var usage = carried is not null && carried.Remove(UsageKey(kind, section, code, scope.First, scope.Last), out var state) ? state : null;
         var unit = _connection.ExecuteScalar<long>(
-            "INSERT INTO units (source_id, kind, section, ordinal, workstream, first, last, raw, code, hash, changed, scope, returns, returned) "
-            + "VALUES (@source, @kind, @section, @ordinal, @workstream, @first, @last, @raw, @code, @hash, @changed, @judgmentScope, @returns, @returned) RETURNING id",
+            "INSERT INTO units (source_id, kind, section, ordinal, workstream, first, last, raw, passage, code, hash, changed, scope, returns, returned) "
+            + "VALUES (@source, @kind, @section, @ordinal, @workstream, @first, @last, @raw, @passage, @code, @hash, @changed, @judgmentScope, @returns, @returned) RETURNING id",
             new
             {
-                source, kind, section, ordinal, workstream = scope.Workstream, first = scope.First, last = scope.Last, raw, code, hash, changed, judgmentScope,
+                source, kind, section, ordinal, workstream = scope.Workstream, first = scope.First, last = scope.Last, raw, passage = passage ?? raw,
+                code, hash, changed, judgmentScope,
                 returns = usage?.Returns ?? 0,
                 returned = usage?.Returned,
             },
@@ -959,7 +967,7 @@ internal sealed class MemoryIndex : IDisposable
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
-            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, workstream TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
+            CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, workstream TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, passage TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');
             CREATE TABLE units_vectors (id INTEGER PRIMARY KEY, embedding BLOB NOT NULL);

@@ -141,7 +141,7 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
         var kept = fused.Take(candidates).Select(unit => unit.Hit).ToList();
         var rerankerCooling = reranker.Configured && reranker.Health.CoolingDown;
         clock.Restart();
-        var scores = await reranker.ScoreAsync(query, kept.Select(unit => unit.Text).ToList(), cancellationToken);
+        var scores = await reranker.ScoreAsync(query, kept.Select(unit => unit.Passage).ToList(), cancellationToken);
         var rerankerStage = new ModelStage(reranker.Configured, scores is not null, rerankerCooling, reranker.Configured ? clock.Elapsed : null);
         var scoreOf = new Dictionary<IndexHit, double>();
         List<IndexHit> ranked;
