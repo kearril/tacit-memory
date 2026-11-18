@@ -670,10 +670,7 @@ export const zh = {
       none: "无",
       /** How a unit or result is named: a page's title and aliases are its clue. */
       unitKinds: { clue: "线索", activity: "活动", summary: "汇总", week: "周", month: "月" },
-      fullTextMethods: { phrase: "短语匹配", none: "没有可检索的文本" } satisfies Record<
-        FullTextMethod,
-        unknown
-      >,
+      fullTextMethods: { phrase: "短语匹配", none: "没有可检索的文本" } satisfies Record<FullTextMethod, unknown>,
       timing: (method: string, embedding: string | null, reranker: string | null) =>
         [
           `全文：${method}`,
