@@ -62,17 +62,17 @@ public sealed class UnconfiguredModelTests : IDisposable
     }
 
     private Task<ToolResult> WriteEntry(string text) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
+        Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
 
     private Task<ToolResult> AddPreference(string text) =>
-        Service.WritePersonaAsync(new WritePersonaRequest { Op = "add", Section = "preferences", Text = text, Source = text }).WaitAsync(Guard);
+        Service.Tools.WritePersonaAsync(new WritePersonaRequest { Op = "add", Section = "preferences", Text = text, Source = text }).WaitAsync(Guard);
 
     [Fact]
     public async Task Without_any_model_the_service_starts_and_writes_and_recalls_as_usual_with_no_model_notes()
     {
         WriteModels();
 
-        var page = await Service.WritePageAsync(new WritePageRequest
+        var page = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -81,7 +81,7 @@ public sealed class UnconfiguredModelTests : IDisposable
             Aliases = ["备份方式", "备份问题"],
             Sections = [new("要点", "每日自动备份到 zip")],
         }).WaitAsync(Guard);
-        var proposed = await Service.WritePersonaAsync(new WritePersonaRequest
+        var proposed = await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "propose",
             Section = "preferences",
@@ -90,7 +90,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         }).WaitAsync(Guard);
         var first = await WriteEntry("整理了备份方案");
         var second = await WriteEntry("备份方案又改了一版");
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard);
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard);
 
         foreach (var result in new[] { page, proposed, first, second, recall })
         {
@@ -106,13 +106,13 @@ public sealed class UnconfiguredModelTests : IDisposable
         WriteModels();
         await WriteEntry("整理了备份方案");
         await WriteEntry("备份方案又改了一版");
-        await Service.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard);
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard);
         await AddPreference("沟通：先要结论");
 
         Assert.Equal(0, _models.EmbeddingCalls);
         Assert.Equal(0, _models.RerankCalls);
         Assert.Equal(0, _models.DecisionCalls);
-        Assert.DoesNotContain("Unavailable auxiliary models", await Service.ServerInstructionsAsync());
+        Assert.DoesNotContain("Unavailable auxiliary models", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         _models.EmbeddingDown = true;
         _models.DecisionDown = true;
 
-        var page = await Service.WritePageAsync(new WritePageRequest
+        var page = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -145,7 +145,7 @@ public sealed class UnconfiguredModelTests : IDisposable
 
         await WriteEntry("整理了备份方案");
         var second = await WriteEntry("备份方案又改了一版");
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard);
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard);
 
         Assert.DoesNotContain("Note:", second.Text);
         Assert.DoesNotContain("reranker", recall.Text);
@@ -161,7 +161,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await WriteEntry("整理了备份方案");
         await WriteEntry("备份方案又改了一版");
 
-        var instructions = await Service.ServerInstructionsAsync();
+        var instructions = await Service.Tools.ServerInstructionsAsync();
 
         Assert.Contains("- Unavailable auxiliary models: decision. ", instructions);
         Assert.DoesNotContain("reranker", instructions);
@@ -172,7 +172,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     {
         WriteModels(EmbeddingLine);
 
-        var report = await Service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp")).WaitAsync(Guard);
+        var report = await Service.Reports.StatusAsync(new Uri("http://127.0.0.1:18888/mcp")).WaitAsync(Guard);
 
         var items = report.Models!.Items;
         Assert.Equal(ModelState.Available, items.Single(item => item.Role == "embedding").State);
@@ -187,7 +187,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
 
-        var report = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var report = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
         Assert.DoesNotContain("unavailable", Section(report, "Conflicting persona entries"));
@@ -202,7 +202,7 @@ public sealed class UnconfiguredModelTests : IDisposable
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
 
-        var report = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var report = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
         Assert.True(_models.EmbeddingCalls > 0);
@@ -227,7 +227,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     public async Task Leaving_the_embedding_model_out_keeps_the_stored_vectors_and_adding_it_back_needs_no_new_embedding()
     {
         WriteModels(EmbeddingLine);
-        await Service.WritePageAsync(new WritePageRequest
+        await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -260,7 +260,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     public async Task Changing_the_embedding_model_name_drops_the_vectors_and_fills_them_again()
     {
         WriteModels(EmbeddingLine);
-        await Service.WritePageAsync(new WritePageRequest
+        await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -285,7 +285,7 @@ public sealed class UnconfiguredModelTests : IDisposable
     public async Task Reindex_without_an_embedding_model_rebuilds_the_full_text_and_says_it_is_not_configured()
     {
         WriteModels();
-        await Service.WritePageAsync(new WritePageRequest
+        await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -295,14 +295,14 @@ public sealed class UnconfiguredModelTests : IDisposable
             Sections = [new("要点", "每日自动备份到 zip")],
         }).WaitAsync(Guard);
 
-        var result = await Service.ReindexAsync().WaitAsync(Guard);
+        var result = await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
         Assert.Equal(0, result.Vectors);
         Assert.False(result.VectorsPending);
         Assert.True(result.Units > 0);
         Assert.Contains("嵌入模型未配置", result.Report);
         Assert.DoesNotContain("向量将在模型恢复后补齐", result.Report);
-        Assert.Contains("备份", (await Service.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard)).Text);
+        Assert.Contains("备份", (await Service.Tools.RecallAsync(new RecallRequest { Query = "备份" }).WaitAsync(Guard)).Text);
     }
 
     [Fact]
@@ -311,14 +311,14 @@ public sealed class UnconfiguredModelTests : IDisposable
         WriteModels(EmbeddingLine, DecisionLine);
         await AddPreference("沟通：先要结论");
         await AddPreference("回复别太长");
-        await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.SettledAsync().WaitAsync(Guard);
         var asked = _models.DecisionCalls;
         Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
         StopService();
 
         WriteModels(EmbeddingLine);
-        var report = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var report = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("Not checked (not configured)", Section(report, "Conflicting persona entries"));
         Assert.Equal(asked, _models.DecisionCalls);

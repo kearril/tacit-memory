@@ -55,9 +55,9 @@ public sealed class ManualBackupTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(Memory, ".cache"));
         File.WriteAllText(Path.Combine(Memory, ".cache", "scratch.bin"), "cache");
-        await _service.WritePageAsync(Create("tacit-memory/manual-page"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/manual-page"));
 
-        var result = await _service.BackupAsync(BackupTarget.Local);
+        var result = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
         var expected = Path.Combine(BackupsDirectory, $"manual-{FirstStamp}.zip");
         Assert.Equal(expected, result.Location);
@@ -83,7 +83,7 @@ public sealed class ManualBackupTests : IDisposable
     [Fact]
     public async Task An_automatic_backup_records_its_kind_and_the_subject_of_the_commit_it_holds()
     {
-        await _service.WritePageAsync(Create("tacit-memory/auto-kind"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/auto-kind"));
         await _service.SettledAsync();
 
         using var zip = ZipFile.OpenRead(Path.Combine(BackupsDirectory, $"auto-{Today:yyyy-MM-dd}.zip"));
@@ -96,8 +96,8 @@ public sealed class ManualBackupTests : IDisposable
     [Fact]
     public async Task The_manual_backup_holds_the_writes_that_came_before_it()
     {
-        var write = _service.WritePageAsync(Create("tacit-memory/queued-write"));
-        var backup = _service.BackupAsync(BackupTarget.Local);
+        var write = _service.Tools.WritePageAsync(Create("tacit-memory/queued-write"));
+        var backup = _service.Maintenance.BackupAsync(BackupTarget.Local);
 
         await write;
         var result = await backup;
@@ -112,12 +112,12 @@ public sealed class ManualBackupTests : IDisposable
         using var home = new TestHome();
         home.InitReady("backup:\n  keep: 1\n");
         using var service = home.Tacit().OpenService(_ => { }, _logs);
-        await service.WritePageAsync(Create("tacit-memory/first-day"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/first-day"));
         await service.SettledAsync();
-        var manual = await service.BackupAsync(BackupTarget.Local);
+        var manual = await service.Maintenance.BackupAsync(BackupTarget.Local);
 
         home.Clock.Advance(TimeSpan.FromDays(1));
-        await service.WritePageAsync(Create("tacit-memory/second-day"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/second-day"));
         await service.SettledAsync();
 
         Assert.True(File.Exists(manual.Location));
@@ -129,7 +129,7 @@ public sealed class ManualBackupTests : IDisposable
     {
         var directory = Path.Combine(_home.Root, "usb", "nested");
 
-        var result = await _service.BackupAsync(BackupTarget.Local, directory);
+        var result = await _service.Maintenance.BackupAsync(BackupTarget.Local, directory);
 
         Assert.Equal(Path.Combine(directory, $"manual-{FirstStamp}.zip"), result.Location);
         Assert.True(File.Exists(result.Location));
@@ -138,17 +138,17 @@ public sealed class ManualBackupTests : IDisposable
     [Fact]
     public async Task A_second_manual_backup_in_the_same_second_is_refused_and_the_first_is_left_alone()
     {
-        var first = await _service.BackupAsync(BackupTarget.Local);
+        var first = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var before = File.ReadAllBytes(first.Location);
 
-        var refused = await Assert.ThrowsAsync<TacitException>(() => _service.BackupAsync(BackupTarget.Local));
+        var refused = await Assert.ThrowsAsync<TacitException>(() => _service.Maintenance.BackupAsync(BackupTarget.Local));
 
         Assert.Equal(TacitError.BackupExists, refused.Error);
         Assert.Equal(before, File.ReadAllBytes(first.Location));
         Assert.Single(Directory.GetFiles(BackupsDirectory, "manual-*"));
 
         _home.Clock.Advance(TimeSpan.FromSeconds(1));
-        var later = await _service.BackupAsync(BackupTarget.Local);
+        var later = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         Assert.Equal(Path.Combine(BackupsDirectory, "manual-2026-11-02-100001.zip"), later.Location);
     }
 
@@ -158,10 +158,10 @@ public sealed class ManualBackupTests : IDisposable
         using var home = new TestHome();
         home.InitReady("backup:\n  keep: 0\n");
         using var service = home.Tacit().OpenService(_ => { }, _logs);
-        await service.WritePageAsync(Create("tacit-memory/no-auto"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/no-auto"));
         await service.SettledAsync();
 
-        var manual = await service.BackupAsync(BackupTarget.Local);
+        var manual = await service.Maintenance.BackupAsync(BackupTarget.Local);
 
         Assert.Empty(AutomaticBackups(Path.Combine(home.TacitHome, "backups")));
         Assert.True(File.Exists(manual.Location));
@@ -170,7 +170,7 @@ public sealed class ManualBackupTests : IDisposable
     [Fact]
     public async Task The_result_names_a_plaintext_secret_in_the_config()
     {
-        var result = await _service.BackupAsync(BackupTarget.Local);
+        var result = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
         Assert.NotNull(result.Notice);
         Assert.Contains("明文密钥", result.Notice, StringComparison.Ordinal);
@@ -186,7 +186,7 @@ public sealed class ManualBackupTests : IDisposable
         home.EnvironmentVariables["TACIT_DECISION_API_KEY"] = "env-key";
         using var service = home.Tacit().OpenService(_ => { }, _logs);
 
-        var result = await service.BackupAsync(BackupTarget.Local);
+        var result = await service.Maintenance.BackupAsync(BackupTarget.Local);
 
         Assert.Null(result.Notice);
     }
@@ -194,7 +194,7 @@ public sealed class ManualBackupTests : IDisposable
     [Fact]
     public async Task A_manual_backup_is_logged_with_its_path_and_size()
     {
-        var result = await _service.BackupAsync(BackupTarget.Local);
+        var result = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
         var line = Assert.Single(_logs.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("手动备份已写入", StringComparison.Ordinal));
         Assert.Contains(result.Location, line.Message, StringComparison.Ordinal);
@@ -203,7 +203,7 @@ public sealed class ManualBackupTests : IDisposable
     [Fact]
     public async Task A_relative_target_directory_is_refused_and_nothing_is_written()
     {
-        var refused = await Assert.ThrowsAsync<TacitException>(() => _service.BackupAsync(BackupTarget.Local, "backups"));
+        var refused = await Assert.ThrowsAsync<TacitException>(() => _service.Maintenance.BackupAsync(BackupTarget.Local, "backups"));
 
         Assert.Equal(TacitError.RequestInvalid, refused.Error);
     }

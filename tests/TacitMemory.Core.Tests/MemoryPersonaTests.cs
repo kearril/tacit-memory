@@ -108,7 +108,7 @@ public sealed class MemoryPersonaTests : IDisposable
         Assert.Matches("^[0-9a-f]{6}$", rule.Code);
         Assert.Equal(6, rule.Line);
 
-        var recalled = await Service.RecallAsync(new RecallRequest { Kind = "persona" });
+        var recalled = await Service.Tools.RecallAsync(new RecallRequest { Kind = "persona" });
         Assert.Contains($"[{rule.Code}] 需求不清时", recalled.Text);
 
         var domain = Assert.Single(report.Domains);

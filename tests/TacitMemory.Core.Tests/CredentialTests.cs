@@ -23,7 +23,7 @@ public sealed class CredentialTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), (_models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
     }
 
-    private Task<ToolResult> Create(string body, bool? confirm = null, string title = "部署脚本") => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> Create(string body, bool? confirm = null, string title = "部署脚本") => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,
@@ -167,7 +167,7 @@ public sealed class CredentialTests : IDisposable
     {
         Assert.False((await Create("先跑迁移，再重启服务。")).IsError);
 
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "upsert_section",
             Page = "my-app/deploy",
@@ -185,7 +185,7 @@ public sealed class CredentialTests : IDisposable
     {
         Assert.False((await Create("先跑迁移，再重启服务。")).IsError);
 
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "update_header",
             Page = "my-app/deploy",
@@ -200,7 +200,7 @@ public sealed class CredentialTests : IDisposable
     [Fact]
     public async Task Deleting_a_section_takes_no_confirmation()
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "delete_section",
             Page = "my-app/deploy",

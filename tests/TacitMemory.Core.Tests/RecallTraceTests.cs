@@ -25,7 +25,7 @@ public sealed class RecallTraceTests : IDisposable
 
     private async Task Create(string page, string title, params PageSectionInput[] sections)
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -38,7 +38,7 @@ public sealed class RecallTraceTests : IDisposable
     }
 
     private Task<RecallTraceReport> Trace(string query, RetrievalOverrides? overrides = null) =>
-        Service.TraceRecallAsync(new RecallTraceRequest(query, MinRerankScore: overrides?.MinRerankScore, TopK: overrides?.TopK, Candidates: overrides?.Candidates));
+        Service.Browse.TraceRecallAsync(new RecallTraceRequest(query, MinRerankScore: overrides?.MinRerankScore, TopK: overrides?.TopK, Candidates: overrides?.Candidates));
 
     private static TraceUnit Section(RecallTraceReport trace, string page, string section) =>
         trace.Units.Single(unit => unit.Source == page && unit.Section == section);
@@ -120,7 +120,7 @@ public sealed class RecallTraceTests : IDisposable
         await Create("ops/health", "部署健康检查", new PageSectionInput("检查", "部署后检查健康状况。"));
 
         var trace = await Trace("部署");
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.Equal(recall.Text, trace.Text);
     }
@@ -135,10 +135,10 @@ public sealed class RecallTraceTests : IDisposable
     {
         await Create("ops/rollback", "部署回滚", new("回滚步骤", "部署失败时先回滚。"), new("回滚记录", "部署回滚做过两次。"));
         await Create("web/deploy", "前端部署", new PageSectionInput("步骤", "部署前端前先构建。"));
-        Assert.False((await Service.WriteRecentAsync(new WriteRecentRequest { Text = "部署流程改为先备份再上线。", Workstream = "ops" })).IsError);
+        Assert.False((await Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "部署流程改为先备份再上线。", Workstream = "ops" })).IsError);
 
-        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", workstream, from, to, kind));
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署", Workstream = workstream, From = from, To = to, Kind = kind });
+        var report = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署", workstream, from, to, kind));
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署", Workstream = workstream, From = from, To = to, Kind = kind });
 
         Assert.Equal(recall.Text, report.Text);
         Assert.Equal(Enumerable.Range(1, report.Results.Count), report.Results.Select(result => result.Number));
@@ -155,7 +155,7 @@ public sealed class RecallTraceTests : IDisposable
     [Fact]
     public async Task A_trace_request_with_several_problems_is_refused_with_every_one()
     {
-        var refusal = await Assert.ThrowsAsync<TacitException>(() => Service.TraceRecallAsync(
+        var refusal = await Assert.ThrowsAsync<TacitException>(() => Service.Browse.TraceRecallAsync(
             new RecallTraceRequest(" ", "Bad Name", "2026-13-01", "2026-11-01", "persona", MinRerankScore: 2, TopK: 0, Candidates: 3)));
 
         Assert.Equal(TacitError.RequestInvalid, refusal.Error);
@@ -170,8 +170,8 @@ public sealed class RecallTraceTests : IDisposable
     [InlineData(null, null, "everything", "kind")]
     public async Task Recall_and_the_trace_refuse_the_same_parameter(string? from, string? to, string? kind, string parameter)
     {
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署", From = from, To = to, Kind = kind });
-        var refusal = await Assert.ThrowsAsync<TacitException>(() => Service.TraceRecallAsync(new RecallTraceRequest("部署", null, from, to, kind)));
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署", From = from, To = to, Kind = kind });
+        var refusal = await Assert.ThrowsAsync<TacitException>(() => Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署", null, from, to, kind)));
 
         Assert.True(recall.IsError);
         Assert.Contains(parameter, recall.Text.Split('\n')[0]);
@@ -183,8 +183,8 @@ public sealed class RecallTraceTests : IDisposable
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
-        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", "Bad Name"));
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署", Workstream = "Bad Name" });
+        var report = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署", "Bad Name"));
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署", Workstream = "Bad Name" });
 
         Assert.False(recall.IsError, recall.Text);
         Assert.Equal(recall.Text, report.Text);
@@ -197,8 +197,8 @@ public sealed class RecallTraceTests : IDisposable
         _models.EmbeddingDown = true;
         _models.RerankDown = true;
 
-        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署"));
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var report = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署"));
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.Equal(2, report.Notes.Count);
         Assert.All(report.Notes, note => Assert.Contains(note, recall.Text));
@@ -212,13 +212,13 @@ public sealed class RecallTraceTests : IDisposable
         await Create("web/deploy", "前端部署", new PageSectionInput("步骤", "部署前端前先构建。"));
         _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9 : document.Contains("健康", StringComparison.Ordinal) ? 0.4 : 0.1;
 
-        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", MinRerankScore: 0.3, TopK: 1, Candidates: 3));
+        var report = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署", MinRerankScore: 0.3, TopK: 1, Candidates: 3));
         _service!.Dispose();
         _service = null;
         File.WriteAllText(
             Path.Combine(_home.TacitHome, "config.yaml"),
             (_models.ModelsYaml() + "retrieval: { minRerankScore: 0.3, topK: 1, candidates: 3 }\n").ReplaceLineEndings("\n"));
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.Equal(recall.Text, report.Text);
         Assert.Contains("ops/rollback", recall.Text);
@@ -230,7 +230,7 @@ public sealed class RecallTraceTests : IDisposable
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
 
-        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署", TopK: 2));
+        var report = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署", TopK: 2));
 
         Assert.Equal(2, report.Settings.TopK.Value);
         Assert.NotEqual(report.Settings.TopK.Value, report.Settings.TopK.Configured);
@@ -243,12 +243,12 @@ public sealed class RecallTraceTests : IDisposable
     {
         await Create("ops/rollback", "部署回滚", new PageSectionInput("回滚步骤", "部署失败时先回滚。"));
         _models.RerankDown = true;
-        await Service.TraceRecallAsync(new RecallTraceRequest("部署"));
+        await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署"));
         _models.RerankDown = false;
         var calls = _models.RerankCalls;
 
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
-        var report = await Service.TraceRecallAsync(new RecallTraceRequest("部署"));
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
+        var report = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("部署"));
 
         Assert.Equal(calls, _models.RerankCalls);
         Assert.Contains("reranker model is unavailable", recall.Text);
@@ -277,7 +277,7 @@ public sealed class RecallTraceTests : IDisposable
         _models.EmbeddingDown = true;
 
         var trace = await Trace("部署");
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.True(trace.Embedding.Configured);
         Assert.False(trace.Embedding.Answered);
@@ -295,7 +295,7 @@ public sealed class RecallTraceTests : IDisposable
         _models.RerankDown = true;
 
         var trace = await Trace("部署");
-        var recall = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var recall = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.False(trace.Reranker.Answered);
         Assert.All(trace.Units, unit => Assert.Null(unit.RerankScore));
@@ -312,7 +312,7 @@ public sealed class RecallTraceTests : IDisposable
         await Trace("部署");
         Assert.All(await Service.PageCountsAsync(), entry => Assert.Equal(0, entry.Value));
 
-        await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
         Assert.InRange((await Service.PageCountsAsync())["ops/rollback"], 1, long.MaxValue);
     }
 
@@ -328,9 +328,9 @@ public sealed class RecallTraceTests : IDisposable
         Assert.Equal("部署回滚", page.Title);
         Assert.All(await Service.PageCountsAsync(), entry => Assert.Equal(0, entry.Value));
 
-        await Service.RecallAsync(new RecallRequest { Workstream = "ops" });
+        await Service.Tools.RecallAsync(new RecallRequest { Workstream = "ops" });
         Assert.Equal(1, (await Service.PageCountsAsync())["ops/rollback"]);
-        await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "ops/rollback" });
         Assert.Equal(2, (await Service.PageCountsAsync())["ops/rollback"]);
     }
 }

@@ -93,7 +93,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.NotEqual(view.Hash, saved.Hash);
         Assert.Contains("topK: 1\n", File.ReadAllText(ConfigPath));
         Assert.DoesNotContain("#", File.ReadAllText(ConfigPath));
-        Assert.Contains("1 result(s).", (await _service.RecallAsync(new RecallRequest { Query = "部署失败" })).Text);
+        Assert.Contains("1 result(s).", (await _service.Tools.RecallAsync(new RecallRequest { Query = "部署失败" })).Text);
         Assert.Equal(saved.Hash, (await GetAsync()).Hash);
     }
 
@@ -255,7 +255,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         var after = await GetAsync();
         Assert.Null(after.Running.Models.Reranker);
         Assert.NotNull(after.Running.Models.Embedding);
-        var status = await _service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
+        var status = await _service.Reports.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
         Assert.Contains(status.Models!.Items, model => model.Role == "reranker" && model.State == ModelState.Unconfigured);
     }
 

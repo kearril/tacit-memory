@@ -61,7 +61,7 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         Assert.Contains("None.", section);
     }
@@ -71,7 +71,7 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
 
-        var prompt = await service.ConsolidationReportAsync();
+        var prompt = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains("## A. Automatic\n", prompt);
         Assert.Contains("## B. For proposals\n", prompt);
@@ -85,7 +85,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/long.md", Page(title: new string('长', 300), aliases: $"[数据库升级, {new string('a', 300)}]"));
 
-        Assert.DoesNotContain("pages/tacit-memory/long.md", Section(await service.ConsolidationReportAsync(), Category));
+        Assert.DoesNotContain("pages/tacit-memory/long.md", Section(await service.Tools.ConsolidationReportAsync(), Category));
     }
 
     [Fact]
@@ -94,10 +94,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/one-alias.md", Page(aliases: "[只有一个]"));
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/one-alias.md", "line 3");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/one-alias.md", "line 3");
 
         WriteFile("pages/tacit-memory/one-alias.md", Page(aliases: "[只有一个, db upgrade]"));
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/one-alias.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/one-alias.md");
     }
 
     [Fact]
@@ -106,12 +106,12 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/untyped.md", Page().Replace("type: work\n", ""));
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
         AssertListed(section, "pages/tacit-memory/untyped.md", "YAML header");
         Assert.Contains("(page type)", FindingOf(section, "pages/tacit-memory/untyped.md"));
 
         WriteFile("pages/tacit-memory/untyped.md", Page());
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/untyped.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/untyped.md");
     }
 
     [Fact]
@@ -120,10 +120,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/odd-type.md", Page().Replace("type: work", "type: note"));
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/odd-type.md", "line 5");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/odd-type.md", "line 5");
 
         WriteFile("pages/tacit-memory/odd-type.md", Page());
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/odd-type.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/odd-type.md");
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class FormatViolationTests : IDisposable
         WriteFile("pages/tacit-memory/untyped.md", Page().Replace("type: work\n", ""));
         Commit("consolidate: baseline");
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/untyped.md", "YAML header");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/untyped.md", "YAML header");
     }
 
     [Fact]
@@ -142,10 +142,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/linked.md", Page(related: "related: [tacit-memory/missing]"));
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/linked.md", "line 4");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/linked.md", "line 4");
 
         WriteFile("pages/tacit-memory/missing.md", Page(title: "缺失的页"));
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/linked.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/linked.md");
     }
 
     [Fact]
@@ -154,10 +154,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/Bad_Name.md", Page());
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/Bad_Name.md", "file name");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/Bad_Name.md", "file name");
 
         File.Move(Path.Combine(Memory, "pages/tacit-memory/Bad_Name.md"), Path.Combine(Memory, "pages/tacit-memory/bad-name.md"));
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/bad-name.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/bad-name.md");
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/Bad_Name.md", Page(aliases: "[只有一个]"));
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
         AssertListed(section, "pages/tacit-memory/Bad_Name.md", "file name");
         AssertListed(section, "pages/tacit-memory/Bad_Name.md", "line 3");
     }
@@ -177,10 +177,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/dup.md", Page(body: "## 要点\n- 内容\n\n## 要点\n- 另一条\n"));
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md", "line 11");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md", "line 11");
 
         WriteFile("pages/tacit-memory/dup.md", Page(body: "## 要点\n- 内容\n\n## 其他\n- 另一条\n"));
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/dup.md");
     }
 
     [Fact]
@@ -189,10 +189,10 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("pages/tacit-memory/broken.md", "---\ntitle: [未闭合\naliases: [a, b]\n---\n\n## 要点\n- 内容\n");
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/broken.md", "YAML header");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/broken.md", "YAML header");
 
         WriteFile("pages/tacit-memory/broken.md", Page());
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/broken.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/broken.md");
     }
 
     [Fact]
@@ -202,10 +202,10 @@ public sealed class FormatViolationTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Memory, "pages", "tacit-memory"));
         File.WriteAllBytes(Path.Combine(Memory, "pages", "tacit-memory", "gbk.md"), [0xFF, 0xFE, 0x41]);
 
-        AssertListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/gbk.md", "file");
+        AssertListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/gbk.md", "file");
 
         WriteFile("pages/tacit-memory/gbk.md", Page());
-        AssertNotListed(Section(await service.ConsolidationReportAsync(), Category), "pages/tacit-memory/gbk.md");
+        AssertNotListed(Section(await service.Tools.ConsolidationReportAsync(), Category), "pages/tacit-memory/gbk.md");
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public sealed class FormatViolationTests : IDisposable
         foreach (var number in Enumerable.Range(1, 21))
             WriteFile($"pages/tacit-memory/long-{number:00}.md", Page(aliases: "[只有一个]"));
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         AssertListed(section, "pages/tacit-memory/long-20.md", "line 3");
         AssertNotListed(section, "pages/tacit-memory/long-21.md");
@@ -228,7 +228,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("recent/2026-11.md", "## 2026-11-02\n- 一件事\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n");
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         Assert.Contains("None.", section);
     }
@@ -240,7 +240,7 @@ public sealed class FormatViolationTests : IDisposable
         // 2026-W45's Thursday is 2026-11-05, so its summary belongs in 2026-11.md.
         WriteFile("recent/2026-10.md", "## Summary\n- 2026-W45：写错了文件\n");
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         AssertListed(section, "recent/2026-10.md", "line 2");
         Assert.Contains("Summary in the wrong file", section);
@@ -254,7 +254,7 @@ public sealed class FormatViolationTests : IDisposable
         WriteFile("recent/2026-12.md", "## Summary\n- 2026-W54：没有这一周\n");
         WriteFile("recent/2027-01.md", "## Summary\n- 2027-W53：也没有这一周\n");
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         AssertListed(section, "recent/2026-12.md", "line 2");
         AssertListed(section, "recent/2027-01.md", "line 2");
@@ -269,7 +269,7 @@ public sealed class FormatViolationTests : IDisposable
         WriteFile("recent/2026-12.md", "## Summary\n- 2026-W53：跨年的一周\n");
         WriteFile("recent/2027-01.md", "## Summary\n- 2027-W01：新年第一周\n");
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         Assert.Contains("None.", section);
     }
@@ -280,7 +280,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("recent/2027-01.md", "## Summary\n- 2026-W53：这一周的周四在 2026-12-31\n");
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         AssertListed(section, "recent/2027-01.md", "line 2");
         Assert.Contains("Summary in the wrong file", section);
@@ -292,7 +292,7 @@ public sealed class FormatViolationTests : IDisposable
         using var service = Open();
         WriteFile("recent/2026-11.md", "## Summary\n- 2026-11-05：日期不是汇总\n- 2026-11：\n- 2026-13：不存在的月份\n");
 
-        var section = Section(await service.ConsolidationReportAsync(), Category);
+        var section = Section(await service.Tools.ConsolidationReportAsync(), Category);
 
         AssertListed(section, "recent/2026-11.md", "line 2");
         AssertListed(section, "recent/2026-11.md", "line 3");
@@ -306,10 +306,10 @@ public sealed class FormatViolationTests : IDisposable
     {
         using var service = Open();
         WriteFile("recent/2026-10.md", "## Summary\n- 2026-W45：写错了文件\n");
-        Assert.Contains("Summary in the wrong file", Section(await service.ConsolidationReportAsync(), Category));
+        Assert.Contains("Summary in the wrong file", Section(await service.Tools.ConsolidationReportAsync(), Category));
 
         WriteFile("recent/2026-10.md", "## Summary\n- 2026-W42：放回正确的文件\n");
 
-        Assert.Contains("None.", Section(await service.ConsolidationReportAsync(), Category));
+        Assert.Contains("None.", Section(await service.Tools.ConsolidationReportAsync(), Category));
     }
 }

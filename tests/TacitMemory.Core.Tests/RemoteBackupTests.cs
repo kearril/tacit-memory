@@ -87,7 +87,7 @@ public sealed class RemoteBackupTests : IDisposable
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
 
-        var result = await service.BackupAsync(BackupTarget.Cloud);
+        var result = await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         var sent = _dav.Requests.ToList();
         Assert.Equal(["PUT", "MOVE"], sent.Select(request => request.Method));
@@ -110,7 +110,7 @@ public sealed class RemoteBackupTests : IDisposable
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
 
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         var zips = Directory.Exists(BackupsDirectory) ? Directory.GetFiles(BackupsDirectory, "*.zip") : [];
         Assert.Empty(zips);
@@ -121,11 +121,11 @@ public sealed class RemoteBackupTests : IDisposable
     {
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var first = _dav.FileAt(RemoteFile)!;
-        await service.WritePageAsync(Create("tacit-memory/written-after-first-upload"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/written-after-first-upload"));
 
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         var second = _dav.FileAt(RemoteFile)!;
         Assert.NotEqual(first, second);
@@ -139,7 +139,7 @@ public sealed class RemoteBackupTests : IDisposable
     {
         var service = Start();
 
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         var sent = _dav.Requests.ToList();
         Assert.Equal(["PUT", "MKCOL", "PUT", "MOVE"], sent.Select(request => request.Method));
@@ -152,12 +152,12 @@ public sealed class RemoteBackupTests : IDisposable
     {
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var before = _dav.FileAt(RemoteFile)!;
-        await service.WritePageAsync(Create("tacit-memory/unsupported-replace"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/unsupported-replace"));
         _dav.MoveSupported = false;
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud));
 
         Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("替换", error.Message, StringComparison.Ordinal);
@@ -173,12 +173,12 @@ public sealed class RemoteBackupTests : IDisposable
     {
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var before = _dav.FileAt(RemoteFile)!;
-        await service.WritePageAsync(Create("tacit-memory/cut-short"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/cut-short"));
         _dav.DropNextPutAfter(64);
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud));
 
         Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("上传", error.Message, StringComparison.Ordinal);
@@ -195,7 +195,7 @@ public sealed class RemoteBackupTests : IDisposable
         _home.EnvironmentVariables["TACIT_WEBDAV_PASSWORD"] = wrong;
         var service = Start();
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud));
 
         Assert.Contains("认证", error.Message, StringComparison.Ordinal);
         Assert.Contains("401", error.Message, StringComparison.Ordinal);
@@ -210,7 +210,7 @@ public sealed class RemoteBackupTests : IDisposable
     {
         var service = StartWith($"  webdav: {{ url: 'http://127.0.0.1:{FreePort()}/dav/tacit/', username: {User} }}");
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud));
 
         Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("连接", error.Message, StringComparison.Ordinal);
@@ -222,7 +222,7 @@ public sealed class RemoteBackupTests : IDisposable
     {
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var config = _home.Tacit().LoadConfig();
         var requestsBefore = _dav.Requests.Count;
 
@@ -234,7 +234,7 @@ public sealed class RemoteBackupTests : IDisposable
         Assert.Single(status.Backups.Lines.Where(line => line.StartsWith("云端备份", StringComparison.Ordinal)), line => line.Contains("成功", StringComparison.Ordinal));
 
         _dav.Answer("MOVE", 500);
-        await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud));
+        await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud));
 
         status = await _home.Tacit().OfflineStatus(config);
         var failed = status.Backups!.Lines.Single(line => line.StartsWith("云端备份", StringComparison.Ordinal));
@@ -249,7 +249,7 @@ public sealed class RemoteBackupTests : IDisposable
     {
         var service = StartWith("");
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud));
 
         Assert.Equal(TacitError.CloudBackupNotConfigured, error.Error);
         Assert.Contains("未配置云端备份", error.Message, StringComparison.Ordinal);
@@ -262,7 +262,7 @@ public sealed class RemoteBackupTests : IDisposable
     {
         var service = Start();
 
-        var refused = await Assert.ThrowsAsync<TacitException>(() => service.BackupAsync(BackupTarget.Cloud, Path.Combine(_home.Root, "usb")));
+        var refused = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.BackupAsync(BackupTarget.Cloud, Path.Combine(_home.Root, "usb")));
 
         Assert.Equal(TacitError.RequestInvalid, refused.Error);
         Assert.Empty(_dav.Requests);
@@ -274,7 +274,7 @@ public sealed class RemoteBackupTests : IDisposable
         _dav.CreateCollection("/dav/tacit/");
         var service = StartWith($"  webdav: {{ url: '{FolderUrl}' }}");
 
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         Assert.NotEmpty(_dav.Requests);
         Assert.All(_dav.Requests, request => Assert.Null(request.Authorization));
@@ -287,7 +287,7 @@ public sealed class RemoteBackupTests : IDisposable
         _home.EnvironmentVariables.Remove("TACIT_WEBDAV_PASSWORD");
         var service = StartWith($"  webdav: {{ url: '{FolderUrl}', username: {User}, password: '{Password}' }}");
 
-        var result = await service.BackupAsync(BackupTarget.Cloud);
+        var result = await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         Assert.NotNull(result.Notice);
         Assert.Contains("明文密钥", result.Notice, StringComparison.Ordinal);
@@ -302,7 +302,7 @@ public sealed class RemoteBackupTests : IDisposable
         _dav.CreateCollection("/dav/tacit/");
         var service = Start();
 
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         Assert.Contains(_logs.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("云端备份已上传", StringComparison.Ordinal));
         Assert.DoesNotContain(Password, _logs.AllText, StringComparison.Ordinal);

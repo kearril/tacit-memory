@@ -47,7 +47,7 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
     [Fact]
     public async Task A_trace_answers_with_settings_stages_results_text_and_units()
     {
-        var created = await _service.WritePageAsync(new WritePageRequest
+        var created = await _service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,

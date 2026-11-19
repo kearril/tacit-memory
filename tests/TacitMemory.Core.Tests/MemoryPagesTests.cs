@@ -20,7 +20,7 @@ public sealed class MemoryPagesTests : IDisposable
 
     private async Task Create(string page, string title, string type, string[]? related = null, params PageSectionInput[] sections)
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = type,
@@ -38,7 +38,7 @@ public sealed class MemoryPagesTests : IDisposable
     {
         await Create("ops/rollback", "部署回滚", ToolValues.PageTypes.Decision, null, new PageSectionInput("决定", "失败先回滚。"));
         await Create("_topics/pgroonga", "PGroonga", ToolValues.PageTypes.Entity, null, new PageSectionInput("现状", "暂不采用。"));
-        await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "ops/rollback" });
 
         var list = await Service.Browse.PagesAsync();
 
@@ -62,7 +62,7 @@ public sealed class MemoryPagesTests : IDisposable
             new PageSectionInput("决定", "失败先回滚。\n<!-- 2026-11-01 quote「先回滚」 -->"),
             new PageSectionInput("理由", "最快止损<!-- quote「stop the loss」 -->，再查原因。<!-- 备注 -->"));
         File.WriteAllText(PagePath("ops/rollback"), File.ReadAllText(PagePath("ops/rollback")).Replace("related: [ops/deploy]", "related: [ops/deploy, ops/gone]"));
-        await Service.RecallAsync(new RecallRequest { Page = "ops/rollback" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "ops/rollback" });
 
         var page = await Service.Browse.PageAsync("ops", "rollback");
 

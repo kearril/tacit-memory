@@ -54,7 +54,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         using var service = Open();
 
-        var report = await service.ConsolidationReportAsync();
+        var report = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains(Memory, report);
         Assert.Contains($"git -C \"{Memory}\"", report);
@@ -65,7 +65,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         using var service = Open();
 
-        var report = await service.ConsolidationReportAsync();
+        var report = await service.Tools.ConsolidationReportAsync();
 
         var headings = new[]
         {
@@ -95,7 +95,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         using var service = Open();
 
-        var report = await service.ConsolidationReportAsync();
+        var report = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains("None.", Section(report, "Persona candidates to remove"));
         Assert.Contains("None.", Section(report, "Suspected duplicate pages"));
@@ -115,7 +115,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WriteMonth("2026-11", "## 2026-11-03\n- [newone] 新名字的活动\n- [newone] 另一件事\n- [labelonly] 只在活动里出现\n- [alpha] 已成立的活动\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material");
 
         Assert.Contains("newone (unestablished): pages 2, activities 2", section);
         Assert.Contains("labelonly (unestablished): pages 0, activities 1", section);
@@ -134,7 +134,7 @@ public sealed class ConsolidationReportTests : IDisposable
             WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material");
 
         Assert.Contains("prefix home-server: _topics/home-server, _topics/home-server-proxy, _topics/home-server-proxy-scope", section);
         Assert.Contains("prefix cloud: _topics/cloud-a-x, _topics/cloud-a-y, _topics/cloud-b", section);
@@ -150,7 +150,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WriteMonth("2026-11", "## 2026-11-03\n- 新的无标签活动\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material");
 
         Assert.Contains("新的无标签活动", section);
         Assert.DoesNotContain("旧的无标签活动", section);
@@ -163,13 +163,13 @@ public sealed class ConsolidationReportTests : IDisposable
         WritePage("a1", "甲", "## 现象\n- 内容\n", workstream: "oldname");
         WriteMonth("2026-11", "## 2026-11-03\n- [oldname] 旧标签的活动\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        Assert.Contains("oldname (unestablished)", Section(await service.ConsolidationReportAsync(), "Workstream proposal material"));
+        Assert.Contains("oldname (unestablished)", Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material"));
 
         Directory.Move(Path.Combine(Memory, "pages", "oldname"), Path.Combine(Memory, "pages", "target"));
         Workstreams("## Workstream\n### target\nBackground: 合并后的主线。\n");
         CommitAll("consolidate: merge oldname into target");
 
-        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material");
 
         Assert.DoesNotContain("oldname", section);
     }
@@ -190,7 +190,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.True(Directory.Exists(Path.Combine(Memory, "pages", "emptied")));
         Assert.Empty(Directory.EnumerateFiles(Path.Combine(Memory, "pages", "emptied")));
 
-        var section = Section(await service.ConsolidationReportAsync(), "Workstream proposal material");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material");
 
         Assert.Contains("stillhere (unestablished): pages 1, activities 0", section);
         Assert.DoesNotContain("emptied", section);
@@ -203,7 +203,7 @@ public sealed class ConsolidationReportTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n" + string.Concat(Enumerable.Range(1, 15).Select(i => $"- 第{i}条\n")));
 
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
-        var report = await service.ConsolidationReportAsync();
+        var report = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains("None.", Section(report, "Length hints"));
     }
@@ -215,7 +215,7 @@ public sealed class ConsolidationReportTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- 短\n- " + new string('长', 30) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Length hints");
 
         Assert.Contains("persona.md", section);
         Assert.Contains("line 3", section);
@@ -230,7 +230,7 @@ public sealed class ConsolidationReportTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 120) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Length hints");
 
         Assert.Contains("None.", section);
     }
@@ -244,7 +244,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n- 新的活动" + new string('长', 30) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Length hints");
 
         Assert.Contains("recent/2026-11.md", section);
         Assert.Contains("line 3", section);
@@ -259,7 +259,7 @@ public sealed class ConsolidationReportTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 120) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Length hints");
 
         Assert.Contains("resident block", section);
         Assert.Contains("hint length of 100", section);
@@ -272,7 +272,7 @@ public sealed class ConsolidationReportTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 300) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Length hints");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Length hints");
 
         Assert.Contains("None.", section);
     }
@@ -282,7 +282,7 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         using var service = Open();
 
-        var report = await service.ConsolidationReportAsync();
+        var report = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains("Budget: 20 seconds for the model judgments", report);
     }
@@ -297,7 +297,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Commit("consolidate: second pass");
         var second = HeadHash();
 
-        var prompt = await service.ConsolidationReportAsync();
+        var prompt = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains(second, prompt);
         Assert.DoesNotContain(first, prompt);
@@ -308,9 +308,9 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         using var service = Open();
         var init = HeadHash();
-        await service.WriteRecentAsync(new WriteRecentRequest { Text = "做了一件事" });
+        await service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "做了一件事" });
 
-        var prompt = await service.ConsolidationReportAsync();
+        var prompt = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains(init, prompt);
     }
@@ -323,7 +323,7 @@ public sealed class ConsolidationReportTests : IDisposable
         TestHome.Git(Memory, "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "--amend", "--allow-empty", "-m", "setup memory");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var prompt = await service.ConsolidationReportAsync();
+        var prompt = await service.Tools.ConsolidationReportAsync();
 
         Assert.Contains("Last consolidate: never", prompt);
         Assert.DoesNotContain(root, prompt);
@@ -338,7 +338,7 @@ public sealed class ConsolidationReportTests : IDisposable
         File.WriteAllText(path, "---\ntitle: 无类型的页\naliases: [无类型]\ndates: { first: 2026-10-30, last: 2026-10-30 }\n---\n\n## 要点\n- 内容\n");
         Commit("consolidate: earlier pass");
 
-        var section = Section(await service.ConsolidationReportAsync(), "Format and rule violations");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Format and rule violations");
 
         Assert.Contains("untyped.md", section);
         Assert.Contains("page type", section);
@@ -353,7 +353,7 @@ public sealed class ConsolidationReportTests : IDisposable
             (new DateOnly(2026, 1, 5).AddDays(7 * week), "每周一件事")));
         ClockOn(new DateOnly(2026, 6, 1));
 
-        var section = Section(await service.ConsolidationReportAsync(), "Weeks to summarize");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Weeks to summarize");
 
         Assert.Contains("2026-W02", section);
         Assert.Contains("2026-W21", section);
@@ -370,7 +370,7 @@ public sealed class ConsolidationReportTests : IDisposable
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ConsolidationReportAsync(cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.Tools.ConsolidationReportAsync(cancelled.Token));
 
         Assert.Equal(before, TestHome.Git(Memory, "status", "--porcelain"));
     }
@@ -384,7 +384,7 @@ public sealed class ConsolidationReportTests : IDisposable
         CommitAll("consolidate: earlier pass");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Persona evidence");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Persona evidence");
 
         Assert.Contains("回答尽量简短", section);
         Assert.Contains("workstream:tacit-memory", section);
@@ -403,7 +403,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Persona evidence");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Persona evidence");
 
         Assert.DoesNotContain("旧原话", section);
         Assert.Contains("新原话一", section);
@@ -421,7 +421,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WritePage("new-incident", "新的故障", "## 现象\n- 出错了\n\n## Lesson\n- 先看日志再改配置\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Incident lessons");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Incident lessons");
 
         Assert.Contains("tacit-memory/new-incident", section);
         Assert.Contains("先看日志再改配置", section);
@@ -436,7 +436,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WritePage("chinese-incident", "中文小节的故障", "## 教训\n- 写成中文小节名的教训\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Incident lessons");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Incident lessons");
 
         Assert.DoesNotContain("写成中文小节名的教训", section);
     }
@@ -451,7 +451,7 @@ public sealed class ConsolidationReportTests : IDisposable
         WritePage("untyped-page", "没有类型的页", "## 要点\n- 内容\n", type: null);
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Changed pages");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Changed pages");
 
         Assert.DoesNotContain("unchanged-page", section);
         Assert.Contains("tacit-memory/changed-page", section);
@@ -474,7 +474,7 @@ public sealed class ConsolidationReportTests : IDisposable
             WritePage($"page-{i:00}", $"页 {i:00}", "## 现象\n- 内容\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Changed pages");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Changed pages");
 
         Assert.Contains("tacit-memory/page-00", section);
         Assert.Contains("tacit-memory/page-19", section);
@@ -490,7 +490,7 @@ public sealed class ConsolidationReportTests : IDisposable
             "## Red lines\n- 不要删库\n\n## Domain: network-proxy\nTrigger: 代理与分流相关的问题\n\n### Working rules\n- 先看分流规则\n- 再看回退方案\n\n## Domain: lonely\nTrigger: 只有一条的领域\n\n### Working rules\n- 唯一的一条\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.ConsolidationReportAsync(), "Domain hygiene");
+        var section = Section(await service.Tools.ConsolidationReportAsync(), "Domain hygiene");
 
         Assert.Contains("domain:lonely", section);
         Assert.DoesNotContain("domain:network-proxy", section);

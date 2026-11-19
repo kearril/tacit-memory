@@ -52,7 +52,7 @@ public sealed partial class RecentActivityTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "notes.txt"), "staged by the user\n");
         Git("add", "notes.txt");
 
-        var result = await _service.WriteRecentAsync(Add("想清楚了画像里缺的是人的倾向"));
+        var result = await _service.Tools.WriteRecentAsync(Add("想清楚了画像里缺的是人的倾向"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("## 2026-11-02\n- 想清楚了画像里缺的是人的倾向\n", File.ReadAllText(MonthFile));
@@ -64,8 +64,8 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Entries_of_one_day_are_appended_under_one_heading_in_write_order()
     {
-        await _service.WriteRecentAsync(Add("先查了索引"));
-        await _service.WriteRecentAsync(Add("再换了分词器"));
+        await _service.Tools.WriteRecentAsync(Add("先查了索引"));
+        await _service.Tools.WriteRecentAsync(Add("再换了分词器"));
 
         Assert.Equal("## 2026-11-02\n- 先查了索引\n- 再换了分词器\n", File.ReadAllText(MonthFile));
     }
@@ -76,7 +76,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
         File.WriteAllText(MonthFile, "## 2026-11-01\n- 昨天的事\n");
 
-        await _service.WriteRecentAsync(Add("今天的事"));
+        await _service.Tools.WriteRecentAsync(Add("今天的事"));
 
         Assert.Equal("## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- 今天的事\n", File.ReadAllText(MonthFile));
     }
@@ -87,7 +87,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
         File.WriteAllText(MonthFile, "## 2026-11-02\n- 早上的事\n\n手写备注  \n## 2026-11-01\n- 昨天的事\n");
 
-        await _service.WriteRecentAsync(Add("下午的事"));
+        await _service.Tools.WriteRecentAsync(Add("下午的事"));
 
         Assert.Equal(
             "## 2026-11-02\n- 早上的事\n\n手写备注  \n- 下午的事\n## 2026-11-01\n- 昨天的事\n",
@@ -100,7 +100,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
         File.WriteAllText(MonthFile, "## 2026-11-02\n- 第一段\n## 2026-11-01\n- 昨天\n## 2026-11-02\n- 第二段\n");
 
-        await _service.WriteRecentAsync(Add("新的一条"));
+        await _service.Tools.WriteRecentAsync(Add("新的一条"));
 
         Assert.Equal(
             "## 2026-11-02\n- 第一段\n- 新的一条\n## 2026-11-01\n- 昨天\n## 2026-11-02\n- 第二段\n",
@@ -110,7 +110,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Workstream_is_written_as_a_bracketed_prefix_in_lowercase()
     {
-        var result = await _service.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "Tacit-Memory"));
+        var result = await _service.Tools.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "Tacit-Memory"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("## 2026-11-02\n- [tacit-memory] 决定先不做同主题判断\n", File.ReadAllText(MonthFile));
@@ -119,7 +119,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task A_workstream_without_a_detail_page_is_accepted()
     {
-        var result = await _service.WriteRecentAsync(Add("第一条", workstream: "brand-new.workstream"));
+        var result = await _service.Tools.WriteRecentAsync(Add("第一条", workstream: "brand-new.workstream"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("- [brand-new.workstream] 第一条", File.ReadAllText(MonthFile));
@@ -132,7 +132,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [InlineData("_private")]
     public async Task A_workstream_outside_the_naming_rule_is_refused_and_nothing_is_written(string workstream)
     {
-        var result = await _service.WriteRecentAsync(Add("一件事", workstream: workstream));
+        var result = await _service.Tools.WriteRecentAsync(Add("一件事", workstream: workstream));
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:", result.Text);
@@ -143,7 +143,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Source_is_written_as_an_indented_comment_under_the_entry()
     {
-        var result = await _service.WriteRecentAsync(Add("记忆库本身就是项目", source: "其实可以直接把记忆库当成项目"));
+        var result = await _service.Tools.WriteRecentAsync(Add("记忆库本身就是项目", source: "其实可以直接把记忆库当成项目"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -156,7 +156,7 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         var text = new string('字', 1500);
 
-        var result = await _service.WriteRecentAsync(Add(text, workstream: "tacit-memory", source: new string('源', 150)));
+        var result = await _service.Tools.WriteRecentAsync(Add(text, workstream: "tacit-memory", source: new string('源', 150)));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"- [tacit-memory] {text}", File.ReadAllText(MonthFile));
@@ -165,7 +165,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Text_starting_with_a_bracket_is_refused_and_the_next_step_names_workstream()
     {
-        var result = await _service.WriteRecentAsync(Add("[tacit-memory] 已经标注过了"));
+        var result = await _service.Tools.WriteRecentAsync(Add("[tacit-memory] 已经标注过了"));
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:", result.Text);
@@ -176,7 +176,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Missing_text_is_refused()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest());
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest());
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Missing parameter text.\nNext step: ", result.Text);
@@ -185,7 +185,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_reply_carries_the_short_code_of_the_text_with_its_workstream_label()
     {
-        var result = await _service.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "tacit-memory"));
+        var result = await _service.Tools.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "tacit-memory"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(ShortOf("[tacit-memory] 决定先不做同主题判断"), CodeOf(result));
@@ -194,7 +194,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_source_is_not_part_of_the_short_code()
     {
-        var result = await _service.WriteRecentAsync(Add("同一件事", source: "原话一"));
+        var result = await _service.Tools.WriteRecentAsync(Add("同一件事", source: "原话一"));
 
         Assert.Equal(ShortOf("同一件事"), CodeOf(result));
     }
@@ -202,8 +202,8 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Identical_entries_on_the_same_month_get_a_numbered_suffix()
     {
-        var first = await _service.WriteRecentAsync(Add("反复出现的一句"));
-        var second = await _service.WriteRecentAsync(Add("反复出现的一句"));
+        var first = await _service.Tools.WriteRecentAsync(Add("反复出现的一句"));
+        var second = await _service.Tools.WriteRecentAsync(Add("反复出现的一句"));
 
         Assert.Equal(ShortOf("反复出现的一句"), CodeOf(first));
         Assert.Equal($"{ShortOf("反复出现的一句")}-2", CodeOf(second));
@@ -212,7 +212,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Secret_in_text_is_refused_and_nothing_is_written()
     {
-        var result = await _service.WriteRecentAsync(Add($"用的 key 是 {OpenAiKey}"));
+        var result = await _service.Tools.WriteRecentAsync(Add($"用的 key 是 {OpenAiKey}"));
 
         Assert.True(result.IsError);
         Assert.Contains("sk-pro", result.Text);
@@ -223,7 +223,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Secret_in_source_is_refused()
     {
-        var result = await _service.WriteRecentAsync(Add("普通的一句", source: $"我说过 {OpenAiKey}"));
+        var result = await _service.Tools.WriteRecentAsync(Add("普通的一句", source: $"我说过 {OpenAiKey}"));
 
         Assert.True(result.IsError);
         Assert.Contains("sk-pro", result.Text);
@@ -233,7 +233,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Confirm_no_secret_lets_a_flagged_write_through()
     {
-        var result = await _service.WriteRecentAsync(Add($"示例 {OpenAiKey}", confirmNoSecret: true));
+        var result = await _service.Tools.WriteRecentAsync(Add($"示例 {OpenAiKey}", confirmNoSecret: true));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"- 示例 {OpenAiKey}", File.ReadAllText(MonthFile));
@@ -242,11 +242,11 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Replaces_rewrites_the_activity_in_place_and_keeps_its_source()
     {
-        await _service.WriteRecentAsync(Add("先做的事", workstream: "tacit-memory", source: "原话一"));
-        await _service.WriteRecentAsync(Add("第二件事"));
-        var first = await _service.WriteRecentAsync(Add("第三件事"));
+        await _service.Tools.WriteRecentAsync(Add("先做的事", workstream: "tacit-memory", source: "原话一"));
+        await _service.Tools.WriteRecentAsync(Add("第二件事"));
+        var first = await _service.Tools.WriteRecentAsync(Add("第三件事"));
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "改写后的先做的事",
             Workstream = "tacit-memory",
@@ -265,9 +265,9 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Replaces_with_a_source_replaces_the_comment_and_without_one_keeps_it()
     {
-        var added = await _service.WriteRecentAsync(Add("一件事", source: "旧话"));
+        var added = await _service.Tools.WriteRecentAsync(Add("一件事", source: "旧话"));
 
-        await _service.WriteRecentAsync(new WriteRecentRequest
+        await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "一件事改写",
             Replaces = CodeOf(added),
@@ -275,7 +275,7 @@ public sealed partial class RecentActivityTests : IDisposable
         });
         Assert.Equal("## 2026-11-02\n- 一件事改写\n  <!-- quote「新话」 -->\n", File.ReadAllText(MonthFile));
 
-        var kept = await _service.WriteRecentAsync(new WriteRecentRequest
+        var kept = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "一件事再改",
             Replaces = ShortOf("一件事改写"),
@@ -288,9 +288,9 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Replaces_takes_the_workstream_label_from_the_new_call()
     {
-        var added = await _service.WriteRecentAsync(Add("同一件事", workstream: "old-one"));
+        var added = await _service.Tools.WriteRecentAsync(Add("同一件事", workstream: "old-one"));
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "同一件事",
             Workstream = "new-one",
@@ -306,10 +306,10 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
         File.WriteAllText(MonthFile, "## 2026-11-01\n- 昨天的事\n");
-        var today = await _service.WriteRecentAsync(Add("今天的事"));
+        var today = await _service.Tools.WriteRecentAsync(Add("今天的事"));
         var before = File.ReadAllText(MonthFile);
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "误改昨天",
             Replaces = ShortOf("昨天的事"),
@@ -325,14 +325,14 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task An_expired_code_is_refused_and_the_current_activities_are_listed()
     {
-        var added = await _service.WriteRecentAsync(Add("旧的说法"));
-        await _service.WriteRecentAsync(new WriteRecentRequest
+        var added = await _service.Tools.WriteRecentAsync(Add("旧的说法"));
+        await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "新的说法",
             Replaces = CodeOf(added),
         });
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "又改一次",
             Replaces = CodeOf(added),
@@ -346,7 +346,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Replaces_with_no_activity_today_is_refused_and_creates_no_file()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "一件事",
             Replaces = "abc123",
@@ -360,9 +360,9 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task A_secret_in_the_replacement_is_refused_and_the_activity_is_kept()
     {
-        var added = await _service.WriteRecentAsync(Add("普通的一句"));
+        var added = await _service.Tools.WriteRecentAsync(Add("普通的一句"));
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = $"用的 key 是 {OpenAiKey}",
             Replaces = CodeOf(added),
@@ -376,10 +376,10 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Replacing_with_the_same_text_changes_nothing_and_makes_no_commit()
     {
-        var added = await _service.WriteRecentAsync(Add("不变的一句"));
+        var added = await _service.Tools.WriteRecentAsync(Add("不变的一句"));
         var commits = Git("rev-list", "--count", "HEAD");
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "不变的一句",
             Replaces = CodeOf(added),
@@ -392,7 +392,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_reply_is_one_line_with_the_short_code_of_the_new_activity()
     {
-        var result = await _service.WriteRecentAsync(Add("一件事", workstream: "tacit-memory"));
+        var result = await _service.Tools.WriteRecentAsync(Add("一件事", workstream: "tacit-memory"));
 
         Assert.False(result.IsError, result.Text);
         // The first line is the reply; the embedding note that a test without a model gets follows it.
@@ -402,9 +402,9 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task A_rewrite_replies_with_the_short_code_of_the_rewritten_activity()
     {
-        var added = await _service.WriteRecentAsync(Add("先说的一件事"));
+        var added = await _service.Tools.WriteRecentAsync(Add("先说的一件事"));
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "改写后的一件事", Replaces = CodeOf(added) });
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "改写后的一件事", Replaces = CodeOf(added) });
 
         Assert.False(result.IsError, result.Text);
         Assert.StartsWith($"Replaced activity [{ShortOf("改写后的一件事")}].", result.Text, StringComparison.Ordinal);
@@ -415,7 +415,7 @@ public sealed partial class RecentActivityTests : IDisposable
     {
         File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### alpha\nBackground: 一号主线。\n");
 
-        await _service.WriteRecentAsync(Add("一件事"));
+        await _service.Tools.WriteRecentAsync(Add("一件事"));
 
         Assert.Equal("## Workstream\n### alpha\nBackground: 一号主线。\n", File.ReadAllText(Path.Combine(Memory, "workstreams.md")));
     }
@@ -423,7 +423,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task The_removed_parameters_are_refused_by_name_and_the_next_step_points_to_the_consolidation()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = "一件事",
             UnknownParameters = ["op", "items", "hash"],
@@ -441,7 +441,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task An_unknown_parameter_is_refused_by_name_and_nothing_is_written()
     {
-        var result = await _service.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["content"] });
+        var result = await _service.Tools.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["content"] });
 
         Assert.True(result.IsError);
         Assert.StartsWith(
@@ -454,7 +454,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task A_project_parameter_is_refused_by_name_and_the_next_step_names_workstream()
     {
-        var result = await _service.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["project"] });
+        var result = await _service.Tools.WriteRecentAsync(Add("一件事") with { UnknownParameters = ["project"] });
 
         Assert.StartsWith(
             "Refused: Unknown parameter project.\nNext step: Call write_recent again with only these parameters: text, workstream, source, replaces, confirm_no_secret.",
@@ -465,7 +465,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task An_unknown_parameter_is_refused_before_a_missing_text_is_looked_at()
     {
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest { UnknownParameters = ["content"] });
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { UnknownParameters = ["content"] });
 
         Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
         Assert.DoesNotContain("Missing parameter text", result.Text);
@@ -480,7 +480,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Git("commit", "-m", "chore: seed month file");
         File.AppendAllText(MonthFile, "- 手动补的一条\n");
 
-        var result = await _service.WriteRecentAsync(Add("下午的事"));
+        var result = await _service.Tools.WriteRecentAsync(Add("下午的事"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -493,8 +493,8 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task Concurrent_writes_are_serialized_and_both_land()
     {
-        var first = _service.WriteRecentAsync(Add("甲"));
-        var second = _service.WriteRecentAsync(Add("乙"));
+        var first = _service.Tools.WriteRecentAsync(Add("甲"));
+        var second = _service.Tools.WriteRecentAsync(Add("乙"));
 
         var results = await Task.WhenAll(first, second);
 
@@ -505,7 +505,7 @@ public sealed partial class RecentActivityTests : IDisposable
     [Fact]
     public async Task A_successful_write_schedules_the_automatic_backup_for_the_day()
     {
-        await _service.WriteRecentAsync(Add("第一条"));
+        await _service.Tools.WriteRecentAsync(Add("第一条"));
         await _service.SettledAsync();
 
         Assert.True(File.Exists(Path.Combine(_home.TacitHome, "backups", "auto-2026-11-02.zip")));
@@ -518,7 +518,7 @@ public sealed partial class RecentActivityTests : IDisposable
         var bytes = new byte[] { 0x23, 0x23, 0xFF, 0xFE, 0x0A };
         File.WriteAllBytes(MonthFile, bytes);
 
-        var result = await _service.WriteRecentAsync(Add("一件事"));
+        var result = await _service.Tools.WriteRecentAsync(Add("一件事"));
 
         Assert.True(result.IsError);
         Assert.Equal(bytes, File.ReadAllBytes(MonthFile));

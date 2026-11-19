@@ -72,7 +72,7 @@ public sealed class CommandSkillTests : IDisposable
         tacit.GenerateSkills();
         var before = File.ReadAllText(SkillFile("tacit-remember"));
         using (var service = tacit.OpenService(_ => { }, NullLoggerFactory.Instance))
-            await service.WriteRecentAsync(new WriteRecentRequest { Text = "写了一条今天的活动" });
+            await service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "写了一条今天的活动" });
 
         tacit.GenerateSkills();
 

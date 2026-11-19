@@ -6,9 +6,9 @@ using TacitMemory.Core;
 
 namespace TacitMemory.Host.Mcp;
 
-/// <summary>The memory tools. Each one hands its arguments to <see cref="MemoryService"/>, which checks them.</summary>
+/// <summary>The memory tools. Each one hands its arguments to <see cref="ServiceTools"/>, which checks them.</summary>
 [McpServerToolType]
-internal sealed class MemoryTools(MemoryService service)
+internal sealed class MemoryTools(ServiceTools service)
 {
     [McpServerTool(Name = "recall", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [McpMeta("anthropic/alwaysLoad", true)]

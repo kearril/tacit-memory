@@ -55,7 +55,7 @@ public sealed class ConsolidationSummariesTests : IDisposable
         return ends.Count == 0 ? body : body[..ends.Min()];
     }
 
-    private async Task<string> Report(MemoryService service) => await service.ConsolidationReportAsync();
+    private async Task<string> Report(MemoryService service) => await service.Tools.ConsolidationReportAsync();
 
     [Fact]
     public async Task A_completed_week_without_a_summary_lists_all_its_activities_grouped_by_workstream_with_the_month_to_write_in()

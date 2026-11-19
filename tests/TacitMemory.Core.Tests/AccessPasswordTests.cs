@@ -399,7 +399,7 @@ public sealed class AccessPasswordTests : IDisposable
         Access().SetPassword(Password, current: null, local: true, Peer);
         using var service = _home.Tacit().OpenService(_ => { }, _logs);
 
-        var result = await service.BackupAsync(BackupTarget.Local);
+        var result = await service.Maintenance.BackupAsync(BackupTarget.Local);
 
         using var zip = ZipFile.OpenRead(result.Location);
         Assert.DoesNotContain(zip.Entries, entry => entry.FullName.Contains("access.json", StringComparison.Ordinal));

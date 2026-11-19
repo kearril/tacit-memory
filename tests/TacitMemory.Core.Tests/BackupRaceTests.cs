@@ -50,11 +50,11 @@ public sealed class BackupRaceTests : IDisposable
     public async Task A_write_that_arrives_while_the_backup_packs_waits_for_it_to_finish()
     {
         // The first write of the day schedules the automatic backup, which pauses while it packs.
-        var first = await Service.WritePageAsync(Create("tacit-memory/first")).WaitAsync(Guard);
+        var first = await Service.Tools.WritePageAsync(Create("tacit-memory/first")).WaitAsync(Guard);
         Assert.False(first.IsError, first.Text);
         await _packing.Task.WaitAsync(Guard);
 
-        var second = Service.WritePageAsync(Create("tacit-memory/second"));
+        var second = Service.Tools.WritePageAsync(Create("tacit-memory/second"));
         var finished = await Task.WhenAny(second, Task.Delay(Window));
 
         Assert.False(ReferenceEquals(finished, second), "The write finished while the backup was still packing.");

@@ -36,10 +36,10 @@ public sealed class SummaryTests : IDisposable
     }
 
     private Task<ToolResult> Recall(string query, string? kind = null, string? workstream = null, string? from = null, string? to = null) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Workstream = workstream, From = from, To = to });
+        Service.Tools.RecallAsync(new RecallRequest { Query = query, Kind = kind, Workstream = workstream, From = from, To = to });
 
     private Task<ToolResult> Write(string text, string? workstream = null) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream });
+        Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream });
 
     [Fact]
     public async Task A_week_summary_is_recalled_as_an_activity_and_labelled_as_a_summary_of_its_week()

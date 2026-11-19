@@ -56,7 +56,7 @@ public sealed class LogTests : IDisposable
     [Fact]
     public async Task A_page_write_is_logged_with_its_page_ID_and_outcome_and_never_its_text()
     {
-        var result = await Service.WritePageAsync(Create("my-app/deploy", TitleMarker));
+        var result = await Service.Tools.WritePageAsync(Create("my-app/deploy", TitleMarker));
 
         Assert.False(result.IsError);
         var line = Assert.Single(EventsOf("write_page")).Message;
@@ -69,11 +69,11 @@ public sealed class LogTests : IDisposable
     [Fact]
     public async Task A_recall_is_logged_with_its_mode_filters_query_on_one_line_and_result_count()
     {
-        await Service.WritePageAsync(Create("my-app/deploy"));
+        await Service.Tools.WritePageAsync(Create("my-app/deploy"));
 
-        await Service.RecallAsync(new RecallRequest { Page = "my-app/deploy" });
-        await Service.RecallAsync(new RecallRequest { Query = QueryMarker + "\n  第二行", Workstream = "my-app", From = "2026-01-01" });
-        await Service.RecallAsync(new RecallRequest { Query = QueryMarker, Page = "my-app/deploy" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "my-app/deploy" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = QueryMarker + "\n  第二行", Workstream = "my-app", From = "2026-01-01" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = QueryMarker, Page = "my-app/deploy" });
 
         var reads = EventsOf("recall").Select(entry => entry.Message).ToList();
         Assert.Equal(3, reads.Count);
@@ -92,13 +92,13 @@ public sealed class LogTests : IDisposable
     [Fact]
     public async Task Recent_and_persona_writes_are_logged_with_the_short_code_they_name_and_never_their_text()
     {
-        await Service.WriteRecentAsync(new WriteRecentRequest
+        await Service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = ActivityMarker,
             Workstream = "my-app",
             Replaces = "abc123",
         });
-        await Service.WritePersonaAsync(new WritePersonaRequest
+        await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "delete",
             Section = "preferences",
@@ -115,10 +115,10 @@ public sealed class LogTests : IDisposable
     [Fact]
     public async Task A_model_that_finally_fails_is_logged_as_a_warning_with_its_cooldown()
     {
-        await Service.WritePageAsync(Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失"));
+        await Service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失"));
         _models.DecisionDown = true;
 
-        await Service.WritePageAsync(Create("tacit-memory/pg-search", "升级后搜不到中文"));
+        await Service.Tools.WritePageAsync(Create("tacit-memory/pg-search", "升级后搜不到中文"));
 
         Assert.Contains(_logs.Entries, entry => entry.Level == LogLevel.Warning
             && entry.Message.Contains("decision", StringComparison.Ordinal)
@@ -133,13 +133,13 @@ public sealed class LogTests : IDisposable
         Configure(decisionKey: SecretKey, embeddingKey: EmbeddingKey, rerankerKey: RerankerKey);
         _models.EmbeddingDown = true;
         _models.RerankDown = true;
-        await Service.WritePageAsync(Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失"));
+        await Service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade", "数据库升级后扩展丢失"));
         _models.EmbeddingDown = false;
         _home.Clock.Advance(TimeSpan.FromMinutes(1));
         _models.DecisionDown = true;
 
-        await Service.WritePageAsync(Create("tacit-memory/pg-search", "升级后搜不到中文"));
-        await Service.RecallAsync(new RecallRequest { Query = "升级" });
+        await Service.Tools.WritePageAsync(Create("tacit-memory/pg-search", "升级后搜不到中文"));
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "升级" });
 
         Assert.Contains(_logs.Entries, entry => entry.Message.Contains("embedding", StringComparison.Ordinal));
         Assert.Contains(_logs.Entries, entry => entry.Message.Contains("reranker", StringComparison.Ordinal));
@@ -181,7 +181,7 @@ public sealed class LogTests : IDisposable
         var notices = new List<string>();
         using var service = _home.Tacit().OpenService(notices.Add, _logs);
 
-        await service.WritePageAsync(Create("my-app/plain-key"));
+        await service.Tools.WritePageAsync(Create("my-app/plain-key"));
         await service.SettledAsync();
 
         Assert.Contains(notices, notice => notice.Contains("明文密钥", StringComparison.Ordinal));

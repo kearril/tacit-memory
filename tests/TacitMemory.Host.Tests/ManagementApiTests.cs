@@ -250,7 +250,7 @@ public sealed class ManagementApiTests : IAsyncLifetime
     [Fact]
     public async Task Reindex_is_posted_as_json_and_answers_with_the_rebuilt_index_as_json()
     {
-        var written = await _service.WritePageAsync(new WritePageRequest
+        var written = await _service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,

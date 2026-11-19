@@ -99,7 +99,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var oldCode = ShortOf("沟通：先要结论");
         var newCode = ShortOf("沟通：先说结论，再讲依据");
 
-        var result = await _service.WritePersonaAsync(Replace(oldCode, "沟通：先说结论，再讲依据"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(oldCode, "沟通：先说结论，再讲依据"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -120,7 +120,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona(Fixture);
         var code = ShortOf("反感客套和铺垫");
 
-        var result = await _service.WritePersonaAsync(Replace(code, "反感客套、铺垫和寒暄", "别绕弯子"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(code, "反感客套、铺垫和寒暄", "别绕弯子"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -135,8 +135,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     {
         CommitPersona(Fixture);
 
-        var redLine = await _service.WritePersonaAsync(Replace(ShortOf("不要删库；改为先备份"), "不要删库"));
-        var workingRule = await _service.WritePersonaAsync(Replace(ShortOf("需求不清时 → 先连续追问"), "需求不清时先追问"));
+        var redLine = await _service.Tools.WritePersonaAsync(Replace(ShortOf("不要删库；改为先备份"), "不要删库"));
+        var workingRule = await _service.Tools.WritePersonaAsync(Replace(ShortOf("需求不清时 → 先连续追问"), "需求不清时先追问"));
 
         Assert.False(redLine.IsError, redLine.Text);
         Assert.False(workingRule.IsError, workingRule.Text);
@@ -152,7 +152,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var head = Git("rev-parse", "HEAD").Trim();
         var before = File.ReadAllText(PersonaMd);
 
-        var result = await _service.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "反感客套和铺垫", "别绕弯子"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "反感客套和铺垫", "别绕弯子"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
@@ -166,8 +166,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var red = Enumerable.Range(1, 6).Select(i => $"- 不要做{i}；改为做{i}\n").ToList();
         CommitPersona("## Red lines\n" + string.Concat(red) + "\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
-        var replaced = await _service.WritePersonaAsync(Replace(ShortOf("不要做6；改为做6"), "不要做六；改为做六"));
-        var deleted = await _service.WritePersonaAsync(Delete(ShortOf("不要做5；改为做5")));
+        var replaced = await _service.Tools.WritePersonaAsync(Replace(ShortOf("不要做6；改为做6"), "不要做六；改为做六"));
+        var deleted = await _service.Tools.WritePersonaAsync(Delete(ShortOf("不要做5；改为做5")));
 
         Assert.False(replaced.IsError, replaced.Text);
         Assert.False(deleted.IsError, deleted.Text);
@@ -183,8 +183,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona(Fixture);
         var before = File.ReadAllText(PersonaMd);
 
-        var replaced = await _service.WritePersonaAsync(Replace(null, "沟通：先说结论", "先说结论"));
-        var deleted = await _service.WritePersonaAsync(Delete(null));
+        var replaced = await _service.Tools.WritePersonaAsync(Replace(null, "沟通：先说结论", "先说结论"));
+        var deleted = await _service.Tools.WritePersonaAsync(Delete(null));
 
         foreach (var refusal in new[] { replaced, deleted })
         {
@@ -207,7 +207,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         // The user edits the entry by hand, so its code expires.
         WritePersona(Fixture.Replace("反感客套和铺垫", "反感客套、铺垫和寒暄"));
 
-        var result = await _service.WritePersonaAsync(Replace(staleCode, "反感客套、铺垫和寒暄", "别绕弯子"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(staleCode, "反感客套、铺垫和寒暄", "别绕弯子"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -222,7 +222,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona(Fixture.Replace("- 反感客套和铺垫\n", "- 反感客套和铺垫\n- 反感客套和铺垫\n"));
         var second = ShortOf("反感客套和铺垫") + "-2";
 
-        var result = await _service.WritePersonaAsync(Delete(second));
+        var result = await _service.Tools.WritePersonaAsync(Delete(second));
 
         Assert.False(result.IsError, result.Text);
         Assert.Single(Regex.Matches(File.ReadAllText(PersonaMd), "反感客套和铺垫"));
@@ -235,9 +235,9 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var before = File.ReadAllText(PersonaMd);
         var code = ShortOf("反感客套和铺垫");
 
-        var withSection = await _service.WritePersonaAsync(Replace(code, "反感客套和铺垫", "别绕弯子") with { Section = "preferences" });
-        var noText = await _service.WritePersonaAsync(Replace(code, null, "别绕弯子"));
-        var noSource = await _service.WritePersonaAsync(Replace(code, "反感客套和铺垫", null));
+        var withSection = await _service.Tools.WritePersonaAsync(Replace(code, "反感客套和铺垫", "别绕弯子") with { Section = "preferences" });
+        var noText = await _service.Tools.WritePersonaAsync(Replace(code, null, "别绕弯子"));
+        var noSource = await _service.Tools.WritePersonaAsync(Replace(code, "反感客套和铺垫", null));
 
         Assert.True(withSection.IsError);
         Assert.Contains("persona_section", withSection.Text);
@@ -255,9 +255,9 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var before = File.ReadAllText(PersonaMd);
         var code = ShortOf("反感客套和铺垫");
 
-        var withText = await _service.WritePersonaAsync(Delete(code) with { Text = "反感客套和铺垫" });
-        var withSource = await _service.WritePersonaAsync(Delete(code) with { Source = "别绕弯子" });
-        var withConfirm = await _service.WritePersonaAsync(Delete(code) with { ConfirmNoSecret = true });
+        var withText = await _service.Tools.WritePersonaAsync(Delete(code) with { Text = "反感客套和铺垫" });
+        var withSource = await _service.Tools.WritePersonaAsync(Delete(code) with { Source = "别绕弯子" });
+        var withConfirm = await _service.Tools.WritePersonaAsync(Delete(code) with { ConfirmNoSecret = true });
 
         Assert.True(withText.IsError);
         Assert.Contains("text", withText.Text);
@@ -274,15 +274,15 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona(Fixture);
         var code = ShortOf("反感客套和铺垫");
 
-        var inText = await _service.WritePersonaAsync(Replace(code, $"密钥：{OpenAiKey}", "放心用"));
-        var inSource = await _service.WritePersonaAsync(Replace(code, "反感客套和铺垫", $"密钥是 {OpenAiKey}"));
+        var inText = await _service.Tools.WritePersonaAsync(Replace(code, $"密钥：{OpenAiKey}", "放心用"));
+        var inSource = await _service.Tools.WritePersonaAsync(Replace(code, "反感客套和铺垫", $"密钥是 {OpenAiKey}"));
 
         Assert.True(inText.IsError);
         Assert.True(inSource.IsError);
         Assert.Contains("confirm_no_secret", inText.Text);
         Assert.DoesNotContain("sk-", File.ReadAllText(PersonaMd), StringComparison.Ordinal);
 
-        var confirmed = await _service.WritePersonaAsync(Replace(code, $"密钥：{OpenAiKey}", "放心用", confirmNoSecret: true));
+        var confirmed = await _service.Tools.WritePersonaAsync(Replace(code, $"密钥：{OpenAiKey}", "放心用", confirmNoSecret: true));
 
         Assert.False(confirmed.IsError, confirmed.Text);
         Assert.Contains(OpenAiKey, File.ReadAllText(PersonaMd));
@@ -294,8 +294,8 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var bytes = new byte[] { 0x23, 0x23, 0x20, 0xFF, 0xFE, 0x0A };
         File.WriteAllBytes(PersonaMd, bytes);
 
-        var replaced = await _service.WritePersonaAsync(Replace("abc123", "反感客套和铺垫", "别绕弯子"));
-        var deleted = await _service.WritePersonaAsync(Delete("abc123"));
+        var replaced = await _service.Tools.WritePersonaAsync(Replace("abc123", "反感客套和铺垫", "别绕弯子"));
+        var deleted = await _service.Tools.WritePersonaAsync(Delete("abc123"));
 
         Assert.True(replaced.IsError);
         Assert.True(deleted.IsError);
@@ -311,7 +311,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         WritePersona(Fixture.Replace("- 主力语言：C#\n", "- 主力语言：C# 与 Python\n"));
         var code = ShortOf("反感客套和铺垫");
 
-        var result = await _service.WritePersonaAsync(Replace(code, "反感客套、铺垫和寒暄", "别绕弯子"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(code, "反感客套、铺垫和寒暄", "别绕弯子"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -326,7 +326,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         _home.Bind();
         CommitPersona(Fixture);
 
-        var result = await _service.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "反感客套、铺垫和寒暄", "别绕弯子"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(ShortOf("反感客套和铺垫"), "反感客套、铺垫和寒暄", "别绕弯子"));
 
         Assert.False(result.IsError, result.Text);
         await _service.SettledAsync();
@@ -340,7 +340,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona(Fixture);
         var code = ShortOf("系统：Windows 11 x64\n另有 WSL 环境");
 
-        var result = await _service.WritePersonaAsync(Delete(code));
+        var result = await _service.Tools.WritePersonaAsync(Delete(code));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -358,7 +358,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     {
         CommitPersona(Fixture);
 
-        var result = await _service.WritePersonaAsync(Delete(ShortOf("反感客套和铺垫")));
+        var result = await _service.Tools.WritePersonaAsync(Delete(ShortOf("反感客套和铺垫")));
         await _service.SettledAsync();
 
         Assert.False(result.IsError, result.Text);
@@ -371,7 +371,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     {
         CommitPersona("## Red lines\n\n## Working rules\n\n## Preferences\n- 沟通：先要结论\n\n## Profile\n");
 
-        var result = await _service.WritePersonaAsync(Delete(ShortOf("沟通：先要结论")));
+        var result = await _service.Tools.WritePersonaAsync(Delete(ShortOf("沟通：先要结论")));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n", File.ReadAllText(PersonaMd));
@@ -383,7 +383,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var profile = Enumerable.Range(1, 11).Select(i => $"- 字段{i}：事实{i}\n").ToList();
         CommitPersona("## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n" + string.Concat(profile));
 
-        var result = await _service.WritePersonaAsync(Delete(ShortOf("字段11：事实11")));
+        var result = await _service.Tools.WritePersonaAsync(Delete(ShortOf("字段11：事实11")));
 
         Assert.False(result.IsError, result.Text);
         Assert.DoesNotContain("字段11", File.ReadAllText(PersonaMd));
@@ -397,7 +397,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         var before = File.ReadAllText(PersonaMd);
         var head = Git("rev-parse", "HEAD").Trim();
 
-        var result = await _service.WritePersonaAsync(Delete("ffffff"));
+        var result = await _service.Tools.WritePersonaAsync(Delete("ffffff"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -413,7 +413,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先备份\n  <!-- 2026-10-25 quote「先备份」 -->\n");
         var code = ShortOf("切换节点 → 先备份");
 
-        var result = await _service.WritePersonaAsync(Replace(code, "切换节点 → 先看延迟", "先看延迟"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(code, "切换节点 → 先看延迟", "先看延迟"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -429,7 +429,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n- 发版 → 先问我\n  <!-- 2026-10-25 quote「发版前问我」 -->\n");
         var code = ShortOf("发版 → 先问我");
 
-        var result = await _service.WritePersonaAsync(Delete(code));
+        var result = await _service.Tools.WritePersonaAsync(Delete(code));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n", File.ReadAllText(PersonaMd));
@@ -442,7 +442,7 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
         CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先备份\n");
         var before = File.ReadAllText(PersonaMd);
 
-        var result = await _service.WritePersonaAsync(Delete("ffffff"));
+        var result = await _service.Tools.WritePersonaAsync(Delete("ffffff"));
 
         Assert.True(result.IsError);
         Assert.DoesNotContain($"[{ShortOf("切换节点 → 先备份")}]", result.Text);

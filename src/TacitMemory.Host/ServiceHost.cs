@@ -143,6 +143,8 @@ public sealed class ServiceHost : IAsyncDisposable
                 kestrel.Listen(extra, port);
         });
         builder.Services.AddSingleton(service);
+        // MCP reaches the memory tools only; the resources are built by the container from this facet.
+        builder.Services.AddSingleton(service.Tools);
         ManagementApi.AddOpenApi(builder.Services);
         builder.Services.AddMcpServer(options =>
             {
@@ -156,11 +158,11 @@ public sealed class ServiceHost : IAsyncDisposable
                 // and the service caches them, so handing them out every time costs nothing.
                 options.ConfigureSessionOptions = async (_, session, cancellationToken) =>
                 {
-                    session.ServerInstructions = await service.ServerInstructionsAsync(cancellationToken);
+                    session.ServerInstructions = await service.Tools.ServerInstructionsAsync(cancellationToken);
                 };
             })
             // The tools are built with the limits this service loaded at start, so the descriptions name the values it enforces.
-            .WithTools(ToolCatalog.Tools(new MemoryTools(service), service.Config.Limits))
+            .WithTools(ToolCatalog.Tools(new MemoryTools(service.Tools), service.Config.Limits))
             .WithResources<MemoryResources>()
             // TacitMemory offers no prompts, but some clients ask for the list regardless of the advertised capabilities and
             // drop the server when that request fails, so the list must always answer, with nothing in it.

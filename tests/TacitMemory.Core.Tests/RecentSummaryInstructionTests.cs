@@ -45,7 +45,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         File.WriteAllText(RecentPath, "## Workstream\n### alpha\nBackground: 一号主线。\n### beta\nBackground: 二号主线。\n");
         WriteMonth("## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- [tacit-memory] 今天的事\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 [tacit-memory] 今天的事\n- 2026-11-01 昨天的事\n</recent_activity>", instructions);
         Assert.DoesNotContain("alpha", instructions);
@@ -59,7 +59,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         var lines = Enumerable.Range(1, 9).Select(i => $"## 2026-11-02\n- 第{i}件事\n");
         WriteMonth("## 2026-10-20\n- 太早的事\n" + string.Concat(lines));
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Equal(9, instructions.Split('\n').Count(line => line.StartsWith("- 2026-11-02 第", StringComparison.Ordinal)));
         Assert.Contains("- 2026-11-02 第9件事", instructions);
@@ -73,13 +73,13 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         WriteMonth("## 2026-10-27\n- 七天前的事\n## 2026-10-28\n- 最早保留的事\n");
         var service = Open();
 
-        var before = await service.ServerInstructionsAsync();
+        var before = await service.Tools.ServerInstructionsAsync();
         Assert.Contains("- 2026-10-27 七天前的事", before);
         Assert.Contains("- 2026-10-28 最早保留的事", before);
 
         _home.Clock.Advance(TimeSpan.FromHours(24));
 
-        var after = await service.ServerInstructionsAsync();
+        var after = await service.Tools.ServerInstructionsAsync();
         Assert.DoesNotContain("七天前的事", after);
         Assert.Contains("- 2026-10-28 最早保留的事", after);
     }
@@ -87,7 +87,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     [Fact]
     public async Task The_recent_block_is_omitted_when_there_is_no_workstream_and_no_activity()
     {
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.DoesNotContain("\n## Recent\n", instructions);
         Assert.DoesNotContain("Activities from the last 7 days", instructions);
@@ -99,7 +99,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Memory, "pages", "zeta"));
         WriteMonth("## 2026-11-02\n- [zeta] 今天的事\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Contains("- 2026-11-02 [zeta] 今天的事", instructions);
         Assert.DoesNotContain("## Workstreams", instructions);
@@ -113,7 +113,7 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
         // A non-empty workstream keeps the consolidation reminder out, so the activities are the last part.
         File.WriteAllText(RecentPath, "## Workstream\n### alpha\nBackground: 一号主线。\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.True(instructions.Length <= 4000, $"length {instructions.Length}");
         Assert.Contains("## Using memory", instructions);
@@ -127,24 +127,24 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     public async Task Editing_the_activity_log_by_hand_changes_the_next_instructions()
     {
         var service = Open();
-        Assert.DoesNotContain("手改的活动", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("手改的活动", await service.Tools.ServerInstructionsAsync());
 
         Directory.CreateDirectory(Memory);
         WriteMonth("## 2026-11-02\n- 手改的活动\n");
         _home.Sources!.MemoryChanged("recent/2026-11.md");
         await service.SettledAsync();
-        Assert.Contains("手改的活动", (await service.ServerInstructionsAsync()));
+        Assert.Contains("手改的活动", (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Fact]
     public async Task Writing_an_activity_through_the_service_updates_the_instructions_at_once()
     {
         var service = Open();
-        Assert.DoesNotContain("刚写的活动", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("刚写的活动", await service.Tools.ServerInstructionsAsync());
 
-        var result = await service.WriteRecentAsync(new WriteRecentRequest { Text = "刚写的活动" });
+        var result = await service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "刚写的活动" });
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("刚写的活动", await service.ServerInstructionsAsync());
+        Assert.Contains("刚写的活动", await service.Tools.ServerInstructionsAsync());
     }
 }

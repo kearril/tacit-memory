@@ -52,7 +52,7 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
 
     private string PageFile(string page) => Path.Combine(Memory, "pages", page + ".md");
 
-    private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,
@@ -101,7 +101,7 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
         });
     }
 
-    private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(Guard);
+    private async Task<string> Consolidation() => await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
     /// <summary>The text of the duplicate pages category: from its heading to the next heading, or to the end.</summary>
     private static string SectionOf(string text)
@@ -313,7 +313,7 @@ public sealed class ConsolidationDuplicatePageTests : IDisposable
         Edit("tacit-memory/db-upgrade", "升级后中文搜索没有结果。", "升级后中文搜索没有结果，扩展丢失。");
         _models.HoldDecisions();
 
-        var report = Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var report = Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         await _home.Clock.NextTimerAsync(Budget).WaitAsync(Guard);
         await _models.DecisionRequestsReached(_callsAtCheckpoint + 1).WaitAsync(Guard);
         _home.Clock.Elapse(Budget);

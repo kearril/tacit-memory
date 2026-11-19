@@ -23,7 +23,7 @@ public sealed class DuplicatePageTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), ("language: zh\n" + _models.ModelsYaml(decisionKey: decisionKey) + extra).ReplaceLineEndings("\n"));
     }
 
-    private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> Create(string page, string title, string body = "升级后中文搜索没有结果。") => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,
@@ -109,7 +109,7 @@ public sealed class DuplicatePageTests : IDisposable
     [Fact]
     public async Task The_question_is_in_english_about_the_page_as_written_and_carries_the_key()
     {
-        await Service.WritePageAsync(new WritePageRequest
+        await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,

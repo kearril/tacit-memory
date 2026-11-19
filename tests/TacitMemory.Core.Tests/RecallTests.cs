@@ -29,7 +29,7 @@ public sealed class RecallTests : IDisposable
     }
 
     private Task<ToolResult> Recall(string query, string? workstream = null, string? from = null, string? to = null, string? kind = null) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Workstream = workstream, From = from, To = to, Kind = kind });
+        Service.Tools.RecallAsync(new RecallRequest { Query = query, Workstream = workstream, From = from, To = to, Kind = kind });
 
     private void DbUpgrade(string workstream = "tacit-memory") => Hand(workstream, "db-upgrade", "数据库升级后扩展丢失", """
         ## 现象
@@ -86,15 +86,15 @@ public sealed class RecallTests : IDisposable
     {
         Hand("tacit-memory", "dated", "日期测试", "## 现状\n旧的说法\n\n## 历史\n早先的记录");
         // The first read opens the service, which indexes the page on the day it was written.
-        var before = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/dated" });
+        var before = await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/dated" });
         _home.Clock.Advance(TimeSpan.FromDays(3));
 
         var hash = Regex.Match(before.Text, @"## 现状 \[([0-9a-f]{6})\]").Groups[1].Value;
-        var edited = await Service.WritePageAsync(new WritePageRequest
+        var edited = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "upsert_section", Page = "tacit-memory/dated", Section = "现状", Body = "新的说法", Hash = hash,
         });
-        var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/dated" });
+        var read = await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/dated" });
 
         Assert.False(edited.IsError, edited.Text);
         Assert.Matches(@"## 现状 \[[0-9a-f]{6}\] \(last changed 2026-11-05\)\n新的说法", read.Text);
@@ -122,7 +122,7 @@ public sealed class RecallTests : IDisposable
         var countBefore = await CountOf();
 
         for (var i = 0; i < 30; i++)
-            await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/second" });
+            await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/second" });
         Assert.Equal(countBefore + 30, await CountOf());
 
         var after = await Recall("每日备份");
@@ -230,7 +230,7 @@ public sealed class RecallTests : IDisposable
     [InlineData("q", null, null, "events", "Unknown kind \"events\"")]
     public async Task Malformed_arguments_are_refused(string? query, string? page, string? from, string? kind, string expected)
     {
-        var result = await Service.RecallAsync(new RecallRequest { Query = query, Page = page, From = from, Kind = kind });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = query, Page = page, From = from, Kind = kind });
 
         Assert.True(result.IsError);
         Assert.Contains(expected, result.Text);
@@ -239,8 +239,8 @@ public sealed class RecallTests : IDisposable
     [Fact]
     public async Task An_unknown_parameter_is_refused_by_name_on_a_query_and_on_a_page_read()
     {
-        var query = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["limit"] });
-        var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["top_k"] });
+        var query = await Service.Tools.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["limit"] });
+        var read = await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["top_k"] });
 
         Assert.StartsWith("Refused: Unknown parameter limit.\nNext step: Call recall again with only these parameters: query, page, workstream, from, to, kind, domain; give exactly one of query or page, unless kind is persona or rules.", query.Text);
         Assert.StartsWith("Refused: Unknown parameter top_k.\nNext step: ", read.Text);
@@ -249,7 +249,7 @@ public sealed class RecallTests : IDisposable
     [Fact]
     public async Task A_project_parameter_is_refused_by_name_and_the_next_step_names_workstream()
     {
-        var result = await Service.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["project"] });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "数据库", UnknownParameters = ["project"] });
 
         Assert.StartsWith("Refused: Unknown parameter project.\nNext step: Call recall again with only these parameters: query, page, workstream, ", result.Text);
     }
@@ -257,7 +257,7 @@ public sealed class RecallTests : IDisposable
     [Fact]
     public async Task An_unknown_parameter_is_listed_before_the_query_or_page_problem()
     {
-        var result = await Service.RecallAsync(new RecallRequest { UnknownParameters = ["top_k"] });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { UnknownParameters = ["top_k"] });
 
         Assert.StartsWith("Refused:\n- Unknown parameter top_k.\n- Missing parameter query or page.\nNext step: ", result.Text);
     }
@@ -265,7 +265,7 @@ public sealed class RecallTests : IDisposable
     [Fact]
     public async Task A_page_written_through_the_service_is_found_at_once()
     {
-        await Service.WritePageAsync(new WritePageRequest
+        await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -380,7 +380,7 @@ public sealed class RecallTests : IDisposable
     public async Task Every_result_says_whether_it_is_a_page_or_an_activity()
     {
         DbUpgrade();
-        await Service.WriteRecentAsync(new WriteRecentRequest { Text = "数据库升级后中文搜索又没有结果" });
+        await Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "数据库升级后中文搜索又没有结果" });
 
         var result = await Recall("数据库升级 中文搜索");
 

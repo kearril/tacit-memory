@@ -32,7 +32,7 @@ public sealed class StatusTests : IDisposable
         var running = Service;
         _home.Clock.Advance(TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(7));
 
-        var report = await running.StatusAsync(Endpoint);
+        var report = await running.Reports.StatusAsync(Endpoint);
 
         var service = Assert.IsType<ServiceStatus>(report.Service);
         Assert.True(service.Running);
@@ -60,7 +60,7 @@ public sealed class StatusTests : IDisposable
         var service = Service;
         _home.Clock.Advance(TimeSpan.FromDays(1) + TimeSpan.FromHours(2) + TimeSpan.FromMinutes(3) + TimeSpan.FromSeconds(4));
 
-        var report = await service.StatusAsync(Endpoint);
+        var report = await service.Reports.StatusAsync(Endpoint);
 
         Assert.Contains("已运行：1 天 2 小时 3 分钟 4 秒", Assert.IsType<ServiceStatus>(report.Service).Lines);
     }
@@ -69,10 +69,10 @@ public sealed class StatusTests : IDisposable
     public async Task A_model_whose_request_failed_is_cooling_down_with_the_seconds_left_and_recovers_after_the_cooldown()
     {
         _models.EmbeddingDown = true;
-        await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
         _home.Clock.Advance(TimeSpan.FromSeconds(10));
 
-        var cooling = Assert.IsType<ModelsStatus>((await Service.StatusAsync(Endpoint)).Models);
+        var cooling = Assert.IsType<ModelsStatus>((await Service.Reports.StatusAsync(Endpoint)).Models);
         var embedding = Assert.Single(cooling.Items, item => item.Role == "embedding");
         Assert.Equal(ModelState.CoolingDown, embedding.State);
         Assert.Equal(20, embedding.CoolingSeconds);
@@ -81,7 +81,7 @@ public sealed class StatusTests : IDisposable
 
         _home.Clock.Advance(TimeSpan.FromSeconds(20));
 
-        var recovered = Assert.IsType<ModelsStatus>((await Service.StatusAsync(Endpoint)).Models);
+        var recovered = Assert.IsType<ModelsStatus>((await Service.Reports.StatusAsync(Endpoint)).Models);
         var after = Assert.Single(recovered.Items, item => item.Role == "embedding");
         Assert.Equal(ModelState.Available, after.State);
         Assert.Null(after.CoolingSeconds);
@@ -92,10 +92,10 @@ public sealed class StatusTests : IDisposable
     {
         File.WriteAllText(ConfigPath, $"language: zh\nmodels:\n  embedding: {{ url: '{_models.EmbeddingUrl}', model: double-embedding }}\n  decision: {{ url: '{_models.DecisionUrl}', model: double-decision, apiKey: test-key }}\n");
         _models.EmbeddingDown = true;
-        await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
         _home.Clock.Advance(TimeSpan.FromSeconds(10));
 
-        var models = Assert.IsType<ModelsStatus>((await Service.StatusAsync(Endpoint)).Models);
+        var models = Assert.IsType<ModelsStatus>((await Service.Reports.StatusAsync(Endpoint)).Models);
 
         Assert.Equal(new[] { "embedding", "reranker", "decision" }, models.Items.Select(item => item.Role));
         Assert.Equal(ModelState.CoolingDown, Assert.Single(models.Items, item => item.Role == "embedding").State);
@@ -186,7 +186,7 @@ public sealed class StatusTests : IDisposable
         File.WriteAllText(Path.Combine(logs, $"tacit-{TestHome.Today.AddDays(-1):yyyyMMdd}.log"), "2026-11-01 09:00:00.000 +00:00 ERR 昨天\n");
         var tacit = _home.Tacit();
 
-        var running = (await Service.StatusAsync(Endpoint)).Logs!;
+        var running = (await Service.Reports.StatusAsync(Endpoint)).Logs!;
         var offline = (await tacit.OfflineStatus(tacit.LoadConfig())).Logs!;
         File.WriteAllText(ConfigPath, "language: zh\nmodels:\n  embedding: { endpoint: 'nope' }\n");
         var invalid = tacit.InvalidConfigStatus(Assert.Throws<TacitException>(() => tacit.LoadConfig()), tacit.ReadLooseSettings()).Logs!;
@@ -203,7 +203,7 @@ public sealed class StatusTests : IDisposable
     [Fact]
     public async Task Without_a_log_today_the_logs_column_says_there_is_nothing_to_look_at()
     {
-        var column = (await Service.StatusAsync(Endpoint)).Logs!;
+        var column = (await Service.Reports.StatusAsync(Endpoint)).Logs!;
 
         Assert.Equal(0, column.Warnings);
         Assert.Equal(0, column.Errors);
@@ -221,7 +221,7 @@ public sealed class StatusTests : IDisposable
 
         LogsStatus column;
         using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-            column = (await Service.StatusAsync(Endpoint)).Logs!;
+            column = (await Service.Reports.StatusAsync(Endpoint)).Logs!;
 
         Assert.Null(column.Warnings);
         Assert.Null(column.Errors);
@@ -326,7 +326,7 @@ public sealed class StatusTests : IDisposable
         var service = Service;
         service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failureReason: null);
 
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await service.Reports.StatusAsync(Endpoint)).Service);
 
         Assert.Equal("额外监听：http://192.168.1.10:18888/", column.Lines[^1]);
         Assert.Equal(new ExtraListenerStatus(new Uri("http://192.168.1.10:18888/"), null), column.ExtraListener);
@@ -339,7 +339,7 @@ public sealed class StatusTests : IDisposable
         var service = Service;
         service.RecordExtraListener(System.Net.IPAddress.Parse("192.0.2.1"), 18888, "192.0.2.1 不是本机的地址");
 
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await service.Reports.StatusAsync(Endpoint)).Service);
 
         Assert.True(column.Running);
         Assert.Equal("额外监听失败：http://192.0.2.1:18888/，192.0.2.1 不是本机的地址", column.Lines[^1]);
@@ -377,7 +377,7 @@ public sealed class StatusTests : IDisposable
     [Fact]
     public async Task Without_an_extra_listener_the_service_column_has_no_extra_line_and_names_the_web_address()
     {
-        var column = Assert.IsType<ServiceStatus>((await Service.StatusAsync(Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await Service.Reports.StatusAsync(Endpoint)).Service);
 
         Assert.Null(column.ExtraListener);
         Assert.Equal(new Uri("http://127.0.0.1:18888/ui/"), column.WebAddress);

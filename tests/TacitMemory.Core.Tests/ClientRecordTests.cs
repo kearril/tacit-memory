@@ -241,7 +241,7 @@ public sealed class ClientRecordTests : IDisposable
         Service.RecordClient(Observed());
         Assert.True(File.Exists(StateFile));
 
-        var result = await Service.BackupAsync(BackupTarget.Local);
+        var result = await Service.Maintenance.BackupAsync(BackupTarget.Local);
 
         using var zip = ZipFile.OpenRead(result.Location);
         Assert.DoesNotContain(zip.Entries, entry => entry.FullName.Contains("clients.json", StringComparison.Ordinal));

@@ -321,7 +321,7 @@ public sealed class StatusColumnsTests : IDisposable
         ConfigureEmbeddingOnly();
 
         var offline = Assert.IsType<ModelsStatus>((await OfflineReport()).Models);
-        var online = Assert.IsType<ModelsStatus>((await Service.StatusAsync(Endpoint)).Models);
+        var online = Assert.IsType<ModelsStatus>((await Service.Reports.StatusAsync(Endpoint)).Models);
 
         Assert.Equal(new[] { "reranker：未配置", "decision：未配置" }, offline.Lines);
         Assert.Equal(new[] { "embedding：可用", "reranker：未配置", "decision：未配置" }, online.Lines);
@@ -390,8 +390,8 @@ public sealed class StatusColumnsTests : IDisposable
         File.AppendAllText(Path.Combine(_home.TacitHome, "config.yaml"), "consolidation:\n  remindCandidates: 1\n");
         var service = Service;
 
-        var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
-        var reminder = await service.ServerInstructionsAsync();
+        var pending = Assert.IsType<PendingStatus>((await service.Reports.StatusAsync(Endpoint)).Pending);
+        var reminder = await service.Tools.ServerInstructionsAsync();
 
         Assert.Equal(1, pending.Candidates);
         Assert.Equal(StatusLevel.Attention, pending.LineLevels()[0]);
@@ -411,11 +411,11 @@ public sealed class StatusColumnsTests : IDisposable
             $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");
         var service = Service;
 
-        var pending = Assert.IsType<PendingStatus>((await service.StatusAsync(Endpoint)).Pending);
+        var pending = Assert.IsType<PendingStatus>((await service.Reports.StatusAsync(Endpoint)).Pending);
 
         Assert.Equal(1, pending.UnsummarizedWeeks);
         Assert.Contains("待汇总的周：1", pending.Lines);
-        Assert.Contains("- Weeks to summarize: 1.", await service.ServerInstructionsAsync());
+        Assert.Contains("- Weeks to summarize: 1.", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -426,7 +426,7 @@ public sealed class StatusColumnsTests : IDisposable
         await service.SettledAsync();
         var calls = Calls();
 
-        await service.StatusAsync(Endpoint);
+        await service.Reports.StatusAsync(Endpoint);
         await OfflineReport();
 
         Assert.Equal(calls, Calls());
@@ -451,7 +451,7 @@ public sealed class StatusColumnsTests : IDisposable
         var service = Service;
         Directory.Move(Path.Combine(Memory, ".git"), Path.Combine(Memory, ".git-set-aside"));
 
-        var report = await service.StatusAsync(Endpoint);
+        var report = await service.Reports.StatusAsync(Endpoint);
 
         Assert.Null(report.Consolidation!.DaysSince);
         Assert.Contains("无法读取记忆仓库的历史", Assert.Single(report.Consolidation.Lines));
@@ -604,7 +604,7 @@ public sealed class StatusColumnsTests : IDisposable
         var service = Service;
         var before = Snapshot();
 
-        var running = await service.StatusAsync(Endpoint);
+        var running = await service.Reports.StatusAsync(Endpoint);
         var offline = await OfflineReport();
 
         Assert.Equal(offline.Bindings!.Lines, running.Bindings!.Lines);

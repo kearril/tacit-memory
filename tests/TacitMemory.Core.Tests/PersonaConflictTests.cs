@@ -51,7 +51,7 @@ public sealed class PersonaConflictTests : IDisposable
     /// <summary>Writes the persona before the service opens, so its index starts from this content.</summary>
     private void WritePersona(string text) => File.WriteAllText(PersonaMd, text.ReplaceLineEndings("\n"));
 
-    private Task<ToolResult> Add(string section, string text, string source = "这是原话") => Service.WritePersonaAsync(new WritePersonaRequest
+    private Task<ToolResult> Add(string section, string text, string source = "这是原话") => Service.Tools.WritePersonaAsync(new WritePersonaRequest
     {
         Op = "add",
         Section = section,
@@ -59,7 +59,7 @@ public sealed class PersonaConflictTests : IDisposable
         Source = source,
     });
 
-    private Task<ToolResult> Replace(string hash, string text, string source = "这是新原话") => Service.WritePersonaAsync(new WritePersonaRequest
+    private Task<ToolResult> Replace(string hash, string text, string source = "这是新原话") => Service.Tools.WritePersonaAsync(new WritePersonaRequest
     {
         Op = "replace",
         Hash = hash,
@@ -76,7 +76,7 @@ public sealed class PersonaConflictTests : IDisposable
     /// <summary>The short code the persona lists for the entry whose line contains <paramref name="line"/>, read from a refused replace.</summary>
     private async Task<string> CodeOf(string line)
     {
-        var listing = await Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona });
+        var listing = await Service.Tools.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona });
         return Regex.Match(listing.Text, @"- \[([0-9a-f]{6})\] " + Regex.Escape(line)).Groups[1].Value;
     }
 
@@ -254,7 +254,7 @@ public sealed class PersonaConflictTests : IDisposable
         File.WriteAllText(Path.Combine(home.DefaultMemory, "persona.md"), Fixture.ReplaceLineEndings("\n"));
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        await service.WritePersonaAsync(new WritePersonaRequest
+        await service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "add",
             Section = "preferences",
@@ -282,7 +282,7 @@ public sealed class PersonaConflictTests : IDisposable
 
         """;
 
-    private Task<ToolResult> AddIn(string scope, string section, string text) => Service.WritePersonaAsync(new WritePersonaRequest
+    private Task<ToolResult> AddIn(string scope, string section, string text) => Service.Tools.WritePersonaAsync(new WritePersonaRequest
     {
         Op = "add",
         Section = section,

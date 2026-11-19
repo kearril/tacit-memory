@@ -87,7 +87,7 @@ public sealed class ConsolidationConflictTests : IDisposable
         return count;
     }
 
-    private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
+    private async Task<string> Consolidation() => await Service.Tools.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
     [Fact]
     public async Task An_entry_added_by_hand_while_the_service_runs_is_offered_to_the_judgment_without_a_change_notice()

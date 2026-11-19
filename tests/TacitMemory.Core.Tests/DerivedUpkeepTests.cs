@@ -44,7 +44,7 @@ public sealed class DerivedUpkeepTests : IDisposable
     {
         // Written by a service that is gone, so the one under test sees no watcher event for it.
         using (var first = Open())
-            Assert.False((await first.WritePageAsync(Create())).IsError);
+            Assert.False((await first.Tools.WritePageAsync(Create())).IsError);
         using var service = Open();
 
         using (new FileStream(PageFile, FileMode.Open, FileAccess.Read, FileShare.None))
@@ -66,7 +66,7 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task A_change_during_the_retries_starts_the_count_again()
     {
         using (var first = Open())
-            Assert.False((await first.WritePageAsync(Create())).IsError);
+            Assert.False((await first.Tools.WritePageAsync(Create())).IsError);
         using var service = Open();
 
         using (new FileStream(PageFile, FileMode.Open, FileAccess.Read, FileShare.None))
@@ -96,7 +96,7 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task An_index_sync_that_meets_a_held_file_catches_up_once_the_file_is_let_go()
     {
         using (var first = Open())
-            Assert.False((await first.WritePageAsync(Create())).IsError);
+            Assert.False((await first.Tools.WritePageAsync(Create())).IsError);
         using var service = Open();
         var text = File.ReadAllText(PageFile).Replace("升级后中文搜索没有结果。", "升级后中文搜索没有结果，Zhparser 也失效。", StringComparison.Ordinal);
 
@@ -112,7 +112,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         await service.SettledAsync();
 
         Assert.False(IndexSyncReported());
-        var found = await service.RecallAsync(new RecallRequest { Query = "Zhparser" });
+        var found = await service.Tools.RecallAsync(new RecallRequest { Query = "Zhparser" });
         Assert.Contains(Page, found.Text);
     }
 
@@ -120,7 +120,7 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task After_an_index_sync_gives_up_the_next_search_finds_the_file_as_it_is_without_another_change()
     {
         using (var first = Open())
-            Assert.False((await first.WritePageAsync(Create())).IsError);
+            Assert.False((await first.Tools.WritePageAsync(Create())).IsError);
         using var service = Open();
         var text = File.ReadAllText(PageFile).Replace("升级后中文搜索没有结果。", "升级后中文搜索没有结果，Zhparser 也失效。", StringComparison.Ordinal);
 
@@ -138,7 +138,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         }
         Assert.True(IndexSyncReported());
 
-        var found = await service.RecallAsync(new RecallRequest { Query = "Zhparser" });
+        var found = await service.Tools.RecallAsync(new RecallRequest { Query = "Zhparser" });
 
         Assert.Contains(Page, found.Text);
     }
@@ -147,7 +147,7 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task A_full_sync_that_meets_the_held_file_after_the_give_up_keeps_the_next_search_catching_up()
     {
         using (var first = Open())
-            Assert.False((await first.WritePageAsync(Create())).IsError);
+            Assert.False((await first.Tools.WritePageAsync(Create())).IsError);
         using var service = Open();
         var text = File.ReadAllText(PageFile).Replace("升级后中文搜索没有结果。", "升级后中文搜索没有结果，Zhparser 也失效。", StringComparison.Ordinal);
 
@@ -163,10 +163,10 @@ public sealed class DerivedUpkeepTests : IDisposable
                 await service.SettledAsync();
             }
             // The consolidation syncs every file too, and meets the held one.
-            await Record.ExceptionAsync(() => service.ConsolidationReportAsync());
+            await Record.ExceptionAsync(() => service.Tools.ConsolidationReportAsync());
         }
 
-        var found = await service.RecallAsync(new RecallRequest { Query = "Zhparser" });
+        var found = await service.Tools.RecallAsync(new RecallRequest { Query = "Zhparser" });
 
         Assert.Contains(Page, found.Text);
     }
@@ -175,11 +175,11 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task An_activity_is_written_while_the_persona_file_is_held()
     {
         using var service = Open();
-        Assert.False((await service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" })).IsError);
+        Assert.False((await service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" })).IsError);
 
         using (new FileStream(Path.Combine(Memory, "persona.md"), FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            var written = await service.WriteRecentAsync(new WriteRecentRequest { Text = "调整日志轮转天数" });
+            var written = await service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "调整日志轮转天数" });
 
             Assert.False(written.IsError, written.Text);
         }
@@ -189,10 +189,10 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task A_page_changed_without_a_notice_reads_as_it_is_in_its_workstream_brief()
     {
         using var service = Open();
-        Assert.False((await service.WritePageAsync(Create())).IsError);
+        Assert.False((await service.Tools.WritePageAsync(Create())).IsError);
         File.WriteAllText(PageFile, File.ReadAllText(PageFile).Replace("title: 数据库升级后扩展丢失", "title: 数据库升级后两个扩展都丢失", StringComparison.Ordinal));
 
-        var brief = await service.RecallAsync(new RecallRequest { Workstream = "tacit-memory" });
+        var brief = await service.Tools.RecallAsync(new RecallRequest { Workstream = "tacit-memory" });
 
         Assert.Contains("数据库升级后两个扩展都丢失", brief.Text);
     }
@@ -230,7 +230,7 @@ public sealed class DerivedUpkeepTests : IDisposable
         _home.Sources!.MemoryChanged("persona.md");
 
         // The debounce has not passed on the test clock: only the maintenance operation can have run the render.
-        await service.ReindexAsync();
+        await service.Maintenance.ReindexAsync();
 
         Assert.Contains("- 系统：Windows 12\n", File.ReadAllText(agents));
     }
@@ -250,8 +250,8 @@ public sealed class DerivedUpkeepTests : IDisposable
         await service.SettledAsync();
 
         Assert.Contains("- 系统：Windows 11\n", File.ReadAllText(agents));
-        Assert.Contains("改用按月分文件导出", await service.ServerInstructionsAsync());
-        Assert.Contains("按月分文件导出", (await service.RecallAsync(new RecallRequest { Query = "按月分文件", Kind = "activities" })).Text);
+        Assert.Contains("改用按月分文件导出", await service.Tools.ServerInstructionsAsync());
+        Assert.Contains("按月分文件导出", (await service.Tools.RecallAsync(new RecallRequest { Query = "按月分文件", Kind = "activities" })).Text);
     }
 
     [Fact]
@@ -296,13 +296,13 @@ public sealed class DerivedUpkeepTests : IDisposable
     public async Task A_changed_activity_file_shows_in_the_next_server_instructions()
     {
         using var service = Open();
-        Assert.DoesNotContain("改用按月分文件导出", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("改用按月分文件导出", await service.Tools.ServerInstructionsAsync());
 
         File.WriteAllText(
             Path.Combine(Memory, "recent", $"{TestHome.Today:yyyy-MM}.md"),
             $"## {TestHome.Today:yyyy-MM-dd}\n- 导出脚本改用按月分文件导出，因为单个文件太大。\n");
         _home.Sources!.MemoryChanged($"recent/{TestHome.Today:yyyy-MM}.md");
 
-        Assert.Contains("改用按月分文件导出", await service.ServerInstructionsAsync());
+        Assert.Contains("改用按月分文件导出", await service.Tools.ServerInstructionsAsync());
     }
 }

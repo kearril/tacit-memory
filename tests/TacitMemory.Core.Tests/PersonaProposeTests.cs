@@ -71,7 +71,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         CommitBaselineWithStagedNotes();
         var persona = File.ReadAllText(PersonaMd);
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -95,7 +95,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Rejection list\n\n### 旧的\nBelongs to: Preferences\n- 2026-10-20 rejected quote「算了」\n");
 
-        var result = await _service.WritePersonaAsync(Propose("working_rules", "需求不清时 → 先追问", "先追问"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("working_rules", "需求不清时 → 先追问", "先追问"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -110,7 +110,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## 其他\n- 手写\n");
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -124,7 +124,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var result = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11", "我用 Windows"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("profile", "系统：Windows 11", "我用 Windows"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -139,7 +139,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
-        var result = await _service.WritePersonaAsync(Propose("red_lines", "不要删库；改为先备份"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("red_lines", "不要删库；改为先备份"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -155,9 +155,9 @@ public sealed partial class PersonaProposeTests : IDisposable
         WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
-        var multiLine = await _service.WritePersonaAsync(Propose("preferences", "沟通：\n先要结论"));
-        var multiLineSource = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "第一行\n第二行"));
-        var commentEnd = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "原话 --> 不对"));
+        var multiLine = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：\n先要结论"));
+        var multiLineSource = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "第一行\n第二行"));
+        var commentEnd = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "原话 --> 不对"));
 
         Assert.True(multiLine.IsError);
         Assert.True(multiLineSource.IsError);
@@ -172,7 +172,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 2000)));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "偏好：" + new string('x', 2000)));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -182,15 +182,15 @@ public sealed partial class PersonaProposeTests : IDisposable
     [Fact]
     public async Task Preferences_and_profile_are_not_checked_for_sentence_form_when_proposed()
     {
-        Assert.False((await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(Propose("profile", "系统 Windows 11"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(Propose("profile", "系统 Windows 11"))).IsError);
     }
 
     [Fact]
     public async Task A_proposal_missing_a_required_parameter_names_it_and_an_unknown_section_lists_the_sections()
     {
-        var missing = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", source: null));
-        var unknown = await _service.WritePersonaAsync(Propose("Red Lines", "不要删库；改为先备份"));
+        var missing = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论", source: null));
+        var unknown = await _service.Tools.WritePersonaAsync(Propose("Red Lines", "不要删库；改为先备份"));
 
         Assert.True(missing.IsError);
         Assert.Contains("source", missing.Text);
@@ -206,15 +206,15 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var inText = await _service.WritePersonaAsync(Propose("profile", $"密钥：{OpenAiKey}", "放心用"));
-        var inSource = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11", $"密钥是 {OpenAiKey}"));
+        var inText = await _service.Tools.WritePersonaAsync(Propose("profile", $"密钥：{OpenAiKey}", "放心用"));
+        var inSource = await _service.Tools.WritePersonaAsync(Propose("profile", "系统：Windows 11", $"密钥是 {OpenAiKey}"));
 
         Assert.True(inText.IsError);
         Assert.True(inSource.IsError);
         Assert.Contains("confirm_no_secret", inText.Text);
         Assert.DoesNotContain("sk-", File.ReadAllText(CandidatesMd), StringComparison.Ordinal);
 
-        var confirmed = await _service.WritePersonaAsync(Propose("profile", $"密钥：{OpenAiKey}", "放心用", confirmNoSecret: true));
+        var confirmed = await _service.Tools.WritePersonaAsync(Propose("profile", $"密钥：{OpenAiKey}", "放心用", confirmNoSecret: true));
 
         Assert.False(confirmed.IsError, confirmed.Text);
         Assert.Contains(OpenAiKey, File.ReadAllText(CandidatesMd));
@@ -226,7 +226,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         var bytes = new byte[] { 0x23, 0x23, 0x20, 0xFF, 0xFE, 0x0A };
         File.WriteAllBytes(CandidatesMd, bytes);
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -240,7 +240,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         CommitBaselineWithStagedNotes();
         WriteCandidates("## Candidates\n\n### 用户手写的一条\nBelongs to: Preferences\n- 2026-10-30 quote「手写」\n\n## Rejection list\n");
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -254,7 +254,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var result = await _service.WritePersonaAsync(Propose("profile", "系统：Windows 11"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("profile", "系统：Windows 11"));
         await _service.SettledAsync();
 
         Assert.False(result.IsError, result.Text);
@@ -267,13 +267,13 @@ public sealed partial class PersonaProposeTests : IDisposable
         _home.Bind();
         File.WriteAllText(AgentsMd, File.ReadAllText(AgentsMd).Replace("</user_memory>", "STALE\n</user_memory>", StringComparison.Ordinal));
 
-        var proposed = await _service.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
+        var proposed = await _service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论", "先要结论"));
         await _service.SettledAsync();
 
         Assert.False(proposed.IsError, proposed.Text);
         Assert.Contains("STALE", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
 
-        var added = await _service.WritePersonaAsync(new WritePersonaRequest
+        var added = await _service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "add",
             Section = "profile",
@@ -293,7 +293,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "网络：走固定出口", "走固定出口", scope: scope));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "网络：走固定出口", "走固定出口", scope: scope));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"scope: {scope}", result.Text);
@@ -309,7 +309,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
-        var result = await _service.WritePersonaAsync(Propose("preferences", "网络：走固定出口", scope: "domain:Bad Name"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "网络：走固定出口", scope: "domain:Bad Name"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -324,7 +324,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
         var request = Propose("preferences", "网络：走固定出口", scope: "domain:network-proxy") with { Trigger = "改代理时" };
-        var result = await _service.WritePersonaAsync(request);
+        var result = await _service.Tools.WritePersonaAsync(request);
 
         Assert.True(result.IsError);
         Assert.Contains("Parameter trigger does not apply to op propose.", result.Text);
@@ -340,7 +340,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
         File.WriteAllText(candidates, "## Candidates\n\n## Rejection list\n");
 
-        var result = await service.WritePersonaAsync(Propose("preferences", "Network: fixed exit", "fixed exit", scope: "domain:network-proxy"));
+        var result = await service.Tools.WritePersonaAsync(Propose("preferences", "Network: fixed exit", "fixed exit", scope: "domain:network-proxy"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(

@@ -69,10 +69,10 @@ public sealed partial class RecallPersonaTests : IDisposable
 
     private void WritePersona(string text) => File.WriteAllText(PersonaMd, text.ReplaceLineEndings("\n"));
 
-    private Task<ToolResult> Persona() => Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona });
+    private Task<ToolResult> Persona() => Service.Tools.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona });
 
     private Task<ToolResult> Rules(string? domain = null) =>
-        Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Rules, Domain = domain });
+        Service.Tools.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Rules, Domain = domain });
 
     [Fact]
     public async Task Persona_lists_the_global_sections_then_domains_then_workstreams_each_sorted_with_short_codes()
@@ -118,7 +118,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         WritePersona(Fixture);
         var code = CommunicationCode().Match((await Persona()).Text).Groups[1].Value;
 
-        var result = await Service.WritePersonaAsync(new WritePersonaRequest
+        var result = await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "replace",
             Hash = code,
@@ -136,7 +136,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         WritePersona(Fixture);
         var code = NodeRuleCode().Match((await Rules("network-proxy")).Text).Groups[1].Value;
 
-        var result = await Service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = code });
+        var result = await Service.Tools.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = code });
 
         Assert.False(result.IsError, result.Text);
         var after = File.ReadAllText(PersonaMd);
@@ -149,7 +149,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     {
         WritePersona(Fixture);
 
-        var withQuery = await Service.RecallAsync(new RecallRequest { Query = "数据库升级", Kind = ToolValues.RecallKinds.Persona });
+        var withQuery = await Service.Tools.RecallAsync(new RecallRequest { Query = "数据库升级", Kind = ToolValues.RecallKinds.Persona });
         var without = await Persona();
 
         Assert.False(withQuery.IsError, withQuery.Text);
@@ -231,7 +231,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     {
         WritePersona(Fixture);
 
-        var result = await Service.RecallAsync(new RecallRequest { Query = "数据库", Kind = kind, Page = page, From = from, Domain = domain });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "数据库", Kind = kind, Page = page, From = from, Domain = domain });
 
         Assert.True(result.IsError);
         Assert.Contains("Parameter domain applies only to kind=rules.", result.Text);
@@ -249,7 +249,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     {
         WritePersona(Fixture);
 
-        var result = await Service.RecallAsync(new RecallRequest { Kind = kind, Page = page, From = from, To = to, Workstream = workstream, Domain = "backup" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Kind = kind, Page = page, From = from, To = to, Workstream = workstream, Domain = "backup" });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused:", result.Text);
@@ -261,7 +261,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     {
         WritePersona(Fixture);
 
-        var result = await Service.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona, Page = "tacit-memory/db-upgrade" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Kind = ToolValues.RecallKinds.Persona, Page = "tacit-memory/db-upgrade" });
 
         Assert.True(result.IsError);
         Assert.Contains("Parameter page cannot be combined with kind=persona.", result.Text);
@@ -270,7 +270,7 @@ public sealed partial class RecallPersonaTests : IDisposable
     [Fact]
     public async Task An_unknown_kind_is_refused_with_all_four_kinds()
     {
-        var result = await Service.RecallAsync(new RecallRequest { Query = "数据库", Kind = "events" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "数据库", Kind = "events" });
 
         Assert.True(result.IsError);
         Assert.Contains("Unknown kind \"events\"; use pages, activities, rules or persona.", result.Text);

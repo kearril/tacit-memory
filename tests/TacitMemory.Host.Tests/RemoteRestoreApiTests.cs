@@ -60,7 +60,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
     [Fact]
     public async Task The_remote_preview_answers_with_the_downloaded_path_as_json()
     {
-        await _service.BackupAsync(BackupTarget.Cloud);
+        await _service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
         using var response = await PostRestore(new { remote = true, config = false, preview = true });
 
@@ -74,7 +74,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
     [Fact]
     public async Task A_remote_request_with_a_path_is_a_request_error()
     {
-        await _service.BackupAsync(BackupTarget.Cloud);
+        await _service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var zip = Path.Combine(_home.Root, "other.zip");
 
         using var response = await PostRestore(new { remote = true, path = zip, config = false, preview = true });
@@ -87,7 +87,7 @@ public sealed class RemoteRestoreApiTests : IAsyncLifetime
     [Fact]
     public async Task A_remote_restore_that_would_execute_is_refused_before_anything_is_downloaded()
     {
-        await _service.BackupAsync(BackupTarget.Cloud);
+        await _service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var before = Head;
 
         using var response = await PostRestore(new { remote = true, config = false, preview = false });

@@ -15,8 +15,8 @@ flowchart LR
         Admin[管理 API 与 Web 界面]
     end
     Cli -->|init / connect / disconnect / show / probe| Facade
-    Mcp --> Service
-    Admin --> Service
+    Mcp -->|只经 Tools| Service
+    Admin -->|Browse / Reports / Settings / Maintenance / Access| Service
     subgraph Core["TacitMemory.Core"]
         Facade[门面 Tacit]
         Service[MemoryService]
@@ -46,7 +46,7 @@ flowchart LR
 
 | 程序集 | 职责 | 依赖 |
 | :--- | :--- | :--- |
-| `TacitMemory.Core` | 全部记忆规则。只公开门面 `Tacit`、常驻服务 `MemoryService`、访问控制 `AccessControl` 与契约类型，其余都是 `internal` | 无 |
+| `TacitMemory.Core` | 全部记忆规则。只公开门面 `Tacit`、常驻服务 `MemoryService` 及其子门面（`ServiceTools`、`MemoryBrowser`、`ServiceReports`、`ServiceSettings`、`ServiceMaintenance`、`AccessControl`）与契约类型，其余都是 `internal` | 无 |
 | `TacitMemory.Host` | HTTP 入口，分 `Mcp/`（工具、资源、工具目录）、`Api/`（管理 API 及其防护）、`Web/`（托管 `/ui`）三块。只做映射与防护，不含业务规则；宿主自己的文字在 `Localization/HostMessages` | `Core` |
 | `TacitMemory.Cli` | `tacit` 命令。`Program.cs` 是唯一读进程与环境的地方，命令只经 `CliConsole` 读写控制台。需要服务的命令经 `ManagementApiClient` 调用管理 API，其余直接调用门面。退出码：2 用法错误，3 配置无效，4 服务未运行或端口被占，1 其他失败 | `Core`、`Host` |
 
@@ -57,7 +57,7 @@ flowchart LR
 | 模块 | 职责 |
 | :--- | :--- |
 | 门面 `Tacit` | 对外唯一入口：打开服务、生成 skill、绑定、查看、探测、离线状态报告 |
-| `MemoryService` | 分两层：外壳随进程存在（访问控制、客户端记录、派生产物维护）；运行时由配置决定（索引、辅助模型、记忆工具、备份、来源监听），启动与重新加载走同一条路径 |
+| `MemoryService` | 分两层：外壳随进程存在（锁、访问控制、客户端记录、派生产物维护、生命周期与重新加载）；运行时由配置决定（索引、辅助模型、记忆工具、备份、来源监听），启动与重新加载走同一条路径。其余工作按调用方分成子门面，作为服务的属性：`Tools`（四个记忆工具、服务端说明、整理报告，MCP 只拿它）、`Browse`（记忆浏览与检索追踪）、`Reports`（状态、活动、整理信号、日志、探测）、`Settings`（配置、提示词文档、绑定）、`Maintenance`（备份、恢复、重建索引）、`Access`。子门面每次调用都取服务当前的运行时，需要重开运行时时经外壳给的回调 |
 | 串行与维护 | `MaintenanceGate`：写入与后台任务依次进行，读取共享；维护操作（重建索引、恢复、保存设置）独占 |
 | 配置 | 每个键只在键表 `Configuration/ConfigKeys` 声明一次；加载、写出、设置页 schema、重启比对、只读与密钥处理都从它派生 |
 | 重新加载 | 关闭运行时后按新配置重开，需重启的项保留运行中的值，失败时按原配置重开 |
@@ -83,7 +83,7 @@ flowchart LR
 
 ### 写入
 
-1. 工具调用进入 `MemoryService`，取得写入锁。
+1. 工具调用经 `MemoryService.Tools` 进入，取得写入锁。
 2. 写入工具校验参数、检测凭据、核对短码，需要时让决策模型判断（重复页、同主题、画像冲突、同一偏好）。判断在写入锁内，所以判断看到的状态与写入时一致。
 3. `MemoryWriter` 写入并只提交这一个文件；提交失败时文件照样算写入，下次写这个文件时一并提交。
 4. 同步该来源的索引与向量，再通知 `DerivedUpkeep`：使服务端说明失效，画像变化时重渲染常驻区块，当天首次写入时安排自动备份。

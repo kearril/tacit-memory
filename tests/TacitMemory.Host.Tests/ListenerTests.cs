@@ -88,7 +88,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         // Answered on both addresses: the local client gets the API, the remote one gets the 401 that says the API is not open to it.
         Assert.Equal(HttpStatusCode.OK, await StatusOf(port, IPAddress.Loopback));
         Assert.Equal(HttpStatusCode.Unauthorized, await StatusOf(port, PeerClients.RemoteAddress, remote));
-        var report = await service.StatusAsync(host.Endpoint);
+        var report = await service.Reports.StatusAsync(host.Endpoint);
         Assert.Equal($"额外监听：http://127.0.0.2:{port}/", report.Service!.Lines[^1]);
     }
 
@@ -101,7 +101,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         // The wildcard cannot be a request target, so the check is that both listeners start together: loopback answers,
         // and the status reports the wildcard as bound.
         Assert.Equal(HttpStatusCode.OK, await StatusOf(port, IPAddress.Loopback));
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(host.Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await service.Reports.StatusAsync(host.Endpoint)).Service);
         Assert.Equal($"额外监听：所有网络接口，端口 {port}", column.Lines[^1]);
         Assert.Null(column.ExtraListener!.FailureReason);
     }
@@ -113,7 +113,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         var (host, service) = await StartAsync("server:\n  host: 192.0.2.1\n");
 
         Assert.Equal(HttpStatusCode.OK, await StatusOf(host.Endpoint.Port, IPAddress.Loopback));
-        var report = await service.StatusAsync(host.Endpoint);
+        var report = await service.Reports.StatusAsync(host.Endpoint);
         var column = Assert.IsType<ServiceStatus>(report.Service);
         Assert.True(column.Running);
         Assert.Equal($"额外监听失败：http://192.0.2.1:{host.Endpoint.Port}/，192.0.2.1 不是本机的地址", column.Lines[^1]);
@@ -132,7 +132,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         var (host, service) = await StartAsync("server:\n  host: 127.0.0.2\n", port);
 
         Assert.Equal(HttpStatusCode.OK, await StatusOf(port, IPAddress.Loopback));
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(host.Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await service.Reports.StatusAsync(host.Endpoint)).Service);
         Assert.Equal($"额外监听失败：http://127.0.0.2:{port}/，端口 {port} 已被占用", column.Lines[^1]);
     }
 
@@ -169,7 +169,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
         _asyncDisposables.Add(host);
 
         Assert.Equal(HttpStatusCode.OK, await StatusOf(port, IPAddress.Loopback));
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(host.Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await service.Reports.StatusAsync(host.Endpoint)).Service);
         Assert.Equal($"额外监听失败：http://127.0.0.2:{port}/，端口 {port} 已被占用", column.Lines[^1]);
     }
 
@@ -178,7 +178,7 @@ public sealed class ListenerTests : IAsyncDisposable, IDisposable
     {
         var (host, service) = await StartAsync("server:\n  host: 127.0.0.1\n");
 
-        var column = Assert.IsType<ServiceStatus>((await service.StatusAsync(host.Endpoint)).Service);
+        var column = Assert.IsType<ServiceStatus>((await service.Reports.StatusAsync(host.Endpoint)).Service);
         Assert.Null(column.ExtraListener);
         Assert.DoesNotContain(column.Lines, line => line.StartsWith("额外监听", StringComparison.Ordinal));
         await Assert.ThrowsAnyAsync<HttpRequestException>(() => StatusOf(host.Endpoint.Port, PeerClients.RemoteAddress));

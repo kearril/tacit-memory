@@ -78,7 +78,7 @@ public sealed class MemoryActivityTests : IDisposable
     [Fact]
     public async Task The_codes_are_the_ones_recall_gives()
     {
-        var written = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "记下一条，因为要比对短码", Workstream = "my-app" });
+        var written = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "记下一条，因为要比对短码", Workstream = "my-app" });
         Assert.False(written.IsError, written.Text);
 
         var month = await _service.Browse.ActivityMonthAsync(TestHome.Today.ToString("yyyy-MM"));
@@ -122,9 +122,9 @@ public sealed class MemoryActivityTests : IDisposable
     [Fact]
     public async Task Reading_counts_nothing()
     {
-        var written = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
+        var written = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
         var code = Regex.Match(written.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
-        await _service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
+        await _service.Tools.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
         var before = await _service.ActivityCountsAsync(TestHome.Today);
 
         await _service.Browse.ActivityMonthsAsync();
@@ -137,14 +137,14 @@ public sealed class MemoryActivityTests : IDisposable
     [Fact]
     public async Task Each_activity_shows_how_often_recall_returned_it_and_a_trace_adds_nothing()
     {
-        var written = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
-        var other = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "调整日志轮转天数" });
+        var written = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
+        var other = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "调整日志轮转天数" });
         var code = Regex.Match(written.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
         var otherCode = Regex.Match(other.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
         Assert.Equal(0, (await _service.ActivityCountsAsync(TestHome.Today))[code]);
 
-        await _service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
-        await _service.TraceRecallAsync(new RecallTraceRequest("恢复演练的备份清单"));
+        await _service.Tools.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
+        await _service.Browse.TraceRecallAsync(new RecallTraceRequest("恢复演练的备份清单"));
 
         var counts = await _service.ActivityCountsAsync(TestHome.Today);
         Assert.Equal(1, counts[code]);

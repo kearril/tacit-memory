@@ -201,10 +201,10 @@ public sealed class ProbeTests : IDisposable
 
         Assert.Equal(ProbeFailure.HttpStatus, result.Failure);
         Assert.Equal(1, _models.EmbeddingCalls);
-        Assert.DoesNotContain("Unavailable auxiliary models", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("Unavailable auxiliary models", await service.Tools.ServerInstructionsAsync());
 
         // The service still calls the model at once: the probe left no cooldown behind.
-        var recall = await service.RecallAsync(new RecallRequest { Query = "部署" }).WaitAsync(Guard);
+        var recall = await service.Tools.RecallAsync(new RecallRequest { Query = "部署" }).WaitAsync(Guard);
         Assert.Equal(2, _models.EmbeddingCalls);
         Assert.DoesNotContain("embedding model is unavailable", recall.Text);
     }

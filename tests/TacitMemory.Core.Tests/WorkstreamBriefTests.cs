@@ -34,7 +34,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     }
 
     private Task<ToolResult> CreatePage(string page, string type, string title, params (string Name, string Body)[] sections) =>
-        Service.WritePageAsync(new WritePageRequest
+        Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Page = page,
@@ -53,10 +53,10 @@ public sealed class WorkstreamBriefTests : IDisposable
     }
 
     private Task<ToolResult> Brief(string workstream, string? from = null, string? to = null) =>
-        Service.RecallAsync(new RecallRequest { Workstream = workstream, From = from, To = to });
+        Service.Tools.RecallAsync(new RecallRequest { Workstream = workstream, From = from, To = to });
 
     private Task<ToolResult> Activity(string text, string? workstream = null, string? source = null) =>
-        Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream, Source = source });
+        Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream, Source = source });
 
     private void MonthFile(string month, string text)
     {
@@ -107,7 +107,7 @@ public sealed class WorkstreamBriefTests : IDisposable
         Setup();
         await CreatePage("my-app/a-choice", ToolValues.PageTypes.Decision, "甲决定", ("背景", "甲的理由。"));
         await CreatePage("my-app/b-choice", ToolValues.PageTypes.Decision, "乙决定", ("背景", "乙的理由。"));
-        await Service.RecallAsync(new RecallRequest { Page = "my-app/b-choice" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "my-app/b-choice" });
 
         var result = await Brief("my-app");
 
@@ -162,12 +162,12 @@ public sealed class WorkstreamBriefTests : IDisposable
     {
         Setup();
         await CreatePage("my-app/ci", ToolValues.PageTypes.Entity, "CI 流水线", ("入口", "见 ~/infra/ci.md。"));
-        await Service.WritePersonaAsync(new WritePersonaRequest
+        await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "发版前先跑全量测试 → 避免漏测", Source = "发版前必须跑全量",
         });
-        await Service.WritePersonaAsync(new WritePersonaRequest
+        await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:other-app",
             Text = "other workstream rule → elsewhere", Source = "别的项目",
@@ -183,7 +183,7 @@ public sealed class WorkstreamBriefTests : IDisposable
     public async Task The_sections_come_in_the_documented_order_name_conventions_open_items_pages_activities_summary()
     {
         Setup();
-        await Service.WritePersonaAsync(new WritePersonaRequest
+        await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "约定甲 → 做法甲", Source = "原话",
@@ -329,7 +329,7 @@ public sealed class WorkstreamBriefTests : IDisposable
         Setup();
         await CreatePage("my-app/ci", ToolValues.PageTypes.Entity, "CI 流水线", ("入口", "见 ~/infra/ci.md。"));
 
-        var result = await Service.RecallAsync(new RecallRequest { Workstream = "my-app", Kind = ToolValues.RecallKinds.Pages });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Workstream = "my-app", Kind = ToolValues.RecallKinds.Pages });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: ", result.Text);
@@ -366,7 +366,7 @@ public sealed class WorkstreamBriefTests : IDisposable
             await CreatePage($"my-app/choice-{i}", ToolValues.PageTypes.Decision, titles[i], ("背景", "理由。"));
         }
         await Activity("一条保留的活动", workstream: "my-app");
-        await Service.WritePersonaAsync(new WritePersonaRequest
+        await Service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "add", Section = ToolValues.PersonaSections.WorkingRules, Scope = "workstream:my-app",
             Text = "一条保留的约定 → 做法", Source = "原话",

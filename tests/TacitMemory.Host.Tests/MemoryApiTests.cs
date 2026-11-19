@@ -87,7 +87,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
     [Fact]
     public async Task The_pages_answer_with_the_list_and_one_page_with_its_sections()
     {
-        var created = await _service.WritePageAsync(new WritePageRequest
+        var created = await _service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -115,7 +115,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
     public async Task The_workstreams_answer_with_the_list_and_a_brief()
     {
         Write("workstreams.md", "## Workstream\n\n### ops\nBackground: 运维。\n");
-        var created = await _service.WritePageAsync(new WritePageRequest
+        var created = await _service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Decision,
