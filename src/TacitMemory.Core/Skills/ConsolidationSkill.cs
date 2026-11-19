@@ -103,12 +103,12 @@ internal static class ConsolidationSkill
             .Append("a new workstream (its name, a background line, a recent line, and the detail pages it takes into its folder), ")
             .Append("an unestablished name merged into an existing workstream or its label dropped, a split of a workstream, or a merge of two. ")
             .Append("Each proposal names the pages it moves. Topic pages under a listed prefix may form a new workstream when they belong together; otherwise they stay in topics.\n");
-        text.Append("   Hard rules:\n");
-        text.Append("   - Preserve every fact: when a proposal other than a shorter wording merges, splits, moves or rewrites pages or entries, keep every fact of the original in the result. ")
+        text.Append("   Hard rule: when a proposal other than a shorter wording merges, splits, moves or rewrites pages or entries, keep every fact of the original in the result. ")
             .Append("If it would drop a fact, including text a pointer replaces, list each dropped fact under that item so the user decides.\n");
-        text.Append("   - Batching: you may batch routine low-risk items of the same kind into a single numbered item (for example, rejecting several one-off noise candidates together or adding missing types to several pages); the user can still note exceptions in their reply.\n");
         text.Append("   Output format:\n");
-        text.Append("   - Include a brief preview of the summaries and updated workstream recent lines written in step 1 (if any), noting that the user can request tweaks in the same reply.\n");
+        text.Append("   - Start with a brief preview of the summaries and workstream recent lines written in step 1 (if any), noting that the user can request tweaks in the same reply. ")
+            .Append("If no item needs a decision, show the preview, say so, skip step 4 and go on to step 6.\n");
+        text.Append("   - You may batch routine low-risk items of the same kind into a single numbered item (for example, rejecting several one-off noise candidates together or adding missing types to several pages); the user can still note exceptions in their reply.\n");
         text.Append("   - Give each proposal item a number, what would change, its evidence (a short code, a quote or a page identifier), and a brief `Recommended:` action with a one-line reason. ")
             .Append("Close the list with how to reply, for example `1 2 4 confirm, 3 reject, 5 defer, 6 change to workstream scope`. An item the reply does not mention is deferred.\n");
         text.Append("4. Carry out the reply item by item, along with any tweaks the user requested to the step 1 summaries or workstream recent lines. Changes to persona entries, scope blocks and pages happen only after the user confirms the item:\n");
@@ -124,7 +124,7 @@ internal static class ConsolidationSkill
             .Append("Remove an emptied old workstream folder or an emptied merged workstream block in persona.md when nothing remains in it. ")
             .Append("Leave the labels of past activities as they are.\n");
         text.Append("   Whatever the item, make only the change it proposes: drop no fact of a page, persona entry or workstream entry that the item does not list.\n");
-        text.Append("5. Confirm the applied changes to the user, and show the final summaries or workstream entries if any were adjusted in step 4 (or if step 3 had no proposals).\n");
+        text.Append("5. Confirm the applied changes to the user, and show the final summaries or workstream entries that step 4 adjusted.\n");
         text.Append("6. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
             .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")
             .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"`.\n\n");

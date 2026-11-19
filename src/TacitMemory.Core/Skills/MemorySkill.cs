@@ -32,16 +32,18 @@ internal static class MemorySkill
 
         Terms used below: a *matter* is one subject a page covers; the *brief* is the workstream map that `recall` returns for a workstream; a *trigger* is the one-line condition under which a domain's rules apply; a *lesson* is the rule an incident teaches; a *pointer* is a reference to where a fact already lives.
 
-        ## Retrieval before writing
-        - Write queries in the memory language, with the words the memory itself would use. Search matches words, so a paraphrase or another language can miss an existing page.
-        - Read a whole page (`page`) when you need its overall picture before updating it; otherwise use the section short codes returned by search.
+        ## Retrieval
+        - Write queries in the memory language, with the words the memory itself would use. Search matches words, so a paraphrase or another language can miss what is there.
+        - Narrow a search by kind, workstream or date when the question is about one of them.
+        - Read a whole page for its overall picture, such as before updating it; when a search already returned the section you need in full, use that.
+        - Every section shows the date it last changed. Judge a section that describes the current state by that date.
 
         ## Detail pages
         - A page covers one matter: update the page that already covers it instead of starting a second page for the same matter.
         - Pick the type by what the page records. The four types are incident, decision, entity and work; each example below shows one.
         - Title a page with the name the matter is known by; list the other names the user uses for it as aliases.
         - Organize a page into sections by facet, and put each new fact into the section it belongs to.
-        - Single-state sections already carry a last-changed date; write an explicit date when recording a dated event or timeline note inside a section. Where the wording matters, quote the user's own words rather than a paraphrase.
+        - A section that describes the current state needs no date of its own; write the date of each event in a timeline or log. Where the wording matters, quote the user's own words rather than a paraphrase.
         - Link a page to related pages, so a reader can move from one matter to the next.
         - When something in a section has changed, replace that text; do not add a note that contradicts it.
         - Where the environment already records a fact (a config file, a repository document, an infrastructure note), write a pointer to it, not a copy.

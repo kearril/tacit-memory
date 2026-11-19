@@ -18,7 +18,7 @@ internal sealed class MemoryTools(MemoryService service)
         - Read one page: page alone.
         - Workstream brief: workstream alone (optional from, to); returns conventions, open items, page index and recent activity.
         - Read persona/rules: kind=persona alone (whole persona), or kind=rules (optional domain); neither searches.
-        Results include short codes for matching sections and persona entries.
+        Search results come per page with the matching sections in full. Results include short codes for sections and persona entries.
         """)]
     public async Task<CallToolResult> Recall(
         RequestContext<CallToolRequestParams> request,
@@ -113,7 +113,7 @@ internal sealed class MemoryTools(MemoryService service)
 
     [McpServerTool(Name = "write_persona", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
-        Change the user's persona (global entries load into every session; domain entries load via index + recall; workstream entries load in the workstream brief).
+        Change the user's persona. Global entries load into every session from the next one; a domain's entries are read with recall kind=rules when its trigger matches; workstream entries appear in that workstream's brief.
         op=add: needs persona_section, text and source; scope, and trigger for a new domain. Only after the user agrees.
         op=propose: needs persona_section, text and source, and takes scope; for a habit you observed, kept as a candidate for the next consolidation. Never propose a red line: only the user sets one.
         op=replace: needs hash, text and source.

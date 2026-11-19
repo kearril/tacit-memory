@@ -23,7 +23,7 @@ internal static class ResidentBlock
     public static readonly ResidentDocument Default = new(
         DefaultShell,
         "Hold each unless the user lifts it in this conversation; when one stops you, give the reason.",
-        "Follow when the situation matches; check with the user if it conflicts with the current task.",
+        "Follow when the situation matches.",
         "Tastes to weigh against the task.",
         null,
         "Each line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.",
