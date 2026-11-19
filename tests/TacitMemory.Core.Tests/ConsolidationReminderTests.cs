@@ -84,6 +84,10 @@ public sealed class ConsolidationReminderTests : IDisposable
         ClockOn(InitDay.AddDays(3));
         var instructions = await service.ServerInstructionsAsync();
         Assert.Contains($"{Heading}\nNo consolidation has been run yet; the repository was set up 3 days ago, on {InitDay:yyyy-MM-dd}.", instructions);
+        Assert.DoesNotContain("- Weeks to summarize:", instructions);
+        Assert.DoesNotContain("- Persona candidates:", instructions);
+        Assert.DoesNotContain("- Format and rule problems:", instructions);
+        Assert.DoesNotContain("- Workstream:", instructions);
         Assert.EndsWith("suggest it when the moment fits, and do not start one unasked.", instructions);
     }
 

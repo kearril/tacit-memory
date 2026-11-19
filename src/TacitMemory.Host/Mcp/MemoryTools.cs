@@ -13,9 +13,12 @@ internal sealed class MemoryTools(MemoryService service)
     [McpServerTool(Name = "recall", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [McpMeta("anthropic/alwaysLoad", true)]
     [Description("""
-        Search the user's memory, or read one detail page in full. Give query to search, page to read one page, only workstream for that workstream's brief (its conventions, open items, pages and recent activity), or kind=persona / kind=rules alone.
-        Results come per page with the matching sections in full and a short code for each section.
-        kind=persona returns the whole persona, and kind=rules returns the rules of one domain (or of every domain), each entry with its short code. Neither searches: give kind alone, and domain only with rules.
+        Retrieve from the user's memory. Pick one mode:
+        - Search: query (optional filters: workstream, from, to, kind=pages|activities).
+        - Read one page: page alone.
+        - Workstream brief: workstream alone (optional from, to); returns conventions, open items, page index and recent activity.
+        - Read persona/rules: kind=persona alone (whole persona), or kind=rules (optional domain); neither searches.
+        Results include short codes for matching sections and persona entries.
         """)]
     public async Task<CallToolResult> Recall(
         RequestContext<CallToolRequestParams> request,
@@ -39,11 +42,11 @@ internal sealed class MemoryTools(MemoryService service)
         op=upsert_section: page, section and body; hash (the section's short code from recall) when the section exists.
         op=delete_section: page, section and hash (the section's short code from recall).
         op=update_header: page and at least one of title, type, add_aliases, related; related replaces the whole list ([] clears it).
-        type, by what the page records:
-        - incident: a fault, its cause and its fix.
-        - decision: one decision and the reasons for it.
+        type, by what the page records (keep the named English sections as written so the service recognizes them):
+        - incident: a fault, its cause and its fix (English section Lesson for reusable takeaways).
+        - decision: one decision and the reasons for it (English section Overturned when superseded).
         - entity: a standing system or tool, as pointers to its documentation, the user's stance and open to-dos.
-        - work: one unit of work and its record, such as a slice or a release.
+        - work: one unit of work such as a slice or release (English section Leftovers for open items surfaced in the brief).
         Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WritePage(
@@ -51,11 +54,11 @@ internal sealed class MemoryTools(MemoryService service)
         [Required, AllowedValues(ToolValues.WritePageOps.Create, ToolValues.WritePageOps.UpsertSection, ToolValues.WritePageOps.DeleteSection, ToolValues.WritePageOps.UpdateHeader)]
         [Description("Operation: create, upsert_section, delete_section or update_header.")] string? op = null,
         [Required]
-        [Description("Page ID: <workstream>/<slug>. workstream is the name of a continuing matter in lowercase, which need not be a code repository, or _topics for a subject that belongs to no workstream; slug is lowercase words joined by hyphens.")] string? page = null,
+        [Description("Page ID: <workstream>/<slug>. Use a listed workstream from <user_memory> in lowercase, or _topics when none matches (never invent a workstream); slug is lowercase words joined by hyphens.")] string? page = null,
         [Description("Page title, one line.")] string? title = null,
         [AllowedValues(ToolValues.PageTypes.Incident, ToolValues.PageTypes.Decision, ToolValues.PageTypes.Entity, ToolValues.PageTypes.Work)]
         [Description("The page's type, one of the four described above; required by create.")] string? type = null,
-        [Description("Other names the user might call this by: spoken phrasings, Chinese and English names, nicknames. At least {minAliases}.")] string[]? aliases = null,
+        [Description("Other names the user might call this by: spoken phrasings, alternate or bilingual names, nicknames. At least {minAliases}.")] string[]? aliases = null,
         [Description("The page's sections in order; each has a name (the ## heading, without '##') and a Markdown body.")] PageSectionInput[]? sections = null,
         [Description("Page IDs of related pages; each must exist.")] string[]? related = null,
         [Description("The section's name: its ## heading text, without '##'; one line.")] string? section = null,
@@ -93,7 +96,7 @@ internal sealed class MemoryTools(MemoryService service)
         RequestContext<CallToolRequestParams> request,
         [Required]
         [Description("The activity in one line, in the memory language; without a [workstream] prefix, which the workstream parameter adds.")] string? text = null,
-        [Description("The workstream the activity belongs to: the name of a continuing matter in lowercase, which need not be a code repository, for example my-app.")] string? workstream = null,
+        [Description("Listed workstream name from <user_memory> in lowercase; leave unset when none matches (never invent one).")] string? workstream = null,
         [Description("The user's own words behind the activity, one line; kept as a comment under the entry.")] string? source = null,
         [Description("The short code of an activity from today to rewrite with this text, from a refusal's list or from recall. Only today's activities match.")] string? replaces = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
@@ -110,7 +113,7 @@ internal sealed class MemoryTools(MemoryService service)
 
     [McpServerTool(Name = "write_persona", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
-        Change the user's persona; it loads into every session from the next one.
+        Change the user's persona (global entries load into every session; domain entries load via index + recall; workstream entries load in the workstream brief).
         op=add: needs persona_section, text and source; scope, and trigger for a new domain. Only after the user agrees.
         op=propose: needs persona_section, text and source, and takes scope; for a habit you observed, kept as a candidate for the next consolidation. Never propose a red line: only the user sets one.
         op=replace: needs hash, text and source.

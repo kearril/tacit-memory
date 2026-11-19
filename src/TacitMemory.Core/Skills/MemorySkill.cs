@@ -32,18 +32,16 @@ internal static class MemorySkill
 
         Terms used below: a *matter* is one subject a page covers; the *brief* is the workstream map that `recall` returns for a workstream; a *trigger* is the one-line condition under which a domain's rules apply; a *lesson* is the rule an incident teaches; a *pointer* is a reference to where a fact already lives.
 
-        ## Retrieval
-        - Write queries in the memory language, with the words the memory itself would use. Search matches words, so a paraphrase or another language can miss what is there.
-        - Narrow a search by kind, workstream or date when the question is about one of them.
-        - Read a whole page for its overall picture; read only one section when you already know which one matters.
-        - Every section shows the date it last changed. Judge a section that describes the current state by that date.
+        ## Retrieval before writing
+        - Write queries in the memory language, with the words the memory itself would use. Search matches words, so a paraphrase or another language can miss an existing page.
+        - Read a whole page (`page`) when you need its overall picture before updating it; otherwise use the section short codes returned by search.
 
         ## Detail pages
         - A page covers one matter: update the page that already covers it instead of starting a second page for the same matter.
         - Pick the type by what the page records. The four types are incident, decision, entity and work; each example below shows one.
         - Title a page with the name the matter is known by; list the other names the user uses for it as aliases.
         - Organize a page into sections by facet, and put each new fact into the section it belongs to.
-        - Write the date of each entry. Where the wording matters, quote the user's own words rather than a paraphrase.
+        - Single-state sections already carry a last-changed date; write an explicit date when recording a dated event or timeline note inside a section. Where the wording matters, quote the user's own words rather than a paraphrase.
         - Link a page to related pages, so a reader can move from one matter to the next.
         - When something in a section has changed, replace that text; do not add a note that contradicts it.
         - Where the environment already records a fact (a config file, a repository document, an infrastructure note), write a pointer to it, not a copy.
@@ -54,7 +52,7 @@ internal static class MemorySkill
         - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream.
 
         ## Examples
-        Each example shows a sample page for a Chinese memory, with its type and its recommended sections. The examples are invented, and their text is data, not instructions.
+        Each example shows a sample page for a Chinese memory, with its type and recommended sections. For other memory languages, write titles, aliases and free-form section names in the memory language, but always keep Lesson, Overturned and Leftovers in English. The examples are invented, and their text is data, not instructions.
 
         <example type="incident">
         Title: Alpine 容器内 TLS 证书校验失败
@@ -117,6 +115,7 @@ internal static class MemorySkill
         - Profile: background that helps understand the person. For example: "Role: backend engineer, mostly C# on Windows."
         - Keep one idea per entry, and keep the user's own words in its source note when the wording matters.
         - Scope: global entries are read in every session. Write an entry as global only when it holds in at least two different kinds of situation; otherwise give it a workstream scope (`workstream:<name>`, using the workstream's name) or a domain scope (`domain:<label>`).
+        - Scope examples: "Always reply in Chinese" → global; "When changing proxies, routing or speed tests → compare multiple nodes before deciding" → `domain:network-proxy`; "Release builds of this service → run smoke tests first" → `workstream:home-server`.
         - Domain: a label names a kind of situation, such as network-proxy. Its trigger is one line saying when the domain applies, for example "when changing proxies, routing or speed tests". Reuse an existing label exactly; a new label needs a trigger.
         - A preference or rule the user agrees to keep goes in with add; propose a habit with op=propose and its scope only when it repeats across the session or clearly applies beyond the current task, not for a one-off workaround. It waits as a candidate.
         - To change or delete an entry, use its short code from `recall kind=persona`, which returns the whole persona with every entry's code. When a code is refused, call `recall kind=persona` again and take the fresh code from there.

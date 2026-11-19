@@ -59,7 +59,8 @@ public sealed class ResidentDocumentTests : IDisposable
 
         Assert.Contains("<user_memory>\n", text);
         Assert.Contains("## Red lines\n", text);
-        Assert.Contains("## Working rules\n- w1\n", text);
+        Assert.Contains("## Working rules\n", text);
+        Assert.Contains("- w1\n", text);
         Assert.Contains("## Preferences\n", text);
         Assert.Contains("- p1\n", text);
         Assert.Contains("## Profile\n- f1\n", text);
