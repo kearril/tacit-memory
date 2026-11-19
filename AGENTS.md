@@ -31,6 +31,8 @@
 
 - **深模块边界**：`TacitMemory.Core` 仅公开核心门面接口与契约类型（以及双语文字的类型 `Localized`，供宿主写自己的文字），内部实现保持 `internal`；`TacitMemory.Host` 与 `TacitMemory.Cli` 只调用 `Core` 的公开接口，`Cli` 另外引用 `Host`，仅用于挂载端点、读取工具说明、管理 API 的请求体与 JSON 约定，以及宿主的输出文字（`HostMessages`）。
 - **语言约定**：代码注释使用英文；仓库文档（`README.md`、`docs/`、`GLOSSARY.md`）使用中文。
+- **公开文案文风**：公开文档、界面 i18n 与内置提示词采用客观、克制的书面技术语言，避免口语感叹、第一人称日记体或私有工作流黑话；三态判断统一使用 `GLOSSARY.md` 中的「确定 / 不确定 / 否定」。
+- **示例去个人化**：公开文档、源码注释、内置示例与测试夹具不得包含个人主机名、内网地址、私人路径或个人项目名称，统一使用通用虚构示例（如 `my-app`、`db-migration`、`dev-box`、`workstation`）。
 - **前端浏览器支持**：Web 界面以现代桌面浏览器（Baseline Newly Available）为目标，不额外引入重量级 polyfill。
 - **提交规范**：遵循 **Conventional Commits**（`<type>(<scope>): <summary>`，如 `feat:`、`fix:`、`refactor:`、`test:`、`docs:`、`build:`）。
 - **提交信息要求**：`main` 及所有将合入 `main` 的分支（含子代理工作分支），提交信息应自解释，不得包含仅在本地或外部追踪系统有效的内部编号，亦不得使用带编号的分支名。
