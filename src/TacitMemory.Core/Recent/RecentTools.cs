@@ -1,4 +1,5 @@
 using TacitMemory.Core.Decisions;
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Models;
@@ -85,7 +86,6 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Choi
 
         var label = RecentFile.Label(workstream);
         var entryLine = $"- {label}{text}";
-        var sourceLine = source is null ? null : $"  <!-- {StructureWords.Quote}「{source}」 -->";
 
         RecentFile.Activity? replaced = null;
         if (request.Replaces is not null)
@@ -115,14 +115,15 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Choi
         int line;
         if (replaced is null)
         {
-            var entry = new List<string> { entryLine };
-            if (sourceLine is not null)
-                entry.Add(sourceLine);
-            (after, line) = RecentFile.Insert(existing, day, entry);
+            var comment = SourceComment.Format(new SourceComment.Parts(null, config.Machine.Name, source));
+            (after, line) = RecentFile.Insert(existing, day, [entryLine, comment]);
         }
         else
         {
-            after = RecentFile.Replace(existing, replaced.Line, entryLine, sourceLine);
+            // The machine becomes the one rewriting it; without a new source the quote and any date stay.
+            var kept = RecentFile.CommentAt(existing.Split('\n'), replaced.Line + 1);
+            var comment = SourceComment.Format(new SourceComment.Parts(kept?.Date, config.Machine.Name, source ?? kept?.Quote));
+            after = RecentFile.Replace(existing, replaced.Line, entryLine, comment);
             line = replaced.Line;
         }
 

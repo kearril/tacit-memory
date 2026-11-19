@@ -2509,6 +2509,7 @@
           "code",
           "workstream",
           "text",
+          "machine",
           "lines",
           "sources",
           "uses"
@@ -2526,6 +2527,12 @@
           },
           "text": {
             "type": "string"
+          },
+          "machine": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "lines": {
             "type": "array",

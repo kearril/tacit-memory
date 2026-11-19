@@ -400,7 +400,7 @@ public sealed class ConsolidationReportTests : IDisposable
         _home.InitReady();
         WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n");
         CommitAll("consolidate: earlier pass");
-        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
+        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- on win-main quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.Tools.ConsolidationReportAsync(), "Persona evidence");
@@ -408,6 +408,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.DoesNotContain("旧原话", section);
         Assert.Contains("新原话一", section);
         Assert.Contains("新原话二", section);
+        Assert.DoesNotContain("win-main", section);
         Assert.Contains("tacit-memory", section);
         Assert.True(section.IndexOf("新原话一", StringComparison.Ordinal) < section.IndexOf("新原话二", StringComparison.Ordinal));
     }

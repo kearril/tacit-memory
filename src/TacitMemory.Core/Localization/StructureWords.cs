@@ -29,6 +29,7 @@ internal static class StructureWords
     public const string Trigger = "Trigger";
     public const string Lesson = "Lesson";
     public const string Machine = "Machine";
+    public const string On = "on";
 
     /// <summary>What follows a structure word before its value: <c>## Domain: network-proxy</c>, <c>Trigger: …</c>.</summary>
     public const string Separator = ": ";

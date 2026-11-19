@@ -15,7 +15,6 @@ namespace TacitMemory.Core.Persona;
 internal sealed class PersonaTools(
     TacitOptions options, TacitConfig config, SamePreferenceCheck samePreference, RuleConflictCheck conflicts, MemoryWriter writer)
 {
-
     /// <summary>
     /// The parameters the propose op takes: the entry's, and the scope it goes into. Any other parameter given with it is
     /// refused rather than ignored.

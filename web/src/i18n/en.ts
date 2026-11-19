@@ -800,6 +800,7 @@ export const en = {
       empty: "No activities this month yet",
       noMatch: "No activities of this workstream this month",
       noWorkstream: "No workstream",
+      machine: (name) => `Written on ${name}`,
       weekSummary: (label) => `Week summary · ${label}`,
       monthSummary: (label) => `Month summary · ${label}`,
       sourceFile: "Source file",

@@ -166,8 +166,8 @@ internal static class ServerInstructionText
     }
 
     /// <summary>
-    /// The activities of the last seven days, one per line with their dates and workstreams, inside <c>recent_activity</c>
-    /// tags so the agent reads them as data; empty when there are none.
+    /// The activities of the last seven days, one per line with their dates, machines and workstreams, inside
+    /// <c>recent_activity</c> tags so the agent reads them as data; empty when there are none.
     /// </summary>
     private static string ActivityBlock(IReadOnlyList<RecentFile.Activity> activities)
     {
@@ -175,7 +175,7 @@ internal static class ServerInstructionText
             return "";
 
         var lines = activities.Select(activity =>
-            $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.Labeled}");
+            $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.MachineLabel}{activity.Labeled}");
         return $"<recent_activity days=\"{RecentSummary.WindowDays}\">\n{string.Join("\n", lines)}\n</recent_activity>";
     }
 

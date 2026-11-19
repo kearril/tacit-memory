@@ -231,7 +231,8 @@ internal sealed class RecallPipeline(TacitConfig config, MemoryIndex index, Embe
             {
                 results.Add(new ShownResult(results.Count + 1, [.. result]));
                 var label = sample.Workstream.Length > 0 ? $", workstream {sample.Workstream}" : "";
-                text.Append(CultureInfo.InvariantCulture, $"\n[{results.Count}] activity {sample.Date} [{sample.Code}]{label}\n{sample.Text}\n");
+                var machine = sample.Section is null ? "" : $" ({sample.Section})";
+                text.Append(CultureInfo.InvariantCulture, $"\n[{results.Count}] activity {sample.Date}{machine} [{sample.Code}]{label}\n{sample.Text}\n");
                 continue;
             }
 

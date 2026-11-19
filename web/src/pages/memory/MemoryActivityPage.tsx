@@ -279,8 +279,9 @@ function DaySection({ date, activities }: { readonly date: string; readonly acti
 }
 
 /**
- * An activity, marked by a dot on the rail. Above its text, its workstream (or a mark that it has none), a button that
- * opens the user's words when they were kept, and its short code, which shows on hover or focus.
+ * An activity, marked by a dot on the rail. Above its text, its workstream (or a mark that it has none), the machine it
+ * was written on when it names one, a button that opens the user's words when they were kept, and its short code, which
+ * shows on hover or focus.
  */
 function ActivityRow({ item }: { readonly item: ActivityItemView }) {
   const text = useDictionary().memory.activity;
@@ -300,6 +301,11 @@ function ActivityRow({ item }: { readonly item: ActivityItemView }) {
           </span>
         ) : (
           <WorkstreamPill name={item.workstream} />
+        )}
+        {item.machine === null ? null : (
+          <span title={text.machine(item.machine)} aria-label={text.machine(item.machine)}>
+            {item.machine}
+          </span>
         )}
         {sources.some((source) => source.quote !== null) ? (
           <QuoteToggle open={open} controls={quotesId} onToggle={() => setOpen(!open)} />

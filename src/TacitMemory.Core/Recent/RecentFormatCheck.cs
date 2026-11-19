@@ -1,13 +1,15 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Formats;
+using TacitMemory.Core.Localization;
 
 namespace TacitMemory.Core.Recent;
 
 /// <summary>
 /// The format problems of a month file of the activity log: entries outside a date heading, headings that are not
-/// dates, dates that look like dates but are not in <c>yyyy-MM-dd</c>, and lines of the summary section that are not
-/// summaries of their file's month.
+/// dates, dates that look like dates but are not in <c>yyyy-MM-dd</c>, source comments whose machine is not a machine
+/// name, and lines of the summary section that are not summaries of their file's month.
 /// </summary>
 internal static partial class RecentFormatCheck
 {
@@ -52,6 +54,13 @@ internal static partial class RecentFormatCheck
             {
                 issues.Add(new FormatIssue("", $"line {index + 1}", "Entry outside a date heading",
                     "This activity is not under a yyyy-MM-dd heading, so it is not read.", FormatHandling.FixDirectly));
+            }
+            else if (underDate && (line.StartsWith(' ') || line.StartsWith('\t'))
+                && SourceComment.PartsOf(line) is { Machine: { } machine } && !MachineName.IsValid(machine))
+            {
+                issues.Add(new FormatIssue("", $"line {index + 1}", "Invalid machine",
+                    $"\"{machine}\" after \"{StructureWords.On}\" is not a machine name: use 1 to 32 lowercase letters, digits or hyphens.",
+                    FormatHandling.FixDirectly));
             }
         }
 

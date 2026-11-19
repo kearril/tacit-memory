@@ -3,7 +3,7 @@ import type { ActivityMonthView } from "../../api/memory";
 import { monthDays, shiftMonth, timelineOf } from "./timeline";
 
 function item(code: string, workstream: string | null = null) {
-  return { code, workstream, text: `活动 ${code}`, lines: [], sources: [], uses: 0 };
+  return { code, workstream, text: `活动 ${code}`, machine: null, lines: [], sources: [], uses: 0 };
 }
 
 function month(overrides: Partial<ActivityMonthView> = {}): ActivityMonthView {

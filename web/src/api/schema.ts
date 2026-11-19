@@ -2422,6 +2422,7 @@ export interface components {
             code: string;
             workstream: null | string;
             text: string;
+            machine: null | string;
             lines: string[];
             sources: components["schemas"]["SourceView"][];
             /** Format: int64 */

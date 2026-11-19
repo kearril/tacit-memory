@@ -77,7 +77,7 @@ internal static class RecallTraceRun
     private static TraceUnit Unit(UnitTrace unit) => new(
         unit.Hit.Kind,
         unit.Hit.Source,
-        unit.Hit.Section,
+        unit.Hit.Kind == UnitKinds.Activity ? null : unit.Hit.Section,
         unit.Hit.Code,
         unit.Hit.Kind is UnitKinds.Activity or UnitKinds.Summary ? unit.Hit.Date : null,
         unit.Hit.Workstream,

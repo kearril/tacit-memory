@@ -131,7 +131,7 @@ public sealed class SummaryTests : IDisposable
         await Write("下午的活动");
 
         Assert.Equal(
-            "## 2026-11-02\n- 早上的活动\n- 下午的活动\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n",
+            "## 2026-11-02\n- 早上的活动\n- 下午的活动\n  <!-- on test-machine -->\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n",
             File.ReadAllText(MonthFile()));
     }
 
@@ -143,7 +143,7 @@ public sealed class SummaryTests : IDisposable
         await Write("第一件事");
 
         Assert.Equal(
-            "## 2026-11-02\n- 第一件事\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n",
+            "## 2026-11-02\n- 第一件事\n  <!-- on test-machine -->\n\n## Summary\n- 2026-W45：本周\n- 2026-11：本月\n",
             File.ReadAllText(MonthFile()));
     }
 

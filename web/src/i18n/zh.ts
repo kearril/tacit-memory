@@ -809,6 +809,8 @@ export const zh = {
       noMatch: "这个月没有这条主线的活动",
       /** What an activity outside every workstream is marked with. */
       noWorkstream: "无主线",
+      /** The machine an activity was written on, as its hover text says. */
+      machine: (name: string) => `写于 ${name}`,
       weekSummary: (label: string) => `周汇总 · ${label}`,
       monthSummary: (label: string) => `月汇总 · ${label}`,
       sourceFile: "来源文件",
