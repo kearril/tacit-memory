@@ -736,7 +736,8 @@ function SideCommands() {
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs">
         {commands.map(([label, command]) => (
           <InfoRow key={command} label={label}>
-            <code className="min-w-0 flex-1 truncate font-mono select-all">{command}</code>
+            {/* The two commands differ only at their end, so they wrap rather than truncate. */}
+            <code className="min-w-0 flex-1 font-mono break-all select-all">{command}</code>
             <CopyButton value={command} label={text.copyCommand} copiedMessage={text.commandCopied} />
           </InfoRow>
         ))}
