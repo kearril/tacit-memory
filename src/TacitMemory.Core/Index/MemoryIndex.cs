@@ -815,8 +815,8 @@ internal sealed class MemoryIndex : IDisposable
     /// </summary>
     private static IReadOnlyList<JudgmentUnit> PersonaUnits(string text) =>
         PersonaDocument.Parse(text).KnownEntries()
-            .Where(entry => entry.Item.IsListItem && entry.Item.Text.Length > 0)
-            .Select(entry => new JudgmentUnit(UnitKinds.PersonaEntry, entry.Kind, entry.Item.JudgmentText, entry.Scope))
+            .Where(entry => entry.Entry.IsListItem && entry.Entry.Text.Length > 0)
+            .Select(entry => new JudgmentUnit(UnitKinds.PersonaEntry, entry.Kind, entry.Entry.JudgmentText, entry.Scope))
             .ToList();
 
     /// <summary>The units of <c>candidates.md</c>: one per candidate and one per rejected candidate, each named by its text.</summary>

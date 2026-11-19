@@ -2329,7 +2329,7 @@ export interface paths {
                             notices: string[];
                             restart: {
                                 /** @enum {unknown} */
-                                path: "server.port" | "server.host" | "memory.path" | "language" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintItemLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password";
+                                path: "server.port" | "server.host" | "memory.path" | "language" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintEntryLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password";
                                 running: string;
                                 saved: string;
                             }[];
@@ -2592,7 +2592,7 @@ export interface components {
             secret: boolean;
         };
         /** @enum {unknown} */
-        ConfigKeyPath: "server.port" | "server.host" | "memory.path" | "language" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintItemLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password";
+        ConfigKeyPath: "server.port" | "server.host" | "memory.path" | "language" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintEntryLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password";
         ConfigProblem: {
             path: string;
             message: string;
@@ -2638,7 +2638,7 @@ export interface components {
             /** Format: int32 */
             maxConcurrency?: null | number;
             /** Format: int32 */
-            hintItemLength?: null | number;
+            hintEntryLength?: null | number;
             /** Format: int32 */
             hintResidentLength?: null | number;
         };

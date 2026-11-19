@@ -263,7 +263,7 @@ export const en = {
           label: "Judgments at once",
           help: "How many model judgments run at once, shared by every consolidation in the service.",
         },
-        hintItemLength: {
+        hintEntryLength: {
           label: "Entry length hint",
           help: "A persona entry or new activity longer than this many characters is listed by the report's length hints. It only hints; nothing is refused.",
         },

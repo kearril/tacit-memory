@@ -266,13 +266,13 @@ internal static class ConfigLoader
     {
         var consolidation = reader.Mapping(root, "", "consolidation");
         reader.OnlyKnown(
-            consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintItemLength", "hintResidentLength");
+            consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintEntryLength", "hintResidentLength");
         return new ConsolidationConfig(
             reader.Integer(consolidation, ConfigKeys.RemindAfterDays),
             reader.Integer(consolidation, ConfigKeys.BudgetSeconds),
             reader.Integer(consolidation, ConfigKeys.MaxConcurrency),
             reader.Integer(consolidation, ConfigKeys.RemindCandidates),
-            reader.Integer(consolidation, ConfigKeys.HintItemLength),
+            reader.Integer(consolidation, ConfigKeys.HintEntryLength),
             reader.Integer(consolidation, ConfigKeys.HintResidentLength));
     }
 

@@ -85,7 +85,7 @@ internal static class ResidentBlock
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };
 
-    private static void AppendSection(StringBuilder block, string? title, string? guidance, IEnumerable<PersonaItem> items)
+    private static void AppendSection(StringBuilder block, string? title, string? guidance, IEnumerable<PersonaEntry> items)
     {
         block.Append('\n');
         if (title is not null)

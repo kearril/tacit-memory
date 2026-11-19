@@ -76,7 +76,7 @@ public sealed record ConfigFile
                 config.Consolidation.RemindCandidates,
                 config.Consolidation.BudgetSeconds,
                 config.Consolidation.MaxConcurrency,
-                config.Consolidation.HintItemLength,
+                config.Consolidation.HintEntryLength,
                 config.Consolidation.HintResidentLength),
             Decision = new DecisionFile(
                 Judgment(config.Decision.SamePreference),
@@ -110,7 +110,7 @@ public sealed record ConsolidationFile(
     int? RemindCandidates = null,
     int? BudgetSeconds = null,
     int? MaxConcurrency = null,
-    int? HintItemLength = null,
+    int? HintEntryLength = null,
     int? HintResidentLength = null);
 
 /// <summary>A <c>null</c> judgment takes its built-in thresholds.</summary>

@@ -211,7 +211,7 @@ public sealed class ConsolidationReportTests : IDisposable
     [Fact]
     public async Task A_persona_entry_longer_than_the_hint_length_is_listed_with_its_place_and_length()
     {
-        _home.InitReady("consolidation: { hintItemLength: 20 }\n");
+        _home.InitReady("consolidation: { hintEntryLength: 20 }\n");
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- 短\n- " + new string('长', 30) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
@@ -238,7 +238,7 @@ public sealed class ConsolidationReportTests : IDisposable
     [Fact]
     public async Task An_activity_since_the_baseline_longer_than_the_hint_length_is_listed_with_its_place_and_length()
     {
-        _home.InitReady("consolidation: { hintItemLength: 20 }\n");
+        _home.InitReady("consolidation: { hintEntryLength: 20 }\n");
         WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n");
         CommitAll("consolidate: earlier pass");
         WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n- 新的活动" + new string('长', 30) + "\n");
@@ -268,7 +268,7 @@ public sealed class ConsolidationReportTests : IDisposable
     [Fact]
     public async Task Raising_the_hint_length_removes_the_hint_and_nothing_is_refused()
     {
-        _home.InitReady("consolidation: { hintItemLength: 500 }\n");
+        _home.InitReady("consolidation: { hintEntryLength: 500 }\n");
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 300) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 

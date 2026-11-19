@@ -4,8 +4,8 @@ using TacitMemory.Core.Models;
 
 namespace TacitMemory.Core.Persona;
 
-/// <summary>An existing persona entry the new one conflicts with: its scope, its section, its item and its short code.</summary>
-internal sealed record ConflictingEntry(PersonaScope Scope, PersonaSection Section, PersonaItem Item, string Code);
+/// <summary>An existing persona entry the new one conflicts with: its scope, its section, its entry and its short code.</summary>
+internal sealed record ConflictingEntry(PersonaScope Scope, PersonaSection Section, PersonaEntry Entry, string Code);
 
 /// <summary>What the rule-conflict check found: the entry the new one conflicts with, or a note for the agent when the check was skipped.</summary>
 internal sealed record RuleConflictVerdict(ConflictingEntry? Conflict, string? Note);
@@ -46,7 +46,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
     /// <param name="persona">The persona as it is before the write.</param>
     /// <param name="replaced">The entry the write replaces, which is never offered as an option; <c>null</c> for an add.</param>
     public async Task<RuleConflictVerdict> RunAsync(
-        string text, PersonaSection section, PersonaScope scope, PersonaDocument persona, PersonaItem? replaced, CancellationToken cancellationToken)
+        string text, PersonaSection section, PersonaScope scope, PersonaDocument persona, PersonaEntry? replaced, CancellationToken cancellationToken)
     {
         var embeddingFailed = false;
         var outcome = await judge.AskAsync(
@@ -54,7 +54,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
             async token =>
             {
                 var others = persona.KnownEntries()
-                    .Where(entry => JudgedAgainst(entry.Scope, scope) && entry.Item.Line != replaced?.Line)
+                    .Where(entry => JudgedAgainst(entry.Scope, scope) && entry.Entry.Line != replaced?.Line)
                     .ToList();
                 if (others.Count == 0)
                     return PreparedChoice<ConflictingEntry>.Nothing;
@@ -68,7 +68,7 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
                 // One more than OtherOptions: the replaced entry may be among the nearest and is skipped by Nearest.
                 var hits = index.SearchJudgments(vector[0], [SourceKinds.Persona], OtherOptions + 1, scopes: ScopesJudged(scope));
                 var options = Nearest(hits, persona, replaced?.Line)
-                    .Select(entry => new ChoiceOption<ConflictingEntry>(OptionText(entry.Section, entry.Item.JudgmentText), entry))
+                    .Select(entry => new ChoiceOption<ConflictingEntry>(OptionText(entry.Section, entry.Entry.JudgmentText), entry))
                     .ToList();
                 return options.Count == 0
                     ? PreparedChoice<ConflictingEntry>.Nothing
@@ -116,11 +116,11 @@ internal sealed class RuleConflictCheck(TacitConfig config, MemoryIndex index, E
             if (hit.Section is not { } kind)
                 continue;
             var found = entries.FirstOrDefault(entry =>
-                entry.Scope == hit.Scope && entry.Kind == kind && entry.Item.JudgmentText == hit.Text && !taken.Contains(entry.Item.Line));
+                entry.Scope == hit.Scope && entry.Kind == kind && entry.Entry.JudgmentText == hit.Text && !taken.Contains(entry.Entry.Line));
             if (found is null)
                 continue;
-            taken.Add(found.Item.Line);
-            nearest.Add(new ConflictingEntry(found.Scope, kind, found.Item, codes[found.Item.Line]));
+            taken.Add(found.Entry.Line);
+            nearest.Add(new ConflictingEntry(found.Scope, kind, found.Entry, codes[found.Entry.Line]));
             if (nearest.Count == OtherOptions)
                 break;
         }

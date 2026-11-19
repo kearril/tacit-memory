@@ -41,7 +41,7 @@ internal static partial class ConfigWriter
         consolidation.Add("remindCandidates", Unless(c.RemindCandidates, ConfigKeys.RemindCandidates));
         consolidation.Add("budgetSeconds", Unless(c.BudgetSeconds, ConfigKeys.BudgetSeconds));
         consolidation.Add("maxConcurrency", Unless(c.MaxConcurrency, ConfigKeys.MaxConcurrency));
-        consolidation.Add("hintItemLength", Unless(c.HintItemLength, ConfigKeys.HintItemLength));
+        consolidation.Add("hintEntryLength", Unless(c.HintEntryLength, ConfigKeys.HintEntryLength));
         consolidation.Add("hintResidentLength", Unless(c.HintResidentLength, ConfigKeys.HintResidentLength));
 
         var decision = root.Section("decision");

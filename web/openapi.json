@@ -2339,7 +2339,7 @@
                                   "consolidation.remindCandidates",
                                   "consolidation.budgetSeconds",
                                   "consolidation.maxConcurrency",
-                                  "consolidation.hintItemLength",
+                                  "consolidation.hintEntryLength",
                                   "consolidation.hintResidentLength",
                                   "decision.samePreference.certain",
                                   "decision.samePreference.unlikely",
@@ -3314,7 +3314,7 @@
           "consolidation.remindCandidates",
           "consolidation.budgetSeconds",
           "consolidation.maxConcurrency",
-          "consolidation.hintItemLength",
+          "consolidation.hintEntryLength",
           "consolidation.hintResidentLength",
           "decision.samePreference.certain",
           "decision.samePreference.unlikely",
@@ -3509,7 +3509,7 @@
             ],
             "format": "int32"
           },
-          "hintItemLength": {
+          "hintEntryLength": {
             "type": [
               "null",
               "integer"

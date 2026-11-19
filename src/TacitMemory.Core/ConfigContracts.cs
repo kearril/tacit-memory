@@ -94,8 +94,8 @@ public enum ConfigKeyPath
     [JsonStringEnumMemberName("consolidation.maxConcurrency")]
     ConsolidationMaxConcurrency,
 
-    [JsonStringEnumMemberName("consolidation.hintItemLength")]
-    ConsolidationHintItemLength,
+    [JsonStringEnumMemberName("consolidation.hintEntryLength")]
+    ConsolidationHintEntryLength,
 
     [JsonStringEnumMemberName("consolidation.hintResidentLength")]
     ConsolidationHintResidentLength,

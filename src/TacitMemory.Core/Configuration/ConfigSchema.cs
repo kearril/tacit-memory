@@ -16,7 +16,7 @@ internal static class ConfigSchema
         Limits = new LimitsFile(ConfigKeys.Brief.Default, new PageLimitsFile(ConfigKeys.MinAliases.Default)),
         Consolidation = new ConsolidationFile(
             ConfigKeys.RemindAfterDays.Default, ConfigKeys.RemindCandidates.Default, ConfigKeys.BudgetSeconds.Default,
-            ConfigKeys.MaxConcurrency.Default, ConfigKeys.HintItemLength.Default, ConfigKeys.HintResidentLength.Default),
+            ConfigKeys.MaxConcurrency.Default, ConfigKeys.HintEntryLength.Default, ConfigKeys.HintResidentLength.Default),
         Decision = new DecisionFile(
             File(ConfigKeys.SamePreference), File(ConfigKeys.SamePage), File(ConfigKeys.SameTopic), File(ConfigKeys.RuleConflict)),
         Retrieval = new RetrievalFile(ConfigKeys.Candidates.Default, ConfigKeys.TopK.Default, ConfigKeys.MinRerankScore.Default),

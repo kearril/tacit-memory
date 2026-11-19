@@ -32,7 +32,7 @@ export const CONSOLIDATION = [
   "remindCandidates",
   "budgetSeconds",
   "maxConcurrency",
-  "hintItemLength",
+  "hintEntryLength",
   "hintResidentLength",
 ] as const;
 
@@ -89,7 +89,7 @@ export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "consolidation.remindCandidates": { section: "consolidation", kind: "integer" },
   "consolidation.budgetSeconds": { section: "consolidation", kind: "integer" },
   "consolidation.maxConcurrency": { section: "consolidation", kind: "integer" },
-  "consolidation.hintItemLength": { section: "consolidation", kind: "integer" },
+  "consolidation.hintEntryLength": { section: "consolidation", kind: "integer" },
   "consolidation.hintResidentLength": { section: "consolidation", kind: "integer" },
   "backup.keep": { section: "backup", kind: "integer" },
   "backup.webdav.url": { section: "backup", kind: "text" },

@@ -185,7 +185,7 @@ internal static class ConfigKeys
     public static readonly IntegerEntry RemindCandidates = Count(ConfigKeyPath.ConsolidationRemindCandidates, "consolidation.remindCandidates", 2);
     public static readonly IntegerEntry BudgetSeconds = Count(ConfigKeyPath.ConsolidationBudgetSeconds, "consolidation.budgetSeconds", 20);
     public static readonly IntegerEntry MaxConcurrency = Count(ConfigKeyPath.ConsolidationMaxConcurrency, "consolidation.maxConcurrency", 5);
-    public static readonly IntegerEntry HintItemLength = Count(ConfigKeyPath.ConsolidationHintItemLength, "consolidation.hintItemLength", 200);
+    public static readonly IntegerEntry HintEntryLength = Count(ConfigKeyPath.ConsolidationHintEntryLength, "consolidation.hintEntryLength", 200);
     public static readonly IntegerEntry HintResidentLength = Count(ConfigKeyPath.ConsolidationHintResidentLength, "consolidation.hintResidentLength", 6000);
 
     public static readonly ThresholdKeys SamePreference = new(
@@ -219,7 +219,7 @@ internal static class ConfigKeys
         Port, Host, MemoryPath, Language,
         .. Embedding.All, .. Reranker.All, .. Decision.All,
         Brief, MinAliases,
-        RemindAfterDays, RemindCandidates, BudgetSeconds, MaxConcurrency, HintItemLength, HintResidentLength,
+        RemindAfterDays, RemindCandidates, BudgetSeconds, MaxConcurrency, HintEntryLength, HintResidentLength,
         .. SamePreference.All, .. SamePage.All, .. SameTopic.All, .. RuleConflict.All,
         Candidates, TopK, MinRerankScore,
         Keep, WebDavUrl, WebDavUsername, WebDavPassword,

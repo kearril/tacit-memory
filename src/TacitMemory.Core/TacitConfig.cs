@@ -70,9 +70,9 @@ public sealed record LimitsConfig(int Brief, PageLimits Page);
 public sealed record PageLimits(int MinAliases);
 
 /// <param name="RemindCandidates">Candidates at which the consolidation reminder is due.</param>
-/// <param name="HintItemLength">Characters above which a persona item or an activity gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
+/// <param name="HintEntryLength">Characters above which a persona entry or an activity gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
 /// <param name="HintResidentLength">Characters above which the resident block gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
-public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates, int HintItemLength, int HintResidentLength);
+public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates, int HintEntryLength, int HintResidentLength);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
 public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameTopic, Threshold? RuleConflict);

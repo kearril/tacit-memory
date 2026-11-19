@@ -70,7 +70,7 @@ public sealed class ConfigTests : IDisposable
             memory: { path: '~/notes/memory' }
             language: en
             limits: { brief: 1500, page: { minAliases: 3 } }
-            consolidation: { hintItemLength: 120, hintResidentLength: 4000 }
+            consolidation: { hintEntryLength: 120, hintResidentLength: 4000 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { minRerankScore: 0.3 }
             backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw } }
@@ -120,8 +120,8 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData("hintItemLength: 0", "consolidation.hintItemLength")]
-    [InlineData("hintItemLength: 1.5", "consolidation.hintItemLength")]
+    [InlineData("hintEntryLength: 0", "consolidation.hintEntryLength")]
+    [InlineData("hintEntryLength: 1.5", "consolidation.hintEntryLength")]
     [InlineData("hintResidentLength: nine", "consolidation.hintResidentLength")]
     public void A_consolidation_hint_length_that_is_not_a_positive_whole_number_is_refused(string setting, string keyPath)
     {
@@ -141,6 +141,7 @@ public sealed class ConfigTests : IDisposable
     [InlineData("server: 18888", "server")]
     [InlineData("language: fr", "language")]
     [InlineData("limits: { itemLength: -1 }", "limits.itemLength")]
+    [InlineData("consolidation: { hintItemLength: 100 }", "consolidation.hintItemLength")]
     [InlineData("backup: { keep: 1.5 }", "backup.keep")]
     [InlineData("decision: { samePage: { certain: 0.2, unlikely: 0.8 } }", "decision.samePage")]
     [InlineData("decision: { samePage: { certain: 1.5, unlikely: 0.1 } }", "decision.samePage.certain")]

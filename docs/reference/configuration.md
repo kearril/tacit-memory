@@ -36,7 +36,7 @@ models:
 limits:
   brief: 3000
   page: { minAliases: 2 }
-consolidation: { remindAfterDays: 3, remindCandidates: 2, budgetSeconds: 20, maxConcurrency: 5, hintItemLength: 200, hintResidentLength: 6000 }
+consolidation: { remindAfterDays: 3, remindCandidates: 2, budgetSeconds: 20, maxConcurrency: 5, hintEntryLength: 200, hintResidentLength: 6000 }
 decision:
   samePreference: { certain: …, unlikely: … }
   samePage: { certain: …, unlikely: … }
@@ -95,7 +95,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 - `remindCandidates`（默认 2）：上次整理之后有新出现记录的候选达到该个数时即该整理。
 - `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
 - `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
-- `hintItemLength`（默认 200）：画像条目或上次整理以来新增的活动超过该字符数时，整理报告的"篇幅提示"列出它的位置与长度。只提示，不拒绝写入。
+- `hintEntryLength`（默认 200）：画像条目或上次整理以来新增的活动超过该字符数时，整理报告的"篇幅提示"列出它的位置与长度。只提示，不拒绝写入。
 - `hintResidentLength`（默认 6000）：常驻区块总长超过该字符数时，整理报告的"篇幅提示"给出一行说明。只提示，不拒绝写入。
 
 计时与缓存规则见 `docs/design.md`「整理」。

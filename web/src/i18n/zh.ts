@@ -275,7 +275,7 @@ export const zh = {
           help: "一次整理最多等模型的秒数；到点照常出报告，没算完的项下次接着算。",
         },
         maxConcurrency: { label: "并发判断数", help: "同时进行的模型判断数，由服务内的多次整理共享。" },
-        hintItemLength: {
+        hintEntryLength: {
           label: "条目篇幅提示",
           help: "画像条目或新增活动超过该字符数时，整理报告的篇幅提示列出它。只提示，不拒绝写入。",
         },
