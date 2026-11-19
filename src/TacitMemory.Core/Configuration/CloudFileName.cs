@@ -10,11 +10,12 @@ internal static class CloudFileName
 
     /// <summary>
     /// Whether <paramref name="name"/> is a plain file name ending in <c>.zip</c> in any case: no surrounding spaces, and none
-    /// of <c>/ \ ? # %</c>, which would change the address it resolves to in the folder.
+    /// of <c>/ \ : ? # %</c>, which would change the address it resolves to in the folder (a colon reads as a URI scheme or,
+    /// on Windows, a drive) or the path of its download.
     /// </summary>
     public static bool IsValid(string name) =>
         name.Trim() == name
-        && name.IndexOfAny(['/', '\\', '?', '#', '%']) < 0
+        && name.IndexOfAny(['/', '\\', ':', '?', '#', '%']) < 0
         && name.Length > ".zip".Length
         && name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 }

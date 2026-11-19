@@ -106,7 +106,7 @@ internal static class RecentFile
         public string Labeled => Label(Workstream) + Body;
 
         /// <summary>The machine as agents read it after the date, <c>(win-main) </c>, or nothing when it has none.</summary>
-        public string MachineLabel => Machine is null ? "" : $"({Machine}) ";
+        public string MachineAfterDate => Machine is null ? "" : $"({Machine}) ";
     }
 
     /// <summary>

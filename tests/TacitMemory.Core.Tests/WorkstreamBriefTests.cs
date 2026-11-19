@@ -220,7 +220,7 @@ public sealed class WorkstreamBriefTests : IDisposable
 
         var result = await Brief("my-app");
 
-        Assert.Matches(new Regex(@"- 2026-11-05 \[[^\]]+\] 活动五"), result.Text);
+        Assert.Matches(new Regex(@"- 2026-11-05 \(test-machine\) \[[^\]]+\] 活动五"), result.Text);
         Assert.True(Position(result.Text, "活动五") < Position(result.Text, "活动四"));
         Assert.True(Position(result.Text, "活动四") < Position(result.Text, "活动三"));
         Assert.DoesNotContain("活动二", result.Text);

@@ -49,12 +49,14 @@ internal delegate Task<T> AwaitAnswers<T>();
 /// </summary>
 /// <param name="BudgetSeconds">The budget of the model judgments, in seconds.</param>
 /// <param name="BudgetRanOut">Whether the budget ran out before every judgment was answered.</param>
+/// <param name="ModelUnavailable">Whether a configured model failed or was cooling down, so some judgments were not answered.</param>
 /// <param name="Automatic">Part A: the categories the agent handles itself.</param>
 /// <param name="Proposals">Part B: the categories the agent gathers into one numbered list for the user.</param>
 internal sealed record ConsolidationReport(
     ConsolidationBaseline Baseline,
     int BudgetSeconds,
     bool BudgetRanOut,
+    bool ModelUnavailable,
     IReadOnlyList<ConsolidationSection> Automatic,
     IReadOnlyList<ConsolidationSection> Proposals)
 {
@@ -104,14 +106,16 @@ internal sealed record ConsolidationReport(
             new ConsolidationSection(ConsolidationTitles.DomainHygiene, DomainHygiene.Findings(config)),
             await LengthHints.ProduceAsync(context, cancellationToken),
         };
-        return new ConsolidationReport(context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, automatic, proposals);
+        return new ConsolidationReport(
+            context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, judgments.ModelUnavailable, automatic, proposals);
     }
 
     /// <summary>
-    /// Whether the report shows everything: every judgment answered within the budget and no category cut short. Only a pass
-    /// over a complete report may move the baseline.
+    /// Whether the report shows everything: every judgment answered within the budget by an available model, and no category
+    /// cut short. Only a pass over a complete report may move the baseline. A model that is not configured does not make the
+    /// report incomplete: without models the baseline would otherwise never move.
     /// </summary>
-    public bool Complete => !BudgetRanOut && !Automatic.Concat(Proposals).Any(section => section.CutShort);
+    public bool Complete => !BudgetRanOut && !ModelUnavailable && !Automatic.Concat(Proposals).Any(section => section.CutShort);
 
     /// <summary>The report as the consolidation report resource shows it, in English.</summary>
     public string Render()
@@ -155,6 +159,8 @@ internal sealed record ConsolidationReport(
         var reasons = new List<string>();
         if (BudgetRanOut)
             reasons.Add("the budget ran out before every judgment finished");
+        if (ModelUnavailable)
+            reasons.Add("a model was unavailable, so some judgments were not made");
         var cut = Automatic.Concat(Proposals).Where(section => section.CutShort).Select(section => section.Title).ToList();
         if (cut.Count > 0)
             reasons.Add($"{string.Join(", ", cut)} list{(cut.Count == 1 ? "s" : "")} only {MaxFindingsPerCategory} findings");

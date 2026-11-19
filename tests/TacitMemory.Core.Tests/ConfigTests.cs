@@ -399,6 +399,7 @@ public sealed class ConfigTests : IDisposable
     [InlineData("sub\\\\backup.zip")]
     [InlineData(".zip")]
     [InlineData("a#b.zip")]
+    [InlineData("c:backup.zip")]
     public void A_webdav_file_that_is_not_a_zip_file_name_is_refused_naming_the_key_path(string file)
     {
         WriteConfig(Models + $"backup: {{ webdav: {{ url: 'https://dav.example/tacit/', file: \"{file}\" }} }}\n");

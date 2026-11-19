@@ -487,7 +487,7 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task Every_increment_since_the_baseline_is_listed_past_twenty_and_the_report_stays_complete()
+    public async Task Every_increment_since_the_baseline_is_listed_past_twenty_and_does_not_count_as_cut_short()
     {
         _home.InitReady();
         for (var i = 0; i < 21; i++)
@@ -500,7 +500,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.Contains("tacit-memory/page-00", section);
         Assert.Contains("tacit-memory/page-20", section);
         Assert.DoesNotContain("more not listed", section);
-        Assert.Contains("\nComplete: yes.", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("only 20 findings", report);
     }
 
     [Fact]

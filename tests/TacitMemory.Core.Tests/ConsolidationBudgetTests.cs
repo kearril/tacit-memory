@@ -201,6 +201,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(text, Removal));
+        Assert.Contains("Complete: no; a model was unavailable, so some judgments were not made.", text);
     }
 
     [Fact]

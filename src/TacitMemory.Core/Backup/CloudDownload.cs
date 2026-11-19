@@ -24,14 +24,19 @@ internal sealed class CloudDownload(TacitOptions options, TacitConfig config, Se
 
     private static string FolderOf(TacitOptions options) => Path.Combine(options.TacitHome, "backups", FolderName);
 
-    /// <summary>Downloads the remote backup, replacing the previous download, and returns the file's full path.</summary>
+    /// <summary>
+    /// Downloads the remote backup and returns the file's full path. Earlier downloads go first, as their file name may be
+    /// one the config no longer names, which no later download would replace.
+    /// </summary>
     /// <exception cref="TacitException">The cloud backup is not configured, or the download failed.</exception>
     public async Task<string> FetchAsync(CancellationToken cancellationToken)
     {
         var webDav = config.Backup.WebDav
             ?? throw new TacitException(TacitError.CloudBackupNotConfigured, BackupMessages.CloudBackupNotConfigured.In(config.Language));
         var file = FileOf(options, webDav);
-        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        var folder = Directory.CreateDirectory(FolderOf(options));
+        foreach (var earlier in folder.EnumerateFiles())
+            Discard(earlier.FullName);
         using (var client = new WebDavClient(webDav, config.Language))
             await client.DownloadAsync(file, cancellationToken);
 
@@ -48,7 +53,7 @@ internal sealed class CloudDownload(TacitOptions options, TacitConfig config, Se
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // Left in place; the next download replaces it.
+            // Left in place; the next download clears it.
         }
     }
 }

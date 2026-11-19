@@ -175,7 +175,7 @@ internal static class ServerInstructionText
             return "";
 
         var lines = activities.Select(activity =>
-            $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.MachineLabel}{activity.Labeled}");
+            $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.MachineAfterDate}{activity.Labeled}");
         return $"<recent_activity days=\"{RecentSummary.WindowDays}\">\n{string.Join("\n", lines)}\n</recent_activity>";
     }
 

@@ -260,11 +260,11 @@ internal static class ConfigLoader
 
         var name = reader.Text(machine, "machine", "name");
         if (name is not null && !MachineName.IsValid(name))
-            reader.Error("machine.name", Messages.ConfigExpectedMachineName, name);
+            reader.Error(ConfigKeys.Machine.Name.Path, Messages.ConfigExpectedMachineName, name);
 
         var description = reader.Text(machine, "machine", "description");
         if (description is not null && description.IndexOfAny(TextFile.LineBreaks) >= 0)
-            reader.Error("machine.description", Messages.ConfigExpectedSingleLine);
+            reader.Error(ConfigKeys.Machine.Description.Path, Messages.ConfigExpectedSingleLine);
 
         return new MachineConfig(
             name is not null && MachineName.IsValid(name) ? name : MachineName.FromHost(options.HostName),
