@@ -285,7 +285,7 @@ _Avoid_: 临时备份、快照
 _Avoid_: 恢复备份、回滚点
 
 **云端备份**（Cloud backup）：
-用户执行 `tacit backup --remote` 时现场生成的一份备份，经 WebDAV 上传为 `backup.webdav.url` 目录下唯一的 `tacit-backup.zip`，每次原子替换远端那一份；只在执行命令时上传，本地不留副本。
+用户执行 `tacit backup --remote` 时现场生成的一份备份，经 WebDAV 上传为 `backup.webdav.url` 目录下的备份文件（`backup.webdav.file`，默认 `tacit-backup.zip`），每次原子替换远端那一份；只在执行命令时上传，本地不留副本。
 _Avoid_: 远程备份、同步、推送
 代码中以 `Cloud` 命名：`BackupTarget.Cloud`、`CloudBackupRecord`、`TacitError.CloudBackupFailed`、`TacitError.CloudBackupNotConfigured`。命令行 `--remote` 与管理 API 的 `target: "remote"`、`remote: true` 是规格定义的线上值，保持 `remote`，与代码名的对应只在此处说明。
 

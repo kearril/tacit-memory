@@ -33,13 +33,13 @@
 | 自动 | 每天第一次写入后 | `backups/auto-YYYY-MM-DD.zip` | 保留最近 `backup.keep` 份（默认 7；`0` 关闭自动备份） |
 | 手动 | `tacit backup` | `backups/manual-*.zip`，或 `--to` 指定的目录 | 永不自动清理 |
 | 保险 | 每次恢复前 | `backups/pre-restore-*.zip` | 不清理 |
-| 云端 | `tacit backup --remote` | 远端 `tacit-backup.zip`，只保留一份 | 每次替换 |
+| 云端 | `tacit backup --remote` | 远端 `backup.webdav.file`（默认 `tacit-backup.zip`），只保留一份 | 每次替换 |
 
 所有备份都含记忆仓库（含 `.git`，不含 `.cache`）、`config.yaml`、`prompts/`、`bindings.json` 与清单。生成的 skill 不进入备份。访问状态文件 `access.json` 也不进入备份，恢复不会改变访问密码。
 
 **云端备份**经通用 WebDAV 协议上传，任何支持 `PUT`、`MOVE`、`MKCOL`、`GET` 与 `DELETE` 的服务都可以用（`GET` 用于云端恢复，`DELETE` 只用于清理失败留下的 `.part` 文件）。在 `config.yaml` 中填写 `backup.webdav`（见 `docs/reference/configuration.md`「`backup`」）后执行 `tacit backup --remote`。远端不支持 `MOVE` 时报错，不会退回为直接覆盖。上传与恢复都只在执行命令时发生；上传不在本地留副本。
 
-**恢复**：`tacit restore --from <zip>` 从本地备份恢复，`tacit restore --remote` 从云端备份恢复；先看预览，确认后执行，恢复前自动生成保险备份。默认只恢复记忆仓库，加 `--include-config` 一并恢复 `config.yaml` 与 `prompts/`；`bindings.json` 永不恢复。恢复期间记忆工具的调用排队等待，结束后索引全量重建。`restore --remote` 先把云端备份下载到 `backups/.download/tacit-backup.zip`，恢复成功后删除，失败则保留以便排查。
+**恢复**：`tacit restore --from <zip>` 从本地备份恢复，`tacit restore --remote` 从云端备份恢复；先看预览，确认后执行，恢复前自动生成保险备份。默认只恢复记忆仓库，加 `--include-config` 一并恢复 `config.yaml` 与 `prompts/`；`bindings.json` 永不恢复。恢复期间记忆工具的调用排队等待，结束后索引全量重建。`restore --remote` 先把云端备份下载到 `backups/.download/<文件名>`，恢复成功后删除，失败则保留以便排查。
 
 完整规则见 `docs/design.md`「运行」中的「备份与恢复」。
 

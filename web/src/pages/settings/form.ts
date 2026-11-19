@@ -97,6 +97,7 @@ export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "backup.webdav.url": { section: "backup", kind: "text" },
   "backup.webdav.username": { section: "backup", kind: "text" },
   "backup.webdav.password": { section: "backup" },
+  "backup.webdav.file": { section: "backup", kind: "text" },
 };
 
 /** The fields the page edits, in the order they appear on it: each model's toggle comes before the fields it holds. */

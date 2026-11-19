@@ -20,16 +20,13 @@ internal enum CloudStage
 /// <summary>
 /// The WebDAV client of the cloud backup. It uses only the generic methods (PUT, MOVE, MKCOL, DELETE, GET) and HTTP basic
 /// authentication, which is sent only when a username is configured. <see cref="ReplaceAsync"/> replaces the remote
-/// backup atomically: it uploads <c>tacit-backup.zip.part</c> and then moves it over <c>tacit-backup.zip</c>, so a
-/// failed upload leaves the previous backup in place. No request is retried, and a service without MOVE is an error,
-/// never a plain overwrite. Failures are <see cref="TacitError.CloudBackupFailed"/> naming the stage and the reason; they
-/// never carry the password or the credentials of the URL.
+/// backup atomically: it uploads <c>&lt;file&gt;.part</c> and then moves it over the configured file, so a failed upload
+/// leaves the previous backup in place. No request is retried, and a service without MOVE is an error, never a plain
+/// overwrite. Failures are <see cref="TacitError.CloudBackupFailed"/> naming the stage and the reason; they never carry
+/// the password or the credentials of the URL.
 /// </summary>
 internal sealed class WebDavClient(WebDavConfig config, MemoryLanguage language) : IDisposable
 {
-    /// <summary>The one backup file on the remote service.</summary>
-    public const string CloudFileName = "tacit-backup.zip";
-
     /// <summary>How long one request may take, from sending it to the last byte of its answer, the body included.</summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
@@ -45,11 +42,11 @@ internal sealed class WebDavClient(WebDavConfig config, MemoryLanguage language)
     /// <exception cref="TacitException">The upload or the replacement failed; the remote backup that was there is unchanged.</exception>
     public async Task ReplaceAsync(string localFile, CancellationToken cancellationToken)
     {
-        var part = new Uri(config.Url, CloudFileName + ".part");
+        var part = new Uri(config.Url, config.File + ".part");
         try
         {
             await UploadAsync(part, localFile, cancellationToken);
-            await MoveAsync(part, new Uri(config.Url, CloudFileName), cancellationToken);
+            await MoveAsync(part, new Uri(config.Url, config.File), cancellationToken);
         }
         catch (TacitException)
         {
@@ -67,7 +64,7 @@ internal sealed class WebDavClient(WebDavConfig config, MemoryLanguage language)
     public async Task DownloadAsync(string localFile, CancellationToken cancellationToken)
     {
         using var attempt = new Attempt(cancellationToken);
-        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(config.Url, CloudFileName));
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(config.Url, config.File));
         try
         {
             using var response = await Exchange(request, CloudStage.Download, attempt, HttpCompletionOption.ResponseHeadersRead);

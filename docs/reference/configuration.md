@@ -44,7 +44,7 @@ decision:
   sameTopic: { certain: …, unlikely: … }
   ruleConflict: { certain: …, unlikely: … }
 retrieval: { candidates: 30, topK: 5, minRerankScore: … }
-backup: { keep: 7, webdav: { url: …, username: …, password: … } }
+backup: { keep: 7, webdav: { url: …, username: …, password: …, file: tacit-backup.zip } }
 ```
 
 - 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见 `docs/design.md`「辅助模型」中的「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
@@ -123,10 +123,12 @@ backup:
     url: https://<WebDAV 服务地址>/tacit/   # 目录；末尾的 / 可省略
     username: 你的用户名                   # 可省略，省略时不发送认证
     password: 你的密码                     # 可省略，改设环境变量 TACIT_WEBDAV_PASSWORD
+    file: win-main.zip                     # 可省略，默认 tacit-backup.zip
 ```
 
 - `backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。
 - 写了 `username` 时必须有密码（配置中或环境变量中），见第 3 节。
+- `backup.webdav.file`：目录下的备份文件名，云端备份写它、云端恢复读它；须以 `.zip` 结尾（不区分大小写），不含 `/ \ ? # %` 与首尾空格，否则报错。多台机器共用一个目录时各配一个名字。
 
 远端须支持的 WebDAV 方法与上传规则见 `docs/design.md`「运行」中的「备份与恢复」，操作步骤见 `docs/reference/operations.md`。
 

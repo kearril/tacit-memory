@@ -3,8 +3,8 @@ import { Setting, SettingsGroup, type SettingsForm, SettingsSection } from "./fi
 import { SecretField } from "./SecretField";
 
 /**
- * The backup section: how many automatic backups to keep, then the cloud backup's WebDAV folder, user name and password.
- * Emptying the folder and the user name turns the cloud backup off.
+ * The backup section: how many automatic backups to keep, then the cloud backup's WebDAV folder, user name, password and
+ * file name. Emptying the folder and the user name turns the cloud backup off.
  */
 export function BackupSection({ form }: { readonly form: SettingsForm }) {
   const dictionary = useDictionary();
@@ -24,6 +24,7 @@ export function BackupSection({ form }: { readonly form: SettingsForm }) {
           placeholder={text.usernameDefault}
         />
         <SecretField form={form} path="backup.webdav.password" text={text.fields.password} />
+        <Setting form={form} path="backup.webdav.file" text={text.fields.file} placeholder={text.fileDefault} />
       </SettingsGroup>
     </SettingsSection>
   );

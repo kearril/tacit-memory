@@ -2357,7 +2357,8 @@
                                   "backup.keep",
                                   "backup.webdav.url",
                                   "backup.webdav.username",
-                                  "backup.webdav.password"
+                                  "backup.webdav.password",
+                                  "backup.webdav.file"
                                 ]
                               },
                               "running": {
@@ -3345,7 +3346,8 @@
           "backup.keep",
           "backup.webdav.url",
           "backup.webdav.username",
-          "backup.webdav.password"
+          "backup.webdav.password",
+          "backup.webdav.file"
         ]
       },
       "ConfigProblem": {
@@ -5955,6 +5957,12 @@
             ]
           },
           "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "file": {
             "type": [
               "null",
               "string"

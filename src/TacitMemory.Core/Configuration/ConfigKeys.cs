@@ -219,6 +219,7 @@ internal static class ConfigKeys
             ? file with { Backup = file.Backup with { WebDav = webdav with { Password = value } } }
             : file,
     };
+    public static readonly ConfigEntry WebDavFile = new(ConfigKeyPath.BackupWebDavFile, "backup.webdav.file") { Value = file => file.Backup.WebDav?.File };
 
     /// <summary>Every key, in the order of the configuration reference.</summary>
     public static readonly IReadOnlyList<ConfigEntry> All =
@@ -230,7 +231,7 @@ internal static class ConfigKeys
         RemindAfterDays, RemindCandidates, BudgetSeconds, MaxConcurrency, HintEntryLength, HintResidentLength,
         .. SamePreference.All, .. SamePage.All, .. SameTopic.All, .. RuleConflict.All,
         Candidates, TopK, MinRerankScore,
-        Keep, WebDavUrl, WebDavUsername, WebDavPassword,
+        Keep, WebDavUrl, WebDavUsername, WebDavPassword, WebDavFile,
     ];
 
     private static readonly Dictionary<ConfigKeyPath, ConfigEntry> ById = All.ToDictionary(entry => entry.Id);

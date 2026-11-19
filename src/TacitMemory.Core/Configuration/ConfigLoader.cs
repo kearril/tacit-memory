@@ -342,11 +342,16 @@ internal static class ConfigLoader
     {
         const string path = "backup.webdav";
         var webdav = reader.Mapping(backup, "backup", "webdav");
-        reader.OnlyKnown(webdav, path, "url", "username", "password");
+        reader.OnlyKnown(webdav, path, "url", "username", "password", "file");
         var url = reader.Url(webdav, path, "url");
         var username = reader.Text(webdav, path, "username");
         var password = ReadSecret(reader, webdav, ConfigKeys.WebDavPassword, secrets, required: username is not null);
-        return url is null ? null : new WebDavConfig(AsDirectory(url), username, password);
+        var file = reader.Text(webdav, path, "file");
+        if (file is not null && !CloudFileName.IsValid(file))
+            reader.Error(ConfigKeys.WebDavFile.Path, Messages.ConfigExpectedCloudFileName, file);
+        return url is null
+            ? null
+            : new WebDavConfig(AsDirectory(url), username, password, file is not null && CloudFileName.IsValid(file) ? file : CloudFileName.Default);
     }
 
     /// <summary>The URL as a directory: a <c>/</c> is appended when its path does not end in one.</summary>

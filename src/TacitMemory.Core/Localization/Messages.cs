@@ -57,6 +57,9 @@ internal static class Messages
         "应为 1 到 32 个小写字母、数字或连字符，实际为 {0}",
         "must be 1 to 32 lowercase letters, digits or hyphens, but is {0}");
     public static readonly Localized ConfigExpectedSingleLine = new("只能是一行文字，不能包含换行", "must be a single line with no line breaks");
+    public static readonly Localized ConfigExpectedCloudFileName = new(
+        "应为以 .zip 结尾的文件名，不含 / \\ ? # % 与首尾空格，实际为 {0}",
+        "must be a file name ending in .zip, without / \\ ? # % or surrounding spaces, but is {0}");
     public static readonly Localized ConfigExpectedProvider = new(
         "可用取值为 cloudflare（省略即为通用协议），实际为 {0}",
         "the values are cloudflare (omit it for the generic protocol), but is {0}");

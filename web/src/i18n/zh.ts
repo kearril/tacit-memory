@@ -389,11 +389,16 @@ export const zh = {
       cloud: "云端（WebDAV）",
       urlDefault: "不填即不使用云端备份",
       usernameDefault: "可不填，不填时不发送认证",
+      fileDefault: "不填即 tacit-backup.zip",
       fields: {
         keep: { label: "自动备份份数", help: "backups/ 下自动备份保留的份数；0 只关闭自动备份。" },
         url: { label: "WebDAV 目录", help: "云端备份所在的 WebDAV 目录地址，末尾的 / 可省略。" },
         username: { label: "用户名", help: "WebDAV 的用户名；填了用户名就必须有密码。" },
         password: { label: "密码", help: "WebDAV 的密码。" },
+        file: {
+          label: "文件名",
+          help: "备份在 WebDAV 目录里的文件名，以 .zip 结尾；云端备份写这个文件，云端恢复也从它读取。多台机器共用一个目录时各取一个名字。",
+        },
       },
     },
     access: {

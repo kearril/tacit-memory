@@ -73,7 +73,7 @@ public sealed class ConfigTests : IDisposable
             consolidation: { hintEntryLength: 120, hintResidentLength: 4000 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { minRerankScore: 0.3 }
-            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw } }
+            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw, file: win-main.zip } }
             """);
         Directory.CreateDirectory(Path.Combine(_home.UserHome, "notes", "memory", ".git"));
 
@@ -87,7 +87,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
-        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, InConfig: "pw"))), config.Backup);
+        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, InConfig: "pw"), "win-main.zip")), config.Backup);
     }
 
     [Theory]
@@ -384,13 +384,28 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void Without_a_username_webdav_needs_no_password_and_the_url_becomes_a_directory()
+    public void Without_a_username_webdav_needs_no_password_the_url_becomes_a_directory_and_the_file_takes_its_default()
     {
         WriteConfig(Models + "backup: { webdav: { url: 'https://dav.example/tacit' } }\n");
 
         var webdav = _home.Tacit().LoadConfig().Backup.WebDav;
 
-        Assert.Equal(new WebDavConfig(new Uri("https://dav.example/tacit/"), null, null), webdav);
+        Assert.Equal(new WebDavConfig(new Uri("https://dav.example/tacit/"), null, null, "tacit-backup.zip"), webdav);
+    }
+
+    [Theory]
+    [InlineData("backup.tar")]
+    [InlineData("sub/backup.zip")]
+    [InlineData("sub\\\\backup.zip")]
+    [InlineData(".zip")]
+    [InlineData("a#b.zip")]
+    public void A_webdav_file_that_is_not_a_zip_file_name_is_refused_naming_the_key_path(string file)
+    {
+        WriteConfig(Models + $"backup: {{ webdav: {{ url: 'https://dav.example/tacit/', file: \"{file}\" }} }}\n");
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("backup.webdav.file", message);
     }
 
     [Fact]

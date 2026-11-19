@@ -93,7 +93,11 @@ public sealed record BackupConfig(int Keep, WebDavConfig? WebDav);
 /// <param name="Url">The remote directory; always ends in <c>/</c>.</param>
 /// <param name="Username"><c>null</c> when not configured: no authentication is sent.</param>
 /// <param name="Password"><c>null</c> when neither the environment nor the config holds one.</param>
-public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Password);
+/// <param name="File">
+/// The name of the backup file in the remote directory, which the backup writes and the restore reads; <c>tacit-backup.zip</c>
+/// when not configured.
+/// </param>
+public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Password, string File);
 
 /// <summary>This machine's identity: its normalized name and optional single-line description.</summary>
 /// <param name="Name">Configured machine name, or normalized from the host name when omitted.</param>

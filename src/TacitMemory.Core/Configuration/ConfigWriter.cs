@@ -74,6 +74,7 @@ internal static partial class ConfigWriter
             target.Add("url", Required(webdav.Url));
             target.Add("username", Text(webdav.Username));
             target.Add("password", Text(webdav.Password));
+            target.Add("file", webdav.File is null or CloudFileName.Default ? null : Text(webdav.File));
         }
 
         var output = new StringBuilder();

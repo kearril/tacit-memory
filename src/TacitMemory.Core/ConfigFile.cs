@@ -90,7 +90,7 @@ public sealed record ConfigFile
             Retrieval = new RetrievalFile(config.Retrieval.Candidates, config.Retrieval.TopK, config.Retrieval.MinRerankScore),
             Backup = new BackupFile(
                 config.Backup.Keep,
-                webdav is null ? null : new WebDavFile(webdav.Url.OriginalString, webdav.Username, webdav.Password?.InConfig)),
+                webdav is null ? null : new WebDavFile(webdav.Url.OriginalString, webdav.Username, webdav.Password?.InConfig, webdav.File)),
         };
     }
 }
@@ -130,4 +130,5 @@ public sealed record RetrievalFile(int? Candidates = null, int? TopK = null, dou
 /// <param name="WebDav"><c>null</c> when there is no cloud backup.</param>
 public sealed record BackupFile(int? Keep = null, WebDavFile? WebDav = null);
 
-public sealed record WebDavFile(string? Url, string? Username, string? Password);
+/// <param name="File"><c>null</c> for the default name, <c>tacit-backup.zip</c>.</param>
+public sealed record WebDavFile(string? Url, string? Username, string? Password, string? File = null);

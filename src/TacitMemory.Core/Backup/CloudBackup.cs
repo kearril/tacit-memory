@@ -39,7 +39,7 @@ internal sealed class CloudBackup(TacitOptions options, TacitConfig config, Serv
         try
         {
             Directory.CreateDirectory(work);
-            var file = Path.Combine(work, WebDavClient.CloudFileName);
+            var file = Path.Combine(work, webDav.File);
             var bytes = await PackAsync(file, gate, cancellationToken);
             using (var client = new WebDavClient(webDav, config.Language))
                 await client.ReplaceAsync(file, cancellationToken);
@@ -73,7 +73,7 @@ internal sealed class CloudBackup(TacitOptions options, TacitConfig config, Serv
     private static string LocationOf(WebDavConfig webDav)
     {
         var folder = new UriBuilder(webDav.Url) { UserName = "", Password = "" }.Uri;
-        return new Uri(folder, WebDavClient.CloudFileName).AbsoluteUri;
+        return new Uri(folder, webDav.File).AbsoluteUri;
     }
 
     private string? PlaintextNotice()

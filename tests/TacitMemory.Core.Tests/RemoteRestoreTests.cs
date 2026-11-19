@@ -114,6 +114,24 @@ public sealed class RemoteRestoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_configured_file_name_is_what_the_preview_downloads_and_the_restore_deletes()
+    {
+        var service = Start($"  webdav: {{ url: '{FolderUrl}', username: {User}, file: mac-mini.zip }}");
+        var remoteHead = await UploadBackupThenWriteAsync(service);
+        _dav.PutFile(RemoteFile, [1, 2, 3]);
+        var download = Path.Combine(BackupsDirectory, ".download", "mac-mini.zip");
+
+        var preview = await service.Maintenance.PreviewRestoreAsync(null, remote: true);
+        Assert.Equal(Path.GetFullPath(download), Path.GetFullPath(preview.Path), StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(_dav.FileAt("/dav/tacit/mac-mini.zip"), File.ReadAllBytes(download));
+
+        await service.Maintenance.RestoreAsync(preview.Path, config: false);
+
+        Assert.Equal(remoteHead, Head());
+        Assert.False(File.Exists(download));
+    }
+
+    [Fact]
     public async Task A_remote_with_no_cloud_backup_says_so_and_downloads_nothing()
     {
         var service = Start();

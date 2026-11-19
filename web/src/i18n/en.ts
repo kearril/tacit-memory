@@ -396,6 +396,7 @@ export const en = {
       cloud: "Cloud (WebDAV)",
       urlDefault: "Leave empty for no cloud backup",
       usernameDefault: "Optional; without it no credentials are sent",
+      fileDefault: "Empty: tacit-backup.zip",
       fields: {
         keep: {
           label: "Automatic backups kept",
@@ -407,6 +408,10 @@ export const en = {
         },
         username: { label: "User name", help: "The WebDAV user name; with a user name, a password is needed too." },
         password: { label: "Password", help: "The WebDAV password." },
+        file: {
+          label: "File name",
+          help: "The backup's file in the WebDAV folder, ending in .zip; the cloud backup writes it and the cloud restore reads it. Give each machine its own name when they share a folder.",
+        },
       },
     },
     access: {

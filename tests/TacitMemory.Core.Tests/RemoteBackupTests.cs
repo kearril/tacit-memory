@@ -105,6 +105,21 @@ public sealed class RemoteBackupTests : IDisposable
     }
 
     [Fact]
+    public async Task A_configured_file_name_is_where_the_upload_goes_and_the_default_file_is_left_alone()
+    {
+        _dav.CreateCollection("/dav/tacit/");
+        _dav.PutFile(RemoteFile, [1, 2, 3]);
+        var service = StartWith($"  webdav: {{ url: '{FolderUrl}', username: {User}, file: win-main.zip }}");
+
+        var result = await service.Maintenance.BackupAsync(BackupTarget.Cloud);
+
+        Assert.Equal(["/dav/tacit/win-main.zip.part", "/dav/tacit/win-main.zip.part"], _dav.Requests.Select(request => request.Path));
+        Assert.NotNull(_dav.FileAt("/dav/tacit/win-main.zip"));
+        Assert.Equal([1, 2, 3], _dav.FileAt(RemoteFile));
+        Assert.Equal(new Uri(_dav.Address, "dav/tacit/win-main.zip").AbsoluteUri, result.Location);
+    }
+
+    [Fact]
     public async Task Nothing_is_kept_under_backups_when_the_cloud_backup_is_made()
     {
         _dav.CreateCollection("/dav/tacit/");
