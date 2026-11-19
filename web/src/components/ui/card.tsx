@@ -67,9 +67,13 @@ function Card({ className, interactive = false, variant = "raised", label, child
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
+function CardTitle({
+  as: Tag = "h2",
+  className,
+  ...props
+}: React.ComponentProps<"h2"> & { readonly as?: "h1" | "h2" }) {
   return (
-    <h2
+    <Tag
       data-slot="card-title"
       className={cn("text-lg leading-(--tk-line-height-tight) font-semibold text-balance", className)}
       {...props}

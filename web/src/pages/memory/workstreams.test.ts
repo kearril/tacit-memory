@@ -92,6 +92,16 @@ describe("directoryRows", () => {
   it("sorts by uses, most first, keeping the brief's order on a tie", () => {
     expect(ids("uses")).toEqual(["a/two", "a/three", "a/one", "a/four"]);
   });
+
+  it("does not mutate the input groups", () => {
+    const groups: BriefPageGroup[] = GROUPS.map((group) => ({ ...group, pages: [...group.pages] }));
+    directoryRows(groups, "changed");
+    directoryRows(groups, "uses");
+    expect(groups.map((group) => group.pages.map((p) => p.id))).toEqual([
+      ["a/one", "a/two"],
+      ["a/three", "a/four"],
+    ]);
+  });
 });
 
 describe("openItemText", () => {

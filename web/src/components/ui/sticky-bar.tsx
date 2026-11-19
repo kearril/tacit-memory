@@ -134,41 +134,27 @@ function StickyBar({
   readonly className?: string;
   readonly children: ReactNode | ((stuck: boolean) => ReactNode);
 }) {
-  const bar = useRef<HTMLElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
   const stuck = useStuck(bar, edge);
   const fold = useFold(bar, stuck);
   usePublishBottom(bar, edge);
-  const sharedClassName = cn(
-    "sticky z-(--tk-layer-nav) -mx-md bg-canvas px-md py-sm transition-[margin,border-radius,box-shadow,background-color]",
-    edge === "top" ? "top-[calc(var(--tk-size-nav-bar)+var(--tk-space-sm))] lg:top-sm" : "bottom-sm",
-    stuck && "mx-0 rounded-lg bg-surface shadow-raised",
-    className,
-  );
-  const content = typeof children === "function" ? children(stuck) : children;
-  if (role === "search") {
-    return (
-      <search
-        ref={bar}
-        style={{ marginBottom: fold }}
-        data-stuck={stuck || undefined}
-        className={sharedClassName}
-        {...props}
-      >
-        {content}
-      </search>
-    );
-  }
+  const Tag = role === "search" ? "search" : "div";
   return (
-    <div
-      ref={bar as RefObject<HTMLDivElement | null>}
+    <Tag
+      ref={bar}
       style={{ marginBottom: fold }}
-      role={role}
+      role={role === "search" ? undefined : role}
       data-stuck={stuck || undefined}
-      className={sharedClassName}
+      className={cn(
+        "sticky z-(--tk-layer-nav) -mx-md bg-canvas px-md py-sm transition-[margin,border-radius,box-shadow,background-color]",
+        edge === "top" ? "top-[calc(var(--tk-size-nav-bar)+var(--tk-space-sm))] lg:top-sm" : "bottom-sm",
+        stuck && "mx-0 rounded-lg bg-surface shadow-raised",
+        className,
+      )}
       {...props}
     >
-      {content}
-    </div>
+      {typeof children === "function" ? children(stuck) : children}
+    </Tag>
   );
 }
 

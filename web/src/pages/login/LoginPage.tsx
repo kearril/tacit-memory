@@ -6,7 +6,7 @@ import { ApiError } from "../../api/client";
 import { login, SESSION_QUERY_KEY } from "../../api/session";
 import { AppIcon } from "../../components/app-icon";
 import { Button } from "../../components/ui/button";
-import { Card, CardDescription } from "../../components/ui/card";
+import { Card, CardDescription, CardTitle } from "../../components/ui/card";
 import { PasswordInput } from "../../components/ui/password-input";
 import { Label } from "../../components/ui/label";
 import { destinationAfterLogin } from "../../app/return-target";
@@ -60,9 +60,9 @@ export function LoginPage() {
         <div className="grid justify-items-start gap-md">
           <AppIcon />
           <div className="grid gap-xs">
-            <h1 className="text-xl leading-(--tk-line-height-tight) font-semibold text-balance">
+            <CardTitle as="h1" className="text-xl">
               {dictionary.login.title}
-            </h1>
+            </CardTitle>
             <CardDescription>{dictionary.login.description}</CardDescription>
           </div>
         </div>

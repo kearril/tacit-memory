@@ -47,8 +47,11 @@ export function RootLayout() {
   }, [session.data]);
 
   useEffect(() => {
-    document.title = pageTitleOf(location.pathname, dictionaryFor(session.data?.language));
-  }, [location.pathname, session.data?.language]);
+    document.title =
+      session.data === undefined
+        ? dictionaryFor(undefined).appName
+        : pageTitleOf(location.pathname, dictionaryFor(session.data.language));
+  }, [location.pathname, session.data]);
 
   if (session.isError) {
     return (
