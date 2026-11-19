@@ -4,7 +4,7 @@ namespace TacitMemory.Core.Localization;
 internal static class RequestMessages
 {
     public static readonly Localized ConfigChanged = new(
-        "config.yaml 在你打开设置页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
+        "config.yaml 在打开设置页后已被修改，保存会覆盖这些修改。请重新载入后再改。",
         "config.yaml was changed after you opened the settings page, and saving would overwrite that change. Load it again, then make your changes.");
 
     public static readonly Localized PromptUnknown = new(
@@ -12,7 +12,7 @@ internal static class RequestMessages
         "{0} is not a prompt document. The prompt documents are instructions, rules, resident and skill.");
 
     public static readonly Localized PromptChanged = new(
-        "prompts/{0} 在你打开提示词页之后被修改过，保存会覆盖这些修改。请重新载入后再改。",
+        "prompts/{0} 在打开提示词页后已被修改，保存会覆盖这些修改。请重新载入后再改。",
         "prompts/{0} was changed after you opened the prompts page, and saving would overwrite that change. Load it again, then make your changes.");
 
     public static readonly Localized LogDateInvalid = new("{0} 不是日期，请写成 2026-11-14 这样的形式。", "{0} is not a date; write it like 2026-11-14.");

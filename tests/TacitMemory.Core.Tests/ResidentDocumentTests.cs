@@ -75,7 +75,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         AssertInOrder(Agents(),
             "## Situational rules\n",
-            "- network-proxy: 改代理、分流或测速时 (1 entry)\n");
+            "- db-migration: 执行数据库迁移时 (1 entry)\n");
     }
 
     [Fact]
@@ -368,8 +368,8 @@ public sealed class ResidentDocumentTests : IDisposable
         ## Profile
         - f1
 
-        ## Domain: network-proxy
-        Trigger: 改代理、分流或测速时
+        ## Domain: db-migration
+        Trigger: 执行数据库迁移时
         ### Working rules
         - 域内规则XYZ
 
@@ -402,7 +402,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         AssertInOrder(Agents(),
             "- f1\n\n## Situational rules\n",
-            "- network-proxy: 改代理、分流或测速时 (1 entry)\n",
+            "- db-migration: 执行数据库迁移时 (1 entry)\n",
             "- alpha: 一号主线。 Recent: 在收敛。\n",
             "</user_memory>");
         Assert.DoesNotContain("## Recent weeks", Agents());
@@ -548,7 +548,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        Assert.Contains("- network-proxy: 改代理、分流或测速时 (1 entry)", text);
+        Assert.Contains("- db-migration: 执行数据库迁移时 (1 entry)", text);
         Assert.DoesNotContain("域内规则XYZ", text);
         Assert.DoesNotContain("项目规则QRS", text);
         Assert.DoesNotContain("## Domain:", text);
@@ -578,7 +578,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var text = Agents();
 
-        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- network-proxy", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha: 一号主线。\n</user_memory>");
+        AssertInOrder(text, "## Situational rules\nRULES-GUIDE\n- db-migration", "## Workstreams\nWORKSTREAMS-GUIDE\n- alpha: 一号主线。\n</user_memory>");
     }
 
     [Fact]

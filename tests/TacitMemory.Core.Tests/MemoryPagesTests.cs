@@ -85,7 +85,7 @@ public sealed class MemoryPagesTests : IDisposable
     public async Task A_type_outside_the_four_is_given_as_written_and_a_missing_one_as_none()
     {
         await Create("ops/meeting", "周会", ToolValues.PageTypes.Work, null, new PageSectionInput("产出", "定了排期。"));
-        await Create("ops/plain", "随记", ToolValues.PageTypes.Work, null, new PageSectionInput("产出", "随手记。"));
+        await Create("ops/plain", "备忘", ToolValues.PageTypes.Work, null, new PageSectionInput("产出", "临时记录。"));
         File.WriteAllText(PagePath("ops/meeting"), File.ReadAllText(PagePath("ops/meeting")).Replace("type: work", "type: meeting"));
         File.WriteAllText(PagePath("ops/plain"), File.ReadAllText(PagePath("ops/plain")).Replace("type: work\n", ""));
 

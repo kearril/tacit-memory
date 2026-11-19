@@ -10,7 +10,7 @@ internal static class Messages
         "远端 {0} 上还没有记忆：先在已有记忆的机器上把 sync.remote 设为它并运行 tacit sync，再在这里执行 init --remote。",
         "The remote {0} holds no memory yet: on the machine that has the memory, set sync.remote to it and run tacit sync, then run init --remote here.");
     public static readonly Localized InitRemoteMemoryTaken = new(
-        "目录 {0} 不为空，且不是 {1} 的克隆：init --remote 只往空目录里克隆。要把这台机器已有的记忆推上去，在 config.yaml 中设 sync.remote 后运行 tacit sync；要换成远端的记忆，先移走这个目录。",
+        "目录 {0} 不为空，且不是 {1} 的克隆：init --remote 只往空目录里克隆。若要将本机已有记忆推送到远端，请在 config.yaml 中设置 sync.remote 后运行 tacit sync；若要改用远端记忆，请先移出该目录。",
         "The directory {0} is not empty and is not a clone of {1}: init --remote only clones into an empty directory. To push this machine's memory, set sync.remote in config.yaml and run tacit sync; to take the remote's memory instead, move this directory away first.");
     public static readonly Localized InitRemoteConfigWithout = new(
         "{0} 已存在，但没有设 sync.remote。init 不改写已有的配置：请在其中加上 sync.remote: {1}，再执行 init --remote。",
@@ -53,7 +53,7 @@ internal static class Messages
         "{0} cannot be parsed at line {1}, column {2}: {3}");
     public static readonly Localized ConfigErrors = new("{0} 有误：", "{0} has errors:");
     public static readonly Localized ConfigErrorLine = new("- {0}：{1}", "- {0}: {1}");
-    public static readonly Localized ConfigUnknownKey = new("不认识的配置项", "unknown setting");
+    public static readonly Localized ConfigUnknownKey = new("未识别的配置项", "unknown setting");
     public static readonly Localized ConfigRequired = new("必填，不能为空", "required and must not be empty");
     public static readonly Localized ConfigExpectedMapping = new("应为一组键值", "must be a mapping of keys to values");
     public static readonly Localized ConfigExpectedText = new("应为文本", "must be text");
@@ -160,7 +160,7 @@ internal static class Messages
         "建议的服务名：tacit",
         "Suggested server name: tacit");
     public static readonly Localized McpPortReminder = new(
-        "改了 server.port 后，请自行更新客户端中的 MCP 配置；tacit 不再替你修改它。",
+        "修改 server.port 后，请自行更新客户端中的 MCP 配置；tacit 不会自动修改客户端配置。",
         "After changing server.port, update the MCP configuration in your client yourself; tacit no longer edits it.");
     public static readonly Localized SkillWritten = new("已写入 skill：{0}", "Wrote the skill: {0}");
     public static readonly Localized SkillUnchanged = new("skill 已是最新：{0}", "The skill is up to date: {0}");
@@ -183,7 +183,7 @@ internal static class Messages
         "skill 链接 {0} 仍被 {1} 使用，保留。",
         "The skill link {0} is still used by {1}; kept.");
     public static readonly Localized SkillLinkOccupied = new(
-        "{0} 已存在且不是指向 tacit 的 skill 链接，未建立任何链接、未改动其他文件。请先移走或改名后重试。",
+        "{0} 已存在且不是指向 tacit 的 skill 链接，未建立任何链接、未改动其他文件。请先移除或重命名后重试。",
         "{0} already exists and is not tacit's skill link; no link was made and no other file was changed. Move or rename it, then try again.");
     public static readonly Localized SkillLinkFailed = new(
         "无法建立 skill 链接 {0}（指向 {1}）：{2}。本次建立的链接已撤回，未改动其他文件。",

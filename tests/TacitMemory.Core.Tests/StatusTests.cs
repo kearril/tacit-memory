@@ -137,7 +137,7 @@ public sealed class StatusTests : IDisposable
         Assert.False(service.Running);
         Assert.True(service.OtherProgramAnswered);
         Assert.Equal(
-            [$"服务未运行：端口 {config.Port} 有其他程序在回答", $"地址：http://127.0.0.1:{config.Port}/mcp", $"Web 界面：http://127.0.0.1:{config.Port}/ui/"],
+            [$"服务未运行：端口 {config.Port} 已被其他程序占用", $"地址：http://127.0.0.1:{config.Port}/mcp", $"Web 界面：http://127.0.0.1:{config.Port}/ui/"],
             service.Lines);
     }
 
@@ -149,7 +149,7 @@ public sealed class StatusTests : IDisposable
 
         Assert.Equal("服务未运行，先执行 tacit serve。", tacit.ServiceNotRunningMessage(config.Language, config.Port, portAnsweredByOther: false));
         Assert.Equal(
-            $"端口 {config.Port} 有其他程序在回答，常驻服务未运行。请先执行 tacit serve，或在 config.yaml 中修改 server.port。",
+            $"端口 {config.Port} 已被其他程序占用，常驻服务未运行。请先执行 tacit serve，或在 config.yaml 中修改 server.port。",
             tacit.ServiceNotRunningMessage(config.Language, config.Port, portAnsweredByOther: true));
     }
 
@@ -302,7 +302,7 @@ public sealed class StatusTests : IDisposable
 
         Assert.False(service.Running);
         Assert.True(service.OtherProgramAnswered);
-        Assert.Equal(["服务未运行：端口 19001 有其他程序在回答", "地址：http://127.0.0.1:19001/mcp", "Web 界面：http://127.0.0.1:19001/ui/"], service.Lines);
+        Assert.Equal(["服务未运行：端口 19001 已被其他程序占用", "地址：http://127.0.0.1:19001/mcp", "Web 界面：http://127.0.0.1:19001/ui/"], service.Lines);
     }
 
     [Fact]

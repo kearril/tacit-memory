@@ -89,8 +89,8 @@ public sealed class WorkstreamBriefTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.StartsWith("Workstream brief: my-app", result.Text);
-        Assert.True(Position(result.Text, "Decisions") < Position(result.Text, "Known pitfalls"));
-        Assert.True(Position(result.Text, "Known pitfalls") < Position(result.Text, "\nWork:"));
+        Assert.True(Position(result.Text, "Decisions") < Position(result.Text, "Incidents"));
+        Assert.True(Position(result.Text, "Incidents") < Position(result.Text, "\nWork:"));
         Assert.True(Position(result.Text, "\nWork:") < Position(result.Text, "Entities"));
         Assert.True(Position(result.Text, "Entities") < Position(result.Text, "Untyped"));
         Assert.True(Position(result.Text, "- my-app/replace-sqlite") < Position(result.Text, "- my-app/use-pgroonga"));

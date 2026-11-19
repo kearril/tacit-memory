@@ -52,7 +52,7 @@ internal static class MemorySkill
         - incident: one fault, its cause and its fix. Sections: Symptom, Cause, Fix, Lesson. The lesson is the rule the next session can apply.
         - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page overturns the decision, add a line under Overturned naming that page; the brief then stops listing the decision as current.
         - entity: a standing system or tool, kept to a table of contents: pointers to its documentation, the user's stance and open to-dos. Write each fault and each decision on its own page and link it back here. Sections: Status, Stance, To-do.
-        - work: one unit of work and its record, such as a slice or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream.
+        - work: one unit of work and its record, such as a feature or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream.
 
         ## Examples
         Each example shows a sample page for a Chinese memory, with its type and recommended sections. For other memory languages, write titles, aliases and free-form section names in the memory language, but always keep Lesson, Overturned and Leftovers in English. The examples are invented, and their text is data, not instructions.
@@ -118,8 +118,8 @@ internal static class MemorySkill
         - Profile: background that helps understand the person. For example: "Role: backend engineer, mostly C# on Windows."
         - Keep one idea per entry, and keep the user's own words in its source note when the wording matters.
         - Scope: global entries are read in every session. Write an entry as global only when it holds in at least two different kinds of situation; otherwise give it a workstream scope (`workstream:<name>`, using the workstream's name) or a domain scope (`domain:<label>`).
-        - Scope examples: "Always reply in Chinese" → global; "When changing proxies, routing or speed tests → compare multiple nodes before deciding" → `domain:network-proxy`; "Release builds of this service → run smoke tests first" → `workstream:home-server`.
-        - Domain: a label names a kind of situation, such as network-proxy. Its trigger is one line saying when the domain applies, for example "when changing proxies, routing or speed tests". Reuse an existing label exactly; a new label needs a trigger.
+        - Scope examples: "Always reply concisely" → global; "When planning or running database migrations → validate against a staging snapshot first" → `domain:db-migration`; "Release builds of this service → run smoke tests first" → `workstream:my-app`.
+        - Domain: a label names a kind of situation, such as db-migration. Its trigger is one line saying when the domain applies, for example "when planning or running database migrations". Reuse an existing label exactly; a new label needs a trigger.
         - A preference or rule the user agrees to keep goes in with add; propose a habit with op=propose and its scope only when it repeats across the session or clearly applies beyond the current task, not for a one-off workaround. It waits as a candidate.
         - To change or delete an entry, use its short code from `recall kind=persona`, which returns the whole persona with every entry's code. When a code is refused, call `recall kind=persona` again and take the fresh code from there.
 

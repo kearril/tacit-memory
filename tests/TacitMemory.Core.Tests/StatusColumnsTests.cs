@@ -626,7 +626,7 @@ public sealed class StatusColumnsTests : IDisposable
         var clients = (await OfflineReport()).Clients!;
 
         Assert.Equal("客户端", clients.Title);
-        Assert.Equal("尚未有客户端连接过服务。", Assert.Single(clients.Lines));
+        Assert.Equal("尚无客户端连接过服务。", Assert.Single(clients.Lines));
         Assert.Empty(clients.Items);
         Assert.All(((IStatusColumn)clients).LineLevels(), level => Assert.Null(level));
     }

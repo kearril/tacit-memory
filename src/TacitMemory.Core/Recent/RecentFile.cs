@@ -105,7 +105,7 @@ internal static class RecentFile
         /// <summary>The activity's text with its workstream label in front, as the log shows it.</summary>
         public string Labeled => Label(Workstream) + Body;
 
-        /// <summary>The machine as agents read it after the date, <c>(win-main) </c>, or nothing when it has none.</summary>
+        /// <summary>The machine as agents read it after the date, <c>(dev-box) </c>, or nothing when it has none.</summary>
         public string MachineAfterDate => Machine is null ? "" : $"({Machine}) ";
     }
 

@@ -109,14 +109,14 @@ public sealed class RemoteBackupTests : IDisposable
     {
         _dav.CreateCollection("/dav/tacit/");
         _dav.PutFile(RemoteFile, [1, 2, 3]);
-        var service = StartWith($"  webdav: {{ url: '{FolderUrl}', username: {User}, file: win-main.zip }}");
+        var service = StartWith($"  webdav: {{ url: '{FolderUrl}', username: {User}, file: workstation.zip }}");
 
         var result = await service.Maintenance.BackupAsync(BackupTarget.Cloud);
 
-        Assert.Equal(["/dav/tacit/win-main.zip.part", "/dav/tacit/win-main.zip.part"], _dav.Requests.Select(request => request.Path));
-        Assert.NotNull(_dav.FileAt("/dav/tacit/win-main.zip"));
+        Assert.Equal(["/dav/tacit/workstation.zip.part", "/dav/tacit/workstation.zip.part"], _dav.Requests.Select(request => request.Path));
+        Assert.NotNull(_dav.FileAt("/dav/tacit/workstation.zip"));
         Assert.Equal([1, 2, 3], _dav.FileAt(RemoteFile));
-        Assert.Equal(new Uri(_dav.Address, "dav/tacit/win-main.zip").AbsoluteUri, result.Location);
+        Assert.Equal(new Uri(_dav.Address, "dav/tacit/workstation.zip").AbsoluteUri, result.Location);
     }
 
     [Fact]

@@ -79,7 +79,7 @@ export const zh = {
     cleared: "访问密码已清除。",
     clearFailed: "未能清除访问密码",
     clearBlocked: (address: string) =>
-      `额外监听（${address}）开着时不能清除访问密码，否则其他设备会在没有密码的情况下连上服务。要清除，先在 config.yaml 中删去 server.host 并重启服务。`,
+      `额外监听（${address}）启用时不能清除访问密码，否则其他设备无需密码即可连上服务。要清除，请先在 config.yaml 中移除 server.host 并重启服务。`,
   },
   prompts: {
     /** The label of the list of documents in the sidebar. */
@@ -187,7 +187,7 @@ export const zh = {
       error: { code: "ERR", name: "错误" },
     } satisfies Record<ServiceLogLevel, unknown>,
     loadFailed: "读取日志失败",
-    emptyToday: "今天还没有日志。服务写下第一条后会出现在这里。",
+    emptyToday: "今天还没有日志。服务写入第一条日志后会显示在这里。",
     emptyDay: "这一天的日志是空的。",
     noLog: (date: string) => `${date} 没有日志。日志保留最近 14 天。`,
     backToToday: "回到今天",
@@ -320,14 +320,14 @@ export const zh = {
       bindFailed: "绑定没有完成",
       bound: (client: string) => `已绑定 ${client}`,
       mcpTitle: "在客户端中注册 MCP 服务",
-      mcpNote: "MCP 只接受本机连接：请在这台主机上的客户端中注册，tacit 不替你修改客户端的配置。",
+      mcpNote: "MCP 只接受本机连接：请在这台主机上的客户端中注册，tacit 不会自动修改客户端配置。",
       mcp: { url: "端点", transport: "传输方式", name: "服务名" },
       details: "查看做了什么",
       createdFolders: "以下目录原先不存在，已新建。请确认客户端读取的就是这里：",
     },
     machine: {
-      summary: "这台机器在记忆里的名字与定位说明，出现在常驻区块开头，也会自动标在它写下的活动上。",
-      descriptionDefault: "可不填，如「工作站」「家里服务器」",
+      summary: "这台机器在记忆里的名字与定位说明，出现在常驻区块开头，也会自动标在它写入的活动上。",
+      descriptionDefault: "可不填，如「工作站」「测试服务器」",
       fields: {
         name: {
           label: "机器名",
@@ -340,7 +340,7 @@ export const zh = {
       },
     },
     models: {
-      summary: "检索和写入时用到的三个模型。关掉的模型保存后从配置中移除，填过的内容留在页面上。",
+      summary: "检索和写入时用到的三个模型。停用的模型在保存后会从配置中移除，已填写的内容会保留在页面上。",
       enable: (model: string) => `启用${model}`,
       edit: "编辑",
       collapse: "收起",
@@ -350,7 +350,7 @@ export const zh = {
         decision: "写入时判断是否重复或冲突",
       },
       offLine: (use: string) => `未启用 · ${use}`,
-      offHint: "未启用：可以先填好，打开开关并保存后生效。",
+      offHint: "未启用：可预先填写，启用并保存后生效。",
       noModel: "未填模型 ID",
       probeNote: "探测已保存的配置，看模型能否连通。",
       providers: { generic: "通用协议", cloudflare: "Cloudflare" },
@@ -448,12 +448,13 @@ export const zh = {
     },
     judgment: {
       summary: "一次检索取多少、返回多少，以及写入时判断要多有把握才自动处理。",
-      calibration: "判断阈值的默认值是用某一个决策模型实测标定的。换用其他决策模型后可能不再适用，需自行核对并调整。",
+      calibration:
+        "判断阈值的默认值基于 TypeSafe jev-latest 实测标定。换用其他决策模型后可能不再适用，请自行核对并调整。",
       retrieval: "检索",
       thresholds: "判断阈值",
       certain: "确定 ≥",
       unlikely: "否定 ≤",
-      thresholdsHelp: "模型给出的概率不低于上阈值为确定，不高于下阈值为否定，其间为拿不准；拿不准的不自动处理。",
+      thresholdsHelp: "模型给出的概率不低于上阈值为确定，不高于下阈值为否定，其间为不确定；不确定的情形不自动处理。",
       fields: {
         candidates: { label: "候选数", help: "全文检索与向量检索各取的候选数，合并后交给重排模型排序。" },
         topK: { label: "返回条数", help: "recall 一次最多返回的结果数。" },
@@ -482,7 +483,7 @@ export const zh = {
     connectionLost: (time: string) => `无法连接到常驻服务，以下是 ${time} 的数据。`,
     connectionLostNever: "无法连接到常驻服务。",
     calm: "一切安好",
-    pending: (count: number) => `有 ${count} 件事等你处理`,
+    pending: (count: number) => `有 ${count} 项待处理`,
     uptime: ({ days, hours, minutes }: Duration) =>
       days > 0
         ? `已运行 ${days} 天 ${hours} 小时`
@@ -502,7 +503,7 @@ export const zh = {
       sync: "同步",
       status: "状态",
     },
-    unreadable: "这一栏读不了，详见服务日志。",
+    unreadable: "此栏无法读取，详情请见服务日志。",
     copy: (what: string) => `复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,
     copied: (what: string) => `已复制${/^[A-Za-z]/.test(what) ? " " : ""}${what}`,
     modelStates: {
@@ -520,14 +521,14 @@ export const zh = {
     },
     index: {
       lastConsolidation: "上次整理",
-      never: "还没有整理过",
+      never: "尚未整理",
       daysAgo: (days: number) => (days === 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`),
-      candidates: (count: number) => `${count} 条候选等下次整理`,
+      candidates: (count: number) => `${count} 条候选等待下次整理`,
       formatProblems: (count: number) => `${count} 个文件格式有问题`,
-      unsummarizedWeeks: (count: number) => `${count} 周还没有汇总`,
+      unsummarizedWeeks: (count: number) => `${count} 周尚未汇总`,
       clear: "一切正常",
       copySchedule: "复制定时提醒的配置指令",
-      scheduleCopied: "已复制，粘贴给你的 Agent 即可配好定时提醒",
+      scheduleCopied: "已复制，粘贴给 Agent 即可配置定时提醒",
     },
     service: {
       version: (version: string) => `版本 ${version}`,
@@ -566,23 +567,23 @@ export const zh = {
       remote: "远端",
       unpushed: "未推送",
       unpushedCount: (count: number) => (count === 0 ? "没有" : `${count} 个提交`),
-      unpushedUnknown: "读不了",
+      unpushedUnknown: "无法读取",
       outcomes: {
         synced: "成功",
         failed: "失败",
-        handEdits: "被手改挡住",
+        handEdits: "存在未提交修改",
         conflict: "冲突",
         unrelated: "历史不相关",
         restorePaused: "恢复后暂停",
       } satisfies Record<SyncOutcome, string>,
       failed: (detail: string | null) =>
-        `上次同步失败${detail === null ? "" : `：${detail}`}。写入照常在本机提交，下次同步时再试。`,
+        `上次同步失败${detail === null ? "" : `：${detail}`}。本地写入仍正常提交，将在下次同步时重试。`,
       handEdits: (detail: string | null) =>
-        `记忆仓库里有未提交的修改，同步没有动它们${detail === null ? "" : `：${detail}`}。提交或撤销这些修改后，下次同步时再试。`,
+        `记忆仓库中有未提交的修改，同步未改动这些文件${detail === null ? "" : `：${detail}`}。提交或撤销这些修改后，将在下次同步时重试。`,
       conflict: (detail: string | null) =>
-        `本机与远端改了同一处${detail === null ? "" : `（${detail}）`}，自动同步已暂停，写入照常在本机提交。在记忆仓库里解决冲突后运行 tacit sync 恢复；整理报告列出了解决步骤。`,
-      unrelated: "远端的历史与本机的记忆仓库没有共同的提交，同步既没有拉取也没有推送，自动同步已暂停。",
-      restorePaused: "恢复备份后同步已暂停，以免恢复的内容冲掉另一台机器写下的记忆，或被它冲掉。",
+        `本机与远端修改了同一处${detail === null ? "" : `（${detail}）`}，自动同步已暂停，本地写入仍正常提交。在记忆仓库中解决冲突后运行 tacit sync 恢复；整理报告中列出了解决步骤。`,
+      unrelated: "远端历史与本机记忆仓库没有共同提交，同步既未拉取也未推送，自动同步已暂停。",
+      restorePaused: "恢复备份后同步已暂停，以免恢复内容与另一台机器写入的记忆相互覆盖。",
       chooseSide: "确认以哪边为准后，在这台主机的终端里运行其中一条：",
       useLocal: "以本机为准",
       useRemote: "以远端为准",
@@ -599,7 +600,7 @@ export const zh = {
       empty: "还没有可恢复的备份。",
       downloading: "正在下载云端备份…",
       reading: "正在读取备份…",
-      previewFailed: "读不了这份备份",
+      previewFailed: "无法读取该备份",
       at: "备份时间",
       version: "版本",
       commit: "提交",
@@ -617,7 +618,7 @@ export const zh = {
     reindex: {
       button: "重建索引",
       title: "重建索引？",
-      body: "重新计算全部派生索引（全文与向量）。记忆本身不变，但索引里的使用统计会清空；重建期间检索与写入排队等待，记忆多时要一会儿。",
+      body: "重新计算全部派生索引（全文与向量）。记忆本身不变，但索引里的使用统计会清空；重建期间检索与写入将排队等待，记忆较多时耗时较长。",
       confirm: "重建索引",
       cancel: "取消",
       done: (files: number, units: number) => `已重建索引：${files} 个文件、${units} 个片段`,
@@ -635,14 +636,14 @@ export const zh = {
       noBindings: "还没有绑定，客户端读不到画像与规则。",
       addBinding: "去添加绑定",
       seenOnly: "未绑定，只连接过",
-      bindingsUnreadable: "读不了绑定，无法标出各客户端是否已绑定，详见服务日志。",
+      bindingsUnreadable: "无法读取绑定配置，无法标注各客户端绑定状态，详见服务日志。",
       legend: "圆点的含义",
       manage: "管理绑定",
       more: (count: number) => `+${count}`,
       moreLabel: (count: number) => `还有 ${count} 个客户端，去设置查看`,
     },
     todos: {
-      empty: "没有需要处理的事",
+      empty: "暂无待处理项",
       modelsUnconfigured: (models: readonly string[]) =>
         models.length === 1 ? `${models[0]}未配置` : `${models.length} 个辅助模型未配置`,
       modelsUnconfiguredDetail: (models: readonly string[]) =>
@@ -684,8 +685,8 @@ export const zh = {
       topWorkstream: "最活跃主线",
       days: (count: number) => `${count} 天`,
       noWorkstream: "暂无",
-      skipped: (files: string) => `这些活动文件读不了，热力图中缺少它们的日子：${files}`,
-      historyUnreadable: "记忆仓库的历史读不了，整理日没有标出。",
+      skipped: (files: string) => `这些活动文件无法读取，热力图中缺少对应日期：${files}`,
+      historyUnreadable: "记忆仓库的历史无法读取，未能标出整理日。",
     },
   },
   memory: {
@@ -694,7 +695,7 @@ export const zh = {
     viewsNav: "记忆视图",
     search: {
       queryLabel: "查询",
-      queryPlaceholder: "像 Agent 一样问一句，看 recall 会给它什么",
+      queryPlaceholder: "以 Agent 的方式提问，查看 recall 返回的内容",
       /** The button that unfolds the conditions while the bar floats, with how many are set. */
       conditions: (count: number) => (count === 0 ? "条件" : `条件 · ${count}`),
       workstreamLabel: "主线",
@@ -704,7 +705,7 @@ export const zh = {
       kindLabel: "范围",
       kinds: { all: "页面与活动", pages: "只看页面", activities: "只看活动" },
       run: "检索",
-      idle: "输入查询后点「检索」，看 Agent 用同样的参数调用 recall 时会得到什么、每个检索单元去了哪里。",
+      idle: "输入查询并点击「检索」，查看 Agent 使用相同参数调用 recall 时会得到什么、每个检索单元去往何处。",
       failed: "检索失败",
       resultsTitle: (count: number) => `结果 · ${count}`,
       noResults: "没有结果：Agent 会收到「No relevant memory.」",
@@ -731,7 +732,7 @@ export const zh = {
         shown: "显示",
         beyondTopK: "超出 topK",
         belowThreshold: (score: string) => `低于阈值 ${score}`,
-        beyondCandidates: (candidates: number) => `融合后在 ${candidates} 之外`,
+        beyondCandidates: (candidates: number) => `融合后排在第 ${candidates} 位之后`,
       },
       shownSummary: (units: number, results: number) => `${units} 个单元 → ${results} 条结果`,
       unitCount: (count: number) => `${count} 个单元`,
@@ -878,7 +879,7 @@ export const zh = {
       globalHint: "每次会话都读入",
       workstreamHint: "在这条主线中读入",
       otherTitle: "其他内容",
-      candidatesWaiting: (count: number) => `${count} 条候选等下次整理`,
+      candidatesWaiting: (count: number) => `${count} 条候选等待下次整理`,
       sourceFiles: "来源文件",
       sections: { redLines: "红线", workingRules: "协作规则", preferences: "偏好", profile: "档案" } satisfies Record<
         components["schemas"]["PersonaSection"],

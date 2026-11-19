@@ -103,7 +103,7 @@ describe("call", () => {
   });
 
   it("does not signal for a 401 that is a wrong password, which is an answer to the request and not a lost session", async () => {
-    answerWith(json({ error: "PasswordWrong", message: "访问密码不对。" }, 401));
+    answerWith(json({ error: "PasswordWrong", message: "访问密码错误。" }, 401));
     const listener = vi.fn();
     const unsubscribe = onUnauthorized(listener);
 

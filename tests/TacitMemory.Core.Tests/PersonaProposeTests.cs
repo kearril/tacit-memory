@@ -287,19 +287,19 @@ public sealed partial class PersonaProposeTests : IDisposable
     }
 
     [Theory]
-    [InlineData("domain:network-proxy")]
-    [InlineData("workstream:photo-sorter")]
+    [InlineData("domain:db-migration")]
+    [InlineData("workstream:my-app")]
     public async Task A_scoped_proposal_writes_its_scope_line_after_the_section_line(string scope)
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "网络：走固定出口", "走固定出口", scope: scope));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "备份：先写快照再执行", "先写快照再执行", scope: scope));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"scope: {scope}", result.Text);
         Assert.Equal(
-            "## Candidates\n\n### 网络：走固定出口\nBelongs to: Preferences\n"
-            + $"Scope: {scope}\n- {Today} quote「走固定出口」\n\n## Rejection list\n",
+            "## Candidates\n\n### 备份：先写快照再执行\nBelongs to: Preferences\n"
+            + $"Scope: {scope}\n- {Today} quote「先写快照再执行」\n\n## Rejection list\n",
             File.ReadAllText(CandidatesMd));
     }
 
@@ -309,7 +309,7 @@ public sealed partial class PersonaProposeTests : IDisposable
         WriteCandidates("## Candidates\n\n## Rejection list\n");
         var before = File.ReadAllText(CandidatesMd);
 
-        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "网络：走固定出口", scope: "domain:Bad Name"));
+        var result = await _service.Tools.WritePersonaAsync(Propose("preferences", "备份：先写快照再执行", scope: "domain:Bad Name"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -323,7 +323,7 @@ public sealed partial class PersonaProposeTests : IDisposable
     {
         WriteCandidates("## Candidates\n\n## Rejection list\n");
 
-        var request = Propose("preferences", "网络：走固定出口", scope: "domain:network-proxy") with { Trigger = "改代理时" };
+        var request = Propose("preferences", "备份：先写快照再执行", scope: "domain:db-migration") with { Trigger = "执行迁移时" };
         var result = await _service.Tools.WritePersonaAsync(request);
 
         Assert.True(result.IsError);
@@ -340,12 +340,12 @@ public sealed partial class PersonaProposeTests : IDisposable
         var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
         File.WriteAllText(candidates, "## Candidates\n\n## Rejection list\n");
 
-        var result = await service.Tools.WritePersonaAsync(Propose("preferences", "Network: fixed exit", "fixed exit", scope: "domain:network-proxy"));
+        var result = await service.Tools.WritePersonaAsync(Propose("preferences", "Backup: snapshot before migration", "snapshot first", scope: "domain:db-migration"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## Candidates\n\n### Network: fixed exit\nBelongs to: Preferences\nScope: domain:network-proxy\n"
-            + $"- {Today} quote「fixed exit」\n\n## Rejection list\n",
+            "## Candidates\n\n### Backup: snapshot before migration\nBelongs to: Preferences\nScope: domain:db-migration\n"
+            + $"- {Today} quote「snapshot first」\n\n## Rejection list\n",
             File.ReadAllText(candidates));
     }
 }

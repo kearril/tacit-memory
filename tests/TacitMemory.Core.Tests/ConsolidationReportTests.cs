@@ -126,7 +126,7 @@ public sealed class ConsolidationReportTests : IDisposable
     public async Task Topic_pages_sharing_a_prefix_of_three_or_more_are_listed_with_the_longest_shared_prefix_of_the_group()
     {
         _home.InitReady();
-        foreach (var slug in new[] { "home-server", "home-server-proxy", "home-server-proxy-scope" })
+        foreach (var slug in new[] { "my-app", "my-app-api", "my-app-api-auth" })
             WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
         foreach (var slug in new[] { "cloud-a-x", "cloud-a-y", "cloud-b" })
             WritePage(slug, slug, "## 现象\n- 内容\n", workstream: "_topics");
@@ -136,7 +136,7 @@ public sealed class ConsolidationReportTests : IDisposable
 
         var section = Section(await service.Tools.ConsolidationReportAsync(), "Workstream proposal material");
 
-        Assert.Contains("prefix home-server: _topics/home-server, _topics/home-server-proxy, _topics/home-server-proxy-scope", section);
+        Assert.Contains("prefix my-app: _topics/my-app, _topics/my-app-api, _topics/my-app-api-auth", section);
         Assert.Contains("prefix cloud: _topics/cloud-a-x, _topics/cloud-a-y, _topics/cloud-b", section);
         Assert.DoesNotContain("pgroonga", section);
     }
@@ -419,7 +419,7 @@ public sealed class ConsolidationReportTests : IDisposable
         _home.InitReady();
         WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n");
         CommitAll("consolidate: earlier pass");
-        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- on win-main quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
+        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- on dev-box quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.Tools.ConsolidationReportAsync(), "Persona evidence");
@@ -427,7 +427,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.DoesNotContain("旧原话", section);
         Assert.Contains("新原话一", section);
         Assert.Contains("新原话二", section);
-        Assert.DoesNotContain("win-main", section);
+        Assert.DoesNotContain("dev-box", section);
         Assert.Contains("tacit-memory", section);
         Assert.True(section.IndexOf("新原话一", StringComparison.Ordinal) < section.IndexOf("新原话二", StringComparison.Ordinal));
     }
@@ -508,13 +508,13 @@ public sealed class ConsolidationReportTests : IDisposable
     {
         _home.InitReady();
         File.WriteAllText(Path.Combine(Memory, "persona.md"),
-            "## Red lines\n- 不要删库\n\n## Domain: network-proxy\nTrigger: 代理与分流相关的问题\n\n### Working rules\n- 先看分流规则\n- 再看回退方案\n\n## Domain: lonely\nTrigger: 只有一条的领域\n\n### Working rules\n- 唯一的一条\n");
+            "## Red lines\n- 不要删库\n\n## Domain: db-migration\nTrigger: 数据库迁移相关问题\n\n### Working rules\n- 先验证迁移脚本\n- 再执行备份\n\n## Domain: lonely\nTrigger: 只有一条的领域\n\n### Working rules\n- 唯一的一条\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.Tools.ConsolidationReportAsync(), "Domain hygiene");
 
         Assert.Contains("domain:lonely", section);
-        Assert.DoesNotContain("domain:network-proxy", section);
+        Assert.DoesNotContain("domain:db-migration", section);
     }
 
     /// <summary>Writes the workstreams file, replacing any earlier text.</summary>

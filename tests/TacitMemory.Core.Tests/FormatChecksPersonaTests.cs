@@ -106,7 +106,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_candidate_scope_line_that_is_not_a_scope_is_reported_and_a_valid_one_is_not()
     {
         using var service = Open();
-        Write("candidates.md", "## Candidates\n### 先说结论\nBelongs to: Preferences\nScope: domain:Bad Name\n- 2026-10-28 quote「先说结论」\n### 再说结论\nBelongs to: Preferences\nScope: domain:network-proxy\n- 2026-10-28 quote「再说结论」\n");
+        Write("candidates.md", "## Candidates\n### 先说结论\nBelongs to: Preferences\nScope: domain:Bad Name\n- 2026-10-28 quote「先说结论」\n### 再说结论\nBelongs to: Preferences\nScope: domain:db-migration\n- 2026-10-28 quote「再说结论」\n");
 
         var violations = await Violations(service);
 
@@ -139,7 +139,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_machine_mark_that_is_not_a_machine_name_is_reported_and_an_unmarked_activity_is_not()
     {
         using var service = Open();
-        Write("recent/2026-10.md", "## 2026-10-28\n- 标对的\n  <!-- on win-main -->\n- 标错的\n  <!-- on Win_Main quote「原话」 -->\n- 没有标记的\n");
+        Write("recent/2026-10.md", "## 2026-10-28\n- 标对的\n  <!-- on dev-box -->\n- 标错的\n  <!-- on Dev_Box quote「原话」 -->\n- 没有标记的\n");
 
         var violations = await Violations(service);
 
@@ -211,10 +211,10 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task Fixing_a_violation_by_hand_makes_it_disappear_from_the_next_report()
     {
         using var service = Open();
-        Write("persona.md", "## Domain: network-proxy\n### Working rules\n- 测速取多次 → 再下结论\n");
+        Write("persona.md", "## Domain: db-migration\n### Working rules\n- 变更结构 → 先验证快照\n");
         Assert.Contains("Domain without trigger", await Violations(service));
 
-        Write("persona.md", "## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 测速取多次 → 再下结论\n");
+        Write("persona.md", "## Domain: db-migration\nTrigger: 执行迁移时\n### Working rules\n- 变更结构 → 先验证快照\n");
 
         Assert.DoesNotContain("Domain without trigger", await Violations(service));
     }
@@ -223,7 +223,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_domain_without_a_trigger_is_reported_at_its_heading_and_fixed_directly()
     {
         using var service = Open();
-        Write("persona.md", "## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\n### Preferences\n- 测速：只看持续测速\n");
+        Write("persona.md", "## Preferences\n- 沟通：先要结论\n\n## Domain: db-migration\n### Preferences\n- 验证：先在测试库演练\n");
 
         var violations = await Violations(service);
 
@@ -237,7 +237,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_long_trigger_is_not_reported_and_an_unrecognized_section_in_a_domain_is()
     {
         using var service = Open();
-        Write("persona.md", "## Domain: network-proxy\nTrigger: " + new string('改', 200) + "\n### Preferences\n- 测速：只看持续测速\n### 其他\n- 不认识的节\n");
+        Write("persona.md", "## Domain: db-migration\nTrigger: " + new string('改', 200) + "\n### Preferences\n- 验证：先在测试库演练\n### 其他\n- 不认识的节\n");
 
         var violations = await Violations(service);
 
@@ -251,7 +251,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     {
         using var service = Open();
         Write("persona.md", "## Red lines\n- 不要发布版本\n## Working rules\n- 遇到问题时先查日志\n"
-            + "## Domain: network-proxy\nTrigger: 改代理时\n### Red lines\n- 不要改全局代理\n");
+            + "## Domain: db-migration\nTrigger: 执行迁移时\n### Red lines\n- 不要直接改生产库\n");
 
         Assert.DoesNotContain("persona.md", await Violations(service));
     }
@@ -260,7 +260,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_domain_with_many_entries_and_many_domains_are_not_put_to_the_user()
     {
         using var service = Open();
-        Write("persona.md", "## Domain: network-proxy\nTrigger: 改代理时\n### Preferences\n- 第一条\n- 第二条\n\n## Domain: writing\nTrigger: 写文章时\n### Preferences\n- 写作\n");
+        Write("persona.md", "## Domain: db-migration\nTrigger: 执行迁移时\n### Preferences\n- 第一条\n- 第二条\n\n## Domain: writing\nTrigger: 写文章时\n### Preferences\n- 写作\n");
 
         var violations = await OverLimit(service);
 
@@ -272,7 +272,7 @@ public sealed class FormatChecksPersonaTests : IDisposable
     public async Task A_domain_name_that_breaks_the_naming_rule_is_reported()
     {
         using var service = Open();
-        Write("persona.md", "## Domain: Network\nTrigger: 改代理时\n### Preferences\n- 测速：只看持续测速\n");
+        Write("persona.md", "## Domain: Migration\nTrigger: 执行迁移时\n### Preferences\n- 验证：先在测试库演练\n");
 
         Assert.Contains("Invalid scope name", await Violations(service));
     }

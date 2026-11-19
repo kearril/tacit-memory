@@ -31,7 +31,7 @@ internal static class StructureWords
     public const string Machine = "Machine";
     public const string On = "on";
 
-    /// <summary>What follows a structure word before its value: <c>## Domain: network-proxy</c>, <c>Trigger: …</c>.</summary>
+    /// <summary>What follows a structure word before its value: <c>## Domain: db-migration</c>, <c>Trigger: …</c>.</summary>
     public const string Separator = ": ";
 
     /// <summary>Whether a heading or name is <paramref name="word"/>, ignoring case.</summary>

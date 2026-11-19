@@ -12,23 +12,23 @@ internal static class SyncMessages
         "Synced with {0}: {1} commit(s) pulled, {2} pushed.");
 
     public static readonly Localized Failed = new(
-        "同步失败：{0}。写入照常在本机提交，下次同步时再试。",
+        "同步失败：{0}。本地写入仍正常提交，将在下次同步时重试。",
         "The sync failed: {0}. Writes are still committed on this machine; the next sync tries again.");
 
     public static readonly Localized HandEdits = new(
-        "同步暂缓：这些文件有未提交的修改，同步没有改动它们：{0}。提交或撤销这些修改后，下次同步时再试。",
+        "同步已暂缓：以下文件存在未提交的修改，同步未改动它们：{0}。提交或撤销这些修改后，将在下次同步时重试。",
         "The sync waits: these files have changes nobody has committed, and the sync left them alone: {0}. Once they are committed or undone, the next sync tries again.");
 
     public static readonly Localized Conflict = new(
-        "同步冲突：本机与远端都改了 {0}。本机的提交保留，自动同步已暂停，写入照常在本机提交。在记忆仓库里解决冲突后运行 tacit sync 恢复；整理报告列出了解决步骤。",
+        "同步冲突：本机与远端均修改了 {0}。本机提交已保留，自动同步已暂停，本地写入仍正常提交。在记忆仓库中解决冲突后运行 tacit sync 恢复；整理报告中列出了解决步骤。",
         "Sync conflict: this machine and the remote both changed {0}. The local commits are kept, the automatic syncs pause, and writes are still committed on this machine. Resolve the conflict in the memory repository, then run tacit sync to resume; the consolidation report lists the steps.");
 
     public static readonly Localized Unrelated = new(
-        "远端 {0} 的历史与本机记忆仓库没有共同的提交，同步既没有拉取也没有推送，自动同步已暂停。确认以哪边为准后运行 tacit sync --use-local（以本机为准）或 tacit sync --use-remote（以远端为准）。",
+        "远端 {0} 的历史与本机记忆仓库没有共同提交，同步既未拉取也未推送，自动同步已暂停。确认保留哪一端后，请运行 tacit sync --use-local（保留本机）或 tacit sync --use-remote（保留远端）。",
         "The history at {0} shares no commit with this machine's memory repository, so nothing was pulled or pushed, and the automatic syncs pause. Decide which side holds the truth, then run tacit sync --use-local (this machine) or tacit sync --use-remote (the remote).");
 
     public static readonly Localized RestorePaused = new(
-        "恢复备份后同步已暂停，以免恢复的内容冲掉另一台机器写下的记忆，或被它冲掉。确认以哪边为准后运行 tacit sync --use-local（以本机为准）或 tacit sync --use-remote（以远端为准）。",
+        "恢复备份后同步已暂停，以免恢复内容与另一台机器写入的记忆相互覆盖。确认保留哪一端后，请运行 tacit sync --use-local（保留本机）或 tacit sync --use-remote（保留远端）。",
         "The sync is paused after a restore, so the restored memory neither overwrites what another machine wrote nor is overwritten by it. Decide which side holds the truth, then run tacit sync --use-local (this machine) or tacit sync --use-remote (the remote).");
 
     public static readonly Localized RebaseInProgress = new(
@@ -46,15 +46,15 @@ internal static class SyncMessages
     public static readonly Localized StatusRemote = new("远端：{0}", "Remote: {0}");
 
     public static readonly Localized OffRefused = new(
-        "未开启同步，无从选边：config.yaml 中没有 sync.remote。",
+        "未开启同步，无法选择保留端：config.yaml 中没有 sync.remote。",
         "Sync is off, so there is no side to choose: config.yaml has no sync.remote.");
 
     public static readonly Localized RemoteEmpty = new(
-        "远端 {0} 上还没有分支 {1}，无法以远端为准；用 tacit sync 或 --use-local 把本机的历史推上去。",
+        "远端 {0} 上尚未有分支 {1}，无法以远端为准；请使用 tacit sync 或 --use-local 将本机历史推送上去。",
         "The remote {0} has no branch {1} yet, so it cannot be taken as the truth; push this machine's history with tacit sync or --use-local.");
 
     public static readonly Localized RemoteMoved = new(
-        "预览之后，远端 {0} 的分支 {1} 又有了新的提交，什么都没有改动。重新运行这条命令，看过新的预览再确认。",
+        "预览之后，远端 {0} 的分支 {1} 出现了新提交，未做任何修改。请重新运行该命令并确认新的预览结果。",
         "The branch {1} at {0} has moved since the preview, so nothing was changed. Run the command again and confirm the new preview.");
 
     public static readonly Localized PreviewLocal = new(
@@ -67,7 +67,7 @@ internal static class SyncMessages
 
     public static readonly Localized SidePrompt = new("确认继续？输入 y 确认：", "Go ahead? Type y to confirm:");
 
-    public static readonly Localized SideCancelled = new("已取消，什么都没有改动。", "Cancelled; nothing was changed.");
+    public static readonly Localized SideCancelled = new("已取消，未做任何修改。", "Cancelled; nothing was changed.");
 
     public static readonly Localized UsedLocal = new(
         "已以本机为准：远端 {0} 的分支 {1} 现在与本机相同，同步已恢复。",
@@ -77,7 +77,7 @@ internal static class SyncMessages
         "已以远端为准：本机已重置到远端 {0} 的分支 {1}，同步已恢复。重置前的手动备份：{2}",
         "The remote was taken as the truth: this machine was reset to the branch {1} at {0}, and the sync resumes. The manual backup from before the reset: {2}");
 
-    public static readonly Localized StatusNever = new("上次同步：还没有", "Last sync: none yet");
+    public static readonly Localized StatusNever = new("上次同步：暂无", "Last sync: none yet");
 
     public static readonly Localized StatusLast = new("上次同步：{0:yyyy-MM-dd HH:mm}，{1}", "Last sync: {0:yyyy-MM-dd HH:mm}, {1}");
 
@@ -91,19 +91,19 @@ internal static class SyncMessages
 
     public static readonly Localized OutcomeFailed = new("失败：{0}", "failed: {0}");
 
-    public static readonly Localized OutcomeHandEdits = new("被未提交的修改挡住：{0}", "held back by changes not committed: {0}");
+    public static readonly Localized OutcomeHandEdits = new("存在未提交修改，已暂停：{0}", "held back by changes not committed: {0}");
 
     public static readonly Localized OutcomeConflict = new("冲突，自动同步已暂停：{0}", "conflict, automatic syncs paused: {0}");
 
     public static readonly Localized OutcomeUnrelated = new("远端历史不相关，自动同步已暂停", "the remote's history is unrelated, automatic syncs paused");
 
-    public static readonly Localized OutcomeRestorePaused = new("恢复备份后已暂停，等待选边", "paused after a restore, waiting for a side to be chosen");
+    public static readonly Localized OutcomeRestorePaused = new("恢复备份后已暂停，等待选择保留端", "paused after a restore, waiting for a side to be chosen");
 
     public static readonly Localized StatusChooseSide = new(
-        "选边：tacit sync --use-local（以本机为准）或 tacit sync --use-remote（以远端为准）",
+        "选择保留端：tacit sync --use-local（保留本机）或 tacit sync --use-remote（保留远端）",
         "Choose a side: tacit sync --use-local (this machine) or tacit sync --use-remote (the remote)");
 
     public static readonly Localized StatusResolve = new(
-        "在记忆仓库里解决冲突后运行 tacit sync；也可以选边",
+        "在记忆仓库中解决冲突后运行 tacit sync；也可直接选择保留端",
         "Resolve the conflict in the memory repository, then run tacit sync; or choose a side");
 }

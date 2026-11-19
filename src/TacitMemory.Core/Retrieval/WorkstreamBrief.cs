@@ -23,7 +23,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
 
     /// <summary>The group headings of the page index, in the order the brief lists them.</summary>
     private const string DecisionsHeading = "Decisions";
-    private const string PitfallsHeading = "Known pitfalls";
+    private const string IncidentsHeading = "Incidents";
     private const string WorkHeading = "Work";
     private const string EntitiesHeading = "Entities";
     private const string UntypedHeading = "Untyped";
@@ -166,7 +166,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     private static string GroupOf(PageDocument document) => document.Header.Type switch
     {
         ToolValues.PageTypes.Decision => DecisionsHeading,
-        ToolValues.PageTypes.Incident => PitfallsHeading,
+        ToolValues.PageTypes.Incident => IncidentsHeading,
         ToolValues.PageTypes.Work => WorkHeading,
         ToolValues.PageTypes.Entity => EntitiesHeading,
         _ => UntypedHeading,
@@ -230,7 +230,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
     private static List<string> DirectoryLines(Parts parts, HashSet<Entry> shown)
     {
         var lines = new List<string>();
-        var groups = new[] { DecisionsHeading, PitfallsHeading, WorkHeading, EntitiesHeading, UntypedHeading };
+        var groups = new[] { DecisionsHeading, IncidentsHeading, WorkHeading, EntitiesHeading, UntypedHeading };
         foreach (var group in groups)
         {
             var members = parts.Entries.Where(entry => shown.Contains(entry) && GroupOf(entry.Document) == group).ToList();

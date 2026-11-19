@@ -147,10 +147,10 @@ describe("bodyOf", () => {
   });
 
   it("writes a custom machine name or description and omits defaults", () => {
-    let drafts = edit(draftsOf(view()), "machine.name", "mac-mini");
-    drafts = edit(drafts, "machine.description", "家里服务器");
+    let drafts = edit(draftsOf(view()), "machine.name", "server-box");
+    drafts = edit(drafts, "machine.description", "构建服务器");
 
-    expect(bodyOf(view(), drafts).config.machine).toEqual({ name: "mac-mini", description: "家里服务器" });
+    expect(bodyOf(view(), drafts).config.machine).toEqual({ name: "server-box", description: "构建服务器" });
 
     drafts = restoreDefault(view(), drafts, "machine.name");
     drafts = edit(drafts, "machine.description", "");

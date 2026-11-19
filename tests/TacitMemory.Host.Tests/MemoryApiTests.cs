@@ -52,10 +52,10 @@ public sealed class MemoryApiTests : IAsyncLifetime
             ## Preferences
             随手写的一行
 
-            ## Domain: network-proxy
-            Trigger: 改代理时
+            ## Domain: db-migration
+            Trigger: 数据库迁移时
             ### Preferences
-            - 测速：取中位数
+            - 验证：先演练
 
             """);
         Write("candidates.md", """
@@ -78,7 +78,7 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.Equal(("2026-10-25", "别删库"), (source["date"]!.GetValue<string>(), source["quote"]!.GetValue<string>()));
         Assert.Equal("Unrecognized content", report["personaFile"]!["problems"]![0]!["kind"]!.GetValue<string>());
         Assert.Equal(6, report["personaFile"]!["problems"]![0]!["line"]!.GetValue<int>());
-        Assert.Equal("改代理时", report["domains"]![0]!["trigger"]!.GetValue<string>());
+        Assert.Equal("数据库迁移时", report["domains"]![0]!["trigger"]!.GetValue<string>());
         var candidate = report["candidates"]![0]!;
         Assert.Equal(("preferences", "global"), (candidate["section"]!.GetValue<string>(), candidate["scope"]!.GetValue<string>()));
         Assert.EndsWith("candidates.md", report["candidatesFile"]!["path"]!.GetValue<string>());

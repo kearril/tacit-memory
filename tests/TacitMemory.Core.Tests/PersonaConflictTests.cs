@@ -268,11 +268,11 @@ public sealed class PersonaConflictTests : IDisposable
 
     /// <summary>Two domain blocks below the fixture: one with a preference, one with a working rule.</summary>
     private const string DomainBlocks = """
-        ## Domain: network-proxy
-        Trigger: 改代理、分流或测速时
+        ## Domain: db-migration
+        Trigger: 执行数据库迁移时
         ### Preferences
-        - 沟通：先展示测速数据
-          <!-- 2026-10-22 quote「先看数据」 -->
+        - 沟通：先展示迁移检查结果
+          <!-- 2026-10-22 quote「先看检查结果」 -->
 
         ## Domain: release
         Trigger: 发版时
@@ -306,7 +306,7 @@ public sealed class PersonaConflictTests : IDisposable
         Assert.False(result.IsError, result.Text);
         var offered = Offered(_models);
         Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
-        Assert.DoesNotContain(offered, option => option.Contains("先展示测速数据", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, option => option.Contains("先展示迁移检查结果", StringComparison.Ordinal));
         Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
     }
 
@@ -315,12 +315,12 @@ public sealed class PersonaConflictTests : IDisposable
     {
         WritePersona(Fixture + DomainBlocks);
 
-        var result = await AddIn("domain:network-proxy", "preferences", "沟通：先给数据再给结论");
+        var result = await AddIn("domain:db-migration", "preferences", "沟通：先给数据再给结论");
 
         Assert.False(result.IsError, result.Text);
         var offered = Offered(_models);
         Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
-        Assert.Contains(offered, option => option.Contains("先展示测速数据", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.Contains("先展示迁移检查结果", StringComparison.Ordinal));
         Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
     }
 
@@ -328,19 +328,19 @@ public sealed class PersonaConflictTests : IDisposable
     public async Task Replace_of_a_domain_entry_keeps_its_domain_and_is_judged_against_that_scope()
     {
         WritePersona(Fixture + DomainBlocks);
-        var hash = await CodeOf("沟通：先展示测速数据");
+        var hash = await CodeOf("沟通：先展示迁移检查结果");
 
-        var result = await Replace(hash, "沟通：先展示测速数据并附依据");
+        var result = await Replace(hash, "沟通：先展示迁移检查结果并附依据");
 
         Assert.False(result.IsError, result.Text);
         var offered = Offered(_models);
-        Assert.DoesNotContain(offered, option => option.Contains("先展示测速数据", StringComparison.Ordinal));
+        Assert.DoesNotContain(offered, option => option.Contains("先展示迁移检查结果", StringComparison.Ordinal));
         Assert.Contains(offered, option => option.Contains("先要结论", StringComparison.Ordinal));
         Assert.DoesNotContain(offered, option => option.Contains("发版前", StringComparison.Ordinal));
         var text = File.ReadAllText(PersonaMd);
-        var domain = text.IndexOf("## Domain: network-proxy", StringComparison.Ordinal);
+        var domain = text.IndexOf("## Domain: db-migration", StringComparison.Ordinal);
         var next = text.IndexOf("## Domain: release", StringComparison.Ordinal);
-        var replaced = text.IndexOf("- 沟通：先展示测速数据并附依据", StringComparison.Ordinal);
+        var replaced = text.IndexOf("- 沟通：先展示迁移检查结果并附依据", StringComparison.Ordinal);
         Assert.True(domain < replaced && replaced < next, text);
     }
 
@@ -348,13 +348,13 @@ public sealed class PersonaConflictTests : IDisposable
     public async Task A_conflict_with_a_domain_entry_is_refused_and_names_the_domain_of_that_entry()
     {
         WritePersona(Fixture + DomainBlocks);
-        Pick("先展示测速数据", 0.95);
+        Pick("先展示迁移检查结果", 0.95);
 
-        var result = await AddIn("domain:network-proxy", "preferences", "沟通：先给结论再看测速");
+        var result = await AddIn("domain:db-migration", "preferences", "沟通：先给结论再看检查结果");
 
         Assert.True(result.IsError);
-        Assert.Contains("Preferences section of domain network-proxy:", result.Text);
-        Assert.Matches(@"- \[[0-9a-f]{6}\] 沟通：先展示测速数据", result.Text);
-        Assert.DoesNotContain("先展示测速数据并附依据", File.ReadAllText(PersonaMd), StringComparison.Ordinal);
+        Assert.Contains("Preferences section of domain db-migration:", result.Text);
+        Assert.Matches(@"- \[[0-9a-f]{6}\] 沟通：先展示迁移检查结果", result.Text);
+        Assert.DoesNotContain("先展示迁移检查结果并附依据", File.ReadAllText(PersonaMd), StringComparison.Ordinal);
     }
 }

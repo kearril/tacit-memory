@@ -43,11 +43,11 @@ public sealed partial class RecentSummaryInstructionTests : IDisposable
     {
         Directory.CreateDirectory(Memory);
         File.WriteAllText(RecentPath, "## Workstream\n### alpha\nBackground: 一号主线。\n### beta\nBackground: 二号主线。\n");
-        WriteMonth("## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- [tacit-memory] 今天的事\n  <!-- on win-main quote「原话」 -->\n");
+        WriteMonth("## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- [tacit-memory] 今天的事\n  <!-- on dev-box quote「原话」 -->\n");
 
         var instructions = await Open().Tools.ServerInstructionsAsync();
 
-        Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 (win-main) [tacit-memory] 今天的事\n- 2026-11-01 昨天的事\n</recent_activity>", instructions);
+        Assert.Contains("<recent_activity days=\"7\">\n- 2026-11-02 (dev-box) [tacit-memory] 今天的事\n- 2026-11-01 昨天的事\n</recent_activity>", instructions);
         Assert.DoesNotContain("alpha", instructions);
         Assert.DoesNotContain("\n## Recent\n", instructions);
         Assert.DoesNotMatch(ShortCode(), instructions);

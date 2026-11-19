@@ -169,6 +169,6 @@ public sealed class ConfigRefusalTests : IDisposable
         var result = await _cli.RunAsync(["status"]);
 
         Assert.Equal(3, result.ExitCode);
-        Assert.Contains($"端口 {_cli.Port} 有其他程序在回答", result.Stdout);
+        Assert.Contains($"端口 {_cli.Port} 已被其他程序占用", result.Stdout);
     }
 }

@@ -185,11 +185,11 @@ public sealed class ReloadTests : IDisposable
         Assert.Contains("Machine: test-machine\n", File.ReadAllText(agents));
 
         var saved = await Service.Settings.SaveConfigAsync(
-            Service.Settings.ConfigView().File with { Machine = new MachineFile("mac-mini", "家里服务器") },
+            Service.Settings.ConfigView().File with { Machine = new MachineFile("server-box", "构建服务器") },
             Service.Settings.ConfigView().Hash);
 
         Assert.Empty(saved.Restart);
-        Assert.Equal(new MachineConfig("mac-mini", "家里服务器"), Service.Config.Machine);
-        Assert.Contains("Machine: mac-mini \u2014 家里服务器\n", File.ReadAllText(agents));
+        Assert.Equal(new MachineConfig("server-box", "构建服务器"), Service.Config.Machine);
+        Assert.Contains("Machine: server-box \u2014 构建服务器\n", File.ReadAllText(agents));
     }
 }

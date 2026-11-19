@@ -410,43 +410,43 @@ public sealed partial class PersonaReplaceDeleteTests : IDisposable
     [Fact]
     public async Task Replace_finds_an_entry_in_a_domain_and_keeps_its_block_and_section()
     {
-        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先备份\n  <!-- 2026-10-25 quote「先备份」 -->\n");
-        var code = ShortOf("切换节点 → 先备份");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: db-migration\nTrigger: 执行迁移时\n### Working rules\n- 变更结构 → 先备份\n  <!-- 2026-10-25 quote「先备份」 -->\n");
+        var code = ShortOf("变更结构 → 先备份");
 
-        var result = await _service.Tools.WritePersonaAsync(Replace(code, "切换节点 → 先看延迟", "先看延迟"));
+        var result = await _service.Tools.WritePersonaAsync(Replace(code, "变更结构 → 先检查锁表风险", "先检查锁表"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先看延迟\n"
-            + $"  <!-- {Today} quote「先看延迟」 -->\n",
+            "## Preferences\n- 沟通：先要结论\n\n## Domain: db-migration\nTrigger: 执行迁移时\n### Working rules\n- 变更结构 → 先检查锁表风险\n"
+            + $"  <!-- {Today} quote「先检查锁表」 -->\n",
             File.ReadAllText(PersonaMd));
-        Assert.Contains("of domain network-proxy", result.Text);
+        Assert.Contains("of domain db-migration", result.Text);
     }
 
     [Fact]
     public async Task Delete_finds_an_entry_in_a_workstream_block_and_the_block_keeps_its_heading()
     {
-        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n- 发版 → 先问我\n  <!-- 2026-10-25 quote「发版前问我」 -->\n");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n- 发版 → 先问我\n  <!-- 2026-10-25 quote「发版前问我」 -->\n");
         var code = ShortOf("发版 → 先问我");
 
         var result = await _service.Tools.WritePersonaAsync(Delete(code));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n", File.ReadAllText(PersonaMd));
-        Assert.Contains("of workstream photo-sorter", result.Text);
+        Assert.Equal("## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n", File.ReadAllText(PersonaMd));
+        Assert.Contains("of workstream my-app", result.Text);
     }
 
     [Fact]
     public async Task A_short_code_is_refused_without_listing_the_scope_blocks_and_points_to_recall()
     {
-        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 切换节点 → 先备份\n");
+        CommitPersona("## Preferences\n- 沟通：先要结论\n\n## Domain: db-migration\nTrigger: 执行迁移时\n### Working rules\n- 变更结构 → 先备份\n");
         var before = File.ReadAllText(PersonaMd);
 
         var result = await _service.Tools.WritePersonaAsync(Delete("ffffff"));
 
         Assert.True(result.IsError);
-        Assert.DoesNotContain($"[{ShortOf("切换节点 → 先备份")}]", result.Text);
-        Assert.DoesNotContain("Domain network-proxy", result.Text);
+        Assert.DoesNotContain($"[{ShortOf("变更结构 → 先备份")}]", result.Text);
+        Assert.DoesNotContain("Domain db-migration", result.Text);
         Assert.Contains("Call recall with kind=persona to read the short codes", result.Text);
         Assert.Equal(before, File.ReadAllText(PersonaMd));
     }

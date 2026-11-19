@@ -178,7 +178,7 @@ public sealed partial class PersonaAddTests : IDisposable
     public async Task A_new_domain_is_created_however_many_domains_the_persona_holds()
     {
         for (var i = 1; i <= 11; i++)
-            Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", $"测速{i}：只看持续测速", "只看持续"), $"domain:area{i}", "改代理时"))).IsError);
+            Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", $"验证{i}：先走测试库", "先走测试库"), $"domain:area{i}", "执行迁移时"))).IsError);
 
         var persona = File.ReadAllText(PersonaMd);
         for (var i = 1; i <= 11; i++)
@@ -217,13 +217,13 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task With_no_standard_section_at_all_the_restored_heading_goes_at_the_end_of_the_file()
     {
-        WritePersona("## 其他\n- 随手记的一条\n");
+        WritePersona("## 其他\n- 临时记录的一条\n");
 
         var result = await _service.Tools.WritePersonaAsync(Add("profile", "系统：Windows 11 x64"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            $"## 其他\n- 随手记的一条\n\n## Profile\n- 系统：Windows 11 x64\n  <!-- {Today} quote「发布前必须问我」 -->\n",
+            $"## 其他\n- 临时记录的一条\n\n## Profile\n- 系统：Windows 11 x64\n  <!-- {Today} quote「发布前必须问我」 -->\n",
             File.ReadAllText(PersonaMd));
     }
 
@@ -401,33 +401,33 @@ public sealed partial class PersonaAddTests : IDisposable
         Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: persona baseline");
 
         var result = await _service.Tools.WritePersonaAsync(
-            InScope(Add("working_rules", "性能比较 → 不拿单次测速当结论", "别拿单次测速下结论"), "domain:network-proxy", "改代理、分流或测速时"));
+            InScope(Add("working_rules", "结构变更 → 先在测试库演练", "先在测试库演练"), "domain:db-migration", "执行数据库迁移时"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
         Assert.Equal(
             "## Red lines\n- 不要删库；改为先备份\n\n## Working rules\n\n## Preferences\n\n## Profile\n- 系统：Windows 11 x64\n\n"
-            + "## Domain: network-proxy\nTrigger: 改代理、分流或测速时\n### Working rules\n- 性能比较 → 不拿单次测速当结论\n"
-            + $"  <!-- {Today} quote「别拿单次测速下结论」 -->\n",
+            + "## Domain: db-migration\nTrigger: 执行数据库迁移时\n### Working rules\n- 结构变更 → 先在测试库演练\n"
+            + $"  <!-- {Today} quote「先在测试库演练」 -->\n",
             File.ReadAllText(PersonaMd));
-        Assert.Equal(ShortOf("性能比较 → 不拿单次测速当结论"), CodeOf(result));
-        Assert.Contains("domain network-proxy", result.Text);
+        Assert.Equal(ShortOf("结构变更 → 先在测试库演练"), CodeOf(result));
+        Assert.Contains("domain db-migration", result.Text);
         Assert.Contains("created", result.Text);
-        Assert.Equal($"persona: add {ShortOf("性能比较 → 不拿单次测速当结论")}", Git("log", "-1", "--format=%s").Trim());
+        Assert.Equal($"persona: add {ShortOf("结构变更 → 先在测试库演练")}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("persona.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
     }
 
     [Fact]
     public async Task An_existing_domain_takes_entries_under_its_section_and_ignores_a_trigger_given_again()
     {
-        WritePersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 旧规则 → 旧做法\n### Preferences\n- 测速：只看持续测速\n");
+        WritePersona("## Preferences\n- 沟通：先要结论\n\n## Domain: db-migration\nTrigger: 执行迁移时\n### Working rules\n- 旧规则 → 旧做法\n### Preferences\n- 验证：先在测试库演练\n");
 
-        var result = await _service.Tools.WritePersonaAsync(InScope(Add("working_rules", "切换节点 → 先备份配置", "先备份"), "domain:network-proxy", "完全不同的触发"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("working_rules", "变更表结构 → 先备份数据库", "先备份"), "domain:db-migration", "完全不同的触发"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 旧规则 → 旧做法\n"
-            + $"- 切换节点 → 先备份配置\n  <!-- {Today} quote「先备份」 -->\n### Preferences\n- 测速：只看持续测速\n",
+            "## Preferences\n- 沟通：先要结论\n\n## Domain: db-migration\nTrigger: 执行迁移时\n### Working rules\n- 旧规则 → 旧做法\n"
+            + $"- 变更表结构 → 先备份数据库\n  <!-- {Today} quote「先备份」 -->\n### Preferences\n- 验证：先在测试库演练\n",
             File.ReadAllText(PersonaMd));
         Assert.DoesNotContain("完全不同的触发", File.ReadAllText(PersonaMd));
     }
@@ -446,13 +446,13 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Scope_blocks_follow_the_global_sections_with_domains_first_and_each_kind_sorted_by_name()
     {
-        WritePersona("## Red lines\n\n## Preferences\n- 沟通：先要结论\n\n## Domain: zeta\nTrigger: 收尾时\n### Preferences\n- 收尾：先列清单\n\n## Workstream: photo-sorter\n### Preferences\n- 发布：先打标签\n");
+        WritePersona("## Red lines\n\n## Preferences\n- 沟通：先要结论\n\n## Domain: zeta\nTrigger: 收尾时\n### Preferences\n- 收尾：先列清单\n\n## Workstream: my-app\n### Preferences\n- 发布：先打标签\n");
 
         Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
         Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "workstream:alpha"))).IsError);
 
         var text = File.ReadAllText(PersonaMd);
-        var headings = new[] { "\n## Preferences", "\n## Domain: alpha", "\n## Domain: zeta", "\n## Workstream: alpha", "\n## Workstream: photo-sorter" };
+        var headings = new[] { "\n## Preferences", "\n## Domain: alpha", "\n## Domain: zeta", "\n## Workstream: alpha", "\n## Workstream: my-app" };
         var positions = headings.Select(heading => text.IndexOf(heading, StringComparison.Ordinal)).ToArray();
         Assert.All(positions, position => Assert.True(position >= 0, text));
         Assert.Equal(positions.Order().ToArray(), positions);
@@ -461,24 +461,24 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_missing_section_inside_a_block_is_restored_in_the_standard_order_within_the_block()
     {
-        WritePersona("## Domain: network-proxy\nTrigger: 改代理时\n### Preferences\n- 测速：只看持续测速\n");
+        WritePersona("## Domain: db-migration\nTrigger: 执行迁移时\n### Preferences\n- 验证：先在测试库演练\n");
 
         var result = await _service.Tools.WritePersonaAsync(
-            InScope(Add("red_lines", "不要用单次测速下结论；改为先看持续测速", "别下结论"), "domain:network-proxy"));
+            InScope(Add("red_lines", "不要直接改生产库；改为先走测试库", "别直接改生产"), "domain:db-migration"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## Domain: network-proxy\nTrigger: 改代理时\n\n### Red lines\n- 不要用单次测速下结论；改为先看持续测速\n"
-            + $"  <!-- {Today} quote「别下结论」 -->\n\n### Preferences\n- 测速：只看持续测速\n",
+            "## Domain: db-migration\nTrigger: 执行迁移时\n\n### Red lines\n- 不要直接改生产库；改为先走测试库\n"
+            + $"  <!-- {Today} quote「别直接改生产」 -->\n\n### Preferences\n- 验证：先在测试库演练\n",
             File.ReadAllText(PersonaMd));
     }
 
     [Fact]
     public async Task A_block_with_red_lines_and_working_rules_keeps_both_and_restores_the_missing_preferences_last()
     {
-        WritePersona("## Domain: network-proxy\nTrigger: 改代理时\n### Red lines\n- r0\n\n### Working rules\n- 先给结论\n");
+        WritePersona("## Domain: db-migration\nTrigger: 执行迁移时\n### Red lines\n- r0\n\n### Working rules\n- 先给结论\n");
 
-        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "验证：先在测试库演练", "先走测试库"), "domain:db-migration"));
 
         Assert.False(result.IsError, result.Text);
         var text = File.ReadAllText(PersonaMd);
@@ -486,7 +486,7 @@ public sealed partial class PersonaAddTests : IDisposable
         Assert.Contains("### Working rules\n- 先给结论\n", text, StringComparison.Ordinal);
         Assert.True(text.IndexOf("### Red lines", StringComparison.Ordinal) < text.IndexOf("### Working rules", StringComparison.Ordinal));
         Assert.True(text.IndexOf("### Working rules", StringComparison.Ordinal) < text.IndexOf("### Preferences", StringComparison.Ordinal));
-        Assert.Contains("- 测速：只看持续测速", text, StringComparison.Ordinal);
+        Assert.Contains("- 验证：先在测试库演练", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -494,14 +494,14 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Preferences\n- 沟通：先要结论\n");
 
-        var result = await _service.Tools.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:photo-sorter"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:my-app"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## Preferences\n- 沟通：先要结论\n\n## Workstream: photo-sorter\n### Working rules\n- 发版 → 先问我\n"
+            "## Preferences\n- 沟通：先要结论\n\n## Workstream: my-app\n### Working rules\n- 发版 → 先问我\n"
             + $"  <!-- {Today} quote「发版前问我」 -->\n",
             File.ReadAllText(PersonaMd));
-        Assert.Contains("workstream photo-sorter", result.Text);
+        Assert.Contains("workstream my-app", result.Text);
     }
 
     [Fact]
@@ -510,7 +510,7 @@ public sealed partial class PersonaAddTests : IDisposable
         WritePersona("## Preferences\n- 沟通：先要结论\n");
         var before = File.ReadAllText(PersonaMd);
 
-        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "验证：先在测试库演练", "先走测试库"), "domain:db-migration"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -522,9 +522,9 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_trigger_must_be_one_line_and_has_no_length_limit()
     {
-        var request = InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy");
+        var request = InScope(Add("preferences", "验证：先在测试库演练"), "domain:db-migration");
 
-        var twoLines = await _service.Tools.WritePersonaAsync(request with { Trigger = "改代理\n测速" });
+        var twoLines = await _service.Tools.WritePersonaAsync(request with { Trigger = "执行迁移\n验证" });
         var lengthy = await _service.Tools.WritePersonaAsync(request with { Trigger = new string('改', 300) + "时" });
 
         Assert.True(twoLines.IsError);
@@ -533,14 +533,14 @@ public sealed partial class PersonaAddTests : IDisposable
     }
 
     [Theory]
-    [InlineData("area:network")]
-    [InlineData("domain:Network")]
+    [InlineData("area:migration")]
+    [InlineData("domain:Migration")]
     [InlineData("domain:")]
     [InlineData("workstream:.hidden")]
     [InlineData("domain")]
     public async Task A_scope_that_is_not_global_a_workstream_or_a_domain_with_a_valid_name_is_refused(string scope)
     {
-        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), scope, "改代理时"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "验证：先在测试库演练"), scope, "执行迁移时"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -551,10 +551,10 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_domain_takes_entries_past_any_count_and_reports_its_count()
     {
-        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
-        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "验证：先在测试库演练"), "domain:db-migration", "执行迁移时"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "回滚：先核对脚本"), "domain:db-migration"))).IsError);
 
-        var third = await _service.Tools.WritePersonaAsync(InScope(Add("red_lines", "不要单次下结论；改为看持续数据"), "domain:network-proxy"));
+        var third = await _service.Tools.WritePersonaAsync(InScope(Add("red_lines", "不要直接改生产库；改为先走测试库"), "domain:db-migration"));
 
         Assert.False(third.IsError, third.Text);
         Assert.Contains("The domain has 3 entries.", third.Text);
@@ -566,7 +566,7 @@ public sealed partial class PersonaAddTests : IDisposable
         for (var i = 1; i <= 12; i++)
             Assert.False((await _service.Tools.WritePersonaAsync(Add("preferences", $"节奏{i}：短句优先"))).IsError);
 
-        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "验证：先在测试库演练"), "domain:db-migration", "执行迁移时"))).IsError);
     }
 
     [Fact]
@@ -610,7 +610,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_secret_in_the_trigger_is_refused_like_one_in_the_text()
     {
-        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", $"密钥 {OpenAiKey}"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "验证：先在测试库演练"), "domain:db-migration", $"密钥 {OpenAiKey}"));
 
         Assert.True(result.IsError);
         Assert.Contains("confirm_no_secret", result.Text);

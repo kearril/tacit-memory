@@ -20,7 +20,7 @@ internal static class StatusMessages
     public static readonly Localized ServiceNotRunning = new("服务未运行", "The service is not running");
 
     public static readonly Localized ServiceNotRunningOtherProgram = new(
-        "服务未运行：端口 {0} 有其他程序在回答",
+        "服务未运行：端口 {0} 已被其他程序占用",
         "The service is not running: port {0} is answered by another program");
 
     public static readonly Localized UptimeDays = new("{0} 天", "{0} d");
@@ -41,7 +41,7 @@ internal static class StatusMessages
 
     public static readonly Localized ClientsTitle = new("客户端", "Clients");
 
-    public static readonly Localized ClientsNone = new("尚未有客户端连接过服务。", "No client has connected to the service yet.");
+    public static readonly Localized ClientsNone = new("尚无客户端连接过服务。", "No client has connected to the service yet.");
 
     public static readonly Localized ClientsUnreadable = new("无法读取客户端能力记录：{0}", "The client record cannot be read: {0}");
 
@@ -66,7 +66,7 @@ internal static class StatusMessages
         "The service is not running. Run tacit serve first.");
 
     public static readonly Localized NotRunningHintOtherProgram = new(
-        "端口 {0} 有其他程序在回答，常驻服务未运行。请先执行 tacit serve，或在 config.yaml 中修改 server.port。",
+        "端口 {0} 已被其他程序占用，常驻服务未运行。请先执行 tacit serve，或在 config.yaml 中修改 server.port。",
         "Port {0} is answered by another program, so the memory service is not running. Run tacit serve first, or change server.port in config.yaml.");
 
     public static readonly Localized WebAddress = new("Web 界面：{0}", "Web interface: {0}");

@@ -28,7 +28,7 @@ public static class ToolValues
         /// <summary>A standing system or tool: pointers to its documentation, the user's stance and open to-dos.</summary>
         public const string Entity = "entity";
 
-        /// <summary>One unit of work and its record, such as a slice or a release.</summary>
+        /// <summary>One unit of work and its record, such as a feature or a release.</summary>
         public const string Work = "work";
 
         /// <summary>Every page type, in the order the tools list them.</summary>

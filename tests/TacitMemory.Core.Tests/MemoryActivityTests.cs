@@ -47,7 +47,7 @@ public sealed class MemoryActivityTests : IDisposable
         WriteMonth("2026-10", """
             ## 2026-10-05
             - [my-app] 发版完成，因为测试都过了
-              <!-- on win-main quote「发吧」 -->
+              <!-- on dev-box quote「确认发布」 -->
             - 一条没有主线的
             ## 2026-10-30
             - [my-app] 修了回滚
@@ -65,8 +65,8 @@ public sealed class MemoryActivityTests : IDisposable
         var first = month.Days[0].Activities;
         Assert.Equal(("my-app", "发版完成，因为测试都过了"), (first[0].Workstream, first[0].Text));
         Assert.Empty(first[0].Lines);
-        Assert.Equal([new SourceView(null, "发吧")], first[0].Sources);
-        Assert.Equal("win-main", first[0].Machine);
+        Assert.Equal([new SourceView(null, "确认发布")], first[0].Sources);
+        Assert.Equal("dev-box", first[0].Machine);
         Assert.Null(first[1].Machine);
         Assert.Matches("^[0-9a-f]{6}$", first[0].Code);
         Assert.Null(first[1].Workstream);

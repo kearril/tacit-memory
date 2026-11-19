@@ -27,22 +27,22 @@ internal static class ConsolidationSkill
     private const string Date = "YYYY-MM-DD";
     private const string Week = "YYYY-Www";
     private const string Month = "YYYY-MM";
-    private const string ExampleDomain = "network-proxy";
+    private const string ExampleDomain = "db-migration";
 
     /// <summary>The rejection example's text and the user's words.</summary>
     private const string ExampleText = "Keep answers short";
     private const string ExampleQuote = "Shorter, please, just the conclusion";
 
     /// <summary>The scope examples: a candidate scoped to a domain, the rule it becomes, and the domain's trigger.</summary>
-    private const string ExampleScopedText = "A single speed test is no conclusion";
-    private const string ExampleScopedQuote = "Do not draw conclusions from one speed test";
-    private const string ExampleComparison = "Performance comparisons";
-    private const string ExampleTrigger = "When changing the proxy, routing or speed tests";
+    private const string ExampleScopedText = "Validate schema migrations against a staging snapshot first";
+    private const string ExampleScopedQuote = "Always test migrations on a staging snapshot before production";
+    private const string ExampleComparison = "Schema changes";
+    private const string ExampleTrigger = "When planning or running database migrations";
 
     /// <summary>The workstream example: its name, its background line and its recent line, which states the phase, not the list of work done.</summary>
-    private const string ExampleWorkstream = "home-server";
-    private const string ExampleBackground = "The home server that runs proxy routing and self-hosted services.";
-    private const string ExampleRecent = "The service stack is set up and is being trimmed: rarely used services are being removed.";
+    private const string ExampleWorkstream = "my-app";
+    private const string ExampleBackground = "Web service and CLI tool for managing local deployments.";
+    private const string ExampleRecent = "Core API endpoints are stable; container packaging is in progress.";
 
     /// <summary>The whole file. It depends on the code only.</summary>
     public static string Compose() => CommandSkill.Compose(Name, Description, Body());
@@ -54,7 +54,7 @@ internal static class ConsolidationSkill
         var text = new StringBuilder();
         text.Append("# Memory consolidation\n\n");
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText)
-            .Append(" For example, \"only summaries\" runs the summary part of step 1 and no proposals. \"only workstreams\", or \"only workstream home-server\" ")
+            .Append(" For example, \"only summaries\" runs the summary part of step 1 and no proposals. \"only workstreams\", or \"only workstream my-app\" ")
             .Append("for one named workstream, runs just the workstream material of step 1 and the workstream proposal material of step 3, with the workstream changes of step 4. ")
             .Append("Such a narrowed pass covers only part of the report, so step 6 commits it as `consolidate(partial):`.\n\n");
         text.Append("First read the resource ").Append(ReportUri).Append(" from the MCP server named tacit. It is computed when read and gives ")

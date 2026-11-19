@@ -4,7 +4,7 @@ using TacitMemory.Core.Localization;
 namespace TacitMemory.Core.Formats;
 
 /// <summary>
-/// The source comment of a persona entry, an activity or a page section: <c>&lt;!-- 2026-10-25 on win-main quote「…」 --&gt;</c>,
+/// The source comment of a persona entry, an activity or a page section: <c>&lt;!-- 2026-10-25 on dev-box quote「…」 --&gt;</c>,
 /// with the day, the machine or the quote left out when the comment has none. The machine is written on activities only. The
 /// structure words are English, matched ignoring case. A comment that names none of the three, or holds anything else, is not
 /// a source.

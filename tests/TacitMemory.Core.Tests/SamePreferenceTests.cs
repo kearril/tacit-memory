@@ -294,11 +294,11 @@ public sealed class SamePreferenceTests : IDisposable
     }
 
     private const string DomainCandidate =
-        "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n- 2026-10-27 quote「跑一下全部测试」\n\n## Rejection list\n";
+        "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:db-migration\n- 2026-10-27 quote「跑一下全部测试」\n\n## Rejection list\n";
 
     private const string DomainPersona =
         "## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n\n"
-        + "## Domain: network-proxy\nTrigger: 改代理、分流或测速时\n### Working rules\n- 提交前 → 先运行测试\n  <!-- 2026-10-20 quote「先跑测试」 -->\n";
+        + "## Domain: db-migration\nTrigger: 执行数据库迁移时\n### Working rules\n- 提交前 → 先运行测试\n  <!-- 2026-10-20 quote「先跑测试」 -->\n";
 
     /// <summary>The question's instructions as the check states them; the wording is kept as it was.</summary>
     private const string ExpectedInstructions =
@@ -323,9 +323,9 @@ public sealed class SamePreferenceTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
-        Assert.Contains("domain:network-proxy", result.Text);
+        Assert.Contains("domain:db-migration", result.Text);
         Assert.Equal(
-            "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n"
+            "## Candidates\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:db-migration\n"
             + "- 2026-10-27 quote「跑一下全部测试」\n- 2026-11-02 quote「提交前跑全量测试」\n\n## Rejection list\n",
             File.ReadAllText(CandidatesMd));
     }
@@ -339,7 +339,7 @@ public sealed class SamePreferenceTests : IDisposable
         var candidates = Path.Combine(home.DefaultMemory, "candidates.md");
         File.WriteAllText(
             candidates,
-            "## Candidates\n\n### Run the full tests before committing\nBelongs to: Working rules\nScope: domain:network-proxy\n"
+            "## Candidates\n\n### Run the full tests before committing\nBelongs to: Working rules\nScope: domain:db-migration\n"
             + "- 2026-10-27 quote「run all tests」\n\n## Rejection list\n");
         models.Choose = (_, options) => options.ToDictionary(
             option => option.Key,
@@ -349,7 +349,7 @@ public sealed class SamePreferenceTests : IDisposable
         var result = await service.Tools.WritePersonaAsync(Propose("working_rules", "Before committing → run the tests", "run all of them"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("domain:network-proxy", result.Text);
+        Assert.Contains("domain:db-migration", result.Text);
         Assert.Contains("- 2026-10-27 quote「run all tests」\n- ", File.ReadAllText(candidates));
     }
 
@@ -365,8 +365,8 @@ public sealed class SamePreferenceTests : IDisposable
         var question = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
         var criteria = question["criteria"]!.AsObject();
         var offered = criteria.Select(option => option.Value!.GetValue<string>()).ToList();
-        Assert.Contains(offered, option => option.StartsWith("[candidate | Working rules | domain:network-proxy]", StringComparison.Ordinal));
-        Assert.Contains(offered, option => option.StartsWith("[persona | Working rules | domain:network-proxy]", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.StartsWith("[candidate | Working rules | domain:db-migration]", StringComparison.Ordinal));
+        Assert.Contains(offered, option => option.StartsWith("[persona | Working rules | domain:db-migration]", StringComparison.Ordinal));
         Assert.Equal(ExpectedInstructions, question["instructions"]!.GetValue<string>());
         Assert.Equal(NoneOption, criteria.Single(option => option.Key == "none").Value!.GetValue<string>());
     }
@@ -389,7 +389,7 @@ public sealed class SamePreferenceTests : IDisposable
     public async Task A_proposal_matching_a_rejected_candidate_of_a_domain_is_refused_and_says_so()
     {
         Configure();
-        Baseline("## Candidates\n\n## Rejection list\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n- 2026-10-20 rejected quote「算了，别跑了」\n");
+        Baseline("## Candidates\n\n## Rejection list\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:db-migration\n- 2026-10-20 rejected quote「算了，别跑了」\n");
         PickOption("全量测试", 0.95);
 
         var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));

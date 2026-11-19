@@ -8,7 +8,7 @@ internal static class BackupMessages
         "The automatic backup failed: {0}. The write itself is unaffected; the next write tries again.");
 
     public static readonly Localized BackupPlaintextKey = new(
-        "备份中含明文密钥：{0} 中写有 apiKey 或 webdav.password，备份文件中也有这些密钥，请妥善保管备份。",
+        "备份中含明文密钥：{0} 中包含 apiKey 或 webdav.password，备份文件中同样包含这些密钥，请妥善保管备份。",
         "The backup holds plaintext secrets: {0} has an apiKey or webdav.password written in it, and the backup holds them too; keep the backup safe.");
 
     public static readonly Localized ManualBackupWritten = new(

@@ -91,7 +91,7 @@
       <Output TaskParameter="ExitCode" PropertyName="TacitBunExitCode" />
     </Exec>
     <Error Condition="'$(TacitBunExitCode)' != '0'"
-           Text="Bun was not found on PATH, and the web interface needs it to be built. Install Bun (https://bun.sh), or publish without the web interface with /p:TacitSkipWebBuild=true. 找不到 Bun：构建 Web 界面需要 Bun，请安装 Bun，或加上 /p:TacitSkipWebBuild=true 跳过 Web 界面。" />
+           Text="Bun was not found on PATH, and the web interface needs it to be built. Install Bun (https://bun.sh), or publish without the web interface with /p:TacitSkipWebBuild=true." />
     <Exec Command="bun install --frozen-lockfile" WorkingDirectory="$(TacitWebDir)" />
     <Exec Command="bun run build" WorkingDirectory="$(TacitWebDir)" />
   </Target>

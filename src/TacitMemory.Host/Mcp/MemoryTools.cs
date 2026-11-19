@@ -46,7 +46,7 @@ internal sealed class MemoryTools(ServiceTools tools)
         - incident: a fault, its cause and its fix (English section Lesson for reusable takeaways).
         - decision: one decision and the reasons for it (English section Overturned when superseded).
         - entity: a standing system or tool, as pointers to its documentation, the user's stance and open to-dos.
-        - work: one unit of work such as a slice or release (English section Leftovers for open items surfaced in the brief).
+        - work: one unit of work such as a feature or release (English section Leftovers for open items surfaced in the brief).
         Record where a credential is kept, never its value.
         """)]
     public async Task<CallToolResult> WritePage(

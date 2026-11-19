@@ -140,7 +140,7 @@ describe("statsOf", () => {
         date: "a",
         total: 3,
         workstreams: [
-          { workstream: "home-server", count: 2 },
+          { workstream: "my-app", count: 2 },
           { workstream: "tacit-memory", count: 1 },
         ],
         unlabeled: 0,
@@ -155,7 +155,7 @@ describe("statsOf", () => {
       },
     ];
 
-    // Unlabeled activities never make a top workstream; home-server and tacit-memory tie at 2.
-    expect(statsOf(days).topWorkstream).toEqual({ workstream: "home-server", count: 2 });
+    // Unlabeled activities never make a top workstream; my-app and tacit-memory tie at 2.
+    expect(statsOf(days).topWorkstream).toEqual({ workstream: "my-app", count: 2 });
   });
 });

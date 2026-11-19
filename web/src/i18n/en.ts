@@ -327,7 +327,7 @@ export const en = {
     machine: {
       summary:
         "This machine's name and note shown at the top of the resident block and marked on activities written here.",
-      descriptionDefault: 'Optional, e.g. "workstation" or "home server"',
+      descriptionDefault: 'Optional, e.g. "workstation" or "test server"',
       fields: {
         name: {
           label: "Name",
@@ -470,13 +470,13 @@ export const en = {
       summary:
         "How much one search takes in and gives back, and how sure a judgment on a write must be to act on its own.",
       calibration:
-        "The default thresholds were calibrated on one particular decision model. With another decision model they may no longer fit; check and adjust them yourself.",
+        "The default thresholds were calibrated on TypeSafe jev-latest. With another decision model they may no longer fit; check and adjust them yourself.",
       retrieval: "Retrieval",
       thresholds: "Judgment thresholds",
       certain: "Certain ≥",
       unlikely: "No ≤",
       thresholdsHelp:
-        "A probability at or above the upper threshold is certain, at or below the lower one is no, and anything between is unsure; unsure cases are not acted on.",
+        "A probability at or above the upper threshold is certain, at or below the lower one is no, and anything between is uncertain; uncertain cases are not acted on automatically.",
       fields: {
         candidates: {
           label: "Candidates",
@@ -520,7 +520,7 @@ export const en = {
     connectionLost: (time) => `The memory service cannot be reached. What follows is from ${time}.`,
     connectionLostNever: "The memory service cannot be reached.",
     calm: "All is well",
-    pending: (count) => (count === 1 ? "1 thing needs you" : `${count} things need you`),
+    pending: (count) => (count === 1 ? "1 item needs attention" : `${count} items need attention`),
     uptime: ({ days, hours, minutes }) =>
       days > 0 ? `Up ${days} d ${hours} h` : hours > 0 ? `Up ${hours} h ${minutes} min` : `Up ${minutes} min`,
     consolidated: (days) =>
@@ -683,7 +683,7 @@ export const en = {
         count === 1 ? "1 more client, see it in the settings" : `${count} more clients, see them in the settings`,
     },
     todos: {
-      empty: "Nothing needs you",
+      empty: "Nothing needs attention",
       modelsUnconfigured: (models) =>
         models.length === 1
           ? `The ${models[0]} is not configured`

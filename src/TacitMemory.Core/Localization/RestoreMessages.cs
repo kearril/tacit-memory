@@ -62,7 +62,7 @@ internal static class RestoreMessages
         "确认恢复？输入 y 继续，输入其他内容取消：",
         "Restore? Type y to continue, anything else to cancel:");
     public static readonly Localized Cancelled = new(
-        "已取消，未改动任何东西。",
+        "已取消，未做任何修改。",
         "Cancelled; nothing was changed.");
 
     public static readonly Localized ScopeMemory = new("仅记忆仓库", "memory repository only");
@@ -74,7 +74,7 @@ internal static class RestoreMessages
         "config.yaml 已恢复，服务已按它重新加载。",
         "config.yaml is restored, and the service has reloaded with it.");
     public static readonly Localized ConfigNotApplied = new(
-        "config.yaml 已恢复，但服务没能按它重新加载，继续使用原来的配置：{0}",
+        "config.yaml 已恢复，但服务未能按其重新加载，继续使用原配置：{0}",
         "config.yaml is restored, but the service could not reload with it and keeps the config it had: {0}");
     public static readonly Localized RestartPending = new(
         "以下设置要重启 tacit serve 后才生效：",
@@ -106,7 +106,7 @@ internal static class RestoreMessages
         "云端备份只能先预览：预览会把备份下载到本地，之后以预览返回的路径恢复。",
         "A cloud backup can only be previewed: the preview downloads it, and the restore then takes the downloaded file.");
     public static readonly Localized ConfigProblem = new(
-        "恢复回来的 config.yaml 有错误，服务继续使用原来的配置；修正后在设置页保存一次或重启 tacit serve 才会生效：\n{0}",
+        "恢复的 config.yaml 存在错误，服务继续使用原配置；修正后在设置页保存一次或重启 tacit serve 才会生效：\n{0}",
         "The restored config.yaml has errors, so the service keeps the config it had; fix them, then save on the settings page or restart tacit serve:\n{0}");
     public static readonly Localized PreviewConfigProblem = new(
         "注意：备份中的 config.yaml 有错误，恢复后需修正才能重启 tacit serve：\n{0}",

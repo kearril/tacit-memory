@@ -510,15 +510,15 @@ public sealed class ServiceHostTests : IAsyncLifetime
         {
             ["op"] = "add",
             ["persona_section"] = "working_rules",
-            ["text"] = "切换节点 → 先备份配置",
+            ["text"] = "变更表结构 → 先备份数据库",
             ["source"] = "先备份",
-            ["scope"] = "domain:network-proxy",
-            ["trigger"] = "改代理、分流或测速时",
+            ["scope"] = "domain:db-migration",
+            ["trigger"] = "执行数据库迁移时",
         });
 
         Assert.NotEqual(true, written.IsError);
         Assert.Contains(
-            "## Domain: network-proxy\nTrigger: 改代理、分流或测速时\n### Working rules\n- 切换节点 → 先备份配置\n  <!-- 2026-11-02 quote「先备份」 -->\n",
+            "## Domain: db-migration\nTrigger: 执行数据库迁移时\n### Working rules\n- 变更表结构 → 先备份数据库\n  <!-- 2026-11-02 quote「先备份」 -->\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "persona.md")));
     }
 

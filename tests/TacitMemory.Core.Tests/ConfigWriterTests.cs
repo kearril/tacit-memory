@@ -22,7 +22,7 @@ public sealed class ConfigWriterTests : IDisposable
             consolidation: { remindAfterDays: 5, hintEntryLength: 120 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { topK: 8, minRerankScore: 0.3 }
-            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit/', username: me, password: pw, file: win-main.zip } }
+            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit/', username: me, password: pw, file: workstation.zip } }
             """);
         var before = _home.Tacit().LoadConfig();
 
@@ -110,10 +110,10 @@ public sealed class ConfigWriterTests : IDisposable
         _home.Tacit().SaveConfig(defaults);
         Assert.DoesNotContain("machine:", File.ReadAllText(ConfigPath));
 
-        var custom = defaults with { Machine = new MachineFile("mac-mini", "常驻服务器") };
+        var custom = defaults with { Machine = new MachineFile("server-box", "常驻服务器") };
         _home.Tacit().SaveConfig(custom);
         var rendered = File.ReadAllText(ConfigPath);
-        Assert.Contains("machine:\n  name: mac-mini\n  description: '常驻服务器'\n", rendered.ReplaceLineEndings("\n"));
-        Assert.Equal(new MachineConfig("mac-mini", "常驻服务器"), _home.Tacit().LoadConfig().Machine);
+        Assert.Contains("machine:\n  name: server-box\n  description: '常驻服务器'\n", rendered.ReplaceLineEndings("\n"));
+        Assert.Equal(new MachineConfig("server-box", "常驻服务器"), _home.Tacit().LoadConfig().Machine);
     }
 }

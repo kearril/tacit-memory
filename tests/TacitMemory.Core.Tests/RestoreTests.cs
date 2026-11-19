@@ -305,7 +305,7 @@ public sealed class RestoreTests : IDisposable
         Assert.Same(running, _service.Config);
         Assert.Empty(result.Restart);
         Assert.Contains("topK: lots", File.ReadAllText(ConfigYaml));
-        Assert.Contains(result.Notices, notice => notice.StartsWith("恢复回来的 config.yaml 有错误", StringComparison.Ordinal)
+        Assert.Contains(result.Notices, notice => notice.StartsWith("恢复的 config.yaml 存在错误", StringComparison.Ordinal)
             && notice.Contains("retrieval.topK", StringComparison.Ordinal));
     }
 

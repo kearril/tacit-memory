@@ -28,15 +28,18 @@ const REPORT: PersonaReport = {
   ],
   domains: [
     {
-      name: "network-proxy",
+      name: "db-migration",
       line: 10,
-      trigger: "改代理时",
-      sections: [section("workingRules", entry(12, "不拿单次测速当结论")), section(null, entry(14, "随手记", null))],
+      trigger: "执行数据库迁移时",
+      sections: [
+        section("workingRules", entry(12, "先在测试库验证迁移脚本")),
+        section(null, entry(14, "临时笔记", null)),
+      ],
     },
     { name: "release-notes", line: 20, trigger: null, sections: [section("preferences", entry(22, "精炼"))] },
   ],
   workstreams: [
-    { name: "tacit-memory", line: 30, trigger: null, sections: [section("preferences", entry(32, "不微调"))] },
+    { name: "tacit-memory", line: 30, trigger: null, sections: [section("preferences", entry(32, "保持简洁"))] },
   ],
   candidatesFile: FILE,
   candidates: [],
@@ -47,7 +50,7 @@ describe("personaScopes", () => {
   it("lists global, each domain and each workstream in the file's order, with their entry counts", () => {
     expect(personaScopes(REPORT).map(({ key, kind, name, count }) => ({ key, kind, name, count }))).toEqual([
       { key: "global", kind: "global", name: null, count: 2 },
-      { key: "domain:network-proxy", kind: "domain", name: "network-proxy", count: 1 },
+      { key: "domain:db-migration", kind: "domain", name: "db-migration", count: 1 },
       { key: "domain:release-notes", kind: "domain", name: "release-notes", count: 1 },
       { key: "workstream:tacit-memory", kind: "workstream", name: "tacit-memory", count: 1 },
     ]);
@@ -55,7 +58,7 @@ describe("personaScopes", () => {
 
   it("carries a domain's trigger, which is null when it is missing", () => {
     const scopes = personaScopes(REPORT);
-    expect(scopes[1]?.trigger).toBe("改代理时");
+    expect(scopes[1]?.trigger).toBe("执行数据库迁移时");
     expect(scopes[2]?.trigger).toBeNull();
   });
 });
@@ -72,7 +75,7 @@ describe("personaSections", () => {
     ]);
     expect(sections[1]?.rows.map((row) => [row.scope.key, row.entry.text])).toEqual([
       ["global", "先讨论再动手"],
-      ["domain:network-proxy", "不拿单次测速当结论"],
+      ["domain:db-migration", "先在测试库验证迁移脚本"],
     ]);
     expect(sections[2]?.rows.map((row) => row.scope.key)).toEqual([
       "global",
@@ -85,7 +88,7 @@ describe("personaSections", () => {
   it("puts what sits under no known section last, with the heading it is under", () => {
     const other = personaSections(REPORT, null).at(-1);
     expect(other?.section).toBeNull();
-    expect(other?.rows.map((row) => [row.heading, row.entry.text])).toEqual([["杂项", "随手记"]]);
+    expect(other?.rows.map((row) => [row.heading, row.entry.text])).toEqual([["杂项", "临时笔记"]]);
   });
 
   it("leaves the other group out when nothing is in it", () => {
@@ -98,17 +101,17 @@ describe("personaSections", () => {
   });
 
   it("keeps only one scope's entries when filtered by it", () => {
-    const sections = personaSections(REPORT, "domain:network-proxy");
+    const sections = personaSections(REPORT, "domain:db-migration");
     expect(sections.flatMap((group) => group.rows).map((row) => row.entry.text)).toEqual([
-      "不拿单次测速当结论",
-      "随手记",
+      "先在测试库验证迁移脚本",
+      "临时笔记",
     ]);
   });
 });
 
 describe("scopeKeyOf", () => {
   it("accepts a scope the persona has and ignores any other", () => {
-    expect(scopeKeyOf(new URLSearchParams("scope=domain:network-proxy"), REPORT)).toBe("domain:network-proxy");
+    expect(scopeKeyOf(new URLSearchParams("scope=domain:db-migration"), REPORT)).toBe("domain:db-migration");
     expect(scopeKeyOf(new URLSearchParams("scope=global"), REPORT)).toBe("global");
     expect(scopeKeyOf(new URLSearchParams("scope=domain:gone"), REPORT)).toBeNull();
     expect(scopeKeyOf(new URLSearchParams(""), REPORT)).toBeNull();

@@ -7,7 +7,7 @@ internal static class AccessMessages
         "访问密码至少需要 8 个字符。",
         "The access password must be at least 8 characters.");
     public static readonly Localized PasswordWrong = new(
-        "访问密码不对。",
+        "访问密码错误。",
         "The access password is wrong.");
     public static readonly Localized LoginLimited = new(
         "错误次数过多，请 {0} 秒后再试。",

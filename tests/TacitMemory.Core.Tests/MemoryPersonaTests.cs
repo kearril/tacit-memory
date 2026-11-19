@@ -41,10 +41,10 @@ public sealed class MemoryPersonaTests : IDisposable
         ### Working rules
         - 发版 → 先跑全量测试
 
-        ## Domain: network-proxy
-        Trigger: 改代理、分流或测速时
+        ## Domain: db-migration
+        Trigger: 执行数据库迁移时
         ### Preferences
-        - 测速：取三次的中位数
+        - 验证：先在测试库演练再上线
 
         """;
 
@@ -112,8 +112,8 @@ public sealed class MemoryPersonaTests : IDisposable
         Assert.Contains($"[{rule.Code}] 需求不清时", recalled.Text);
 
         var domain = Assert.Single(report.Domains);
-        Assert.Equal(("network-proxy", "改代理、分流或测速时"), (domain.Name, domain.Trigger));
-        Assert.Equal("测速：取三次的中位数", Assert.Single(Assert.Single(domain.Sections).Entries).Text);
+        Assert.Equal(("db-migration", "执行数据库迁移时"), (domain.Name, domain.Trigger));
+        Assert.Equal("验证：先在测试库演练再上线", Assert.Single(Assert.Single(domain.Sections).Entries).Text);
         var workstream = Assert.Single(report.Workstreams);
         Assert.Equal("tacit-memory", workstream.Name);
         Assert.Equal(PersonaSection.WorkingRules, Assert.Single(workstream.Sections).Section);

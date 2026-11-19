@@ -23,8 +23,8 @@ public sealed partial class RecallPersonaTests : IDisposable
 
     private string PersonaMd => Path.Combine(_home.DefaultMemory, "persona.md");
 
-    [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\] 性能/节点比较")]
-    private static partial Regex NodeRuleCode();
+    [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\] 结构变更")]
+    private static partial Regex MigrationRuleCode();
 
     [GeneratedRegex(@"\[([0-9a-f]{6}(?:-\d+)?)\] 沟通：先要结论")]
     private static partial Regex CommunicationCode();
@@ -46,11 +46,11 @@ public sealed partial class RecallPersonaTests : IDisposable
         ## Profile
         - 系统：Windows 11 x64
 
-        ## Domain: network-proxy
-        Trigger: 改代理、分流或测速时
+        ## Domain: db-migration
+        Trigger: 执行数据库迁移时
         ### Working rules
-        - 性能/节点比较 → 不拿单次测速当日常结论
-          <!-- 2026-11-06 quote「别拿单次测速下结论」 -->
+        - 结构变更 → 先在测试库演练迁移脚本
+          <!-- 2026-11-06 quote「先在测试库跑一遍」 -->
 
         ## Workstream: tacit-memory
         ### Working rules
@@ -61,7 +61,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         ### Preferences
         - 频率：每天一次
 
-        ## Workstream: photo-sorter
+        ## Workstream: my-app
         ### Preferences
         - 批量导出：先验收再发版
 
@@ -89,8 +89,8 @@ public sealed partial class RecallPersonaTests : IDisposable
             "Preferences, 1 entry:",
             "Profile, 1 entry:",
             "Domain backup, 1 entry. Trigger: 改备份策略时",
-            "Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时",
-            "Workstream photo-sorter, 1 entry:",
+            "Domain db-migration, 1 entry. Trigger: 执行数据库迁移时",
+            "Workstream my-app, 1 entry:",
             "Workstream tacit-memory, 1 entry:",
         };
         var positions = order.Select(text => result.Text.IndexOf(text, StringComparison.Ordinal)).ToList();
@@ -98,7 +98,7 @@ public sealed partial class RecallPersonaTests : IDisposable
         Assert.Equal(positions.Order(), positions);
         Assert.Matches(@"- \[[0-9a-f]{6}\] 不要删库；改为先备份", result.Text);
         Assert.Matches(@"- \[[0-9a-f]{6}\] 系统：Windows 11 x64", result.Text);
-        Assert.Matches(@"- \[[0-9a-f]{6}\] 性能/节点比较 → 不拿单次测速当日常结论", result.Text);
+        Assert.Matches(@"- \[[0-9a-f]{6}\] 结构变更 → 先在测试库演练迁移脚本", result.Text);
     }
 
     [Fact]
@@ -134,14 +134,14 @@ public sealed partial class RecallPersonaTests : IDisposable
     public async Task A_short_code_from_rules_deletes_a_domain_entry_and_keeps_its_block()
     {
         WritePersona(Fixture);
-        var code = NodeRuleCode().Match((await Rules("network-proxy")).Text).Groups[1].Value;
+        var code = MigrationRuleCode().Match((await Rules("db-migration")).Text).Groups[1].Value;
 
         var result = await Service.Tools.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = code });
 
         Assert.False(result.IsError, result.Text);
         var after = File.ReadAllText(PersonaMd);
-        Assert.DoesNotContain("性能/节点比较", after);
-        Assert.Contains("## Domain: network-proxy\nTrigger: 改代理、分流或测速时", after);
+        Assert.DoesNotContain("结构变更", after);
+        Assert.Contains("## Domain: db-migration\nTrigger: 执行数据库迁移时", after);
     }
 
     [Fact]
@@ -172,11 +172,11 @@ public sealed partial class RecallPersonaTests : IDisposable
     {
         WritePersona(Fixture);
 
-        var result = await Rules("network-proxy");
+        var result = await Rules("db-migration");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains("Domain network-proxy, 1 entry. Trigger: 改代理、分流或测速时", result.Text);
-        Assert.Matches(@"- \[[0-9a-f]{6}\] 性能/节点比较 → 不拿单次测速当日常结论", result.Text);
+        Assert.Contains("Domain db-migration, 1 entry. Trigger: 执行数据库迁移时", result.Text);
+        Assert.Matches(@"- \[[0-9a-f]{6}\] 结构变更 → 先在测试库演练迁移脚本", result.Text);
         Assert.DoesNotContain("Domain backup", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);
         Assert.DoesNotContain("原话", result.Text);
@@ -191,8 +191,8 @@ public sealed partial class RecallPersonaTests : IDisposable
 
         Assert.False(result.IsError, result.Text);
         var backup = result.Text.IndexOf("Domain backup,", StringComparison.Ordinal);
-        var proxy = result.Text.IndexOf("Domain network-proxy,", StringComparison.Ordinal);
-        Assert.True(backup >= 0 && proxy > backup, result.Text);
+        var migration = result.Text.IndexOf("Domain db-migration,", StringComparison.Ordinal);
+        Assert.True(backup >= 0 && migration > backup, result.Text);
         Assert.DoesNotContain("发版", result.Text);
         Assert.DoesNotContain("批量导出", result.Text);
         Assert.DoesNotContain("Red lines", result.Text);
@@ -207,7 +207,7 @@ public sealed partial class RecallPersonaTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.Contains("networking", result.Text);
-        Assert.Contains("backup, network-proxy", result.Text);
+        Assert.Contains("backup, db-migration", result.Text);
         Assert.Contains("Next step:", result.Text);
     }
 

@@ -286,7 +286,7 @@ public sealed class ClientsColumnCliTests : IDisposable
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("客户端" + Environment.NewLine, result.Stdout);
-        Assert.Contains("  尚未有客户端连接过服务。", result.Stdout);
+        Assert.Contains("  尚无客户端连接过服务。", result.Stdout);
         Assert.DoesNotContain(OutputWords.Escape, result.Stdout);
     }
 }
