@@ -52,7 +52,7 @@ internal static class ConfigLoader
         var language = LanguageCodes.Parse(languageText) ?? fallbackLanguage;
 
         var reader = new ConfigReader(language);
-        reader.OnlyKnown(root, "", "server", "memory", "language", "machine", "models", "limits", "consolidation", "decision", "retrieval", "backup");
+        reader.OnlyKnown(root, "", "server", "memory", "language", "machine", "models", "limits", "consolidation", "decision", "retrieval", "backup", "sync");
         if (reader.Text(root, "", "language") is { } code && LanguageCodes.Parse(code) is null)
             reader.Error("language", Messages.ConfigExpectedLanguage, code);
 
@@ -74,6 +74,7 @@ internal static class ConfigLoader
         var decision = ReadDecision(reader, root);
         var retrieval = ReadRetrieval(reader, root);
         var backup = ReadBackup(reader, root, options.Secrets);
+        var sync = ReadSync(reader, root);
 
         if (reader.Problems.Count > 0)
         {
@@ -99,6 +100,7 @@ internal static class ConfigLoader
             Decision = decision,
             Retrieval = retrieval,
             Backup = backup,
+            Sync = sync,
             Prompts = prompts,
         };
     }
@@ -335,6 +337,14 @@ internal static class ConfigLoader
         var backup = reader.Mapping(root, "", "backup");
         reader.OnlyKnown(backup, "backup", "keep", "webdav");
         return new BackupConfig(reader.Integer(backup, ConfigKeys.Keep), ReadWebDav(reader, backup, secrets));
+    }
+
+    private static SyncConfig ReadSync(ConfigReader reader, YamlMappingNode root)
+    {
+        var sync = reader.Mapping(root, "", "sync");
+        reader.OnlyKnown(sync, "sync", "remote", "pullMinutes");
+        var remote = reader.Text(sync, "sync", "remote");
+        return new SyncConfig(string.IsNullOrWhiteSpace(remote) ? null : remote.Trim(), reader.Integer(sync, ConfigKeys.Sync.PullMinutes));
     }
 
     /// <summary>The <c>backup.webdav</c> section, or <c>null</c> when absent or wrong (all reported).</summary>

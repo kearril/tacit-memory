@@ -1,6 +1,7 @@
 import {
   Archive,
   Cpu,
+  FolderSync,
   Globe,
   Info,
   Layers,
@@ -47,7 +48,10 @@ export interface SettingsForm {
   readonly restore: (path: string) => void;
 }
 
-/** The icon of each section, in the head of its card; the models and the backups take the dashboard's icons for them. */
+/**
+ * The icon of each section, in the head of its card; the models, the backups and the sync take the dashboard's icons for
+ * them.
+ */
 const SECTION_ICONS: Readonly<Record<SectionId, LucideIcon>> = {
   machine: Monitor,
   models: Cpu,
@@ -55,6 +59,7 @@ const SECTION_ICONS: Readonly<Record<SectionId, LucideIcon>> = {
   judgment: SlidersHorizontal,
   consolidation: Layers,
   backup: Archive,
+  sync: FolderSync,
   access: Globe,
   advanced: Wrench,
 };

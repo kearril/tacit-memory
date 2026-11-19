@@ -44,6 +44,7 @@ function configFile(): ConfigFile {
     decision: {},
     retrieval: {},
     backup: { keep: null, webDav: null },
+    sync: { remote: null, pullMinutes: null },
   } as ConfigFile;
 }
 

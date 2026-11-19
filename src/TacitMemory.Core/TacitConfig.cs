@@ -32,6 +32,8 @@ public sealed record TacitConfig
 
     public required BackupConfig Backup { get; init; }
 
+    public required SyncConfig Sync { get; init; }
+
     /// <summary>The prompt documents in <c>prompts/</c>.</summary>
     public required PromptDocuments Prompts { get; init; }
 
@@ -103,6 +105,11 @@ public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Passwo
 /// <param name="Name">Configured machine name, or normalized from the host name when omitted.</param>
 /// <param name="Description">Optional single-line description shown beside the name in the resident block.</param>
 public sealed record MachineConfig(string Name, string? Description);
+
+/// <summary>The sync of the memory repository with a git remote.</summary>
+/// <param name="Remote">The git address of the remote, taken as git takes it; <c>null</c> when the sync is off.</param>
+/// <param name="PullMinutes">Minutes between the timed pulls; 0 turns them off, leaving the syncs around writes.</param>
+public sealed record SyncConfig(string? Remote, int PullMinutes);
 
 /// <summary>Where a secret's value came from: its environment variable, or <c>config.yaml</c>.</summary>
 public enum SecretSource

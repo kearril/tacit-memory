@@ -185,10 +185,12 @@ type: incident
 
 - 首次初始化：`git init`，写入 `.gitignore`、各文件的节标题骨架与 `recent/`、`pages/` 下的 `.gitkeep`，提交 `init: create memory repo`。目录非空且不是 Git 仓库时拒绝初始化。
 - 再次执行 `init` 不覆盖任何已有文件：记忆目录已是 Git 仓库时只补缺失的骨架文件，不提交，并列出已存在的文件。传入的 `--language` 或 `--memory` 与已有 `config.yaml` 不一致时拒绝执行。
+- `init --remote <地址>` 不建仓库，而是从远端克隆（远端登记为 `tacit`），不补骨架、不提交。
 - 每次经服务的写入自动提交一次，只提交本次写入的文件，作者固定为 `tacit <tacit@localhost>`。提交信息为 `<区域>: <动作> <对象>`，区域为 `persona`、`candidates`、`recent`、`pages` 之一，例如 `pages: create tacit-memory/db-upgrade`。
 - 要写的文件含有用户未提交的修改时，连同修改一起提交，并在提交信息末尾注明。
 - 提交失败时文件照样写入：通知用户，工具结果标为错误并说明下次写这个文件时一并提交；索引同步、向量补齐、自动备份与常驻区块的重渲染照常进行，与提交成功时相同。
 - 整理的提交由主会话完成：完整整理的提交信息以 `consolidate:` 开头，服务据此识别上次整理的时间；不完整的整理以 `consolidate(partial):` 开头，不算上次整理。
+- 开启同步时，每次同步把合并与换行规则写进 `.git/info/attributes`（整份覆盖，只属于本机仓库，不提交、不随同步传播）：所有文本文件以 LF 签出，`recent/*.md` 与 `candidates.md` 用 `merge=union`。在仓库里手动执行的 git 命令同样遵守它。仓库里自己提交的 `.gitattributes` 优先级更低，不要在其中写相反的规则。
 
 ## 10. 格式不对时
 

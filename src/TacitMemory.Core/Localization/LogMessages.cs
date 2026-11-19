@@ -79,4 +79,9 @@ internal static class LogMessages
     public static readonly Localized UnexpectedFailure = new(
         "管理 API 出现未预期的异常 {0}：{1}",
         "An unexpected exception reached the management API: {0}: {1}");
+    public static readonly Localized SyncDone = new("同步完成：{0}", "Sync done: {0}");
+    public static readonly Localized SyncNotDone = new("同步未完成（{0}）：{1}", "Sync not done ({0}): {1}");
+    public static readonly Localized SyncPausedAfterRestore = new("恢复备份后同步已暂停，等待选边", "Sync paused after the restore until a side is chosen");
+    public static readonly Localized SyncSideChosen = new("同步选边（{0}）：{1}", "Sync side chosen ({0}): {1}");
+    public static readonly Localized SyncRecordFailed = new("无法写入同步记录：{0}", "The sync record cannot be written: {0}");
 }

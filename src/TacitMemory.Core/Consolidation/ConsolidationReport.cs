@@ -68,7 +68,9 @@ internal sealed record ConsolidationReport(
     /// add answers to the judgment cache. The categories read the repository and submit their judgments first, and only
     /// then does the budget start, so it covers just the wait for the models.
     /// </summary>
-    public static async Task<ConsolidationReport> BuildAsync(TacitConfig config, ConsolidationServices services, DateOnly today, CancellationToken cancellationToken)
+    /// <param name="lastSync">The last sync of the repository, which says whether the sync is paused; <c>null</c> when there was none.</param>
+    public static async Task<ConsolidationReport> BuildAsync(
+        TacitConfig config, ConsolidationServices services, DateOnly today, SyncRecord? lastSync, CancellationToken cancellationToken)
     {
         var git = new GitCli(config.MemoryPath, config.Language);
         var context = new ConsolidationContext(config, today, git, await ConsolidationBaseline.ReadAsync(git, cancellationToken));
@@ -89,6 +91,7 @@ internal sealed record ConsolidationReport(
         var workstreams = await WorkstreamProposals.ProduceAsync(context, cancellationToken);
         var automatic = new[]
         {
+            await SyncConflicts.ProduceAsync(context, lastSync, cancellationToken),
             FormatViolations.Automatic(issues),
             RedundantCandidates.Produce(config, review),
             SummaryMaterial.Weeks(context),

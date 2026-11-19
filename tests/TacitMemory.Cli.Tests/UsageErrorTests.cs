@@ -46,6 +46,9 @@ public sealed class UsageErrorTests : IDisposable
         { ["backup", "--to", "  "], "--to" },
         { ["init", "--memory", ""], "--memory" },
         { ["connect", "--client", "omp", "--context", "", "--skills", "x"], "--context" },
+        { ["sync", "--use-local", "--use-remote"], "--use-remote" },
+        { ["sync", "--yes"], "--use-local" },
+        { ["init", "--remote", " "], "--remote" },
     };
 
     [Theory]

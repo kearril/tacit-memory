@@ -9,6 +9,7 @@ using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
 using TacitMemory.Core.Recent;
 using TacitMemory.Core.Retrieval;
+using TacitMemory.Core.Sync;
 using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core;
@@ -49,10 +50,13 @@ public sealed class ServiceTools
 
     /// <summary>
     /// The text of the consolidation report resource, built from the repository as it is now: the repository's path, today's
-    /// date and the consolidation report. Reads only. Cancelling it abandons the report; nothing is written either way.
+    /// date and the consolidation report. A configured sync pulls first, in the write queue, so the report covers what the
+    /// other machine wrote; the report itself only reads. Cancelling it abandons the report.
     /// </summary>
     public async Task<string> ConsolidationReportAsync(CancellationToken cancellationToken = default)
     {
+        using (await _gate.WriteAsync(cancellationToken))
+            await _runtime().Sync.RunAsync(SyncTrigger.Report, cancellationToken);
         using var hold = await _gate.ReadAsync(cancellationToken);
         var runtime = _runtime();
         return await ConsolidationResource.RenderAsync(_options, runtime.Config, runtime.Consolidation, cancellationToken);
@@ -76,7 +80,7 @@ public sealed class ServiceTools
 
     private async Task<ToolResult> WritePageCoreAsync(WritePageRequest request, CancellationToken cancellationToken)
     {
-        using var hold = await _gate.WriteAsync(cancellationToken);
+        using var hold = await WriteHoldAsync(cancellationToken);
         return await _runtime().Pages.WriteAsync(request, cancellationToken);
     }
 
@@ -86,7 +90,7 @@ public sealed class ServiceTools
 
     private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
     {
-        using var hold = await _gate.WriteAsync(cancellationToken);
+        using var hold = await WriteHoldAsync(cancellationToken);
         return await _runtime().Recent.WriteAsync(request, cancellationToken);
     }
 
@@ -99,8 +103,27 @@ public sealed class ServiceTools
 
     private async Task<ToolResult> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
     {
-        using var hold = await _gate.WriteAsync(cancellationToken);
+        using var hold = await WriteHoldAsync(cancellationToken);
         return await _runtime().Persona.WriteAsync(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes the write slot, then lets a configured sync pull, so the write changes the files as the other machine last left
+    /// them. A pull that fails does not stop the write: it is recorded, and the write is committed here and pushed later.
+    /// </summary>
+    private async Task<Hold> WriteHoldAsync(CancellationToken cancellationToken)
+    {
+        var hold = await _gate.WriteAsync(cancellationToken);
+        try
+        {
+            await _runtime().Sync.RunAsync(SyncTrigger.BeforeWrite, cancellationToken);
+            return hold;
+        }
+        catch
+        {
+            hold.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Runs a memory tool whose event adds nothing to the targets; see the overload that takes details.</summary>
@@ -158,4 +181,5 @@ public sealed class ServiceTools
 
 /// <summary>The parts of the running memory the tools use; a reload replaces them.</summary>
 internal sealed record ToolRuntime(
-    TacitConfig Config, RecallTool Recall, PageTools Pages, RecentTools Recent, PersonaTools Persona, ConsolidationServices Consolidation);
+    TacitConfig Config, RecallTool Recall, PageTools Pages, RecentTools Recent, PersonaTools Persona, ConsolidationServices Consolidation,
+    MemorySync Sync);

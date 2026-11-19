@@ -66,6 +66,8 @@ internal static class ConsolidationSkill
 
         text.Append("## Steps\n");
         text.Append("1. Part \"").Append(ConsolidationTitles.AutomaticPart).Append("\": do these without asking the user.\n");
+        text.Append("   - \"").Append(ConsolidationTitles.SyncConflicts).Append("\": when it lists a paused sync, handle it first, as its item says: resolve a conflict with the steps it gives, ")
+            .Append("or tell the user which side to choose; read the report again once a conflict is resolved, as the files changed.\n");
         text.Append("   - \"").Append(ConsolidationTitles.FormatViolations).Append("\": fix each item that says it is fixed directly; an item that only gives a hint needs no change.\n");
         text.Append("   - \"").Append(ConsolidationTitles.RedundantCandidates).Append("\": delete each listed candidate from candidates.md.\n");
         text.Append("   - \"").Append(ConsolidationTitles.WeeksToSummarize).Append("\" and \"").Append(ConsolidationTitles.MonthsToSummarize)
@@ -131,7 +133,8 @@ internal static class ConsolidationSkill
             .Append("otherwise it starts with `consolidate(partial):`, which leaves the baseline in place so the next report still lists everything that changed since it. ")
             .Append("Run `git -C \"").Append(Repository).Append("\" add -A`, then `git -C \"").Append(Repository)
             .Append("\" commit -m \"consolidate: ...\"` (or `-m \"consolidate(partial): ...\"`). If nothing changed, add `--allow-empty`: `git -C \"")
-            .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"` (or `consolidate(partial): no changes`).\n\n");
+            .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"` (or `consolidate(partial): no changes`). ")
+            .Append("Then run `tacit sync`, so another machine that shares this memory gets the result at once; when it says the sync is off, there is nothing more to do.\n\n");
 
         text.Append("## Examples\n");
         text.Append("The examples show the structure words of the memory files: write them exactly as they appear here, in English, whatever the memory language. ")

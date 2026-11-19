@@ -22,8 +22,9 @@ namespace TacitMemory.Core.Upkeep;
 /// <param name="Models">The auxiliary models, whose availability the server instructions report.</param>
 /// <param name="Backup">The automatic backup in progress, or a completed task.</param>
 /// <param name="Judgments">The consolidation judgments in progress, or a completed task.</param>
+/// <param name="Sync">The background syncs in progress, or a completed task.</param>
 internal sealed record UpkeepRuntime(
-    TacitConfig Config, ISourceWatch Sources, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments);
+    TacitConfig Config, ISourceWatch Sources, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, Task Backup, Task Judgments, Task Sync);
 
 /// <summary>The derived products a refresh made now brings up to date; they combine.</summary>
 [Flags]
@@ -238,13 +239,15 @@ internal sealed class DerivedUpkeep : IDisposable
     }
 
     /// <summary>
-    /// Completes once the derived products have caught up: the refreshes a change scheduled run now rather than at the end
-    /// of their wait, and the runs under way finish; a retry still waits for its interval, as only the file's holder can
-    /// end it. Then the automatic backup, the vector fill and the consolidation judgments are waited for. Their failures
-    /// are reported where they happen, so they end the wait as success does.
+    /// Completes once the derived products have caught up: the background syncs finish first, as one that pulls schedules
+    /// refreshes; then the refreshes a change scheduled run now rather than at the end of their wait, and the runs under way
+    /// finish; a retry still waits for its interval, as only the file's holder can end it. Then the automatic backup, the
+    /// vector fill and the consolidation judgments are waited for. Their failures are reported where they happen, so they
+    /// end the wait as success does.
     /// </summary>
     public async Task SettledAsync()
     {
+        await Settled(_runtime().Sync);
         // A refresh can schedule another, as a prompt reload that changed resident.md schedules a render: go on until no
         // refresh starts and none runs.
         while (true)

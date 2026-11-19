@@ -22,6 +22,7 @@ internal static class ConfigSchema
             File(ConfigKeys.SamePreference), File(ConfigKeys.SamePage), File(ConfigKeys.SameTopic), File(ConfigKeys.RuleConflict)),
         Retrieval = new RetrievalFile(ConfigKeys.Candidates.Default, ConfigKeys.TopK.Default, ConfigKeys.MinRerankScore.Default),
         Backup = new BackupFile(ConfigKeys.Keep.Default),
+        Sync = new SyncFile(null, ConfigKeys.Sync.PullMinutes.Default),
     };
 
     private static ThresholdFile File(ThresholdKeys keys) => new(keys.Certain.Default, keys.Unlikely.Default);

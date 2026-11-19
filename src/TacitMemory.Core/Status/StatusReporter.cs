@@ -6,6 +6,7 @@ using TacitMemory.Core.Configuration;
 using TacitMemory.Core.Consolidation;
 using TacitMemory.Core.Localization;
 using TacitMemory.Core.Logging;
+using TacitMemory.Core.Sync;
 
 namespace TacitMemory.Core.Status;
 
@@ -155,6 +156,7 @@ internal static class StatusReporter
             Consolidation = Consolidation(language, summary, unreadable),
             Pending = Pending(language, summary, unreadable),
             Backups = Backups(options, config),
+            Sync = await SyncAsync(options, config, cancellationToken),
             Logs = Logs(options, language),
             Secrets = Secrets(config),
         };
@@ -290,6 +292,59 @@ internal static class StatusReporter
             return (BackupMessages.BackupCloudUnreadable.Format(language, e.Message), null);
         }
     }
+
+    /// <summary>
+    /// The sync's lines: the remote, the last sync, the commits not pushed and, while the sync is paused, what to do. Reads
+    /// <c>sync.json</c> and the repository only: no network is touched.
+    /// </summary>
+    private static async Task<SyncStatus> SyncAsync(TacitOptions options, TacitConfig config, CancellationToken cancellationToken)
+    {
+        var language = config.Language;
+        var title = SyncMessages.Title.In(language);
+        if (config.Sync.Remote is not { } remote)
+            return new SyncStatus(title, [SyncMessages.StatusOff.In(language)], null, null, null);
+
+        SyncRecord? last = null;
+        string lastLine;
+        try
+        {
+            last = MemorySync.ReadLast(options);
+            lastLine = last is null
+                ? SyncMessages.StatusNever.In(language)
+                : SyncMessages.StatusLast.Format(language, last.At.LocalDateTime, OutcomeText(language, last));
+        }
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
+        {
+            lastLine = SyncMessages.StatusUnreadable.Format(language, e.Message);
+        }
+
+        int? unpushed = null;
+        string unpushedLine;
+        try
+        {
+            unpushed = await MemorySync.UnpushedAsync(config, cancellationToken);
+            unpushedLine = SyncMessages.StatusUnpushed.Format(language, unpushed);
+        }
+        catch (TacitException e) when (e.Error == TacitError.GitFailed)
+        {
+            unpushedLine = SyncMessages.StatusUnpushedUnknown.Format(language, e.Message);
+        }
+
+        List<string> lines = [SyncMessages.StatusRemote.Format(language, remote), lastLine, unpushedLine];
+        if (last is { Paused: true })
+            lines.Add((last.Outcome == SyncOutcome.Conflict ? SyncMessages.StatusResolve : SyncMessages.StatusChooseSide).In(language));
+        return new SyncStatus(title, lines, remote, last, unpushed);
+    }
+
+    private static string OutcomeText(MemoryLanguage language, SyncRecord record) => record.Outcome switch
+    {
+        SyncOutcome.Synced => SyncMessages.OutcomeSynced.In(language),
+        SyncOutcome.Failed => SyncMessages.OutcomeFailed.Format(language, record.Detail),
+        SyncOutcome.HandEdits => SyncMessages.OutcomeHandEdits.Format(language, record.Detail),
+        SyncOutcome.Conflict => SyncMessages.OutcomeConflict.Format(language, record.Detail),
+        SyncOutcome.Unrelated => SyncMessages.OutcomeUnrelated.In(language),
+        _ => SyncMessages.OutcomeRestorePaused.In(language),
+    };
 
     /// <summary>
     /// Where each secret came from. The values are never read into the report. A model or the WebDAV backup that is not

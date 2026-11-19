@@ -18,6 +18,7 @@ import { PROBE_AFFECTS } from "./probe";
 import { PROMPTS_QUERY_KEY, SAVE_PROMPT_AFFECTS } from "./prompts";
 import { SESSION_QUERY_KEY } from "./session";
 import { STATUS_QUERY_KEY } from "./status";
+import { SYNC_AFFECTS } from "./sync";
 
 /** One cached query of each kind the interface reads, with the parameters some of them take. */
 const CACHED: Readonly<Record<string, QueryKey>> = {
@@ -56,6 +57,12 @@ describe("afterCommand", () => {
 
   it("invalidates the memory and the status after a reindex, and not the config or the prompts", async () => {
     expect(await invalidatedBy(REINDEX_AFFECTS)).toEqual(
+      ["heatmap", "month", "page", "persona", "status", "trace", "workstream"].sort(),
+    );
+  });
+
+  it("invalidates the memory and the status after a sync, which may pull what another machine wrote", async () => {
+    expect(await invalidatedBy(SYNC_AFFECTS)).toEqual(
       ["heatmap", "month", "page", "persona", "status", "trace", "workstream"].sort(),
     );
   });

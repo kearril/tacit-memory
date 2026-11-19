@@ -55,6 +55,7 @@ import { JudgmentSection } from "./JudgmentSection";
 import { MachineSection } from "./MachineSection";
 import { ModelsSection } from "./ModelsSection";
 import { RemoteAccessSection } from "./RemoteAccessSection";
+import { SyncSection } from "./SyncSection";
 import { usePublishProblems, useScrollSpy } from "./section-nav";
 
 /**
@@ -246,6 +247,7 @@ function SettingsEditor({
       <JudgmentSection form={form} />
       <ConsolidationSection form={form} />
       <BackupSection form={form} />
+      <SyncSection form={form} />
       <RemoteAccessSection form={form} />
       <AdvancedSection form={form} />
       {dirty ? (

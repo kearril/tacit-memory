@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Archive,
+  ArrowDownUp,
   CalendarClock,
   ChevronDown,
   CircleCheck,
@@ -11,6 +12,7 @@ import {
   CircleDashed,
   Cpu,
   DatabaseZap,
+  FolderSync,
   Hourglass,
   Link2,
   type LucideIcon,
@@ -32,6 +34,7 @@ import {
 import { afterCommand } from "../../api/effects";
 import { PROBE_AFFECTS, runProbe } from "../../api/probe";
 import { STATUS_QUERY_KEY, type StatusReport } from "../../api/status";
+import { CHOOSES_SIDE, runSync, SIDE_COMMANDS, SYNC_AFFECTS, type SyncRecord, type SyncResult } from "../../api/sync";
 import { useDictionary } from "../../app/session-context";
 import { AgentLogo } from "../../components/agent-logo";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
@@ -59,7 +62,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { useToast } from "../../components/ui/toast-context";
 import { IconTile } from "../../components/ui/icon-tile";
-import { errorTextOf } from "../../i18n/messages";
+import { type Dictionary, errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "../../lib/format";
 import { classifyFailure, type TitledFailure } from "../../components/command-failure";
@@ -573,6 +576,172 @@ export function BackupsCard({ locale, className }: { readonly locale: string; re
         )}
       </QueryResult>
     </Card>
+  );
+}
+
+/** Where the sync is set up: the sync section of the settings. */
+const SYNC_SETTINGS_PATH = settingsPathOf("sync");
+
+/** The tone of each outcome's badge and words: a pause or a hold-back needs the user, a failure is retried on its own. */
+const OUTCOME_TONES: Readonly<Record<SyncRecord["outcome"], "success" | "warning" | "danger">> = {
+  synced: "success",
+  failed: "danger",
+  handEdits: "warning",
+  conflict: "warning",
+  unrelated: "warning",
+  restorePaused: "warning",
+};
+
+/**
+ * The sync of the memory repository: when it last synced and how, the remote, and how many commits the remote does not
+ * have yet. A sync that did not succeed says why under them; one paused until a side is chosen gives the two commands that
+ * choose it, to copy and run in a terminal, as the interface never chooses a side itself. In the head, the sync button
+ * syncs at once, without a confirmation: a success shows its report as a toast; any other outcome shows its report in the
+ * card until the status reports a later sync; a failed call shows the service's explanation. While the sync is off, the
+ * card says so and leads to it in the settings.
+ */
+export function SyncCard({ report, locale, className }: CardProps) {
+  const dictionary = useDictionary();
+  const text = dictionary.dashboard.sync;
+  const sync = report.sync;
+  const showToast = useToast();
+  const queryClient = useQueryClient();
+  const [failure, setFailure] = useState<TitledFailure | null>(null);
+  const [result, setResult] = useState<SyncResult | null>(null);
+  const run = useMutation({
+    mutationFn: runSync,
+    onMutate: () => {
+      setFailure(null);
+      setResult(null);
+    },
+    onSuccess: (answer) => {
+      if (answer.record?.outcome === "synced") {
+        showToast(answer.report);
+      } else {
+        setResult(answer);
+      }
+    },
+    onError: (error) => setFailure({ title: text.runFailed, failure: classifyFailure(error) }),
+    onSettled: () => afterCommand(queryClient, SYNC_AFFECTS),
+  });
+
+  const last = sync?.last ?? null;
+  // The sync run from here stands for the last one until the status reports a later one.
+  const ran =
+    result?.record != null && (last === null || Date.parse(last.at) <= Date.parse(result.record.at))
+      ? { record: result.record, report: result.report }
+      : null;
+  const record = ran?.record ?? last;
+  const notice = ran?.report ?? (record === null ? null : explanationOf(record, text));
+
+  return (
+    <Card variant="flat" aria-labelledby="sync-title" className={className}>
+      <CardHeading
+        id="sync-title"
+        icon={FolderSync}
+        title={dictionary.dashboard.cards.sync}
+        actions={
+          sync?.remote == null ? undefined : (
+            <IconAction type="button" label={text.syncNow} disabled={run.isPending} onClick={() => run.mutate()}>
+              <BusyIcon busy={run.isPending} icon={ArrowDownUp} />
+            </IconAction>
+          )
+        }
+      />
+      {sync == null ? (
+        <Unreadable />
+      ) : sync.remote === null ? (
+        <div className="grid gap-xs">
+          <span className="text-lg leading-(--tk-line-height-tight) font-semibold">{text.off}</span>
+          <span className="text-sm text-ink-muted">
+            {text.offNote}{" "}
+            <Link to={SYNC_SETTINGS_PATH} className="text-accent underline-offset-2 hover:underline">
+              {text.configure}
+            </Link>
+          </span>
+        </div>
+      ) : (
+        <>
+          {record === null ? (
+            // No sync yet, or its record cannot be read: the service's line says which.
+            <span className="text-sm text-ink-muted">{sync.lines.at(1)}</span>
+          ) : (
+            <div className="grid gap-xs">
+              <span className="text-xs text-ink-muted">{text.lastSync}</span>
+              <span className="flex flex-wrap items-center gap-sm text-lg leading-(--tk-line-height-tight) font-semibold">
+                {timeText(record.at, locale)}
+                <Badge tone={OUTCOME_TONES[record.outcome]}>
+                  {record.outcome === "synced" ? <CircleCheck aria-hidden /> : <TriangleAlert aria-hidden />}
+                  {text.outcomes[record.outcome]}
+                </Badge>
+              </span>
+            </div>
+          )}
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] content-start items-center gap-x-lg gap-y-xs text-sm">
+            <InfoRow label={text.remote}>
+              <Address value={sync.remote} label={text.remote} />
+            </InfoRow>
+            <InfoRow label={text.unpushed}>
+              {sync.unpushed === null ? (
+                // The service's line gives the reason the count cannot be read.
+                <span title={sync.lines.at(2)} className="text-ink-muted">
+                  {text.unpushedUnknown}
+                </span>
+              ) : (
+                <span>{text.unpushedCount(sync.unpushed)}</span>
+              )}
+            </InfoRow>
+          </dl>
+          {record === null || notice === null ? null : (
+            <Alert tone={OUTCOME_TONES[record.outcome] === "danger" ? "danger" : "warning"}>
+              <AlertDescription className="break-words">{notice}</AlertDescription>
+            </Alert>
+          )}
+          {record !== null && CHOOSES_SIDE[record.outcome] ? <SideCommands /> : null}
+        </>
+      )}
+      <FailureAlert failure={failure} />
+    </Card>
+  );
+}
+
+/** Why a sync did not succeed, in the interface's words; `null` for one that did. */
+function explanationOf(record: SyncRecord, text: Dictionary["dashboard"]["sync"]): string | null {
+  switch (record.outcome) {
+    case "synced":
+      return null;
+    case "failed":
+      return text.failed(record.detail);
+    case "handEdits":
+      return text.handEdits(record.detail);
+    case "conflict":
+      return text.conflict(record.detail);
+    case "unrelated":
+      return text.unrelated;
+    case "restorePaused":
+      return text.restorePaused;
+  }
+}
+
+/** The two commands that choose a side, each with what it takes as the truth and a button that copies it. */
+function SideCommands() {
+  const text = useDictionary().dashboard.sync;
+  const commands = [
+    [text.useLocal, SIDE_COMMANDS.local],
+    [text.useRemote, SIDE_COMMANDS.remote],
+  ] as const;
+  return (
+    <div className="grid gap-xs text-sm">
+      <p className="text-ink-muted">{text.chooseSide}</p>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs">
+        {commands.map(([label, command]) => (
+          <InfoRow key={command} label={label}>
+            <code className="min-w-0 flex-1 truncate font-mono select-all">{command}</code>
+            <CopyButton value={command} label={text.copyCommand} copiedMessage={text.commandCopied} />
+          </InfoRow>
+        ))}
+      </dl>
+    </div>
   );
 }
 

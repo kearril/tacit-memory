@@ -13,7 +13,7 @@ internal static class ConsolidationResource
     public static async Task<string> RenderAsync(TacitOptions options, TacitConfig config, ConsolidationServices services, CancellationToken cancellationToken)
     {
         var path = config.MemoryPath;
-        var report = await ConsolidationReport.BuildAsync(config, services, options.Today, cancellationToken);
+        var report = await ConsolidationReport.BuildAsync(config, services, options.Today, Sync.MemorySync.TryReadLast(options), cancellationToken);
 
         var text = new StringBuilder();
         text.Append("# TacitMemory consolidation report\n\n");

@@ -37,6 +37,9 @@ public sealed record StatusReport
     /// <summary>The latest local backup and the cloud backup record.</summary>
     public BackupsStatus? Backups { get; init; }
 
+    /// <summary>The sync with the git remote: the remote, the last sync and the commits not pushed yet.</summary>
+    public SyncStatus? Sync { get; init; }
+
     /// <summary>Where the service writes its logs.</summary>
     public LogsStatus? Logs { get; init; }
 
@@ -46,7 +49,7 @@ public sealed record StatusReport
     /// <summary>The columns the report carries, in the order the CLI lists them. Not part of the reply: it is derived from the columns above.</summary>
     [JsonIgnore]
     public IReadOnlyList<IStatusColumn> Columns =>
-        new IStatusColumn?[] { Config, Service, Models, Clients, Bindings, Prompts, Consolidation, Pending, Backups, Logs, Secrets }.OfType<IStatusColumn>().ToList();
+        new IStatusColumn?[] { Config, Service, Models, Clients, Bindings, Prompts, Consolidation, Pending, Backups, Sync, Logs, Secrets }.OfType<IStatusColumn>().ToList();
 }
 
 /// <summary>How a line of a status column stands. The CLI colours it: ok green, attention yellow, problem red.</summary>
@@ -244,6 +247,25 @@ public sealed record BackupsStatus(string Title, IReadOnlyList<string> Lines, st
     public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index == 1 && LastRemote is { } last
         ? (StatusLevel?)(last.Succeeded ? StatusLevel.Ok : StatusLevel.Problem)
         : null).ToList();
+}
+
+/// <param name="Remote">The address in <c>sync.remote</c>; <c>null</c> when the sync is off.</param>
+/// <param name="Last">The last sync; <c>null</c> when there was none, it cannot be read, or the sync is off.</param>
+/// <param name="Unpushed">The commits the remote does not have yet, as the last fetch saw it; <c>null</c> when the sync is off or the count cannot be read.</param>
+public sealed record SyncStatus(string Title, IReadOnlyList<string> Lines, string? Remote, SyncRecord? Last, int? Unpushed) : IStatusColumn
+{
+    /// <summary>The last sync's line is ok after a success, a problem after a failure and needs attention otherwise; a pause adds a line that needs attention.</summary>
+    public IReadOnlyList<StatusLevel?> LineLevels() => Lines.Select((_, index) => index switch
+    {
+        1 when Last is { } last => (StatusLevel?)(last.Outcome switch
+        {
+            SyncOutcome.Synced => StatusLevel.Ok,
+            SyncOutcome.Failed => StatusLevel.Problem,
+            _ => StatusLevel.Attention,
+        }),
+        3 => StatusLevel.Attention,
+        _ => null,
+    }).ToList();
 }
 
 /// <summary>Where each secret's value came from, one line each; <paramref name="Items"/> carries the same as data.</summary>
