@@ -68,7 +68,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(WorkingRuleCandidate);
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -92,7 +92,7 @@ public sealed class SamePreferenceTests : IDisposable
         var head = Git("rev-parse", "HEAD");
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
@@ -111,7 +111,7 @@ public sealed class SamePreferenceTests : IDisposable
         var head = Git("rev-parse", "HEAD");
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
@@ -131,7 +131,7 @@ public sealed class SamePreferenceTests : IDisposable
         var before = File.ReadAllText(CandidatesMd);
         PickOption("先要结论", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
@@ -148,7 +148,7 @@ public sealed class SamePreferenceTests : IDisposable
         File.WriteAllText(PersonaMd, "## Preferences\n- 沟通：先要结论\n  <!-- 2026-10-20 quote「先要结论」 -->\n");
         PickOption("先要结论", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
@@ -164,7 +164,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(WorkingRuleCandidate);
         PickOption("全量测试", probability);
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -179,7 +179,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(WorkingRuleCandidate);
         PickOption("不存在的条目", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -193,7 +193,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(WorkingRuleCandidate);
         _models.DecisionDown = true;
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -208,7 +208,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(WorkingRuleCandidate);
         _models.EmbeddingDown = true;
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -223,7 +223,7 @@ public sealed class SamePreferenceTests : IDisposable
         Configure();
         Baseline("## Candidates\n\n## Rejection list\n", "## Red lines\n\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -244,7 +244,7 @@ public sealed class SamePreferenceTests : IDisposable
             return options.Keys.ToDictionary(key => key, key => key == options.Keys.Last() ? 1.0 : 0.0);
         };
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.NotNull(offered);
@@ -258,7 +258,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(WorkingRuleCandidate);
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -273,7 +273,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(handwritten);
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -287,7 +287,7 @@ public sealed class SamePreferenceTests : IDisposable
         Configure(language: MemoryLanguage.En);
         Baseline(WorkingRuleCandidate);
 
-        await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         var question = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
         Assert.DoesNotContain("Chinese", question["instructions"]!.GetValue<string>());
@@ -319,7 +319,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline(DomainCandidate);
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -346,7 +346,7 @@ public sealed class SamePreferenceTests : IDisposable
             option => option.Value.Contains("full tests", StringComparison.Ordinal) ? 0.95 : option.Key == options.Keys.Last() ? 0.05 : 0.0);
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var result = await service.WritePersonaAsync(Propose("working_rules", "Before committing → run the tests", "run all of them"));
+        var result = await service.Tools.WritePersonaAsync(Propose("working_rules", "Before committing → run the tests", "run all of them"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("domain:network-proxy", result.Text);
@@ -359,7 +359,7 @@ public sealed class SamePreferenceTests : IDisposable
         Configure();
         Baseline(DomainCandidate, DomainPersona);
 
-        var result = await Service.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("preferences", "沟通：先要结论"));
 
         Assert.False(result.IsError, result.Text);
         var question = _models.LastDecision!.Value.Body["questions"]!.AsObject().Single().Value!;
@@ -378,7 +378,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline("## Candidates\n\n## Rejection list\n", DomainPersona);
         PickOption("先运行测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "先跑测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "先跑测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);
@@ -392,7 +392,7 @@ public sealed class SamePreferenceTests : IDisposable
         Baseline("## Candidates\n\n## Rejection list\n\n### 每次提交前都运行全量测试\nBelongs to: Working rules\nScope: domain:network-proxy\n- 2026-10-20 rejected quote「算了，别跑了」\n");
         PickOption("全量测试", 0.95);
 
-        var result = await Service.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
+        var result = await Service.Tools.WritePersonaAsync(Propose("working_rules", "提交前 → 先运行测试", "提交前跑全量测试"));
 
         Assert.False(result.IsError, result.Text);
         Assert.False(result.Written);

@@ -72,7 +72,7 @@ public sealed class ConsolidationCandidateTests : IDisposable
         return next < 0 ? body : body[..next];
     }
 
-    private async Task<string> Consolidation() => await Service.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
+    private async Task<string> Consolidation() => await Service.Tools.ConsolidationReportAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
     [Fact]
     public async Task A_candidate_the_decision_model_is_sure_repeats_a_persona_entry_is_listed_for_removal_with_its_short_code()

@@ -30,9 +30,9 @@ public sealed class ModelRetryTests : IDisposable
 
     private FixedTime Clock => _home.Clock;
 
-    private Task<ToolResult> Recall() => Service.RecallAsync(new RecallRequest { Query = "部署" }).WaitAsync(Guard);
+    private Task<ToolResult> Recall() => Service.Tools.RecallAsync(new RecallRequest { Query = "部署" }).WaitAsync(Guard);
 
-    private Task<ToolResult> Write(string text) => Service.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
+    private Task<ToolResult> Write(string text) => Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = text }).WaitAsync(Guard);
 
     /// <summary>Makes the decision model pick the option whose text contains <paramref name="text"/> with <paramref name="probability"/>.</summary>
     private void Match(string text, double probability) => _models.Choose = (_, options) => options.ToDictionary(
@@ -77,7 +77,7 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(failures + 1, _models.EmbeddingCalls);
         Assert.DoesNotContain("embedding model is unavailable", result.Text);
-        Assert.DoesNotContain("Unavailable auxiliary models", await Service.ServerInstructionsAsync());
+        Assert.DoesNotContain("Unavailable auxiliary models", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(1, _models.EmbeddingCalls);
         Assert.Contains("embedding model is unavailable", result.Text);
-        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.ServerInstructionsAsync());
+        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(attempt, _models.EmbeddingCalls);
         Assert.DoesNotContain("embedding model is unavailable", result.Text);
-        Assert.DoesNotContain("Unavailable auxiliary models", await Service.ServerInstructionsAsync());
+        Assert.DoesNotContain("Unavailable auxiliary models", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(4, _models.EmbeddingCalls);
         Assert.Contains("embedding model is unavailable", result.Text);
-        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.ServerInstructionsAsync());
+        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -184,14 +184,14 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(5, _models.EmbeddingCalls);
         Assert.Contains("embedding model is unavailable", failed.Text);
-        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.ServerInstructionsAsync());
+        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.Tools.ServerInstructionsAsync());
 
         var during = await Recall();
         Assert.Equal(5, _models.EmbeddingCalls);
         Assert.Contains("embedding model is unavailable", during.Text);
 
         Clock.Advance(TimeSpan.FromSeconds(30));
-        Assert.DoesNotContain("Unavailable auxiliary models", await Service.ServerInstructionsAsync());
+        Assert.DoesNotContain("Unavailable auxiliary models", await Service.Tools.ServerInstructionsAsync());
         var after = await Recall();
         Assert.Equal(6, _models.EmbeddingCalls);
         Assert.DoesNotContain("embedding model is unavailable", after.Text);
@@ -211,7 +211,7 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(1, _models.EmbeddingCalls);
         Assert.Contains("embedding model is unavailable", result.Text);
-        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.ServerInstructionsAsync());
+        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Theory]
@@ -226,7 +226,7 @@ public sealed class ModelRetryTests : IDisposable
 
         Assert.Equal(1, _models.EmbeddingCalls);
         Assert.Contains("embedding model is unavailable", result.Text);
-        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.ServerInstructionsAsync());
+        Assert.Contains("- Unavailable auxiliary models: embedding.", await Service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]

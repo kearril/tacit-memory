@@ -232,7 +232,7 @@ public sealed class MemorySkillTests : IDisposable
         using var service = Open();
         Assert.True(File.Exists(SkillFile));
 
-        await service.WritePageAsync(new WritePageRequest
+        await service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,

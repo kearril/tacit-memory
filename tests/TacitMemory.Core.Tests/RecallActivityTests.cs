@@ -44,12 +44,12 @@ public sealed class RecallActivityTests : IDisposable
         Workstream = workstream,
     };
 
-    private Task<ToolResult> Write(string text, string? workstream = null) => Service.WriteRecentAsync(Activity(text, workstream));
+    private Task<ToolResult> Write(string text, string? workstream = null) => Service.Tools.WriteRecentAsync(Activity(text, workstream));
 
     private Task<ToolResult> Recall(string query, string? kind = null, string? workstream = null, string? from = null, string? to = null) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind, Workstream = workstream, From = from, To = to });
+        Service.Tools.RecallAsync(new RecallRequest { Query = query, Kind = kind, Workstream = workstream, From = from, To = to });
 
-    private Task WritePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
+    private Task WritePage(string page, string title, string body) => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,

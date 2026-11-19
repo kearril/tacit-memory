@@ -39,7 +39,7 @@ public sealed class UsageStatsTests : IDisposable
     {
         Hand("backup", "备份", "## 要点\n每日备份到 zip\n\n## 恢复\n从 zip 恢复\n");
 
-        await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
 
         var usage = await Usage("tacit-memory/backup");
         Assert.Equal(2, usage.Uses);
@@ -52,8 +52,8 @@ public sealed class UsageStatsTests : IDisposable
         // The title shares no word with the query, so only the section is returned.
         Hand("backup", "脚本", "## 要点\n每日备份到 zip\n\n## 恢复\n从 zip 恢复\n");
 
-        await Service.RecallAsync(new RecallRequest { Query = "每日备份到" });
-        await Service.RecallAsync(new RecallRequest { Query = "每日备份到" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "每日备份到" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "每日备份到" });
 
         Assert.Equal(2, (await Usage("tacit-memory/backup")).Uses);
     }
@@ -63,7 +63,7 @@ public sealed class UsageStatsTests : IDisposable
     {
         Hand("backup", "备份", "## 要点\n每日备份到 zip\n\n## 恢复\n从 zip 恢复\n");
 
-        var result = await Service.RecallAsync(new RecallRequest { Query = "别名一" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "别名一" });
 
         Assert.Contains("### 要点 [", result.Text);
         Assert.Equal(1, (await Usage("tacit-memory/backup")).Uses);
@@ -74,10 +74,10 @@ public sealed class UsageStatsTests : IDisposable
     {
         // The title shares no word with the query, so only the section is returned.
         Hand("backup", "脚本", "## 要点\n每日备份到 zip\n");
-        await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
         _home.Clock.Advance(TimeSpan.FromDays(2));
 
-        await Service.RecallAsync(new RecallRequest { Query = "每日备份到" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "每日备份到" });
 
         var usage = await Usage("tacit-memory/backup");
         Assert.Equal(2, usage.Uses);
@@ -88,11 +88,11 @@ public sealed class UsageStatsTests : IDisposable
     public async Task Editing_a_section_keeps_the_counts_of_every_section_of_the_page()
     {
         Hand("backup", "备份", "## 要点\n每日备份到 zip\n\n## 恢复\n从 zip 恢复\n");
-        var read = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
+        var read = await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
         Assert.Equal(2, (await Usage("tacit-memory/backup")).Uses);
         var code = Regex.Match(read.Text, @"## 恢复 \[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
 
-        var edit = await Service.WritePageAsync(new WritePageRequest
+        var edit = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "upsert_section", Page = "tacit-memory/backup", Section = "恢复", Body = "从 zip 恢复，先停服务。", Hash = code,
         }).WaitAsync(Guard);
@@ -117,13 +117,13 @@ public sealed class UsageStatsTests : IDisposable
     [Fact]
     public async Task Adding_an_activity_keeps_the_counts_of_the_other_activities_of_the_same_month()
     {
-        var first = await Service.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
+        var first = await Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "核对恢复演练的备份清单" });
         Assert.False(first.IsError, first.Text);
         var code = Regex.Match(first.Text, @"\[([0-9a-f]{6}(?:-\d+)?)\]").Groups[1].Value;
-        await Service.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "恢复演练的备份清单" });
         Assert.Equal(1, (await Service.ActivityCountsAsync(TestHome.Today))[code]);
 
-        var second = await Service.WriteRecentAsync(new WriteRecentRequest { Text = "改写备份脚本的超时设置" });
+        var second = await Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "改写备份脚本的超时设置" });
         Assert.False(second.IsError, second.Text);
 
         Assert.Equal(1, (await Service.ActivityCountsAsync(TestHome.Today))[code]);
@@ -133,10 +133,10 @@ public sealed class UsageStatsTests : IDisposable
     public async Task Reindex_resets_every_count()
     {
         Hand("backup", "备份", "## 要点\n每日备份到 zip\n");
-        await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/backup" });
         Assert.Equal(1, (await Usage("tacit-memory/backup")).Uses);
 
-        await Service.ReindexAsync().WaitAsync(Guard);
+        await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
         var usage = await Usage("tacit-memory/backup");
         Assert.Equal(0, usage.Uses);

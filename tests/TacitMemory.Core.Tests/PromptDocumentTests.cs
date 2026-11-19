@@ -41,7 +41,7 @@ public sealed class PromptDocumentTests : IDisposable
     {
         File.WriteAllText(Path.Combine(_home.TacitHome, "config.yaml"), $"{TestHome.Models}language: {language}\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Contains("## Worth recording\n- The user corrects or interrupts the agent\n", instructions);
         Assert.Contains("## Not recorded\n- Routine coding, typo fixes and log reading\n", instructions);
@@ -54,13 +54,13 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 自定义的标准\n");
         using var service = Open();
-        Assert.Contains("- 自定义的标准", await service.ServerInstructionsAsync());
+        Assert.Contains("- 自定义的标准", await service.Tools.ServerInstructionsAsync());
 
         File.Delete(Path.Combine(Prompts, "rules.md"));
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
-        Assert.Contains("- The user corrects or interrupts the agent", (await service.ServerInstructionsAsync()));
+        Assert.Contains("- The user corrects or interrupts the agent", (await service.Tools.ServerInstructionsAsync()));
         Assert.False(File.Exists(Path.Combine(Prompts, "rules.md")));
     }
 
@@ -80,7 +80,7 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心规则\n- 自定义的检索规则一条\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.StartsWith("TacitMemory is the user's personal memory across sessions.", instructions);
         Assert.Contains("## 核心规则\n- 自定义的检索规则一条\n", instructions);
@@ -93,7 +93,7 @@ public sealed class PromptDocumentTests : IDisposable
     [Fact]
     public async Task The_general_rules_follow_the_core_rules_and_point_at_the_skill_once()
     {
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         var core = instructions.IndexOf("## Write\n", StringComparison.Ordinal);
         var general = instructions.IndexOf("read the `tacit-memory` skill", StringComparison.Ordinal);
@@ -108,7 +108,7 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心规则\n- 自定义的检索规则一条\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Contains("- 自定义的检索规则一条", instructions);
         Assert.Contains("tacit-memory", instructions);
@@ -120,7 +120,7 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心规则\n<!-- 给改写者看的注释 -->\n- 可见的规则一条\n<!--\n多行的注释\n-->\n- 可见的规则二条\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Contains("## 核心规则\n- 可见的规则一条\n- 可见的规则二条\n", instructions);
         Assert.DoesNotContain("<!--", instructions);
@@ -134,7 +134,7 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心规则\n<!-- n --> - 规则甲\n- 规则乙\n<!-- x -->\n- 规则丙\n");
 
-        var instructions = await Open().ServerInstructionsAsync();
+        var instructions = await Open().Tools.ServerInstructionsAsync();
 
         Assert.Contains("- 规则甲\n- 规则乙\n- 规则丙\n", instructions);
         Assert.DoesNotContain("<!-- x -->", instructions);
@@ -150,8 +150,8 @@ public sealed class PromptDocumentTests : IDisposable
 
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        Assert.DoesNotContain("<!--", await service.ServerInstructionsAsync());
-        Assert.Contains("tacit-memory", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("<!--", await service.Tools.ServerInstructionsAsync());
+        Assert.Contains("tacit-memory", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public sealed class PromptDocumentTests : IDisposable
 
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        Assert.Contains("- 用中文写的规则", await service.ServerInstructionsAsync());
+        Assert.Contains("- 用中文写的规则", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -199,14 +199,14 @@ public sealed class PromptDocumentTests : IDisposable
     public async Task Editing_instructions_md_while_running_changes_the_next_instructions()
     {
         using var service = Open();
-        Assert.Contains("## Recall", await service.ServerInstructionsAsync());
+        Assert.Contains("## Recall", await service.Tools.ServerInstructionsAsync());
 
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n- 新写的核心规则\n");
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
-        Assert.Contains("- 新写的核心规则", (await service.ServerInstructionsAsync()));
+        Assert.Contains("- 新写的核心规则", (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -215,13 +215,13 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n- 临时规则\n");
         using var service = Open();
-        Assert.Contains("- 临时规则", await service.ServerInstructionsAsync());
+        Assert.Contains("- 临时规则", await service.Tools.ServerInstructionsAsync());
 
         File.Delete(InstructionsMd);
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
-        Assert.Contains("## Recall", (await service.ServerInstructionsAsync()));
+        Assert.Contains("## Recall", (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -230,26 +230,26 @@ public sealed class PromptDocumentTests : IDisposable
         Directory.CreateDirectory(Prompts);
         File.WriteAllText(InstructionsMd, "## 核心\n- 可用的规则\n");
         using var service = Open();
-        var before = await service.ServerInstructionsAsync();
+        var before = await service.Tools.ServerInstructionsAsync();
 
         File.WriteAllText(InstructionsMd, "## 核心\n" + new string('长', 2600) + "\n");
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
         Assert.Contains(_notices, notice => notice.Contains("instructions.md", StringComparison.Ordinal));
-        Assert.Equal(before, await service.ServerInstructionsAsync());
+        Assert.Equal(before, await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
     public async Task Files_outside_prompts_do_not_rebuild_the_cached_instructions()
     {
         using var service = Open();
-        var before = await service.ServerInstructionsAsync();
+        var before = await service.Tools.ServerInstructionsAsync();
 
         File.WriteAllText(Path.Combine(_home.TacitHome, "unrelated.txt"), "not a prompt document");
         await Task.Delay(700);
 
-        Assert.Same(before, await service.ServerInstructionsAsync());
+        Assert.Same(before, await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public sealed class PromptDocumentTests : IDisposable
         File.WriteAllText(InstructionsMd, "## 核心\n- 备份用的规则\n");
         using var service = Open();
 
-        await service.WritePageAsync(new WritePageRequest
+        await service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -280,12 +280,12 @@ public sealed class PromptDocumentTests : IDisposable
     public async Task The_prompts_page_reads_each_file_or_the_built_in_text_and_the_hash_follows_the_file()
     {
         using var service = Open();
-        var builtIn = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
+        var builtIn = service.Settings.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
 
         File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 自定义的标准\n");
-        var first = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
+        var first = service.Settings.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
         File.WriteAllText(Path.Combine(Prompts, "rules.md"), "## Worth recording\n- 改过的标准\n");
-        var second = service.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
+        var second = service.Settings.Prompts().Documents.Single(document => document.Name == PromptName.Rules);
 
         Assert.True(builtIn.BuiltIn);
         Assert.Null(builtIn.Hash);
@@ -300,7 +300,7 @@ public sealed class PromptDocumentTests : IDisposable
     public async Task The_built_in_texts_on_the_prompts_page_are_the_ones_show_default_prints()
     {
         using var service = Open();
-        var documents = service.Prompts().Documents;
+        var documents = service.Settings.Prompts().Documents;
 
         Assert.Equal((await _home.Tacit().ShowAsync(Show.ShowTarget.Instructions, useDefault: true)).Report, documents[0].Text);
         Assert.Equal((await _home.Tacit().ShowAsync(Show.ShowTarget.Resident, useDefault: true)).Report, documents[2].Text);

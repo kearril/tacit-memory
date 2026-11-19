@@ -129,11 +129,11 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task The_preview_shows_the_manifest_fields_and_what_would_be_replaced()
     {
-        await _service.WritePageAsync(Create("tacit-memory/preview-page", "预览页面", "预览内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("tacit-memory/later-page", "之后页面", "之后内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/preview-page", "预览页面", "预览内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/later-page", "之后页面", "之后内容"));
 
-        var preview = await _service.PreviewRestoreAsync(backup.Location, config: false);
+        var preview = await _service.Maintenance.PreviewRestoreAsync(backup.Location, config: false);
 
         var manifest = JsonNode.Parse(ReadEntries(backup.Location)["manifest.json"])!.AsObject();
         Assert.Equal(backup.Location, preview.Path);
@@ -151,9 +151,9 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_preview_with_config_lists_the_config_and_the_prompts_too()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
-        var preview = await _service.PreviewRestoreAsync(backup.Location, config: true);
+        var preview = await _service.Maintenance.PreviewRestoreAsync(backup.Location, config: true);
 
         Assert.True(preview.Config);
         Assert.Equal(3, preview.Replaces.Count);
@@ -162,14 +162,14 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_backup_without_kind_or_subject_previews_with_its_commit_only()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var derived = Derive(backup.Location, entries => EditManifest(entries, manifest =>
         {
             manifest.Remove("kind");
             manifest.Remove("memoryHeadSubject");
         }));
 
-        var preview = await _service.PreviewRestoreAsync(derived, config: false);
+        var preview = await _service.Maintenance.PreviewRestoreAsync(derived, config: false);
 
         Assert.Null(preview.Kind);
         Assert.Null(preview.MemoryHeadSubject);
@@ -179,12 +179,12 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_zip_without_a_manifest_is_refused_and_nothing_changes()
     {
-        await _service.WritePageAsync(Create("tacit-memory/keep-page", "保留页面", "保留内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/keep-page", "保留页面", "保留内容"));
         var before = Head();
         var zip = Path.Combine(_home.Root, "no-manifest.zip");
         WriteEntries(zip, new Dictionary<string, byte[]> { ["memory/.git/HEAD"] = Encoding.UTF8.GetBytes("ref: refs/heads/main\n") });
 
-        var error = Refusal(() => _service.RestoreAsync(zip, config: false));
+        var error = Refusal(() => _service.Maintenance.RestoreAsync(zip, config: false));
 
         Assert.Equal(TacitError.RestoreInvalid, error.Error);
         Assert.Equal(before, Head());
@@ -195,11 +195,11 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_manifest_that_lists_a_missing_file_is_refused()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var derived = Derive(backup.Location, entries => EditManifest(entries, manifest =>
             manifest["files"]!.AsArray().Add("memory/pages/ghost.md")));
 
-        var error = Refusal(() => _service.RestoreAsync(derived, config: false));
+        var error = Refusal(() => _service.Maintenance.RestoreAsync(derived, config: false));
 
         Assert.Equal(TacitError.RestoreInvalid, error.Error);
         Assert.Empty(PreRestoreBackups());
@@ -208,10 +208,10 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_zip_entry_missing_from_the_manifest_is_refused()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var derived = Derive(backup.Location, entries => entries["memory/pages/unlisted.md"] = Encoding.UTF8.GetBytes("未列入清单"));
 
-        var error = Refusal(() => _service.RestoreAsync(derived, config: false));
+        var error = Refusal(() => _service.Maintenance.RestoreAsync(derived, config: false));
 
         Assert.Equal(TacitError.RestoreInvalid, error.Error);
         Assert.Empty(PreRestoreBackups());
@@ -225,11 +225,11 @@ public sealed class RestoreTests : IDisposable
     [InlineData("memory/pages/../../../escape.md")]
     public async Task An_entry_outside_the_allowed_places_is_refused_and_nothing_is_written(string name)
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var before = Head();
         var derived = Derive(backup.Location, entries => entries[name] = Encoding.UTF8.GetBytes("越界"));
 
-        var error = Refusal(() => _service.RestoreAsync(derived, config: false));
+        var error = Refusal(() => _service.Maintenance.RestoreAsync(derived, config: false));
 
         Assert.Equal(TacitError.RestoreInvalid, error.Error);
         Assert.Equal(before, Head());
@@ -241,13 +241,13 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task Restoring_without_config_replaces_only_the_memory_repository()
     {
-        await _service.WritePageAsync(Create("tacit-memory/old-page", "旧页面", "旧内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/old-page", "旧页面", "旧内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
         File.AppendAllText(ConfigYaml, "# edited after the backup\n");
         File.WriteAllText(Path.Combine(PromptsFolder, "rules.md"), "# 之后改动的规则\n");
 
-        var result = await _service.RestoreAsync(backup.Location, config: false);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: false);
 
         Assert.True(File.Exists(PagePath("old-page")));
         Assert.False(File.Exists(PagePath("new-page")));
@@ -261,14 +261,14 @@ public sealed class RestoreTests : IDisposable
     public async Task With_config_the_config_and_the_prompts_are_replaced_and_extra_prompt_files_are_deleted()
     {
         File.WriteAllText(Path.Combine(PromptsFolder, "rules.md"), "## Worth recording\n- 备份时的规则\n");
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var backedUpConfig = ReadEntries(backup.Location)["config.yaml"];
         var backedUpRules = ReadEntries(backup.Location)["prompts/rules.md"];
         File.AppendAllText(ConfigYaml, "# edited after the backup\n");
         File.WriteAllText(Path.Combine(PromptsFolder, "extra.md"), "# 多出的提示词\n");
         File.WriteAllText(Path.Combine(PromptsFolder, "rules.md"), "# 之后改动的规则\n");
 
-        var result = await _service.RestoreAsync(backup.Location, config: true);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: true);
 
         Assert.Equal(backedUpConfig, File.ReadAllBytes(ConfigYaml));
         Assert.Equal(backedUpRules, File.ReadAllBytes(Path.Combine(PromptsFolder, "rules.md")));
@@ -280,9 +280,9 @@ public sealed class RestoreTests : IDisposable
     public async Task A_restored_config_is_reloaded_at_once_and_what_waits_for_a_restart_is_listed()
     {
         File.AppendAllText(ConfigYaml, "retrieval:\n  topK: 7\nlimits:\n  page:\n    minAliases: 4\n");
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
-        var result = await _service.RestoreAsync(backup.Location, config: true);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: true);
 
         Assert.Equal(7, _service.Config.Retrieval.TopK);
         Assert.Equal(2, _service.Config.Limits.Page.MinAliases);
@@ -297,10 +297,10 @@ public sealed class RestoreTests : IDisposable
         var running = _service.Config;
         var valid = File.ReadAllText(ConfigYaml);
         File.AppendAllText(ConfigYaml, "retrieval:\n  topK: lots\n");
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         File.WriteAllText(ConfigYaml, valid);
 
-        var result = await _service.RestoreAsync(backup.Location, config: true);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: true);
 
         Assert.Same(running, _service.Config);
         Assert.Empty(result.Restart);
@@ -314,9 +314,9 @@ public sealed class RestoreTests : IDisposable
     {
         var running = _service.Config;
         File.AppendAllText(ConfigYaml, "retrieval:\n  topK: 7\n");
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
-        var result = await _service.RestoreAsync(backup.Location, config: false);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: false);
 
         Assert.Same(running, _service.Config);
         Assert.Empty(result.Restart);
@@ -326,11 +326,11 @@ public sealed class RestoreTests : IDisposable
     public async Task Bindings_json_is_never_restored()
     {
         _home.Bind();
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         _home.Unbind();
         var current = File.ReadAllBytes(BindingsJson);
 
-        await _service.RestoreAsync(backup.Location, config: true);
+        await _service.Maintenance.RestoreAsync(backup.Location, config: true);
 
         Assert.Equal(current, File.ReadAllBytes(BindingsJson));
     }
@@ -338,12 +338,12 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task The_safety_backup_of_the_state_before_the_restore_is_written_first_and_holds_it()
     {
-        await _service.WritePageAsync(Create("tacit-memory/kept-page", "保险页面", "保险内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("tacit-memory/unsaved-page", "未备份页面", "未备份内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/kept-page", "保险页面", "保险内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/unsaved-page", "未备份页面", "未备份内容"));
         var before = Head();
 
-        var result = await _service.RestoreAsync(backup.Location, config: false);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: false);
 
         Assert.StartsWith(Path.Combine(BackupsDirectory, "pre-restore-"), result.SafetyBackup, StringComparison.Ordinal);
         Assert.True(File.Exists(result.SafetyBackup));
@@ -359,18 +359,18 @@ public sealed class RestoreTests : IDisposable
     {
         _home.Bind();
         File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### old-workstream\nBackground: 旧的主线。\n");
-        await _service.WritePageAsync(Create("old-workstream/old-page", "旧版本记录", "旧版本内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("old-workstream/old-page", "旧版本记录", "旧版本内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         File.WriteAllText(Path.Combine(Memory, "workstreams.md"), "## Workstream\n### old-workstream\nBackground: 旧的主线。\n### new-workstream\nBackground: 新的主线。\n");
-        await _service.WritePageAsync(Create("new-workstream/new-page", "新版本记录", "新版本内容"));
+        await _service.Tools.WritePageAsync(Create("new-workstream/new-page", "新版本记录", "新版本内容"));
         // The service renders the resident block itself, after its debounce; no second renderer may run beside it.
         await Watchers.Eventually(_service, () => File.Exists(AgentsMd) && File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
 
-        await _service.RestoreAsync(backup.Location, config: false);
+        await _service.Maintenance.RestoreAsync(backup.Location, config: false);
 
-        var found = await _service.RecallAsync(new RecallRequest { Query = "旧版本记录" });
+        var found = await _service.Tools.RecallAsync(new RecallRequest { Query = "旧版本记录" });
         Assert.Contains("old-workstream/old-page", found.Text, StringComparison.Ordinal);
-        var missing = await _service.RecallAsync(new RecallRequest { Query = "新版本记录" });
+        var missing = await _service.Tools.RecallAsync(new RecallRequest { Query = "新版本记录" });
         Assert.DoesNotContain("new-workstream/new-page", missing.Text, StringComparison.Ordinal);
         await Watchers.Eventually(_service, () => !File.ReadAllText(AgentsMd).Contains("new-workstream", StringComparison.Ordinal));
         var block = File.ReadAllText(AgentsMd);
@@ -382,11 +382,11 @@ public sealed class RestoreTests : IDisposable
     {
         File.WriteAllText(PersonaMd, PersonaWith("偏好甲"));
         _home.Bind();
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         File.WriteAllText(PersonaMd, PersonaWith("偏好乙"));
         await Watchers.Eventually(_service, () => File.ReadAllText(AgentsMd).Contains("偏好乙", StringComparison.Ordinal));
 
-        await _service.RestoreAsync(backup.Location, config: false);
+        await _service.Maintenance.RestoreAsync(backup.Location, config: false);
 
         await Watchers.Eventually(_service, () => File.ReadAllText(AgentsMd).Contains("偏好甲", StringComparison.Ordinal));
         Assert.DoesNotContain("偏好乙", File.ReadAllText(AgentsMd), StringComparison.Ordinal);
@@ -395,8 +395,8 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_restored_config_with_another_memory_path_is_reported_and_the_repository_goes_to_the_current_one()
     {
-        await _service.WritePageAsync(Create("tacit-memory/moved-page", "迁移页面", "迁移内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/moved-page", "迁移页面", "迁移内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var backedUpHead = Head();
 
         var other = _home.PathFor("other-memory");
@@ -407,7 +407,7 @@ public sealed class RestoreTests : IDisposable
         _service.Dispose();
         _service = _home.Tacit().OpenService(_ => { }, _logs);
 
-        var result = await _service.RestoreAsync(backup.Location, config: true);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: true);
 
         Assert.Equal(backedUpHead, TestHome.Git(other, "rev-parse", "HEAD").Trim());
         Assert.True(File.Exists(Path.Combine(other, "pages", "tacit-memory", "moved-page.md")));
@@ -422,16 +422,16 @@ public sealed class RestoreTests : IDisposable
         // Only Windows refuses to replace or move a file that another handle holds open; elsewhere nothing fails.
         if (!OperatingSystem.IsWindows())
             return;
-        await _service.WritePageAsync(Create("tacit-memory/before-backup", "备份前页面", "备份前内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("tacit-memory/after-backup", "备份后页面", "备份后内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/before-backup", "备份前页面", "备份前内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/after-backup", "备份后页面", "备份后内容"));
         var before = Head();
         var parent = Path.GetDirectoryName(Memory)!;
         var siblingsBefore = Directory.GetFileSystemEntries(parent).Order(StringComparer.Ordinal).ToArray();
 
         // A file the swap cannot move: it is open without delete sharing, so its rename fails part way through.
         using var locked = new FileStream(PersonaMd, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var error = Refusal(() => _service.RestoreAsync(backup.Location, config: false));
+        var error = Refusal(() => _service.Maintenance.RestoreAsync(backup.Location, config: false));
 
         Assert.Equal(TacitError.RestoreFailed, error.Error);
         var safety = Assert.Single(PreRestoreBackups());
@@ -442,25 +442,25 @@ public sealed class RestoreTests : IDisposable
         Assert.True(File.Exists(PagePath("before-backup")));
         Assert.Equal(siblingsBefore, Directory.GetFileSystemEntries(parent).Order(StringComparer.Ordinal).ToArray());
 
-        var found = await _service.RecallAsync(new RecallRequest { Query = "备份后页面" });
+        var found = await _service.Tools.RecallAsync(new RecallRequest { Query = "备份后页面" });
         Assert.Contains("tacit-memory/after-backup", found.Text, StringComparison.Ordinal);
-        var written = await _service.WritePageAsync(Create("tacit-memory/after-failure", "失败之后", "失败之后内容"));
+        var written = await _service.Tools.WritePageAsync(Create("tacit-memory/after-failure", "失败之后", "失败之后内容"));
         Assert.False(written.IsError, written.Text);
     }
 
     [Fact]
     public async Task A_write_that_arrives_during_the_restore_lands_in_the_restored_repository()
     {
-        await _service.WritePageAsync(Create("tacit-memory/before-backup", "备份前页面", "备份前内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/before-backup", "备份前页面", "备份前内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
         // The restore holds at its first embedding request, which is in the rebuild after the swap.
         var reached = _models.EmbeddingCalls + 1;
         _models.HoldEmbeddings();
-        var restore = _service.RestoreAsync(backup.Location, config: false);
+        var restore = _service.Maintenance.RestoreAsync(backup.Location, config: false);
         await _models.EmbeddingRequestsReached(reached).WaitAsync(Guard);
 
-        var write = _service.WritePageAsync(Create("tacit-memory/during-restore", "恢复期间页面", "恢复期间内容"));
+        var write = _service.Tools.WritePageAsync(Create("tacit-memory/during-restore", "恢复期间页面", "恢复期间内容"));
         _models.ReleaseEmbeddings();
         var result = await restore.WaitAsync(Guard);
         var written = await write.WaitAsync(Guard);
@@ -474,14 +474,14 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_backup_whose_config_no_longer_loads_is_restored_and_the_error_is_reported()
     {
-        await _service.WritePageAsync(Create("tacit-memory/old-page", "旧页面", "旧内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/old-page", "旧页面", "旧内容"));
         // A backup made before apiKeyEnv was removed: its config.yaml holds a key the current schema refuses.
         File.AppendAllText(ConfigYaml, "apiKeyEnv: ''\n");
-        var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
         var running = _service.Config;
 
-        var result = await _service.RestoreAsync(backup.Location, config: true);
+        var result = await _service.Maintenance.RestoreAsync(backup.Location, config: true);
 
         Assert.Same(running, _service.Config);
         Assert.Empty(result.Restart);
@@ -496,10 +496,10 @@ public sealed class RestoreTests : IDisposable
     public async Task The_preview_of_a_backup_whose_config_no_longer_loads_says_so()
     {
         File.AppendAllText(ConfigYaml, "apiKeyEnv: ''\n");
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var before = Head();
 
-        var preview = await _service.PreviewRestoreAsync(backup.Location, config: true);
+        var preview = await _service.Maintenance.PreviewRestoreAsync(backup.Location, config: true);
 
         Assert.Contains("apiKeyEnv", preview.Report, StringComparison.Ordinal);
         Assert.Equal(before, Head());
@@ -508,11 +508,11 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_restore_leaves_no_staging_or_previous_folder_in_the_repository()
     {
-        await _service.WritePageAsync(Create("tacit-memory/old-page", "旧页面", "旧内容"));
-        var backup = await _service.BackupAsync(BackupTarget.Local);
-        await _service.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/old-page", "旧页面", "旧内容"));
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
+        await _service.Tools.WritePageAsync(Create("tacit-memory/new-page", "新页面", "新内容"));
 
-        await _service.RestoreAsync(backup.Location, config: false);
+        await _service.Maintenance.RestoreAsync(backup.Location, config: false);
 
         Assert.Empty(Directory.GetFileSystemEntries(Memory, ".tacit-*"));
     }
@@ -520,11 +520,11 @@ public sealed class RestoreTests : IDisposable
     [Fact]
     public async Task A_remote_restore_is_only_previewed_and_a_preview_needs_a_source()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
-        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.RestoreAsync(null, remote: true)).Error);
-        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.PreviewRestoreAsync(null)).Error);
-        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.PreviewRestoreAsync(backup.Location, remote: true)).Error);
-        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.RestoreAsync(backup.Location, remote: true)).Error);
+        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.Maintenance.RestoreAsync(null, remote: true)).Error);
+        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.Maintenance.PreviewRestoreAsync(null)).Error);
+        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.Maintenance.PreviewRestoreAsync(backup.Location, remote: true)).Error);
+        Assert.Equal(TacitError.RequestInvalid, Refusal(() => _service.Maintenance.RestoreAsync(backup.Location, remote: true)).Error);
     }
 }

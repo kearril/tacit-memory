@@ -28,7 +28,7 @@ public sealed class PromptProblemTests : IDisposable
 
     private string FileOf(string name) => Path.Combine(_home.TacitHome, "prompts", name);
 
-    private string? ProblemOf(PromptName name) => _service.Prompts().Documents.Single(document => document.Name == name).Problem;
+    private string? ProblemOf(PromptName name) => _service.Settings.Prompts().Documents.Single(document => document.Name == name).Problem;
 
     [Fact]
     public async Task A_file_broken_while_the_service_runs_shows_why_and_the_service_keeps_the_previous_text()
@@ -39,7 +39,7 @@ public sealed class PromptProblemTests : IDisposable
         await _service.SettledAsync();
         Assert.NotNull(ProblemOf(PromptName.Resident));
 
-        var resident = _service.Prompts().Documents.Single(document => document.Name == PromptName.Resident);
+        var resident = _service.Settings.Prompts().Documents.Single(document => document.Name == PromptName.Resident);
         Assert.Contains("mainline", resident.Problem);
         Assert.Equal("外壳\n\n## mainline\n旧节名\n", resident.Text);
         Assert.Null(ProblemOf(PromptName.Skill));
@@ -54,7 +54,7 @@ public sealed class PromptProblemTests : IDisposable
         await _service.SettledAsync();
         Assert.NotNull(ProblemOf(PromptName.Instructions));
 
-        Assert.Contains("## Recall", await _service.ServerInstructionsAsync());
+        Assert.Contains("## Recall", await _service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -92,9 +92,9 @@ public sealed class PromptProblemTests : IDisposable
         _home.Sources!.PromptsChanged();
         await _service.SettledAsync();
         Assert.NotNull(ProblemOf(PromptName.Skill));
-        var hash = _service.Prompts().Documents.Single(document => document.Name == PromptName.Skill).Hash;
+        var hash = _service.Settings.Prompts().Documents.Single(document => document.Name == PromptName.Skill).Hash;
 
-        var saved = await _service.SavePromptAsync(PromptName.Skill, hash, "页面标题用中文。\n");
+        var saved = await _service.Settings.SavePromptAsync(PromptName.Skill, hash, "页面标题用中文。\n");
 
         Assert.Null(saved.Document.Problem);
         Assert.Null(ProblemOf(PromptName.Skill));
@@ -109,7 +109,7 @@ public sealed class PromptProblemTests : IDisposable
         await _service.SettledAsync();
         Assert.NotNull(ProblemOf(PromptName.Resident));
 
-        var restored = await _service.RestorePromptDefaultAsync(PromptName.Resident);
+        var restored = await _service.Settings.RestorePromptDefaultAsync(PromptName.Resident);
 
         Assert.Null(restored.Document.Problem);
         Assert.Null(ProblemOf(PromptName.Resident));
@@ -118,14 +118,14 @@ public sealed class PromptProblemTests : IDisposable
     [Fact]
     public async Task The_status_report_lists_each_broken_document_while_one_is_broken()
     {
-        Assert.Null((await _service.StatusAsync(Endpoint)).Prompts);
+        Assert.Null((await _service.Reports.StatusAsync(Endpoint)).Prompts);
 
         File.WriteAllText(FileOf("resident.md"), "外壳\n\n## mainline\n旧节名\n");
         _home.Sources!.PromptsChanged();
         await _service.SettledAsync();
         Assert.NotNull(ProblemOf(PromptName.Resident));
 
-        var prompts = Assert.IsType<PromptsStatus>((await _service.StatusAsync(Endpoint)).Prompts);
+        var prompts = Assert.IsType<PromptsStatus>((await _service.Reports.StatusAsync(Endpoint)).Prompts);
         Assert.Equal("提示词文档有误", prompts.Title);
         var item = Assert.Single(prompts.Items);
         Assert.Equal(PromptName.Resident, item.Name);

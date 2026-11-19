@@ -44,7 +44,7 @@ public sealed class ServiceLogTests : IDisposable
         File.WriteAllText(Path.Combine(Logs, "tacit-2026110.log"), "");
         File.WriteAllText(Path.Combine(Logs, "notes.txt"), "");
 
-        var days = Service.LogDays();
+        var days = Service.Reports.LogDays();
 
         Assert.Equal(Today, days.Today);
         Assert.Equal([Today, Yesterday, Today.AddDays(-5)], days.Dates);
@@ -53,7 +53,7 @@ public sealed class ServiceLogTests : IDisposable
     [Fact]
     public void Without_a_logs_directory_there_are_no_days()
     {
-        var days = Service.LogDays();
+        var days = Service.Reports.LogDays();
 
         Assert.Equal(Today, days.Today);
         Assert.Empty(days.Dates);
@@ -69,7 +69,7 @@ public sealed class ServiceLogTests : IDisposable
 
             """.ReplaceLineEndings("\n"));
 
-        var day = Service.ServiceLog(Yesterday.ToString("yyyy-MM-dd"));
+        var day = Service.Reports.ServiceLog(Yesterday.ToString("yyyy-MM-dd"));
 
         Assert.Equal(Yesterday, day.Date);
         Assert.Equal(Today, day.Today);
@@ -96,7 +96,7 @@ public sealed class ServiceLogTests : IDisposable
 
             """.ReplaceLineEndings("\r\n"));
 
-        var entries = Service.ServiceLog(Yesterday.ToString("yyyy-MM-dd")).Entries;
+        var entries = Service.Reports.ServiceLog(Yesterday.ToString("yyyy-MM-dd")).Entries;
 
         Assert.Equal(
             [
@@ -111,7 +111,7 @@ public sealed class ServiceLogTests : IDisposable
     {
         Write(Yesterday, "- models.decision.apiKey：未设置\n2026-11-01 09:15:02.031 +08:00 INF 常驻服务启动\n");
 
-        var entries = Service.ServiceLog(Yesterday.ToString("yyyy-MM-dd")).Entries;
+        var entries = Service.Reports.ServiceLog(Yesterday.ToString("yyyy-MM-dd")).Entries;
 
         Assert.Equal(2, entries.Count);
         Assert.Null(entries[0].Time);
@@ -127,7 +127,7 @@ public sealed class ServiceLogTests : IDisposable
     {
         Write(Yesterday, $"2026-11-01 09:15:02.031 +08:00 {code} 消息\n");
 
-        Assert.Equal(level, Assert.Single(Service.ServiceLog(Yesterday.ToString("yyyy-MM-dd")).Entries).Level);
+        Assert.Equal(level, Assert.Single(Service.Reports.ServiceLog(Yesterday.ToString("yyyy-MM-dd")).Entries).Level);
     }
 
     [Fact]
@@ -135,9 +135,9 @@ public sealed class ServiceLogTests : IDisposable
     {
         Write(Today, "2026-11-02 10:00:00.000 +00:00 INF 第一条\n2026-11-02 10:00:01.000 +00:00 INF 第二");
 
-        var before = Service.ServiceLog(Today.ToString("yyyy-MM-dd"));
+        var before = Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"));
         File.AppendAllText(FileOf(Today), "条\n");
-        var after = Service.ServiceLog(Today.ToString("yyyy-MM-dd"));
+        var after = Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"));
 
         Assert.Equal(["第一条"], before.Entries.Select(entry => entry.Message));
         Assert.Equal(1, before.Next);
@@ -153,7 +153,7 @@ public sealed class ServiceLogTests : IDisposable
             writer.Write(Encoding.UTF8.GetBytes("2026-11-02 10:00:00.000 +00:00 INF 写入中\n"));
             writer.Flush();
 
-            Assert.Equal(["写入中"], Service.ServiceLog(Today.ToString("yyyy-MM-dd")).Entries.Select(entry => entry.Message));
+            Assert.Equal(["写入中"], Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd")).Entries.Select(entry => entry.Message));
         }
     }
 
@@ -162,9 +162,9 @@ public sealed class ServiceLogTests : IDisposable
     {
         Write(Today, "2026-11-02 10:00:00.000 +00:00 INF 一\n2026-11-02 10:00:01.000 +00:00 INF 二\n2026-11-02 10:00:02.000 +00:00 INF 三\n");
 
-        var tail = Service.ServiceLog(Today.ToString("yyyy-MM-dd"), "1");
-        var none = Service.ServiceLog(Today.ToString("yyyy-MM-dd"), "3");
-        var past = Service.ServiceLog(Today.ToString("yyyy-MM-dd"), "9");
+        var tail = Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"), "1");
+        var none = Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"), "3");
+        var past = Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"), "9");
 
         Assert.Equal(["二", "三"], tail.Entries.Select(entry => entry.Message));
         Assert.Equal(3, tail.Next);
@@ -182,7 +182,7 @@ public sealed class ServiceLogTests : IDisposable
     {
         Write(Today, "");
 
-        var refusal = Assert.Throws<TacitException>(() => Service.ServiceLog(Today.ToString("yyyy-MM-dd"), after));
+        var refusal = Assert.Throws<TacitException>(() => Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"), after));
 
         Assert.Equal(TacitError.RequestInvalid, refusal.Error);
     }
@@ -190,7 +190,7 @@ public sealed class ServiceLogTests : IDisposable
     [Fact]
     public void Today_without_a_file_has_no_events()
     {
-        var day = Service.ServiceLog(Today.ToString("yyyy-MM-dd"));
+        var day = Service.Reports.ServiceLog(Today.ToString("yyyy-MM-dd"));
 
         Assert.Empty(day.Entries);
         Assert.Equal(0, day.Next);
@@ -199,7 +199,7 @@ public sealed class ServiceLogTests : IDisposable
     [Fact]
     public void Another_day_without_a_file_is_not_found()
     {
-        var refusal = Assert.Throws<TacitException>(() => Service.ServiceLog(Yesterday.ToString("yyyy-MM-dd")));
+        var refusal = Assert.Throws<TacitException>(() => Service.Reports.ServiceLog(Yesterday.ToString("yyyy-MM-dd")));
 
         Assert.Equal(TacitError.LogDateNotFound, refusal.Error);
         Assert.Contains("2026-11-01", refusal.Message, StringComparison.Ordinal);
@@ -211,7 +211,7 @@ public sealed class ServiceLogTests : IDisposable
     [InlineData("yesterday")]
     public void A_date_that_is_not_a_calendar_date_is_refused(string date)
     {
-        var refusal = Assert.Throws<TacitException>(() => Service.ServiceLog(date));
+        var refusal = Assert.Throws<TacitException>(() => Service.Reports.ServiceLog(date));
 
         Assert.Equal(TacitError.RequestInvalid, refusal.Error);
     }

@@ -76,13 +76,13 @@ public sealed class ConsolidationReminderTests : IDisposable
     {
         Ready();
         using var service = Open();
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
 
         ClockOn(InitDay.AddDays(2));
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
 
         ClockOn(InitDay.AddDays(3));
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
         Assert.Contains($"{Heading}\nNo consolidation has been run yet; the repository was set up 3 days ago, on {InitDay:yyyy-MM-dd}.", instructions);
         Assert.DoesNotContain("- Weeks to summarize:", instructions);
         Assert.DoesNotContain("- Persona candidates:", instructions);
@@ -96,11 +96,11 @@ public sealed class ConsolidationReminderTests : IDisposable
     {
         Ready();
         using var service = Open();
-        Assert.False((await service.ConsolidationDueAsync()).Due);
+        Assert.False((await service.Reports.ConsolidationDueAsync()).Due);
 
         ClockOn(InitDay.AddDays(3));
 
-        Assert.True((await service.ConsolidationDueAsync()).Due);
+        Assert.True((await service.Reports.ConsolidationDueAsync()).Due);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         using var service = Open();
         Directory.Move(Path.Combine(Memory, ".git"), Path.Combine(Memory, ".git-away"));
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.ConsolidationDueAsync());
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Reports.ConsolidationDueAsync());
 
         Assert.Equal(TacitError.GitFailed, error.Error);
     }
@@ -122,10 +122,10 @@ public sealed class ConsolidationReminderTests : IDisposable
         using var service = Open();
 
         ClockOn(InitDay.AddDays(4));
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
 
         ClockOn(InitDay.AddDays(5));
-        Assert.Contains(Heading, await service.ServerInstructionsAsync());
+        Assert.Contains(Heading, await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         WriteCandidates(TwoDayCandidate);
         using var service = Open();
 
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         WriteCandidates(TwoDayCandidate.Replace("\n## Rejection list", more + "\n## Rejection list"));
         using var service = Open();
 
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
         Assert.Contains("- Persona candidates: 3.", instructions);
@@ -160,7 +160,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         WriteCandidates(TwoDayCandidate);
         using var service = Open();
 
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
         Assert.Contains("- Persona candidates: 1.", instructions);
@@ -179,14 +179,14 @@ public sealed class ConsolidationReminderTests : IDisposable
         ClockOn(InitDay.AddDays(1));
         using var service = Open();
 
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
 
         WriteCandidates("## Candidates\n" + seen + "- " + InitDay.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + " quote「再说一次」\n"
             + Candidate("先列清单", InitDay.AddDays(1)) + "\n## Rejection list\n");
         _home.Sources!.MemoryChanged("candidates.md");
         await service.SettledAsync();
 
-        Assert.Contains("- Persona candidates: 3, 2 with new occurrences since the last consolidation.", await service.ServerInstructionsAsync());
+        Assert.Contains("- Persona candidates: 3, 2 with new occurrences since the last consolidation.", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class ConsolidationReminderTests : IDisposable
             $"## {lastWeek:yyyy-MM-dd}\n- 做了一件事\n");
         using var service = Open();
 
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
         Assert.Contains("- Weeks to summarize: 1.", instructions);
@@ -214,7 +214,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         CommitOn(InitDay, "consolidate: pass");
         using var service = Open();
 
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
 
         Assert.Contains(Heading, instructions);
         Assert.Contains("- Workstream: empty.", instructions);
@@ -225,13 +225,13 @@ public sealed class ConsolidationReminderTests : IDisposable
     {
         Ready("consolidation:\n  remindCandidates: 1\n");
         using var service = Open();
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
 
         WriteCandidates(TwoDayCandidate);
         _home.Sources!.MemoryChanged("candidates.md");
 
         await service.SettledAsync();
-        Assert.Contains("- Persona candidates: 1.", (await service.ServerInstructionsAsync()));
+        Assert.Contains("- Persona candidates: 1.", (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -241,8 +241,8 @@ public sealed class ConsolidationReminderTests : IDisposable
         File.WriteAllText(PersonaMd, "## Red lines\n- 不要删库\n\n## Preferences\n随手写的一行\n- 沟通：先要结论\n");
         using var service = Open();
 
-        Assert.DoesNotContain(Heading, await service.ServerInstructionsAsync());
-        var prompt = await service.ConsolidationReportAsync();
+        Assert.DoesNotContain(Heading, await service.Tools.ServerInstructionsAsync());
+        var prompt = await service.Tools.ConsolidationReportAsync();
         Assert.DoesNotContain("None.", Section(prompt, "Format and rule violations"));
     }
 
@@ -256,9 +256,9 @@ public sealed class ConsolidationReminderTests : IDisposable
         var embeddings = _models.EmbeddingCalls;
         var decisions = _models.DecisionCalls;
 
-        Assert.Contains(Heading, await service.ServerInstructionsAsync());
+        Assert.Contains(Heading, await service.Tools.ServerInstructionsAsync());
         ClockOn(InitDay.AddDays(1));
-        Assert.Contains(Heading, await service.ServerInstructionsAsync());
+        Assert.Contains(Heading, await service.Tools.ServerInstructionsAsync());
 
         Assert.Equal(embeddings, _models.EmbeddingCalls);
         Assert.Equal(decisions, _models.DecisionCalls);
@@ -271,13 +271,13 @@ public sealed class ConsolidationReminderTests : IDisposable
         using var service = Open();
         var today = InitDay.AddDays(7);
         ClockOn(today);
-        Assert.Contains(Heading, await service.ServerInstructionsAsync());
+        Assert.Contains(Heading, await service.Tools.ServerInstructionsAsync());
 
         CommitOn(today, "consolidate: no changes");
         _home.Sources!.MemoryChanged(".git/logs/HEAD");
 
         await service.SettledAsync();
-        Assert.DoesNotContain(Heading, (await service.ServerInstructionsAsync()));
+        Assert.DoesNotContain(Heading, (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Fact]
@@ -289,7 +289,7 @@ public sealed class ConsolidationReminderTests : IDisposable
         Directory.Move(Path.Combine(Memory, ".git"), Path.Combine(Memory, ".git-away"));
         ClockOn(initDay.AddDays(7));
 
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
 
         Assert.DoesNotContain(Heading, instructions);
         Assert.Contains("Memory is written in Chinese.", instructions);

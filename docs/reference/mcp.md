@@ -59,6 +59,6 @@
 
 | URI | 名称 | 类型 | 内容 |
 | :--- | :--- | :--- | :--- |
-| `tacit://consolidation-report` | `consolidation-report` | `text/markdown` | 读取时现场生成的整理报告（`MemoryService.ConsolidationReportAsync`），分 A、B 两部分，类别与标题见 `docs/design.md`「整理」（A 部分含待汇总的周与月、主线材料；B 部分含主线提案材料、画像证据等） |
+| `tacit://consolidation-report` | `consolidation-report` | `text/markdown` | 读取时现场生成的整理报告（`MemoryService.Tools.ConsolidationReportAsync`），分 A、B 两部分，类别与标题见 `docs/design.md`「整理」（A 部分含待汇总的周与月、主线材料；B 部分含主线提案材料、画像证据等） |
 
 资源描述写明只在运行 `tacit-consolidate` skill 时读取。

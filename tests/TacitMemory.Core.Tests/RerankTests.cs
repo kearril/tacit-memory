@@ -22,7 +22,7 @@ public sealed class RerankTests : IDisposable
 
     private async Task Create(string page, string title, params PageSectionInput[] sections)
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -34,7 +34,7 @@ public sealed class RerankTests : IDisposable
         Assert.False(result.IsError, result.Text);
     }
 
-    private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
+    private Task<ToolResult> Recall(string query) => Service.Tools.RecallAsync(new RecallRequest { Query = query });
 
     /// <summary>Replaces the config, which the service reads when it opens; call before the first use of <see cref="Service"/>.</summary>
     private void Configure(string retrieval) => File.WriteAllText(

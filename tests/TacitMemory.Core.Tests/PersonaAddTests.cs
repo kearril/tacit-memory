@@ -61,7 +61,7 @@ public sealed partial class PersonaAddTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "notes.txt"), "staged by the user\n");
         Git("add", "notes.txt");
 
-        var result = await _service.WritePersonaAsync(Add("red_lines", "不要自行发布版本；改为先请用户确认"));
+        var result = await _service.Tools.WritePersonaAsync(Add("red_lines", "不要自行发布版本；改为先请用户确认"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -81,7 +81,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Profile\n- 系统：Windows 11 x64\n");
 
-        var result = await _service.WritePersonaAsync(Add("profile", "主力语言：C#", "我主要写 C#"));
+        var result = await _service.Tools.WritePersonaAsync(Add("profile", "主力语言：C#", "我主要写 C#"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -92,8 +92,8 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Red_lines_and_working_rules_are_written_in_whatever_wording_the_agent_gives()
     {
-        var rule = await _service.WritePersonaAsync(Add("working_rules", "需求不清时先追问"));
-        var redLine = await _service.WritePersonaAsync(Add("red_lines", "不要删库"));
+        var rule = await _service.Tools.WritePersonaAsync(Add("working_rules", "需求不清时先追问"));
+        var redLine = await _service.Tools.WritePersonaAsync(Add("red_lines", "不要删库"));
 
         Assert.False(rule.IsError, rule.Text);
         Assert.False(redLine.IsError, redLine.Text);
@@ -105,16 +105,16 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Preferences_and_profile_are_not_checked_for_sentence_form()
     {
-        Assert.False((await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(Add("profile", "系统 Windows 11"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(Add("profile", "系统 Windows 11"))).IsError);
     }
 
     [Fact]
     public async Task Text_and_source_must_be_one_line_and_source_must_not_end_a_comment()
     {
-        var multiLine = await _service.WritePersonaAsync(Add("preferences", "沟通：\n先要结论"));
-        var multiLineSource = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "第一行\n第二行"));
-        var commentEnd = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "原话 --> 不对"));
+        var multiLine = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：\n先要结论"));
+        var multiLineSource = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "第一行\n第二行"));
+        var commentEnd = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "原话 --> 不对"));
 
         Assert.True(multiLine.IsError);
         Assert.True(multiLineSource.IsError);
@@ -132,9 +132,9 @@ public sealed partial class PersonaAddTests : IDisposable
         WritePersona("## Preferences\n- 沟通：先要结论\n\n## Profile\n- 系统：Windows 11 x64\n");
         var before = File.ReadAllText(PersonaMd);
 
-        var inText = await _service.WritePersonaAsync(Add("preferences", $"沟通：先说结论{lineBreak}再附依据"));
-        var inSource = await _service.WritePersonaAsync(Add("preferences", "沟通：少用表格", $"少用表格{lineBreak}再说"));
-        var inReplace = await _service.WritePersonaAsync(new WritePersonaRequest
+        var inText = await _service.Tools.WritePersonaAsync(Add("preferences", $"沟通：先说结论{lineBreak}再附依据"));
+        var inSource = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：少用表格", $"少用表格{lineBreak}再说"));
+        var inReplace = await _service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "replace",
             Hash = ShortOf("沟通：先要结论"),
@@ -154,7 +154,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         var lengthy = "偏好：" + new string('x', 2000);
 
-        var result = await _service.WritePersonaAsync(Add("preferences", lengthy));
+        var result = await _service.Tools.WritePersonaAsync(Add("preferences", lengthy));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -167,7 +167,7 @@ public sealed partial class PersonaAddTests : IDisposable
         var red = Enumerable.Range(1, 7).Select(i => $"不要做{i}；改为做{i}").ToList();
         WritePersona("## Red lines\n" + string.Concat(red.Select(line => $"- {line}\n")) + "\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
-        var result = await _service.WritePersonaAsync(Add("red_lines", "不要做八；改为做八"));
+        var result = await _service.Tools.WritePersonaAsync(Add("red_lines", "不要做八；改为做八"));
 
         Assert.False(result.IsError, result.Text);
         Assert.True(result.Written);
@@ -178,7 +178,7 @@ public sealed partial class PersonaAddTests : IDisposable
     public async Task A_new_domain_is_created_however_many_domains_the_persona_holds()
     {
         for (var i = 1; i <= 11; i++)
-            Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", $"测速{i}：只看持续测速", "只看持续"), $"domain:area{i}", "改代理时"))).IsError);
+            Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", $"测速{i}：只看持续测速", "只看持续"), $"domain:area{i}", "改代理时"))).IsError);
 
         var persona = File.ReadAllText(PersonaMd);
         for (var i = 1; i <= 11; i++)
@@ -190,7 +190,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Red lines\n- 不要删库；改为先备份\n\n## Working rules\n- 需求不清时 → 先追问\n\n## Profile\n- 系统：Windows 11 x64\n");
 
-        var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -205,7 +205,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Preferences\n- 沟通：先要结论\n\n## Profile\n- 系统：Windows 11 x64\n");
 
-        var result = await _service.WritePersonaAsync(Add("red_lines", "不要删库；改为先备份", "别删库"));
+        var result = await _service.Tools.WritePersonaAsync(Add("red_lines", "不要删库；改为先备份", "别删库"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -219,7 +219,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## 其他\n- 随手记的一条\n");
 
-        var result = await _service.WritePersonaAsync(Add("profile", "系统：Windows 11 x64"));
+        var result = await _service.Tools.WritePersonaAsync(Add("profile", "系统：Windows 11 x64"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -232,7 +232,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Red lines\n- Don't delete the database; instead back it up first\n  <!-- 2026-10-25 quote「never delete data」 -->\n\n## Working rules\n\n## Preferences\n\n## Profile\n");
 
-        var result = await _service.WritePersonaAsync(Add("red_lines", "Don't publish without asking; instead ask the user", "ask me first"));
+        var result = await _service.Tools.WritePersonaAsync(Add("red_lines", "Don't publish without asking; instead ask the user", "ask me first"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains(
@@ -243,8 +243,8 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Entries_with_the_same_text_get_a_suffixed_short_code_in_file_order()
     {
-        var first = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
-        var second = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "再说一遍"));
+        var first = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
+        var second = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "再说一遍"));
 
         Assert.Equal(ShortOf("沟通：先要结论"), CodeOf(first));
         Assert.Equal($"{ShortOf("沟通：先要结论")}-2", CodeOf(second));
@@ -253,15 +253,15 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_secret_in_text_or_source_is_refused_until_the_agent_confirms_it_is_not_one()
     {
-        var inText = await _service.WritePersonaAsync(Add("profile", $"密钥：{OpenAiKey}", "放心用"));
-        var inSource = await _service.WritePersonaAsync(Add("profile", "系统：Windows 11", $"密钥是 {OpenAiKey}"));
+        var inText = await _service.Tools.WritePersonaAsync(Add("profile", $"密钥：{OpenAiKey}", "放心用"));
+        var inSource = await _service.Tools.WritePersonaAsync(Add("profile", "系统：Windows 11", $"密钥是 {OpenAiKey}"));
 
         Assert.True(inText.IsError);
         Assert.True(inSource.IsError);
         Assert.Contains("confirm_no_secret", inText.Text);
         Assert.False(File.ReadAllText(PersonaMd).Contains("sk-", StringComparison.Ordinal));
 
-        var confirmed = await _service.WritePersonaAsync(Add("profile", $"密钥：{OpenAiKey}", "放心用", confirmNoSecret: true));
+        var confirmed = await _service.Tools.WritePersonaAsync(Add("profile", $"密钥：{OpenAiKey}", "放心用", confirmNoSecret: true));
 
         Assert.False(confirmed.IsError, confirmed.Text);
         Assert.Contains(OpenAiKey, File.ReadAllText(PersonaMd));
@@ -273,7 +273,7 @@ public sealed partial class PersonaAddTests : IDisposable
         var bytes = new byte[] { 0x23, 0x23, 0x20, 0xFF, 0xFE, 0x0A };
         File.WriteAllBytes(PersonaMd, bytes);
 
-        var result = await _service.WritePersonaAsync(Add("profile", "系统：Windows 11"));
+        var result = await _service.Tools.WritePersonaAsync(Add("profile", "系统：Windows 11"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -285,7 +285,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Red lines\n\n## Working rules\n\n## Preferences\n- 用户手写的一条\n\n## Profile\n");
 
-        var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -297,7 +297,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task The_first_write_of_the_day_leaves_a_backup()
     {
-        var result = await _service.WritePersonaAsync(Add("profile", "系统：Windows 11"));
+        var result = await _service.Tools.WritePersonaAsync(Add("profile", "系统：Windows 11"));
         await _service.SettledAsync();
 
         Assert.False(result.IsError, result.Text);
@@ -309,7 +309,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         _home.Bind();
 
-        var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
+        var result = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"));
 
         Assert.False(result.IsError, result.Text);
         await _service.SettledAsync();
@@ -320,7 +320,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Missing_parameters_are_named_together_in_one_refusal()
     {
-        var result = await _service.WritePersonaAsync(Add(null, null, null));
+        var result = await _service.Tools.WritePersonaAsync(Add(null, null, null));
 
         Assert.True(result.IsError);
         Assert.Contains("persona_section", result.Text);
@@ -332,7 +332,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task An_unknown_section_is_refused_with_the_list_of_sections()
     {
-        var result = await _service.WritePersonaAsync(Add("Red Lines", "不要删库；改为先备份"));
+        var result = await _service.Tools.WritePersonaAsync(Add("Red Lines", "不要删库；改为先备份"));
 
         Assert.True(result.IsError);
         Assert.Contains("red_lines", result.Text);
@@ -346,7 +346,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         var request = Add("profile", "系统：Windows 11") with { Hash = "a3f9c2" };
 
-        var result = await _service.WritePersonaAsync(request);
+        var result = await _service.Tools.WritePersonaAsync(request);
 
         Assert.True(result.IsError);
         Assert.Contains("hash", result.Text);
@@ -356,8 +356,8 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Unknown_ops_and_a_missing_op_are_refused_clearly()
     {
-        var unknown = await _service.WritePersonaAsync(new WritePersonaRequest { Op = "rewrite" });
-        var missing = await _service.WritePersonaAsync(new WritePersonaRequest());
+        var unknown = await _service.Tools.WritePersonaAsync(new WritePersonaRequest { Op = "rewrite" });
+        var missing = await _service.Tools.WritePersonaAsync(new WritePersonaRequest());
 
         Assert.True(unknown.IsError);
         Assert.Contains("add, propose, replace, delete", unknown.Text);
@@ -372,7 +372,7 @@ public sealed partial class PersonaAddTests : IDisposable
         var before = File.ReadAllText(PersonaMd);
         var commits = Git("rev-list", "--count", "HEAD").Trim();
 
-        var result = await _service.WritePersonaAsync(Add("preferences", "沟通：先要结论") with { UnknownParameters = ["content"] });
+        var result = await _service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论") with { UnknownParameters = ["content"] });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Unknown parameter content.\nNext step: Call write_persona again with only the parameters for op add: persona_section, text, source, scope, trigger, confirm_no_secret.", result.Text);
@@ -383,8 +383,8 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task Unknown_names_come_first_with_the_op_problems_and_a_missing_op_lists_every_parameter()
     {
-        var missing = await _service.WritePersonaAsync(new WritePersonaRequest { Section = "preferences", Text = "沟通：先要结论", UnknownParameters = ["content", "limit"] });
-        var misplaced = await _service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Text = "沟通：先要结论", UnknownParameters = ["content"] });
+        var missing = await _service.Tools.WritePersonaAsync(new WritePersonaRequest { Section = "preferences", Text = "沟通：先要结论", UnknownParameters = ["content", "limit"] });
+        var misplaced = await _service.Tools.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Text = "沟通：先要结论", UnknownParameters = ["content"] });
 
         Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Missing parameter op.\nNext step: Call write_persona again with op set to one of: add, propose, replace, delete; its parameters are: op, persona_section, text, source, scope, trigger, confirm_no_secret, hash.", missing.Text);
         Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Parameter text does not apply to op delete.\nNext step: Call write_persona again with only the parameters for op delete: hash.", misplaced.Text);
@@ -400,7 +400,7 @@ public sealed partial class PersonaAddTests : IDisposable
         Git("add", "persona.md");
         Git("-c", "user.name=tacit", "-c", "user.email=tacit@localhost", "commit", "-q", "-m", "test: persona baseline");
 
-        var result = await _service.WritePersonaAsync(
+        var result = await _service.Tools.WritePersonaAsync(
             InScope(Add("working_rules", "性能比较 → 不拿单次测速当结论", "别拿单次测速下结论"), "domain:network-proxy", "改代理、分流或测速时"));
 
         Assert.False(result.IsError, result.Text);
@@ -422,7 +422,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Preferences\n- 沟通：先要结论\n\n## Domain: network-proxy\nTrigger: 改代理时\n### Working rules\n- 旧规则 → 旧做法\n### Preferences\n- 测速：只看持续测速\n");
 
-        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "切换节点 → 先备份配置", "先备份"), "domain:network-proxy", "完全不同的触发"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("working_rules", "切换节点 → 先备份配置", "先备份"), "domain:network-proxy", "完全不同的触发"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -435,7 +435,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_project_scope_is_refused_and_the_next_step_gives_the_workstream_form()
     {
-        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "project:alpha"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "project:alpha"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -448,8 +448,8 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Red lines\n\n## Preferences\n- 沟通：先要结论\n\n## Domain: zeta\nTrigger: 收尾时\n### Preferences\n- 收尾：先列清单\n\n## Workstream: photo-sorter\n### Preferences\n- 发布：先打标签\n");
 
-        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "workstream:alpha"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "记录：先写结论", "先写结论"), "domain:alpha", "写记录时"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "日志：少打印", "少打印"), "workstream:alpha"))).IsError);
 
         var text = File.ReadAllText(PersonaMd);
         var headings = new[] { "\n## Preferences", "\n## Domain: alpha", "\n## Domain: zeta", "\n## Workstream: alpha", "\n## Workstream: photo-sorter" };
@@ -463,7 +463,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Domain: network-proxy\nTrigger: 改代理时\n### Preferences\n- 测速：只看持续测速\n");
 
-        var result = await _service.WritePersonaAsync(
+        var result = await _service.Tools.WritePersonaAsync(
             InScope(Add("red_lines", "不要用单次测速下结论；改为先看持续测速", "别下结论"), "domain:network-proxy"));
 
         Assert.False(result.IsError, result.Text);
@@ -478,7 +478,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Domain: network-proxy\nTrigger: 改代理时\n### Red lines\n- r0\n\n### Working rules\n- 先给结论\n");
 
-        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
 
         Assert.False(result.IsError, result.Text);
         var text = File.ReadAllText(PersonaMd);
@@ -494,7 +494,7 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         WritePersona("## Preferences\n- 沟通：先要结论\n");
 
-        var result = await _service.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:photo-sorter"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("working_rules", "发版 → 先问我", "发版前问我"), "workstream:photo-sorter"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -510,7 +510,7 @@ public sealed partial class PersonaAddTests : IDisposable
         WritePersona("## Preferences\n- 沟通：先要结论\n");
         var before = File.ReadAllText(PersonaMd);
 
-        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速", "只看持续"), "domain:network-proxy"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -524,8 +524,8 @@ public sealed partial class PersonaAddTests : IDisposable
     {
         var request = InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy");
 
-        var twoLines = await _service.WritePersonaAsync(request with { Trigger = "改代理\n测速" });
-        var lengthy = await _service.WritePersonaAsync(request with { Trigger = new string('改', 300) + "时" });
+        var twoLines = await _service.Tools.WritePersonaAsync(request with { Trigger = "改代理\n测速" });
+        var lengthy = await _service.Tools.WritePersonaAsync(request with { Trigger = new string('改', 300) + "时" });
 
         Assert.True(twoLines.IsError);
         Assert.Contains("one line", twoLines.Text);
@@ -540,7 +540,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [InlineData("domain")]
     public async Task A_scope_that_is_not_global_a_workstream_or_a_domain_with_a_valid_name_is_refused(string scope)
     {
-        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), scope, "改代理时"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), scope, "改代理时"));
 
         Assert.True(result.IsError);
         Assert.False(result.Written);
@@ -551,10 +551,10 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_domain_takes_entries_past_any_count_and_reports_its_count()
     {
-        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
-        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "分流：先看规则"), "domain:network-proxy"))).IsError);
 
-        var third = await _service.WritePersonaAsync(InScope(Add("red_lines", "不要单次下结论；改为看持续数据"), "domain:network-proxy"));
+        var third = await _service.Tools.WritePersonaAsync(InScope(Add("red_lines", "不要单次下结论；改为看持续数据"), "domain:network-proxy"));
 
         Assert.False(third.IsError, third.Text);
         Assert.Contains("The domain has 3 entries.", third.Text);
@@ -564,9 +564,9 @@ public sealed partial class PersonaAddTests : IDisposable
     public async Task Global_sections_take_entries_past_any_count()
     {
         for (var i = 1; i <= 12; i++)
-            Assert.False((await _service.WritePersonaAsync(Add("preferences", $"节奏{i}：短句优先"))).IsError);
+            Assert.False((await _service.Tools.WritePersonaAsync(Add("preferences", $"节奏{i}：短句优先"))).IsError);
 
-        Assert.False((await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
+        Assert.False((await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", "改代理时"))).IsError);
     }
 
     [Fact]
@@ -579,9 +579,9 @@ public sealed partial class PersonaAddTests : IDisposable
         home.InitReady(models: models);
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
         var persona = Path.Combine(home.DefaultMemory, "persona.md");
-        Assert.False((await service.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"))).IsError);
+        Assert.False((await service.Tools.WritePersonaAsync(Add("preferences", "沟通：先要结论", "先要结论"))).IsError);
 
-        var result = await service.WritePersonaAsync(InScope(Add("preferences", "沟通：先要结论", "再说一遍"), "domain:writing", "写文章时"));
+        var result = await service.Tools.WritePersonaAsync(InScope(Add("preferences", "沟通：先要结论", "再说一遍"), "domain:writing", "写文章时"));
 
         Assert.False(result.IsError, result.Text);
         // Without the judgment the suffix would still be written; a skipped check must fail here, not pass unnoticed.
@@ -590,7 +590,7 @@ public sealed partial class PersonaAddTests : IDisposable
         Assert.Contains("再说一遍", File.ReadAllText(persona));
 
         // The suffixed code finds the domain entry for a replacement, and the replaced entry then finds by its own code.
-        var replaced = await service.WritePersonaAsync(new WritePersonaRequest
+        var replaced = await service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = "replace",
             Hash = $"{ShortOf("沟通：先要结论")}-2",
@@ -601,7 +601,7 @@ public sealed partial class PersonaAddTests : IDisposable
         Assert.DoesNotContain("再说一遍", File.ReadAllText(persona));
         Assert.Contains("沟通：写文章先给提纲", File.ReadAllText(persona));
 
-        var deleted = await service.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = ShortOf("沟通：写文章先给提纲") });
+        var deleted = await service.Tools.WritePersonaAsync(new WritePersonaRequest { Op = "delete", Hash = ShortOf("沟通：写文章先给提纲") });
         Assert.False(deleted.IsError, deleted.Text);
         Assert.DoesNotContain("沟通：写文章先给提纲", File.ReadAllText(persona));
         Assert.Contains("沟通：先要结论", File.ReadAllText(persona));
@@ -610,7 +610,7 @@ public sealed partial class PersonaAddTests : IDisposable
     [Fact]
     public async Task A_secret_in_the_trigger_is_refused_like_one_in_the_text()
     {
-        var result = await _service.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", $"密钥 {OpenAiKey}"));
+        var result = await _service.Tools.WritePersonaAsync(InScope(Add("preferences", "测速：只看持续测速"), "domain:network-proxy", $"密钥 {OpenAiKey}"));
 
         Assert.True(result.IsError);
         Assert.Contains("confirm_no_secret", result.Text);

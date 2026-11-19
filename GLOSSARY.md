@@ -286,7 +286,7 @@ _Avoid_: 远程备份、同步、推送
 _Avoid_: 还原、导入
 
 **门面**（Facade）：
-`TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 经由它调用记忆规则，并由它打开常驻服务 `MemoryService`，MCP 工具经该服务调用记忆规则。
+`TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 经由它调用记忆规则，并由它打开常驻服务 `MemoryService`。常驻服务按调用方分成若干子门面（facet：记忆工具、浏览、报告、设置、维护、访问），MCP 工具只经记忆工具子门面调用记忆规则。
 _Avoid_: 服务层、API、管理器
 
 **服务端说明**（Server instructions）：

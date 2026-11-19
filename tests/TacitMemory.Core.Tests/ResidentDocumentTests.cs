@@ -245,7 +245,7 @@ public sealed class ResidentDocumentTests : IDisposable
         // The render runs while this reader holds AGENTS.md, so the replacement is refused and tried again later.
         using (new FileStream(AgentsMd, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            await service.WritePersonaAsync(AddProfile("系统：Windows 11"));
+            await service.Tools.WritePersonaAsync(AddProfile("系统：Windows 11"));
             await service.SettledAsync();
             Assert.DoesNotContain("系统：Windows 11", Agents());
         }
@@ -269,7 +269,7 @@ public sealed class ResidentDocumentTests : IDisposable
 
         using (new FileStream(AgentsMd, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
-            await service.WritePersonaAsync(AddProfile("系统：Windows 11"));
+            await service.Tools.WritePersonaAsync(AddProfile("系统：Windows 11"));
             await service.SettledAsync();
             for (var retry = 1; retry <= DerivedUpkeep.RetryLimit; retry++)
             {
@@ -282,7 +282,7 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.Single(_notices, notice => notice.Contains("渲染常驻区块失败", StringComparison.Ordinal));
         Assert.DoesNotContain("系统：Windows 11", Agents());
 
-        await service.WritePersonaAsync(AddProfile("编辑器：VS Code"));
+        await service.Tools.WritePersonaAsync(AddProfile("编辑器：VS Code"));
         await service.SettledAsync();
 
         Assert.Contains("- 系统：Windows 11\n", Agents());
@@ -296,7 +296,7 @@ public sealed class ResidentDocumentTests : IDisposable
         _home.Bind();
         var service = Open();
 
-        await service.WritePersonaAsync(AddProfile("系统：Windows 11"));
+        await service.Tools.WritePersonaAsync(AddProfile("系统：Windows 11"));
         service.Dispose();
         _home.Clock.Elapse(DerivedUpkeep.Debounce);
 

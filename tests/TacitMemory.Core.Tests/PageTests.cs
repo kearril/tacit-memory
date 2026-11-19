@@ -41,7 +41,7 @@ public sealed partial class PageTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "notes.txt"), "staged by the user\n");
         Git("add", "notes.txt");
 
-        var result = await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -70,10 +70,10 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Reading_a_page_returns_its_header_and_every_section_with_the_codes_given_at_creation()
     {
-        var created = await _service.WritePageAsync(Create("tacit-memory/db-upgrade", related: null));
+        var created = await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade", related: null));
         var codes = CodePattern().Matches(created.Text).Select(match => match.Groups[1].Value).ToList();
 
-        var read = await _service.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade" });
+        var read = await _service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/db-upgrade" });
 
         Assert.False(read.IsError, read.Text);
         Assert.Equal(2, codes.Count);
@@ -88,9 +88,9 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Header_values_that_need_quoting_read_back_unchanged()
     {
-        await _service.WritePageAsync(Create("tacit-memory/quoting", title: "升级: 坑 #1", aliases: ["a, b", "\"引号\"", "- dash"]));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/quoting", title: "升级: 坑 #1", aliases: ["a, b", "\"引号\"", "- dash"]));
 
-        var read = await _service.RecallAsync(new RecallRequest { Page = "tacit-memory/quoting" });
+        var read = await _service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/quoting" });
 
         Assert.Contains("# tacit-memory/quoting: 升级: 坑 #1\n", read.Text);
         Assert.Contains("Aliases: a, b; \"引号\"; - dash\n", read.Text);
@@ -101,7 +101,7 @@ public sealed partial class PageTests : IDisposable
     {
         var before = Git("rev-parse", "HEAD");
 
-        var result = await _service.WritePageAsync(Create(
+        var result = await _service.Tools.WritePageAsync(Create(
             "tacit-memory/db-upgrade",
             title: new string('长', 51),
             aliases: ["只有一个"],
@@ -126,7 +126,7 @@ public sealed partial class PageTests : IDisposable
     [InlineData(".hidden/db-upgrade", "must not start with '.' or '_'")]
     public async Task Malformed_page_ids_are_refused_with_a_compliant_example(string page, string expected)
     {
-        var result = await _service.WritePageAsync(Create(page));
+        var result = await _service.Tools.WritePageAsync(Create(page));
 
         Assert.True(result.IsError);
         Assert.Contains(expected, result.Text);
@@ -135,8 +135,8 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Workstream_names_are_lowercased_and_topics_are_a_workstream()
     {
-        Assert.False((await _service.WritePageAsync(Create("Tacit-Memory/db-upgrade"))).IsError);
-        Assert.False((await _service.WritePageAsync(Create("_topics/pgroonga"))).IsError);
+        Assert.False((await _service.Tools.WritePageAsync(Create("Tacit-Memory/db-upgrade"))).IsError);
+        Assert.False((await _service.Tools.WritePageAsync(Create("_topics/pgroonga"))).IsError);
 
         Assert.True(File.Exists(Path.Combine(Memory, "pages", "tacit-memory", "db-upgrade.md")));
         Assert.True(File.Exists(Path.Combine(Memory, "pages", "_topics", "pgroonga.md")));
@@ -145,9 +145,9 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Creating_an_existing_page_is_refused_and_lists_its_sections()
     {
-        await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade"));
 
-        var result = await _service.WritePageAsync(Create("tacit-memory/db-upgrade", sections: [new("别的", "内容")]));
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade", sections: [new("别的", "内容")]));
 
         Assert.True(result.IsError);
         Assert.Contains("Page tacit-memory/db-upgrade already exists.", result.Text);
@@ -157,9 +157,9 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Related_pages_that_exist_are_written_into_the_header()
     {
-        await _service.WritePageAsync(Create("_topics/pgroonga"));
+        await _service.Tools.WritePageAsync(Create("_topics/pgroonga"));
 
-        await _service.WritePageAsync(Create("tacit-memory/db-upgrade", related: ["_topics/pgroonga"]));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade", related: ["_topics/pgroonga"]));
 
         Assert.Contains("related: [_topics/pgroonga]\n", File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "db-upgrade.md")));
     }
@@ -167,8 +167,8 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task A_body_heading_that_would_split_the_page_is_refused_but_headings_in_code_are_fine()
     {
-        var split = await _service.WritePageAsync(Create("tacit-memory/split", sections: [new("现象", "前文\n## 新节\n后文")]));
-        var fenced = await _service.WritePageAsync(Create("tacit-memory/fenced", sections: [new("脚本", "```bash\n# comment\n## also comment\n```\n### 细节")]));
+        var split = await _service.Tools.WritePageAsync(Create("tacit-memory/split", sections: [new("现象", "前文\n## 新节\n后文")]));
+        var fenced = await _service.Tools.WritePageAsync(Create("tacit-memory/fenced", sections: [new("脚本", "```bash\n# comment\n## also comment\n```\n### 细节")]));
 
         Assert.True(split.IsError);
         Assert.Contains("'#' or '##' heading", split.Text);
@@ -182,7 +182,7 @@ public sealed partial class PageTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "---\ntitle: [unclosed\n---\n\n## 现象\n内容\n");
 
-        var read = await _service.RecallAsync(new RecallRequest { Page = "tacit-memory/broken" });
+        var read = await _service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/broken" });
 
         Assert.False(read.IsError, read.Text);
         Assert.Contains("# tacit-memory/broken: broken\n", read.Text);
@@ -193,7 +193,7 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Reading_a_missing_page_is_refused()
     {
-        var read = await _service.RecallAsync(new RecallRequest { Page = "tacit-memory/nothing" });
+        var read = await _service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/nothing" });
 
         Assert.True(read.IsError);
         Assert.StartsWith("Refused: Page tacit-memory/nothing does not exist.", read.Text);
@@ -204,7 +204,7 @@ public sealed partial class PageTests : IDisposable
     [InlineData("rewrite", "Unknown op \"rewrite\".")]
     public async Task A_missing_or_unknown_op_is_refused(string? op, string expected)
     {
-        var result = await _service.WritePageAsync(Create("tacit-memory/db-upgrade") with { Op = op });
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade") with { Op = op });
 
         Assert.True(result.IsError);
         Assert.StartsWith($"Refused: {expected}", result.Text);
@@ -214,17 +214,17 @@ public sealed partial class PageTests : IDisposable
     public async Task An_unknown_parameter_is_refused_by_name_and_nothing_is_written()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var commits = Git("rev-list", "--count", "HEAD").Trim();
 
-        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["content"] });
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["content"] });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Refused: Unknown parameter content.\nNext step: ", result.Text);
         Assert.Equal(before, PageText(page));
 
-        var renamed = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["project"] });
+        var renamed = await _service.Tools.WritePageAsync(Upsert(page, "根因", "新的根因。") with { UnknownParameters = ["project"] });
 
         Assert.StartsWith("Refused: Unknown parameter project.\nNext step: ", renamed.Text);
         Assert.Contains("The workstream is the first part of the page ID, as in workstream/slug.", renamed.Text);
@@ -236,8 +236,8 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Unknown_names_come_first_with_the_op_and_misplaced_problems_in_one_refusal()
     {
-        var invalid = await _service.WritePageAsync(new WritePageRequest { Op = "rewrite", Page = "tacit-memory/db-upgrade", UnknownParameters = ["content", "limit"] });
-        var misplaced = await _service.WritePageAsync(Create("tacit-memory/db-upgrade") with { Section = "根因", UnknownParameters = ["content"] });
+        var invalid = await _service.Tools.WritePageAsync(new WritePageRequest { Op = "rewrite", Page = "tacit-memory/db-upgrade", UnknownParameters = ["content", "limit"] });
+        var misplaced = await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade") with { Section = "根因", UnknownParameters = ["content"] });
 
         Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Unknown parameter limit.\n- Unknown op \"rewrite\".\nNext step: ", invalid.Text);
         Assert.StartsWith("Refused:\n- Unknown parameter content.\n- Parameter section does not apply to op create.\nNext step: ", misplaced.Text);
@@ -246,8 +246,8 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task The_next_step_lists_the_parameters_of_a_valid_op_or_every_parameter_when_the_op_is_missing()
     {
-        var withOp = await _service.WritePageAsync(Upsert("tacit-memory/db-upgrade", "根因", "新的根因。") with { UnknownParameters = ["content"] });
-        var withoutOp = await _service.WritePageAsync(new WritePageRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["content"] });
+        var withOp = await _service.Tools.WritePageAsync(Upsert("tacit-memory/db-upgrade", "根因", "新的根因。") with { UnknownParameters = ["content"] });
+        var withoutOp = await _service.Tools.WritePageAsync(new WritePageRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["content"] });
 
         Assert.Contains("Call write_page again with only the parameters for op upsert_section: page, section, body, hash, confirm_no_secret.", withOp.Text);
         Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, type, aliases, sections, related, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
@@ -256,7 +256,7 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Writes_arriving_together_run_one_after_another()
     {
-        var writes = Enumerable.Range(1, 5).Select(n => _service.WritePageAsync(Create($"tacit-memory/page-{n}")));
+        var writes = Enumerable.Range(1, 5).Select(n => _service.Tools.WritePageAsync(Create($"tacit-memory/page-{n}")));
 
         var results = await Task.WhenAll(writes);
 
@@ -269,7 +269,7 @@ public sealed partial class PageTests : IDisposable
 
     private async Task<string> CodeOf(string page, string section)
     {
-        var read = await _service.RecallAsync(new RecallRequest { Page = page });
+        var read = await _service.Tools.RecallAsync(new RecallRequest { Page = page });
         var code = Regex.Match(read.Text, $@"## {Regex.Escape(section)} \[([0-9a-f]{{6}}(?:-\d+)?)\]").Groups[1].Value;
         Assert.Matches(@"^[0-9a-f]{6}(-\d+)?$", code);
         return code;
@@ -291,11 +291,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Replacing_a_section_with_its_hash_changes_only_that_section()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var hash = await CodeOf(page, "根因");
 
-        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(before.Replace("PGroonga 扩展没有随升级重装。", "新的根因。"), PageText(page));
@@ -310,11 +310,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Every_successful_write_sets_dates_last_to_today()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         MoveClockTo(new DateOnly(2026, 11, 5));
         var hash = await CodeOf(page, "根因");
 
-        var result = await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("dates: { first: 2026-11-02, last: 2026-11-05 }\n", PageText(page));
@@ -324,10 +324,10 @@ public sealed partial class PageTests : IDisposable
     public async Task Replacing_a_section_without_its_hash_is_refused_and_shows_it_with_its_code()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var result = await _service.WritePageAsync(Upsert(page, "现象", "覆盖。"));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "现象", "覆盖。"));
 
         var code = await CodeOf(page, "现象");
         Assert.True(result.IsError);
@@ -340,10 +340,10 @@ public sealed partial class PageTests : IDisposable
     public async Task A_hash_that_no_longer_matches_is_refused_and_shows_the_section_as_it_is_now()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var result = await _service.WritePageAsync(Upsert(page, "现象", "覆盖。", "000000"));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "现象", "覆盖。", "000000"));
 
         var code = await CodeOf(page, "现象");
         Assert.True(result.IsError);
@@ -356,10 +356,10 @@ public sealed partial class PageTests : IDisposable
     public async Task A_section_the_page_lacks_is_appended_at_the_end()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var result = await _service.WritePageAsync(Upsert(page, "后续", "待办。"));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "后续", "待办。"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(before + "\n## 后续\n待办。\n", PageText(page));
@@ -373,12 +373,12 @@ public sealed partial class PageTests : IDisposable
     public async Task Upsert_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var head = Git("rev-parse", "HEAD");
         var code = await CodeOf(page, "根因");
 
-        var result = await _service.WritePageAsync(Upsert(page, code, "覆盖。", withHash ? code : null));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, code, "覆盖。", withHash ? code : null));
 
         Assert.True(result.IsError);
         Assert.Contains("Parameter section \"" + code + "\" is the short code of section 根因, not a section name.", result.Text);
@@ -393,12 +393,12 @@ public sealed partial class PageTests : IDisposable
     public async Task Upsert_refuses_a_short_code_as_the_section_name_before_checking_the_body(string body)
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var head = Git("rev-parse", "HEAD");
         var code = await CodeOf(page, "根因");
 
-        var result = await _service.WritePageAsync(Upsert(page, code, body));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, code, body));
 
         Assert.True(result.IsError);
         Assert.StartsWith($"Refused: Parameter section \"{code}\" is the short code of section 根因, not a section name.", result.Text);
@@ -412,12 +412,12 @@ public sealed partial class PageTests : IDisposable
     public async Task Delete_refuses_a_short_code_given_as_the_section_name_and_says_which_section_it_is(bool withHash)
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var head = Git("rev-parse", "HEAD");
         var code = await CodeOf(page, "现象");
 
-        var result = await _service.WritePageAsync(Delete(page, code, withHash ? code : null));
+        var result = await _service.Tools.WritePageAsync(Delete(page, code, withHash ? code : null));
 
         Assert.True(result.IsError);
         Assert.Contains("is the short code of section 现象, not a section name.", result.Text);
@@ -430,12 +430,12 @@ public sealed partial class PageTests : IDisposable
     public async Task A_short_code_in_capitals_or_padded_with_spaces_is_still_recognised()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var code = await CodeOf(page, "根因");
 
-        var upper = await _service.WritePageAsync(Upsert(page, "  " + code.ToUpperInvariant() + " ", "覆盖。"));
-        var deleted = await _service.WritePageAsync(Delete(page, code.ToUpperInvariant()));
+        var upper = await _service.Tools.WritePageAsync(Upsert(page, "  " + code.ToUpperInvariant() + " ", "覆盖。"));
+        var deleted = await _service.Tools.WritePageAsync(Delete(page, code.ToUpperInvariant()));
 
         Assert.Contains("is the short code of section 根因, not a section name.", upper.Text);
         Assert.Contains("is the short code of section 根因, not a section name.", deleted.Text);
@@ -446,13 +446,13 @@ public sealed partial class PageTests : IDisposable
     public async Task A_section_actually_named_like_a_code_is_rewritten_by_its_name()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var code = await CodeOf(page, "根因");
         const string other = "tacit-memory/code-named";
-        await _service.WritePageAsync(Create(other, sections: [new("根因", "PGroonga 扩展没有随升级重装。"), new(code, "旧内容。")]));
+        await _service.Tools.WritePageAsync(Create(other, sections: [new("根因", "PGroonga 扩展没有随升级重装。"), new(code, "旧内容。")]));
         var hash = await CodeOf(other, code);
 
-        var result = await _service.WritePageAsync(Upsert(other, code, "新内容。", hash));
+        var result = await _service.Tools.WritePageAsync(Upsert(other, code, "新内容。", hash));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("新内容。", PageText(other));
@@ -463,10 +463,10 @@ public sealed partial class PageTests : IDisposable
     public async Task A_value_shaped_like_a_code_that_no_section_has_is_a_section_name_as_before()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
 
-        var added = await _service.WritePageAsync(Upsert(page, "a1b2c3", "待办。"));
-        var deleted = await _service.WritePageAsync(Delete(page, "fedcba"));
+        var added = await _service.Tools.WritePageAsync(Upsert(page, "a1b2c3", "待办。"));
+        var deleted = await _service.Tools.WritePageAsync(Delete(page, "fedcba"));
 
         Assert.False(added.IsError, added.Text);
         Assert.Contains("Added section a1b2c3", added.Text);
@@ -478,11 +478,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Writing_a_section_with_its_current_text_changes_nothing_and_commits_nothing()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var hash = await CodeOf(page, "现象");
         var head = Git("rev-parse", "HEAD");
 
-        var result = await _service.WritePageAsync(Upsert(page, "现象", "升级后中文搜索没有结果。", hash));
+        var result = await _service.Tools.WritePageAsync(Upsert(page, "现象", "升级后中文搜索没有结果。", hash));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("Nothing changed", result.Text);
@@ -493,11 +493,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Deleting_a_middle_section_removes_it_with_its_separating_line()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page, sections: [new("现象", "升级后中文搜索没有结果。"), new("根因", "PGroonga 扩展没有随升级重装。"), new("方案", "重装扩展。")]));
+        await _service.Tools.WritePageAsync(Create(page, sections: [new("现象", "升级后中文搜索没有结果。"), new("根因", "PGroonga 扩展没有随升级重装。"), new("方案", "重装扩展。")]));
         var before = PageText(page);
         var hash = await CodeOf(page, "根因");
 
-        var result = await _service.WritePageAsync(Delete(page, "根因", hash));
+        var result = await _service.Tools.WritePageAsync(Delete(page, "根因", hash));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(before.Replace("## 根因\nPGroonga 扩展没有随升级重装。\n\n", ""), PageText(page));
@@ -507,11 +507,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Deleting_the_last_section_removes_it_and_the_line_before_it()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
         var hash = await CodeOf(page, "根因");
 
-        var result = await _service.WritePageAsync(Delete(page, "根因", hash));
+        var result = await _service.Tools.WritePageAsync(Delete(page, "根因", hash));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(before.Replace("\n## 根因\nPGroonga 扩展没有随升级重装。\n", ""), PageText(page));
@@ -521,11 +521,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Deleting_a_section_needs_its_current_hash()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var withoutHash = await _service.WritePageAsync(Delete(page, "根因"));
-        var stale = await _service.WritePageAsync(Delete(page, "根因", "000000"));
+        var withoutHash = await _service.Tools.WritePageAsync(Delete(page, "根因"));
+        var stale = await _service.Tools.WritePageAsync(Delete(page, "根因", "000000"));
 
         var code = await CodeOf(page, "根因");
         Assert.True(withoutHash.IsError);
@@ -540,9 +540,9 @@ public sealed partial class PageTests : IDisposable
     public async Task Deleting_a_missing_section_is_refused_and_lists_the_sections()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
 
-        var result = await _service.WritePageAsync(Delete(page, "别的", "000000"));
+        var result = await _service.Tools.WritePageAsync(Delete(page, "别的", "000000"));
 
         Assert.True(result.IsError);
         Assert.Contains("Section \"别的\" does not exist on page tacit-memory/db-upgrade.", result.Text);
@@ -553,13 +553,13 @@ public sealed partial class PageTests : IDisposable
     public async Task Title_aliases_and_related_are_changed_in_the_header_and_duplicate_aliases_are_dropped()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create("tacit-memory/pgroonga"));
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/pgroonga"));
+        await _service.Tools.WritePageAsync(Create(page));
 
-        var result = await _service.WritePageAsync(Header(page, title: "升级后扩展丢失", addAliases: ["升级后搜索不到中文", "pgroonga 失效"], related: ["tacit-memory/pgroonga"]));
+        var result = await _service.Tools.WritePageAsync(Header(page, title: "升级后扩展丢失", addAliases: ["升级后搜索不到中文", "pgroonga 失效"], related: ["tacit-memory/pgroonga"]));
 
         Assert.False(result.IsError, result.Text);
-        var read = await _service.RecallAsync(new RecallRequest { Page = page });
+        var read = await _service.Tools.RecallAsync(new RecallRequest { Page = page });
         Assert.Contains("# tacit-memory/db-upgrade: 升级后扩展丢失\n", read.Text);
         Assert.Contains("Aliases: 全文检索插件失效; 升级后搜索不到中文; pgroonga 失效\n", read.Text);
         Assert.Contains("Related: tacit-memory/pgroonga\n", read.Text);
@@ -571,15 +571,15 @@ public sealed partial class PageTests : IDisposable
     public async Task Related_replaces_the_whole_list_and_an_empty_list_removes_it()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create("tacit-memory/pgroonga"));
-        await _service.WritePageAsync(Create("tacit-memory/other"));
-        await _service.WritePageAsync(Create(page, related: ["tacit-memory/pgroonga"]));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/pgroonga"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/other"));
+        await _service.Tools.WritePageAsync(Create(page, related: ["tacit-memory/pgroonga"]));
 
-        await _service.WritePageAsync(Header(page, related: ["tacit-memory/other"]));
+        await _service.Tools.WritePageAsync(Header(page, related: ["tacit-memory/other"]));
         Assert.Contains("related: [tacit-memory/other]\n", PageText(page));
         Assert.DoesNotContain("tacit-memory/pgroonga", PageText(page));
 
-        await _service.WritePageAsync(Header(page, related: []));
+        await _service.Tools.WritePageAsync(Header(page, related: []));
         Assert.DoesNotContain("related:", PageText(page));
     }
 
@@ -587,11 +587,11 @@ public sealed partial class PageTests : IDisposable
     public async Task An_update_header_needs_a_field_to_change_and_cannot_replace_aliases()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var empty = await _service.WritePageAsync(Header(page));
-        var replace = await _service.WritePageAsync(Header(page) with { Aliases = ["别名一", "别名二"] });
+        var empty = await _service.Tools.WritePageAsync(Header(page));
+        var replace = await _service.Tools.WritePageAsync(Header(page) with { Aliases = ["别名一", "别名二"] });
 
         Assert.True(empty.IsError);
         Assert.Contains("Give at least one of title, type, add_aliases or related.", empty.Text);
@@ -604,9 +604,9 @@ public sealed partial class PageTests : IDisposable
     public async Task Long_titles_and_aliases_are_accepted_in_the_header_as_in_create()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
 
-        var result = await _service.WritePageAsync(Header(page, title: new string('长', 300), addAliases: [new string('a', 300)]));
+        var result = await _service.Tools.WritePageAsync(Header(page, title: new string('长', 300), addAliases: [new string('a', 300)]));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains(new string('长', 300), PageText(page));
@@ -621,9 +621,9 @@ public sealed partial class PageTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "---\ntitle: [unclosed\n---\n\n## 现象\n内容\n");
         var before = File.ReadAllText(path);
-        var section = await _service.WritePageAsync(Upsert(page, "现象", "改。", "000000"));
+        var section = await _service.Tools.WritePageAsync(Upsert(page, "现象", "改。", "000000"));
 
-        var header = await _service.WritePageAsync(Header(page, title: "新标题"));
+        var header = await _service.Tools.WritePageAsync(Header(page, title: "新标题"));
 
         Assert.True(section.IsError);
         Assert.Contains("cannot be read", section.Text);
@@ -660,7 +660,7 @@ public sealed partial class PageTests : IDisposable
             """.ReplaceLineEndings("\n") + "\n";
         File.WriteAllText(path, original);
 
-        var result = await _service.WritePageAsync(Header(page, addAliases: ["新别名"]));
+        var result = await _service.Tools.WritePageAsync(Header(page, addAliases: ["新别名"]));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
@@ -673,10 +673,10 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task A_write_on_a_later_day_moves_dates_last_and_keeps_dates_first()
     {
-        await _service.WritePageAsync(Create("tacit-memory/dated"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/dated"));
         _home.Clock.Advance(TimeSpan.FromDays(1));
 
-        var result = await _service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
+        var result = await _service.Tools.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
 
         Assert.False(result.IsError, result.Text);
         var text = File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md"));
@@ -684,7 +684,7 @@ public sealed partial class PageTests : IDisposable
         Assert.Contains("last: 2026-11-03", text);
 
         _home.Clock.Advance(TimeSpan.FromDays(1));
-        var unchanged = await _service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
+        var unchanged = await _service.Tools.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "tacit-memory/dated", Title = "升级后的标题" });
         Assert.StartsWith("Nothing changed: the page already has this content.", unchanged.Text);
         Assert.Contains("last: 2026-11-03", File.ReadAllText(Path.Combine(Memory, "pages", "tacit-memory", "dated.md")));
     }
@@ -696,7 +696,7 @@ public sealed partial class PageTests : IDisposable
     [InlineData(ToolValues.PageTypes.Work)]
     public async Task Creating_a_page_writes_the_type_it_was_given_in_the_header(string type)
     {
-        var result = await _service.WritePageAsync(Create("tacit-memory/typed") with { Type = type });
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/typed") with { Type = type });
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains($"\ntype: {type}\n---\n", PageText("tacit-memory/typed"));
@@ -705,7 +705,7 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Creating_a_page_without_a_type_is_refused_with_the_four_types_and_writes_nothing()
     {
-        var result = await _service.WritePageAsync(Create("tacit-memory/untyped") with { Type = null });
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/untyped") with { Type = null });
 
         Assert.True(result.IsError);
         Assert.Contains("Missing parameter type.", result.Text);
@@ -716,7 +716,7 @@ public sealed partial class PageTests : IDisposable
     [Fact]
     public async Task Creating_a_page_with_a_type_outside_the_four_is_refused_and_writes_nothing()
     {
-        var result = await _service.WritePageAsync(Create("tacit-memory/odd") with { Type = "note" });
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/odd") with { Type = "note" });
 
         Assert.True(result.IsError);
         Assert.Contains("Type \"note\" is not one of: incident, decision, entity, work.", result.Text);
@@ -727,10 +727,10 @@ public sealed partial class PageTests : IDisposable
     public async Task Update_header_changes_only_the_type_line()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var result = await _service.WritePageAsync((Header(page) with { Type = ToolValues.PageTypes.Decision }));
+        var result = await _service.Tools.WritePageAsync((Header(page) with { Type = ToolValues.PageTypes.Decision }));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(before.Replace("type: incident\n", "type: decision\n"), PageText(page));
@@ -741,9 +741,9 @@ public sealed partial class PageTests : IDisposable
     public async Task Update_header_with_the_type_the_page_has_changes_nothing()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
 
-        var result = await _service.WritePageAsync((Header(page) with { Type = ToolValues.PageTypes.Incident }));
+        var result = await _service.Tools.WritePageAsync((Header(page) with { Type = ToolValues.PageTypes.Incident }));
 
         Assert.StartsWith("Nothing changed: the page already has this content.", result.Text);
     }
@@ -752,10 +752,10 @@ public sealed partial class PageTests : IDisposable
     public async Task Update_header_refuses_a_type_outside_the_four_and_leaves_the_page_alone()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
         var before = PageText(page);
 
-        var result = await _service.WritePageAsync((Header(page) with { Type = "note" }));
+        var result = await _service.Tools.WritePageAsync((Header(page) with { Type = "note" }));
 
         Assert.True(result.IsError);
         Assert.Contains("is not one of: incident, decision, entity, work.", result.Text);
@@ -769,7 +769,7 @@ public sealed partial class PageTests : IDisposable
         File.WriteAllText(Path.Combine(Memory, "pages", "tacit-memory", "legacy.md"),
             "---\ntitle: 旧页\naliases: [旧页, legacy]\ndates: { first: 2026-10-01, last: 2026-10-01 }\n---\n\n## 要点\n- 内容\n");
 
-        var result = await _service.WritePageAsync((Header("tacit-memory/legacy") with { Type = ToolValues.PageTypes.Entity }));
+        var result = await _service.Tools.WritePageAsync((Header("tacit-memory/legacy") with { Type = ToolValues.PageTypes.Entity }));
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("\ntype: entity\n---\n\n## 要点\n- 内容\n", PageText("tacit-memory/legacy"));
@@ -779,11 +779,11 @@ public sealed partial class PageTests : IDisposable
     public async Task Section_writes_keep_the_type_line()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page) with { Type = ToolValues.PageTypes.Decision });
+        await _service.Tools.WritePageAsync(Create(page) with { Type = ToolValues.PageTypes.Decision });
         var hash = await CodeOf(page, "根因");
 
-        await _service.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
-        await _service.WritePageAsync(Upsert(page, "补充", "补充说明。"));
+        await _service.Tools.WritePageAsync(Upsert(page, "根因", "新的根因。", hash));
+        await _service.Tools.WritePageAsync(Upsert(page, "补充", "补充说明。"));
 
         Assert.Contains("\ntype: decision\n---\n", PageText(page));
     }
@@ -792,9 +792,9 @@ public sealed partial class PageTests : IDisposable
     public async Task Type_is_refused_on_an_op_that_does_not_take_it()
     {
         const string page = "tacit-memory/db-upgrade";
-        await _service.WritePageAsync(Create(page));
+        await _service.Tools.WritePageAsync(Create(page));
 
-        var result = await _service.WritePageAsync((Upsert(page, "根因", "x") with { Type = "decision" }));
+        var result = await _service.Tools.WritePageAsync((Upsert(page, "根因", "x") with { Type = "decision" }));
 
         Assert.True(result.IsError);
         Assert.Contains("Parameter type does not apply to op upsert_section.", result.Text);

@@ -27,7 +27,7 @@ public sealed class ReloadTests : IDisposable
         File.WriteAllText(path, $"---\ntitle: {title}\naliases: [别名一, 别名二]\ndates: {{ first: 2026-10-01, last: 2026-10-05 }}\n---\n\n{body}\n");
     }
 
-    private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
+    private Task<ToolResult> Recall(string query) => Service.Tools.RecallAsync(new RecallRequest { Query = query });
 
     private void Save(Func<ConfigFile, ConfigFile> change) => _home.Tacit().SaveConfig(change(_home.Tacit().ReadConfigFile()));
 
@@ -91,11 +91,11 @@ public sealed class ReloadTests : IDisposable
     {
         var path = Path.Combine(_home.TacitHome, "config.yaml");
         var before = File.ReadAllText(path);
-        var view = Service.ConfigView();
+        var view = Service.Settings.ConfigView();
         Service.OnOpening = config => { if (config.Retrieval.TopK == 1) throw new IOException("index is locked"); };
 
         var error = await Assert.ThrowsAsync<TacitException>(
-            () => Service.SaveConfigAsync(view.File with { Retrieval = view.File.Retrieval with { TopK = 1 } }, view.Hash));
+            () => Service.Settings.SaveConfigAsync(view.File with { Retrieval = view.File.Retrieval with { TopK = 1 } }, view.Hash));
 
         Assert.Equal(TacitError.ReloadFailed, error.Error);
         Assert.Equal(before, File.ReadAllText(path));
@@ -105,10 +105,10 @@ public sealed class ReloadTests : IDisposable
     [Fact]
     public async Task Saving_keeps_the_secrets_the_file_holds()
     {
-        var view = Service.ConfigView();
+        var view = Service.Settings.ConfigView();
         Assert.Null(view.File.Models.Decision!.ApiKey);
 
-        await Service.SaveConfigAsync(view.File with { Retrieval = view.File.Retrieval with { TopK = 4 } }, view.Hash);
+        await Service.Settings.SaveConfigAsync(view.File with { Retrieval = view.File.Retrieval with { TopK = 4 } }, view.Hash);
 
         Assert.Equal("test-key", _home.Tacit().ReadConfigFile().Models.Decision!.ApiKey);
     }
@@ -123,7 +123,7 @@ public sealed class ReloadTests : IDisposable
 
         var reload = Task.Run(() => Service.ReloadAsync());
         Assert.True(opening.Wait(TimeSpan.FromSeconds(10)));
-        var write = Service.WriteRecentAsync(new WriteRecentRequest { Text = "重新加载期间写下的活动" });
+        var write = Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "重新加载期间写下的活动" });
         await Task.Delay(300);
         Assert.False(write.IsCompleted);
 
@@ -141,10 +141,10 @@ public sealed class ReloadTests : IDisposable
         Service.RecordExtraListener(System.Net.IPAddress.Parse("192.168.1.10"), 18888, failureReason: null);
         var listener = Service.ExtraListener;
         _home.Clock.Advance(TimeSpan.FromMinutes(5));
-        var before = await Service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
+        var before = await Service.Reports.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
 
         await Service.ReloadAsync();
-        var after = await Service.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
+        var after = await Service.Reports.StatusAsync(new Uri("http://127.0.0.1:18888/mcp"));
 
         Assert.Same(listener, Service.ExtraListener);
         Assert.Equal(300, before.Service!.UptimeSeconds);

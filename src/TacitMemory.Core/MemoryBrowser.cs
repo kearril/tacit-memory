@@ -10,8 +10,8 @@ namespace TacitMemory.Core;
 
 /// <summary>
 /// The memory as the memory page browses it: the persona, the workstreams and a brief, the activity log and the detail
-/// pages. Each view waits as a read does, then reads the memory the service runs now, so one taken before a reload reads
-/// the reopened memory. Browsing counts no use and changes no file.
+/// pages, and the recall trace. Each view waits as a read does, then reads the memory the service runs now, so one taken
+/// before a reload reads the reopened memory. Browsing counts no use and changes no file.
 /// </summary>
 public sealed class MemoryBrowser
 {
@@ -61,6 +61,20 @@ public sealed class MemoryBrowser
     /// </exception>
     public Task<PageView> PageAsync(string workstream, string slug, CancellationToken cancellationToken = default) =>
         ReadAsync(memory => PageBrowse.Read(memory.Config, memory.Index, memory.Reader, workstream, slug), cancellationToken);
+
+    /// <summary>
+    /// A recall trace: the search <c>recall</c> runs for the same parameters, stage by stage, with up to three retrieval
+    /// values replaced. Counts no return and changes no file.
+    /// </summary>
+    /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with every problem of the request.</exception>
+    public async Task<RecallTraceReport> TraceRecallAsync(RecallTraceRequest request, CancellationToken cancellationToken = default)
+    {
+        var search = RecallTraceRun.Check(request, _runtime().Config.Language);
+        using var hold = await _gate.ReadAsync(cancellationToken);
+        var memory = _runtime();
+        var trace = await memory.Reader.SearchAsync(search, Usage.NotCounted, cancellationToken);
+        return RecallTraceRun.Report(trace, memory.Config);
+    }
 
     /// <summary>Runs <paramref name="read"/> on the memory the service runs once the read slot is held.</summary>
     private async Task<T> ReadAsync<T>(Func<BrowseRuntime, T> read, CancellationToken cancellationToken)

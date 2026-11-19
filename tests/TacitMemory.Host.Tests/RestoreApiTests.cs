@@ -50,7 +50,7 @@ public sealed class RestoreApiTests : IAsyncLifetime
     [Fact]
     public async Task The_preview_answers_with_the_manifest_as_json_and_changes_nothing()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var before = Head;
 
         using var response = await PostRestore(new { path = backup.Location, config = false, preview = true });
@@ -69,7 +69,7 @@ public sealed class RestoreApiTests : IAsyncLifetime
     [Fact]
     public async Task The_restore_answers_with_the_safety_backup_the_head_and_the_rebuild_as_json()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
 
         using var response = await PostRestore(new { path = backup.Location, config = false, preview = false });
 
@@ -112,7 +112,7 @@ public sealed class RestoreApiTests : IAsyncLifetime
     [Fact]
     public async Task A_request_without_the_preview_flag_is_refused_rather_than_restoring()
     {
-        var backup = await _service.BackupAsync(BackupTarget.Local);
+        var backup = await _service.Maintenance.BackupAsync(BackupTarget.Local);
         var before = Head;
 
         using var response = await PostRestore(new { path = backup.Location, config = false });

@@ -50,7 +50,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
     private async Task CreatePage(string name, string title, string body)
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -88,7 +88,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
     /// <summary>Starts a consolidation and waits until its budget timer exists, so the test can run the budget out.</summary>
     private async Task<Task<string>> StartConsolidationAsync()
     {
-        var report = Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var report = Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         await _home.Clock.NextTimerAsync(Budget).WaitAsync(Guard);
         return report;
     }
@@ -108,7 +108,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         await report;
         _models.ReleaseDecisions();
         await Service.SettledAsync().WaitAsync(Guard);
-        var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var complete = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
         Assert.Contains("回答尽量简短", Section(complete, Removal));
@@ -145,7 +145,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         _models.ReleaseDecisions();
         await Service.SettledAsync().WaitAsync(Guard);
-        var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var complete = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Equal(2, _models.DecisionCalls);
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
@@ -179,7 +179,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         Write("回答尽量简短", "回复别太长", "别绕弯子", "少用表情", "别客套");
         PickPersonaEntry();
         _models.HoldDecisions();
-        var report = Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var report = Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         await _models.DecisionRequestsReached(2).WaitAsync(Guard);
         _models.ReleaseDecisions();
@@ -197,7 +197,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
         PickPersonaEntry();
         _models.ScriptDecision(ModelReply.Status(ModelDouble.DownStatus));
 
-        var text = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var text = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Equal(1, _models.DecisionCalls);
         Assert.Contains("Not checked", Section(text, Removal));
@@ -210,12 +210,12 @@ public sealed class ConsolidationBudgetTests : IDisposable
         Write("回答尽量简短", "回复别太长", "别绕弯子");
         PickPersonaEntry();
         _models.ScriptDecision(ModelReply.Status(ModelDouble.DownStatus));
-        await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         var callsWhileCooling = _models.DecisionCalls;
 
         // The cooldown is the model's own, so it ends on the model clock.
         _home.ModelClock!.Elapse(TimeSpan.FromSeconds(30));
-        var text = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var text = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > callsWhileCooling);
         Assert.DoesNotContain("Not checked", Section(text, Removal));
@@ -248,7 +248,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         _models.ReleaseDecisions();
         await Service.SettledAsync().WaitAsync(Guard);
-        var complete = await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        var complete = await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));

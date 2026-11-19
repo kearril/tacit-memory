@@ -32,7 +32,7 @@ public sealed class MaintenanceTests : IDisposable
 
     private string RestorePage => Path.Combine(_home.DefaultMemory, "pages", "tacit-memory", "restore.md");
 
-    private Task<ToolResult> CreatePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> CreatePage(string page, string title, string body) => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,
@@ -53,7 +53,7 @@ public sealed class MaintenanceTests : IDisposable
     {
         var reached = _models.EmbeddingCalls + 1;
         _models.HoldEmbeddings();
-        var rebuild = Service.ReindexAsync();
+        var rebuild = Service.Maintenance.ReindexAsync();
         await _models.EmbeddingRequestsReached(reached).WaitAsync(Guard);
         return rebuild;
     }
@@ -66,7 +66,7 @@ public sealed class MaintenanceTests : IDisposable
 
         var write = CreatePage("tacit-memory/restore", "恢复", "从备份恢复记忆仓库");
         var recall = Recall("备份");
-        var instructions = Service.ServerInstructionsAsync();
+        var instructions = Service.Tools.ServerInstructionsAsync();
         await Task.Delay(Pause);
 
         Assert.False(File.Exists(RestorePage), "The write reached the disk while the rebuild still held the memory.");
@@ -88,7 +88,7 @@ public sealed class MaintenanceTests : IDisposable
         await SeedBackupPage();
         var first = await StartHeldRebuildAsync();
 
-        var second = Service.ReindexAsync();
+        var second = Service.Maintenance.ReindexAsync();
         await Task.Delay(Pause);
 
         Assert.False(second.IsCompleted, "The second rebuild started while the first still held the memory.");
@@ -100,5 +100,5 @@ public sealed class MaintenanceTests : IDisposable
         Assert.Equal(done.Vectors, again.Vectors);
     }
 
-    private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
+    private Task<ToolResult> Recall(string query) => Service.Tools.RecallAsync(new RecallRequest { Query = query });
 }

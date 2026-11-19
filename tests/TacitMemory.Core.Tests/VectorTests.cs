@@ -26,7 +26,7 @@ public sealed class VectorTests : IDisposable
 
     private MemoryService Service => _service ??= _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-    private Task<ToolResult> Create(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> Create(string page, string title, string body) => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,
@@ -36,7 +36,7 @@ public sealed class VectorTests : IDisposable
         Sections = [new("内容", body)],
     });
 
-    private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
+    private Task<ToolResult> Recall(string query) => Service.Tools.RecallAsync(new RecallRequest { Query = query });
 
     [Fact]
     public async Task A_differently_worded_query_finds_the_page_through_its_vector()
@@ -155,7 +155,7 @@ public sealed class VectorTests : IDisposable
         var stored = _models.Embed;
         _models.Embed = text => { embedded.Add(text); return stored(text); };
 
-        var renamed = await Service.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "company/backup", Title = "异地备份" });
+        var renamed = await Service.Tools.WritePageAsync(new WritePageRequest { Op = "update_header", Page = "company/backup", Title = "异地备份" });
         Assert.False(renamed.IsError, renamed.Text);
         await Service.SettledAsync();
 

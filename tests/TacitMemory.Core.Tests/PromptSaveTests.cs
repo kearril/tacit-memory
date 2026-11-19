@@ -31,25 +31,25 @@ public sealed class PromptSaveTests : IDisposable
 
     private string SkillMd => Path.Combine(_home.TacitHome, "skills", "tacit-memory", "SKILL.md");
 
-    private string Hash(PromptName name) => _service.Prompts().Documents.Single(document => document.Name == name).Hash!;
+    private string Hash(PromptName name) => _service.Settings.Prompts().Documents.Single(document => document.Name == name).Hash!;
 
     [Fact]
     public async Task A_first_save_writes_the_file_with_lf_line_breaks_and_the_instructions_take_it_at_once()
     {
-        var saved = await _service.SavePromptAsync(PromptName.Instructions, null, "## 核心\r\n- 新写的核心规则\r\n");
+        var saved = await _service.Settings.SavePromptAsync(PromptName.Instructions, null, "## 核心\r\n- 新写的核心规则\r\n");
 
         Assert.Equal("## 核心\n- 新写的核心规则\n", File.ReadAllText(FileOf("instructions.md")));
         Assert.False(saved.Document.BuiltIn);
         Assert.Equal("## 核心\n- 新写的核心规则\n", saved.Document.Text);
         Assert.Equal(Hash(PromptName.Instructions), saved.Document.Hash);
         Assert.Empty(saved.Notices);
-        Assert.Contains("- 新写的核心规则", await _service.ServerInstructionsAsync());
+        Assert.Contains("- 新写的核心规则", await _service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
     public async Task Saving_the_writing_conventions_writes_the_memory_skill_again_at_once()
     {
-        await _service.SavePromptAsync(PromptName.Skill, null, "页面标题用中文。\n");
+        await _service.Settings.SavePromptAsync(PromptName.Skill, null, "页面标题用中文。\n");
 
         Assert.Contains("页面标题用中文。", File.ReadAllText(SkillMd));
     }
@@ -60,7 +60,7 @@ public sealed class PromptSaveTests : IDisposable
         _home.Bind();
         var context = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
 
-        var saved = await _service.SavePromptAsync(PromptName.Resident, null, "外壳的第一段，自定义。\n\n## red_lines\n红线的引导语。\n");
+        var saved = await _service.Settings.SavePromptAsync(PromptName.Resident, null, "外壳的第一段，自定义。\n\n## red_lines\n红线的引导语。\n");
 
         Assert.Empty(saved.Notices);
         Assert.Contains("外壳的第一段，自定义。", File.ReadAllText(context));
@@ -71,7 +71,7 @@ public sealed class PromptSaveTests : IDisposable
     {
         _home.Bind();
 
-        await _service.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
+        await _service.Settings.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
         _home.Clock.Elapse(DerivedUpkeep.Debounce);
         await _service.SettledAsync();
 
@@ -89,7 +89,7 @@ public sealed class PromptSaveTests : IDisposable
 
         PromptSaved saved;
         using (new FileStream(context, FileMode.Open, FileAccess.Read, FileShare.Read))
-            saved = await _service.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
+            saved = await _service.Settings.SavePromptAsync(PromptName.Resident, null, "外壳，自定义。\n");
 
         Assert.Contains(saved.Notices, notice => notice.StartsWith("渲染常驻区块失败", StringComparison.Ordinal));
         Assert.DoesNotContain("外壳，自定义。", File.ReadAllText(context));
@@ -100,7 +100,7 @@ public sealed class PromptSaveTests : IDisposable
     {
         var text = "## Worth recording\n" + string.Concat(Enumerable.Range(1, 11).Select(i => $"- 规则 {i}\n"));
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => _service.SavePromptAsync(PromptName.Rules, null, text));
+        var error = await Assert.ThrowsAsync<TacitException>(() => _service.Settings.SavePromptAsync(PromptName.Rules, null, text));
 
         Assert.Equal(TacitError.PromptRejected, error.Error);
         var problem = Assert.Single(error.Problems!);
@@ -113,7 +113,7 @@ public sealed class PromptSaveTests : IDisposable
     public async Task A_resident_text_with_an_unknown_section_is_refused_with_its_line()
     {
         var error = await Assert.ThrowsAsync<TacitException>(() =>
-            _service.SavePromptAsync(PromptName.Resident, null, "外壳\n\n## mainline\n旧节名\n"));
+            _service.Settings.SavePromptAsync(PromptName.Resident, null, "外壳\n\n## mainline\n旧节名\n"));
 
         Assert.Equal(TacitError.PromptRejected, error.Error);
         Assert.Contains("mainline", error.Problems![0].Message);
@@ -124,7 +124,7 @@ public sealed class PromptSaveTests : IDisposable
     public async Task Core_rules_that_push_the_fixed_part_past_its_limit_beside_the_running_criteria_are_refused()
     {
         var error = await Assert.ThrowsAsync<TacitException>(() =>
-            _service.SavePromptAsync(PromptName.Instructions, null, "## 核心\n" + new string('核', 2600) + "\n"));
+            _service.Settings.SavePromptAsync(PromptName.Instructions, null, "## 核心\n" + new string('核', 2600) + "\n"));
 
         Assert.Equal(TacitError.PromptRejected, error.Error);
         Assert.Matches(@"超出 \d+ 字符", error.Problems![0].Message);
@@ -136,10 +136,10 @@ public sealed class PromptSaveTests : IDisposable
     {
         File.WriteAllText(FileOf("skill.md"), "手写的约定。\n");
 
-        var unseen = await Assert.ThrowsAsync<TacitException>(() => _service.SavePromptAsync(PromptName.Skill, null, "页面上的约定。\n"));
+        var unseen = await Assert.ThrowsAsync<TacitException>(() => _service.Settings.SavePromptAsync(PromptName.Skill, null, "页面上的约定。\n"));
         var hash = Hash(PromptName.Skill);
         File.WriteAllText(FileOf("skill.md"), "又改了一次。\n");
-        var stale = await Assert.ThrowsAsync<TacitException>(() => _service.SavePromptAsync(PromptName.Skill, hash, "页面上的约定。\n"));
+        var stale = await Assert.ThrowsAsync<TacitException>(() => _service.Settings.SavePromptAsync(PromptName.Skill, hash, "页面上的约定。\n"));
 
         Assert.Equal(TacitError.PromptChanged, unseen.Error);
         Assert.Equal(TacitError.PromptChanged, stale.Error);
@@ -152,7 +152,7 @@ public sealed class PromptSaveTests : IDisposable
     {
         File.WriteAllText(FileOf("skill.md"), "手写的约定。\n");
 
-        var saved = await _service.SavePromptAsync(PromptName.Skill, Hash(PromptName.Skill), "页面上的约定。\n");
+        var saved = await _service.Settings.SavePromptAsync(PromptName.Skill, Hash(PromptName.Skill), "页面上的约定。\n");
 
         Assert.Equal("页面上的约定。\n", File.ReadAllText(FileOf("skill.md")));
         Assert.Equal(Hash(PromptName.Skill), saved.Document.Hash);
@@ -161,14 +161,14 @@ public sealed class PromptSaveTests : IDisposable
     [Fact]
     public async Task Restoring_the_default_deletes_the_file_and_the_built_in_text_applies_at_once()
     {
-        await _service.SavePromptAsync(PromptName.Instructions, null, "## 核心\n- 自定义的规则\n");
+        await _service.Settings.SavePromptAsync(PromptName.Instructions, null, "## 核心\n- 自定义的规则\n");
 
-        var restored = await _service.RestorePromptDefaultAsync(PromptName.Instructions);
+        var restored = await _service.Settings.RestorePromptDefaultAsync(PromptName.Instructions);
 
         Assert.False(File.Exists(FileOf("instructions.md")));
         Assert.True(restored.Document.BuiltIn);
         Assert.Null(restored.Document.Hash);
-        var instructions = await _service.ServerInstructionsAsync();
+        var instructions = await _service.Tools.ServerInstructionsAsync();
         Assert.DoesNotContain("- 自定义的规则", instructions);
         Assert.Contains("## Recall", instructions);
     }
@@ -176,7 +176,7 @@ public sealed class PromptSaveTests : IDisposable
     [Fact]
     public async Task Restoring_the_default_of_a_document_without_a_file_changes_nothing()
     {
-        var restored = await _service.RestorePromptDefaultAsync(PromptName.Rules);
+        var restored = await _service.Settings.RestorePromptDefaultAsync(PromptName.Rules);
 
         Assert.True(restored.Document.BuiltIn);
         Assert.Empty(restored.Notices);
@@ -187,10 +187,10 @@ public sealed class PromptSaveTests : IDisposable
     public async Task Restoring_built_in_criteria_that_do_not_fit_beside_long_core_rules_is_refused_and_keeps_the_file()
     {
         // Short criteria leave room for long core rules; the longer built-in criteria would not fit beside them.
-        await _service.SavePromptAsync(PromptName.Rules, null, "## Worth recording\n- 短\n");
-        await _service.SavePromptAsync(PromptName.Instructions, null, "## 核心\n" + new string('核', 2394));
+        await _service.Settings.SavePromptAsync(PromptName.Rules, null, "## Worth recording\n- 短\n");
+        await _service.Settings.SavePromptAsync(PromptName.Instructions, null, "## 核心\n" + new string('核', 2394));
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => _service.RestorePromptDefaultAsync(PromptName.Rules));
+        var error = await Assert.ThrowsAsync<TacitException>(() => _service.Settings.RestorePromptDefaultAsync(PromptName.Rules));
 
         Assert.Equal(TacitError.PromptRejected, error.Error);
         Assert.True(File.Exists(FileOf("rules.md")));
@@ -199,10 +199,10 @@ public sealed class PromptSaveTests : IDisposable
     [Fact]
     public void An_unknown_name_is_refused()
     {
-        var error = Assert.Throws<TacitException>(() => _service.PromptNamed("tools"));
+        var error = Assert.Throws<TacitException>(() => _service.Settings.PromptNamed("tools"));
 
         Assert.Equal(TacitError.PromptUnknown, error.Error);
-        Assert.Equal(PromptName.Resident, _service.PromptNamed("resident"));
-        Assert.Throws<TacitException>(() => _service.PromptNamed("Resident"));
+        Assert.Equal(PromptName.Resident, _service.Settings.PromptNamed("resident"));
+        Assert.Throws<TacitException>(() => _service.Settings.PromptNamed("Resident"));
     }
 }

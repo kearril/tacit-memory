@@ -29,7 +29,7 @@ public sealed class ServiceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Pages, "_topics"));
 
         using var service = Open();
-        var instructions = await service.ServerInstructionsAsync();
+        var instructions = await service.Tools.ServerInstructionsAsync();
 
         Assert.Contains("<user_memory>", instructions);
         Assert.Contains("## Using memory", instructions);
@@ -49,7 +49,7 @@ public sealed class ServiceTests : IDisposable
 
         using var service = Open();
 
-        Assert.Contains("## Worth recording\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## Not recorded\n- 日常闲聊", await service.ServerInstructionsAsync());
+        Assert.Contains("## Worth recording\n- 用户说「记住这个」时\n- 部署事故的根因\n\n## Not recorded\n- 日常闲聊", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -57,13 +57,13 @@ public sealed class ServiceTests : IDisposable
     {
         _home.UseManualSources();
         using var service = Open();
-        Assert.DoesNotContain("新加的一条", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("新加的一条", await service.Tools.ServerInstructionsAsync());
 
         File.WriteAllText(RulesMd, "## Worth recording\n- 新加的一条\n\n## Not recorded\n- 日常闲聊\n");
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
-        Assert.Contains("- 新加的一条", (await service.ServerInstructionsAsync()));
+        Assert.Contains("- 新加的一条", (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Theory]
@@ -76,7 +76,7 @@ public sealed class ServiceTests : IDisposable
 
         using var service = home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        Assert.Contains("## Worth recording", await service.ServerInstructionsAsync());
+        Assert.Contains("## Worth recording", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -97,14 +97,14 @@ public sealed class ServiceTests : IDisposable
     {
         _home.UseManualSources();
         using var service = Open();
-        var before = await service.ServerInstructionsAsync();
+        var before = await service.Tools.ServerInstructionsAsync();
 
         File.WriteAllText(RulesMd, "## Worth recording\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 200)}\n", 10)));
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
         Assert.Contains(_notices, notice => notice.Contains("rules.md", StringComparison.Ordinal));
-        Assert.Equal(before, await service.ServerInstructionsAsync());
+        Assert.Equal(before, await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class ServiceTests : IDisposable
 
         using var service = Open();
 
-        Assert.DoesNotContain("## Status", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("## Status", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -125,13 +125,13 @@ public sealed class ServiceTests : IDisposable
         File.WriteAllText(ConfigYaml, models.ModelsYaml(decisionKey: "key").ReplaceLineEndings("\n"));
         using var service = Open();
 
-        await service.RecallAsync(new RecallRequest { Query = "部署" });
-        Assert.Contains("## Status\n- Unavailable auxiliary models: embedding.", await service.ServerInstructionsAsync());
+        await service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
+        Assert.Contains("## Status\n- Unavailable auxiliary models: embedding.", await service.Tools.ServerInstructionsAsync());
 
         models.EmbeddingDown = false;
         _home.Clock.Advance(TimeSpan.FromMinutes(1));
-        await service.RecallAsync(new RecallRequest { Query = "部署" });
-        Assert.DoesNotContain("## Status", await service.ServerInstructionsAsync());
+        await service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
+        Assert.DoesNotContain("## Status", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class ServiceTests : IDisposable
 
         using var service = Open();
 
-        Assert.Contains("- Files not searchable because they are not UTF-8: pages/demo/gbk.md.", await service.ServerInstructionsAsync());
+        Assert.Contains("- Files not searchable because they are not UTF-8: pages/demo/gbk.md.", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class ServiceTests : IDisposable
     {
         using var service = Open();
 
-        Assert.DoesNotContain("## Workstreams", await service.ServerInstructionsAsync());
+        Assert.DoesNotContain("## Workstreams", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class ServiceTests : IDisposable
 
         using var service = Open();
 
-        Assert.Contains("Memory is written in English.", await service.ServerInstructionsAsync());
+        Assert.Contains("Memory is written in English.", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public sealed class ServiceTests : IDisposable
         await service.SettledAsync();
         Assert.Contains(_notices, notice => notice.Contains("bindings.json"));
         File.Delete(Path.Combine(_home.TacitHome, "bindings.json"));
-        Assert.Contains("Memory is written in Chinese.", await service.ServerInstructionsAsync());
+        Assert.Contains("Memory is written in Chinese.", await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public sealed class ServiceTests : IDisposable
         _home.Sources!.PromptsChanged();
 
         await service.SettledAsync();
-        Assert.Contains("- 新加的一条", (await service.ServerInstructionsAsync()));
+        Assert.Contains("- 新加的一条", (await service.Tools.ServerInstructionsAsync()));
         await service.SettledAsync();
         Assert.Contains(_notices, notice => notice.Contains("skill.md", StringComparison.Ordinal));
     }
@@ -240,7 +240,7 @@ public sealed class ServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n- 旧的核心规则\n");
         _home.UseManualSources();
         using var service = Open();
-        var before = await service.ServerInstructionsAsync();
+        var before = await service.Tools.ServerInstructionsAsync();
 
         File.WriteAllText(Path.Combine(_home.TacitHome, "prompts", "instructions.md"), "## 核心\n" + new string('核', 2000) + "\n");
         File.WriteAllText(RulesMd, "## Worth recording\n" + string.Concat(Enumerable.Repeat($"- {new string('长', 90)}\n", 8)) + "## Not recorded\n- 日常闲聊\n");
@@ -248,7 +248,7 @@ public sealed class ServiceTests : IDisposable
 
         await service.SettledAsync();
         Assert.Contains(_notices, notice => notice.Contains("rules.md", StringComparison.Ordinal));
-        Assert.Equal(before, await service.ServerInstructionsAsync());
+        Assert.Equal(before, await service.Tools.ServerInstructionsAsync());
     }
 
     [Fact]

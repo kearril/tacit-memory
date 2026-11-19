@@ -203,62 +203,62 @@ internal static class ManagementApi
         var api = app.MapGroup(Prefix).WithTags("management");
         api.MapGet("/status", async (HttpContext context) =>
         {
-            var report = await service.StatusAsync(McpEndpoint(context), context.RequestAborted);
+            var report = await service.Reports.StatusAsync(McpEndpoint(context), context.RequestAborted);
             return Json(report);
         })
             .Produces<StatusReport>()
             .ProducesErrors();
         api.MapGet("/activity", async (HttpContext context) =>
         {
-            var report = await service.ActivityAsync(context.RequestAborted);
+            var report = await service.Reports.ActivityAsync(context.RequestAborted);
             return Json(report);
         })
             .Produces<ActivityReport>()
             .ProducesErrors();
         api.MapGet("/consolidation", async (HttpContext context) =>
         {
-            var due = await service.ConsolidationDueAsync(context.RequestAborted);
+            var due = await service.Reports.ConsolidationDueAsync(context.RequestAborted);
             return Json(due);
         })
             .Produces<ConsolidationDue>()
             .ProducesErrors();
-        api.MapGet("/logs", () => Json(service.LogDays()))
+        api.MapGet("/logs", () => Json(service.Reports.LogDays()))
             .Produces<ServiceLogDays>()
             .ProducesErrors();
-        api.MapGet("/logs/{date}", (string date, string? after) => Json(service.ServiceLog(date, after)))
+        api.MapGet("/logs/{date}", (string date, string? after) => Json(service.Reports.ServiceLog(date, after)))
             .Produces<ServiceLogDay>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
-        api.MapGet("/backups", () => Json(service.Backups()))
+        api.MapGet("/backups", () => Json(service.Maintenance.Backups()))
             .Produces<BackupList>()
             .ProducesErrors();
-        api.MapGet("/prompts", () => Json(service.Prompts()))
+        api.MapGet("/prompts", () => Json(service.Settings.Prompts()))
             .Produces<PromptList>()
             .ProducesErrors();
         api.MapPut("/prompts/{name}", async (string name, HttpContext context) =>
         {
-            var document = service.PromptNamed(name);
+            var document = service.Settings.PromptNamed(name);
             var body = await ReadBody<PromptSave>(context, service);
-            return Json(await service.SavePromptAsync(document, body.Hash, body.Text, context.RequestAborted));
+            return Json(await service.Settings.SavePromptAsync(document, body.Hash, body.Text, context.RequestAborted));
         })
             .Accepts<PromptSave>("application/json")
             .Produces<PromptSaved>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
         api.MapPost("/prompts/{name}/check", async (string name, HttpContext context) =>
         {
-            var document = service.PromptNamed(name);
+            var document = service.Settings.PromptNamed(name);
             var body = await ReadBody<PromptDraft>(context, service);
-            return Json(service.CheckPrompt(document, body.Text));
+            return Json(service.Settings.CheckPrompt(document, body.Text));
         })
             .Accepts<PromptDraft>("application/json")
             .Produces<PromptCheck>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status415UnsupportedMediaType);
         api.MapDelete("/prompts/{name}", async (string name, HttpContext context) =>
-            Json(await service.RestorePromptDefaultAsync(service.PromptNamed(name), context.RequestAborted)))
+            Json(await service.Settings.RestorePromptDefaultAsync(service.Settings.PromptNamed(name), context.RequestAborted)))
             .Produces<PromptSaved>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapPost("/probe", async (HttpContext context) =>
         {
-            var report = await service.ProbeAsync(context.RequestAborted);
+            var report = await service.Reports.ProbeAsync(context.RequestAborted);
             return Json(report);
         })
             .Produces<ProbeReport>()
@@ -266,7 +266,7 @@ internal static class ManagementApi
         api.MapPost(RecallTraceRoute, async (HttpContext context) =>
         {
             var body = await ReadBody<RecallTraceRequest>(context, service);
-            return Json(await service.TraceRecallAsync(body, context.RequestAborted));
+            return Json(await service.Browse.TraceRecallAsync(body, context.RequestAborted));
         })
             .Accepts<RecallTraceRequest>("application/json")
             .Produces<RecallTraceReport>()
@@ -324,30 +324,30 @@ internal static class ManagementApi
         {
             // The view carries the secrets the file holds, so no cache keeps a copy.
             context.Response.Headers.CacheControl = "no-store";
-            return Json(service.ConfigView());
+            return Json(service.Settings.ConfigView());
         })
             .Produces<ConfigView>()
             .ProducesErrors(StatusCodes.Status409Conflict);
         api.MapPut("/config", async (HttpContext context) =>
         {
             var body = await ReadBody<ConfigSave>(context, service);
-            return Json(await service.SaveConfigAsync(body.Config, body.Hash, body.Secrets, context.RequestAborted));
+            return Json(await service.Settings.SaveConfigAsync(body.Config, body.Hash, body.Secrets, context.RequestAborted));
         })
             .Accepts<ConfigSave>("application/json")
             .Produces<ConfigSaved>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
-        api.MapGet("/bindings", () => Json(service.Bindings()))
+        api.MapGet("/bindings", () => Json(service.Settings.Bindings()))
             .Produces<BindingList>()
             .ProducesErrors(StatusCodes.Status409Conflict);
         api.MapPost("/bindings", async (HttpContext context) =>
         {
             var body = await ReadBody<ConnectRequest>(context, service);
-            return Json(service.Connect(body));
+            return Json(service.Settings.Connect(body));
         })
             .Accepts<ConnectRequest>("application/json")
             .Produces<BindingDone>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
-        api.MapDelete("/bindings/{client}", (string client) => Json(service.Disconnect(client)))
+        api.MapDelete("/bindings/{client}", (string client) => Json(service.Settings.Disconnect(client)))
             .Produces<BindingDone>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         api.MapGet("/session", (HttpContext context) =>
@@ -396,7 +396,7 @@ internal static class ManagementApi
             .ProducesErrors(StatusCodes.Status409Conflict);
         api.MapPost("/reindex", async (HttpContext context) =>
         {
-            var result = await service.ReindexAsync(context.RequestAborted);
+            var result = await service.Maintenance.ReindexAsync(context.RequestAborted);
             return Json(result);
         })
             .Produces<ReindexResult>()
@@ -404,7 +404,7 @@ internal static class ManagementApi
         api.MapPost("/backup", async (HttpContext context) =>
         {
             var body = await ReadBody<BackupBody>(context, service);
-            var result = await service.BackupAsync(body.Target, body.To, context.RequestAborted);
+            var result = await service.Maintenance.BackupAsync(body.Target, body.To, context.RequestAborted);
             return Json(result);
         })
             .Accepts<BackupBody>("application/json")
@@ -414,8 +414,8 @@ internal static class ManagementApi
         {
             var body = await ReadBody<RestoreBody>(context, service);
             if (body.Preview)
-                return Json(await service.PreviewRestoreAsync(body.Path, body.Remote, body.Config, context.RequestAborted));
-            return Json(await service.RestoreAsync(body.Path, body.Remote, body.Config, context.RequestAborted));
+                return Json(await service.Maintenance.PreviewRestoreAsync(body.Path, body.Remote, body.Config, context.RequestAborted));
+            return Json(await service.Maintenance.RestoreAsync(body.Path, body.Remote, body.Config, context.RequestAborted));
         })
             .Accepts<RestoreBody>("application/json")
             .Produces<RestorePreview>()

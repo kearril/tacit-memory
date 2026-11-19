@@ -32,7 +32,7 @@ public sealed class ReindexTests : IDisposable
 
     private async Task CreatePage(string page, string title, string body)
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Type = ToolValues.PageTypes.Work,
@@ -44,7 +44,7 @@ public sealed class ReindexTests : IDisposable
         Assert.False(result.IsError, result.Text);
     }
 
-    private Task<ToolResult> Recall(string query) => Service.RecallAsync(new RecallRequest { Query = query });
+    private Task<ToolResult> Recall(string query) => Service.Tools.RecallAsync(new RecallRequest { Query = query });
 
     /// <summary>The text without the section dates shown after headings.</summary>
     private static string WithoutDates(string text) => Regex.Replace(text, @" \(last changed \d{4}-\d{2}-\d{2}\)", "");
@@ -56,7 +56,7 @@ public sealed class ReindexTests : IDisposable
         await CreatePage("tacit-memory/restore", "恢复", "从备份恢复记忆仓库");
         var before = await Recall("备份");
 
-        var result = await Service.ReindexAsync().WaitAsync(Guard);
+        var result = await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
         // The rebuild dates each section by its file's commit, which the test clock does not control; the dates have their own test.
         Assert.Equal(WithoutDates(before.Text), WithoutDates((await Recall("备份")).Text));
@@ -72,17 +72,17 @@ public sealed class ReindexTests : IDisposable
     {
         Write("回答尽量简短");
         PickPersonaEntry();
-        await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.SettledAsync().WaitAsync(Guard);
         var asked = _models.DecisionCalls;
         Assert.True(asked > 0, "The first consolidation should have asked the decision model.");
 
-        await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.SettledAsync().WaitAsync(Guard);
         Assert.Equal(asked, _models.DecisionCalls);
 
-        await Service.ReindexAsync().WaitAsync(Guard);
-        await Service.ConsolidationReportAsync().WaitAsync(Guard);
+        await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
+        await Service.Tools.ConsolidationReportAsync().WaitAsync(Guard);
         await Service.SettledAsync().WaitAsync(Guard);
 
         Assert.True(_models.DecisionCalls > asked);
@@ -94,7 +94,7 @@ public sealed class ReindexTests : IDisposable
         await CreatePage("tacit-memory/backup", "备份", "每日自动备份到 zip");
         _models.EmbeddingDown = true;
 
-        var result = await Service.ReindexAsync().WaitAsync(Guard);
+        var result = await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
         Assert.True(result.VectorsPending);
         Assert.Equal(0, result.Vectors);
@@ -110,7 +110,7 @@ public sealed class ReindexTests : IDisposable
         await CreatePage("tacit-memory/backup", "备份", "每日自动备份到 zip");
         File.WriteAllBytes(Path.Combine(_home.DefaultMemory, "pages", "tacit-memory", "gbk.md"), [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
 
-        var result = await Service.ReindexAsync().WaitAsync(Guard);
+        var result = await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
         Assert.Equal(["pages/tacit-memory/gbk.md"], result.SkippedFiles);
         Assert.Contains("pages/tacit-memory/gbk.md", result.Report);
@@ -119,7 +119,7 @@ public sealed class ReindexTests : IDisposable
     [Fact]
     public async Task The_log_records_the_start_the_end_and_the_result_of_the_rebuild()
     {
-        await Service.ReindexAsync().WaitAsync(Guard);
+        await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
         Assert.Single(_logs.Entries, entry => entry.Message.Contains("维护操作开始：reindex", StringComparison.Ordinal));
         Assert.Single(_logs.Entries, entry => entry.Message.Contains("维护操作结束：reindex", StringComparison.Ordinal));
@@ -139,10 +139,10 @@ public sealed class ReindexTests : IDisposable
         var uncommitted = Path.Combine(_home.DefaultMemory, "pages", "tacit-memory", "new.md");
         File.WriteAllText(uncommitted, "---\ntitle: 新页\naliases: [新坑, 新问题]\n---\n\n## 现状\n每日备份到 zip\n");
 
-        await Service.ReindexAsync().WaitAsync(Guard);
+        await Service.Maintenance.ReindexAsync().WaitAsync(Guard);
 
-        var old = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/old" });
-        var fresh = await Service.RecallAsync(new RecallRequest { Page = "tacit-memory/new" });
+        var old = await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/old" });
+        var fresh = await Service.Tools.RecallAsync(new RecallRequest { Page = "tacit-memory/new" });
         Assert.Contains("(last changed 2026-10-20)", old.Text);
         Assert.Contains("(last changed 2026-11-02)", fresh.Text);
     }

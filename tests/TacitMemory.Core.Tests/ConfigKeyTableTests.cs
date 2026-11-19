@@ -26,7 +26,7 @@ public sealed class ConfigKeyTableTests : IDisposable
 
     private void WriteConfig(string yaml) => File.WriteAllText(ConfigPath, yaml.ReplaceLineEndings("\n"));
 
-    private IReadOnlyList<ConfigKey> Ranged => [.. Service.ConfigView().Keys.Where(key => key.Min is not null)];
+    private IReadOnlyList<ConfigKey> Ranged => [.. Service.Settings.ConfigView().Keys.Where(key => key.Min is not null)];
 
     [Fact]
     public void Every_key_with_a_range_refuses_a_number_beyond_either_end_naming_its_path()
@@ -50,13 +50,13 @@ public sealed class ConfigKeyTableTests : IDisposable
     [Fact]
     public void The_settings_page_describes_every_contract_key_path_once_in_its_order()
     {
-        Assert.Equal(Enum.GetValues<ConfigKeyPath>(), Service.ConfigView().Keys.Select(key => key.Path));
+        Assert.Equal(Enum.GetValues<ConfigKeyPath>(), Service.Settings.ConfigView().Keys.Select(key => key.Path));
     }
 
     [Fact]
     public void The_defaults_the_settings_page_shows_are_written_as_nothing()
     {
-        var defaults = Service.ConfigView().Defaults;
+        var defaults = Service.Settings.ConfigView().Defaults;
 
         _home.Tacit().SaveConfig(defaults with { Language = "zh" });
 
@@ -103,17 +103,17 @@ public sealed class ConfigKeyTableTests : IDisposable
     [Fact]
     public async Task Every_key_that_waits_for_a_restart_keeps_its_running_value_and_is_listed_after_a_reload()
     {
-        var view = Service.ConfigView();
+        var view = Service.Settings.ConfigView();
         var changes = Changes();
         foreach (var key in view.Keys.Where(key => key.Restart))
         {
             Assert.True(changes.ContainsKey(key.Path), $"no change for {key.Path}");
-            var running = Service.ConfigView().Running;
+            var running = Service.Settings.ConfigView().Running;
             _home.Tacit().SaveConfig(changes[key.Path](_home.Tacit().ReadConfigFile()));
 
             var restart = await Service.ReloadAsync();
 
-            Assert.Equal(running, Service.ConfigView().Running);
+            Assert.Equal(running, Service.Settings.ConfigView().Running);
             Assert.Equal([key.Path], restart.Select(change => change.Path));
             File.WriteAllText(ConfigPath, "language: zh\n" + TestHome.Models);
             await Service.ReloadAsync();
@@ -124,12 +124,12 @@ public sealed class ConfigKeyTableTests : IDisposable
     public async Task Every_read_only_key_refuses_a_save_that_changes_it()
     {
         var changes = Changes();
-        foreach (var key in Service.ConfigView().Keys.Where(key => key.ReadOnly))
+        foreach (var key in Service.Settings.ConfigView().Keys.Where(key => key.ReadOnly))
         {
             Assert.True(changes.ContainsKey(key.Path), $"no change for {key.Path}");
-            var view = Service.ConfigView();
+            var view = Service.Settings.ConfigView();
 
-            var error = await Assert.ThrowsAsync<TacitException>(() => Service.SaveConfigAsync(changes[key.Path](view.File), view.Hash));
+            var error = await Assert.ThrowsAsync<TacitException>(() => Service.Settings.SaveConfigAsync(changes[key.Path](view.File), view.Hash));
 
             Assert.Equal(TacitError.ConfigRejected, error.Error);
             Assert.Equal([key.Path.Dotted()], (error.Problems ?? []).Select(problem => problem.Path));

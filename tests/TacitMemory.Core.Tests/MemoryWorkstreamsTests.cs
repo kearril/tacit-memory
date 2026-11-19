@@ -23,7 +23,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
 
     private async Task CreatePage(string page, string type, string title, params (string Name, string Body)[] sections)
     {
-        var result = await Service.WritePageAsync(new WritePageRequest
+        var result = await Service.Tools.WritePageAsync(new WritePageRequest
         {
             Op = "create",
             Page = page,
@@ -37,7 +37,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
 
     private async Task Activity(string text, string? workstream)
     {
-        var result = await Service.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream });
+        var result = await Service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = text, Workstream = workstream });
         Assert.False(result.IsError, result.Text);
     }
 
@@ -97,7 +97,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         await CreatePage("my-app/release", ToolValues.PageTypes.Work, "发版", ("产出", "发了 0.9。"), ("Leftovers", "补发布说明\n\n补签名"));
         for (var i = 0; i < 4; i++)
             await Activity($"第 {i} 条进展，因为要测试最近活动只列三条。", "my-app");
-        await Service.RecallAsync(new RecallRequest { Page = "my-app/use-pg" });
+        await Service.Tools.RecallAsync(new RecallRequest { Page = "my-app/use-pg" });
         var before = await Service.PageCountsAsync();
 
         var brief = await Service.Browse.WorkstreamBriefAsync("my-app");
@@ -117,7 +117,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
         Assert.Equal(3, brief.Activities.Count);
         Assert.Equal(before, await Service.PageCountsAsync());
 
-        var text = (await Service.RecallAsync(new RecallRequest { Workstream = "my-app" })).Text;
+        var text = (await Service.Tools.RecallAsync(new RecallRequest { Workstream = "my-app" })).Text;
         foreach (var page in brief.Groups.SelectMany(group => group.Pages))
             Assert.Contains($"- {page.Id}: {page.Title}", text);
         foreach (var activity in brief.Activities)
@@ -133,7 +133,7 @@ public sealed class MemoryWorkstreamsTests : IDisposable
             await CreatePage($"my-app/page-{i:00}", ToolValues.PageTypes.Entity, $"第 {i} 页的标题写得长一些", ("现状", "内容。"));
 
         var brief = await Service.Browse.WorkstreamBriefAsync("my-app");
-        var text = (await Service.RecallAsync(new RecallRequest { Workstream = "my-app" })).Text;
+        var text = (await Service.Tools.RecallAsync(new RecallRequest { Workstream = "my-app" })).Text;
 
         Assert.Equal(12, brief.Groups.Sum(group => group.Pages.Count));
         Assert.Contains("page entries omitted", text);

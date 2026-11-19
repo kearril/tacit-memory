@@ -38,7 +38,7 @@ public sealed class PersonaIndexTests : IDisposable
     private void Ready(string extraConfig = "") => _home.InitReady(extraConfig, _models);
 
     private Task<ToolResult> Recall(string query, string? kind) =>
-        Service.RecallAsync(new RecallRequest { Query = query, Kind = kind });
+        Service.Tools.RecallAsync(new RecallRequest { Query = query, Kind = kind });
 
     /// <summary>A page that shares the query's words, so a search that reaches the judgment files would show them too.</summary>
     private void Page()
@@ -102,18 +102,18 @@ public sealed class PersonaIndexTests : IDisposable
     {
         Ready();
         var service = Service;
-        Assert.DoesNotContain(name, await service.ServerInstructionsAsync());
+        Assert.DoesNotContain(name, await service.Tools.ServerInstructionsAsync());
         var path = Path.Combine(Memory, name);
 
         File.WriteAllBytes(path, [0x2D, 0x0A, 0xFF, 0xFE, 0x0A]);
         _home.Sources!.MemoryChanged(name);
         await service.SettledAsync();
-        Assert.Contains(name, (await service.ServerInstructionsAsync()));
+        Assert.Contains(name, (await service.Tools.ServerInstructionsAsync()));
 
         File.WriteAllText(path, "## Preferences\n- 先说结论\n");
         _home.Sources!.MemoryChanged(name);
         await service.SettledAsync();
-        Assert.DoesNotContain(name, (await service.ServerInstructionsAsync()));
+        Assert.DoesNotContain(name, (await service.Tools.ServerInstructionsAsync()));
     }
 
     [Theory]
@@ -126,6 +126,6 @@ public sealed class PersonaIndexTests : IDisposable
 
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        Assert.Contains(name, await service.ServerInstructionsAsync());
+        Assert.Contains(name, await service.Tools.ServerInstructionsAsync());
     }
 }

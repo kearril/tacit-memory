@@ -39,7 +39,7 @@ public sealed class ModelProtocolTests : IDisposable
             rerankerCloudflare: rerankerCloudflare,
             decisionCloudflare: decisionCloudflare).ReplaceLineEndings("\n"));
 
-    private Task<ToolResult> WritePage(string page, string title, string body) => Service.WritePageAsync(new WritePageRequest
+    private Task<ToolResult> WritePage(string page, string title, string body) => Service.Tools.WritePageAsync(new WritePageRequest
     {
         Op = "create",
         Type = ToolValues.PageTypes.Work,
@@ -59,7 +59,7 @@ public sealed class ModelProtocolTests : IDisposable
     private async Task WriteAndRecall()
     {
         await CreatePage("ops/deploy", "部署流程", "部署前先备份数据库。");
-        await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
     }
 
     /// <summary>Writes a second page in the same workstream, which makes the decision model judge whether it repeats the first.</summary>
@@ -185,7 +185,7 @@ public sealed class ModelProtocolTests : IDisposable
         _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9
             : document.Contains("健康", StringComparison.Ordinal) ? 0.2 : 0.0005;
 
-        var result = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.False(result.IsError, result.Text);
         Assert.Contains("ops/rollback", result.Text);
@@ -252,7 +252,7 @@ public sealed class ModelProtocolTests : IDisposable
         _models.CloudflareReportsFailure = true;
         var before = _models.RerankCalls;
 
-        var result = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.Equal(before + 1, _models.RerankCalls);
         Assert.Contains("ops/deploy", result.Text);
@@ -272,7 +272,7 @@ public sealed class ModelProtocolTests : IDisposable
         _models.ScriptRerank(ModelReply.Body(reply));
         var before = _models.RerankCalls;
 
-        var result = await Service.RecallAsync(new RecallRequest { Query = "部署" });
+        var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 
         Assert.Equal(before + 1, _models.RerankCalls);
         Assert.Contains("the reranker model is unavailable", result.Text);

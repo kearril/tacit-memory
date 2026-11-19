@@ -34,10 +34,10 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     private async Task<string> Violations(MemoryService service) =>
-        Section(await service.ConsolidationReportAsync(), FormatTitle);
+        Section(await service.Tools.ConsolidationReportAsync(), FormatTitle);
 
     /// <summary>The whole report: no category puts a section over its limit to the user any more, so the tests look at all of it.</summary>
-    private async Task<string> OverLimit(MemoryService service) => await service.ConsolidationReportAsync();
+    private async Task<string> OverLimit(MemoryService service) => await service.Tools.ConsolidationReportAsync();
 
     [Fact]
     public async Task An_entry_of_any_length_is_not_reported()

@@ -1,9 +1,4 @@
-using System.Diagnostics;
-using System.Globalization;
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using TacitMemory.Core.Backup;
 using TacitMemory.Core.ClientRecords;
@@ -30,16 +25,17 @@ using TacitMemory.Core.Workstreams;
 namespace TacitMemory.Core;
 
 /// <summary>
-/// The running memory service: the loaded config, the memory tools (writes run one at a time), the page index, the
-/// cached server instructions, a watcher on the memory repository that re-renders the resident blocks when
-/// <c>persona.md</c>, <c>workstreams.md</c>, the activity log or a workstream folder changes and again at each local midnight,
-/// syncs the index when page, activity or persona files change, and a watcher that reloads the prompt
-/// documents in <c>prompts/</c>, which also regenerates the skills. Create it with <see cref="Tacit.OpenService"/>.
+/// The running memory service. Create it with <see cref="Tacit.OpenService"/>. Its work is split by caller into facets, each
+/// a property: <see cref="Tools"/> for MCP, and <see cref="Browse"/>, <see cref="Reports"/>, <see cref="Settings"/>,
+/// <see cref="Maintenance"/> and <see cref="Access"/> for the management API. The service itself keeps the lifecycle and
+/// what the host records.
 /// <para>
 /// It has two layers. The shell lives as long as the process: the lock that orders the work, the start time, the extra
-/// listener's outcome, the access control, the client records and the timers. The runtime is everything the config decides
-/// (the index, the auxiliary models, the tools, the backups and the file watchers); <see cref="OpenRuntime"/> is the one path
-/// that builds it, at the start and again on each <see cref="ReloadAsync"/>.
+/// listener's outcome, the access control, the client records, the derived upkeep (which re-renders the resident blocks,
+/// syncs the index and reloads the prompt documents as their sources change) and the timers. The runtime is everything the
+/// config decides (the index, the auxiliary models, the tools, the backups and the file watchers); <see cref="OpenRuntime"/>
+/// is the one path that builds it, at the start and again on each <see cref="ReloadAsync"/>. The facets read the runtime
+/// the service runs now, so one taken before a reload reaches the reopened memory.
 /// </para>
 /// </summary>
 public sealed class MemoryService : IDisposable
@@ -48,7 +44,6 @@ public sealed class MemoryService : IDisposable
     internal const string LogCategory = "TacitMemory";
 
     private readonly TacitOptions _options;
-    private readonly DateTimeOffset _startedAt;
     private AutomaticBackup _backup = null!;
     private ManualBackup _manual = null!;
     private CloudBackup _remote = null!;
@@ -59,8 +54,8 @@ public sealed class MemoryService : IDisposable
     /// <summary>Keeps the derived products in step with the memory files; it outlives every runtime.</summary>
     private readonly DerivedUpkeep _upkeep;
 
-
     private readonly MaintenanceGate _gate = new();
+    private readonly MaintenanceRunner _runner;
     private PageTools _pages = null!;
     private RecentTools _recent = null!;
     private PersonaTools _persona = null!;
@@ -75,7 +70,6 @@ public sealed class MemoryService : IDisposable
     private RecallTool _recall = null!;
     private volatile ExtraListenerStatus? _extraListener;
 
-
     /// <summary>Whether a runtime is open; false only after a reload could open none, which ends the service.</summary>
     private bool _runtimeOpen;
 
@@ -85,7 +79,7 @@ public sealed class MemoryService : IDisposable
     internal MemoryService(TacitOptions options, TacitConfig config, Action<string> notice, ILogger logger)
     {
         _options = options;
-        _startedAt = options.Time.GetUtcNow();
+        var startedAt = options.Time.GetUtcNow();
         Config = config;
         _log = new ServiceLog(logger, config.Language, notice);
         Access = new AccessControl(options, config, logger);
@@ -96,9 +90,18 @@ public sealed class MemoryService : IDisposable
             _log.Record(DerivedUpkeep.LevelOf(render), render.Message);
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
-        Browse = new MemoryBrowser(_gate, () => new BrowseRuntime(Config, _index, _reader), () => _options.Today);
         _upkeep = new DerivedUpkeep(
             options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
+        _runner = new MaintenanceRunner(_gate, _upkeep, _log, () => [_vectors.Background, _judgments.Completion]);
+
+        Tools = new ServiceTools(
+            options, _gate, _upkeep, _log, () => new ToolRuntime(Config, _recall, _pages, _recent, _persona, _consolidation));
+        Browse = new MemoryBrowser(_gate, () => new BrowseRuntime(Config, _index, _reader), () => _options.Today);
+        Reports = new ServiceReports(options, startedAt, _upkeep, () => new ReportRuntime(Config, _models), () => _extraListener);
+        Settings = new ServiceSettings(options, _gate, _upkeep, _runner, Access, () => Config, ReloadCore);
+        Maintenance = new ServiceMaintenance(
+            options, _gate, _upkeep, _runner, _log,
+            () => new MaintenanceRuntime(Config, _index, _vectors, _models, _sources, _manual, _remote), ReloadCore);
         OpenRuntime(config);
     }
 
@@ -188,8 +191,9 @@ public sealed class MemoryService : IDisposable
     /// </exception>
     /// <returns>The settings that wait for a restart and differ in the file from what the service runs.</returns>
     public Task<IReadOnlyList<RestartChange>> ReloadAsync(CancellationToken cancellationToken = default) =>
-        RunMaintenanceAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
+        _runner.RunAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
 
+    /// <summary>The reload itself, run inside a maintenance operation: by <see cref="ReloadAsync"/>, a saved config and a restore.</summary>
     private IReadOnlyList<RestartChange> ReloadCore()
     {
         var running = Config;
@@ -242,8 +246,20 @@ public sealed class MemoryService : IDisposable
     /// <summary>The memory language the service words everything in: the language of the config it runs.</summary>
     public MemoryLanguage Language => Config.Language;
 
-    /// <summary>The memory as the memory page browses it, read as the service runs it now.</summary>
+    /// <summary>The memory tools, the server instructions and the consolidation report: everything MCP reaches.</summary>
+    public ServiceTools Tools { get; }
+
+    /// <summary>The memory as the memory page browses it, and the recall trace, read as the service runs it now.</summary>
     public MemoryBrowser Browse { get; }
+
+    /// <summary>The status report, the activity heatmap, the consolidation signal, the service log and the model probe.</summary>
+    public ServiceReports Reports { get; }
+
+    /// <summary><c>config.yaml</c>, the prompt documents and the bindings, as the settings and prompts pages change them.</summary>
+    public ServiceSettings Settings { get; }
+
+    /// <summary>The backups, the restore and the rebuild of the derived index.</summary>
+    public ServiceMaintenance Maintenance { get; }
 
     /// <summary>The access password and its sessions, as the service reads them.</summary>
     public AccessControl Access { get; }
@@ -265,29 +281,6 @@ public sealed class MemoryService : IDisposable
     /// <summary>What happened to each bound context file when the service started.</summary>
     public IReadOnlyList<BlockRender> StartupRender { get; }
 
-
-    /// <summary>
-    /// The server instructions, generated on first use and kept until something they are built from may have changed: a
-    /// prompt document, the persona or its candidates, a page or activity file, <c>workstreams.md</c> (which the consolidation
-    /// reminder reads), the memory repository's commits, or the status (unavailable models, skipped files, the date).
-    /// Builds run one at a time.
-    /// </summary>
-    public async Task<string> ServerInstructionsAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return await _upkeep.InstructionsAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// The text of the consolidation report resource, built from the repository as it is now: the repository's path, today's
-    /// date and the consolidation report. Reads only. Cancelling it abandons the report; nothing is written either way.
-    /// </summary>
-    public async Task<string> ConsolidationReportAsync(CancellationToken cancellationToken = default)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        return await ConsolidationResource.RenderAsync(_options, Config, _consolidation, cancellationToken);
-    }
-
     /// <summary>The extra listener <c>server.host</c> names, as the host bound it when the service started; <c>null</c> when none is named.</summary>
     public ExtraListenerStatus? ExtraListener => _extraListener;
 
@@ -308,366 +301,9 @@ public sealed class MemoryService : IDisposable
             _log.Notify(LogLevel.Warning, LogMessages.ExtraListenerFailed, StatusMessages.ExtraListenerName(listener.Address, Language), listener.FailureReason);
     }
 
-    /// <summary>
-    /// The status report of this running service, reachable at <paramref name="endpoint"/>: its version, uptime, the
-    /// auxiliary models' states and the shared columns. Calls no model and reads no network.
-    /// </summary>
-    public Task<StatusReport> StatusAsync(Uri endpoint, CancellationToken cancellationToken = default)
-    {
-        var uptime = _options.Time.GetUtcNow() - _startedAt;
-        return StatusReporter.RunningAsync(
-            _options, Config, endpoint, ProductVersion.Current, uptime < TimeSpan.Zero ? TimeSpan.Zero : uptime, _models.Statuses,
-            _extraListener, PromptProblems(), cancellationToken);
-    }
-
-    /// <summary>
-    /// The activity log's counts per day over the last 53 weeks, for the dashboard's heatmap, with the consolidation days in
-    /// that window. Reads files and the repository's history only, so it does not wait for a maintenance operation.
-    /// </summary>
-    public Task<ActivityReport> ActivityAsync(CancellationToken cancellationToken = default) =>
-        ActivityCounts.ReadAsync(Config, _options.Today, cancellationToken);
-
-    /// <summary>
-    /// Whether a consolidation is due, by the rule of the consolidation reminder. Computed when asked from files and the
-    /// repository's history; calls no model, and does not wait for a maintenance operation.
-    /// </summary>
-    /// <exception cref="TacitException">The repository's history cannot be read.</exception>
-    public async Task<ConsolidationDue> ConsolidationDueAsync(CancellationToken cancellationToken = default)
-    {
-        var config = Config;
-        var summary = await ConsolidationSummary.ReadAsync(config, _options.Today, cancellationToken);
-        return new ConsolidationDue(summary.IsDue(config.Consolidation));
-    }
-
-    /// <summary>The days the service log has a file for, newest first, and today. Reads the directory only.</summary>
-    public ServiceLogDays LogDays() => new(_options.Today, ServiceLogReader.Days(_options.TacitHome));
-
-    /// <summary>
-    /// The events of one day's service log, oldest first, read from the file the service may still be writing to. Today
-    /// without a file has no events yet. With <paramref name="after"/>, only the events past that many are returned, so a
-    /// reader that follows the log asks for what is new; the events of a file never move, as it is only appended to.
-    /// </summary>
-    /// <param name="date">The day as <c>yyyy-MM-dd</c>.</param>
-    /// <param name="after">How many events the caller already has, as written in the request; none means 0.</param>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.RequestInvalid"/> when <paramref name="date"/> is not a date or <paramref name="after"/> not a
-    /// count; <see cref="TacitError.LogDateNotFound"/> for another day without a file.
-    /// </exception>
-    public ServiceLogDay ServiceLog(string date, string? after = null)
-    {
-        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
-            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogDateInvalid.Format(Language, date));
-        var skip = 0;
-        if (after is not null && !int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out skip))
-            throw new TacitException(TacitError.RequestInvalid, RequestMessages.LogAfterInvalid.Format(Language, after));
-        var today = _options.Today;
-        var entries = ServiceLogReader.Read(_options.TacitHome, day)
-            ?? (day == today ? [] : throw new TacitException(TacitError.LogDateNotFound, RequestMessages.LogDateNotFound.Format(Language, date)));
-        return new ServiceLogDay(day, today, [.. entries.Skip(skip)], entries.Count);
-    }
-
-    /// <summary>
-    /// The local backups, newest first, whether the cloud backup is configured, and its last attempt. Reads the backup
-    /// folder and <c>remote.json</c> only: no network is touched, and it does not wait for a maintenance operation.
-    /// </summary>
-    public BackupList Backups() => LocalBackups.List(_options, Config);
-
-    /// <summary>
-    /// The bindings and what is wrong with each, as the status report's bindings column has them, with the MCP server a bound
-    /// client registers.
-    /// </summary>
-    /// <exception cref="TacitException"><c>bindings.json</c> cannot be read.</exception>
-    public BindingList Bindings() => new(BindingChecks.Produce(_options, Language).Items, McpServer.On(Config.Port));
-
-    /// <summary>
-    /// Binds a client by the rules of <c>tacit connect</c>; a refusal changes no file. Holds the render lock, so the service
-    /// does not render the resident blocks while the binding is written.
-    /// </summary>
-    /// <exception cref="TacitException">A refusal, with the reason <c>tacit connect</c> gives.</exception>
-    public BindingDone Connect(ConnectRequest request)
-    {
-        lock (_upkeep.RenderLock)
-            return BindingDone.From(ClientName.Normalize(request.Client), Binder.Connect(_options, request));
-    }
-
-    /// <summary>Unbinds a client by the rules of <c>tacit disconnect</c>, under the render lock as <see cref="Connect"/>.</summary>
-    /// <exception cref="TacitException">No binding has that name.</exception>
-    public BindingDone Disconnect(string client)
-    {
-        lock (_upkeep.RenderLock)
-            return BindingDone.From(ClientName.Normalize(client), Binder.Disconnect(_options, client));
-    }
-
-    /// <summary>
-    /// Probes the three auxiliary models as the saved <c>config.yaml</c> configures them, which is what <c>tacit probe</c>
-    /// reads, which is also what the service runs once a save has reloaded it. An unconfigured model is reported and skipped.
-    /// No model's health changes, and it does not wait for a maintenance operation.
-    /// </summary>
-    /// <exception cref="TacitException">The saved configuration cannot be loaded.</exception>
-    public async Task<ProbeReport> ProbeAsync(CancellationToken cancellationToken = default)
-    {
-        var config = ConfigLoader.Read(_options);
-        var results = await ModelProbe.RunAsync(config, [.. ModelRoles.All], _options.ModelClock, cancellationToken);
-        return new ProbeReport(results, ProbeLines.Build(config.Language, results, explicitTargets: false));
-    }
-
-    /// <summary>
-    /// The four prompt documents for the prompts page: each file as it is now, or the built-in default where there is no
-    /// file. Reads the files only, so it does not wait for a maintenance operation.
-    /// </summary>
-    public PromptList Prompts() =>
-        new([.. Enum.GetValues<PromptName>().Select(PromptView)], [.. ResidentFile.Sections.Select(section => section.Part)]);
-
-    /// <summary>
-    /// Checks <paramref name="text"/> as the prompt document <paramref name="name"/> without saving it: its measure beside
-    /// the other documents as the service runs them, and every refusal a save of it would give.
-    /// </summary>
-    public PromptCheck CheckPrompt(PromptName name, string text)
-    {
-        var running = RunningPrompts();
-        return new PromptCheck(
-            PromptFiles.Measure(Language, running, name, text),
-            PromptFiles.Check(_options.TacitHome, Language, running, name, text));
-    }
-
-    /// <summary>The prompt documents the service runs with now.</summary>
-    private PromptDocuments RunningPrompts() => _upkeep.PromptState.Running;
-
-    /// <summary>
-    /// The prompt document <paramref name="name"/> as it is now, measured beside the documents the service runs with, and
-    /// why the service keeps its previous text, if it does.
-    /// </summary>
-    private PromptDocumentView PromptView(PromptName name)
-    {
-        var (running, problems) = _upkeep.PromptState;
-        return PromptFiles.View(_options.TacitHome, Language, running, name, problems.GetValueOrDefault(name));
-    }
-
-    /// <summary>Each prompt document whose file the service does not run, in the order of <see cref="PromptName"/>, with the refusal.</summary>
-    private IReadOnlyList<PromptProblem> PromptProblems()
-    {
-        var problems = _upkeep.PromptState.Problems;
-        return [.. Enum.GetValues<PromptName>().Where(problems.ContainsKey).Select(name => new PromptProblem(name, problems[name]))];
-    }
-
-    /// <summary>The prompt document named as the management API writes it: <c>instructions</c>, <c>rules</c>, <c>resident</c> or <c>skill</c>.</summary>
-    /// <exception cref="TacitException"><see cref="TacitError.PromptUnknown"/> for any other name.</exception>
-    public PromptName PromptNamed(string name)
-    {
-        foreach (var candidate in Enum.GetValues<PromptName>())
-        {
-            if (string.Equals(candidate.ToString(), name, StringComparison.OrdinalIgnoreCase) && name == name.ToLowerInvariant())
-                return candidate;
-        }
-        throw new TacitException(TacitError.PromptUnknown, RequestMessages.PromptUnknown.Format(Language, name));
-    }
-
-    /// <summary>
-    /// Saves <paramref name="text"/> as the prompt document <paramref name="name"/>, with LF line breaks, and applies it at
-    /// once: the skills are written again, the resident blocks rendered again and the next server instructions built from it.
-    /// <paramref name="hash"/> names the file the caller read the text from, <c>null</c> when there was none; a file changed
-    /// since is not overwritten. The text is checked first by the rules a load applies, so a refused text changes no file.
-    /// </summary>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.PromptChanged"/>, or <see cref="TacitError.PromptRejected"/> with every refusal; in each case
-    /// the file is as it was.
-    /// </exception>
-    public async Task<PromptSaved> SavePromptAsync(PromptName name, string? hash, string text, CancellationToken cancellationToken = default)
-    {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            var path = PromptFiles.PathOf(_options.TacitHome, name);
-            var current = PromptView(name);
-            if (current.Hash != hash)
-                throw new TacitException(TacitError.PromptChanged, RequestMessages.PromptChanged.Format(Language, Path.GetFileName(path)));
-
-            var content = text.ReplaceLineEndings("\n");
-            RefuseUnless(name, content);
-            Directory.CreateDirectory(PromptFiles.Folder(_options.TacitHome));
-            ConfigWriter.Replace(path, content);
-            return Applied(name);
-        }
-        finally
-        {
-            hold.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Returns the prompt document <paramref name="name"/> to its built-in default by deleting its file, and applies that at
-    /// once as a save does. Without a file it changes nothing. It is refused when the built-in text would not fit beside
-    /// the other documents, as when a long <c>instructions.md</c> leaves no room for the built-in recording criteria.
-    /// </summary>
-    /// <exception cref="TacitException"><see cref="TacitError.PromptRejected"/>; the file is kept.</exception>
-    public async Task<PromptSaved> RestorePromptDefaultAsync(PromptName name, CancellationToken cancellationToken = default)
-    {
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            var path = PromptFiles.PathOf(_options.TacitHome, name);
-            if (!File.Exists(path))
-                return new PromptSaved(PromptView(name), []);
-
-            RefuseUnless(name, PromptFiles.DefaultText(name));
-            File.Delete(path);
-            return Applied(name);
-        }
-        finally
-        {
-            hold.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Applies the prompt documents now, then gives the document <paramref name="name"/> as the service runs it: the view is
-    /// read after the apply, as its measure and its problem depend on what the service runs.
-    /// </summary>
-    private PromptSaved Applied(PromptName name)
-    {
-        // The resident blocks show resident.md, so a change to it renders them now, and what went wrong is returned.
-        var notices = _upkeep.RefreshNow(Refresh.Prompts | (name == PromptName.Resident ? Refresh.Resident : Refresh.None));
-        return new PromptSaved(PromptView(name), notices);
-    }
-
-    /// <summary>Refuses <paramref name="text"/> as the document <paramref name="name"/> when it breaks a rule, with every refusal.</summary>
-    private void RefuseUnless(PromptName name, string text)
-    {
-        var refusals = PromptFiles.Check(_options.TacitHome, Language, RunningPrompts(), name, text);
-        if (refusals.Count == 0)
-            return;
-        var file = Path.GetFileName(PromptFiles.PathOf(_options.TacitHome, name));
-        throw new TacitException(TacitError.PromptRejected, string.Join(" ", refusals))
-        {
-            Problems = [.. refusals.Select(refusal => new ConfigProblem(file, refusal))],
-        };
-    }
-
-    /// <summary>
-    /// <c>config.yaml</c> for the settings page: as the file holds it, as the service runs it and at its defaults, with what
-    /// each key accepts and the hash a save must name. Secrets are given apart, with the file's value of those it holds.
-    /// Reads the file only, so it does not wait for a maintenance operation.
-    /// </summary>
-    /// <exception cref="TacitException">The file does not load, as when it was broken by hand after the service started.</exception>
-    public ConfigView ConfigView()
-    {
-        var path = ConfigFilePath;
-        var text = File.ReadAllText(path);
-        var loaded = ConfigLoader.Read(_options, path, text);
-        return new ConfigView(
-            ContentHash.Of(text),
-            WithoutSecrets(ConfigFile.From(loaded)),
-            WithoutSecrets(ConfigFile.From(Config)),
-            ConfigSchema.Defaults(_options),
-            ConfigSchema.Keys,
-            ConfigSchema.SecretStates(loaded, _options));
-    }
-
-    /// <summary>
-    /// Saves <paramref name="file"/> as <c>config.yaml</c> and reloads, as one maintenance operation. <paramref name="hash"/>
-    /// names the content the caller read the settings from; a file changed since is not overwritten. The secrets stay as the
-    /// file holds them. When the reload cannot open the new config, the file goes back to what it was.
-    /// </summary>
-    /// <exception cref="TacitException">
-    /// <see cref="TacitError.ConfigChanged"/>, <see cref="TacitError.ConfigRejected"/> with every problem, or
-    /// <see cref="TacitError.ReloadFailed"/>; in each case <c>config.yaml</c> is as it was.
-    /// </exception>
-    public Task<ConfigSaved> SaveConfigAsync(
-        ConfigFile file, string hash, IReadOnlyDictionary<string, string?>? secrets = null, CancellationToken cancellationToken = default) =>
-        RunMaintenanceAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash, secrets ?? new Dictionary<string, string?>())), cancellationToken);
-
-    private ConfigSaved SaveConfigCore(ConfigFile file, string hash, IReadOnlyDictionary<string, string?> secrets)
-    {
-        var path = ConfigFilePath;
-        var current = File.ReadAllText(path);
-        if (ContentHash.Of(current) != hash)
-            throw new TacitException(TacitError.ConfigChanged, RequestMessages.ConfigChanged.In(Language));
-
-        var held = ConfigLoader.Read(_options, path, current);
-        var unknown = secrets.Keys.Where(key => ConfigKeys.Secrets.All(secret => secret.Path != key)).ToList();
-        if (unknown.Count > 0)
-        {
-            var refused = unknown.Select(key => new ConfigProblem(key, RequestMessages.NotASecretKey.In(Language))).ToList();
-            throw new TacitException(TacitError.ConfigRejected, string.Join(" ", refused.Select(problem => problem.Message))) { Problems = refused };
-        }
-
-        var kept = ConfigFile.From(held);
-        var withSecrets = ConfigKeys.Secrets.Aggregate(
-            file, (result, secret) => result.WithSecret(secret, secrets.TryGetValue(secret.Path, out var value) ? value : kept.ValueAt(secret)));
-        var content = ConfigWriter.Render(withSecrets, _options);
-        TacitConfig saved;
-        try
-        {
-            saved = ConfigLoader.Read(_options, path, content);
-        }
-        catch (TacitException e) when (e.Error == TacitError.ConfigInvalid)
-        {
-            throw new TacitException(TacitError.ConfigRejected, e.Message, e) { Problems = e.Problems };
-        }
-
-        var (before, after) = (ConfigFile.From(held), ConfigFile.From(saved));
-        var problems = ConfigKeys.ReadOnly
-            .Where(key => before.ValueAt(key) != after.ValueAt(key))
-            .Select(key => new ConfigProblem(key.Path, RequestMessages.ConfigReadOnly.In(Language)))
-            .ToList();
-        if (saved.ExtraAddress is not null && !Access.PasswordSet)
-            problems.Add(new ConfigProblem(ConfigKeys.Host.Path, RequestMessages.ConfigExtraNeedsPassword.In(Language)));
-        if (problems.Count > 0)
-            throw new TacitException(TacitError.ConfigRejected, string.Join(" ", problems.Select(problem => problem.Message))) { Problems = problems };
-
-        ConfigWriter.Replace(path, content);
-        IReadOnlyList<RestartChange> restart;
-        try
-        {
-            restart = ReloadCore();
-        }
-        catch
-        {
-            ConfigWriter.Replace(path, current);
-            throw;
-        }
-
-        return new ConfigSaved(ContentHash.Of(content), restart);
-    }
-
-    private string ConfigFilePath => Path.Combine(_options.TacitHome, "config.yaml");
-
-    /// <summary>The settings with every secret left out, as they leave the service.</summary>
-    private static ConfigFile WithoutSecrets(ConfigFile file) =>
-        ConfigKeys.Secrets.Aggregate(file, (result, secret) => result.WithSecret(secret, null));
-
     /// <summary>The failure no operation expected, logged with its kind and message; the host answers without them.</summary>
     public void RecordUnexpectedFailure(Exception cause) =>
         _log.Record(LogLevel.Error, LogMessages.UnexpectedFailure, cause.GetType().Name, cause.Message);
-
-    /// <summary>
-    /// Makes a backup now. A local one waits in the write queue like a write does, so the archive holds the repository as
-    /// the last write left it, and it is never pruned. A cloud one packs the same way under the write gate, then uploads
-    /// outside it and replaces the remote backup.
-    /// </summary>
-    /// <param name="target">Where the backup goes.</param>
-    /// <param name="directory">The absolute directory to write a local backup into, created when missing; <c>null</c> means <c>TACIT_HOME/backups/</c>. Not allowed with the cloud target.</param>
-    public async Task<BackupResult> BackupAsync(BackupTarget target, string? directory = null, CancellationToken cancellationToken = default)
-    {
-        if (directory is not null && !Path.IsPathFullyQualified(directory))
-            throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupDirectoryNotAbsolute.Format(Language, directory));
-        if (target == BackupTarget.Cloud)
-        {
-            if (directory is not null)
-                throw new TacitException(TacitError.RequestInvalid, BackupMessages.BackupCloudWithDirectory.In(Language));
-            return await _remote.RunAsync(_gate, cancellationToken);
-        }
-
-        var hold = await _gate.WriteAsync(cancellationToken);
-        try
-        {
-            return await _manual.CreateAsync(directory, cancellationToken);
-        }
-        finally
-        {
-            hold.Dispose();
-        }
-    }
 
     /// <summary>
     /// Completes once the refreshes scheduled by a change have run and the background work has finished: the automatic
@@ -689,40 +325,6 @@ public sealed class MemoryService : IDisposable
     public void RecordApiCall(string method, string route, int statusCode, TimeSpan elapsed) =>
         _log.Record(LogLevel.Information, LogMessages.ApiCall, method, route, statusCode, (int)elapsed.TotalMilliseconds);
 
-    /// <summary>The <c>recall</c> tool: searches pages or reads one. Never changes a file.</summary>
-    public Task<ToolResult> RecallAsync(RecallRequest request, CancellationToken cancellationToken = default) =>
-        RecordToolCall("recall", null, Targets(request.Page), () => RecallCoreAsync(request, cancellationToken));
-
-    private async Task<(ToolResult, string)> RecallCoreAsync(RecallRequest request, CancellationToken cancellationToken)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        var (result, results) = await _recall.RunAsync(request, cancellationToken);
-        return (result, RecallTool.LogDetails(request, results, Language));
-    }
-
-    /// <summary>
-    /// A recall trace for the management API: the search <c>recall</c> runs for the same parameters, stage by stage, with
-    /// up to three retrieval values replaced. Counts no return and changes no file.
-    /// </summary>
-    /// <exception cref="TacitException"><see cref="TacitError.RequestInvalid"/> with every problem of the request.</exception>
-    public async Task<RecallTraceReport> TraceRecallAsync(RecallTraceRequest request, CancellationToken cancellationToken = default)
-    {
-        var search = RecallTraceRun.Check(request, Language);
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        var trace = await _reader.SearchAsync(search, Usage.NotCounted, cancellationToken);
-        return RecallTraceRun.Report(trace, Config);
-    }
-
-    /// <summary>The <c>write_page</c> tool. Writes run one at a time, in the order they arrive.</summary>
-    public Task<ToolResult> WritePageAsync(WritePageRequest request, CancellationToken cancellationToken = default) =>
-        RecordToolCall("write_page", request.Op, Targets(request.Page, request.Hash), () => WritePageCoreAsync(request, cancellationToken));
-
-    private async Task<ToolResult> WritePageCoreAsync(WritePageRequest request, CancellationToken cancellationToken)
-    {
-        using var hold = await _gate.WriteAsync(cancellationToken);
-        return await _pages.WriteAsync(request, cancellationToken);
-    }
-
     /// <summary>
     /// What follows a write once its file is written and the index has it: the day's first write leaves a backup, and the
     /// upkeep refreshes what the written source feeds.
@@ -733,287 +335,6 @@ public sealed class MemoryService : IDisposable
         _upkeep.Written(source);
     }
 
-    /// <summary>The <c>write_recent</c> tool. Shares the write queue with <c>write_page</c>, so writes land in arrival order.</summary>
-    public Task<ToolResult> WriteRecentAsync(WriteRecentRequest request, CancellationToken cancellationToken = default) =>
-        RecordToolCall("write_recent", null, Targets(request.Replaces), () => WriteRecentCoreAsync(request, cancellationToken));
-
-    private async Task<ToolResult> WriteRecentCoreAsync(WriteRecentRequest request, CancellationToken cancellationToken)
-    {
-        using var hold = await _gate.WriteAsync(cancellationToken);
-        return await _recent.WriteAsync(request, cancellationToken);
-    }
-
-    /// <summary>
-    /// The <c>write_persona</c> tool. Shares the write queue with the other writes. A written persona re-renders the bound
-    /// resident blocks the same way a manual edit of <c>persona.md</c> does: debounced, and a failure only tells the user.
-    /// </summary>
-    public Task<ToolResult> WritePersonaAsync(WritePersonaRequest request, CancellationToken cancellationToken = default) =>
-        RecordToolCall("write_persona", request.Op, Targets(request.Hash), () => WritePersonaCoreAsync(request, cancellationToken));
-
-    private async Task<ToolResult> WritePersonaCoreAsync(WritePersonaRequest request, CancellationToken cancellationToken)
-    {
-        using var hold = await _gate.WriteAsync(cancellationToken);
-        return await _persona.WriteAsync(request, cancellationToken);
-    }
-
-    /// <summary>
-    /// Rebuilds the derived index from the memory files: the full-text table, the units, the vectors and the judgment
-    /// cache. It waits until the vectors are filled in; when the embedding model cannot be reached, the vectors wait for
-    /// it and the background fill takes them over. Runs as a maintenance operation, so the memory tools wait for it.
-    /// </summary>
-    public Task<ReindexResult> ReindexAsync(CancellationToken cancellationToken = default) =>
-        RunMaintenanceAsync("reindex", ReindexCoreAsync, cancellationToken);
-
-    private async Task<ReindexResult> ReindexCoreAsync(CancellationToken cancellationToken)
-    {
-        var started = Stopwatch.GetTimestamp();
-        _index.Rebuild();
-        _index.SyncAll();
-        var filled = await _vectors.FillAsync(cancellationToken);
-        if (!filled)
-            _vectors.FillInBackground();
-        var counts = _index.Counts();
-        var skipped = _index.SkippedFiles;
-        var elapsed = Stopwatch.GetElapsedTime(started);
-        var milliseconds = (long)elapsed.TotalMilliseconds;
-        _log.Record(LogLevel.Information, LogMessages.IndexRebuilt, counts.Files, counts.Units, counts.Vectors, skipped.Count, milliseconds);
-        if (!filled)
-            _log.Record(LogLevel.Warning, LogMessages.VectorsWaiting);
-        return new ReindexResult(counts.Files, counts.Units, counts.Vectors, skipped, !filled, milliseconds, ReindexReport(counts, skipped, !filled, elapsed));
-    }
-
-    /// <summary>The summary of a rebuild for the user: the counts and the time, the skipped files, and the vectors still to come.</summary>
-    private string ReindexReport(IndexCounts counts, IReadOnlyList<string> skipped, bool vectorsPending, TimeSpan elapsed)
-    {
-        var lines = new List<string>
-        {
-            MaintenanceMessages.Reindexed.Format(Language, counts.Files, counts.Units, counts.Vectors, elapsed.TotalSeconds),
-        };
-        if (skipped.Count > 0)
-        {
-            lines.Add(MaintenanceMessages.SkippedFiles.In(Language));
-            lines.AddRange(skipped.Select(path => $"  {path}"));
-        }
-
-        if (!_models.Embedding.Configured)
-            lines.Add(MaintenanceMessages.EmbeddingNotConfigured.In(Language));
-        if (vectorsPending)
-            lines.Add(MaintenanceMessages.VectorsPending.In(Language));
-        return string.Join('\n', lines);
-    }
-
-    /// <summary>
-    /// Runs a maintenance operation with the memory to itself. First it waits for the background work already started (vector
-    /// fills, consolidation judgments and automatic backups) to finish, so the operation never races them. While it runs, memory
-    /// tool calls, server instructions, the consolidation report and background syncs wait, then run. The operation must not call the read
-    /// or write paths, which would wait for it. Its start, its end and its failure are logged.
-    /// </summary>
-    private async Task<T> RunMaintenanceAsync<T>(string name, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
-    {
-        // An automatic backup takes the write slot, which this operation holds alone, so it is waited for before the gate.
-        // The refreshes scheduled before it run first, so none lands in the middle of the operation.
-        await _upkeep.SettledAsync();
-        using var hold = await _gate.MaintenanceAsync(cancellationToken);
-        await Task.WhenAll(Settled(_vectors.Background), Settled(_judgments.Completion));
-        _log.Record(LogLevel.Information, LogMessages.MaintenanceStarted, name);
-        var started = Stopwatch.GetTimestamp();
-        try
-        {
-            var result = await operation(cancellationToken);
-            _log.Record(LogLevel.Information, LogMessages.MaintenanceFinished, name, (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-            return result;
-        }
-        catch (Exception e)
-        {
-            _log.Record(LogLevel.Warning, LogMessages.MaintenanceFailed, name, (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds, e.Message);
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// What <c>tacit restore</c> would do: the backup at <paramref name="path"/> (or, with <paramref name="remote"/>, the
-    /// cloud backup, which is downloaded first), its manifest, and what it would replace in the memory repository as it is
-    /// now (and in <c>config.yaml</c> and <c>prompts/</c> when <paramref name="config"/> is set). Exactly one source is
-    /// needed. Changes nothing; a cloud preview only fills <c>backups/.download/</c>.
-    /// </summary>
-    /// <param name="path">The backup zip, as an absolute path; <c>null</c> with <paramref name="remote"/>.</param>
-    /// <param name="remote">Preview the cloud backup instead of a zip.</param>
-    /// <param name="config">Whether the restore would also take <c>config.yaml</c> and <c>prompts/</c> from the backup.</param>
-    public async Task<RestorePreview> PreviewRestoreAsync(string? path, bool remote = false, bool config = false, CancellationToken cancellationToken = default)
-    {
-        if ((path is not null) == remote)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
-        if (remote)
-            return await PreviewRemoteRestoreAsync(config, cancellationToken);
-        RequireAbsolutePath(path!);
-        return await PreviewLocalRestoreAsync(path!, config, cancellationToken);
-    }
-
-    /// <summary>
-    /// What <c>tacit restore --remote</c> would do: downloads the cloud backup into <c>backups/.download/</c>, then previews
-    /// it. The preview's path is the downloaded file, which is the file a restore takes, so what is confirmed is what is
-    /// restored. The download touches no memory file and runs outside the queue.
-    /// </summary>
-    /// <param name="config">Whether the restore would also take <c>config.yaml</c> and <c>prompts/</c> from the backup.</param>
-    public async Task<RestorePreview> PreviewRemoteRestoreAsync(bool config = false, CancellationToken cancellationToken = default)
-    {
-        var file = await new CloudDownload(_options, Config, _log).FetchAsync(cancellationToken);
-        return await PreviewLocalRestoreAsync(file, config, cancellationToken);
-    }
-
-    private async Task<RestorePreview> PreviewLocalRestoreAsync(string path, bool config, CancellationToken cancellationToken)
-    {
-        using var hold = await _gate.ReadAsync(cancellationToken);
-        using var archive = RestoreArchive.Open(path, Language, config);
-        return await RestorePreviewBuilder.BuildAsync(_options, Config, path, archive, config, cancellationToken);
-    }
-
-    /// <summary>
-    /// Restores the memory repository from the backup at <paramref name="path"/>, as a maintenance operation. Before anything
-    /// is replaced, the state as it is now is kept as a safety backup, <c>pre-restore-*.zip</c>. With <paramref name="config"/>,
-    /// <c>config.yaml</c> and <c>prompts/</c> are replaced as well; <c>bindings.json</c> never is. The memory repository goes
-    /// back to the configured <c>memory.path</c>. Then the index is rebuilt in full, the watchers are armed again and the
-    /// resident blocks are rendered. Once the swap starts, the restore runs to its end or rolls back: a dropped request
-    /// does not stop it. A cloud backup is never restored directly: it is previewed, and the restore takes the downloaded file.
-    /// </summary>
-    /// <param name="path">The backup zip, as an absolute path; <c>null</c> is refused.</param>
-    /// <param name="remote">Must be <c>false</c>: a cloud backup is previewed first, then restored from the path the preview names.</param>
-    /// <param name="config">Whether to replace <c>config.yaml</c> and <c>prompts/</c> as well.</param>
-    public async Task<RestoreResult> RestoreAsync(string? path, bool remote = false, bool config = false, CancellationToken cancellationToken = default)
-    {
-        if (remote)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.RemotePreviewFirst.In(Language));
-        if (path is null)
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
-        RequireAbsolutePath(path);
-        var result = await RunMaintenanceAsync("restore", _ => RestoreCoreAsync(path, config), cancellationToken);
-        // A restore from the cloud download is done with the download once it has succeeded; a failed one keeps it.
-        if (CloudDownload.IsDownload(_options, path))
-            CloudDownload.Discard(_options);
-        return result;
-    }
-
-    private async Task<RestoreResult> RestoreCoreAsync(string path, bool config)
-    {
-        var language = Language;
-        // A bad backup is refused here, before the index, the watchers or any file is touched.
-        using var archive = RestoreArchive.Open(path, language, config);
-        var memory = Path.TrimEndingDirectorySeparator(Config.MemoryPath);
-        var install = new RestoreInstall(_options, Config, _log, Guid.NewGuid().ToString("N")[..8]);
-        _log.Record(LogLevel.Information, LogMessages.RestoreStarted, path, (config ? RestoreMessages.ScopeWithConfig : RestoreMessages.ScopeMemory).In(language));
-
-        // The watchers and the index let go of the files the restore replaces; the index reopens once they are final.
-        _sources.Pause();
-        _index.Dispose();
-
-        var notices = new List<string>();
-        string safety;
-        try
-        {
-            safety = await install.WriteSafetyBackupAsync(notices, CancellationToken.None);
-        }
-        catch (Exception e)
-        {
-            ReopenIndexAndWatchers();
-            throw new TacitException(TacitError.RestoreFailed, RestoreMessages.SafetyFailed.Format(language, e.Message), e);
-        }
-
-        RestoredConfig restored;
-        string head;
-        ReindexResult reindex;
-        try
-        {
-            restored = install.Apply(archive, config);
-            reindex = await ReindexCoreAsync(CancellationToken.None);
-            head = (await new GitCli(memory, language).RunAsync(CancellationToken.None, "rev-parse", "HEAD")).Trim();
-        }
-        catch (Exception e)
-        {
-            var failure = install.RollBack(e, safety);
-            ReopenIndexAndWatchers();
-            throw failure;
-        }
-
-        // Nothing is left to undo: the old content and the staged leftovers go, then the service picks the restored state up.
-        install.Finish();
-        _sources.Resume();
-        // A restored config that loads is reloaded as a save on the settings page is, which also applies the prompts and
-        // renders the resident blocks; one that does not load leaves the service on the config it had.
-        IReadOnlyList<RestartChange> restart = [];
-        var reloaded = false;
-        if (config && restored.Problem is null)
-        {
-            try
-            {
-                restart = ReloadCore();
-                reloaded = true;
-                notices.Add(RestoreMessages.ConfigApplied.In(language));
-            }
-            catch (TacitException e) when (e.Error is TacitError.ReloadFailed or TacitError.ConfigInvalid)
-            {
-                notices.Add(RestoreMessages.ConfigNotApplied.Format(language, e.Message));
-            }
-        }
-        else if (config)
-            notices.Add(RestoreMessages.ConfigProblem.Format(language, restored.Problem));
-        _upkeep.RefreshNow((config && !reloaded ? Refresh.Prompts : Refresh.None) | Refresh.Instructions);
-
-        if (config)
-        {
-            notices.Add(RestoreMessages.PromptsApplied.In(language));
-            if (restart.Count > 0)
-                notices.Add(string.Join('\n', restart
-                    .Select(change => RestoreMessages.RestartPendingItem.Format(language, ConfigKeys.Of(change.Path).Path, change.Running, change.Saved))
-                    .Prepend(RestoreMessages.RestartPending.In(language))));
-            if (restored.Problem is null
-                && !string.Equals(Path.GetFullPath(restored.MemoryPath!), Path.GetFullPath(memory), StringComparison.OrdinalIgnoreCase))
-                notices.Add(RestoreMessages.MemoryPathNotice.Format(language, restored.MemoryPath, memory));
-        }
-
-        if (!reloaded)
-            notices.AddRange(_upkeep.RefreshNow(Refresh.Resident));
-
-        _log.Record(LogLevel.Information, LogMessages.RestoreApplied, head, safety, reindex.Files);
-        var report = string.Join('\n', new[]
-        {
-            RestoreMessages.Restored.Format(language, head),
-            RestoreMessages.SafetyBackup.Format(language, safety),
-            reindex.Report,
-        }.Concat(notices));
-        return new RestoreResult(safety, head, reindex, notices, restart, report);
-    }
-
-    /// <summary>
-    /// Rebuilds the index from the files as they are now and arms the watchers again. Used after a rollback and after a
-    /// failed safety backup, when the index was closed and nothing was replaced. A failed rebuild is noted, not raised.
-    /// </summary>
-    private void ReopenIndexAndWatchers()
-    {
-        try
-        {
-            _index.Rebuild();
-            _index.SyncAll();
-            _vectors.FillInBackground();
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
-        {
-            _log.Notify(LogLevel.Warning, Messages.IndexSyncFailed, e.Message);
-        }
-        finally
-        {
-            _sources.Resume();
-        }
-    }
-
-    private void RequireAbsolutePath(string path)
-    {
-        if (!Path.IsPathFullyQualified(path))
-            throw new TacitException(TacitError.RequestInvalid, RestoreMessages.PathNotAbsolute.Format(Language, path));
-    }
-
-    /// <summary>A task that completes once <paramref name="task"/> has, whether it finished or failed: its failure is reported where it happened.</summary>
-    private static Task Settled(Task task) => task.ContinueWith(_ => { }, TaskScheduler.Default);
-
     public void Dispose()
     {
         _upkeep.Dispose();
@@ -1023,56 +344,4 @@ public sealed class MemoryService : IDisposable
         CloseRuntime();
         _gate.Dispose();
     }
-
-    /// <summary>Runs a memory tool whose event adds nothing to the targets; see the overload that takes details.</summary>
-    private Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<ToolResult>> call) =>
-        RecordToolCall(tool, op, targets, async () => (await call(), ""));
-
-    /// <summary>
-    /// Runs one memory tool and writes its event: the tool, its op, the page IDs and short codes the call names, the details
-    /// the call adds, the outcome and the time taken. It is the only place tool calls are logged. No event carries the text a
-    /// call sends, except the query of a <c>recall</c> search, which the details hold.
-    /// </summary>
-    private async Task<ToolResult> RecordToolCall(string tool, string? op, string targets, Func<Task<(ToolResult Result, string Details)>> call)
-    {
-        var started = Stopwatch.GetTimestamp();
-        (ToolResult Result, string Details)? done = null;
-        try
-        {
-            done = await call();
-            return done.Value.Result;
-        }
-        finally
-        {
-            var outcome = done is not { Result: var result } ? LogMessages.ToolAborted
-                : result.IsError ? LogMessages.ToolRefused
-                : result.Written ? LogMessages.ToolWritten
-                : LogMessages.ToolDone;
-            _log.Record(
-                LogLevel.Information, LogMessages.ToolCall, tool, OpName(op), targets, done?.Details ?? "", outcome.In(Language),
-                (int)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-        }
-    }
-
-    /// <summary>The page IDs and short codes a call names, as far as they have their shape; <c>-</c> when none does. Other text is never logged.</summary>
-    private static string Targets(params string?[] names)
-    {
-        var shown = new List<string>();
-        foreach (var name in names)
-        {
-            if (name is null)
-                continue;
-            if (PageId.TryParse(name, out var id, out _))
-                shown.Add(id.ToString());
-            else if (ShortCode.LooksLike(name))
-                shown.Add(name);
-        }
-
-        return shown.Count == 0 ? "-" : string.Join(' ', shown);
-    }
-
-    /// <summary>The op of a call when it is a plain word, such as <c>upsert_section</c>; otherwise <c>-</c>.</summary>
-    private static readonly Regex OpShape = new("^[a-z_]{1,32}$", RegexOptions.CultureInvariant);
-
-    private static string OpName(string? op) => op is not null && OpShape.IsMatch(op) ? op : "-";
 }

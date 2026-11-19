@@ -55,7 +55,7 @@ public sealed class MemoryWriteTests : IDisposable
         var head = Git("rev-parse", "HEAD").Trim();
         LockIndex();
 
-        var result = await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
+        var result = await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade"));
 
         Assert.True(result.IsError);
         Assert.Contains("Created page tacit-memory/db-upgrade.", result.Text);
@@ -65,7 +65,7 @@ public sealed class MemoryWriteTests : IDisposable
         Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
         Assert.Single(_notices, notice => notice.Contains("git", StringComparison.OrdinalIgnoreCase));
 
-        var found = await _service.RecallAsync(new RecallRequest { Query = "PGroonga" });
+        var found = await _service.Tools.RecallAsync(new RecallRequest { Query = "PGroonga" });
         Assert.Contains("tacit-memory/db-upgrade", found.Text);
 
         await _service.SettledAsync();
@@ -76,10 +76,10 @@ public sealed class MemoryWriteTests : IDisposable
     public async Task A_write_that_was_not_committed_is_committed_with_the_next_write_to_that_file()
     {
         var index = LockIndex();
-        await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade"));
         File.Delete(index);
 
-        var result = await _service.WritePageAsync(Upsert("tacit-memory/db-upgrade", "修复", "重装 PGroonga 扩展。"));
+        var result = await _service.Tools.WritePageAsync(Upsert("tacit-memory/db-upgrade", "修复", "重装 PGroonga 扩展。"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("pages/tacit-memory/db-upgrade.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
@@ -92,11 +92,11 @@ public sealed class MemoryWriteTests : IDisposable
     [Fact]
     public async Task Changing_a_committed_page_commits_only_that_page_and_leaves_what_the_user_staged()
     {
-        await _service.WritePageAsync(Create("tacit-memory/db-upgrade"));
+        await _service.Tools.WritePageAsync(Create("tacit-memory/db-upgrade"));
         File.WriteAllText(Path.Combine(Memory, "notes.txt"), "staged by the user\n");
         Git("add", "notes.txt");
 
-        var result = await _service.WritePageAsync(Upsert("tacit-memory/db-upgrade", "修复", "重装 PGroonga 扩展。"));
+        var result = await _service.Tools.WritePageAsync(Upsert("tacit-memory/db-upgrade", "修复", "重装 PGroonga 扩展。"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal("pages: upsert tacit-memory/db-upgrade 修复", Git("log", "-1", "--format=%s").Trim());
@@ -110,7 +110,7 @@ public sealed class MemoryWriteTests : IDisposable
         var head = Git("rev-parse", "HEAD").Trim();
         LockIndex();
 
-        var result = await _service.WriteRecentAsync(new WriteRecentRequest { Text = "全文检索换成 PGroonga，因为中文分词更准。" });
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "全文检索换成 PGroonga，因为中文分词更准。" });
 
         Assert.True(result.IsError);
         Assert.StartsWith("Added activity [", result.Text);
@@ -120,7 +120,7 @@ public sealed class MemoryWriteTests : IDisposable
         Assert.Equal(head, Git("rev-parse", "HEAD").Trim());
         Assert.Single(_notices, notice => notice.Contains("git", StringComparison.OrdinalIgnoreCase));
 
-        var found = await _service.RecallAsync(new RecallRequest { Query = "PGroonga", Kind = "activities" });
+        var found = await _service.Tools.RecallAsync(new RecallRequest { Query = "PGroonga", Kind = "activities" });
         Assert.Contains("PGroonga", found.Text);
 
         await _service.SettledAsync();
@@ -135,7 +135,7 @@ public sealed class MemoryWriteTests : IDisposable
         var head = Git("rev-parse", "HEAD").Trim();
         LockIndex();
 
-        var result = await _service.WritePersonaAsync(new WritePersonaRequest
+        var result = await _service.Tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = op,
             Section = "preferences",

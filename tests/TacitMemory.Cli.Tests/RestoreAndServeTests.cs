@@ -170,7 +170,7 @@ public sealed class ServeTests : IDisposable
         // Read back by the same definition: the service's reader understands what serve wrote.
         using var service = _cli.Home.Tacit().OpenService(_ => { }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         var started = Assert.Single(
-            service.ServiceLog($"{DateTime.Now:yyyy-MM-dd}").Entries, entry => entry.Message.StartsWith("常驻服务已启动", StringComparison.Ordinal));
+            service.Reports.ServiceLog($"{DateTime.Now:yyyy-MM-dd}").Entries, entry => entry.Message.StartsWith("常驻服务已启动", StringComparison.Ordinal));
         Assert.Equal(TacitMemory.Core.ServiceLogLevel.Information, started.Level);
         Assert.Equal(DateOnly.FromDateTime(DateTime.Now), DateOnly.FromDateTime(started.Time!.Value.LocalDateTime));
     }

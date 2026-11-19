@@ -68,10 +68,10 @@ public sealed class RemoteRestoreTests : IDisposable
     private async Task<string> UploadBackupThenWriteAsync(MemoryService service)
     {
         _dav.CreateCollection("/dav/tacit/");
-        await service.WritePageAsync(Create("tacit-memory/remote-a"));
-        await service.BackupAsync(BackupTarget.Cloud);
+        await service.Tools.WritePageAsync(Create("tacit-memory/remote-a"));
+        await service.Maintenance.BackupAsync(BackupTarget.Cloud);
         var remoteHead = Head();
-        await service.WritePageAsync(Create("tacit-memory/remote-b"));
+        await service.Tools.WritePageAsync(Create("tacit-memory/remote-b"));
         return remoteHead;
     }
 
@@ -82,7 +82,7 @@ public sealed class RemoteRestoreTests : IDisposable
         var remoteHead = await UploadBackupThenWriteAsync(service);
         var localHead = Head();
 
-        var preview = await service.PreviewRemoteRestoreAsync(config: false);
+        var preview = await service.Maintenance.PreviewRestoreAsync(null, remote: true);
 
         Assert.Equal(Path.GetFullPath(DownloadFile), Path.GetFullPath(preview.Path), StringComparer.OrdinalIgnoreCase);
         Assert.Equal("remote", preview.Kind);
@@ -100,9 +100,9 @@ public sealed class RemoteRestoreTests : IDisposable
     {
         var service = Start();
         var remoteHead = await UploadBackupThenWriteAsync(service);
-        var preview = await service.PreviewRemoteRestoreAsync(config: false);
+        var preview = await service.Maintenance.PreviewRestoreAsync(null, remote: true);
 
-        var result = await service.RestoreAsync(preview.Path, config: false);
+        var result = await service.Maintenance.RestoreAsync(preview.Path, config: false);
 
         Assert.Equal(remoteHead, Head());
         Assert.Equal(remoteHead, result.MemoryHead);
@@ -120,7 +120,7 @@ public sealed class RemoteRestoreTests : IDisposable
         _dav.CreateCollection("/dav/tacit/");
         var before = Head();
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.PreviewRemoteRestoreAsync(config: false));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.PreviewRestoreAsync(null, remote: true));
 
         Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("远端没有云端备份", error.Message, StringComparison.Ordinal);
@@ -137,7 +137,7 @@ public sealed class RemoteRestoreTests : IDisposable
         _home.EnvironmentVariables["TACIT_WEBDAV_PASSWORD"] = "wrong-pw-7c1";
         var service = Start();
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.PreviewRemoteRestoreAsync(config: false));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.PreviewRestoreAsync(null, remote: true));
 
         Assert.Equal(TacitError.CloudBackupFailed, error.Error);
         Assert.Contains("认证阶段", error.Message, StringComparison.Ordinal);
@@ -154,7 +154,7 @@ public sealed class RemoteRestoreTests : IDisposable
         var service = Start();
         var before = Head();
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.PreviewRemoteRestoreAsync(config: false));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.PreviewRestoreAsync(null, remote: true));
 
         Assert.Equal(TacitError.RestoreInvalid, error.Error);
         Assert.True(File.Exists(DownloadFile));
@@ -166,7 +166,7 @@ public sealed class RemoteRestoreTests : IDisposable
     {
         var service = Start(backupSection: "");
 
-        var error = await Assert.ThrowsAsync<TacitException>(() => service.PreviewRemoteRestoreAsync(config: false));
+        var error = await Assert.ThrowsAsync<TacitException>(() => service.Maintenance.PreviewRestoreAsync(null, remote: true));
 
         Assert.Equal(TacitError.CloudBackupNotConfigured, error.Error);
         Assert.False(File.Exists(DownloadFile));
