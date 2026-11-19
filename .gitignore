@@ -13,6 +13,7 @@ web/*.tsbuildinfo
 # Local-only documentation & workflow system
 AGENTS.local.md
 CLAUDE.local.md
+GEMINI.md
 HANDOFF.md
 .scratch/
 
