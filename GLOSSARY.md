@@ -285,13 +285,25 @@ _Avoid_: 临时备份、快照
 _Avoid_: 恢复备份、回滚点
 
 **云端备份**（Cloud backup）：
-用户执行 `tacit backup --remote` 时现场生成的一份备份，经 WebDAV 上传为 `backup.webdav.url` 目录下的备份文件（`backup.webdav.file`，默认 `tacit-backup.zip`），每次原子替换远端那一份；只在执行命令时上传，本地不留副本。
-_Avoid_: 远程备份、同步、推送
+用户执行 `tacit backup --remote` 时现场生成的一份备份，经 WebDAV 上传为 `backup.webdav.url` 目录下的备份文件（`backup.webdav.file`，默认 `tacit-backup.zip`），每次原子替换远端那一份；只在执行命令时上传，本地不留副本。它是一份快照，与「同步」不同：同步只传记忆仓库的提交、能合并两边的改动，云端备份带着配置与提示词、只能整份恢复。
+_Avoid_: 远程备份、推送
 代码中以 `Cloud` 命名：`BackupTarget.Cloud`、`CloudBackupRecord`、`TacitError.CloudBackupFailed`、`TacitError.CloudBackupNotConfigured`。命令行 `--remote` 与管理 API 的 `target: "remote"`、`remote: true` 是规格定义的线上值，保持 `remote`，与代码名的对应只在此处说明。
 
 **恢复**（Restore）：
 用备份 zip 替换记忆仓库的操作：先预览，确认后执行，执行前先生成保险备份；加 `--include-config` 时一并替换 `config.yaml` 与 `prompts/`。`tacit restore --remote` 先下载云端备份，之后走同一流程。
 _Avoid_: 还原、导入
+
+**同步**（Sync）：
+记忆仓库与 `sync.remote` 之间的 git 拉取与推送：写入前拉取、写入后推送、定时拉取，`tacit sync` 立即完整做一次。只传记忆仓库；冲突、历史不相关或恢复后暂停自动同步。
+_Avoid_: 云端备份、导出、导入、复制
+
+**远端**（Remote）：
+同步用的 git 地址，即 `sync.remote`；在记忆仓库里登记为名为 `tacit` 的 remote。不是云端备份的 WebDAV 目录。
+_Avoid_: 服务器、云端（指它时）
+
+**选边**（Choose a side）：
+同步暂停后，由用户指定以哪边的历史为准：`tacit sync --use-local` 以本机为准，替换远端的分支；`--use-remote` 以远端为准，先生成一份手动备份，再把本机重置到远端。先预览、再确认。
+_Avoid_: 强推、覆盖、回滚
 
 **门面**（Facade）：
 `TacitMemory.Core` 对外的唯一入口，类型名为 `Tacit`；CLI 经由它调用记忆规则，并由它打开常驻服务 `MemoryService`。常驻服务按调用方分成若干子门面（facet：记忆工具、浏览、报告、设置、维护、访问），MCP 工具只经记忆工具子门面调用记忆规则。

@@ -45,6 +45,7 @@ decision:
   ruleConflict: { certain: …, unlikely: … }
 retrieval: { candidates: 30, topK: 5, minRerankScore: … }
 backup: { keep: 7, webdav: { url: …, username: …, password: …, file: tacit-backup.zip } }
+sync: { remote: …, pullMinutes: 30 }
 ```
 
 - 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见 `docs/design.md`「辅助模型」中的「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
@@ -131,6 +132,13 @@ backup:
 - `backup.webdav.file`：目录下的备份文件名，云端备份写它、云端恢复读它；须以 `.zip` 结尾（不区分大小写），不含 `/ \ : ? # %` 与首尾空格，否则报错。多台机器共用一个目录时各配一个名字。
 
 远端须支持的 WebDAV 方法与上传规则见 `docs/design.md`「运行」中的「备份与恢复」，操作步骤见 `docs/reference/operations.md`。
+
+### `sync`
+
+- `sync.remote`：记忆仓库同步用的 git 地址（SSH、HTTPS 或本地路径，git 认得的都可以），不写即不同步。tacit 把它登记为记忆仓库里名为 `tacit` 的 remote，每次同步前按它更新地址；改后下次同步即按新地址进行，不需重启。远端必须是私有的。
+- `sync.pullMinutes`：定时拉取的间隔分钟数，默认 30，取值 0–1440；`0` 关闭定时拉取，只在写入、读取整理报告与 `tacit sync` 时同步。修改后不需重启。
+
+同步的规则见 `docs/design.md`「运行」中的「同步」，建远端与加入的步骤见 `docs/reference/operations.md`。
 
 ## 3. 密钥
 
