@@ -13,8 +13,10 @@ web/*.tsbuildinfo
 # Local-only documentation & workflow system
 AGENTS.local.md
 CLAUDE.local.md
+GEMINI.md
 HANDOFF.md
 .scratch/
+agents/
 
 # Third-party licenses the web build records for the release notices
 web/licenses/
