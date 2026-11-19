@@ -77,6 +77,10 @@ internal static partial class ConfigWriter
             target.Add("file", webdav.File is null or CloudFileName.Default ? null : Text(webdav.File));
         }
 
+        var sync = root.Section("sync");
+        sync.Add("remote", Text(file.Sync.Remote));
+        sync.Add("pullMinutes", Unless(file.Sync.PullMinutes, ConfigKeys.Sync.PullMinutes));
+
         var output = new StringBuilder();
         root.Render(output, 0);
         return output.ToString();

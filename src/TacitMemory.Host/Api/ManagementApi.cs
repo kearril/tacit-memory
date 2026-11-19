@@ -115,6 +115,12 @@ public sealed record RestoreBody
     public required bool Preview { get; init; }
 }
 
+/// <summary>The body of <c>POST /api/sync/preview</c>: the side whose choice is previewed.</summary>
+public sealed record SyncPreviewBody
+{
+    public required SyncSide Side { get; init; }
+}
+
 /// <summary>
 /// The management API at <c>/api</c>, on the same listeners as <c>/mcp</c>. The guards apply to paths under <c>/api</c>
 /// only, and run before anything else: a request whose Origin is not its own origin is refused (a web page on another site
@@ -420,6 +426,29 @@ internal static class ManagementApi
             .Accepts<RestoreBody>("application/json")
             .Produces<RestorePreview>()
             .AddOpenApiOperationTransformer(RestoreResponse)
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapPost("/sync", async (HttpContext context) =>
+        {
+            var result = await service.Maintenance.SyncAsync(context.RequestAborted);
+            return Json(result);
+        })
+            .Produces<SyncResult>()
+            .ProducesErrors(StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapPost("/sync/preview", async (HttpContext context) =>
+        {
+            var body = await ReadBody<SyncPreviewBody>(context, service);
+            return Json(await service.Maintenance.PreviewSyncSideAsync(body.Side, context.RequestAborted));
+        })
+            .Accepts<SyncPreviewBody>("application/json")
+            .Produces<SyncSidePreview>()
+            .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
+        api.MapPost("/sync/side", async (HttpContext context) =>
+        {
+            var choice = await ReadBody<SyncSideChoice>(context, service);
+            return Json(await service.Maintenance.ChooseSyncSideAsync(choice, context.RequestAborted));
+        })
+            .Accepts<SyncSideChoice>("application/json")
+            .Produces<SyncResult>()
             .ProducesErrors(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict, StatusCodes.Status415UnsupportedMediaType);
         app.MapOpenApi(Prefix + "/openapi.json");
     }

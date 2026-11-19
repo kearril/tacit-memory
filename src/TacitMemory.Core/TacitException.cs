@@ -3,11 +3,22 @@ namespace TacitMemory.Core;
 /// <summary>Why a facade operation was refused.</summary>
 public enum TacitError
 {
-    /// <summary>The memory directory has files in it but is not a Git repository.</summary>
+    /// <summary>The memory directory has files in it but is not a Git repository, or, for <c>init --remote</c>, not a clone of that remote.</summary>
     MemoryDirectoryNotEmpty,
 
-    /// <summary>An option given to <c>init</c> differs from what the existing <c>config.yaml</c> says.</summary>
+    /// <summary>
+    /// An option given to <c>init</c> differs from what the existing <c>config.yaml</c> says; for <c>init --remote</c>, the
+    /// config names another <c>sync.remote</c>, or none.
+    /// </summary>
     ConflictsWithConfig,
+
+    /// <summary>
+    /// The remote holds no branch yet: <c>init --remote</c> has nothing to clone, or there is no remote side to choose.
+    /// </summary>
+    RemoteEmpty,
+
+    /// <summary>The remote's branch moved after the preview a side was chosen on; nothing was changed.</summary>
+    RemoteMoved,
 
     /// <summary><c>config.yaml</c> or the memory repository does not exist yet; <c>tacit init</c> creates them.</summary>
     NotInitialized,

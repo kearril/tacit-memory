@@ -8,13 +8,15 @@ using TacitMemory.Core.Localization;
 using TacitMemory.Core.Logging;
 using TacitMemory.Core.Maintenance;
 using TacitMemory.Core.Models;
+using TacitMemory.Core.Sync;
 using TacitMemory.Core.Upkeep;
 
 namespace TacitMemory.Core;
 
 /// <summary>
 /// The backups and the maintenance operations: the backup list, a backup made now, the preview of a restore, the restore
-/// itself and the rebuild of the derived index. The restore and the rebuild have the memory to themselves while they run.
+/// itself, the rebuild of the derived index and the sync with the git remote. The restore and the rebuild have the memory to
+/// themselves while they run.
 /// </summary>
 public sealed class ServiceMaintenance
 {
@@ -120,6 +122,62 @@ public sealed class ServiceMaintenance
         if (vectorsPending)
             lines.Add(MaintenanceMessages.VectorsPending.In(language));
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Syncs the memory repository with <c>sync.remote</c> now: fetches, brings in the remote's commits and pushes this
+    /// machine's. It waits in the write queue like a write. Unlike the automatic syncs it also runs after a conflict or
+    /// unrelated histories, so it is how a resolved conflict resumes the sync; after a restore it waits for a side to be
+    /// chosen. While <c>sync.remote</c> is not set it does nothing and says so.
+    /// </summary>
+    public async Task<SyncResult> SyncAsync(CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        return await _runtime().Sync.RunAsync(SyncTrigger.Manual, cancellationToken);
+    }
+
+    /// <summary>
+    /// What taking <paramref name="side"/> as the truth would replace, after a fetch: the commits only the other side has. It
+    /// changes no memory file. Works whatever state the sync is in, an unfinished rebase included.
+    /// </summary>
+    /// <exception cref="TacitException">The sync is off, the remote cannot be reached, or the remote has no branch to take.</exception>
+    public async Task<SyncSidePreview> PreviewSyncSideAsync(SyncSide side, CancellationToken cancellationToken = default)
+    {
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        var sync = _runtime().Sync;
+        return sync.Preview(side, await sync.FetchSidesAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// Takes a side as the truth, after its preview: this machine's history replaces the remote's branch, or, after a manual
+    /// backup, this machine is reset to the remote's branch and the index is rebuilt, as a maintenance operation. An
+    /// unfinished rebase is dropped first. Either way the sync resumes. Refused, with nothing changed, when the remote's
+    /// branch has moved since the preview.
+    /// </summary>
+    /// <exception cref="TacitException">The sync is off, the remote moved or has no branch to take, or git fails.</exception>
+    public async Task<SyncResult> ChooseSyncSideAsync(SyncSideChoice choice, CancellationToken cancellationToken = default)
+    {
+        if (choice.Side == SyncSide.Remote)
+            return await _runner.RunAsync("sync --use-remote", token => UseRemoteAsync(choice.RemoteHead, token), cancellationToken);
+
+        using var hold = await _gate.WriteAsync(cancellationToken);
+        var sync = _runtime().Sync;
+        var position = await sync.FetchSidesAsync(cancellationToken);
+        sync.RequireUnchanged(position, choice.RemoteHead);
+        return await sync.UseLocalAsync(position, cancellationToken);
+    }
+
+    private async Task<SyncResult> UseRemoteAsync(string? previewedRemoteHead, CancellationToken cancellationToken)
+    {
+        var runtime = _runtime();
+        var position = await runtime.Sync.FetchSidesAsync(cancellationToken);
+        runtime.Sync.RequireUnchanged(position, previewedRemoteHead);
+        runtime.Sync.RequireRemoteBranch(position);
+        var backup = await runtime.Manual.CreateAsync(null, cancellationToken);
+        var result = await runtime.Sync.UseRemoteAsync(position, backup.Location, cancellationToken);
+        await ReindexCoreAsync(cancellationToken);
+        _upkeep.RefreshNow(Refresh.Instructions | Refresh.Resident);
+        return result;
     }
 
     /// <summary>
@@ -262,6 +320,12 @@ public sealed class ServiceMaintenance
 
         if (!reloaded)
             notices.AddRange(_upkeep.RefreshNow(Refresh.Resident));
+        // The restored memory must neither overwrite what another machine wrote nor be overwritten by it: the sync waits for a side.
+        if (_runtime().Sync.Enabled)
+        {
+            _runtime().Sync.PauseAfterRestore();
+            notices.Add(SyncMessages.RestorePaused.In(language));
+        }
 
         _log.Record(LogLevel.Information, LogMessages.RestoreApplied, head, safety, reindex.Files);
         var report = string.Join('\n', new[]
@@ -304,4 +368,5 @@ public sealed class ServiceMaintenance
 
 /// <summary>The parts of the running memory the maintenance operations take apart and rebuild; a reload replaces them.</summary>
 internal sealed record MaintenanceRuntime(
-    TacitConfig Config, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, ISourceWatch Sources, ManualBackup Manual, CloudBackup Remote);
+    TacitConfig Config, MemoryIndex Index, VectorSync Vectors, AuxiliaryModels Models, ISourceWatch Sources, ManualBackup Manual, CloudBackup Remote,
+    MemorySync Sync);

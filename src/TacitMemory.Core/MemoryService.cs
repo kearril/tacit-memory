@@ -19,6 +19,7 @@ using TacitMemory.Core.Recent;
 using TacitMemory.Core.Retrieval;
 using TacitMemory.Core.Skills;
 using TacitMemory.Core.Status;
+using TacitMemory.Core.Sync;
 using TacitMemory.Core.Upkeep;
 using TacitMemory.Core.Workstreams;
 
@@ -47,6 +48,8 @@ public sealed class MemoryService : IDisposable
     private AutomaticBackup _backup = null!;
     private ManualBackup _manual = null!;
     private CloudBackup _remote = null!;
+    private MemorySync _sync = null!;
+    private SyncSchedule _syncSchedule = null!;
     private readonly ServiceLog _log;
     private readonly ClientRecordStore _clients;
     private ISourceWatch _sources = null!;
@@ -91,17 +94,18 @@ public sealed class MemoryService : IDisposable
         _clients = new ClientRecordStore(ClientRecordStore.PathFor(options), options.Time, _log);
 
         _upkeep = new DerivedUpkeep(
-            options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
+            options, _log, _gate,
+            () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion, _syncSchedule.Completion));
         _runner = new MaintenanceRunner(_gate, _upkeep, _log, () => [_vectors.Background, _judgments.Completion]);
 
         Tools = new ServiceTools(
-            options, _gate, _upkeep, _log, () => new ToolRuntime(Config, _recall, _pages, _recent, _persona, _consolidation));
+            options, _gate, _upkeep, _log, () => new ToolRuntime(Config, _recall, _pages, _recent, _persona, _consolidation, _sync));
         Browse = new MemoryBrowser(_gate, () => new BrowseRuntime(Config, _index, _reader), () => _options.Today);
         Reports = new ServiceReports(options, startedAt, _upkeep, () => new ReportRuntime(Config, _models), () => _extraListener);
         Settings = new ServiceSettings(options, _gate, _upkeep, _runner, Access, () => Config, ReloadCore);
         Maintenance = new ServiceMaintenance(
             options, _gate, _upkeep, _runner, _log,
-            () => new MaintenanceRuntime(Config, _index, _vectors, _models, _sources, _manual, _remote), ReloadCore);
+            () => new MaintenanceRuntime(Config, _index, _vectors, _models, _sources, _manual, _remote, _sync), ReloadCore);
         OpenRuntime(config);
     }
 
@@ -159,6 +163,8 @@ public sealed class MemoryService : IDisposable
         _backup = new AutomaticBackup(_options, config, _log, _gate);
         _manual = new ManualBackup(_options, config, _log);
         _remote = new CloudBackup(_options, config, _log);
+        _sync = new MemorySync(_options, config, _log, OnPulled);
+        _syncSchedule = new SyncSchedule(_sync, _gate, _log, _options.Time, config.Sync);
 
         _sources = sources;
         _runtimeOpen = true;
@@ -171,6 +177,7 @@ public sealed class MemoryService : IDisposable
         if (!_runtimeOpen)
             return;
         _runtimeOpen = false;
+        _syncSchedule.Dispose();
         _sources.Dispose();
         _index.Dispose();
         _models.Dispose();
@@ -333,6 +340,19 @@ public sealed class MemoryService : IDisposable
     {
         _backup.ScheduleIfDue();
         _upkeep.Written(source);
+        _syncSchedule.Schedule(SyncTrigger.AfterWrite);
+    }
+
+    /// <summary>
+    /// What follows a sync that brought the other machine's commits into the files, still in its write slot: the index takes
+    /// them in at once, so the write that may follow judges against them, and every product derived from the files is
+    /// brought up to date as after a watcher lost its events.
+    /// </summary>
+    private void OnPulled()
+    {
+        _index.SyncAll();
+        _vectors.FillInBackground();
+        _upkeep.EventsLost();
     }
 
     public void Dispose()
@@ -341,6 +361,7 @@ public sealed class MemoryService : IDisposable
         _vectors.Background.Wait(TimeSpan.FromSeconds(5));
         _judgments.Completion.Wait(TimeSpan.FromSeconds(5));
         _backup.Completion.Wait(TimeSpan.FromSeconds(5));
+        _syncSchedule.Completion.Wait(TimeSpan.FromSeconds(5));
         CloseRuntime();
         _gate.Dispose();
     }

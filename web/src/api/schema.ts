@@ -2329,12 +2329,278 @@ export interface paths {
                             notices: string[];
                             restart: {
                                 /** @enum {unknown} */
-                                path: "server.port" | "server.host" | "memory.path" | "language" | "machine.name" | "machine.description" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintEntryLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password" | "backup.webdav.file";
+                                path: "server.port" | "server.host" | "memory.path" | "language" | "machine.name" | "machine.description" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintEntryLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password" | "backup.webdav.file" | "sync.remote" | "sync.pullMinutes";
                                 running: string;
                                 saved: string;
                             }[];
                             report: string;
                         };
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SyncResult"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sync/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SyncPreviewBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SyncSidePreview"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Unsupported Media Type */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sync/side": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SyncSideChoice"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SyncResult"];
                     };
                 };
                 /** @description Bad Request */
@@ -2581,6 +2847,7 @@ export interface components {
             decision: components["schemas"]["DecisionFile"];
             retrieval: components["schemas"]["RetrievalFile"];
             backup: components["schemas"]["BackupFile"];
+            sync: components["schemas"]["SyncFile"];
         };
         ConfigKey: {
             path: components["schemas"]["ConfigKeyPath"];
@@ -2594,7 +2861,7 @@ export interface components {
             secret: boolean;
         };
         /** @enum {unknown} */
-        ConfigKeyPath: "server.port" | "server.host" | "memory.path" | "language" | "machine.name" | "machine.description" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintEntryLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password" | "backup.webdav.file";
+        ConfigKeyPath: "server.port" | "server.host" | "memory.path" | "language" | "machine.name" | "machine.description" | "models.embedding.provider" | "models.embedding.url" | "models.embedding.model" | "models.embedding.apiKey" | "models.reranker.provider" | "models.reranker.url" | "models.reranker.model" | "models.reranker.apiKey" | "models.decision.provider" | "models.decision.url" | "models.decision.model" | "models.decision.apiKey" | "limits.brief" | "limits.page.minAliases" | "consolidation.remindAfterDays" | "consolidation.remindCandidates" | "consolidation.budgetSeconds" | "consolidation.maxConcurrency" | "consolidation.hintEntryLength" | "consolidation.hintResidentLength" | "decision.samePreference.certain" | "decision.samePreference.unlikely" | "decision.samePage.certain" | "decision.samePage.unlikely" | "decision.sameTopic.certain" | "decision.sameTopic.unlikely" | "decision.ruleConflict.certain" | "decision.ruleConflict.unlikely" | "retrieval.candidates" | "retrieval.topK" | "retrieval.minRerankScore" | "backup.keep" | "backup.webdav.url" | "backup.webdav.username" | "backup.webdav.password" | "backup.webdav.file" | "sync.remote" | "sync.pullMinutes";
         ConfigProblem: {
             path: string;
             message: string;
@@ -3087,11 +3354,58 @@ export interface components {
             consolidation?: null | components["schemas"]["ConsolidationStatus"];
             pending?: null | components["schemas"]["PendingStatus"];
             backups?: null | components["schemas"]["BackupsStatus"];
+            sync?: null | components["schemas"]["SyncStatus"];
             logs?: null | components["schemas"]["LogsStatus"];
             secrets?: null | components["schemas"]["SecretsStatus"];
         };
+        SyncFile: {
+            remote?: null | string;
+            /** Format: int32 */
+            pullMinutes?: null | number;
+        };
         /** @enum {unknown} */
-        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "FolderIsAFile" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
+        SyncOutcome: "synced" | "failed" | "handEdits" | "conflict" | "unrelated" | "restorePaused";
+        SyncPreviewBody: {
+            side: components["schemas"]["SyncSide"];
+        };
+        SyncRecord: {
+            /** Format: date-time */
+            at: string;
+            outcome: components["schemas"]["SyncOutcome"];
+            detail: null | string;
+        };
+        SyncResult: {
+            enabled: boolean;
+            record: null | components["schemas"]["SyncRecord"];
+            report: string;
+        };
+        /** @enum {unknown} */
+        SyncSide: "local" | "remote";
+        SyncSideChoice: {
+            side: components["schemas"]["SyncSide"];
+            remoteHead: null | string;
+        };
+        SyncSidePreview: {
+            side: components["schemas"]["SyncSide"];
+            remoteHead: null | string;
+            /** Format: int32 */
+            localOnly: number;
+            /** Format: int32 */
+            remoteOnly: number;
+            report: string;
+            prompt: string;
+            cancelled: string;
+        };
+        SyncStatus: {
+            title: string;
+            lines: string[];
+            remote: null | string;
+            last: null | components["schemas"]["SyncRecord"];
+            /** Format: int32 */
+            unpushed: null | number;
+        };
+        /** @enum {unknown} */
+        TacitError: "MemoryDirectoryNotEmpty" | "ConflictsWithConfig" | "RemoteEmpty" | "RemoteMoved" | "NotInitialized" | "ConfigInvalid" | "PromptInvalid" | "NoBuiltInText" | "MarkersBroken" | "FileNotUtf8" | "BindingsInvalid" | "SkillLinkRefused" | "ClientNameInvalid" | "BindingConflict" | "BindingNotFound" | "FolderIsAFile" | "GitFailed" | "BackupExists" | "RequestInvalid" | "CloudBackupNotConfigured" | "CloudBackupFailed" | "FileSystemFailed" | "InternalFailure" | "RestoreInvalid" | "RestoreFailed" | "ConfigRejected" | "ConfigChanged" | "ReloadFailed" | "PromptUnknown" | "PromptRejected" | "PromptChanged" | "LogDateNotFound" | "MemoryNotFound" | "ApiOriginRefused" | "ApiHostRefused" | "ApiContentTypeRefused" | "ApiUnauthorized" | "McpRemoteRefused" | "RemotePathRefused" | "PasswordTooShort" | "PasswordWrong" | "LoginLimited" | "PasswordClearRefused" | "PasswordClearRemoteRefused";
         ThresholdFile: {
             /** Format: double */
             certain: null | number;

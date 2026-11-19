@@ -27,6 +27,21 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
     /// </summary>
     private static readonly Encoding Utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
+    /// <summary>How long a command that reaches a remote may take before it is stopped.</summary>
+    internal static readonly TimeSpan RemoteTimeout = TimeSpan.FromSeconds(60);
+
+    /// <summary>How long a clone may take: it brings the whole history, where a sync brings a few commits.</summary>
+    internal static readonly TimeSpan CloneTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// The SSH command a remote command runs with when the user has not chosen one: it fails at once instead of asking for a
+    /// password, a passphrase or a host key, and gives up on a host that does not answer.
+    /// </summary>
+    private const string BatchSsh = "ssh -o BatchMode=yes -o ConnectTimeout=15";
+
+    /// <summary>The directory git runs in.</summary>
+    public string WorkingDirectory => repository;
+
     /// <summary>Whether the directory is itself the top of a repository (has its own <c>.git</c>).</summary>
     public bool IsRepositoryRoot()
     {
@@ -42,6 +57,74 @@ internal sealed class GitCli(string repository, MemoryLanguage language)
                 "git", [.. FixedSettings, .. args], workingDirectory: repository, encoding: Utf8,
                 ct: cancellationToken);
             return output;
+        }
+        catch (Exception e) when (e is ExitCodeReadException or System.ComponentModel.Win32Exception)
+        {
+            var detail = e is ExitCodeReadException read ? read.StandardError.Trim() : e.Message;
+            throw new TacitException(TacitError.GitFailed, Messages.GitFailed.Format(language, args[0], detail), e);
+        }
+    }
+
+    /// <summary>
+    /// Runs a command whose exit code is an answer, such as <c>merge-base</c> or <c>rev-parse --verify</c>: any exit code is
+    /// returned with the standard output and error; only a git that cannot be started is a failure.
+    /// </summary>
+    public async Task<(int ExitCode, string Output, string Error)> TryRunAsync(CancellationToken cancellationToken, params string[] args)
+    {
+        var exitCode = 0;
+        try
+        {
+            var (output, error) = await Command.ReadAsync(
+                "git", [.. FixedSettings, .. args], workingDirectory: repository, encoding: Utf8,
+                handleExitCode: code =>
+                {
+                    exitCode = code;
+                    return true;
+                },
+                ct: cancellationToken);
+            return (exitCode, output, error);
+        }
+        catch (System.ComponentModel.Win32Exception e)
+        {
+            throw new TacitException(TacitError.GitFailed, Messages.GitFailed.Format(language, args[0], e.Message), e);
+        }
+    }
+
+    /// <summary>
+    /// Runs a command that reaches a remote (<c>fetch</c>, <c>push</c>, <c>clone</c>, <c>ls-remote</c>) so that it never waits
+    /// for an answer from a person: git's own prompts and the credential manager's windows are off, and SSH runs in batch mode
+    /// unless the user has chosen an SSH command (<c>core.sshCommand</c>, <c>GIT_SSH_COMMAND</c> or <c>GIT_SSH</c>), which
+    /// must then not ask either. The command is stopped after <see cref="RemoteTimeout"/>.
+    /// </summary>
+    public Task<string> RunRemoteAsync(CancellationToken cancellationToken, params string[] args) =>
+        RunRemoteAsync(RemoteTimeout, cancellationToken, args);
+
+    /// <summary>Runs a command that reaches a remote as <see cref="RunRemoteAsync(CancellationToken, string[])"/> does, stopped after <paramref name="limit"/>.</summary>
+    public async Task<string> RunRemoteAsync(TimeSpan limit, CancellationToken cancellationToken, params string[] args)
+    {
+        var ownSsh = Environment.GetEnvironmentVariable("GIT_SSH_COMMAND") is { Length: > 0 }
+            || Environment.GetEnvironmentVariable("GIT_SSH") is { Length: > 0 }
+            || (await TryRunAsync(cancellationToken, "config", "--get", "core.sshCommand")).Output.Trim().Length > 0;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(limit);
+        try
+        {
+            var (output, _) = await Command.ReadAsync(
+                "git", [.. FixedSettings, .. args], workingDirectory: repository, encoding: Utf8,
+                configureEnvironment: environment =>
+                {
+                    environment["GIT_TERMINAL_PROMPT"] = "0";
+                    environment["GCM_INTERACTIVE"] = "never";
+                    if (!ownSsh)
+                        environment["GIT_SSH_COMMAND"] = BatchSsh;
+                },
+                ct: timeout.Token);
+            return output;
+        }
+        catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TacitException(
+                TacitError.GitFailed, Messages.GitTimedOut.Format(language, args[0], (int)limit.TotalSeconds), e);
         }
         catch (Exception e) when (e is ExitCodeReadException or System.ComponentModel.Win32Exception)
         {

@@ -34,16 +34,22 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             : $"Unknown command '{command}'. Run tacit --help to list the commands.");
     });
 
-    /// <summary>Create the config and the memory repository.</summary>
+    /// <summary>Create the config and the memory repository, or join a synced memory with --remote.</summary>
     /// <param name="language">Memory language, zh or en.</param>
     /// <param name="memory">Memory repository location.</param>
+    /// <param name="remote">Git address of a synced memory to clone instead of creating one; written to sync.remote.</param>
     [Command("init")]
-    public Task<int> Init([HideDefaultValue] string language = null!, [HideDefaultValue] string memory = null!, CancellationToken cancellationToken = default) => Execute(async () =>
+    public Task<int> Init(
+        [HideDefaultValue] string language = null!, [HideDefaultValue] string memory = null!, [HideDefaultValue] string remote = null!,
+        CancellationToken cancellationToken = default) => Execute(async () =>
     {
         if (memory is not null)
             RequirePath("--memory", memory);
+        if (remote is not null && string.IsNullOrWhiteSpace(remote))
+            throw new UsageException("--remote needs a git address, but the value is empty.");
         var parsed = language is null ? (MemoryLanguage?)null : ParseChoice<MemoryLanguage>("--language", language);
-        var result = await _tacit.InitAsync(new InitRequest { Language = parsed, MemoryPath = memory, AskLanguage = AskLanguage }, cancellationToken);
+        var result = await _tacit.InitAsync(
+            new InitRequest { Language = parsed, MemoryPath = memory, Remote = remote, AskLanguage = AskLanguage }, cancellationToken);
         console.Out.WriteLine(result.Report);
         return 0;
     });
@@ -453,6 +459,56 @@ internal sealed class Commands(TacitOptions options, CliConsole console)
             var result = await WaitingAsync(() => api.PostAsync<RestoreResult>("restore", new RestoreBody { Path = preview.Path, Config = includeConfig, Preview = false }, cancellationToken));
             console.Out.WriteLine(result.Report);
             return 0;
+        });
+    });
+
+    /// <summary>Sync the memory repository with sync.remote now. Needs the running service.</summary>
+    /// <remarks>
+    /// The exit code is 0 when the repository and the remote end up the same, or when the sync is off; 1 when the sync failed,
+    /// was held back or paused. --use-local and --use-remote show what they replace, then wait for a line that is exactly
+    /// <c>y</c> before they change anything; <c>--yes</c> skips the wait. Without <c>--yes</c>, standard input must be a
+    /// terminal to answer.
+    /// </remarks>
+    /// <param name="useLocal">Take this machine's memory as the truth: the remote's branch is replaced with it.</param>
+    /// <param name="useRemote">Take the remote's memory as the truth: this machine is reset to it, after a safety backup.</param>
+    /// <param name="yes">-y, Choose the side without asking, after the preview is shown.</param>
+    [Command("sync")]
+    public Task<int> Sync(bool useLocal = false, bool useRemote = false, bool yes = false, CancellationToken cancellationToken = default) => Execute(() =>
+    {
+        if (useLocal && useRemote)
+            throw new UsageException("--use-local and --use-remote cannot be combined: choose one side.");
+        if (yes && !useLocal && !useRemote)
+            throw new UsageException("--yes confirms a side: add --use-local or --use-remote.");
+        SyncSide? side = useLocal ? SyncSide.Local : useRemote ? SyncSide.Remote : null;
+
+        return WithServiceAsync(async api =>
+        {
+            SyncResult result;
+            if (side is { } chosen)
+            {
+                var preview = await WaitingAsync(() => api.PostAsync<SyncSidePreview>("sync/preview", new SyncPreviewBody { Side = chosen }, cancellationToken));
+                console.Out.WriteLine(preview.Report);
+                if (!yes)
+                {
+                    if (!console.InIsTerminal)
+                        throw new UsageException("Choosing a side asks for confirmation, but standard input is not a terminal: add --yes to choose without asking.");
+
+                    console.Error.Write(preview.Prompt + " ");
+                    var answer = console.In.ReadLine();
+                    if (!string.Equals(answer?.Trim(), "y", StringComparison.Ordinal))
+                    {
+                        console.Error.WriteLine(preview.Cancelled);
+                        return 1;
+                    }
+                }
+
+                result = await WaitingAsync(() => api.PostAsync<SyncResult>("sync/side", new SyncSideChoice(chosen, preview.RemoteHead), cancellationToken));
+            }
+            else
+                result = await WaitingAsync(() => api.PostAsync<SyncResult>("sync", cancellationToken: cancellationToken));
+
+            console.Out.WriteLine(result.Report);
+            return result.Record is null or { Outcome: SyncOutcome.Synced } ? 0 : 1;
         });
     });
 

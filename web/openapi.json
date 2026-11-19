@@ -2358,7 +2358,9 @@
                                   "backup.webdav.url",
                                   "backup.webdav.username",
                                   "backup.webdav.password",
-                                  "backup.webdav.file"
+                                  "backup.webdav.file",
+                                  "sync.remote",
+                                  "sync.pullMinutes"
                                 ]
                               },
                               "running": {
@@ -2376,6 +2378,253 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync": {
+      "post": {
+        "tags": [
+          "management"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/preview": {
+      "post": {
+        "tags": [
+          "management"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncPreviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncSidePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/side": {
+      "post": {
+        "tags": [
+          "management"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncSideChoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
                 }
               }
             }
@@ -3216,7 +3465,8 @@
           "consolidation",
           "decision",
           "retrieval",
-          "backup"
+          "backup",
+          "sync"
         ],
         "type": "object",
         "properties": {
@@ -3252,6 +3502,9 @@
           },
           "backup": {
             "$ref": "#/components/schemas/BackupFile"
+          },
+          "sync": {
+            "$ref": "#/components/schemas/SyncFile"
           }
         }
       },
@@ -3347,7 +3600,9 @@
           "backup.webdav.url",
           "backup.webdav.username",
           "backup.webdav.password",
-          "backup.webdav.file"
+          "backup.webdav.file",
+          "sync.remote",
+          "sync.pullMinutes"
         ]
       },
       "ConfigProblem": {
@@ -5539,6 +5794,16 @@
               }
             ]
           },
+          "sync": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SyncStatus"
+              }
+            ]
+          },
           "logs": {
             "oneOf": [
               {
@@ -5561,10 +5826,208 @@
           }
         }
       },
+      "SyncFile": {
+        "type": "object",
+        "properties": {
+          "remote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pullMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "SyncOutcome": {
+        "enum": [
+          "synced",
+          "failed",
+          "handEdits",
+          "conflict",
+          "unrelated",
+          "restorePaused"
+        ]
+      },
+      "SyncPreviewBody": {
+        "required": [
+          "side"
+        ],
+        "type": "object",
+        "properties": {
+          "side": {
+            "$ref": "#/components/schemas/SyncSide"
+          }
+        }
+      },
+      "SyncRecord": {
+        "required": [
+          "at",
+          "outcome",
+          "detail"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/SyncOutcome"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SyncResult": {
+        "required": [
+          "enabled",
+          "record",
+          "report"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "record": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SyncRecord"
+              }
+            ]
+          },
+          "report": {
+            "type": "string"
+          }
+        }
+      },
+      "SyncSide": {
+        "enum": [
+          "local",
+          "remote"
+        ]
+      },
+      "SyncSideChoice": {
+        "required": [
+          "side",
+          "remoteHead"
+        ],
+        "type": "object",
+        "properties": {
+          "side": {
+            "$ref": "#/components/schemas/SyncSide"
+          },
+          "remoteHead": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SyncSidePreview": {
+        "required": [
+          "side",
+          "remoteHead",
+          "localOnly",
+          "remoteOnly",
+          "report",
+          "prompt",
+          "cancelled"
+        ],
+        "type": "object",
+        "properties": {
+          "side": {
+            "$ref": "#/components/schemas/SyncSide"
+          },
+          "remoteHead": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "localOnly": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "remoteOnly": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "report": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "cancelled": {
+            "type": "string"
+          }
+        }
+      },
+      "SyncStatus": {
+        "required": [
+          "title",
+          "lines",
+          "remote",
+          "last",
+          "unpushed"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SyncRecord"
+              }
+            ]
+          },
+          "unpushed": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "TacitError": {
         "enum": [
           "MemoryDirectoryNotEmpty",
           "ConflictsWithConfig",
+          "RemoteEmpty",
+          "RemoteMoved",
           "NotInitialized",
           "ConfigInvalid",
           "PromptInvalid",

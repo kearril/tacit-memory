@@ -153,6 +153,12 @@ public enum ConfigKeyPath
 
     [JsonStringEnumMemberName("backup.webdav.file")]
     BackupWebDavFile,
+
+    [JsonStringEnumMemberName("sync.remote")]
+    SyncRemote,
+
+    [JsonStringEnumMemberName("sync.pullMinutes")]
+    SyncPullMinutes,
 }
 
 /// <summary>What one key of <c>config.yaml</c> accepts, by its key path, such as <c>retrieval.topK</c>.</summary>

@@ -19,6 +19,7 @@ namespace TacitMemory.Core;
 [JsonSerializable(typeof(AccessControl.StoredState))]
 [JsonSerializable(typeof(BackupManifest))]
 [JsonSerializable(typeof(CloudBackupRecord))]
+[JsonSerializable(typeof(SyncRecord))]
 [JsonSerializable(typeof(ClientRecordStore.ClientRecordFile))]
 [JsonSerializable(typeof(BindingStore.BindingsFile))]
 [JsonSerializable(typeof(JudgmentPool.CacheKeyContent))]

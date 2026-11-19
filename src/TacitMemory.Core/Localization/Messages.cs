@@ -5,6 +5,16 @@ internal static class Messages
 {
     public static readonly Localized InitRepositoryCreated = new("已创建记忆仓库：{0}", "Created the memory repository: {0}");
     public static readonly Localized InitRepositoryExists = new("记忆仓库已存在：{0}", "The memory repository already exists: {0}");
+    public static readonly Localized InitRepositoryCloned = new("已从 {0} 克隆记忆仓库：{1}", "Cloned the memory repository from {0}: {1}");
+    public static readonly Localized InitRemoteEmpty = new(
+        "远端 {0} 上还没有记忆：先在已有记忆的机器上把 sync.remote 设为它并运行 tacit sync，再在这里执行 init --remote。",
+        "The remote {0} holds no memory yet: on the machine that has the memory, set sync.remote to it and run tacit sync, then run init --remote here.");
+    public static readonly Localized InitRemoteMemoryTaken = new(
+        "目录 {0} 不为空，且不是 {1} 的克隆：init --remote 只往空目录里克隆。要把这台机器已有的记忆推上去，在 config.yaml 中设 sync.remote 后运行 tacit sync；要换成远端的记忆，先移走这个目录。",
+        "The directory {0} is not empty and is not a clone of {1}: init --remote only clones into an empty directory. To push this machine's memory, set sync.remote in config.yaml and run tacit sync; to take the remote's memory instead, move this directory away first.");
+    public static readonly Localized InitRemoteConfigWithout = new(
+        "{0} 已存在，但没有设 sync.remote。init 不改写已有的配置：请在其中加上 sync.remote: {1}，再执行 init --remote。",
+        "{0} exists but sets no sync.remote. init does not rewrite an existing config: add sync.remote: {1} to it, then run init --remote again.");
     public static readonly Localized InitCreated = new("已创建：{0}", "Created: {0}");
     public static readonly Localized InitExisting = new("已存在，未改动：{0}", "Already exists, left unchanged: {0}");
     public static readonly Localized InitSkeletonNotCommitted = new(
@@ -27,6 +37,7 @@ internal static class Messages
         "{0} 已将 {1} 设为 {2}，与传入的 {3} 不同。请先修改配置，或不传该选项。",
         "{0} already sets {1} to {2}, which differs from the given {3}. Edit the config first, or leave the option out.");
     public static readonly Localized GitFailed = new("git {0} 执行失败：{1}", "git {0} failed: {1}");
+    public static readonly Localized GitTimedOut = new("git {0} 在 {1} 秒内没有完成，已停止", "git {0} did not finish within {1} s and was stopped");
     public static readonly Localized NoBuiltInText = new(
         "{0} 没有内置默认文本，请去掉 --default。",
         "{0} has no built-in text; leave out --default.");

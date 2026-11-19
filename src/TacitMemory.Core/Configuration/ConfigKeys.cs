@@ -221,6 +221,16 @@ internal static class ConfigKeys
     };
     public static readonly ConfigEntry WebDavFile = new(ConfigKeyPath.BackupWebDavFile, "backup.webdav.file") { Value = file => file.Backup.WebDav?.File };
 
+    public static class Sync
+    {
+        public static readonly ConfigEntry Remote = new(ConfigKeyPath.SyncRemote, "sync.remote") { Value = file => file.Sync.Remote };
+
+        /// <summary>Up to a day between timed pulls; 0 turns them off.</summary>
+        public static readonly IntegerEntry PullMinutes = new(ConfigKeyPath.SyncPullMinutes, "sync.pullMinutes", 30, 0, 1440);
+
+        public static IEnumerable<ConfigEntry> All => [Remote, PullMinutes];
+    }
+
     /// <summary>Every key, in the order of the configuration reference.</summary>
     public static readonly IReadOnlyList<ConfigEntry> All =
     [
@@ -232,6 +242,7 @@ internal static class ConfigKeys
         .. SamePreference.All, .. SamePage.All, .. SameTopic.All, .. RuleConflict.All,
         Candidates, TopK, MinRerankScore,
         Keep, WebDavUrl, WebDavUsername, WebDavPassword, WebDavFile,
+        .. Sync.All,
     ];
 
     private static readonly Dictionary<ConfigKeyPath, ConfigEntry> ById = All.ToDictionary(entry => entry.Id);

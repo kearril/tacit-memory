@@ -42,6 +42,9 @@ public sealed record ConfigFile
     [JsonRequired]
     public BackupFile Backup { get; init; } = new();
 
+    [JsonRequired]
+    public SyncFile Sync { get; init; } = new();
+
     /// <summary>The value at <paramref name="key"/>, as <c>config.yaml</c> would write it.</summary>
     internal string? ValueAt(ConfigEntry key) =>
         (key.Value ?? throw new ArgumentException($"{key.Path} has no value accessor.", nameof(key)))(this);
@@ -91,6 +94,7 @@ public sealed record ConfigFile
             Backup = new BackupFile(
                 config.Backup.Keep,
                 webdav is null ? null : new WebDavFile(webdav.Url.OriginalString, webdav.Username, webdav.Password?.InConfig, webdav.File)),
+            Sync = new SyncFile(config.Sync.Remote, config.Sync.PullMinutes),
         };
     }
 }
@@ -132,3 +136,6 @@ public sealed record BackupFile(int? Keep = null, WebDavFile? WebDav = null);
 
 /// <param name="File"><c>null</c> for the default name, <c>tacit-backup.zip</c>.</param>
 public sealed record WebDavFile(string? Url, string? Username, string? Password, string? File = null);
+
+/// <param name="Remote"><c>null</c> when the sync is off.</param>
+public sealed record SyncFile(string? Remote = null, int? PullMinutes = null);

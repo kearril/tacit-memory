@@ -12,6 +12,9 @@ internal static class ConsolidationTitles
     /// <summary>Part B: what the agent gathers into one numbered list for the user.</summary>
     public const string ProposalPart = "B. For proposals";
 
+    /// <summary>Part A: a paused sync of the memory repository, resolved before anything else is changed.</summary>
+    public const string SyncConflicts = "Sync conflicts";
+
     public const string FormatViolations = "Format and rule violations";
 
     public const string RedundantCandidates = "Persona candidates to remove";
