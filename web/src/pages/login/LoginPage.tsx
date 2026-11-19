@@ -60,7 +60,9 @@ export function LoginPage() {
         <div className="grid justify-items-start gap-md">
           <AppIcon />
           <div className="grid gap-xs">
-            <CardTitle className="text-xl">{dictionary.login.title}</CardTitle>
+            <CardTitle as="h1" className="text-xl">
+              {dictionary.login.title}
+            </CardTitle>
             <CardDescription>{dictionary.login.description}</CardDescription>
           </div>
         </div>

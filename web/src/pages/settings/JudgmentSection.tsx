@@ -1,6 +1,7 @@
 import { useDictionary } from "../../app/session-context";
 import { differsFromDefault, inputIdOf, JUDGMENTS, outOfRange, textOf, valueAt } from "./form";
 import {
+  EXPLAIN_FOCUS,
   Explaining,
   Problems,
   RestoreButton,
@@ -90,7 +91,7 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
             <div className={columns}>
               <div role="rowheader" className="min-w-0">
                 <Explaining help={explained.help} keyPath={group}>
-                  <span tabIndex={0} className="truncate text-sm font-medium outline-none">
+                  <span tabIndex={0} className={`truncate text-sm font-medium ${EXPLAIN_FOCUS}`}>
                     {explained.label}
                   </span>
                 </Explaining>

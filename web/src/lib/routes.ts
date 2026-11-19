@@ -373,3 +373,52 @@ export function searchParamsOf(fields: SearchFields): URLSearchParams {
   }
   return params;
 }
+
+/** A route parsed from a pathname, for shell features that need to know which view an address opens. */
+export type ParsedRoute =
+  | { readonly kind: "login" }
+  | { readonly kind: "dashboard" }
+  | { readonly kind: "settings" }
+  | { readonly kind: "prompts"; readonly name: PromptName | undefined }
+  | { readonly kind: "logs"; readonly date: string | undefined }
+  | { readonly kind: "memory"; readonly view: MemoryView | undefined; readonly target?: string }
+  | { readonly kind: "unknown" };
+
+/** Parses `pathname` into the view it opens, decoding path segments safely. */
+export function routeOf(pathname: string): ParsedRoute {
+  if (pathname === LOGIN_PATH) {
+    return { kind: "login" };
+  }
+  if (pathname === DASHBOARD_PATH) {
+    return { kind: "dashboard" };
+  }
+  if (pathname === SETTINGS_PATH) {
+    return { kind: "settings" };
+  }
+  if (pathname === PROMPTS_PATH || pathname.startsWith(`${PROMPTS_PATH}/`)) {
+    return { kind: "prompts", name: promptNameOf({ name: pathname.slice(PROMPTS_PATH.length + 1) }) };
+  }
+  if (pathname === LOGS_PATH || pathname.startsWith(`${LOGS_PATH}/`)) {
+    return { kind: "logs", date: logDateOf({ date: pathname.slice(LOGS_PATH.length + 1) }) };
+  }
+  if (pathname === MEMORY_PATH || pathname.startsWith(`${MEMORY_PATH}/`)) {
+    const segments = pathname.slice(MEMORY_PATH.length).split("/").filter(Boolean);
+    const view = MEMORY_VIEWS.find((candidate) => candidate === segments[0]);
+    if (view === "workstreams" && segments[1] !== undefined) {
+      return { kind: "memory", view, target: decodeSegment(segments[1]) };
+    }
+    if (view === "pages" && segments[1] !== undefined && segments[2] !== undefined) {
+      return { kind: "memory", view, target: `${decodeSegment(segments[1])}/${decodeSegment(segments[2])}` };
+    }
+    return { kind: "memory", view };
+  }
+  return { kind: "unknown" };
+}
+
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}

@@ -3,121 +3,82 @@
  * soft tinted shadows, and an indigo accent. Components and pages refer to the tokens by name, and never write a colour,
  * size, space, radius, shadow, duration or layer value of their own.
  *
- * Colours come in two sets. The light set is the default. The dark set applies when the system asks for dark, unless the
- * page asks for light with data-theme="light", and when the page asks for dark with data-theme="dark". The tokens derived
- * from other colours (the soft backgrounds, the heatmap levels, the shadows) are written once, below the sets, and follow
- * whichever set applies.
+ * Colours come in light/dark pairs via `light-dark()`. By default the page follows the system colour scheme; setting
+ * `data-theme="light"` or `data-theme="dark"` on `:root` locks the scheme to that side. Derived tokens (soft
+ * backgrounds, heatmap levels, shadows) follow whichever scheme applies.
  */
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 
-  --tk-color-canvas: #f1f5f9;
-  --tk-color-surface: #ffffff;
-  --tk-color-surface-raised: #f6f8fb;
-  --tk-color-line: #e2e8f0;
-  --tk-color-line-strong: #cbd5e1;
-  --tk-color-scrollbar: #cbd5e1;
-  --tk-color-ink: #1f2937;
-  --tk-color-ink-muted: #5b6577;
-  --tk-color-accent: #4f46e5;
-  --tk-color-on-accent: #ffffff;
-  --tk-color-success: #047857;
-  --tk-color-warning: #a64b07;
-  --tk-color-danger: #c2410c;
-  --tk-color-info: #0369a1;
-  --tk-color-scrim: rgb(15 23 42 / 0.32);
-  --tk-color-shadow: rgb(100 116 139);
-  --tk-color-heat-0: #eef1f6;
+  --tk-color-canvas: light-dark(#f1f5f9, #0f141c);
+  --tk-color-surface: light-dark(#ffffff, #1a2231);
+  --tk-color-surface-raised: light-dark(#f6f8fb, #222b3b);
+  --tk-color-line: light-dark(#e2e8f0, #2f3a4d);
+  --tk-color-line-strong: light-dark(#cbd5e1, #435069);
+  --tk-color-scrollbar: light-dark(#7b889c, #6b7891);
+  --tk-color-ink: light-dark(#1f2937, #e6e9ef);
+  --tk-color-ink-muted: light-dark(#5b6577, #9aa4b5);
+  --tk-color-accent: light-dark(#4f46e5, #9d9ef8);
+  --tk-color-on-accent: light-dark(#ffffff, #11131c);
+  --tk-color-success: light-dark(#047857, #34d399);
+  --tk-color-warning: light-dark(#a64b07, #fbbf24);
+  --tk-color-danger: light-dark(#c2410c, #fb923c);
+  --tk-color-info: light-dark(#0369a1, #38bdf8);
+  --tk-color-scrim: light-dark(rgb(15 23 42 / 0.32), rgb(0 0 0 / 0.55));
+  --tk-color-shadow: light-dark(rgb(100 116 139), rgb(0 0 0));
+  --tk-color-heat-0: light-dark(#eef1f6, #222a38);
   /* Markdown in the prompt editor: headings, the marks that shape it (#, -, **, `), HTML comments, inline code, links */
-  --tk-color-syntax-heading: #6d28d9;
-  --tk-color-syntax-mark: #c2410c;
-  --tk-color-syntax-comment: #15803d;
-  --tk-color-syntax-code: #be185d;
-  --tk-color-syntax-link: #0369a1;
-  --tk-mix-soft: 8%;
-  --tk-mix-heat-1: 22%;
-  --tk-mix-heat-2: 42%;
-  --tk-mix-heat-3: 68%;
-}
+  --tk-color-syntax-heading: light-dark(#6d28d9, #c4b5fd);
+  --tk-color-syntax-mark: light-dark(#c2410c, #fdba74);
+  --tk-color-syntax-comment: light-dark(#15803d, #86efac);
+  --tk-color-syntax-code: light-dark(#be185d, #f9a8d4);
+  --tk-color-syntax-link: light-dark(#0369a1, #7dd3fc);
+  --tk-mix-soft-light: 8%;
+  --tk-mix-soft-dark: 14%;
+  --tk-mix-heat-1-light: 22%;
+  --tk-mix-heat-1-dark: 35%;
+  --tk-mix-heat-2-light: 42%;
+  --tk-mix-heat-2-dark: 58%;
+  --tk-mix-heat-3-light: 68%;
+  --tk-mix-heat-3-dark: 80%;
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --tk-color-canvas: #0f141c;
-    --tk-color-surface: #1a2231;
-    --tk-color-surface-raised: #222b3b;
-    --tk-color-line: #2f3a4d;
-    --tk-color-line-strong: #435069;
-    --tk-color-scrollbar: #435069;
-    --tk-color-ink: #e6e9ef;
-    --tk-color-ink-muted: #9aa4b5;
-    --tk-color-accent: #9d9ef8;
-    --tk-color-on-accent: #11131c;
-    --tk-color-success: #34d399;
-    --tk-color-warning: #fbbf24;
-    --tk-color-danger: #fb923c;
-    --tk-color-info: #38bdf8;
-    --tk-color-scrim: rgb(0 0 0 / 0.55);
-    --tk-color-shadow: rgb(0 0 0);
-    --tk-color-heat-0: #222a38;
-    --tk-color-syntax-heading: #c4b5fd;
-    --tk-color-syntax-mark: #fdba74;
-    --tk-color-syntax-comment: #86efac;
-    --tk-color-syntax-code: #f9a8d4;
-    --tk-color-syntax-link: #7dd3fc;
-    --tk-mix-soft: 14%;
-    --tk-mix-heat-1: 35%;
-    --tk-mix-heat-2: 58%;
-    --tk-mix-heat-3: 80%;
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --tk-color-canvas: #0f141c;
-  --tk-color-surface: #1a2231;
-  --tk-color-surface-raised: #222b3b;
-  --tk-color-line: #2f3a4d;
-  --tk-color-line-strong: #435069;
-  --tk-color-scrollbar: #435069;
-  --tk-color-ink: #e6e9ef;
-  --tk-color-ink-muted: #9aa4b5;
-  --tk-color-accent: #9d9ef8;
-  --tk-color-on-accent: #11131c;
-  --tk-color-success: #34d399;
-  --tk-color-warning: #fbbf24;
-  --tk-color-danger: #fb923c;
-  --tk-color-info: #38bdf8;
-  --tk-color-scrim: rgb(0 0 0 / 0.55);
-  --tk-color-shadow: rgb(0 0 0);
-  --tk-color-heat-0: #222a38;
-  --tk-color-syntax-heading: #c4b5fd;
-  --tk-color-syntax-mark: #fdba74;
-  --tk-color-syntax-comment: #86efac;
-  --tk-color-syntax-code: #f9a8d4;
-  --tk-color-syntax-link: #7dd3fc;
-  --tk-mix-soft: 14%;
-  --tk-mix-heat-1: 35%;
-  --tk-mix-heat-2: 58%;
-  --tk-mix-heat-3: 80%;
-}
-
-:root {
   /* Soft backgrounds: a light wash of a colour behind its own text, for the current navigation item, badges and notices */
-  --tk-color-accent-soft: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-soft), var(--tk-color-surface));
-  --tk-color-success-soft: color-mix(in oklab, var(--tk-color-success) var(--tk-mix-soft), var(--tk-color-surface));
-  --tk-color-warning-soft: color-mix(in oklab, var(--tk-color-warning) var(--tk-mix-soft), var(--tk-color-surface));
-  --tk-color-danger-soft: color-mix(in oklab, var(--tk-color-danger) var(--tk-mix-soft), var(--tk-color-surface));
-  --tk-color-info-soft: color-mix(in oklab, var(--tk-color-info) var(--tk-mix-soft), var(--tk-color-surface));
+  --tk-color-accent-soft: light-dark(
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-soft-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-soft-dark), var(--tk-color-surface))
+  );
+  --tk-color-success-soft: light-dark(
+    color-mix(in oklab, var(--tk-color-success) var(--tk-mix-soft-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-success) var(--tk-mix-soft-dark), var(--tk-color-surface))
+  );
+  --tk-color-warning-soft: light-dark(
+    color-mix(in oklab, var(--tk-color-warning) var(--tk-mix-soft-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-warning) var(--tk-mix-soft-dark), var(--tk-color-surface))
+  );
+  --tk-color-danger-soft: light-dark(
+    color-mix(in oklab, var(--tk-color-danger) var(--tk-mix-soft-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-danger) var(--tk-mix-soft-dark), var(--tk-color-surface))
+  );
+  --tk-color-info-soft: light-dark(
+    color-mix(in oklab, var(--tk-color-info) var(--tk-mix-soft-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-info) var(--tk-mix-soft-dark), var(--tk-color-surface))
+  );
 
   /* Heatmap levels: level 0 is an empty cell; levels 1 to 4 are ever stronger shares of the accent over the surface. The
      dark set takes larger shares, since a bright accent over a dark surface keeps the lower levels too close together. */
-  --tk-color-heat-1: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-1), var(--tk-color-surface));
-  --tk-color-heat-2: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-2), var(--tk-color-surface));
-  --tk-color-heat-3: color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-3), var(--tk-color-surface));
+  --tk-color-heat-1: light-dark(
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-1-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-1-dark), var(--tk-color-surface))
+  );
+  --tk-color-heat-2: light-dark(
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-2-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-2-dark), var(--tk-color-surface))
+  );
+  --tk-color-heat-3: light-dark(
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-3-light), var(--tk-color-surface)),
+    color-mix(in oklab, var(--tk-color-accent) var(--tk-mix-heat-3-dark), var(--tk-color-surface))
+  );
   --tk-color-heat-4: var(--tk-color-accent);
 
   /* Typography. Inter is bundled with the interface; Chinese text falls back to the system's own sans-serif face. The
@@ -213,6 +174,22 @@
   --tk-mix-hover: 90%;
   --tk-lift-hover: -2px;
   --tk-scale-pressed: 0.98;
+}
+
+/* Explicit theme locks override the system colour scheme for `light-dark()`. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Under high-contrast preferences, raise the scrollbar thumb to the foreground ink for clear separation. */
+@media (prefers-contrast: more) {
+  :root {
+    --tk-color-scrollbar: var(--tk-color-ink);
+  }
 }
 
 /* With reduced motion asked for, hovered and pressed controls change colour and shadow but do not move. */

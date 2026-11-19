@@ -23,6 +23,7 @@ import { AppIcon } from "../components/app-icon";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet";
 import { useSectionNav } from "../pages/settings/section-nav";
+import { scrollBehavior } from "../lib/motion";
 import { useDictionary, useSessionStatus } from "./session-context";
 import {
   DASHBOARD_PATH,
@@ -66,6 +67,12 @@ export function AppShell() {
 
   return (
     <div className="min-h-dvh bg-canvas text-ink lg:grid lg:grid-cols-[var(--tk-size-sidebar)_minmax(0,1fr)]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-sm focus:left-sm focus:z-(--tk-layer-toast) focus:rounded-md focus:bg-accent focus:px-md focus:py-sm focus:text-sm focus:font-medium focus:text-on-accent focus:shadow-raised focus:outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface"
+      >
+        {dictionary.skipToContent}
+      </a>
       <aside className="sticky top-0 hidden h-dvh border-r-(length:--tk-border-thin) border-line bg-surface lg:flex lg:flex-col">
         <SidebarBody onNavigate={() => undefined} />
       </aside>
@@ -92,7 +99,11 @@ export function AppShell() {
         </Sheet>
       </header>
 
-      <main className="mx-auto w-full max-w-page px-md py-lg md:px-xl md:py-xl">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-page px-md py-lg outline-none md:px-xl md:py-xl"
+      >
         <Outlet />
       </main>
     </div>
@@ -115,7 +126,7 @@ function SidebarBody({ onNavigate }: { readonly onNavigate: () => void }) {
                 to={item.to}
                 onClick={onNavigate}
                 className={({ isActive }) =>
-                  `flex h-control items-center gap-sm rounded-md px-md text-sm font-medium transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+                  `flex min-h-control items-center gap-sm rounded-md px-md py-xs text-sm font-medium transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
                     isActive ? "bg-accent-soft text-accent" : "text-ink-muted hover:bg-surface-raised hover:text-ink"
                   }`
                 }
@@ -233,7 +244,7 @@ function SettingsSections({ onNavigate }: { readonly onNavigate: () => void }) {
                   onClick={() => {
                     document
                       .getElementById(sectionIdOf(section))
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
                     onNavigate();
                   }}
                   className={`-ml-(--tk-border-thin) flex items-center justify-between gap-sm border-l-(length:--tk-border-thick) py-xs pr-sm pl-md text-sm transition-colors outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${

@@ -138,11 +138,12 @@ function StickyBar({
   const stuck = useStuck(bar, edge);
   const fold = useFold(bar, stuck);
   usePublishBottom(bar, edge);
+  const Tag = role === "search" ? "search" : "div";
   return (
-    <div
+    <Tag
       ref={bar}
       style={{ marginBottom: fold }}
-      role={role}
+      role={role === "search" ? undefined : role}
       data-stuck={stuck || undefined}
       className={cn(
         "sticky z-(--tk-layer-nav) -mx-md bg-canvas px-md py-sm transition-[margin,border-radius,box-shadow,background-color]",
@@ -153,7 +154,7 @@ function StickyBar({
       {...props}
     >
       {typeof children === "function" ? children(stuck) : children}
-    </div>
+    </Tag>
   );
 }
 

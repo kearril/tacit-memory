@@ -104,12 +104,16 @@ export function SettingsSection({
   );
 }
 
+/** Focus indicator shared by focusable non-input triggers wrapped in `Explaining`. */
+export const EXPLAIN_FOCUS =
+  "rounded-xs outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent";
+
 /** The mark of something that happens at once rather than on save, explained on hover. */
 export function Immediate() {
   const dictionary = useDictionary();
   return (
     <Explaining help={dictionary.settings.immediateHelp}>
-      <Badge tone="info" tabIndex={0}>
+      <Badge tone="info" tabIndex={0} className={EXPLAIN_FOCUS}>
         {dictionary.settings.immediate}
       </Badge>
     </Explaining>
@@ -210,7 +214,7 @@ export function SettingName({
     <>
       <Explaining help={text.help} keyPath={path}>
         {htmlFor === undefined ? (
-          <span id={id} tabIndex={0} className="flex w-fit items-center gap-xs text-sm font-medium outline-none">
+          <span id={id} tabIndex={0} className={`flex w-fit items-center gap-xs text-sm font-medium ${EXPLAIN_FOCUS}`}>
             {text.label}
             {mark}
           </span>
@@ -349,7 +353,7 @@ export function RestartMark({ form, path }: { readonly form: SettingsForm; reado
   }
   return form.view.keys.some((key) => key.path === path && key.restart && !key.readOnly) ? (
     <Explaining help={text.restartHelp}>
-      <span tabIndex={0} aria-label={text.restartHelp} className="inline-flex text-ink-muted outline-none">
+      <span tabIndex={0} aria-label={text.restartHelp} className={`inline-flex text-ink-muted ${EXPLAIN_FOCUS}`}>
         <RotateCw aria-hidden className="size-(--tk-font-size-sm)" />
       </span>
     </Explaining>

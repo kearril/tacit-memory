@@ -1,4 +1,5 @@
 import { type RefObject, useEffect } from "react";
+import { scrollBehavior } from "../../lib/motion";
 
 // Where the floating top bar ends is `--sticky-bar-bottom` on the document. The stylesheet gives it the bottom of a bar
 // of one row, for a page without a bar and until a bar measures itself; a bar's own measure overrides it.
@@ -39,9 +40,12 @@ export function barBottom(): number {
   return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sticky-bar-bottom")) || 0;
 }
 
-/** Scrolls the page smoothly so that `element` starts under the floating top bar. */
+/** Scrolls the page smoothly so that `element` starts under the floating top bar, jumping under reduced motion. */
 export function scrollUnderBar(element: HTMLElement) {
-  window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - barBottom(), behavior: "smooth" });
+  window.scrollTo({
+    top: element.getBoundingClientRect().top + window.scrollY - barBottom(),
+    behavior: scrollBehavior(),
+  });
 }
 
 /**

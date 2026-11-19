@@ -33,7 +33,7 @@ function Block({ block }: { readonly block: MdBlock }) {
   switch (block.type) {
     case "paragraph":
       return (
-        <p className="break-words">
+        <p className="text-pretty break-words">
           <Inlines inlines={block.inlines} />
         </p>
       );
@@ -72,7 +72,10 @@ function Block({ block }: { readonly block: MdBlock }) {
       );
     case "code":
       return (
-        <pre className="overflow-x-auto rounded-md bg-surface-raised p-md font-mono text-xs leading-(--tk-line-height-normal)">
+        <pre
+          tabIndex={0}
+          className="overflow-x-auto rounded-md bg-surface-raised p-md font-mono text-xs leading-(--tk-line-height-normal) outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
+        >
           <code>{block.text}</code>
         </pre>
       );
@@ -91,6 +94,7 @@ function Block({ block }: { readonly block: MdBlock }) {
                 {block.header.map((cell, index) => (
                   <th
                     key={index}
+                    scope="col"
                     className="border-b-(length:--tk-border-thin) border-line px-sm py-xs text-left font-semibold"
                   >
                     <Inlines inlines={cell} />

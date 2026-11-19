@@ -90,7 +90,7 @@ bun run check       # 类型检查、ESLint、Prettier 格式检查、Vitest 与
 bun run format      # Prettier 就地格式化
 ```
 
-- Vitest 只测不含界面的逻辑：地址、命令的影响面、表单模型、日期推算、格式化、时间线组装、Markdown 解析等纯函数，测试文件与被测模块放在一起。命令的影响面在 node 下用真实的 `QueryClient` 测。
+- Vitest 只测不含界面的逻辑：地址、页面标题、命令的影响面、表单模型、日期推算、格式化、时间线组装、Markdown 解析等纯函数，测试文件与被测模块放在一起。命令的影响面在 node 下用真实的 `QueryClient` 测。
 - 不测样式，不做浏览器端到端测试。字典的键一致与写全由类型检查保证，吸顶条的条下边界由实机检查保证。
 - 格式由 `web/.prettierrc.json` 规定（120 列，Tailwind 类名排序）；生成的 `openapi.json` 与 `src/api/schema.ts` 不经 Prettier。
 

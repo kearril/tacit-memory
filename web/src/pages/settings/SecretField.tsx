@@ -2,7 +2,7 @@ import { Lock } from "lucide-react";
 import { useDictionary } from "../../app/session-context";
 import { PasswordInput } from "../../components/ui/password-input";
 import type { Explained } from "../../i18n/messages";
-import { Explaining, Problems, SettingName, SettingRow, type SettingsForm } from "./fields";
+import { EXPLAIN_FOCUS, Explaining, Problems, SettingName, SettingRow, type SettingsForm } from "./fields";
 import { inputIdOf } from "./form";
 
 /**
@@ -37,7 +37,7 @@ export function SecretField({
             <p
               id={id}
               tabIndex={0}
-              className="flex min-h-control w-fit items-center gap-sm text-sm text-ink-muted outline-none"
+              className={`flex min-h-control w-fit items-center gap-sm text-sm text-ink-muted ${EXPLAIN_FOCUS}`}
             >
               <Lock aria-hidden className="size-(--tk-font-size-sm)" />
               {words.fromEnvironment(variable)}

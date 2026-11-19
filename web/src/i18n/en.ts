@@ -2,6 +2,7 @@ import type { Dictionary } from "./messages";
 
 export const en = {
   appName: "TacitMemory",
+  skipToContent: "Skip to main content",
   mainNav: "Main navigation",
   nav: {
     dashboard: "Dashboard",
