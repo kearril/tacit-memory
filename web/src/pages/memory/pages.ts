@@ -34,14 +34,13 @@ export type PageSort = "workstream" | "changed" | "uses";
  * with the undated last; by uses, most first. Pages that tie keep their order.
  */
 export function sortPages(pages: readonly PageListItem[], sort: PageSort): PageListItem[] {
-  const rows = [...pages];
   if (sort === "changed") {
-    return rows.sort((a, b) => (b.changed ?? "").localeCompare(a.changed ?? ""));
+    return pages.toSorted((a, b) => (b.changed ?? "").localeCompare(a.changed ?? ""));
   }
   if (sort === "uses") {
-    return rows.sort((a, b) => b.uses - a.uses);
+    return pages.toSorted((a, b) => b.uses - a.uses);
   }
-  return rows.sort((a, b) =>
+  return pages.toSorted((a, b) =>
     a.workstream === b.workstream
       ? 0
       : a.workstream === TOPICS

@@ -62,6 +62,12 @@ describe("segmentsOf", () => {
   it("has no share when there are no units", () => {
     expect(segmentsOf([]).map((segment) => segment.share)).toEqual([0, 0, 0, 0]);
   });
+
+  it("does not mutate the input array", () => {
+    const input = [unit("beyondCandidates", 4), unit("shown", 1), unit("belowThreshold", 3)];
+    segmentsOf(input);
+    expect(input.map((item) => item.fusedRank)).toEqual([4, 1, 3]);
+  });
 });
 
 describe("scoreText", () => {

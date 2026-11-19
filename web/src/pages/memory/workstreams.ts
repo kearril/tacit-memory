@@ -52,10 +52,10 @@ export interface DirectoryRow {
 export function directoryRows(groups: readonly BriefPageGroup[], sort: DirectorySort): DirectoryRow[] {
   const rows = groups.flatMap((group) => group.pages.map((page) => ({ type: group.type, page })));
   if (sort === "changed") {
-    return [...rows].sort((a, b) => (b.page.changed ?? "").localeCompare(a.page.changed ?? ""));
+    return rows.toSorted((a, b) => (b.page.changed ?? "").localeCompare(a.page.changed ?? ""));
   }
   if (sort === "uses") {
-    return [...rows].sort((a, b) => b.page.uses - a.page.uses);
+    return rows.toSorted((a, b) => b.page.uses - a.page.uses);
   }
   return rows;
 }

@@ -16,7 +16,7 @@ export interface Segment {
  * longer be read was within topK yet not shown, which is rare enough to count with those beyond topK.
  */
 export function segmentsOf(units: readonly TraceUnit[]): Segment[] {
-  const ordered = [...units].sort((a, b) => a.fusedRank - b.fusedRank);
+  const ordered = units.toSorted((a, b) => a.fusedRank - b.fusedRank);
   return SEGMENT_FATES.map((fate) => {
     const members = ordered.filter((item) => segmentOf(item.fate) === fate);
     return { fate, units: members, share: units.length === 0 ? 0 : members.length / units.length };

@@ -65,6 +65,12 @@ describe("sortPages", () => {
   it("orders by uses, most first, keeping the order of ties", () => {
     expect(sortPages(ROWS, "uses").map((p) => p.id)).toEqual(["app/b", "ops/a", "ops/c"]);
   });
+
+  it("does not mutate the input array", () => {
+    const input = [...ROWS];
+    sortPages(input, "changed");
+    expect(input.map((p) => p.id)).toEqual(["ops/a", "app/b", "ops/c"]);
+  });
 });
 
 describe("sectionLabel", () => {
