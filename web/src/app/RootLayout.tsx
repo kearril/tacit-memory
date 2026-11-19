@@ -6,6 +6,7 @@ import { getSession, SESSION_QUERY_KEY } from "../api/session";
 import { Toaster } from "../components/ui/toaster";
 import { TooltipProvider } from "../components/ui/tooltip";
 import { dictionaryFor, errorTextOf } from "../i18n/messages";
+import { pageTitleOf } from "./page-title";
 import { destinationAfterLogin, targetOf } from "./return-target";
 import { SessionContext } from "./session-context";
 import { LOGIN_PATH } from "../lib/routes";
@@ -44,6 +45,10 @@ export function RootLayout() {
       document.documentElement.lang = session.data.language;
     }
   }, [session.data]);
+
+  useEffect(() => {
+    document.title = pageTitleOf(location.pathname, dictionaryFor(session.data?.language));
+  }, [location.pathname, session.data?.language]);
 
   if (session.isError) {
     return (

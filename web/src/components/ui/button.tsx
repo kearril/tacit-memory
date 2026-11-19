@@ -5,7 +5,7 @@ import { Slot } from "radix-ui";
 
 // Structure and behaviour follow shadcn/ui. The colours, sizes and motion are the project's tokens (see styles/tokens.css).
 const buttonVariants = cva(
-  "inline-flex h-control shrink-0 lift cursor-pointer items-center justify-center gap-sm rounded-md text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-(--tk-opacity-disabled) aria-disabled:cursor-not-allowed aria-disabled:opacity-(--tk-opacity-disabled) [&_svg]:size-(--tk-font-size-base) [&_svg]:shrink-0",
+  "inline-flex min-h-control shrink-0 lift cursor-pointer items-center justify-center gap-sm rounded-md py-xs text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-(--tk-opacity-disabled) aria-disabled:cursor-not-allowed aria-disabled:opacity-(--tk-opacity-disabled) [&_svg]:size-(--tk-font-size-base) [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -18,7 +18,7 @@ const buttonVariants = cva(
       },
       size: {
         default: "px-md",
-        icon: "w-(--tk-size-control)",
+        icon: "w-(--tk-size-control) py-0",
       },
     },
     defaultVariants: {

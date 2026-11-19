@@ -14,6 +14,7 @@ type MemoryLanguage = components["schemas"]["MemoryLanguage"];
  */
 export const zh = {
   appName: "TacitMemory",
+  skipToContent: "跳至主内容",
   mainNav: "主导航",
   nav: {
     dashboard: "仪表盘",

@@ -31,6 +31,7 @@ import { QueryFailed, QueryResult, type Retry } from "../../components/query-res
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/toast-context";
 import { errorTextOf } from "../../i18n/messages";
+import { scrollBehavior } from "../../lib/motion";
 import type { SettingsForm } from "./fields";
 import {
   bodyOf,
@@ -181,7 +182,7 @@ function SettingsEditor({
     const first = placeProblems(view, found).first;
     window.setTimeout(() => {
       const input = first === null ? null : document.getElementById(inputIdOf(first));
-      input?.scrollIntoView({ block: "center", behavior: "smooth" });
+      input?.scrollIntoView({ block: "center", behavior: scrollBehavior() });
       input?.focus({ preventScroll: true });
     });
   };

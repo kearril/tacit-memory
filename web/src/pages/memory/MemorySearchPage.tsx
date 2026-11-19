@@ -42,6 +42,7 @@ import { chipVariants } from "../../components/ui/chip-variants";
 import { entryBox } from "../../components/ui/entry-box";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
+import { scrollBehavior } from "../../lib/motion";
 import { sectionLabel } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
 import { requestOf } from "./search";
@@ -556,7 +557,10 @@ function Column({
           type="button"
           onClick={() => {
             const rows = outside()[edge];
-            rows[edge === "above" ? rows.length - 1 : 0]?.scrollIntoView({ block: "center", behavior: "smooth" });
+            rows[edge === "above" ? rows.length - 1 : 0]?.scrollIntoView({
+              block: "center",
+              behavior: scrollBehavior(),
+            });
           }}
           className={cn(
             "absolute flex cursor-pointer items-center gap-xs rounded-full bg-accent px-sm py-xs text-xs whitespace-nowrap text-on-accent shadow-raised outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent",

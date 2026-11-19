@@ -37,7 +37,7 @@ export function SecretField({
             <p
               id={id}
               tabIndex={0}
-              className="flex min-h-control w-fit items-center gap-sm text-sm text-ink-muted outline-none"
+              className="flex min-h-control w-fit items-center gap-sm rounded-xs text-sm text-ink-muted outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
             >
               <Lock aria-hidden className="size-(--tk-font-size-sm)" />
               {words.fromEnvironment(variable)}

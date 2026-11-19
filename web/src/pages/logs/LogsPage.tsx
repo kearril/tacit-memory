@@ -18,6 +18,7 @@ import {
 import { Input } from "../../components/ui/input";
 import { IconTile } from "../../components/ui/icon-tile";
 import { dayText } from "../../lib/format";
+import { scrollBehavior } from "../../lib/motion";
 import { clockOf, dateOptions } from "./day";
 import { applyFilters, highlightParts, levelCounts } from "./filter";
 import { isAtBottom, unseenOf } from "./follow";
@@ -316,8 +317,7 @@ function LogDay({
 
 /** Scrolls an area to its end; smoothly when asked, unless the system asks for reduced motion. */
 function scrollToEnd(area: HTMLElement, behavior: "instant" | "smooth") {
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  area.scrollTo({ top: area.scrollHeight, behavior: reduced ? "instant" : behavior });
+  area.scrollTo({ top: area.scrollHeight, behavior: scrollBehavior(behavior) });
 }
 
 /**
