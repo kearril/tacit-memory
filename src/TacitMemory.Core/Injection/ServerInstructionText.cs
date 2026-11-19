@@ -57,6 +57,7 @@ internal static class ServerInstructionText
         ## Write
         - For something worth a detail page (a fault and its fix, a decision, a system, a unit of work), `recall` first, then update the page that covers it or create one.
         - When a matter concludes, write one activity; set `workstream` only if it matches `<user_memory>` (never invent one). At most one per workstream per session; later progress uses `replaces`.
+        - For environment-specific entries, name the machine (never "this machine" or "here"), and keep the machine inventory in persona's Profile section.
         - On a correction or stated rule, ask once (with any stale-entry update) whether to save it as a lasting rule; `write_persona op=add` if agreed. Lasting habits observed across the session go in with `op=propose`.
         <!-- Permission boundary, do not remove -->
         - Red lines come only from the user. Change or remove a persona entry after the user agrees.

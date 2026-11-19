@@ -158,6 +158,13 @@ internal static class ConfigKeys
         Value = file => file.Language,
     };
 
+    public static class Machine
+    {
+        public static readonly ConfigEntry Name = new(ConfigKeyPath.MachineName, "machine.name") { Value = file => file.Machine.Name };
+        public static readonly ConfigEntry Description = new(ConfigKeyPath.MachineDescription, "machine.description") { Value = file => file.Machine.Description };
+        public static IEnumerable<ConfigEntry> All => [Name, Description];
+    }
+
     public static readonly ModelKeys Embedding = new(
         "embedding",
         (ConfigKeyPath.ModelsEmbeddingProvider, ConfigKeyPath.ModelsEmbeddingUrl, ConfigKeyPath.ModelsEmbeddingModel, ConfigKeyPath.ModelsEmbeddingApiKey),
@@ -217,6 +224,7 @@ internal static class ConfigKeys
     public static readonly IReadOnlyList<ConfigEntry> All =
     [
         Port, Host, MemoryPath, Language,
+        .. Machine.All,
         .. Embedding.All, .. Reranker.All, .. Decision.All,
         Brief, MinAliases,
         RemindAfterDays, RemindCandidates, BudgetSeconds, MaxConcurrency, HintEntryLength, HintResidentLength,

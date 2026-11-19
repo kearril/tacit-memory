@@ -60,6 +60,8 @@ export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "server.host": { section: "access", kind: "text" },
   "memory.path": { section: "advanced" },
   language: { section: "advanced" },
+  "machine.name": { section: "machine", kind: "text" },
+  "machine.description": { section: "machine", kind: "text" },
   "limits.brief": { section: "advanced", kind: "integer" },
   "limits.page.minAliases": { section: "advanced", kind: "integer" },
   "models.embedding.provider": { section: "models", kind: "choice", within: model("embedding") },

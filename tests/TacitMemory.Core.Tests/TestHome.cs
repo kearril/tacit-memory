@@ -40,6 +40,9 @@ internal sealed partial class TestHome : IDisposable
     /// </summary>
     public Dictionary<string, string> EnvironmentVariables { get; } = [];
 
+    /// <summary>The host name supplied through <see cref="TacitOptions.HostName"/>; deterministic by default in tests.</summary>
+    public string HostName { get; set; } = "test-machine";
+
     /// <summary>The options of every <see cref="Tacit"/> made here: this home, this clock and the secrets above.</summary>
     public TacitOptions Options()
     {
@@ -47,6 +50,7 @@ internal sealed partial class TestHome : IDisposable
         {
             TacitHome = TacitHome,
             UserHome = UserHome,
+            HostName = HostName,
             Time = Clock,
             ModelTime = ModelClock,
             Secrets = EnvironmentVariables,

@@ -626,4 +626,37 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
         Assert.Contains($"consolidation.{key}", error.Message);
     }
+
+    [Theory]
+    [InlineData("Workstation-01.local", "workstation-01")]
+    [InlineData("My_Host (Home).tailnet.ts.net", "my-host-home")]
+    [InlineData("---My--Host---", "my-host")]
+    [InlineData("中文主机名", "machine")]
+    [InlineData("", "machine")]
+    [InlineData("abcdefghijklmnopqrstuvwxyz-1234567890", "abcdefghijklmnopqrstuvwxyz-12345")]
+    public void An_unconfigured_machine_name_normalizes_the_host_name(string hostName, string expected)
+    {
+        _home.HostName = hostName;
+        WriteConfig(Models);
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(expected, config.Machine.Name);
+        Assert.Null(config.Machine.Description);
+    }
+
+    [Theory]
+    [InlineData("name: MyHost", "machine.name")]
+    [InlineData("name: bad_name", "machine.name")]
+    [InlineData("name: a12345678901234567890123456789012", "machine.name")]
+    [InlineData("description: \"line 1\\nline 2\"", "machine.description")]
+    public void An_invalid_machine_setting_is_refused(string setting, string keyPath)
+    {
+        WriteConfig(Models + $"machine: {{ {setting} }}\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains(keyPath, error.Message);
+    }
 }

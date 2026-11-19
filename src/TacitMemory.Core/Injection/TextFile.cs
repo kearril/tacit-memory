@@ -12,6 +12,9 @@ internal static class TextFile
     private static readonly byte[] Bom = [0xEF, 0xBB, 0xBF];
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
+    /// <summary>Characters an editor shows as a line break, though line parsers split on LF only.</summary>
+    public static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
+
     /// <summary>The text and whether it had a BOM; <c>null</c> when the file is not valid UTF-8. A missing file reads as empty.</summary>
     public static (string Text, bool HasBom)? Read(string path)
     {

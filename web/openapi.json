@@ -2321,6 +2321,8 @@
                                   "server.host",
                                   "memory.path",
                                   "language",
+                                  "machine.name",
+                                  "machine.description",
                                   "models.embedding.provider",
                                   "models.embedding.url",
                                   "models.embedding.model",
@@ -3200,6 +3202,7 @@
         "required": [
           "server",
           "memory",
+          "machine",
           "models",
           "limits",
           "consolidation",
@@ -3220,6 +3223,9 @@
               "null",
               "string"
             ]
+          },
+          "machine": {
+            "$ref": "#/components/schemas/MachineFile"
           },
           "models": {
             "$ref": "#/components/schemas/ModelsFile"
@@ -3296,6 +3302,8 @@
           "server.host",
           "memory.path",
           "language",
+          "machine.name",
+          "machine.description",
           "models.embedding.provider",
           "models.embedding.url",
           "models.embedding.model",
@@ -3749,6 +3757,23 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "MachineFile": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

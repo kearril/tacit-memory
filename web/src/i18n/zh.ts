@@ -202,6 +202,7 @@ export const zh = {
   },
   settings: {
     sections: {
+      machine: "本机",
       models: "模型",
       bindings: "绑定",
       judgment: "检索与判断",
@@ -320,6 +321,20 @@ export const zh = {
       mcp: { url: "端点", transport: "传输方式", name: "服务名" },
       details: "查看做了什么",
       createdFolders: "以下目录原先不存在，已新建。请确认客户端读取的就是这里：",
+    },
+    machine: {
+      summary: "这台机器在记忆里的名字与定位说明，出现在常驻区块开头，也会自动标在它写下的活动上。",
+      descriptionDefault: "可不填，如「工作站」「家里服务器」",
+      fields: {
+        name: {
+          label: "机器名",
+          help: "1 到 32 个小写字母、数字或连字符；留空恢复由主机名规整得到的默认名。",
+        },
+        description: {
+          label: "定位说明",
+          help: "一行短说明，显示在常驻区块机器名的破折号后面，说明这台机器的角色。",
+        },
+      },
     },
     models: {
       summary: "检索和写入时用到的三个模型。关掉的模型保存后从配置中移除，填过的内容留在页面上。",

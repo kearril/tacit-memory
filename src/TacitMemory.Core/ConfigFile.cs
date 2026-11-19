@@ -22,6 +22,9 @@ public sealed record ConfigFile
     public string? Language { get; init; }
 
     [JsonRequired]
+    public MachineFile Machine { get; init; } = new();
+
+    [JsonRequired]
     public ModelsFile Models { get; init; } = new();
 
     [JsonRequired]
@@ -69,6 +72,7 @@ public sealed record ConfigFile
             Server = new ServerFile(config.Port, config.ExtraAddress?.ToString()),
             Memory = new MemoryFile(config.MemoryPath),
             Language = config.Language.Code(),
+            Machine = new MachineFile(config.Machine.Name, config.Machine.Description),
             Models = new ModelsFile(Model(config.Models.Embedding), Model(config.Models.Reranker), Model(config.Models.Decision)),
             Limits = new LimitsFile(config.Limits.Brief, new PageLimitsFile(config.Limits.Page.MinAliases)),
             Consolidation = new ConsolidationFile(
@@ -94,6 +98,8 @@ public sealed record ConfigFile
 public sealed record ServerFile(int? Port = null, string? Host = null);
 
 public sealed record MemoryFile(string? Path = null);
+
+public sealed record MachineFile(string? Name = null, string? Description = null);
 
 /// <summary>A <c>null</c> model is unconfigured and is not written.</summary>
 public sealed record ModelsFile(ModelFile? Embedding = null, ModelFile? Reranker = null, ModelFile? Decision = null);

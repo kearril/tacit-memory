@@ -15,8 +15,6 @@ namespace TacitMemory.Core.Persona;
 internal sealed class PersonaTools(
     TacitOptions options, TacitConfig config, SamePreferenceCheck samePreference, RuleConflictCheck conflicts, MemoryWriter writer)
 {
-    /// <summary>Characters an editor shows as a line break, so none may appear in a text or source; the parser splits on LF only.</summary>
-    private static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
 
     /// <summary>
     /// The parameters the propose op takes: the entry's, and the scope it goes into. Any other parameter given with it is
@@ -167,7 +165,7 @@ internal sealed class PersonaTools(
         var reasons = new List<string>();
         if (trigger.Length == 0)
             reasons.Add($"Domain {scope.Name} is new, so it needs a trigger: one line saying when the domain applies.");
-        else if (trigger.IndexOfAny(LineBreaks) >= 0)
+        else if (trigger.IndexOfAny(TextFile.LineBreaks) >= 0)
             reasons.Add("Trigger must be one line.");
 
         return reasons.Count == 0
@@ -455,9 +453,9 @@ internal sealed class PersonaTools(
     private static List<string> EntryProblems(string text, string source)
     {
         var problems = new List<string>();
-        if (text.IndexOfAny(LineBreaks) >= 0)
+        if (text.IndexOfAny(TextFile.LineBreaks) >= 0)
             problems.Add("Text must be one line.");
-        if (source.IndexOfAny(LineBreaks) >= 0)
+        if (source.IndexOfAny(TextFile.LineBreaks) >= 0)
             problems.Add("Source must be one line.");
         if (source.Contains("-->", StringComparison.Ordinal))
             problems.Add("Source must not contain \"-->\", which would end its comment.");

@@ -18,6 +18,8 @@ public sealed record TacitConfig
 
     public required MemoryLanguage Language { get; init; }
 
+    public required MachineConfig Machine { get; init; }
+
     public required ModelsConfig Models { get; init; }
 
     public required LimitsConfig Limits { get; init; }
@@ -92,6 +94,11 @@ public sealed record BackupConfig(int Keep, WebDavConfig? WebDav);
 /// <param name="Username"><c>null</c> when not configured: no authentication is sent.</param>
 /// <param name="Password"><c>null</c> when neither the environment nor the config holds one.</param>
 public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Password);
+
+/// <summary>This machine's identity: its normalized name and optional single-line description.</summary>
+/// <param name="Name">Configured machine name, or normalized from the host name when omitted.</param>
+/// <param name="Description">Optional single-line description shown beside the name in the resident block.</param>
+public sealed record MachineConfig(string Name, string? Description);
 
 /// <summary>Where a secret's value came from: its environment variable, or <c>config.yaml</c>.</summary>
 public enum SecretSource

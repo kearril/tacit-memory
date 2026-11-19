@@ -40,6 +40,12 @@ public enum ConfigKeyPath
     [JsonStringEnumMemberName("language")]
     Language,
 
+    [JsonStringEnumMemberName("machine.name")]
+    MachineName,
+
+    [JsonStringEnumMemberName("machine.description")]
+    MachineDescription,
+
     [JsonStringEnumMemberName("models.embedding.provider")]
     ModelsEmbeddingProvider,
 

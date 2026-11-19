@@ -6,6 +6,7 @@ import {
   Layers,
   Link2,
   type LucideIcon,
+  Monitor,
   RotateCcw,
   RotateCw,
   SlidersHorizontal,
@@ -48,6 +49,7 @@ export interface SettingsForm {
 
 /** The icon of each section, in the head of its card; the models and the backups take the dashboard's icons for them. */
 const SECTION_ICONS: Readonly<Record<SectionId, LucideIcon>> = {
+  machine: Monitor,
   models: Cpu,
   bindings: Link2,
   judgment: SlidersHorizontal,

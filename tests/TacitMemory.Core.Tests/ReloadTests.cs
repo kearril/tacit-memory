@@ -176,4 +176,20 @@ public sealed class ReloadTests : IDisposable
 
         Assert.Equal(["p/a", "p/b"], (await browse.PagesAsync()).Pages.Select(page => page.Id).Order());
     }
+
+    [Fact]
+    public async Task Saving_machine_identity_updates_the_resident_block_without_a_restart()
+    {
+        _home.Bind();
+        var agents = Path.Combine(_home.UserHome, ".omp", "agent", "AGENTS.md");
+        Assert.Contains("Machine: test-machine\n", File.ReadAllText(agents));
+
+        var saved = await Service.Settings.SaveConfigAsync(
+            Service.Settings.ConfigView().File with { Machine = new MachineFile("mac-mini", "家里服务器") },
+            Service.Settings.ConfigView().Hash);
+
+        Assert.Empty(saved.Restart);
+        Assert.Equal(new MachineConfig("mac-mini", "家里服务器"), Service.Config.Machine);
+        Assert.Contains("Machine: mac-mini \u2014 家里服务器\n", File.ReadAllText(agents));
+    }
 }

@@ -52,7 +52,7 @@ internal static class ConfigLoader
         var language = LanguageCodes.Parse(languageText) ?? fallbackLanguage;
 
         var reader = new ConfigReader(language);
-        reader.OnlyKnown(root, "", "server", "memory", "language", "models", "limits", "consolidation", "decision", "retrieval", "backup");
+        reader.OnlyKnown(root, "", "server", "memory", "language", "machine", "models", "limits", "consolidation", "decision", "retrieval", "backup");
         if (reader.Text(root, "", "language") is { } code && LanguageCodes.Parse(code) is null)
             reader.Error("language", Messages.ConfigExpectedLanguage, code);
 
@@ -67,6 +67,7 @@ internal static class ConfigLoader
             ? HomePaths.Expand(configured, options.UserHome)
             : ConfigKeys.DefaultMemoryPath(options.TacitHome);
 
+        var machine = ReadMachine(reader, root, options);
         var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
         var consolidation = ReadConsolidation(reader, root);
@@ -91,6 +92,7 @@ internal static class ConfigLoader
             ExtraAddress = extraAddress,
             MemoryPath = memoryPath,
             Language = language,
+            Machine = machine,
             Models = models,
             Limits = limits,
             Consolidation = consolidation,
@@ -249,6 +251,24 @@ internal static class ConfigLoader
             return ModelProvider.Cloudflare;
         reader.Error(ConfigReader.Join(path, "provider"), Messages.ConfigExpectedProvider, text);
         return ModelProvider.Generic;
+    }
+
+    private static MachineConfig ReadMachine(ConfigReader reader, YamlMappingNode root, TacitOptions options)
+    {
+        var machine = reader.Mapping(root, "", "machine");
+        reader.OnlyKnown(machine, "machine", "name", "description");
+
+        var name = reader.Text(machine, "machine", "name");
+        if (name is not null && !MachineName.IsValid(name))
+            reader.Error("machine.name", Messages.ConfigExpectedMachineName, name);
+
+        var description = reader.Text(machine, "machine", "description");
+        if (description is not null && description.IndexOfAny(TextFile.LineBreaks) >= 0)
+            reader.Error("machine.description", Messages.ConfigExpectedSingleLine);
+
+        return new MachineConfig(
+            name is not null && MachineName.IsValid(name) ? name : MachineName.FromHost(options.HostName),
+            description);
     }
 
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)

@@ -1,5 +1,6 @@
 using System.Text;
 using TacitMemory.Core.Configuration;
+using TacitMemory.Core.Localization;
 using TacitMemory.Core.Persona;
 
 namespace TacitMemory.Core.Injection;
@@ -38,9 +39,10 @@ internal static class ResidentBlock
         var block = new StringBuilder();
         block.Append(BeginMarker).Append('\n');
         block.Append("<user_memory>\n");
+        block.Append(MachineLine(content.MachineName, content.MachineDescription)).Append('\n');
         var document = resident ?? Default;
         if (document.Shell.Length > 0)
-            block.Append(document.Shell.ReplaceLineEndings("\n")).Append('\n');
+            block.Append('\n').Append(document.Shell.ReplaceLineEndings("\n")).Append('\n');
 
         var sections = ResidentFile.Sections;
         foreach (var section in sections.Where(section => PersonaSectionOf(section.Part) is not null))
@@ -84,6 +86,11 @@ internal static class ResidentBlock
         ResidentPart.Workstreams => content.Workstreams,
         _ => throw new ArgumentOutOfRangeException(nameof(part), part, null),
     };
+
+    private static string MachineLine(string name, string? description) =>
+        string.IsNullOrWhiteSpace(description)
+            ? StructureWords.Field(StructureWords.Machine, name)
+            : StructureWords.Field(StructureWords.Machine, $"{name} \u2014 {description}");
 
     private static void AppendSection(StringBuilder block, string? title, string? guidance, IEnumerable<PersonaEntry> items)
     {

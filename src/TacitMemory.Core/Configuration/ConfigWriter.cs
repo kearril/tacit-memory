@@ -26,6 +26,15 @@ internal static partial class ConfigWriter
             "path", memoryPath is null || SamePath(HomePaths.Expand(memoryPath, options.UserHome), defaultMemory) ? null : Text(memoryPath));
         root.Add("language", Text(file.Language));
 
+        var defaultMachine = MachineName.FromHost(options.HostName);
+        var machine = root.Section("machine");
+        machine.Add(
+            "name",
+            string.IsNullOrWhiteSpace(file.Machine.Name) || string.Equals(file.Machine.Name, defaultMachine, StringComparison.Ordinal)
+                ? null
+                : Text(file.Machine.Name));
+        machine.Add("description", Text(file.Machine.Description));
+
         var models = root.Section("models");
         AddModel(models, "embedding", file.Models.Embedding);
         AddModel(models, "reranker", file.Models.Reranker);

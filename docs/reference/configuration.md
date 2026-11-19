@@ -29,6 +29,7 @@ server:
 memory:
   path: ~/.tacit/memory
 language: zh
+machine: { name: …, description: … }
 models:
   embedding: { provider: …, url: …, model: …, apiKey: … }
   reranker: { provider: …, url: …, model: …, apiKey: … }
@@ -68,6 +69,11 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 ### `language`
 
 `language` 取 `zh` 或 `en`，决定记忆语言；它如何定下与各类文字的语言划分见 `docs/design.md`「语言」。
+
+### `machine`
+
+- `machine.name`：本机在记忆里的名字。只允许小写字母、数字与连字符，最长 32 个字符；格式或长度不合时报错并列出键路径 `machine.name`。省略时由主机名规整而来：去掉第一个 `.` 及之后的部分，转为小写，不合规字符替换为连字符并合并连续连字符、去掉首尾连字符，超过 32 个字符截断，仍为空时取 `machine`。与规整结果相同时，写出配置时省略该键；修改后随配置保存生效，不需重启。
+- `machine.description`：可选的一行定位说明，显示在常驻区块机器名的破折号之后。不能包含换行符，不限长度；修改后不需重启。
 
 ### `models`
 

@@ -101,4 +101,19 @@ public sealed class ConfigWriterTests : IDisposable
 
     /// <summary>The settings without the prompt documents, which are records holding lists and so never compare equal.</summary>
     private static TacitConfig Normalized(TacitConfig config) => config with { Prompts = null! };
+
+    [Fact]
+    public void Machine_name_is_omitted_when_default_and_written_when_custom_with_or_without_description()
+    {
+        _home.HostName = "Work-Box.local";
+        var defaults = _home.Tacit().ReadConfigFile() with { Machine = new MachineFile("work-box", null) };
+        _home.Tacit().SaveConfig(defaults);
+        Assert.DoesNotContain("machine:", File.ReadAllText(ConfigPath));
+
+        var custom = defaults with { Machine = new MachineFile("mac-mini", "常驻服务器") };
+        _home.Tacit().SaveConfig(custom);
+        var rendered = File.ReadAllText(ConfigPath);
+        Assert.Contains("machine:\n  name: mac-mini\n  description: '常驻服务器'\n", rendered.ReplaceLineEndings("\n"));
+        Assert.Equal(new MachineConfig("mac-mini", "常驻服务器"), _home.Tacit().LoadConfig().Machine);
+    }
 }

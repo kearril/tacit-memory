@@ -181,6 +181,7 @@ export const en = {
   },
   settings: {
     sections: {
+      machine: "Machine",
       models: "Models",
       bindings: "Bindings",
       judgment: "Retrieval and judgment",
@@ -320,6 +321,21 @@ export const en = {
       mcp: { url: "Endpoint", transport: "Transport", name: "Server name" },
       details: "What was done",
       createdFolders: "These folders did not exist and were created. Make sure the client reads from them:",
+    },
+    machine: {
+      summary:
+        "This machine's name and note shown at the top of the resident block and marked on activities written here.",
+      descriptionDefault: 'Optional, e.g. "workstation" or "home server"',
+      fields: {
+        name: {
+          label: "Name",
+          help: "1 to 32 lowercase letters, digits or hyphens; clear it to fall back to the host name.",
+        },
+        description: {
+          label: "Description",
+          help: "A single-line note shown after the machine name in the resident block.",
+        },
+      },
     },
     models: {
       summary:

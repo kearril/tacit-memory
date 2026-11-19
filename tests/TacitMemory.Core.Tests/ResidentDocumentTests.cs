@@ -102,7 +102,7 @@ public sealed class ResidentDocumentTests : IDisposable
         var text = Agents();
 
         Assert.Contains("<!-- tacit:begin", text);
-        Assert.Contains("<user_memory>\nSHELL-CUSTOM paragraph.\n\n## Red lines\nRED-CUSTOM\n- r1\n", text);
+        Assert.Contains("<user_memory>\nMachine: test-machine\n\nSHELL-CUSTOM paragraph.\n\n## Red lines\nRED-CUSTOM\n- r1\n", text);
         Assert.Contains("## Working rules\nWORK-CUSTOM\n- w1\n", text);
         Assert.Contains("## Preferences\nPREF-CUSTOM\n- p1\n", text);
         Assert.Contains("## Profile\nPROF-CUSTOM\n- f1\n</user_memory>\n<!-- tacit:end -->", text);
@@ -632,4 +632,23 @@ public sealed class ResidentDocumentTests : IDisposable
         Assert.NotNull(service);
     }
 
+    [Fact]
+    public void The_machine_line_opens_the_resident_block_with_or_without_a_description_even_under_a_custom_shell()
+    {
+        WriteFullPersona();
+        _home.HostName = "My-Workstation.local";
+        _home.Bind();
+        var plain = Agents();
+        Assert.Contains("<user_memory>\nMachine: my-workstation\n\n", plain);
+
+        File.WriteAllText(
+            ResidentMd,
+            "SHELL-CUSTOM.\n\n## red_lines\nR\n\n## working_rules\nW\n\n## preferences\nP\n\n## profile\nPr\n\n## situational_rules\nS\n\n## workstreams\nWs\n");
+        var file = _home.Tacit().ReadConfigFile() with { Machine = new MachineFile("mini", "家里的常驻服务器") };
+        _home.Tacit().SaveConfig(file);
+        _home.Bind();
+
+        var custom = Agents();
+        Assert.Contains("<user_memory>\nMachine: mini \u2014 家里的常驻服务器\n\nSHELL-CUSTOM.\n", custom);
+    }
 }

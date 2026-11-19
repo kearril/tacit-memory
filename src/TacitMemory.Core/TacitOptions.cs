@@ -16,6 +16,12 @@ public sealed record TacitOptions
     public TimeProvider Time { get; init; } = TimeProvider.System;
 
     /// <summary>
+    /// This machine's host name, before config overrides or normalization; <see cref="Environment.MachineName"/> in
+    /// production, replaceable in tests.
+    /// </summary>
+    public string HostName { get; init; } = Environment.MachineName;
+
+    /// <summary>
     /// The clock of the auxiliary model requests: their timeouts, retry pauses and budget. Null gives them <see cref="Time"/>.
     /// </summary>
     public TimeProvider? ModelTime { get; init; }
