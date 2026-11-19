@@ -86,6 +86,7 @@ internal static class ConsolidationSkill
         text.Append("   - \"").Append(ConsolidationTitles.PersonaEvidence).Append("\": do not turn every item into a proposal. ")
             .Append("Propose promoting a candidate when it clearly recurs or improves future sessions; propose rejecting a candidate (`Reject candidate`) ")
             .Append("with a short reason when it is clearly one-off noise or too narrow, so confirmed rejections leave candidates.md; ")
+            .Append("a candidate about one client's own settings, plugins or pitfalls counts as such noise, as it holds in no other client; ")
             .Append("leave weak or ambiguous leads unproposed to keep observing, or combine related quotes into one proposal. ")
             .Append("Give an entry the global scope only when it holds in at least two different situations (the generalization test); otherwise propose a domain scope with a trigger line, or a workstream scope.\n");
         text.Append("   - \"").Append(ConsolidationTitles.IncidentLessons).Append("\": propose a domain rule only when a lesson generalizes across tasks in that domain; ")
