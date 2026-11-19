@@ -55,7 +55,7 @@ public sealed class MemoryService : IDisposable
     private readonly DerivedUpkeep _upkeep;
 
     private readonly MaintenanceGate _gate = new();
-    private readonly MaintenanceRunner _maintenance;
+    private readonly MaintenanceRunner _runner;
     private PageTools _pages = null!;
     private RecentTools _recent = null!;
     private PersonaTools _persona = null!;
@@ -92,15 +92,15 @@ public sealed class MemoryService : IDisposable
 
         _upkeep = new DerivedUpkeep(
             options, _log, _gate, () => new UpkeepRuntime(Config, _sources, _index, _vectors, _models, _backup.Completion, _judgments.Completion));
-        _maintenance = new MaintenanceRunner(_gate, _upkeep, _log, () => [_vectors.Background, _judgments.Completion]);
+        _runner = new MaintenanceRunner(_gate, _upkeep, _log, () => [_vectors.Background, _judgments.Completion]);
 
         Tools = new ServiceTools(
             options, _gate, _upkeep, _log, () => new ToolRuntime(Config, _recall, _pages, _recent, _persona, _consolidation));
         Browse = new MemoryBrowser(_gate, () => new BrowseRuntime(Config, _index, _reader), () => _options.Today);
         Reports = new ServiceReports(options, startedAt, _upkeep, () => new ReportRuntime(Config, _models), () => _extraListener);
-        Settings = new ServiceSettings(options, _gate, _upkeep, _maintenance, Access, () => Config, ReloadCore);
+        Settings = new ServiceSettings(options, _gate, _upkeep, _runner, Access, () => Config, ReloadCore);
         Maintenance = new ServiceMaintenance(
-            options, _gate, _upkeep, _maintenance, _log,
+            options, _gate, _upkeep, _runner, _log,
             () => new MaintenanceRuntime(Config, _index, _vectors, _models, _sources, _manual, _remote), ReloadCore);
         OpenRuntime(config);
     }
@@ -191,7 +191,7 @@ public sealed class MemoryService : IDisposable
     /// </exception>
     /// <returns>The settings that wait for a restart and differ in the file from what the service runs.</returns>
     public Task<IReadOnlyList<RestartChange>> ReloadAsync(CancellationToken cancellationToken = default) =>
-        _maintenance.RunAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
+        _runner.RunAsync("reload", _ => Task.FromResult(ReloadCore()), cancellationToken);
 
     /// <summary>The reload itself, run inside a maintenance operation: by <see cref="ReloadAsync"/>, a saved config and a restore.</summary>
     private IReadOnlyList<RestartChange> ReloadCore()

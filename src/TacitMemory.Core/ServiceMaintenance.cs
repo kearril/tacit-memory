@@ -21,20 +21,20 @@ public sealed class ServiceMaintenance
     private readonly TacitOptions _options;
     private readonly MaintenanceGate _gate;
     private readonly DerivedUpkeep _upkeep;
-    private readonly MaintenanceRunner _maintenance;
+    private readonly MaintenanceRunner _runner;
     private readonly ServiceLog _log;
     private readonly Func<MaintenanceRuntime> _runtime;
     private readonly Func<IReadOnlyList<RestartChange>> _reload;
 
     /// <param name="reload">Opens the runtime again with <c>config.yaml</c> as it is now; called inside a maintenance operation.</param>
     internal ServiceMaintenance(
-        TacitOptions options, MaintenanceGate gate, DerivedUpkeep upkeep, MaintenanceRunner maintenance, ServiceLog log,
+        TacitOptions options, MaintenanceGate gate, DerivedUpkeep upkeep, MaintenanceRunner runner, ServiceLog log,
         Func<MaintenanceRuntime> runtime, Func<IReadOnlyList<RestartChange>> reload)
     {
         _options = options;
         _gate = gate;
         _upkeep = upkeep;
-        _maintenance = maintenance;
+        _runner = runner;
         _log = log;
         _runtime = runtime;
         _reload = reload;
@@ -77,7 +77,7 @@ public sealed class ServiceMaintenance
     /// it and the background fill takes them over. Runs as a maintenance operation, so the memory tools wait for it.
     /// </summary>
     public Task<ReindexResult> ReindexAsync(CancellationToken cancellationToken = default) =>
-        _maintenance.RunAsync("reindex", ReindexCoreAsync, cancellationToken);
+        _runner.RunAsync("reindex", ReindexCoreAsync, cancellationToken);
 
     private async Task<ReindexResult> ReindexCoreAsync(CancellationToken cancellationToken)
     {
@@ -174,7 +174,7 @@ public sealed class ServiceMaintenance
         if (path is null)
             throw new TacitException(TacitError.RequestInvalid, RestoreMessages.SourceCount.In(Language));
         RequireAbsolutePath(path);
-        var result = await _maintenance.RunAsync("restore", _ => RestoreCoreAsync(path, config), cancellationToken);
+        var result = await _runner.RunAsync("restore", _ => RestoreCoreAsync(path, config), cancellationToken);
         // A restore from the cloud download is done with the download once it has succeeded; a failed one keeps it.
         if (CloudDownload.IsDownload(_options, path))
             CloudDownload.Discard(_options);

@@ -8,7 +8,7 @@ namespace TacitMemory.Host.Mcp;
 
 /// <summary>The memory tools. Each one hands its arguments to <see cref="ServiceTools"/>, which checks them.</summary>
 [McpServerToolType]
-internal sealed class MemoryTools(ServiceTools service)
+internal sealed class MemoryTools(ServiceTools tools)
 {
     [McpServerTool(Name = "recall", ReadOnly = true, Idempotent = true, Destructive = false, OpenWorld = false)]
     [McpMeta("anthropic/alwaysLoad", true)]
@@ -31,7 +31,7 @@ internal sealed class MemoryTools(ServiceTools service)
         [Description("pages or activities, searched together when omitted; rules or persona to read the persona's rules or the whole persona instead of searching.")] string? kind = null,
         [Description("With kind=rules only: the domain label whose rules to return, as the persona names it; omitted, the rules of every domain are returned.")] string? domain = null,
         CancellationToken cancellationToken = default) =>
-        Reply(await service.RecallAsync(
+        Reply(await tools.RecallAsync(
             new RecallRequest { Query = query, Page = page, Workstream = workstream, From = from, To = to, Kind = kind, Domain = domain, UnknownParameters = UnknownArguments.Of(request) },
             cancellationToken));
 
@@ -67,7 +67,7 @@ internal sealed class MemoryTools(ServiceTools service)
         [Description("Aliases to add to the page; ones it already has are ignored.")] string[]? add_aliases = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
-        Reply(await service.WritePageAsync(new WritePageRequest
+        Reply(await tools.WritePageAsync(new WritePageRequest
         {
             Op = op,
             Page = page,
@@ -101,7 +101,7 @@ internal sealed class MemoryTools(ServiceTools service)
         [Description("The short code of an activity from today to rewrite with this text, from a refusal's list or from recall. Only today's activities match.")] string? replaces = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
-        Reply(await service.WriteRecentAsync(new WriteRecentRequest
+        Reply(await tools.WriteRecentAsync(new WriteRecentRequest
         {
             Text = text,
             Workstream = workstream,
@@ -138,7 +138,7 @@ internal sealed class MemoryTools(ServiceTools service)
         [Description("Trigger of a new domain: one line saying when the domain applies. Used by add only; required when add creates the domain, ignored for an existing one.")] string? trigger = null,
         [Description("Set true only when the user confirms that the refused text holds no secret; skips the secret check.")] bool? confirm_no_secret = null,
         CancellationToken cancellationToken = default) =>
-        Reply(await service.WritePersonaAsync(new WritePersonaRequest
+        Reply(await tools.WritePersonaAsync(new WritePersonaRequest
         {
             Op = op,
             Section = persona_section,

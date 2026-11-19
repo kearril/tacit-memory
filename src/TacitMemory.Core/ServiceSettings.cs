@@ -17,20 +17,20 @@ public sealed class ServiceSettings
     private readonly TacitOptions _options;
     private readonly MaintenanceGate _gate;
     private readonly DerivedUpkeep _upkeep;
-    private readonly MaintenanceRunner _maintenance;
+    private readonly MaintenanceRunner _runner;
     private readonly AccessControl _access;
     private readonly Func<TacitConfig> _config;
     private readonly Func<IReadOnlyList<RestartChange>> _reload;
 
     /// <param name="reload">Opens the runtime again with <c>config.yaml</c> as it is now; called inside a maintenance operation.</param>
     internal ServiceSettings(
-        TacitOptions options, MaintenanceGate gate, DerivedUpkeep upkeep, MaintenanceRunner maintenance, AccessControl access,
+        TacitOptions options, MaintenanceGate gate, DerivedUpkeep upkeep, MaintenanceRunner runner, AccessControl access,
         Func<TacitConfig> config, Func<IReadOnlyList<RestartChange>> reload)
     {
         _options = options;
         _gate = gate;
         _upkeep = upkeep;
-        _maintenance = maintenance;
+        _runner = runner;
         _access = access;
         _config = config;
         _reload = reload;
@@ -180,7 +180,7 @@ public sealed class ServiceSettings
     /// </exception>
     public Task<ConfigSaved> SaveConfigAsync(
         ConfigFile file, string hash, IReadOnlyDictionary<string, string?>? secrets = null, CancellationToken cancellationToken = default) =>
-        _maintenance.RunAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash, secrets ?? new Dictionary<string, string?>())), cancellationToken);
+        _runner.RunAsync("config", _ => Task.FromResult(SaveConfigCore(file, hash, secrets ?? new Dictionary<string, string?>())), cancellationToken);
 
     private ConfigSaved SaveConfigCore(ConfigFile file, string hash, IReadOnlyDictionary<string, string?> secrets)
     {
