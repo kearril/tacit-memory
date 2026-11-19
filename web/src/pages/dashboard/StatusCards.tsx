@@ -736,8 +736,11 @@ function SideCommands() {
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-lg gap-y-xs">
         {commands.map(([label, command]) => (
           <InfoRow key={command} label={label}>
-            {/* The two commands differ only at their end, so they wrap rather than truncate. */}
-            <code className="min-w-0 flex-1 font-mono break-all select-all">{command}</code>
+            {/* The two commands differ only in their flag, so a narrow card wraps before it rather than truncating it. */}
+            <code className="min-w-0 flex-1 font-mono select-all">
+              {command.slice(0, command.lastIndexOf(" ") + 1)}
+              <span className="whitespace-nowrap">{command.slice(command.lastIndexOf(" ") + 1)}</span>
+            </code>
             <CopyButton value={command} label={text.copyCommand} copiedMessage={text.commandCopied} />
           </InfoRow>
         ))}
