@@ -127,7 +127,7 @@ flowchart LR
 | 版本与许可清单 | `MinVer`；`nuget-license` 与 `rollup-plugin-license` |
 | 前端 | Bun、Vite、React、React Router、TanStack Query、Tailwind、`radix-ui`、CodeMirror、`@lezer/markdown` |
 
-依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包；进入发行包的依赖必须是与 Apache-2.0 相容的宽松许可，打包时校验，不合即失败。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5 虚拟表不合）。不引入 Markdown 解析库：按行修改要求原样保留其余字节，语法树帮不上。
+依赖原则：一个依赖能解决实际问题或简化逻辑就引入，避开停更或附带额外条款的包；进入发行包的依赖必须是与 Apache-2.0 相容的宽松许可，打包时校验，不合即失败。不引入中文分词库、表结构迁移库与 EF Core（与 FTS5 虚拟表不合）。不引入 Markdown 解析库：按行修改要求原样保留其余字节，AST 解析无法满足这一要求。
 
 ## 7. 前端工程（`web/`）
 

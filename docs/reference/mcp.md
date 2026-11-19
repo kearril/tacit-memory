@@ -17,7 +17,7 @@
 
 常驻服务以无状态方式提供三种 MCP 机制：工具、资源与服务端说明（内容见 `docs/design.md`「注入」中的「服务端说明」）。
 
-- 不提供 prompt：`prompts/list` 恒答空列表，`prompts/get` 一律报错，因为有的客户端不看能力声明、每次都请求 prompt 列表，请求失败就丢弃服务器。
+- 不提供 prompt：`prompts/list` 固定返回空列表，`prompts/get` 一律报错，因为部分客户端会忽略能力声明并请求 prompt 列表，若请求失败将丢弃整个服务器。
 - 不使用资源模板、订阅与 `list_changed` 通知，也不使用 completions、elicitation、sampling、roots 与 logging。
 
 ## 3. 工具

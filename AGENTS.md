@@ -33,5 +33,5 @@
 - **语言约定**：代码注释使用英文；仓库文档（`README.md`、`docs/`、`GLOSSARY.md`）使用中文。
 - **前端浏览器支持**：Web 界面以现代桌面浏览器（Baseline Newly Available）为目标，不额外引入重量级 polyfill。
 - **提交规范**：遵循 **Conventional Commits**（`<type>(<scope>): <summary>`，如 `feat:`、`fix:`、`refactor:`、`test:`、`docs:`、`build:`）。
-- **提交信息中的编号**：`main` 及所有将合入 `main` 的分支（含子代理的工作分支），提交信息都不得出现工单编号、ADR 编号或带编号的分支名。
-- **合并方式**：切片合入 `main` 用普通合并（`git merge --no-ff`），分支上的提交原样保留；合并提交与其他分支之间的合并提交都写 `chore(merge): ...`，概括合入的内容（如 `chore(merge): bring recent activity into main`）。
+- **提交信息要求**：`main` 及所有将合入 `main` 的分支（含子代理工作分支），提交信息应自解释，不得包含仅在本地或外部追踪系统有效的内部编号，亦不得使用带编号的分支名。
+- **合并方式**：特性分支合入 `main` 采用普通合并（`git merge --no-ff`），保留分支原有提交；合并提交信息统一写作 `chore(merge): <summary>`，概括合入内容（如 `chore(merge): bring recent activity into main`）。

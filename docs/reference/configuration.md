@@ -109,7 +109,7 @@ sync: { remote: …, pullMinutes: 30 }
 
 ### `decision` 与 `retrieval`
 
-- `decision`：四种判断各自的上下阈值（`certain`、`unlikely`），三档的划分见 `docs/design.md`「辅助模型」中的「判断」。内置默认值是用某一个决策模型实测标定的；换用其他决策模型后可能不再适用，可能把不重复的内容判为重复而拒绝写入，或漏掉该拦下的重复与冲突，需自行核对并调整。
+- `decision`：四种判断各自的上下阈值（`certain`、`unlikely`），三档的划分见 `docs/design.md`「辅助模型」中的「判断」。内置默认值基于 TypeSafe `jev-latest` 实测标定；更换其他决策模型后可能不再适用（例如将非重复内容误判为重复并拒绝写入，或漏判本应拦截的重复与冲突），须自行核对并调整。
 - `retrieval`：`candidates` 为全文与向量两路各取的候选数，`topK` 为返回条数，`minRerankScore` 为 reranker 分数阈值（见 `docs/design.md`「检索」）。
 
 ### `backup`
@@ -122,9 +122,9 @@ backup:
   keep: 7
   webdav:
     url: https://<WebDAV 服务地址>/tacit/   # 目录；末尾的 / 可省略
-    username: 你的用户名                   # 可省略，省略时不发送认证
-    password: 你的密码                     # 可省略，改设环境变量 TACIT_WEBDAV_PASSWORD
-    file: win-main.zip                     # 可省略，默认 tacit-backup.zip
+    username: <用户名>                      # 可省略，省略时不发送认证
+    password: <密码>                        # 可省略，建议改设环境变量 TACIT_WEBDAV_PASSWORD
+    file: workstation.zip                   # 可省略，默认 tacit-backup.zip
 ```
 
 - `backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。
@@ -171,9 +171,9 @@ backup:
 修改有两种入口，规则相同：
 
 - **Web 界面的提示词页**（`docs/design.md`「Web 界面」）：以内置默认为起点编辑，保存前由服务校验，不通过则文件不变；通过后立即生效，「恢复默认」即删除文件。
-- **手动改文件**：服务监听 `prompts/`，保存后重新加载；出错的文件沿用上一版并提示（见下）。需要以内置默认为起点时，在 PowerShell 7 中执行（输出为 UTF-8 无 BOM；`rules`、`resident` 同理）：
+- **手动改文件**：服务监听 `prompts/`，保存后重新加载；校验失败的文件沿用上一版并报告错误（见下）。需要以内置默认为起点时，可执行以下导出命令（在 Unix shell 或 PowerShell 7 中默认输出为 UTF-8 无 BOM；`rules`、`resident` 同理）：
 
-```powershell
+```bash
 tacit show instructions --default > ~/.tacit/prompts/instructions.md
 ```
 

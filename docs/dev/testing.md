@@ -8,8 +8,8 @@
 
 1. **`tests/TacitMemory.Core.Tests`：门面接缝**
    - 通过 `TacitMemory.Core` 的公开门面测试。
-   - 每个测试有独立的临时用户主目录、`TACIT_HOME` 与记忆仓库（`TestHome`），用真实文件与真实 `git`。`init` 在每个测试进程里按语言做一次作模板，之后复制，因为 Windows 上启动 `git` 很慢。
-   - 测试不读开发机的环境变量，绑定只写入临时用户主目录，从不碰真实的客户端配置。
+   - 每个测试有独立的临时用户主目录、`TACIT_HOME` 与记忆仓库（`TestHome`），使用真实文件与真实 `git`。`init` 在每个测试进程中按语言初始化一次作为模板，后续用例直接复制，以避免在 Windows 上重复启动 `git` 进程带来额外开销。
+   - 测试不读取开发机的环境变量，绑定仅写入临时用户主目录，不触及真实客户端配置。
 2. **`tests/TacitMemory.Host.Tests`：MCP 接缝**
    - 在进程内以真实 HTTP 启动 `ServiceHost`，用 SDK 的 MCP 客户端调用。
    - 非本机连接用 `127.0.0.2` 模拟：测试经内部入口把「本机」收窄为只有 `127.0.0.1`。macOS 上需要先加回环别名，见第 5 节。
@@ -54,7 +54,7 @@
 
 测试在 Windows、Linux 与 macOS 上都能运行。Host 与 Cli 的测试要从 `127.0.0.2` 发起连接：Windows 与 Linux 把整个 `127.0.0.0/8` 当作本机地址，macOS 默认只有 `127.0.0.1`，要先加上 `sudo ifconfig lo0 alias 127.0.0.2 up`（重启后失效，常驻需开机执行）。缺少它时，模拟非本机连接的测试会报出这条命令。模拟「文件被其他程序占用」的少数测试只在 Windows 上有意义，其他系统上直接返回。
 
-```powershell
+```bash
 dotnet test tests/TacitMemory.Core.Tests                               # 门面接缝
 dotnet test tests/TacitMemory.Host.Tests                                # MCP 接缝
 dotnet test tests/TacitMemory.Cli.Tests                                # CLI 接缝
@@ -64,7 +64,7 @@ dotnet test TacitMemory.slnx                                           # 全量
 
 C# 格式由根目录 `.editorconfig` 规定，用 `dotnet format` 检查与修正，不放进编译：
 
-```powershell
+```bash
 dotnet format --verify-no-changes TacitMemory.slnx   # 只检查
 dotnet format TacitMemory.slnx                       # 就地修正
 ```
@@ -84,7 +84,7 @@ dotnet test tests/TacitMemory.Host.Tests --filter "FullyQualifiedName~OpenApiTes
 
 在 `web/` 下用 Bun 运行，不需要服务，也不需要 `dotnet`；`dotnet build` 与 `dotnet test` 也不需要 Bun。
 
-```powershell
+```bash
 cd web
 bun run check       # 类型检查、ESLint、Prettier 格式检查、Vitest 与构建依次运行
 bun run format      # Prettier 就地格式化
@@ -96,7 +96,7 @@ bun run format      # Prettier 就地格式化
 
 ## 8. 发行包的冒烟
 
-`build/smoke.sh` 检查一个发布目录能否运行，覆盖「源码构建下测试通过、发行包里却少了东西」这类问题。发行包经过裁剪而测试跑在未裁剪的构建上，所以它也是裁剪有没有删掉用得到的东西的唯一检查。
+`build/smoke.sh` 验证发布目录能否正常运行，覆盖「源码构建下测试通过、发行包中缺失运行时文件」这类问题。由于发行包经过裁剪而测试运行在未裁剪构建上，该脚本也是验证裁剪未误删运行时必需类型与成员的唯一检查。
 
 ```bash
 build/smoke.sh <发布目录> [<期望的版本>]

@@ -61,11 +61,11 @@
 
 - SSH：先在终端里 `ssh <主机>` 一次，接受主机密钥；用不需口令的密钥，或在服务能用到的 ssh-agent 里加载好密钥。自己设了 `core.sshCommand`、`GIT_SSH_COMMAND` 或 `GIT_SSH` 时 tacit 不覆盖，要自己保证它不提问。
 - HTTPS：先在终端里完成一次 `git fetch`，让凭据管理器存下令牌。
-- 由 NSSM、launchd 等托管的服务，环境与登录终端不同：可能读不到终端里的 ssh-agent（`SSH_AUTH_SOCK`）或 `PATH` 中的 `ssh`。在 `~/.ssh/config` 里为远端主机写明 `IdentityFile`，比依赖 agent 可靠。终端里 `git fetch` 能通不代表服务能通；配好后运行 `tacit sync`，它在服务里执行，能如实检验。
+- 由 Windows 服务/进程管理器、`launchd` 或 `systemd` 等托管的服务，环境变量与交互式登录终端不同：可能无法读取终端中的 ssh-agent（`SSH_AUTH_SOCK`）或完整 `PATH`。在 `~/.ssh/config` 中为远端主机显式指定 `IdentityFile`，通常比依赖 ssh-agent 更可靠。在终端中 `git fetch` 成功并不代表后台服务可正常认证；配置完成后请执行 `tacit sync`，由常驻服务实际执行同步以验证连通性。
 
-**冲突**：`tacit status`、仪表盘与整理报告会写明。按整理报告「同步冲突」一类给出的步骤在记忆仓库里解决（`pull --rebase`、改好冲突文件、`add`、`rebase --continue`），然后运行 `tacit sync` 恢复自动同步。手改后没提交的文件挡住同步时，提交或撤销这些修改，下次同步自动再试。
+**冲突**：`tacit status`、仪表盘与整理报告均会列出冲突信息。按照整理报告「同步冲突」中给出的步骤在记忆仓库解决（`pull --rebase`、编辑冲突文件、`git add`、`git rebase --continue`），随后运行 `tacit sync` 恢复自动同步。若存在未提交的本地修改阻塞同步，请先提交或撤销修改，下次同步时将自动重试。
 
-**历史不相关与恢复后**：远端的历史与本机没有共同的提交，或刚从备份恢复过时，同步暂停，等你选边：
+**历史不相关与恢复后**：远端历史与本机无共同提交，或刚从备份恢复过时，自动同步暂停，等待用户选边：
 
 - `tacit sync --use-local`：以本机为准，远端的分支换成本机的历史，远端独有的提交从这个分支上去掉。
 - `tacit sync --use-remote`：以远端为准，先生成一份手动备份（`backups/manual-*.zip`）作为保险，再把本机重置到远端的分支并重建索引；本机独有的提交与未提交的修改只能从这份备份里找回。
@@ -117,14 +117,14 @@
 
 - **任何问题先看 `tacit status`**。
 - **找不到 `config.yaml`**：先执行 `tacit init`。
-- **升级后报未知键**：报错点名的键已删除（清单见 `docs/reference/configuration.md`），从 `config.yaml` 中删去后重启。升级前绑定的 skill 目录里可能还留着旧的 `tacit-checkup` 链接（已改名为 `tacit-consolidate`），它指向已不再生成的目录；`disconnect` 不删除它，需手动删除。
+- **升级后报未知键**：报错指明的配置键已移除（当前全部有效键见 `docs/reference/configuration.md`），从 `config.yaml` 中删除后重启服务即可。
 - **配置错误**：报告会列出全部出错的键路径，逐项修正后重试。
-- **忘记访问密码**：访问密码只能在本机重设或清除，忘记时在本机处理。先在 `config.yaml` 中去掉 `server.host` 并重启服务（否则清除会被拒绝）；然后在本机调用 `DELETE /api/access-password` 清除，或停止服务后删除 `TACIT_HOME/access.json`。清除后再在本机设置新的访问密码，并把 `server.host` 写回、重启。
-- **`serve` 拒绝启动，提示需要访问密码**：`server.host` 为 `127.0.0.1` 以外的地址而没有访问密码。按上一条先去掉 `server.host` 启动，在本机设置访问密码，再写回 `server.host`。
-- **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，需自行更新客户端中的 MCP 配置，指向新的端点（`tacit connect` 打印的地址）；tacit 不再替你改写它。
+- **忘记访问密码**：访问密码只能在本机重设或清除。先在 `config.yaml` 中移除 `server.host` 并重启服务（否则清除请求会被拒绝）；随后在本机调用 `DELETE /api/access-password` 清除，或停止服务后删除 `TACIT_HOME/access.json`。清除后即可在本机设置新密码，再恢复 `server.host` 并重启。
+- **`serve` 拒绝启动，提示需要访问密码**：`server.host` 为 `127.0.0.1` 以外的地址而未配置访问密码。按上一条先移除 `server.host` 启动服务，在本机设置访问密码后再写回 `server.host`。
+- **端口被占用**：`serve` 无法启动。修改 `server.port`（默认 18888）后，须在客户端中手动更新 MCP 端点配置（指向 `tacit connect` 输出的地址）；`tacit` 不会自动修改客户端的 MCP 配置。
 - **提示词超限**：启动被拒绝，报告会指出文件与超出的字符数。精简超限的文件后重启即可（各文件的上限见 `docs/reference/configuration.md`「提示词文档」，固定部分的上限见 `docs/design.md`「注入」）。
-- **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。`init --remote` 另在远端是空的、记忆目录非空且不是这个远端的克隆、已有 `config.yaml` 没有设或设了另一个 `sync.remote` 时拒绝，提示中写明下一步。
-- **辅助模型连不上**：先运行 `tacit probe`，据此检查 `url`（须为完整请求地址，路径与协议要求的一致）、`model`、`provider` 与密钥。服务不会因此退出：写入照常完成，判断视为"拿不准"，检索按降级规则处理（嵌入模型不可用时只走全文，详见 `docs/design.md`「辅助模型」）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 读取的是 `config.yaml`，不需要服务运行。
+- **`init` 被拒绝**：记忆目录非空且不是 Git 仓库时拒绝初始化。改用空目录，或用 `--memory` 指向已有的记忆仓库。`init --remote` 另在远端为空、记忆目录非空且不是该远端的克隆、已有 `config.yaml` 未设或设了另一个 `sync.remote` 时拒绝，并在提示中给出下一步操作。
+- **辅助模型连不上**：先运行 `tacit probe`，核对 `url`（须为完整请求地址，路径符合对应协议要求）、`model`、`provider` 与密钥。服务不会因此退出：写入正常完成，判断按「不确定」处理，检索按降级规则处理（嵌入模型不可用时仅走全文检索，详见 `docs/design.md`「辅助模型」）。环境变量在进程启动时读取，修改后需重新打开终端并重启 `serve`；`tacit probe` 直接读取 `config.yaml`，无需服务运行。
 - **客户端中记忆工具调用失败**：确认 `tacit serve` 正在运行，并且是绑定之后开的新会话。
 - **自动备份失败**：只会提示，不影响已完成的写入，下一次写入时再次尝试。
 - **同步失败**：`tacit status` 的同步一栏与日志写明原因；写入照常在本机提交，没推出去的提交下次同步时补推。认证类失败按第 3 节的「非交互认证」检查。
@@ -142,12 +142,12 @@ sha256sum -c tacit-<版本>-<平台>.<扩展名>.sha256        # Linux、Git Bas
 shasum -a 256 -c tacit-<版本>-osx-arm64.tar.gz.sha256   # macOS
 ```
 
-安装与升级都是"放进一个干净的目录"，数据目录 `~/.tacit` 不受影响：
+安装与升级均应解压至干净的空目录，数据目录 `~/.tacit` 不受影响：
 
-1. 停止服务（由托管工具运行时，从托管工具停止）；
-2. 清空安装目录。不要把新版本解压到旧文件上：同名文件会被覆盖，但旧版本独有的文件会留下；
-3. 把发行包解压到安装目录；
-4. 启动服务，用 `tacit status` 确认版本。
+1. 停止服务（若由服务管理器托管，通过对应管理器停止）；
+2. 清空安装目录。避免将新版本直接覆盖解压到旧文件上，以免残留旧版本已移除的文件；
+3. 将新版本发行包解压到安装目录；
+4. 启动服务，执行 `tacit status` 确认版本号。
 
 ### 版本号
 
