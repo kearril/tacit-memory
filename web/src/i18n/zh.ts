@@ -3,6 +3,7 @@ import type { FullTextMethod, PageType } from "../api/memory";
 import type { PromptName } from "../api/prompts";
 import type { components } from "../api/schema";
 import type { BindingProblem } from "../api/status";
+import type { SyncOutcome } from "../api/sync";
 import type { Duration } from "../lib/format";
 
 type MemoryLanguage = components["schemas"]["MemoryLanguage"];
@@ -208,6 +209,7 @@ export const zh = {
       judgment: "检索与判断",
       consolidation: "整理",
       backup: "备份",
+      sync: "同步",
       access: "远程访问",
       advanced: "高级",
     },
@@ -401,6 +403,20 @@ export const zh = {
         },
       },
     },
+    sync: {
+      summary: "记忆仓库经 git 与一个远端仓库同步，让几台机器共用同一份记忆。",
+      remoteDefault: "不填即不同步",
+      fields: {
+        remote: {
+          label: "远端地址",
+          help: "记忆仓库同步到的 git 仓库地址（SSH、HTTPS 或本地路径），须能不经交互地拉取与推送；留空即关闭同步。改后下次同步按新地址进行。",
+        },
+        pullMinutes: {
+          label: "定时拉取（分钟）",
+          help: "每隔多少分钟拉取一次远端，并补推还没推送的提交；0 关闭定时拉取，写入前后的同步照常进行。",
+        },
+      },
+    },
     access: {
       summary: "让同一网络里的其他设备凭密码打开这个界面。MCP 仍只接受本机连接。",
       password: "访问密码",
@@ -482,6 +498,7 @@ export const zh = {
       index: "索引与整理",
       service: "服务",
       logs: "日志",
+      sync: "同步",
       status: "状态",
     },
     unreadable: "这一栏读不了，详见服务日志。",
@@ -539,6 +556,39 @@ export const zh = {
       cloudBackedUp: "云端备份已完成",
       failed: "备份没有成功",
       cloudFailedTitle: "云端备份没有成功",
+    },
+    sync: {
+      off: "未开启",
+      offNote: "填上远端地址后，记忆仓库会与它同步，几台机器共用同一份记忆。",
+      configure: "去设置",
+      lastSync: "上次同步",
+      remote: "远端",
+      unpushed: "未推送",
+      unpushedCount: (count: number) => (count === 0 ? "没有" : `${count} 个提交`),
+      unpushedUnknown: "读不了",
+      outcomes: {
+        synced: "成功",
+        failed: "失败",
+        handEdits: "被手改挡住",
+        conflict: "冲突",
+        unrelated: "历史不相关",
+        restorePaused: "恢复后暂停",
+      } satisfies Record<SyncOutcome, string>,
+      failed: (detail: string | null) =>
+        `上次同步失败${detail === null ? "" : `：${detail}`}。写入照常在本机提交，下次同步时再试。`,
+      handEdits: (detail: string | null) =>
+        `记忆仓库里有未提交的修改，同步没有动它们${detail === null ? "" : `：${detail}`}。提交或撤销这些修改后，下次同步时再试。`,
+      conflict: (detail: string | null) =>
+        `本机与远端改了同一处${detail === null ? "" : `（${detail}）`}，自动同步已暂停，写入照常在本机提交。在记忆仓库里解决冲突后运行 tacit sync 恢复；整理报告列出了解决步骤。`,
+      unrelated: "远端的历史与本机的记忆仓库没有共同的提交，同步既没有拉取也没有推送，自动同步已暂停。",
+      restorePaused: "恢复备份后同步已暂停，以免恢复的内容冲掉另一台机器写下的记忆，或被它冲掉。",
+      chooseSide: "确认以哪边为准后，在这台主机的终端里运行其中一条：",
+      useLocal: "以本机为准",
+      useRemote: "以远端为准",
+      copyCommand: "复制命令",
+      commandCopied: "已复制命令",
+      syncNow: "立即同步",
+      runFailed: "同步没有完成",
     },
     restore: {
       open: "恢复…",

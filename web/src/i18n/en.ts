@@ -187,6 +187,7 @@ export const en = {
       judgment: "Retrieval and judgment",
       consolidation: "Consolidation",
       backup: "Backup",
+      sync: "Sync",
       access: "Remote access",
       advanced: "Advanced",
     },
@@ -414,6 +415,20 @@ export const en = {
         },
       },
     },
+    sync: {
+      summary: "Syncs the memory repository with a remote git repository, so several machines share one memory.",
+      remoteDefault: "Leave empty for no sync",
+      fields: {
+        remote: {
+          label: "Remote address",
+          help: "The git repository the memory repository syncs with (SSH, HTTPS or a local path); pulling and pushing must work without prompts. Leave it empty to turn the sync off. A change applies from the next sync.",
+        },
+        pullMinutes: {
+          label: "Timed pull (minutes)",
+          help: "How many minutes between pulls from the remote, each also pushing the commits not pushed yet; 0 turns the timed pull off, and the syncs before and after writes go on.",
+        },
+      },
+    },
     access: {
       summary:
         "Let other devices on your network open this interface with a password. MCP still accepts only this machine.",
@@ -518,6 +533,7 @@ export const en = {
       index: "Index and consolidation",
       service: "Service",
       logs: "Logs",
+      sync: "Sync",
       status: "Status",
     },
     unreadable: "This could not be read; see the service log.",
@@ -576,6 +592,42 @@ export const en = {
       cloudBackedUp: "Cloud backup done",
       failed: "The backup did not succeed",
       cloudFailedTitle: "The cloud backup did not succeed",
+    },
+    sync: {
+      off: "Off",
+      offNote:
+        "Once a remote address is set, the memory repository syncs with it, and several machines share one memory.",
+      configure: "Set up",
+      lastSync: "Last sync",
+      remote: "Remote",
+      unpushed: "Not pushed",
+      unpushedCount: (count) => (count === 0 ? "None" : count === 1 ? "1 commit" : `${count} commits`),
+      unpushedUnknown: "Cannot be read",
+      outcomes: {
+        synced: "Succeeded",
+        failed: "Failed",
+        handEdits: "Held back by edits",
+        conflict: "Conflict",
+        unrelated: "Unrelated history",
+        restorePaused: "Paused after a restore",
+      },
+      failed: (detail) =>
+        `The last sync failed${detail === null ? "" : `: ${detail}`}. Writes are still committed on this machine; the next sync tries again.`,
+      handEdits: (detail) =>
+        `The memory repository has changes nobody has committed, and the sync left them alone${detail === null ? "" : `: ${detail}`}. Once they are committed or undone, the next sync tries again.`,
+      conflict: (detail) =>
+        `This machine and the remote changed the same place${detail === null ? "" : ` (${detail})`}, so the automatic syncs pause; writes are still committed on this machine. Resolve the conflict in the memory repository, then run tacit sync to resume; the consolidation report lists the steps.`,
+      unrelated:
+        "The remote's history shares no commit with this machine's memory repository, so nothing was pulled or pushed, and the automatic syncs pause.",
+      restorePaused:
+        "The sync is paused after a restore, so the restored memory neither overwrites what another machine wrote nor is overwritten by it.",
+      chooseSide: "Decide which side holds the truth, then run one of these in a terminal on this machine:",
+      useLocal: "This machine as the truth",
+      useRemote: "The remote as the truth",
+      copyCommand: "Copy the command",
+      commandCopied: "Command copied",
+      syncNow: "Sync now",
+      runFailed: "The sync did not complete",
     },
     restore: {
       open: "Restore…",

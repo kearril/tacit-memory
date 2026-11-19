@@ -45,6 +45,7 @@ export const SECTIONS = [
   "judgment",
   "consolidation",
   "backup",
+  "sync",
   "access",
   "advanced",
 ] as const;
