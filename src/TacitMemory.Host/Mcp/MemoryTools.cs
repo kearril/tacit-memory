@@ -24,7 +24,7 @@ internal sealed class MemoryTools(MemoryService service)
         RequestContext<CallToolRequestParams> request,
         [Description("What to look for, in natural language and in the memory language; names, terms and file names as written.")] string? query = null,
         [Description("Page ID to read in full: <workstream>/<slug>, for example my-app/db-upgrade.")] string? page = null,
-        [Description("Search only this workstream: the name of a continuing matter in lowercase, which need not be a code repository.")] string? workstream = null,
+        [Description("Search only this workstream, or read its brief when given alone: a workstream name in lowercase, as <user_memory> lists it.")] string? workstream = null,
         [Description("Earliest date, YYYY-MM-DD; convert phrases like \"last week\" into dates.")] string? from = null,
         [Description("Latest date, YYYY-MM-DD.")] string? to = null,
         [AllowedValues(ToolValues.RecallKinds.Pages, ToolValues.RecallKinds.Activities, ToolValues.RecallKinds.Rules, ToolValues.RecallKinds.Persona)]
@@ -54,7 +54,7 @@ internal sealed class MemoryTools(MemoryService service)
         [Required, AllowedValues(ToolValues.WritePageOps.Create, ToolValues.WritePageOps.UpsertSection, ToolValues.WritePageOps.DeleteSection, ToolValues.WritePageOps.UpdateHeader)]
         [Description("Operation: create, upsert_section, delete_section or update_header.")] string? op = null,
         [Required]
-        [Description("Page ID: <workstream>/<slug>. Use a listed workstream from <user_memory> in lowercase, or _topics when none matches (never invent a workstream); slug is lowercase words joined by hyphens.")] string? page = null,
+        [Description("Page ID: <workstream>/<slug>. Use a listed workstream from <user_memory> in lowercase, or _topics when none matches, with the slug starting with the matter's name (never invent a workstream); slug is lowercase words joined by hyphens.")] string? page = null,
         [Description("Page title, one line.")] string? title = null,
         [AllowedValues(ToolValues.PageTypes.Incident, ToolValues.PageTypes.Decision, ToolValues.PageTypes.Entity, ToolValues.PageTypes.Work)]
         [Description("The page's type, one of the four described above; required by create.")] string? type = null,

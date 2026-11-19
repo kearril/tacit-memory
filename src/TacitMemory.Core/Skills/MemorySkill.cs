@@ -40,6 +40,7 @@ internal static class MemorySkill
 
         ## Detail pages
         - A page covers one matter: update the page that already covers it instead of starting a second page for the same matter.
+        - Put a page under a workstream listed in `<user_memory>`. When none matches, put it in `_topics` and start its slug with the matter's name, for example `_topics/homelab-backup-schedule`: topic pages that share a first slug word are what consolidation proposes as a new workstream, and only consolidation creates one.
         - Pick the type by what the page records. The four types are incident, decision, entity and work; each example below shows one.
         - Title a page with the name the matter is known by; list the other names the user uses for it as aliases.
         - Organize a page into sections by facet, and put each new fact into the section it belongs to.
