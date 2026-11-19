@@ -30,17 +30,24 @@ internal static class ConsolidationReminder
         }
     }
 
-    private static string Render(ConsolidationSummary summary) =>
-        string.Join("\n",
-        [
+    private static string Render(ConsolidationSummary summary)
+    {
+        var lines = new List<string>
+        {
             "## Consolidation reminder",
             BaselineLine(summary.Baseline, summary.DaysSince),
-            $"- Weeks to summarize: {summary.UnsummarizedWeeks}.",
-            CandidatesLine(summary),
-            $"- Format and rule problems: {summary.Problems}.",
-            summary.WorkstreamEmpty ? "- Workstream: empty." : "- Workstream: not empty.",
-            "The user can run the tacit-consolidate skill to start a consolidation; suggest it when the moment fits, and do not start one unasked.",
-        ]);
+        };
+        if (summary.UnsummarizedWeeks > 0)
+            lines.Add($"- Weeks to summarize: {summary.UnsummarizedWeeks}.");
+        if (summary.Candidates > 0)
+            lines.Add(CandidatesLine(summary));
+        if (summary.Problems > 0)
+            lines.Add($"- Format and rule problems: {summary.Problems}.");
+        if (summary.WorkstreamEmpty)
+            lines.Add("- Workstream: empty.");
+        lines.Add("The user can run the tacit-consolidate skill to start a consolidation; suggest it when the moment fits, and do not start one unasked.");
+        return string.Join("\n", lines);
+    }
 
     private static string BaselineLine(ConsolidationBaseline baseline, int? days) => baseline.Kind switch
     {

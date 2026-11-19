@@ -23,11 +23,11 @@ internal static class ResidentBlock
     public static readonly ResidentDocument Default = new(
         DefaultShell,
         "Hold each unless the user lifts it in this conversation; when one stops you, give the reason.",
-        null,
+        "Follow when the situation matches.",
         "Tastes to weigh against the task.",
         null,
         "Each line is a trigger; when it matches, read the rules with `recall kind=rules domain=<label>`.",
-        "Each line gives a workstream's background first, then its recent progress. Only consolidation updates the recent progress, so it may lag behind the activities; the activities win.");
+        "Each line gives a workstream's background first, then its recent progress (updated only by consolidation, so `<recent_activity>` wins if they differ). When the topic enters one, call `recall` with only `workstream` before answering (once per workstream per session).");
 
     /// <summary>
     /// The block's lines, LF-joined, without a trailing line break. <paramref name="content"/> holds what the block shows beyond

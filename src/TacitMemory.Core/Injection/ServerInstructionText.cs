@@ -48,16 +48,14 @@ internal static class ServerInstructionText
     /// </summary>
     public static readonly string DefaultInstructions = """
         ## Using memory
-        - Distinguish what memory holds from what you infer from the persona, and give the date of anything old.
-        - Connect what the user says to stored workstreams, decisions and incidents, and say so when it changes your answer (in chat as in work); omit unrelated memory.
-        - When the user describes their situation, link recent context in half a sentence.
+        - Distinguish stored facts from inferences drawn from the persona, and state the date of anything old.
+        - Connect what the user says to stored workstreams, decisions, incidents or recent activity when relevant; explain the link when it changes your answer, and skip unrelated memory.
 
         ## Recall
-        - When the topic enters a listed workstream in `<user_memory>`, call `recall` with only `workstream` before answering (once per workstream per session).
-        - Call `recall` when the user refers to the past or a missing person, workstream or term; if nothing matches, say you don't remember.
+        - Call `recall` when the user refers to the past or an unfamiliar person, workstream or term; if nothing matches, say you don't remember instead of guessing.
 
         ## Write
-        - For something worth recording, `recall` first, then update the page that covers it or create one.
+        - For something worth a detail page (a fault and its fix, a decision, a system, a unit of work), `recall` first, then update the page that covers it or create one.
         - When a matter concludes, write one activity; set `workstream` only if it matches `<user_memory>` (never invent one). At most one per workstream per session; later progress uses `replaces`.
         - On a correction or stated rule, ask once (with any stale-entry update) whether to save it as a lasting rule; `write_persona op=add` if agreed. Lasting habits observed across the session go in with `op=propose`.
         <!-- Permission boundary, do not remove -->

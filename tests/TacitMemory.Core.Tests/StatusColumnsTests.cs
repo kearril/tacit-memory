@@ -399,7 +399,7 @@ public sealed class StatusColumnsTests : IDisposable
         Assert.False(pending.WorkstreamEmpty);
         Assert.Contains($"- Persona candidates: {pending.Candidates}.", reminder);
         Assert.Contains($"- Format and rule problems: {pending.FormatProblems}.", reminder);
-        Assert.Contains("- Workstream: not empty.", reminder);
+        Assert.DoesNotContain("- Workstream:", reminder);
     }
 
     [Fact]
