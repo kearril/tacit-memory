@@ -53,7 +53,7 @@ internal static class ConflictingEntries
                 count => $"Not checked: the decision or embedding model is unavailable, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
                 count => $"Not checked (not configured): the decision or embedding model is not configured, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
                 count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the consolidation ran out of time. Run the tacit-consolidate skill again to continue.");
-            return new ConsolidationSection(ConsolidationTitles.ConflictingEntries, lines, status);
+            return ConsolidationSection.OfIncrements(ConsolidationTitles.ConflictingEntries, lines, status);
         };
     }
 

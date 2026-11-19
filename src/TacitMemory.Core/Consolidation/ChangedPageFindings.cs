@@ -48,7 +48,7 @@ internal static class ChangedPageFindings
         }
 
         return (
-            new ConsolidationSection(ConsolidationTitles.IncidentLessons, lessons.OrderBy(item => item.Day).ThenBy(item => item.Id, StringComparer.Ordinal).Select(item => item.Text).ToList()),
-            new ConsolidationSection(ConsolidationTitles.ChangedPages, changed.OrderBy(item => item.Latest).ThenBy(item => item.Id, StringComparer.Ordinal).Select(item => item.Text).ToList()));
+            ConsolidationSection.OfIncrements(ConsolidationTitles.IncidentLessons, lessons.OrderBy(item => item.Day).ThenBy(item => item.Id, StringComparer.Ordinal).Select(item => item.Text).ToList()),
+            ConsolidationSection.OfIncrements(ConsolidationTitles.ChangedPages, changed.OrderBy(item => item.Latest).ThenBy(item => item.Id, StringComparer.Ordinal).Select(item => item.Text).ToList()));
     }
 }

@@ -245,6 +245,7 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         Assert.Contains("2 changed page(s) not checked yet", Section(text, "Suspected duplicate pages"));
         Assert.Contains("they ran out before all of them finished", text);
+        Assert.Contains("Complete: no; the budget ran out before every judgment finished.", text);
 
         _models.ReleaseDecisions();
         await Service.SettledAsync().WaitAsync(Guard);
@@ -252,5 +253,6 @@ public sealed class ConsolidationBudgetTests : IDisposable
 
         Assert.Contains("回答尽量简短", Section(complete, Removal));
         Assert.DoesNotContain("not checked yet", Section(complete, Removal));
+        Assert.Contains("Complete: yes.", complete);
     }
 }

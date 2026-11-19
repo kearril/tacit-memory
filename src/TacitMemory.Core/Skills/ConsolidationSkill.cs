@@ -56,10 +56,11 @@ internal static class ConsolidationSkill
         text.Append("Start the TacitMemory consolidation now.\n").Append(CommandSkill.UserText)
             .Append(" For example, \"only summaries\" runs the summary part of step 1 and no proposals. \"only workstreams\", or \"only workstream home-server\" ")
             .Append("for one named workstream, runs just the workstream material of step 1 and the workstream proposal material of step 3, with the workstream changes of step 4. ")
-            .Append("The pass still ends with the `consolidate:` commit of step 6.\n\n");
+            .Append("Such a narrowed pass covers only part of the report, so step 6 commits it as `consolidate(partial):`.\n\n");
         text.Append("First read the resource ").Append(ReportUri).Append(" from the MCP server named tacit. It is computed when read and gives ")
-            .Append("the memory repository's absolute path, today's date, the baseline commit, the budget and the report's categories. ")
-            .Append("If it cannot be read, stop and ask the user to start the TacitMemory service with `tacit serve`; do not check the memory from what you remember.\n");
+            .Append("whether it is complete, the memory repository's absolute path, today's date, the baseline commit, the budget and the report's categories. ")
+            .Append("If it cannot be read, stop and ask the user to start the TacitMemory service with `tacit serve`; do not check the memory from what you remember. ")
+            .Append("If it says the budget ran out, read it once more before going on: the answers that came in meanwhile are kept, so the second read covers more.\n");
         text.Append("Edit the repository's files by the absolute path the report gives, and run git in that directory (git -C \"")
             .Append(Repository).Append("\" ...), whatever the current directory is. Below, ").Append(Repository).Append(" stands for that path.\n\n");
 
@@ -125,9 +126,11 @@ internal static class ConsolidationSkill
             .Append("Leave the labels of past activities as they are.\n");
         text.Append("   Whatever the item, make only the change it proposes: drop no fact of a page, persona entry or workstream entry that the item does not list.\n");
         text.Append("5. Confirm the applied changes to the user, and show the final summaries or workstream entries that step 4 adjusted.\n");
-        text.Append("6. Commit in the memory repository with a message that starts with `consolidate:`: `git -C \"").Append(Repository)
-            .Append("\" add -A`, then `git -C \"").Append(Repository).Append("\" commit -m \"consolidate: ...\"`. If nothing changed, commit with `--allow-empty`: `git -C \"")
-            .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"`.\n\n");
+        text.Append("6. Commit in the memory repository. The message starts with `consolidate:` only when the last report you read says `Complete: yes` and the user did not narrow the pass; ")
+            .Append("otherwise it starts with `consolidate(partial):`, which leaves the baseline in place so the next report still lists everything that changed since it. ")
+            .Append("Run `git -C \"").Append(Repository).Append("\" add -A`, then `git -C \"").Append(Repository)
+            .Append("\" commit -m \"consolidate: ...\"` (or `-m \"consolidate(partial): ...\"`). If nothing changed, add `--allow-empty`: `git -C \"")
+            .Append(Repository).Append("\" commit --allow-empty -m \"consolidate: no changes\"` (or `consolidate(partial): no changes`).\n\n");
 
         text.Append("## Examples\n");
         text.Append("The examples show the structure words of the memory files: write them exactly as they appear here, in English, whatever the memory language. ")

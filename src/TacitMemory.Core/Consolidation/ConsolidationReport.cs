@@ -19,9 +19,25 @@ internal sealed record ConsolidationContext(TacitConfig Config, DateOnly Today, 
 /// <summary>What the categories that ask a model need: the index, the embedding model, the vector store and the judgment pool.</summary>
 internal sealed record ConsolidationServices(MemoryIndex Index, EmbeddingModel Embedding, VectorSync Vectors, JudgmentPool Judgments);
 
-/// <summary>One category of the report: its findings, each already written for the agent, and an optional status line.</summary>
+/// <summary>
+/// One category of the report: its findings, each already written for the agent, and an optional status line. Findings that
+/// stand whatever the baseline are capped at <see cref="ConsolidationReport.MaxFindingsPerCategory"/>; the increments since
+/// the baseline are all listed, after them, as a pass that leaves the baseline in place would otherwise see only the same
+/// first ones every time.
+/// </summary>
+/// <param name="Findings">The findings that do not depend on the baseline; the ones past the cap are counted.</param>
 /// <param name="Status">Why the category could not be fully checked, when it could not; shown above the findings.</param>
-internal sealed record ConsolidationSection(string Title, IReadOnlyList<string> Findings, string? Status = null);
+/// <param name="Increments">The findings about what changed since the baseline; every one is listed.</param>
+internal sealed record ConsolidationSection(
+    string Title, IReadOnlyList<string> Findings, string? Status = null, IReadOnlyList<string>? Increments = null)
+{
+    /// <summary>A category made only of increments since the baseline.</summary>
+    public static ConsolidationSection OfIncrements(string title, IReadOnlyList<string> increments, string? status = null) =>
+        new(title, [], status, increments);
+
+    /// <summary>Whether the report lists only the first findings of this category.</summary>
+    public bool CutShort => Findings.Count > ConsolidationReport.MaxFindingsPerCategory;
+}
 
 /// <summary>
 /// A category whose judgments are already submitted: waiting for their answers as the budget allows, then its result.
@@ -42,7 +58,7 @@ internal sealed record ConsolidationReport(
     IReadOnlyList<ConsolidationSection> Automatic,
     IReadOnlyList<ConsolidationSection> Proposals)
 {
-    /// <summary>Most findings a category lists; the rest are counted.</summary>
+    /// <summary>Most findings a category lists that do not depend on the baseline; the rest are counted.</summary>
     public const int MaxFindingsPerCategory = 20;
 
     /// <summary>
@@ -86,15 +102,22 @@ internal sealed record ConsolidationReport(
             duplicateSection,
             conflictSection,
             new ConsolidationSection(ConsolidationTitles.DomainHygiene, DomainHygiene.Findings(config)),
-            new ConsolidationSection(ConsolidationTitles.LengthHints, await LengthHints.FindingsAsync(context, cancellationToken)),
+            await LengthHints.ProduceAsync(context, cancellationToken),
         };
         return new ConsolidationReport(context.Baseline, config.Consolidation.BudgetSeconds, judgments.BudgetRanOut, automatic, proposals);
     }
+
+    /// <summary>
+    /// Whether the report shows everything: every judgment answered within the budget and no category cut short. Only a pass
+    /// over a complete report may move the baseline.
+    /// </summary>
+    public bool Complete => !BudgetRanOut && !Automatic.Concat(Proposals).Any(section => section.CutShort);
 
     /// <summary>The report as the consolidation report resource shows it, in English.</summary>
     public string Render()
     {
         var text = new StringBuilder();
+        text.Append(CompletenessLine()).Append('\n');
         text.Append(BaselineLine(Baseline)).Append('\n');
         text.Append(BudgetLine()).Append("\n\n");
         RenderPart(text, ConsolidationTitles.AutomaticPart, Automatic);
@@ -107,18 +130,35 @@ internal sealed record ConsolidationReport(
         text.Append("## ").Append(title).Append("\n\n");
         foreach (var section in sections)
         {
+            var increments = section.Increments ?? [];
             text.Append("### ").Append(section.Title).Append('\n');
             if (section.Status is { } status)
                 text.Append(status).Append('\n');
-            if (section.Findings.Count == 0 && section.Status is null)
+            if (section.Findings.Count == 0 && increments.Count == 0 && section.Status is null)
                 text.Append("None.\n");
             foreach (var finding in section.Findings.Take(MaxFindingsPerCategory))
                 text.Append(finding).Append('\n');
-            if (section.Findings.Count > MaxFindingsPerCategory)
+            if (section.CutShort)
                 text.Append(section.Findings.Count - MaxFindingsPerCategory)
                     .Append(" more not listed. Run the tacit-consolidate skill again after handling these.\n");
+            foreach (var increment in increments)
+                text.Append(increment).Append('\n');
             text.Append('\n');
         }
+    }
+
+    private string CompletenessLine()
+    {
+        if (Complete)
+            return "Complete: yes. Every judgment finished in time and every category is listed in full; a pass that handles the whole report ends with a consolidate: commit.";
+
+        var reasons = new List<string>();
+        if (BudgetRanOut)
+            reasons.Add("the budget ran out before every judgment finished");
+        var cut = Automatic.Concat(Proposals).Where(section => section.CutShort).Select(section => section.Title).ToList();
+        if (cut.Count > 0)
+            reasons.Add($"{string.Join(", ", cut)} list{(cut.Count == 1 ? "s" : "")} only {MaxFindingsPerCategory} findings");
+        return $"Complete: no; {string.Join("; ", reasons)}. A pass over this report ends with a consolidate(partial): commit, which leaves the baseline in place.";
     }
 
     private string BudgetLine() => BudgetRanOut
