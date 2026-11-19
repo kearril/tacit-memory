@@ -55,7 +55,7 @@ internal static class PersonaFile
 
         var block = BlockHeading(lines, scope);
         if (block < 0)
-            return CreateBlock(text, lines, scope, trigger, kind, entry, cr);
+            return CreateBlock(lines, scope, trigger, kind, entry, cr);
 
         var end = NextHeading(lines, block + 1);
         var sub = SubHeading(lines, block, end, kind);
@@ -95,7 +95,7 @@ internal static class PersonaFile
     /// entry. It goes before the first existing block that sorts after it, else at the end of the file.
     /// </summary>
     private static (string Text, int Line) CreateBlock(
-        string text, List<string> lines, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry, string cr)
+        List<string> lines, PersonaScope scope, string? trigger, PersonaSection kind, IReadOnlyList<string> entry, string cr)
     {
         List<string> block = ["## " + scope.Heading];
         if (trigger is not null)

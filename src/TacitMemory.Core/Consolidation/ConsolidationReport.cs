@@ -58,7 +58,7 @@ internal sealed record ConsolidationReport(
 
         var duplicatePages = await DuplicatePages.StartAsync(context, services, judgments, cancellationToken);
         var conflicts = await ConflictingEntries.StartAsync(context, services, judgments, cancellationToken);
-        var candidates = await CandidateReview.StartAsync(context, services, judgments, cancellationToken);
+        var candidates = await CandidateReview.StartAsync(context, services, judgments);
         judgments.StartBudget(TimeSpan.FromSeconds(config.Consolidation.BudgetSeconds));
 
         var duplicateSection = await duplicatePages();

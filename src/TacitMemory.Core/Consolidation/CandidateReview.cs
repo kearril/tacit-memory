@@ -30,7 +30,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
     /// as the budget allows; it yields <c>null</c> when <c>candidates.md</c> is not valid UTF-8.
     /// </summary>
     public static async Task<AwaitAnswers<CandidateReview?>> StartAsync(
-        ConsolidationContext context, ConsolidationServices services, JudgmentSession judgments, CancellationToken cancellationToken)
+        ConsolidationContext context, ConsolidationServices services, JudgmentSession judgments)
     {
         var config = context.Config;
         var candidates = TextFile.Read(MemoryLayout.Full(config.MemoryPath, MemoryLayout.Candidates));

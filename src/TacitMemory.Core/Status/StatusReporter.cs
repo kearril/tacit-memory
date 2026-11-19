@@ -152,7 +152,7 @@ internal static class StatusReporter
         {
             Clients = Clients(options, language),
             Bindings = BindingChecks.Produce(options, language),
-            Consolidation = Consolidation(options, language, summary, unreadable),
+            Consolidation = Consolidation(language, summary, unreadable),
             Pending = Pending(language, summary, unreadable),
             Backups = Backups(options, config),
             Logs = Logs(options, language),
@@ -207,7 +207,7 @@ internal static class StatusReporter
         }
     }
 
-    private static ConsolidationStatus Consolidation(TacitOptions options, MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
+    private static ConsolidationStatus Consolidation(MemoryLanguage language, ConsolidationSummary? summary, string? unreadable)
     {
         var title = StatusMessages.ConsolidationTitle.In(language);
         if (summary is null)
