@@ -38,7 +38,16 @@ export function dashboardPathOf(anchor?: typeof BACKUPS_ANCHOR): string {
 export const SETTINGS_PATH = "/settings";
 
 /** The sections of the settings page, in the order the page and the sidebar list them. */
-export const SECTIONS = ["models", "bindings", "judgment", "consolidation", "backup", "access", "advanced"] as const;
+export const SECTIONS = [
+  "machine",
+  "models",
+  "bindings",
+  "judgment",
+  "consolidation",
+  "backup",
+  "access",
+  "advanced",
+] as const;
 
 /** A section of the settings page. */
 export type SectionId = (typeof SECTIONS)[number];

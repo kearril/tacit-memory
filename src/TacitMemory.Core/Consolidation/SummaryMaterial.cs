@@ -86,7 +86,7 @@ internal static class SummaryMaterial
             findings.Add(string.Join('\n', lines));
         }
 
-        return new ConsolidationSection(ConsolidationTitles.WorkstreamMaterial, findings);
+        return ConsolidationSection.OfIncrements(ConsolidationTitles.WorkstreamMaterial, findings);
     }
 
     /// <summary>

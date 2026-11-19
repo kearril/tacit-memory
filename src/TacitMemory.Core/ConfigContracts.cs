@@ -40,6 +40,12 @@ public enum ConfigKeyPath
     [JsonStringEnumMemberName("language")]
     Language,
 
+    [JsonStringEnumMemberName("machine.name")]
+    MachineName,
+
+    [JsonStringEnumMemberName("machine.description")]
+    MachineDescription,
+
     [JsonStringEnumMemberName("models.embedding.provider")]
     ModelsEmbeddingProvider,
 
@@ -94,8 +100,8 @@ public enum ConfigKeyPath
     [JsonStringEnumMemberName("consolidation.maxConcurrency")]
     ConsolidationMaxConcurrency,
 
-    [JsonStringEnumMemberName("consolidation.hintItemLength")]
-    ConsolidationHintItemLength,
+    [JsonStringEnumMemberName("consolidation.hintEntryLength")]
+    ConsolidationHintEntryLength,
 
     [JsonStringEnumMemberName("consolidation.hintResidentLength")]
     ConsolidationHintResidentLength,
@@ -144,6 +150,9 @@ public enum ConfigKeyPath
 
     [JsonStringEnumMemberName("backup.webdav.password")]
     BackupWebDavPassword,
+
+    [JsonStringEnumMemberName("backup.webdav.file")]
+    BackupWebDavFile,
 }
 
 /// <summary>What one key of <c>config.yaml</c> accepts, by its key path, such as <c>retrieval.topK</c>.</summary>

@@ -8,8 +8,9 @@ namespace TacitMemory.Core.Consolidation;
 /// <summary>
 /// The "Workstream proposal material" category of part B, computed without a model. It lists three things the agent drafts
 /// its workstream proposals from: the names that are not established yet (page folders and activity labels that
-/// <c>workstreams.md</c> does not write), the topic pages whose slugs share a prefix, and the activities since the baseline that
-/// carry no workstream label. Nothing here decides anything; the user confirms each proposal.
+/// <c>workstreams.md</c> does not write), the topic pages whose slugs share a prefix, and, as increments since the baseline,
+/// the activities since the baseline that carry no workstream label. Nothing here decides anything; the user confirms each
+/// proposal.
 /// </summary>
 internal static class WorkstreamProposals
 {
@@ -33,10 +34,14 @@ internal static class WorkstreamProposals
 
         findings.AddRange(PrefixGroups(memory));
 
-        foreach (var activity in fresh.Where(activity => activity.Workstream is null).OrderBy(activity => activity.Day).ThenBy(activity => activity.Line))
-            findings.Add($"- {Day(activity.Day)} activity [{activity.Code}] without a workstream: {activity.Body}");
+        var unlabeled = fresh
+            .Where(activity => activity.Workstream is null)
+            .OrderBy(activity => activity.Day)
+            .ThenBy(activity => activity.Line)
+            .Select(activity => $"- {Day(activity.Day)} activity [{activity.Code}] without a workstream: {activity.Body}")
+            .ToList();
 
-        return new ConsolidationSection(ConsolidationTitles.WorkstreamProposals, findings);
+        return new ConsolidationSection(ConsolidationTitles.WorkstreamProposals, findings, Increments: unlabeled);
     }
 
     /// <summary>

@@ -37,6 +37,7 @@ function configFile(): ConfigFile {
     server: { port: null, host: null },
     memory: { path: null },
     language: "zh",
+    machine: { name: null, description: null },
     models: { embedding: null, reranker: null, decision: null },
     limits: { brief: null, page: null },
     consolidation: {},
@@ -142,6 +143,17 @@ describe("bodyOf", () => {
 
     expect(config.backup).toEqual({ keep: 2, webDav: null });
     expect(config.language).toBe("zh");
+  });
+
+  it("writes a custom machine name or description and omits defaults", () => {
+    let drafts = edit(draftsOf(view()), "machine.name", "mac-mini");
+    drafts = edit(drafts, "machine.description", "家里服务器");
+
+    expect(bodyOf(view(), drafts).config.machine).toEqual({ name: "mac-mini", description: "家里服务器" });
+
+    drafts = restoreDefault(view(), drafts, "machine.name");
+    drafts = edit(drafts, "machine.description", "");
+    expect(bodyOf(view(), drafts).config.machine).toEqual({ name: null, description: null });
   });
 
   it("names the fields that are not a number, or not a whole number where one is needed", () => {

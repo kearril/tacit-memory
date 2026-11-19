@@ -19,10 +19,10 @@ public sealed class ConfigWriterTests : IDisposable
             server: { port: 19999, host: 192.168.1.10 }
             language: zh
             limits: { brief: 1500, page: { minAliases: 3 } }
-            consolidation: { remindAfterDays: 5, hintItemLength: 120 }
+            consolidation: { remindAfterDays: 5, hintEntryLength: 120 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { topK: 8, minRerankScore: 0.3 }
-            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit/', username: me, password: pw } }
+            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit/', username: me, password: pw, file: win-main.zip } }
             """);
         var before = _home.Tacit().LoadConfig();
 
@@ -101,4 +101,19 @@ public sealed class ConfigWriterTests : IDisposable
 
     /// <summary>The settings without the prompt documents, which are records holding lists and so never compare equal.</summary>
     private static TacitConfig Normalized(TacitConfig config) => config with { Prompts = null! };
+
+    [Fact]
+    public void Machine_name_is_omitted_when_default_and_written_when_custom_with_or_without_description()
+    {
+        _home.HostName = "Work-Box.local";
+        var defaults = _home.Tacit().ReadConfigFile() with { Machine = new MachineFile("work-box", null) };
+        _home.Tacit().SaveConfig(defaults);
+        Assert.DoesNotContain("machine:", File.ReadAllText(ConfigPath));
+
+        var custom = defaults with { Machine = new MachineFile("mac-mini", "常驻服务器") };
+        _home.Tacit().SaveConfig(custom);
+        var rendered = File.ReadAllText(ConfigPath);
+        Assert.Contains("machine:\n  name: mac-mini\n  description: '常驻服务器'\n", rendered.ReplaceLineEndings("\n"));
+        Assert.Equal(new MachineConfig("mac-mini", "常驻服务器"), _home.Tacit().LoadConfig().Machine);
+    }
 }

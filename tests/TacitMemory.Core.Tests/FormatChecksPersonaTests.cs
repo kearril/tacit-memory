@@ -136,6 +136,19 @@ public sealed class FormatChecksPersonaTests : IDisposable
     }
 
     [Fact]
+    public async Task A_machine_mark_that_is_not_a_machine_name_is_reported_and_an_unmarked_activity_is_not()
+    {
+        using var service = Open();
+        Write("recent/2026-10.md", "## 2026-10-28\n- 标对的\n  <!-- on win-main -->\n- 标错的\n  <!-- on Win_Main quote「原话」 -->\n- 没有标记的\n");
+
+        var violations = await Violations(service);
+
+        Assert.Contains("line 5 (Invalid machine)", violations);
+        Assert.DoesNotContain("line 3", violations);
+        Assert.DoesNotContain("line 6", violations);
+    }
+
+    [Fact]
     public async Task A_workstream_entry_without_a_background_line_is_a_format_problem_fixed_by_hand()
     {
         using var service = Open();

@@ -218,7 +218,7 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
 
         if (parts.Activities.Count > 0)
             blocks.Add(Block("Recent activities:", parts.Activities.Select(activity =>
-                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} [{activity.Code}] {activity.Body}").ToList()));
+                $"- {activity.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} {activity.MachineAfterDate}[{activity.Code}] {activity.Body}").ToList()));
 
         if (parts.Summary is not null)
             blocks.Add(Block("Latest weekly summary:", ["- " + parts.Summary.Text]));

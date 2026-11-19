@@ -15,22 +15,28 @@ internal sealed class CloudDownload(TacitOptions options, TacitConfig config, Se
 {
     private const string FolderName = ".download";
 
-    /// <summary>The file a download writes: <c>backups/.download/tacit-backup.zip</c>.</summary>
-    public static string FileOf(TacitOptions options) =>
-        Path.Combine(options.TacitHome, "backups", FolderName, WebDavClient.CloudFileName);
+    /// <summary>The file a download of <paramref name="webDav"/> writes: <c>backups/.download/&lt;file&gt;</c>.</summary>
+    public static string FileOf(TacitOptions options, WebDavConfig webDav) => Path.Combine(FolderOf(options), webDav.File);
 
-    /// <summary>Whether <paramref name="path"/> is the download's file.</summary>
+    /// <summary>Whether <paramref name="path"/> is a download: a file directly in <c>backups/.download/</c>.</summary>
     public static bool IsDownload(TacitOptions options, string path) =>
-        string.Equals(Path.GetFullPath(path), Path.GetFullPath(FileOf(options)), StringComparison.OrdinalIgnoreCase);
+        string.Equals(Path.GetDirectoryName(Path.GetFullPath(path)), Path.GetFullPath(FolderOf(options)), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Downloads the remote backup, replacing the previous download, and returns the file's full path.</summary>
+    private static string FolderOf(TacitOptions options) => Path.Combine(options.TacitHome, "backups", FolderName);
+
+    /// <summary>
+    /// Downloads the remote backup and returns the file's full path. Earlier downloads go first, as their file name may be
+    /// one the config no longer names, which no later download would replace.
+    /// </summary>
     /// <exception cref="TacitException">The cloud backup is not configured, or the download failed.</exception>
     public async Task<string> FetchAsync(CancellationToken cancellationToken)
     {
         var webDav = config.Backup.WebDav
             ?? throw new TacitException(TacitError.CloudBackupNotConfigured, BackupMessages.CloudBackupNotConfigured.In(config.Language));
-        var file = FileOf(options);
-        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        var file = FileOf(options, webDav);
+        var folder = Directory.CreateDirectory(FolderOf(options));
+        foreach (var earlier in folder.EnumerateFiles())
+            Discard(earlier.FullName);
         using (var client = new WebDavClient(webDav, config.Language))
             await client.DownloadAsync(file, cancellationToken);
 
@@ -38,16 +44,16 @@ internal sealed class CloudDownload(TacitOptions options, TacitConfig config, Se
         return file;
     }
 
-    /// <summary>Deletes the download after a restore from it has succeeded. Best effort: a file that stays is only disk space.</summary>
-    public static void Discard(TacitOptions options)
+    /// <summary>Deletes the download at <paramref name="path"/> after a restore from it has succeeded. Best effort: a file that stays is only disk space.</summary>
+    public static void Discard(string path)
     {
         try
         {
-            File.Delete(FileOf(options));
+            File.Delete(path);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // Left in place; the next download replaces it.
+            // Left in place; the next download clears it.
         }
     }
 }

@@ -81,7 +81,7 @@ internal static class PersonaFile
     /// Replaces the entry's lines, from its first line through its last continuation line, with <paramref name="entry"/>;
     /// an empty entry removes it. Every other byte of the file is kept as it was.
     /// </summary>
-    public static string ReplaceEntry(string text, PersonaItem item, IReadOnlyList<string> entry)
+    public static string ReplaceEntry(string text, PersonaEntry item, IReadOnlyList<string> entry)
     {
         var cr = TextFile.CarriageReturnOf(text);
         var lines = text.Split('\n').ToList();

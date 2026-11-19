@@ -18,6 +18,8 @@ public sealed record TacitConfig
 
     public required MemoryLanguage Language { get; init; }
 
+    public required MachineConfig Machine { get; init; }
+
     public required ModelsConfig Models { get; init; }
 
     public required LimitsConfig Limits { get; init; }
@@ -70,9 +72,9 @@ public sealed record LimitsConfig(int Brief, PageLimits Page);
 public sealed record PageLimits(int MinAliases);
 
 /// <param name="RemindCandidates">Candidates at which the consolidation reminder is due.</param>
-/// <param name="HintItemLength">Characters above which a persona item or an activity gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
+/// <param name="HintEntryLength">Characters above which a persona entry or an activity gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
 /// <param name="HintResidentLength">Characters above which the resident block gets a length hint in the consolidation report. Only a hint, never a refusal.</param>
-public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates, int HintItemLength, int HintResidentLength);
+public sealed record ConsolidationConfig(int RemindAfterDays, int BudgetSeconds, int MaxConcurrency, int RemindCandidates, int HintEntryLength, int HintResidentLength);
 
 /// <summary>Configured thresholds per judgment; <c>null</c> means the built-in default.</summary>
 public sealed record DecisionThresholds(Threshold? SamePreference, Threshold? SamePage, Threshold? SameTopic, Threshold? RuleConflict);
@@ -91,7 +93,16 @@ public sealed record BackupConfig(int Keep, WebDavConfig? WebDav);
 /// <param name="Url">The remote directory; always ends in <c>/</c>.</param>
 /// <param name="Username"><c>null</c> when not configured: no authentication is sent.</param>
 /// <param name="Password"><c>null</c> when neither the environment nor the config holds one.</param>
-public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Password);
+/// <param name="File">
+/// The name of the backup file in the remote directory, which the backup writes and the restore reads; <c>tacit-backup.zip</c>
+/// when not configured.
+/// </param>
+public sealed record WebDavConfig(Uri Url, string? Username, SecretValue? Password, string File);
+
+/// <summary>This machine's identity: its normalized name and optional single-line description.</summary>
+/// <param name="Name">Configured machine name, or normalized from the host name when omitted.</param>
+/// <param name="Description">Optional single-line description shown beside the name in the resident block.</param>
+public sealed record MachineConfig(string Name, string? Description);
 
 /// <summary>Where a secret's value came from: its environment variable, or <c>config.yaml</c>.</summary>
 public enum SecretSource

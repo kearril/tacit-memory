@@ -177,7 +177,7 @@ public sealed class ServiceMaintenance
         var result = await _runner.RunAsync("restore", _ => RestoreCoreAsync(path, config), cancellationToken);
         // A restore from the cloud download is done with the download once it has succeeded; a failed one keeps it.
         if (CloudDownload.IsDownload(_options, path))
-            CloudDownload.Discard(_options);
+            CloudDownload.Discard(path);
         return result;
     }
 

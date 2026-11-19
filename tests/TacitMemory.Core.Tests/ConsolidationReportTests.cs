@@ -211,7 +211,7 @@ public sealed class ConsolidationReportTests : IDisposable
     [Fact]
     public async Task A_persona_entry_longer_than_the_hint_length_is_listed_with_its_place_and_length()
     {
-        _home.InitReady("consolidation: { hintItemLength: 20 }\n");
+        _home.InitReady("consolidation: { hintEntryLength: 20 }\n");
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- 短\n- " + new string('长', 30) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
@@ -238,7 +238,7 @@ public sealed class ConsolidationReportTests : IDisposable
     [Fact]
     public async Task An_activity_since_the_baseline_longer_than_the_hint_length_is_listed_with_its_place_and_length()
     {
-        _home.InitReady("consolidation: { hintItemLength: 20 }\n");
+        _home.InitReady("consolidation: { hintEntryLength: 20 }\n");
         WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n");
         CommitAll("consolidate: earlier pass");
         WriteMonth("2026-11", "## 2026-11-02\n- 旧活动：短\n- 新的活动" + new string('长', 30) + "\n");
@@ -268,7 +268,7 @@ public sealed class ConsolidationReportTests : IDisposable
     [Fact]
     public async Task Raising_the_hint_length_removes_the_hint_and_nothing_is_refused()
     {
-        _home.InitReady("consolidation: { hintItemLength: 500 }\n");
+        _home.InitReady("consolidation: { hintEntryLength: 500 }\n");
         File.WriteAllText(Path.Combine(Memory, "persona.md"), "## Preferences\n- " + new string('长', 300) + "\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
@@ -301,6 +301,22 @@ public sealed class ConsolidationReportTests : IDisposable
 
         Assert.Contains(second, prompt);
         Assert.DoesNotContain(first, prompt);
+    }
+
+    [Fact]
+    public async Task A_partial_consolidation_commit_leaves_the_baseline_and_its_increments_in_place()
+    {
+        _home.InitReady();
+        CommitAll("consolidate: first pass");
+        var baseline = HeadHash();
+        WritePage("after-baseline", "基准之后的页", "## 现象\n- 内容\n");
+        CommitAll("consolidate(partial): only summaries");
+        using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
+
+        var report = await service.Tools.ConsolidationReportAsync();
+
+        Assert.Contains($"commit {baseline}", report);
+        Assert.Contains("tacit-memory/after-baseline", Section(report, "Changed pages"));
     }
 
     [Fact]
@@ -345,7 +361,7 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task Each_category_lists_at_most_twenty_items_oldest_first_and_counts_the_rest()
+    public async Task A_category_not_tied_to_the_baseline_lists_at_most_twenty_items_oldest_first_counts_the_rest_and_makes_the_report_incomplete()
     {
         using var service = Open();
         // Twenty-one completed weeks, from ISO 2026-W02 (Monday 2026-01-05) to 2026-W22, each with one activity.
@@ -353,13 +369,16 @@ public sealed class ConsolidationReportTests : IDisposable
             (new DateOnly(2026, 1, 5).AddDays(7 * week), "每周一件事")));
         ClockOn(new DateOnly(2026, 6, 1));
 
-        var section = Section(await service.Tools.ConsolidationReportAsync(), "Weeks to summarize");
+        var report = await service.Tools.ConsolidationReportAsync();
+        var section = Section(report, "Weeks to summarize");
 
         Assert.Contains("2026-W02", section);
         Assert.Contains("2026-W21", section);
         Assert.DoesNotContain("2026-W22", section);
         Assert.Contains("1 more not listed", section);
         Assert.Contains("tacit-consolidate", section);
+        Assert.Contains("Complete: no; Weeks to summarize lists only 20 findings.", report);
+        Assert.Contains("consolidate(partial):", report);
     }
 
     [Fact]
@@ -400,7 +419,7 @@ public sealed class ConsolidationReportTests : IDisposable
         _home.InitReady();
         WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n");
         CommitAll("consolidate: earlier pass");
-        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
+        WriteMonth("2026-10", "## 2026-10-20\n- [tacit-memory] 旧活动\n  <!-- quote「旧原话」 -->\n\n## 2026-10-31\n- [tacit-memory] 新的做法\n  <!-- on win-main quote「新原话二」 -->\n\n## 2026-10-29\n- 无项目的活动\n  <!-- quote「新原话一」 -->\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
         var section = Section(await service.Tools.ConsolidationReportAsync(), "Persona evidence");
@@ -408,6 +427,7 @@ public sealed class ConsolidationReportTests : IDisposable
         Assert.DoesNotContain("旧原话", section);
         Assert.Contains("新原话一", section);
         Assert.Contains("新原话二", section);
+        Assert.DoesNotContain("win-main", section);
         Assert.Contains("tacit-memory", section);
         Assert.True(section.IndexOf("新原话一", StringComparison.Ordinal) < section.IndexOf("新原话二", StringComparison.Ordinal));
     }
@@ -467,19 +487,20 @@ public sealed class ConsolidationReportTests : IDisposable
     }
 
     [Fact]
-    public async Task Each_part_b_category_lists_at_most_twenty_items_oldest_first_and_counts_the_rest()
+    public async Task Every_increment_since_the_baseline_is_listed_past_twenty_and_does_not_count_as_cut_short()
     {
         _home.InitReady();
         for (var i = 0; i < 21; i++)
             WritePage($"page-{i:00}", $"页 {i:00}", "## 现象\n- 内容\n");
         using var service = _home.Tacit().OpenService(_ => { }, NullLoggerFactory.Instance);
 
-        var section = Section(await service.Tools.ConsolidationReportAsync(), "Changed pages");
+        var report = await service.Tools.ConsolidationReportAsync();
+        var section = Section(report, "Changed pages");
 
         Assert.Contains("tacit-memory/page-00", section);
-        Assert.Contains("tacit-memory/page-19", section);
-        Assert.DoesNotContain("tacit-memory/page-20", section);
-        Assert.Contains("1 more not listed", section);
+        Assert.Contains("tacit-memory/page-20", section);
+        Assert.DoesNotContain("more not listed", section);
+        Assert.DoesNotContain("only 20 findings", report);
     }
 
     [Fact]

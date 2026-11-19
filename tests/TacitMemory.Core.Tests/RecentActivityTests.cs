@@ -27,6 +27,9 @@ public sealed partial class RecentActivityTests : IDisposable
 
     private string MonthFile => Path.Combine(Memory, "recent", "2026-11.md");
 
+    /// <summary>The comment the service writes under a new activity on the test machine without a source.</summary>
+    private const string Mark = "  <!-- on test-machine -->";
+
     // Secret-shaped samples are assembled at run time so no scanner mistakes this file for a leak.
     private static readonly string OpenAiKey = "sk-" + "proj-Abc123def456GHI789jkl012MNO345";
 
@@ -55,7 +58,7 @@ public sealed partial class RecentActivityTests : IDisposable
         var result = await _service.Tools.WriteRecentAsync(Add("想清楚了画像里缺的是人的倾向"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 2026-11-02\n- 想清楚了画像里缺的是人的倾向\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- 想清楚了画像里缺的是人的倾向\n{Mark}\n", File.ReadAllText(MonthFile));
         Assert.Equal($"recent: add {ShortOf("想清楚了画像里缺的是人的倾向")}", Git("log", "-1", "--format=%s").Trim());
         Assert.Equal("recent/2026-11.md", Git("show", "--name-only", "--format=", "HEAD").Trim());
         Assert.Equal("A  notes.txt", Git("status", "--porcelain").TrimEnd());
@@ -67,7 +70,7 @@ public sealed partial class RecentActivityTests : IDisposable
         await _service.Tools.WriteRecentAsync(Add("先查了索引"));
         await _service.Tools.WriteRecentAsync(Add("再换了分词器"));
 
-        Assert.Equal("## 2026-11-02\n- 先查了索引\n- 再换了分词器\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- 先查了索引\n{Mark}\n- 再换了分词器\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -78,7 +81,7 @@ public sealed partial class RecentActivityTests : IDisposable
 
         await _service.Tools.WriteRecentAsync(Add("今天的事"));
 
-        Assert.Equal("## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- 今天的事\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-01\n- 昨天的事\n## 2026-11-02\n- 今天的事\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -90,7 +93,7 @@ public sealed partial class RecentActivityTests : IDisposable
         await _service.Tools.WriteRecentAsync(Add("下午的事"));
 
         Assert.Equal(
-            "## 2026-11-02\n- 早上的事\n\n手写备注  \n- 下午的事\n## 2026-11-01\n- 昨天的事\n",
+            $"## 2026-11-02\n- 早上的事\n\n手写备注  \n- 下午的事\n{Mark}\n## 2026-11-01\n- 昨天的事\n",
             File.ReadAllText(MonthFile));
     }
 
@@ -103,7 +106,7 @@ public sealed partial class RecentActivityTests : IDisposable
         await _service.Tools.WriteRecentAsync(Add("新的一条"));
 
         Assert.Equal(
-            "## 2026-11-02\n- 第一段\n- 新的一条\n## 2026-11-01\n- 昨天\n## 2026-11-02\n- 第二段\n",
+            $"## 2026-11-02\n- 第一段\n- 新的一条\n{Mark}\n## 2026-11-01\n- 昨天\n## 2026-11-02\n- 第二段\n",
             File.ReadAllText(MonthFile));
     }
 
@@ -113,7 +116,7 @@ public sealed partial class RecentActivityTests : IDisposable
         var result = await _service.Tools.WriteRecentAsync(Add("决定先不做同主题判断", workstream: "Tacit-Memory"));
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 2026-11-02\n- [tacit-memory] 决定先不做同主题判断\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- [tacit-memory] 决定先不做同主题判断\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -141,13 +144,13 @@ public sealed partial class RecentActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Source_is_written_as_an_indented_comment_under_the_entry()
+    public async Task Source_is_written_with_the_machine_in_an_indented_comment_under_the_entry()
     {
         var result = await _service.Tools.WriteRecentAsync(Add("记忆库本身就是项目", source: "其实可以直接把记忆库当成项目"));
 
         Assert.False(result.IsError, result.Text);
         Assert.Equal(
-            "## 2026-11-02\n- 记忆库本身就是项目\n  <!-- quote「其实可以直接把记忆库当成项目」 -->\n",
+            "## 2026-11-02\n- 记忆库本身就是项目\n  <!-- on test-machine quote「其实可以直接把记忆库当成项目」 -->\n",
             File.ReadAllText(MonthFile));
     }
 
@@ -256,7 +259,7 @@ public sealed partial class RecentActivityTests : IDisposable
         Assert.False(result.IsError, result.Text);
         Assert.Equal(ShortOf("[tacit-memory] 改写后的先做的事"), CodeOf(result));
         Assert.Equal(
-            "## 2026-11-02\n- [tacit-memory] 改写后的先做的事\n  <!-- quote「原话一」 -->\n- 第二件事\n- 第三件事\n",
+            $"## 2026-11-02\n- [tacit-memory] 改写后的先做的事\n  <!-- on test-machine quote「原话一」 -->\n- 第二件事\n{Mark}\n- 第三件事\n{Mark}\n",
             File.ReadAllText(MonthFile));
         Assert.Equal($"recent: replace {ShortOf("[tacit-memory] 改写后的先做的事")}", Git("log", "-1", "--format=%s").Trim());
         Assert.NotEqual(CodeOf(first), ShortOf("[tacit-memory] 改写后的先做的事"));
@@ -273,7 +276,7 @@ public sealed partial class RecentActivityTests : IDisposable
             Replaces = CodeOf(added),
             Source = "新话",
         });
-        Assert.Equal("## 2026-11-02\n- 一件事改写\n  <!-- quote「新话」 -->\n", File.ReadAllText(MonthFile));
+        Assert.Equal("## 2026-11-02\n- 一件事改写\n  <!-- on test-machine quote「新话」 -->\n", File.ReadAllText(MonthFile));
 
         var kept = await _service.Tools.WriteRecentAsync(new WriteRecentRequest
         {
@@ -282,7 +285,23 @@ public sealed partial class RecentActivityTests : IDisposable
         });
 
         Assert.False(kept.IsError, kept.Text);
-        Assert.Equal("## 2026-11-02\n- 一件事再改\n  <!-- quote「新话」 -->\n", File.ReadAllText(MonthFile));
+        Assert.Equal("## 2026-11-02\n- 一件事再改\n  <!-- on test-machine quote「新话」 -->\n", File.ReadAllText(MonthFile));
+    }
+
+    [Fact]
+    public async Task Replaces_marks_the_rewritten_activity_with_this_machine_and_keeps_its_quote()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(MonthFile)!);
+        File.WriteAllText(MonthFile, "## 2026-11-02\n- 另一台上写的\n  <!-- on other-box quote「旧话」 -->\n- 没有标记的旧活动\n");
+
+        var result = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "这台上改写的", Replaces = ShortOf("另一台上写的") });
+        var unmarked = await _service.Tools.WriteRecentAsync(new WriteRecentRequest { Text = "改写的旧活动", Replaces = ShortOf("没有标记的旧活动") });
+
+        Assert.False(result.IsError, result.Text);
+        Assert.False(unmarked.IsError, unmarked.Text);
+        Assert.Equal(
+            $"## 2026-11-02\n- 这台上改写的\n  <!-- on test-machine quote「旧话」 -->\n- 改写的旧活动\n{Mark}\n",
+            File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -298,7 +317,7 @@ public sealed partial class RecentActivityTests : IDisposable
         });
 
         Assert.False(result.IsError, result.Text);
-        Assert.Equal("## 2026-11-02\n- [new-one] 同一件事\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- [new-one] 同一件事\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -340,7 +359,7 @@ public sealed partial class RecentActivityTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.Contains($"[{ShortOf("新的说法")}] 新的说法", result.Text);
-        Assert.Equal("## 2026-11-02\n- 新的说法\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- 新的说法\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -370,7 +389,7 @@ public sealed partial class RecentActivityTests : IDisposable
 
         Assert.True(result.IsError);
         Assert.Contains("confirm_no_secret=true", result.Text);
-        Assert.Equal("## 2026-11-02\n- 普通的一句\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- 普通的一句\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]
@@ -499,7 +518,7 @@ public sealed partial class RecentActivityTests : IDisposable
         var results = await Task.WhenAll(first, second);
 
         Assert.All(results, result => Assert.False(result.IsError, result.Text));
-        Assert.Equal("## 2026-11-02\n- 甲\n- 乙\n", File.ReadAllText(MonthFile));
+        Assert.Equal($"## 2026-11-02\n- 甲\n{Mark}\n- 乙\n{Mark}\n", File.ReadAllText(MonthFile));
     }
 
     [Fact]

@@ -17,7 +17,7 @@ public enum PersonaSection
 /// One persona entry: a top-level <c>- </c> item with its indented continuation lines, or, when
 /// <see cref="IsListItem"/> is false, a line that does not follow the format and is kept as written.
 /// </summary>
-internal sealed record PersonaItem(string Text, IReadOnlyList<string> Continuation, bool IsListItem, int Line)
+internal sealed record PersonaEntry(string Text, IReadOnlyList<string> Continuation, bool IsListItem, int Line)
 {
     /// <summary>The continuation lines that are not source comments (<c>&lt;!-- … --&gt;</c>).</summary>
     public IEnumerable<string> ContinuationWithoutComments => Continuation.Where(line => !IsComment(line));
@@ -33,7 +33,7 @@ internal sealed record PersonaItem(string Text, IReadOnlyList<string> Continuati
 /// A section of <c>persona.md</c>. <see cref="Kind"/> is <c>null</c> for headings that are not one of the four, and
 /// <see cref="Heading"/> is <c>null</c> for text before the first heading. Inside a scope block the headings are <c>### </c>.
 /// </summary>
-internal sealed record PersonaPart(PersonaSection? Kind, string? Heading, IReadOnlyList<PersonaItem> Items);
+internal sealed record PersonaPart(PersonaSection? Kind, string? Heading, IReadOnlyList<PersonaEntry> Items);
 
 /// <summary>
 /// A scope block of <c>persona.md</c>: a domain or a workstream, its <c>## </c> heading and, for a domain, its trigger line.
@@ -49,15 +49,15 @@ internal sealed record PersonaBlock(
     IReadOnlyList<PersonaPart> Parts)
 {
     /// <summary>The entries of every section of the block that is one of the four, in file order.</summary>
-    public IReadOnlyList<PersonaItem> Entries => Parts.Where(part => part.Kind is not null).SelectMany(part => part.Items).Where(item => item.IsListItem).ToList();
+    public IReadOnlyList<PersonaEntry> Entries => Parts.Where(part => part.Kind is not null).SelectMany(part => part.Items).Where(item => item.IsListItem).ToList();
 
     /// <summary>The entries of the block's section of <paramref name="kind"/>, in file order.</summary>
-    public IReadOnlyList<PersonaItem> EntriesOf(PersonaSection kind) =>
+    public IReadOnlyList<PersonaEntry> EntriesOf(PersonaSection kind) =>
         Parts.Where(part => part.Kind == kind).SelectMany(part => part.Items).Where(item => item.IsListItem).ToList();
 }
 
 /// <summary>A list entry with the scope and the section it belongs to.</summary>
-internal sealed record ScopedEntry(PersonaScope Scope, PersonaSection Kind, PersonaItem Item);
+internal sealed record ScopedEntry(PersonaScope Scope, PersonaSection Kind, PersonaEntry Entry);
 
 /// <summary>
 /// <c>persona.md</c> parsed leniently: global sections are found by their <c>## </c> headings, scope blocks by
@@ -116,7 +116,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     internal static string HeadingOf(PersonaSection kind) => Headings.Single(entry => entry.Kind == kind).Word;
 
     /// <summary>The list items of every global section of <paramref name="kind"/>, in file order.</summary>
-    public IReadOnlyList<PersonaItem> Entries(PersonaSection kind) =>
+    public IReadOnlyList<PersonaEntry> Entries(PersonaSection kind) =>
         Parts.Where(part => part.Kind == kind).SelectMany(part => part.Items).Where(item => item.IsListItem).ToList();
 
     /// <summary>The first block of <paramref name="scope"/>; null when the file has none.</summary>
@@ -126,7 +126,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     /// The list items of the section of <paramref name="kind"/> in <paramref name="scope"/>: the global section for the global
     /// scope, the block's section otherwise.
     /// </summary>
-    public IReadOnlyList<PersonaItem> EntriesIn(PersonaScope scope, PersonaSection kind) =>
+    public IReadOnlyList<PersonaEntry> EntriesIn(PersonaScope scope, PersonaSection kind) =>
         scope.IsGlobal ? Entries(kind) : BlockOf(scope)?.EntriesOf(kind) ?? [];
 
     /// <summary>Every list entry under a known section, in file order, with its scope.</summary>
@@ -136,7 +136,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
             .SelectMany(part => part.Items.Where(item => item.IsListItem).Select(item => new ScopedEntry(PersonaScope.Global, part.Kind!.Value, item)));
         var scoped = Blocks.SelectMany(block => block.Parts.Where(part => part.Kind is not null)
             .SelectMany(part => part.Items.Where(item => item.IsListItem).Select(item => new ScopedEntry(block.Scope, part.Kind!.Value, item))));
-        return global.Concat(scoped).OrderBy(entry => entry.Item.Line).ToList();
+        return global.Concat(scoped).OrderBy(entry => entry.Entry.Line).ToList();
     }
 
     /// <summary>
@@ -155,7 +155,7 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     }
 
     /// <summary>An item's text as its short code sees it: the first line, then the continuation lines that are not comments.</summary>
-    private static string TextOf(PersonaItem item) =>
+    private static string TextOf(PersonaEntry item) =>
         ShortCode.Normalize(string.Join("\n", new[] { item.Text }.Concat(item.ContinuationWithoutComments.Select(line => line.Trim()))));
 
     /// <summary>A stretch of lines under one <c>## </c> heading (or before the first one, with a null heading).</summary>
@@ -243,10 +243,10 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
     /// The items of the lines in [<paramref name="from"/>, <paramref name="to"/>), each with its line index. The line at
     /// <paramref name="skip"/> is left out; a line that does not follow the format is kept as a non-list item.
     /// </summary>
-    private static List<PersonaItem> ItemsOf(string[] lines, int from, int to, int? skip)
+    private static List<PersonaEntry> ItemsOf(string[] lines, int from, int to, int? skip)
     {
-        var items = new List<PersonaItem>();
-        PersonaItem? item = null;
+        var items = new List<PersonaEntry>();
+        PersonaEntry? item = null;
         var continuation = new List<string>();
 
         void EndItem()
@@ -268,17 +268,17 @@ internal sealed record PersonaDocument(IReadOnlyList<PersonaPart> Parts, IReadOn
             if (line.StartsWith("- ", StringComparison.Ordinal))
             {
                 EndItem();
-                item = new PersonaItem(line[2..].Trim(), [], IsListItem: true, Line: i);
+                item = new PersonaEntry(line[2..].Trim(), [], IsListItem: true, Line: i);
                 continuation = [];
             }
             else if (line.Length > 0 && char.IsWhiteSpace(line[0]) && item is not null)
             {
                 continuation.Add(line);
             }
-            else if (line.Length > 0 && !PersonaItem.IsComment(line))
+            else if (line.Length > 0 && !PersonaEntry.IsComment(line))
             {
                 EndItem();
-                item = new PersonaItem(line, [], IsListItem: false, Line: i);
+                item = new PersonaEntry(line, [], IsListItem: false, Line: i);
                 continuation = [];
             }
             else

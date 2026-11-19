@@ -304,7 +304,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.NotEqual(true, written.IsError);
         Assert.Matches(@"Added activity \[[0-9a-f]{6}\]\.", Text(written));
         Assert.Equal(
-            "## 2026-11-02\n- [tacit-memory] 想清楚了画像里缺的是人的倾向\n",
+            "## 2026-11-02\n- [tacit-memory] 想清楚了画像里缺的是人的倾向\n  <!-- on test-machine -->\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
     }
 
@@ -330,7 +330,7 @@ public sealed class ServiceHostTests : IAsyncLifetime
         Assert.Contains($"Not added: today's activity [{code}]", Text(repeated));
         Assert.Contains($"replaces set to {code}", Text(repeated));
         Assert.Equal(
-            "## 2026-11-02\n- 先查了索引\n",
+            "## 2026-11-02\n- 先查了索引\n  <!-- on test-machine -->\n",
             File.ReadAllText(Path.Combine(_home.DefaultMemory, "recent", "2026-11.md")));
     }
 

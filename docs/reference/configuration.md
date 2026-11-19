@@ -29,6 +29,7 @@ server:
 memory:
   path: ~/.tacit/memory
 language: zh
+machine: { name: …, description: … }
 models:
   embedding: { provider: …, url: …, model: …, apiKey: … }
   reranker: { provider: …, url: …, model: …, apiKey: … }
@@ -36,14 +37,14 @@ models:
 limits:
   brief: 3000
   page: { minAliases: 2 }
-consolidation: { remindAfterDays: 3, remindCandidates: 2, budgetSeconds: 20, maxConcurrency: 5, hintItemLength: 200, hintResidentLength: 6000 }
+consolidation: { remindAfterDays: 3, remindCandidates: 2, budgetSeconds: 20, maxConcurrency: 5, hintEntryLength: 200, hintResidentLength: 6000 }
 decision:
   samePreference: { certain: …, unlikely: … }
   samePage: { certain: …, unlikely: … }
   sameTopic: { certain: …, unlikely: … }
   ruleConflict: { certain: …, unlikely: … }
 retrieval: { candidates: 30, topK: 5, minRerankScore: … }
-backup: { keep: 7, webdav: { url: …, username: …, password: … } }
+backup: { keep: 7, webdav: { url: …, username: …, password: …, file: tacit-backup.zip } }
 ```
 
 - 除 `models` 外各项均有默认值；`models` 中省略的模型即未配置（见 `docs/design.md`「辅助模型」中的「降级」）。判断阈值与 `minRerankScore` 的默认值内置。向量维度在启动时由嵌入模型的返回确定。
@@ -68,6 +69,11 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 ### `language`
 
 `language` 取 `zh` 或 `en`，决定记忆语言；它如何定下与各类文字的语言划分见 `docs/design.md`「语言」。
+
+### `machine`
+
+- `machine.name`：本机在记忆里的名字。只允许小写字母、数字与连字符，最长 32 个字符；格式或长度不合时报错并列出键路径 `machine.name`。省略时由主机名规整而来：去掉第一个 `.` 及之后的部分，转为小写，不合规字符替换为连字符并合并连续连字符、去掉首尾连字符，超过 32 个字符截断，仍为空时取 `machine`。与规整结果相同时，写出配置时省略该键；修改后随配置保存生效，不需重启。
+- `machine.description`：可选的一行定位说明，显示在常驻区块机器名的破折号之后。不能包含换行符，不限长度；修改后不需重启。
 
 ### `models`
 
@@ -95,7 +101,7 @@ backup: { keep: 7, webdav: { url: …, username: …, password: … } }
 - `remindCandidates`（默认 2）：上次整理之后有新出现记录的候选达到该个数时即该整理。
 - `budgetSeconds`（默认 20）：一次整理最多等模型的秒数，到点照常出报告，没算完的项注明"再运行一次 `tacit-consolidate` 接着算"。
 - `maxConcurrency`（默认 5）：同时进行的模型判断数，由服务内的多次整理共享。
-- `hintItemLength`（默认 200）：画像条目或上次整理以来新增的活动超过该字符数时，整理报告的"篇幅提示"列出它的位置与长度。只提示，不拒绝写入。
+- `hintEntryLength`（默认 200）：画像条目或上次整理以来新增的活动超过该字符数时，整理报告的"篇幅提示"列出它的位置与长度。只提示，不拒绝写入。
 - `hintResidentLength`（默认 6000）：常驻区块总长超过该字符数时，整理报告的"篇幅提示"给出一行说明。只提示，不拒绝写入。
 
 计时与缓存规则见 `docs/design.md`「整理」。
@@ -117,10 +123,12 @@ backup:
     url: https://<WebDAV 服务地址>/tacit/   # 目录；末尾的 / 可省略
     username: 你的用户名                   # 可省略，省略时不发送认证
     password: 你的密码                     # 可省略，改设环境变量 TACIT_WEBDAV_PASSWORD
+    file: win-main.zip                     # 可省略，默认 tacit-backup.zip
 ```
 
 - `backup.webdav.url` 必填，须为 http 或 https 地址，末尾补 `/`。
 - 写了 `username` 时必须有密码（配置中或环境变量中），见第 3 节。
+- `backup.webdav.file`：目录下的备份文件名，云端备份写它、云端恢复读它；须以 `.zip` 结尾（不区分大小写），不含 `/ \ : ? # %` 与首尾空格，否则报错。多台机器共用一个目录时各配一个名字。
 
 远端须支持的 WebDAV 方法与上传规则见 `docs/design.md`「运行」中的「备份与恢复」，操作步骤见 `docs/reference/operations.md`。
 

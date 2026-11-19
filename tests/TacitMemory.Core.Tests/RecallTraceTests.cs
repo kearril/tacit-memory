@@ -144,7 +144,7 @@ public sealed class RecallTraceTests : IDisposable
         Assert.Equal(Enumerable.Range(1, report.Results.Count), report.Results.Select(result => result.Number));
         foreach (var result in report.Results)
         {
-            var marker = result.Kind == "page" ? $"[{result.Number}] page {result.Page}: {result.Title}" : $"[{result.Number}] activity {result.Date} [{result.Code}]";
+            var marker = result.Kind == "page" ? $"[{result.Number}] page {result.Page}: {result.Title}" : $"[{result.Number}] activity {result.Date} (test-machine) [{result.Code}]";
             Assert.Contains(marker, recall.Text);
         }
 

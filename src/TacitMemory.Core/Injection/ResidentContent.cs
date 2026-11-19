@@ -13,6 +13,8 @@ namespace TacitMemory.Core.Injection;
 /// <param name="SituationalRules">One row per domain: its label, its trigger and its entry count.</param>
 /// <param name="Workstreams">One row per established workstream: active ones with their recent line, quiet ones without it.</param>
 internal sealed record ResidentContent(
+    string MachineName,
+    string? MachineDescription,
     PersonaDocument Persona,
     IReadOnlyList<string> SituationalRules,
     IReadOnlyList<string> Workstreams)
@@ -20,14 +22,14 @@ internal sealed record ResidentContent(
     /// <summary>A workstream is active when it has an activity in the last this many days, counting today.</summary>
     public const int ActiveDays = 28;
 
-    /// <summary>Reads the persona's domains and the established workstreams as they stand on <paramref name="today"/>.</summary>
+    /// <summary>Reads the machine identity, the persona's domains and the established workstreams as they stand on <paramref name="today"/>.</summary>
     public static ResidentContent Read(TacitConfig config, DateOnly today, PersonaDocument persona)
     {
         var domains = persona.Blocks
             .Where(block => block.Scope.Kind == PersonaScopeKind.Domain)
             .Select(DomainRow)
             .ToList();
-        return new ResidentContent(persona, domains, WorkstreamRows(config, today));
+        return new ResidentContent(config.Machine.Name, config.Machine.Description, persona, domains, WorkstreamRows(config, today));
     }
 
     /// <summary>

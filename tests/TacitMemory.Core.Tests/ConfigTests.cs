@@ -70,10 +70,10 @@ public sealed class ConfigTests : IDisposable
             memory: { path: '~/notes/memory' }
             language: en
             limits: { brief: 1500, page: { minAliases: 3 } }
-            consolidation: { hintItemLength: 120, hintResidentLength: 4000 }
+            consolidation: { hintEntryLength: 120, hintResidentLength: 4000 }
             decision: { samePage: { certain: 0.9, unlikely: 0.2 } }
             retrieval: { minRerankScore: 0.3 }
-            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw } }
+            backup: { keep: 0, webdav: { url: 'https://dav.example/tacit', username: me, password: pw, file: win-main.zip } }
             """);
         Directory.CreateDirectory(Path.Combine(_home.UserHome, "notes", "memory", ".git"));
 
@@ -87,7 +87,7 @@ public sealed class ConfigTests : IDisposable
         Assert.Equal(new Threshold(0.9, 0.2), config.Decision.SamePage);
         Assert.Null(config.Decision.SamePreference);
         Assert.Equal(0.3, config.Retrieval.MinRerankScore);
-        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, InConfig: "pw"))), config.Backup);
+        Assert.Equal(new BackupConfig(0, new WebDavConfig(new Uri("https://dav.example/tacit/"), "me", new SecretValue("pw", SecretSource.ConfigFile, InConfig: "pw"), "win-main.zip")), config.Backup);
     }
 
     [Theory]
@@ -120,8 +120,8 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData("hintItemLength: 0", "consolidation.hintItemLength")]
-    [InlineData("hintItemLength: 1.5", "consolidation.hintItemLength")]
+    [InlineData("hintEntryLength: 0", "consolidation.hintEntryLength")]
+    [InlineData("hintEntryLength: 1.5", "consolidation.hintEntryLength")]
     [InlineData("hintResidentLength: nine", "consolidation.hintResidentLength")]
     public void A_consolidation_hint_length_that_is_not_a_positive_whole_number_is_refused(string setting, string keyPath)
     {
@@ -141,6 +141,7 @@ public sealed class ConfigTests : IDisposable
     [InlineData("server: 18888", "server")]
     [InlineData("language: fr", "language")]
     [InlineData("limits: { itemLength: -1 }", "limits.itemLength")]
+    [InlineData("consolidation: { hintItemLength: 100 }", "consolidation.hintItemLength")]
     [InlineData("backup: { keep: 1.5 }", "backup.keep")]
     [InlineData("decision: { samePage: { certain: 0.2, unlikely: 0.8 } }", "decision.samePage")]
     [InlineData("decision: { samePage: { certain: 1.5, unlikely: 0.1 } }", "decision.samePage.certain")]
@@ -383,13 +384,29 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void Without_a_username_webdav_needs_no_password_and_the_url_becomes_a_directory()
+    public void Without_a_username_webdav_needs_no_password_the_url_becomes_a_directory_and_the_file_takes_its_default()
     {
         WriteConfig(Models + "backup: { webdav: { url: 'https://dav.example/tacit' } }\n");
 
         var webdav = _home.Tacit().LoadConfig().Backup.WebDav;
 
-        Assert.Equal(new WebDavConfig(new Uri("https://dav.example/tacit/"), null, null), webdav);
+        Assert.Equal(new WebDavConfig(new Uri("https://dav.example/tacit/"), null, null, "tacit-backup.zip"), webdav);
+    }
+
+    [Theory]
+    [InlineData("backup.tar")]
+    [InlineData("sub/backup.zip")]
+    [InlineData("sub\\\\backup.zip")]
+    [InlineData(".zip")]
+    [InlineData("a#b.zip")]
+    [InlineData("c:backup.zip")]
+    public void A_webdav_file_that_is_not_a_zip_file_name_is_refused_naming_the_key_path(string file)
+    {
+        WriteConfig(Models + $"backup: {{ webdav: {{ url: 'https://dav.example/tacit/', file: \"{file}\" }} }}\n");
+
+        var message = LoadFails().Message;
+
+        Assert.Contains("backup.webdav.file", message);
     }
 
     [Fact]
@@ -624,5 +641,38 @@ public sealed class ConfigTests : IDisposable
 
         Assert.Equal(TacitError.ConfigInvalid, error.Error);
         Assert.Contains($"consolidation.{key}", error.Message);
+    }
+
+    [Theory]
+    [InlineData("Workstation-01.local", "workstation-01")]
+    [InlineData("My_Host (Home).tailnet.ts.net", "my-host-home")]
+    [InlineData("---My--Host---", "my-host")]
+    [InlineData("中文主机名", "machine")]
+    [InlineData("", "machine")]
+    [InlineData("abcdefghijklmnopqrstuvwxyz-1234567890", "abcdefghijklmnopqrstuvwxyz-12345")]
+    public void An_unconfigured_machine_name_normalizes_the_host_name(string hostName, string expected)
+    {
+        _home.HostName = hostName;
+        WriteConfig(Models);
+
+        var config = _home.Tacit().LoadConfig();
+
+        Assert.Equal(expected, config.Machine.Name);
+        Assert.Null(config.Machine.Description);
+    }
+
+    [Theory]
+    [InlineData("name: MyHost", "machine.name")]
+    [InlineData("name: bad_name", "machine.name")]
+    [InlineData("name: a12345678901234567890123456789012", "machine.name")]
+    [InlineData("description: \"line 1\\nline 2\"", "machine.description")]
+    public void An_invalid_machine_setting_is_refused(string setting, string keyPath)
+    {
+        WriteConfig(Models + $"machine: {{ {setting} }}\n");
+
+        var error = LoadFails();
+
+        Assert.Equal(TacitError.ConfigInvalid, error.Error);
+        Assert.Contains(keyPath, error.Message);
     }
 }

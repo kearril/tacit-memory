@@ -68,7 +68,7 @@ internal static class PersonaReading
     }
 
     /// <summary>A heading line, then one line per entry: its short code, its text and its continuation lines.</summary>
-    private static string Lines(string heading, IEnumerable<PersonaItem> entries, IReadOnlyDictionary<int, string> codes)
+    private static string Lines(string heading, IEnumerable<PersonaEntry> entries, IReadOnlyDictionary<int, string> codes)
     {
         var lines = new List<string> { heading };
         foreach (var entry in entries)

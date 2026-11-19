@@ -32,7 +32,7 @@ export const CONSOLIDATION = [
   "remindCandidates",
   "budgetSeconds",
   "maxConcurrency",
-  "hintItemLength",
+  "hintEntryLength",
   "hintResidentLength",
 ] as const;
 
@@ -60,6 +60,8 @@ export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "server.host": { section: "access", kind: "text" },
   "memory.path": { section: "advanced" },
   language: { section: "advanced" },
+  "machine.name": { section: "machine", kind: "text" },
+  "machine.description": { section: "machine", kind: "text" },
   "limits.brief": { section: "advanced", kind: "integer" },
   "limits.page.minAliases": { section: "advanced", kind: "integer" },
   "models.embedding.provider": { section: "models", kind: "choice", within: model("embedding") },
@@ -89,12 +91,13 @@ export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "consolidation.remindCandidates": { section: "consolidation", kind: "integer" },
   "consolidation.budgetSeconds": { section: "consolidation", kind: "integer" },
   "consolidation.maxConcurrency": { section: "consolidation", kind: "integer" },
-  "consolidation.hintItemLength": { section: "consolidation", kind: "integer" },
+  "consolidation.hintEntryLength": { section: "consolidation", kind: "integer" },
   "consolidation.hintResidentLength": { section: "consolidation", kind: "integer" },
   "backup.keep": { section: "backup", kind: "integer" },
   "backup.webdav.url": { section: "backup", kind: "text" },
   "backup.webdav.username": { section: "backup", kind: "text" },
   "backup.webdav.password": { section: "backup" },
+  "backup.webdav.file": { section: "backup", kind: "text" },
 };
 
 /** The fields the page edits, in the order they appear on it: each model's toggle comes before the fields it holds. */

@@ -94,7 +94,7 @@ internal sealed record CandidateReview(IReadOnlyList<CandidateJudgment> Judgment
         var codes = persona.CodesByLine();
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var entry in persona.KnownEntries())
-            result.TryAdd(CodeKey(entry.Scope, entry.Item.JudgmentText), codes[entry.Item.Line]);
+            result.TryAdd(CodeKey(entry.Scope, entry.Entry.JudgmentText), codes[entry.Entry.Line]);
         return result;
     }
 

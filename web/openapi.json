@@ -2321,6 +2321,8 @@
                                   "server.host",
                                   "memory.path",
                                   "language",
+                                  "machine.name",
+                                  "machine.description",
                                   "models.embedding.provider",
                                   "models.embedding.url",
                                   "models.embedding.model",
@@ -2339,7 +2341,7 @@
                                   "consolidation.remindCandidates",
                                   "consolidation.budgetSeconds",
                                   "consolidation.maxConcurrency",
-                                  "consolidation.hintItemLength",
+                                  "consolidation.hintEntryLength",
                                   "consolidation.hintResidentLength",
                                   "decision.samePreference.certain",
                                   "decision.samePreference.unlikely",
@@ -2355,7 +2357,8 @@
                                   "backup.keep",
                                   "backup.webdav.url",
                                   "backup.webdav.username",
-                                  "backup.webdav.password"
+                                  "backup.webdav.password",
+                                  "backup.webdav.file"
                                 ]
                               },
                               "running": {
@@ -2507,6 +2510,7 @@
           "code",
           "workstream",
           "text",
+          "machine",
           "lines",
           "sources",
           "uses"
@@ -2524,6 +2528,12 @@
           },
           "text": {
             "type": "string"
+          },
+          "machine": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "lines": {
             "type": "array",
@@ -3200,6 +3210,7 @@
         "required": [
           "server",
           "memory",
+          "machine",
           "models",
           "limits",
           "consolidation",
@@ -3220,6 +3231,9 @@
               "null",
               "string"
             ]
+          },
+          "machine": {
+            "$ref": "#/components/schemas/MachineFile"
           },
           "models": {
             "$ref": "#/components/schemas/ModelsFile"
@@ -3296,6 +3310,8 @@
           "server.host",
           "memory.path",
           "language",
+          "machine.name",
+          "machine.description",
           "models.embedding.provider",
           "models.embedding.url",
           "models.embedding.model",
@@ -3314,7 +3330,7 @@
           "consolidation.remindCandidates",
           "consolidation.budgetSeconds",
           "consolidation.maxConcurrency",
-          "consolidation.hintItemLength",
+          "consolidation.hintEntryLength",
           "consolidation.hintResidentLength",
           "decision.samePreference.certain",
           "decision.samePreference.unlikely",
@@ -3330,7 +3346,8 @@
           "backup.keep",
           "backup.webdav.url",
           "backup.webdav.username",
-          "backup.webdav.password"
+          "backup.webdav.password",
+          "backup.webdav.file"
         ]
       },
       "ConfigProblem": {
@@ -3509,7 +3526,7 @@
             ],
             "format": "int32"
           },
-          "hintItemLength": {
+          "hintEntryLength": {
             "type": [
               "null",
               "integer"
@@ -3749,6 +3766,23 @@
               "integer"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "MachineFile": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -5923,6 +5957,12 @@
             ]
           },
           "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "file": {
             "type": [
               "null",
               "string"

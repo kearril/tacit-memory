@@ -158,6 +158,13 @@ internal static class ConfigKeys
         Value = file => file.Language,
     };
 
+    public static class Machine
+    {
+        public static readonly ConfigEntry Name = new(ConfigKeyPath.MachineName, "machine.name") { Value = file => file.Machine.Name };
+        public static readonly ConfigEntry Description = new(ConfigKeyPath.MachineDescription, "machine.description") { Value = file => file.Machine.Description };
+        public static IEnumerable<ConfigEntry> All => [Name, Description];
+    }
+
     public static readonly ModelKeys Embedding = new(
         "embedding",
         (ConfigKeyPath.ModelsEmbeddingProvider, ConfigKeyPath.ModelsEmbeddingUrl, ConfigKeyPath.ModelsEmbeddingModel, ConfigKeyPath.ModelsEmbeddingApiKey),
@@ -185,7 +192,7 @@ internal static class ConfigKeys
     public static readonly IntegerEntry RemindCandidates = Count(ConfigKeyPath.ConsolidationRemindCandidates, "consolidation.remindCandidates", 2);
     public static readonly IntegerEntry BudgetSeconds = Count(ConfigKeyPath.ConsolidationBudgetSeconds, "consolidation.budgetSeconds", 20);
     public static readonly IntegerEntry MaxConcurrency = Count(ConfigKeyPath.ConsolidationMaxConcurrency, "consolidation.maxConcurrency", 5);
-    public static readonly IntegerEntry HintItemLength = Count(ConfigKeyPath.ConsolidationHintItemLength, "consolidation.hintItemLength", 200);
+    public static readonly IntegerEntry HintEntryLength = Count(ConfigKeyPath.ConsolidationHintEntryLength, "consolidation.hintEntryLength", 200);
     public static readonly IntegerEntry HintResidentLength = Count(ConfigKeyPath.ConsolidationHintResidentLength, "consolidation.hintResidentLength", 6000);
 
     public static readonly ThresholdKeys SamePreference = new(
@@ -212,17 +219,19 @@ internal static class ConfigKeys
             ? file with { Backup = file.Backup with { WebDav = webdav with { Password = value } } }
             : file,
     };
+    public static readonly ConfigEntry WebDavFile = new(ConfigKeyPath.BackupWebDavFile, "backup.webdav.file") { Value = file => file.Backup.WebDav?.File };
 
     /// <summary>Every key, in the order of the configuration reference.</summary>
     public static readonly IReadOnlyList<ConfigEntry> All =
     [
         Port, Host, MemoryPath, Language,
+        .. Machine.All,
         .. Embedding.All, .. Reranker.All, .. Decision.All,
         Brief, MinAliases,
-        RemindAfterDays, RemindCandidates, BudgetSeconds, MaxConcurrency, HintItemLength, HintResidentLength,
+        RemindAfterDays, RemindCandidates, BudgetSeconds, MaxConcurrency, HintEntryLength, HintResidentLength,
         .. SamePreference.All, .. SamePage.All, .. SameTopic.All, .. RuleConflict.All,
         Candidates, TopK, MinRerankScore,
-        Keep, WebDavUrl, WebDavUsername, WebDavPassword,
+        Keep, WebDavUrl, WebDavUsername, WebDavPassword, WebDavFile,
     ];
 
     private static readonly Dictionary<ConfigKeyPath, ConfigEntry> ById = All.ToDictionary(entry => entry.Id);

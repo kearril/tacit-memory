@@ -23,6 +23,12 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
     /// <summary>Whether a judgment was left unanswered because the budget ran out; the report's header says so.</summary>
     public bool BudgetRanOut { get; private set; }
 
+    /// <summary>
+    /// Whether a judgment was left unanswered because a configured model failed or was cooling down. An unconfigured model
+    /// does not count: the report would otherwise never be complete for a user without models.
+    /// </summary>
+    public bool ModelUnavailable { get; private set; }
+
     /// <summary>Submits a choice judgment. Nothing is awaited here, so the judgments of a consolidation run side by side.</summary>
     public Task<JudgmentOutcome<T>> Submit<T>(Func<CancellationToken, Task<PreparedChoice<T>>> prepare, Threshold threshold) =>
         pool.Start(prepare, threshold, _queue.Token);
@@ -47,7 +53,12 @@ internal sealed class JudgmentSession(JudgmentPool pool, TimeProvider time, Canc
             await Task.WhenAny(judgment, expired);
         _request.ThrowIfCancellationRequested();
         if (judgment.IsCompleted)
-            return await judgment;
+        {
+            var outcome = await judgment;
+            if (outcome.Reason == UncheckedReason.ModelUnavailable)
+                ModelUnavailable = true;
+            return outcome;
+        }
         BudgetRanOut = true;
         return JudgmentOutcome<T>.Unchecked(UncheckedReason.Budget);
     }

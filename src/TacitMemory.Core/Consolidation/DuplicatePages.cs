@@ -55,7 +55,7 @@ internal static class DuplicatePages
                 _ => NotCheckedStatus,
                 _ => NotConfiguredStatus,
                 count => $"{count} changed page(s) not checked yet, because the consolidation ran out of time. Run the tacit-consolidate skill again to continue.");
-            return new ConsolidationSection(ConsolidationTitles.DuplicatePages, findings, status);
+            return ConsolidationSection.OfIncrements(ConsolidationTitles.DuplicatePages, findings, status);
         };
     }
 

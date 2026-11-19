@@ -61,7 +61,7 @@ internal static class ActivityBrowse
         }
 
         var (texts, sources) = SourceComment.Split(continuation);
-        return new ActivityItemView(activity.Code, activity.Workstream, activity.Body, texts, sources, uses);
+        return new ActivityItemView(activity.Code, activity.Workstream, activity.Body, activity.Machine, texts, sources, uses);
     }
 
     private static string Day(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

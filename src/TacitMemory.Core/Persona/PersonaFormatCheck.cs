@@ -95,7 +95,7 @@ internal static class PersonaFormatCheck
                 FormatHandling.FixDirectly));
     }
 
-    private static FormatIssue Issue(PersonaItem item, string kind, string description, FormatHandling handling = FormatHandling.FixDirectly) =>
+    private static FormatIssue Issue(PersonaEntry item, string kind, string description, FormatHandling handling = FormatHandling.FixDirectly) =>
         new("", $"line {item.Line + 1}", kind, description, handling);
 
     private static string Section(string name) => $"section \"{name}\"";

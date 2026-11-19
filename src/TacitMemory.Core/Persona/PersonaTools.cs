@@ -15,9 +15,6 @@ namespace TacitMemory.Core.Persona;
 internal sealed class PersonaTools(
     TacitOptions options, TacitConfig config, SamePreferenceCheck samePreference, RuleConflictCheck conflicts, MemoryWriter writer)
 {
-    /// <summary>Characters an editor shows as a line break, so none may appear in a text or source; the parser splits on LF only.</summary>
-    private static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
-
     /// <summary>
     /// The parameters the propose op takes: the entry's, and the scope it goes into. Any other parameter given with it is
     /// refused rather than ignored.
@@ -167,7 +164,7 @@ internal sealed class PersonaTools(
         var reasons = new List<string>();
         if (trigger.Length == 0)
             reasons.Add($"Domain {scope.Name} is new, so it needs a trigger: one line saying when the domain applies.");
-        else if (trigger.IndexOfAny(LineBreaks) >= 0)
+        else if (trigger.IndexOfAny(TextFile.LineBreaks) >= 0)
             reasons.Add("Trigger must be one line.");
 
         return reasons.Count == 0
@@ -227,15 +224,15 @@ internal sealed class PersonaTools(
 
         var name = PersonaDocument.HeadingOf(entry.Kind);
         var lines = EntryLines(text, source);
-        var after = PersonaFile.ReplaceEntry(existing, entry.Item, lines);
+        var after = PersonaFile.ReplaceEntry(existing, entry.Entry, lines);
         if (after == existing)
             return ToolText.Ok($"[{entry.Code}] already reads exactly so in the {name} section; nothing was written.");
 
-        var judgment = await conflicts.RunAsync(text, entry.Kind, entry.Scope, persona, entry.Item, cancellationToken);
+        var judgment = await conflicts.RunAsync(text, entry.Kind, entry.Scope, persona, entry.Entry, cancellationToken);
         if (judgment.Conflict is { } conflict)
             return ConflictRefusal(conflict);
 
-        var code = PersonaDocument.Parse(after).CodesByLine()[entry.Item.Line];
+        var code = PersonaDocument.Parse(after).CodesByLine()[entry.Entry.Line];
         var reply = WithNote(
             $"Replaced [{entry.Code}] with [{code}] in the {name} section{ScopePhrase(entry.Scope)}. "
             + CountNote(persona, entry.Scope, entry.Kind, 0),
@@ -261,8 +258,8 @@ internal sealed class PersonaTools(
             return NoEntry(hash, [], "delete");
 
         var name = PersonaDocument.HeadingOf(entry.Kind);
-        var after = PersonaFile.ReplaceEntry(existing, entry.Item, []);
-        var reply = $"Deleted [{entry.Code}] from the {name} section{ScopePhrase(entry.Scope)}. It read:\n{Listed(entry.Item, entry.Code)}\n"
+        var after = PersonaFile.ReplaceEntry(existing, entry.Entry, []);
+        var reply = $"Deleted [{entry.Code}] from the {name} section{ScopePhrase(entry.Scope)}. It read:\n{Listed(entry.Entry, entry.Code)}\n"
             + CountNote(persona, entry.Scope, entry.Kind, -1);
         return await WriteAsync(relative, after, hasBom, $"persona: delete {entry.Code}", WrittenSource.Persona, reply, cancellationToken);
     }
@@ -414,7 +411,7 @@ internal sealed class PersonaTools(
     ];
 
     /// <summary>One entry as a refusal lists it: its short code, its text and any continuation lines.</summary>
-    private static string Listed(PersonaItem item, string code) =>
+    private static string Listed(PersonaEntry item, string code) =>
         string.Join("\n", new[] { $"- [{code}] {item.Text}" }.Concat(item.ContinuationWithoutComments));
 
     /// <summary>The parameters that were given but the op does not take.</summary>
@@ -455,9 +452,9 @@ internal sealed class PersonaTools(
     private static List<string> EntryProblems(string text, string source)
     {
         var problems = new List<string>();
-        if (text.IndexOfAny(LineBreaks) >= 0)
+        if (text.IndexOfAny(TextFile.LineBreaks) >= 0)
             problems.Add("Text must be one line.");
-        if (source.IndexOfAny(LineBreaks) >= 0)
+        if (source.IndexOfAny(TextFile.LineBreaks) >= 0)
             problems.Add("Source must be one line.");
         if (source.Contains("-->", StringComparison.Ordinal))
             problems.Add("Source must not contain \"-->\", which would end its comment.");
@@ -487,8 +484,8 @@ internal sealed class PersonaTools(
         var codes = persona.CodesByLine();
         foreach (var entry in persona.KnownEntries())
         {
-            if (string.Equals(codes[entry.Item.Line], hash, StringComparison.OrdinalIgnoreCase))
-                return new FoundEntry(entry.Scope, entry.Kind, entry.Item, codes[entry.Item.Line]);
+            if (string.Equals(codes[entry.Entry.Line], hash, StringComparison.OrdinalIgnoreCase))
+                return new FoundEntry(entry.Scope, entry.Kind, entry.Entry, codes[entry.Entry.Line]);
         }
 
         return null;
@@ -537,7 +534,7 @@ internal sealed class PersonaTools(
         "The new entry conflicts with, duplicates or supersedes an existing persona entry.",
         $"Ask the user whether to change that entry instead. Only if they agree, call write_persona again with op=replace, "
         + $"hash={conflict.Code}, and the new text and source; otherwise leave the persona as it is.",
-        $"{PersonaDocument.HeadingOf(conflict.Section)} section{ScopePhrase(conflict.Scope)}:\n{Listed(conflict.Item, conflict.Code)}");
+        $"{PersonaDocument.HeadingOf(conflict.Section)} section{ScopePhrase(conflict.Scope)}:\n{Listed(conflict.Entry, conflict.Code)}");
 
     /// <summary>A success reply, with the note that a skipped judgment adds at its end.</summary>
     private static string WithNote(string reply, string? note) => note is null ? reply : $"{reply}\n\n{note}";
@@ -547,5 +544,5 @@ internal sealed class PersonaTools(
         $"Save {relative} as UTF-8, then call write_persona op={op} again.");
 
     /// <summary>An entry of one of the four sections, in its scope, found by its short code.</summary>
-    private sealed record FoundEntry(PersonaScope Scope, PersonaSection Kind, PersonaItem Item, string Code);
+    private sealed record FoundEntry(PersonaScope Scope, PersonaSection Kind, PersonaEntry Entry, string Code);
 }

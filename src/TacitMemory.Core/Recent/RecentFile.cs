@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using TacitMemory.Core.Formats;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
 
@@ -95,10 +96,17 @@ internal static class RecentFile
     /// <param name="Workstream">The workstream label, or <c>null</c> when the line has none.</param>
     /// <param name="Body">The activity text without the label.</param>
     /// <param name="Code">The activity's short code, as <see cref="CodeAt"/> gives it.</param>
-    public sealed record Activity(int Line, DateOnly Day, string? Workstream, string Body, string Code)
+    /// <param name="Machine">
+    /// The machine its source comment names, as written; <c>null</c> when it has none, as activities written before machines
+    /// were recorded do not.
+    /// </param>
+    public sealed record Activity(int Line, DateOnly Day, string? Workstream, string Body, string Code, string? Machine)
     {
         /// <summary>The activity's text with its workstream label in front, as the log shows it.</summary>
         public string Labeled => Label(Workstream) + Body;
+
+        /// <summary>The machine as agents read it after the date, <c>(win-main) </c>, or nothing when it has none.</summary>
+        public string MachineAfterDate => Machine is null ? "" : $"({Machine}) ";
     }
 
     /// <summary>
@@ -126,7 +134,7 @@ internal static class RecentFile
                 continue;
             var (workstream, body) = SplitLabel(line[2..]);
             if (body.Length > 0)
-                result.Add(new Activity(index, date, workstream, body, codes[index]));
+                result.Add(new Activity(index, date, workstream, body, codes[index], CommentAt(lines, index + 1)?.Machine));
         }
 
         return result;
@@ -185,22 +193,27 @@ internal static class RecentFile
         Activities(text).Where(activity => activity.Day == day).ToList();
 
     /// <summary>
-    /// Rewrites the entry whose first line is <paramref name="line"/> to <paramref name="entry"/>, in place. A
-    /// <paramref name="source"/> replaces the source comment under it; without one the comment stays as it is.
-    /// Every other line is kept byte for byte.
+    /// Rewrites the entry whose first line is <paramref name="line"/> to <paramref name="entry"/> with the source comment
+    /// <paramref name="comment"/> under it, in place: the comment replaces the source comment the entry had, or goes right
+    /// under it when it had none. Every other line is kept byte for byte.
     /// </summary>
     /// <returns>The new text.</returns>
-    public static string Replace(string text, int line, string entry, string? source)
+    public static string Replace(string text, int line, string entry, string comment)
     {
         var cr = TextFile.CarriageReturnOf(text);
         var lines = text.Split('\n').ToList();
-        var span = source is not null && IsSourceComment(lines, line + 1) ? 2 : 1;
-        IReadOnlyList<string> replacement = source is null ? [entry] : [entry, source];
+        var span = CommentAt(lines, line + 1) is null ? 1 : 2;
         lines.RemoveRange(line, span);
-        lines.InsertRange(line, replacement.Select(content => content + cr));
+        lines.InsertRange(line, [entry + cr, comment + cr]);
         return string.Join('\n', lines);
     }
 
-    private static bool IsSourceComment(IReadOnlyList<string> lines, int index) =>
-        index < lines.Count && lines[index].TrimEnd('\r').StartsWith("  <!--", StringComparison.Ordinal);
+    /// <summary>The parts of the source comment on line <paramref name="index"/>, when that line is an indented one.</summary>
+    public static SourceComment.Parts? CommentAt(IReadOnlyList<string> lines, int index)
+    {
+        if (index >= lines.Count)
+            return null;
+        var line = lines[index].TrimEnd('\r');
+        return line.StartsWith(' ') || line.StartsWith('\t') ? SourceComment.PartsOf(line) : null;
+    }
 }

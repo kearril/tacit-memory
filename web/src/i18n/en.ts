@@ -181,6 +181,7 @@ export const en = {
   },
   settings: {
     sections: {
+      machine: "Machine",
       models: "Models",
       bindings: "Bindings",
       judgment: "Retrieval and judgment",
@@ -263,7 +264,7 @@ export const en = {
           label: "Judgments at once",
           help: "How many model judgments run at once, shared by every consolidation in the service.",
         },
-        hintItemLength: {
+        hintEntryLength: {
           label: "Entry length hint",
           help: "A persona entry or new activity longer than this many characters is listed by the report's length hints. It only hints; nothing is refused.",
         },
@@ -320,6 +321,21 @@ export const en = {
       mcp: { url: "Endpoint", transport: "Transport", name: "Server name" },
       details: "What was done",
       createdFolders: "These folders did not exist and were created. Make sure the client reads from them:",
+    },
+    machine: {
+      summary:
+        "This machine's name and note shown at the top of the resident block and marked on activities written here.",
+      descriptionDefault: 'Optional, e.g. "workstation" or "home server"',
+      fields: {
+        name: {
+          label: "Name",
+          help: "1 to 32 lowercase letters, digits or hyphens; clear it to fall back to the host name.",
+        },
+        description: {
+          label: "Description",
+          help: "A single-line note shown after the machine name in the resident block.",
+        },
+      },
     },
     models: {
       summary:
@@ -380,6 +396,7 @@ export const en = {
       cloud: "Cloud (WebDAV)",
       urlDefault: "Leave empty for no cloud backup",
       usernameDefault: "Optional; without it no credentials are sent",
+      fileDefault: "Empty: tacit-backup.zip",
       fields: {
         keep: {
           label: "Automatic backups kept",
@@ -391,6 +408,10 @@ export const en = {
         },
         username: { label: "User name", help: "The WebDAV user name; with a user name, a password is needed too." },
         password: { label: "Password", help: "The WebDAV password." },
+        file: {
+          label: "File name",
+          help: "The backup's file in the WebDAV folder, ending in .zip; the cloud backup writes it and the cloud restore reads it. Give each machine its own name when they share a folder.",
+        },
       },
     },
     access: {
@@ -784,6 +805,7 @@ export const en = {
       empty: "No activities this month yet",
       noMatch: "No activities of this workstream this month",
       noWorkstream: "No workstream",
+      machine: (name) => `Written on ${name}`,
       weekSummary: (label) => `Week summary · ${label}`,
       monthSummary: (label) => `Month summary · ${label}`,
       sourceFile: "Source file",

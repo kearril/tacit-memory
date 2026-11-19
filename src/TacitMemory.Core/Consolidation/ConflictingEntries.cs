@@ -24,7 +24,7 @@ internal static class ConflictingEntries
 
         var codes = persona.CodesByLine();
         var entries = persona.KnownEntries()
-            .Select(entry => new ConflictingEntry(entry.Scope, entry.Kind, entry.Item, codes[entry.Item.Line]))
+            .Select(entry => new ConflictingEntry(entry.Scope, entry.Kind, entry.Entry, codes[entry.Entry.Line]))
             .ToList();
         var known = await BaselineCodesAsync(context, cancellationToken);
         var changed = entries.Where(entry => known is null || !known.Contains(entry.Code)).ToList();
@@ -53,7 +53,7 @@ internal static class ConflictingEntries
                 count => $"Not checked: the decision or embedding model is unavailable, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
                 count => $"Not checked (not configured): the decision or embedding model is not configured, so whether {count} changed persona entr{(count == 1 ? "y" : "ies")} conflict with others was not checked.",
                 count => $"{count} changed persona entr{(count == 1 ? "y" : "ies")} not checked yet, because the consolidation ran out of time. Run the tacit-consolidate skill again to continue.");
-            return new ConsolidationSection(ConsolidationTitles.ConflictingEntries, lines, status);
+            return ConsolidationSection.OfIncrements(ConsolidationTitles.ConflictingEntries, lines, status);
         };
     }
 
@@ -80,7 +80,7 @@ internal static class ConflictingEntries
         if (entryCount < 2)
             return new PreparedChoice<ConflictingEntry>(null, null);
 
-        var vector = await services.Embedding.EmbedAsync([entry.Item.JudgmentText], cancellationToken);
+        var vector = await services.Embedding.EmbedAsync([entry.Entry.JudgmentText], cancellationToken);
         if (vector is null)
             return new PreparedChoice<ConflictingEntry>(null, ChoiceJudge.NoAnswerReason(services.Embedding.Configured));
 
@@ -88,15 +88,15 @@ internal static class ConflictingEntries
         // One more than the offered count: the entry itself may be among the nearest and is skipped by Nearest.
         var hits = services.Index.SearchJudgments(
             vector[0], [SourceKinds.Persona], RuleConflictCheck.OtherOptions + 1, scopes: RuleConflictCheck.ScopesJudged(entry.Scope));
-        var nearest = RuleConflictCheck.Nearest(hits, persona, entry.Item.Line);
+        var nearest = RuleConflictCheck.Nearest(hits, persona, entry.Entry.Line);
         if (nearest.Count == 0)
             return new PreparedChoice<ConflictingEntry>(null, null);
 
         var options = nearest
-            .Select(other => new ChoiceOption<ConflictingEntry>(RuleConflictCheck.OptionText(other.Section, other.Item.JudgmentText), other))
+            .Select(other => new ChoiceOption<ConflictingEntry>(RuleConflictCheck.OptionText(other.Section, other.Entry.JudgmentText), other))
             .ToList();
         var question = new ChoiceQuestion<ConflictingEntry>(
-            RuleConflictCheck.StateOf(entry.Item.JudgmentText, entry.Section),
+            RuleConflictCheck.StateOf(entry.Entry.JudgmentText, entry.Section),
             RuleConflictCheck.Instructions,
             RuleConflictCheck.NoneText,
             options);
@@ -108,6 +108,6 @@ internal static class ConflictingEntries
     /// is not the global one.
     /// </summary>
     private static string Describe(ConflictingEntry entry) =>
-        $"[{entry.Code}] \"{entry.Item.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section)}"
+        $"[{entry.Code}] \"{entry.Entry.JudgmentText.ReplaceLineEndings(" ")}\" in section {PersonaDocument.HeadingOf(entry.Section)}"
         + (entry.Scope.IsGlobal ? "" : $" of {entry.Scope}");
 }

@@ -26,6 +26,15 @@ internal static partial class ConfigWriter
             "path", memoryPath is null || SamePath(HomePaths.Expand(memoryPath, options.UserHome), defaultMemory) ? null : Text(memoryPath));
         root.Add("language", Text(file.Language));
 
+        var defaultMachine = MachineName.FromHost(options.HostName);
+        var machine = root.Section("machine");
+        machine.Add(
+            "name",
+            string.IsNullOrWhiteSpace(file.Machine.Name) || string.Equals(file.Machine.Name, defaultMachine, StringComparison.Ordinal)
+                ? null
+                : Text(file.Machine.Name));
+        machine.Add("description", Text(file.Machine.Description));
+
         var models = root.Section("models");
         AddModel(models, "embedding", file.Models.Embedding);
         AddModel(models, "reranker", file.Models.Reranker);
@@ -41,7 +50,7 @@ internal static partial class ConfigWriter
         consolidation.Add("remindCandidates", Unless(c.RemindCandidates, ConfigKeys.RemindCandidates));
         consolidation.Add("budgetSeconds", Unless(c.BudgetSeconds, ConfigKeys.BudgetSeconds));
         consolidation.Add("maxConcurrency", Unless(c.MaxConcurrency, ConfigKeys.MaxConcurrency));
-        consolidation.Add("hintItemLength", Unless(c.HintItemLength, ConfigKeys.HintItemLength));
+        consolidation.Add("hintEntryLength", Unless(c.HintEntryLength, ConfigKeys.HintEntryLength));
         consolidation.Add("hintResidentLength", Unless(c.HintResidentLength, ConfigKeys.HintResidentLength));
 
         var decision = root.Section("decision");
@@ -65,6 +74,7 @@ internal static partial class ConfigWriter
             target.Add("url", Required(webdav.Url));
             target.Add("username", Text(webdav.Username));
             target.Add("password", Text(webdav.Password));
+            target.Add("file", webdav.File is null or CloudFileName.Default ? null : Text(webdav.File));
         }
 
         var output = new StringBuilder();

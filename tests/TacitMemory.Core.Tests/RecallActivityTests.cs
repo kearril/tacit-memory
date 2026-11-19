@@ -69,15 +69,18 @@ public sealed class RecallActivityTests : IDisposable
     }
 
     [Fact]
-    public async Task Activities_are_recalled_by_kind_with_their_date_workstream_body_and_short_code()
+    public async Task Activities_are_recalled_by_kind_with_their_date_machine_workstream_body_and_short_code()
     {
         var added = await Write("想清楚了画像里缺的是人的倾向", workstream: "tacit-memory");
+        Month($"{File.ReadAllText(MonthFile())}- 没有机器标记的旧画像活动\n");
+        await Write("另一件事");
 
         var result = await Recall("画像", kind: "activities");
 
         Assert.False(result.IsError, result.Text);
-        Assert.Contains($"[1] activity 2026-11-02 [{CodeOf(added)}], workstream tacit-memory", result.Text);
+        Assert.Contains($"activity 2026-11-02 (test-machine) [{CodeOf(added)}], workstream tacit-memory\n", result.Text);
         Assert.Contains("想清楚了画像里缺的是人的倾向", result.Text);
+        Assert.Contains($"activity 2026-11-02 [{ShortCodes.ShortOf("没有机器标记的旧画像活动")}]\n", result.Text);
     }
 
     [Fact]

@@ -52,6 +52,7 @@ import { BackupSection } from "./BackupSection";
 import { BindingsSection } from "./BindingsSection";
 import { ConsolidationSection } from "./ConsolidationSection";
 import { JudgmentSection } from "./JudgmentSection";
+import { MachineSection } from "./MachineSection";
 import { ModelsSection } from "./ModelsSection";
 import { RemoteAccessSection } from "./RemoteAccessSection";
 import { usePublishProblems, useScrollSpy } from "./section-nav";
@@ -239,6 +240,7 @@ function SettingsEditor({
           </AlertDescription>
         </Alert>
       )}
+      <MachineSection form={form} />
       <ModelsSection form={form} />
       <BindingsSection />
       <JudgmentSection form={form} />

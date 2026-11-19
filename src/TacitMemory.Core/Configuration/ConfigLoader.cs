@@ -52,7 +52,7 @@ internal static class ConfigLoader
         var language = LanguageCodes.Parse(languageText) ?? fallbackLanguage;
 
         var reader = new ConfigReader(language);
-        reader.OnlyKnown(root, "", "server", "memory", "language", "models", "limits", "consolidation", "decision", "retrieval", "backup");
+        reader.OnlyKnown(root, "", "server", "memory", "language", "machine", "models", "limits", "consolidation", "decision", "retrieval", "backup");
         if (reader.Text(root, "", "language") is { } code && LanguageCodes.Parse(code) is null)
             reader.Error("language", Messages.ConfigExpectedLanguage, code);
 
@@ -67,6 +67,7 @@ internal static class ConfigLoader
             ? HomePaths.Expand(configured, options.UserHome)
             : ConfigKeys.DefaultMemoryPath(options.TacitHome);
 
+        var machine = ReadMachine(reader, root, options);
         var models = ReadModels(reader, root, options.Secrets);
         var limits = ReadLimits(reader, root);
         var consolidation = ReadConsolidation(reader, root);
@@ -91,6 +92,7 @@ internal static class ConfigLoader
             ExtraAddress = extraAddress,
             MemoryPath = memoryPath,
             Language = language,
+            Machine = machine,
             Models = models,
             Limits = limits,
             Consolidation = consolidation,
@@ -251,6 +253,24 @@ internal static class ConfigLoader
         return ModelProvider.Generic;
     }
 
+    private static MachineConfig ReadMachine(ConfigReader reader, YamlMappingNode root, TacitOptions options)
+    {
+        var machine = reader.Mapping(root, "", "machine");
+        reader.OnlyKnown(machine, "machine", "name", "description");
+
+        var name = reader.Text(machine, "machine", "name");
+        if (name is not null && !MachineName.IsValid(name))
+            reader.Error(ConfigKeys.Machine.Name.Path, Messages.ConfigExpectedMachineName, name);
+
+        var description = reader.Text(machine, "machine", "description");
+        if (description is not null && description.IndexOfAny(TextFile.LineBreaks) >= 0)
+            reader.Error(ConfigKeys.Machine.Description.Path, Messages.ConfigExpectedSingleLine);
+
+        return new MachineConfig(
+            name is not null && MachineName.IsValid(name) ? name : MachineName.FromHost(options.HostName),
+            description);
+    }
+
     private static LimitsConfig ReadLimits(ConfigReader reader, YamlMappingNode root)
     {
         var limits = reader.Mapping(root, "", "limits");
@@ -266,13 +286,13 @@ internal static class ConfigLoader
     {
         var consolidation = reader.Mapping(root, "", "consolidation");
         reader.OnlyKnown(
-            consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintItemLength", "hintResidentLength");
+            consolidation, "consolidation", "remindAfterDays", "remindCandidates", "budgetSeconds", "maxConcurrency", "hintEntryLength", "hintResidentLength");
         return new ConsolidationConfig(
             reader.Integer(consolidation, ConfigKeys.RemindAfterDays),
             reader.Integer(consolidation, ConfigKeys.BudgetSeconds),
             reader.Integer(consolidation, ConfigKeys.MaxConcurrency),
             reader.Integer(consolidation, ConfigKeys.RemindCandidates),
-            reader.Integer(consolidation, ConfigKeys.HintItemLength),
+            reader.Integer(consolidation, ConfigKeys.HintEntryLength),
             reader.Integer(consolidation, ConfigKeys.HintResidentLength));
     }
 
@@ -322,11 +342,16 @@ internal static class ConfigLoader
     {
         const string path = "backup.webdav";
         var webdav = reader.Mapping(backup, "backup", "webdav");
-        reader.OnlyKnown(webdav, path, "url", "username", "password");
+        reader.OnlyKnown(webdav, path, "url", "username", "password", "file");
         var url = reader.Url(webdav, path, "url");
         var username = reader.Text(webdav, path, "username");
         var password = ReadSecret(reader, webdav, ConfigKeys.WebDavPassword, secrets, required: username is not null);
-        return url is null ? null : new WebDavConfig(AsDirectory(url), username, password);
+        var file = reader.Text(webdav, path, "file");
+        if (file is not null && !CloudFileName.IsValid(file))
+            reader.Error(ConfigKeys.WebDavFile.Path, Messages.ConfigExpectedCloudFileName, file);
+        return url is null
+            ? null
+            : new WebDavConfig(AsDirectory(url), username, password, file is not null && CloudFileName.IsValid(file) ? file : CloudFileName.Default);
     }
 
     /// <summary>The URL as a directory: a <c>/</c> is appended when its path does not end in one.</summary>

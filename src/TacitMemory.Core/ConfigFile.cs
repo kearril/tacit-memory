@@ -22,6 +22,9 @@ public sealed record ConfigFile
     public string? Language { get; init; }
 
     [JsonRequired]
+    public MachineFile Machine { get; init; } = new();
+
+    [JsonRequired]
     public ModelsFile Models { get; init; } = new();
 
     [JsonRequired]
@@ -69,6 +72,7 @@ public sealed record ConfigFile
             Server = new ServerFile(config.Port, config.ExtraAddress?.ToString()),
             Memory = new MemoryFile(config.MemoryPath),
             Language = config.Language.Code(),
+            Machine = new MachineFile(config.Machine.Name, config.Machine.Description),
             Models = new ModelsFile(Model(config.Models.Embedding), Model(config.Models.Reranker), Model(config.Models.Decision)),
             Limits = new LimitsFile(config.Limits.Brief, new PageLimitsFile(config.Limits.Page.MinAliases)),
             Consolidation = new ConsolidationFile(
@@ -76,7 +80,7 @@ public sealed record ConfigFile
                 config.Consolidation.RemindCandidates,
                 config.Consolidation.BudgetSeconds,
                 config.Consolidation.MaxConcurrency,
-                config.Consolidation.HintItemLength,
+                config.Consolidation.HintEntryLength,
                 config.Consolidation.HintResidentLength),
             Decision = new DecisionFile(
                 Judgment(config.Decision.SamePreference),
@@ -86,7 +90,7 @@ public sealed record ConfigFile
             Retrieval = new RetrievalFile(config.Retrieval.Candidates, config.Retrieval.TopK, config.Retrieval.MinRerankScore),
             Backup = new BackupFile(
                 config.Backup.Keep,
-                webdav is null ? null : new WebDavFile(webdav.Url.OriginalString, webdav.Username, webdav.Password?.InConfig)),
+                webdav is null ? null : new WebDavFile(webdav.Url.OriginalString, webdav.Username, webdav.Password?.InConfig, webdav.File)),
         };
     }
 }
@@ -94,6 +98,8 @@ public sealed record ConfigFile
 public sealed record ServerFile(int? Port = null, string? Host = null);
 
 public sealed record MemoryFile(string? Path = null);
+
+public sealed record MachineFile(string? Name = null, string? Description = null);
 
 /// <summary>A <c>null</c> model is unconfigured and is not written.</summary>
 public sealed record ModelsFile(ModelFile? Embedding = null, ModelFile? Reranker = null, ModelFile? Decision = null);
@@ -110,7 +116,7 @@ public sealed record ConsolidationFile(
     int? RemindCandidates = null,
     int? BudgetSeconds = null,
     int? MaxConcurrency = null,
-    int? HintItemLength = null,
+    int? HintEntryLength = null,
     int? HintResidentLength = null);
 
 /// <summary>A <c>null</c> judgment takes its built-in thresholds.</summary>
@@ -124,4 +130,5 @@ public sealed record RetrievalFile(int? Candidates = null, int? TopK = null, dou
 /// <param name="WebDav"><c>null</c> when there is no cloud backup.</param>
 public sealed record BackupFile(int? Keep = null, WebDavFile? WebDav = null);
 
-public sealed record WebDavFile(string? Url, string? Username, string? Password);
+/// <param name="File"><c>null</c> for the default name, <c>tacit-backup.zip</c>.</param>
+public sealed record WebDavFile(string? Url, string? Username, string? Password, string? File = null);

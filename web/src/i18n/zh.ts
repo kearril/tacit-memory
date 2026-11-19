@@ -202,6 +202,7 @@ export const zh = {
   },
   settings: {
     sections: {
+      machine: "本机",
       models: "模型",
       bindings: "绑定",
       judgment: "检索与判断",
@@ -275,7 +276,7 @@ export const zh = {
           help: "一次整理最多等模型的秒数；到点照常出报告，没算完的项下次接着算。",
         },
         maxConcurrency: { label: "并发判断数", help: "同时进行的模型判断数，由服务内的多次整理共享。" },
-        hintItemLength: {
+        hintEntryLength: {
           label: "条目篇幅提示",
           help: "画像条目或新增活动超过该字符数时，整理报告的篇幅提示列出它。只提示，不拒绝写入。",
         },
@@ -320,6 +321,20 @@ export const zh = {
       mcp: { url: "端点", transport: "传输方式", name: "服务名" },
       details: "查看做了什么",
       createdFolders: "以下目录原先不存在，已新建。请确认客户端读取的就是这里：",
+    },
+    machine: {
+      summary: "这台机器在记忆里的名字与定位说明，出现在常驻区块开头，也会自动标在它写下的活动上。",
+      descriptionDefault: "可不填，如「工作站」「家里服务器」",
+      fields: {
+        name: {
+          label: "机器名",
+          help: "1 到 32 个小写字母、数字或连字符；留空恢复由主机名规整得到的默认名。",
+        },
+        description: {
+          label: "定位说明",
+          help: "一行短说明，显示在常驻区块机器名的破折号后面，说明这台机器的角色。",
+        },
+      },
     },
     models: {
       summary: "检索和写入时用到的三个模型。关掉的模型保存后从配置中移除，填过的内容留在页面上。",
@@ -374,11 +389,16 @@ export const zh = {
       cloud: "云端（WebDAV）",
       urlDefault: "不填即不使用云端备份",
       usernameDefault: "可不填，不填时不发送认证",
+      fileDefault: "不填即 tacit-backup.zip",
       fields: {
         keep: { label: "自动备份份数", help: "backups/ 下自动备份保留的份数；0 只关闭自动备份。" },
         url: { label: "WebDAV 目录", help: "云端备份所在的 WebDAV 目录地址，末尾的 / 可省略。" },
         username: { label: "用户名", help: "WebDAV 的用户名；填了用户名就必须有密码。" },
         password: { label: "密码", help: "WebDAV 的密码。" },
+        file: {
+          label: "文件名",
+          help: "备份在 WebDAV 目录里的文件名，以 .zip 结尾；云端备份写这个文件，云端恢复也从它读取。多台机器共用一个目录时各取一个名字。",
+        },
       },
     },
     access: {
@@ -794,6 +814,8 @@ export const zh = {
       noMatch: "这个月没有这条主线的活动",
       /** What an activity outside every workstream is marked with. */
       noWorkstream: "无主线",
+      /** The machine an activity was written on, as its hover text says. */
+      machine: (name: string) => `写于 ${name}`,
       weekSummary: (label: string) => `周汇总 · ${label}`,
       monthSummary: (label: string) => `月汇总 · ${label}`,
       sourceFile: "来源文件",

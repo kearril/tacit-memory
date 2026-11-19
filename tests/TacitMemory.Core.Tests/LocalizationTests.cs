@@ -55,6 +55,19 @@ public sealed class LocalizationTests
         Assert.Null(chinese.Overturned);
     }
 
+    [Theory]
+    [InlineData(MemoryLanguage.Zh)]
+    [InlineData(MemoryLanguage.En)]
+    public async Task The_resident_block_uses_the_english_machine_label_in_every_language(MemoryLanguage language)
+    {
+        using var home = new TestHome();
+        await home.Tacit().InitAsync(new InitRequest { Language = language });
+        home.Bind();
+
+        var agents = File.ReadAllText(Path.Combine(home.UserHome, ".omp", "agent", "AGENTS.md"));
+        Assert.Contains($"<user_memory>\n{StructureWords.Machine}: test-machine\n", agents);
+    }
+
     /// <summary>The structure words, without the separator that follows some of them.</summary>
     private static IEnumerable<string> StructureWordsIn() =>
         typeof(StructureWords).GetFields(BindingFlags.Public | BindingFlags.Static)
