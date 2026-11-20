@@ -26,6 +26,9 @@ export type Value = number | string | null;
 /** The three auxiliary models. */
 export const MODELS = ["embedding", "reranker", "decision"] as const;
 
+/** The retrieval settings. */
+export const RETRIEVAL = ["retrieval.candidates", "retrieval.topK", "retrieval.minRerankScore"] as const;
+
 /** The consolidation settings, all whole numbers. */
 export const CONSOLIDATION = [
   "remindAfterDays",
@@ -36,8 +39,14 @@ export const CONSOLIDATION = [
   "hintResidentLength",
 ] as const;
 
+/** The full key paths of the consolidation settings. */
+export const CONSOLIDATION_PATHS = CONSOLIDATION.map((key) => `consolidation.${key}`);
+
 /** The four judgments, each with a pair of thresholds. */
 export const JUDGMENTS = ["samePreference", "samePage", "sameTopic", "ruleConflict"] as const;
+
+/** The group paths of the four judgment threshold pairs. */
+export const JUDGMENT_GROUPS = JUDGMENTS.map((judgment) => `decision.${judgment}`);
 
 /**
  * How the page shows each key of `config.yaml`: the section that holds it and, for a key edited with the other fields, its
@@ -50,6 +59,10 @@ export interface Presentation {
   readonly kind?: Exclude<FieldKind, "toggle">;
   readonly group?: string;
   readonly within?: string;
+  /** False for user-supplied addresses or notes whose absence simply turns a feature off, so no restore button is shown. */
+  readonly restorable?: false;
+  /** The built-in default to display when `view.defaults` leaves the parent object out (e.g. `backup.webdav.file`). */
+  readonly defaultDisplay?: string;
 }
 
 const model = (model: (typeof MODELS)[number]) => `models.${model}`;
@@ -57,11 +70,11 @@ const model = (model: (typeof MODELS)[number]) => `models.${model}`;
 /** Each key's place on the page; the keys edited with the other fields are in the order they appear on it. */
 export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "server.port": { section: "advanced", kind: "integer" },
-  "server.host": { section: "access", kind: "text" },
+  "server.host": { section: "access", kind: "text", restorable: false },
   "memory.path": { section: "advanced" },
   language: { section: "advanced" },
   "machine.name": { section: "machine", kind: "text" },
-  "machine.description": { section: "machine", kind: "text" },
+  "machine.description": { section: "machine", kind: "text", restorable: false },
   "limits.brief": { section: "advanced", kind: "integer" },
   "limits.page.minAliases": { section: "advanced", kind: "integer" },
   "models.embedding.provider": { section: "models", kind: "choice", within: model("embedding") },
@@ -94,11 +107,11 @@ export const PRESENTATION: Readonly<Record<ConfigKeyPath, Presentation>> = {
   "consolidation.hintEntryLength": { section: "consolidation", kind: "integer" },
   "consolidation.hintResidentLength": { section: "consolidation", kind: "integer" },
   "backup.keep": { section: "backup", kind: "integer" },
-  "backup.webdav.url": { section: "backup", kind: "text" },
-  "backup.webdav.username": { section: "backup", kind: "text" },
+  "backup.webdav.url": { section: "backup", kind: "text", restorable: false },
+  "backup.webdav.username": { section: "backup", kind: "text", restorable: false },
   "backup.webdav.password": { section: "backup" },
-  "backup.webdav.file": { section: "backup", kind: "text" },
-  "sync.remote": { section: "sync", kind: "text" },
+  "backup.webdav.file": { section: "backup", kind: "text", defaultDisplay: "tacit-backup.zip" },
+  "sync.remote": { section: "sync", kind: "text", restorable: false },
   "sync.pullMinutes": { section: "sync", kind: "integer" },
 };
 
@@ -164,6 +177,44 @@ export function restoreDefault(view: ConfigView, drafts: Drafts, path: string): 
     restored[field.path] = textOf(valueAt(view.defaults, field.path));
   }
   return restored;
+}
+
+/** The drafts with every setting or threshold pair in `paths` set back to its default. */
+export function restoreDefaults(view: ConfigView, drafts: Drafts, paths: readonly string[]): Drafts {
+  return paths.reduce((current, path) => restoreDefault(view, current, path), drafts);
+}
+
+/**
+ * The default value to show in a restore button's tooltip, or `null` when the setting should not offer one (such as a
+ * user-supplied address or note whose default is absence). A threshold pair shows both bounds joined by ` / `.
+ */
+export function defaultDisplayOf(view: ConfigView, path: string): string | null {
+  const fields = fieldsAt(path);
+  if (fields.length === 0) {
+    return null;
+  }
+  const parts: string[] = [];
+  for (const field of fields) {
+    const presentation = PRESENTATION[field.path as ConfigKeyPath] as Presentation | undefined;
+    if (presentation?.restorable === false) {
+      return null;
+    }
+    if (presentation?.defaultDisplay !== undefined) {
+      parts.push(presentation.defaultDisplay);
+      continue;
+    }
+    const value = valueAt(view.defaults, field.path);
+    if (value === null) {
+      return null;
+    }
+    parts.push(textOf(value));
+  }
+  return parts.join(" / ");
+}
+
+/** How many of the settings or threshold pairs in `paths` currently differ from their defaults. */
+export function differedCount(view: ConfigView, drafts: Drafts, paths: readonly string[]): number {
+  return paths.filter((path) => differsFromDefault(view, drafts, path)).length;
 }
 
 /** The fields whose input no longer holds the value the view gave, then the secrets changed, in the page's order. */

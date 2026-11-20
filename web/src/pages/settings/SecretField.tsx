@@ -63,7 +63,7 @@ export function SecretField({
           hideLabel={dictionary.hidePassword(text.label)}
           aria-invalid={errors.length > 0}
           aria-describedby={errors.length > 0 ? `${id}-error` : undefined}
-          className={`font-mono ${form.changed.has(path) ? "border-accent" : ""}`}
+          className={`font-mono sm:text-sm ${form.changed.has(path) ? "border-accent" : ""}`}
           value={draft}
           onChange={(event) => form.edit(path, event.target.value)}
         />

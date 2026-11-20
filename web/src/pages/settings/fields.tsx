@@ -16,7 +16,6 @@ import {
 import type { ConfigView } from "../../api/config";
 import { useDictionary } from "../../app/session-context";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -24,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/too
 import { IconTile } from "../../components/ui/icon-tile";
 import type { Explained } from "../../i18n/messages";
 import {
+  defaultDisplayOf,
   differsFromDefault,
   type Drafts,
   FIELDS,
@@ -31,8 +31,6 @@ import {
   outOfRange,
   type Pending,
   type PlacedProblems,
-  textOf,
-  valueAt,
 } from "./form";
 import { type SectionId, sectionIdOf } from "../../lib/routes";
 
@@ -46,6 +44,7 @@ export interface SettingsForm {
   readonly pending: ReadonlyMap<string, Pending>;
   readonly edit: (path: string, text: string) => void;
   readonly restore: (path: string) => void;
+  readonly restoreMany: (paths: readonly string[]) => void;
 }
 
 /**
@@ -72,11 +71,13 @@ export function SettingsSection({
   section,
   summary,
   immediate = false,
+  action,
   children,
 }: {
   readonly section: SectionId;
   readonly summary: string;
   readonly immediate?: boolean;
+  readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
 }) {
   const dictionary = useDictionary();
@@ -98,7 +99,10 @@ export function SettingsSection({
         </>
       }
     >
-      <p className="text-sm text-ink-muted">{summary}</p>
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <p className="min-w-0 text-sm text-ink-muted">{summary}</p>
+        {action}
+      </div>
       {children}
     </Card>
   );
@@ -128,11 +132,13 @@ export function SettingsGroup({
   title,
   note,
   aside,
+  action,
   children,
 }: {
   readonly title?: string;
   readonly note?: string;
   readonly aside?: React.ReactNode;
+  readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
 }) {
   return (
@@ -141,6 +147,7 @@ export function SettingsGroup({
         <div className="flex flex-wrap items-center gap-sm">
           <h3 className="text-sm font-semibold">{title}</h3>
           {aside}
+          {action === undefined || action === null ? null : <div className="ml-auto">{action}</div>}
         </div>
       )}
       {note === undefined ? null : <p className="text-xs text-ink-muted">{note}</p>}
@@ -243,6 +250,7 @@ export function Setting({
   wide = false,
   required = false,
   disabled = false,
+  describedBy,
   children,
 }: {
   readonly form: SettingsForm;
@@ -254,6 +262,8 @@ export function Setting({
   /** Whether the setting has no default to restore, so it must be filled in. */
   readonly required?: boolean;
   readonly disabled?: boolean;
+  /** Optional extra element id to append to the input's `aria-describedby` (such as an example line under it). */
+  readonly describedBy?: string;
   readonly children?: React.ReactNode;
 }) {
   const dictionary = useDictionary();
@@ -263,14 +273,15 @@ export function Setting({
     ...(range === null ? [] : [dictionary.settings.outOfRange(String(range.min), String(range.max))]),
     ...(form.problems.byField[path] ?? []),
   ];
-  const differs = !required && differsFromDefault(form.view, form.drafts, path);
+  const defaultValue = required || disabled ? null : defaultDisplayOf(form.view, path);
+  const differs = defaultValue !== null && differsFromDefault(form.view, form.drafts, path);
 
   return (
     <SettingRow
       name={<SettingName form={form} path={path} text={text} htmlFor={id} />}
       control={
-        <div className="flex min-w-0 flex-wrap items-center gap-sm">
-          <div className={wide ? "min-w-0 flex-1" : "w-(--tk-size-tile) max-w-full"}>
+        <div className="flex min-w-0 items-center gap-sm">
+          <div className={wide ? "min-w-0 flex-1" : "w-(--tk-size-tile) max-w-full min-w-0 shrink"}>
             <SettingInput
               form={form}
               path={path}
@@ -280,16 +291,13 @@ export function Setting({
               placeholder={placeholder ?? (required ? dictionary.settings.required : undefined)}
               mono={wide}
               disabled={disabled}
+              describedBy={describedBy}
               errors={errors}
               errorId={`${id}-error`}
             />
           </div>
           {differs ? (
-            <RestoreButton
-              label={`${dictionary.settings.restoreDefault}: ${text.label}`}
-              value={placeholder === undefined ? textOf(valueAt(form.view.defaults, path)) : null}
-              onClick={() => form.restore(path)}
-            />
+            <RestoreButton name={text.label} value={defaultValue} focusId={id} onClick={() => form.restore(path)} />
           ) : null}
         </div>
       }
@@ -370,6 +378,7 @@ export function SettingInput({
   placeholder,
   mono = false,
   disabled = false,
+  describedBy,
   errors,
   errorId,
 }: {
@@ -382,11 +391,15 @@ export function SettingInput({
   /** Whether the value is an address or a path, set in the monospaced face. */
   readonly mono?: boolean;
   readonly disabled?: boolean;
+  readonly describedBy?: string;
   readonly errors: readonly string[];
   readonly errorId: string;
 }) {
   const changed = form.changed.has(path);
   const kind = FIELDS.find((field) => field.path === path)?.kind;
+  const descriptions = [`${id}-help`, describedBy, errors.length > 0 ? errorId : undefined]
+    .filter((item): item is string => item !== undefined)
+    .join(" ");
   return (
     <>
       <Input
@@ -396,10 +409,10 @@ export function SettingInput({
         spellCheck={false}
         aria-label={label}
         aria-invalid={errors.length > 0}
-        aria-describedby={errors.length > 0 ? `${id}-help ${errorId}` : `${id}-help`}
+        aria-describedby={descriptions}
         placeholder={placeholder}
         disabled={disabled}
-        className={`tabular-nums ${mono ? "font-mono" : ""} ${changed ? "border-accent" : ""}`}
+        className={`tabular-nums ${mono ? "font-mono sm:text-sm" : ""} ${changed ? "border-accent" : ""}`}
         value={form.drafts[path] ?? ""}
         onChange={(event) => form.edit(path, event.target.value)}
       />
@@ -410,22 +423,66 @@ export function SettingInput({
   );
 }
 
-/** Restores a setting's default, naming the default when it has one to show. */
+/**
+ * Compact icon-only button that restores a setting (or threshold pair) to its default, revealing the default value in a
+ * tooltip on hover or focus so resting rows stay quiet. Returns keyboard focus to the setting's input as the button unmounts.
+ */
 export function RestoreButton({
-  label,
+  name,
   value,
+  focusId,
   onClick,
 }: {
-  readonly label: string;
-  readonly value: string | null;
+  readonly name: string;
+  readonly value: string;
+  readonly focusId: string;
   readonly onClick: () => void;
 }) {
   const dictionary = useDictionary();
   return (
-    <Button type="button" variant="ghost" aria-label={label} title={label} className="text-ink-muted" onClick={onClick}>
-      <RotateCcw aria-hidden />
-      {value === null ? dictionary.settings.restoreDefault : dictionary.settings.defaultValue(value)}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={dictionary.settings.restoreDefaultLabel(name, value)}
+          className="inline-flex min-h-(--tk-size-icon-tile) min-w-(--tk-size-icon-tile) shrink-0 lift cursor-pointer items-center justify-center rounded-sm text-ink-muted outline-none hover:bg-surface-raised hover:text-ink focus-visible:bg-surface-raised focus-visible:text-ink focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface pointer-coarse:min-h-control pointer-coarse:min-w-(--tk-size-control)"
+          onClick={() => {
+            onClick();
+            document.getElementById(focusId)?.focus();
+          }}
+        >
+          <RotateCcw aria-hidden className="size-(--tk-font-size-sm)" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{dictionary.settings.restoreDefaultHint(value)}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Quiet button in a tuning group's header that restores every setting in the group back to its default at once. */
+export function RestoreGroupButton({
+  group,
+  focusId,
+  onClick,
+}: {
+  readonly group: string;
+  readonly focusId: string;
+  readonly onClick: () => void;
+}) {
+  const dictionary = useDictionary();
+  return (
+    <button
+      type="button"
+      aria-label={dictionary.settings.restoreGroupDefaultLabel(group)}
+      className="inline-flex min-h-(--tk-size-icon-tile) shrink-0 lift cursor-pointer items-center gap-xs rounded-sm px-sm text-xs font-medium whitespace-nowrap text-ink-muted outline-none hover:bg-surface-raised hover:text-ink focus-visible:bg-surface-raised focus-visible:text-ink focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent focus-visible:ring-offset-(length:--tk-border-thick) focus-visible:ring-offset-surface pointer-coarse:min-h-control"
+      onClick={() => {
+        onClick();
+        document.getElementById(focusId)?.focus();
+      }}
+    >
+      <RotateCcw aria-hidden className="size-(--tk-font-size-xs)" />
+      {dictionary.settings.restoreGroupDefault}
+    </button>
   );
 }
 

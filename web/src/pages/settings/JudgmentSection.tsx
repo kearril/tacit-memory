@@ -1,10 +1,22 @@
 import { useDictionary } from "../../app/session-context";
-import { differsFromDefault, inputIdOf, JUDGMENTS, outOfRange, textOf, valueAt } from "./form";
+import {
+  defaultDisplayOf,
+  differedCount,
+  differsFromDefault,
+  inputIdOf,
+  JUDGMENT_GROUPS,
+  JUDGMENTS,
+  outOfRange,
+  RETRIEVAL,
+  textOf,
+  valueAt,
+} from "./form";
 import {
   EXPLAIN_FOCUS,
   Explaining,
   Problems,
   RestoreButton,
+  RestoreGroupButton,
   Setting,
   SettingInput,
   SettingsGroup,
@@ -19,15 +31,40 @@ import {
 export function JudgmentSection({ form }: { readonly form: SettingsForm }) {
   const dictionary = useDictionary();
   const text = dictionary.settings.judgment;
+  const retrievalDiffers = differedCount(form.view, form.drafts, RETRIEVAL) >= 2;
+  const thresholdDiffers = differedCount(form.view, form.drafts, JUDGMENT_GROUPS) >= 2;
 
   return (
     <SettingsSection section="judgment" summary={text.summary}>
-      <SettingsGroup title={text.retrieval}>
+      <SettingsGroup
+        title={text.retrieval}
+        action={
+          retrievalDiffers ? (
+            <RestoreGroupButton
+              group={text.retrieval}
+              focusId={inputIdOf(RETRIEVAL[0])}
+              onClick={() => form.restoreMany(RETRIEVAL)}
+            />
+          ) : null
+        }
+      >
         <Setting form={form} path="retrieval.candidates" text={text.fields.candidates} />
         <Setting form={form} path="retrieval.topK" text={text.fields.topK} />
         <Setting form={form} path="retrieval.minRerankScore" text={text.fields.minRerankScore} />
       </SettingsGroup>
-      <SettingsGroup title={text.thresholds} note={`${text.thresholdsHelp} ${text.calibration}`}>
+      <SettingsGroup
+        title={text.thresholds}
+        note={`${text.thresholdsHelp} ${text.calibration}`}
+        action={
+          thresholdDiffers ? (
+            <RestoreGroupButton
+              group={text.thresholds}
+              focusId={inputIdOf(JUDGMENT_GROUPS[0])}
+              onClick={() => form.restoreMany(JUDGMENT_GROUPS)}
+            />
+          ) : null
+        }
+      >
         <ThresholdTable form={form} />
       </SettingsGroup>
     </SettingsSection>
@@ -74,7 +111,8 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
       {JUDGMENTS.map((judgment) => {
         const group = `decision.${judgment}`;
         const explained = text.judgments[judgment];
-        const differs = differsFromDefault(form.view, form.drafts, group);
+        const defaultValue = defaultDisplayOf(form.view, group);
+        const differs = defaultValue !== null && differsFromDefault(form.view, form.drafts, group);
         const ranges = BOUNDS.flatMap((bound) => {
           const range = outOfRange(form.view, form.drafts, `${group}.${bound}`);
           return range === null
@@ -113,15 +151,12 @@ function ThresholdTable({ form }: { readonly form: SettingsForm }) {
                     </div>
                   );
                 })}
-                <div role="cell">
+                <div role="cell" className="flex items-center">
                   {differs ? (
                     <RestoreButton
-                      label={`${dictionary.settings.restoreDefault}: ${explained.label}`}
-                      value={
-                        shared.every((value) => value !== null)
-                          ? null
-                          : BOUNDS.map((bound) => textOf(valueAt(form.view.defaults, `${group}.${bound}`))).join(" / ")
-                      }
+                      name={explained.label}
+                      value={defaultValue}
+                      focusId={inputIdOf(group)}
                       onClick={() => form.restore(group)}
                     />
                   ) : null}

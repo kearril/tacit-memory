@@ -203,6 +203,10 @@ export const en = {
     immediate: "Takes effect at once",
     immediateHelp: "What you do here happens at once, without the save bar at the bottom of the page.",
     restoreDefault: "Restore the default",
+    restoreDefaultHint: (value) => `Restore default (${value})`,
+    restoreDefaultLabel: (name, value) => `Restore default: ${name} (${value})`,
+    restoreGroupDefault: "Restore defaults",
+    restoreGroupDefaultLabel: (group) => `Restore defaults: ${group}`,
     notANumber: "Enter a number.",
     notAWholeNumber: "Enter a whole number.",
     changes: (count) => (count === 1 ? "1 unsaved change" : `${count} unsaved changes`),
@@ -370,6 +374,7 @@ export const en = {
           cloudflare: "Requests as System One does; the response is read inside the Workers AI result wrapper.",
         },
       },
+      urlExample: "Example: ",
       urlExamples: {
         embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
         reranker: {

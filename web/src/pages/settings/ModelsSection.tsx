@@ -84,6 +84,9 @@ function ModelItem({
   const on = form.drafts[path] === ON;
   const changed = [...form.changed].some((changedPath) => changedPath === path || changedPath.startsWith(`${path}.`));
   const formId = `${inputIdOf(path)}-settings`;
+  const urlPath = `${path}.url`;
+  const urlExample = text.urlExamples[model][providerOf(form, model)];
+  const urlExampleId = `${inputIdOf(urlPath)}-example`;
 
   return (
     <section aria-labelledby={`${inputIdOf(path)}-name`} className="grid gap-md">
@@ -116,12 +119,19 @@ function ModelItem({
           <Provider form={form} model={model} />
           <Setting
             form={form}
-            path={`${path}.url`}
+            path={urlPath}
             text={text.fields.url}
-            placeholder={text.urlExamples[model][providerOf(form, model)] || undefined}
+            describedBy={urlExample === "" ? undefined : urlExampleId}
             required
             wide
-          />
+          >
+            {urlExample === "" ? null : (
+              <p id={urlExampleId} className="text-xs text-ink-muted">
+                {text.urlExample}
+                <code className="font-mono break-all">{urlExample}</code>
+              </p>
+            )}
+          </Setting>
           <Setting form={form} path={`${path}.model`} text={text.fields.model} required />
           <SecretField form={form} path={`${path}.apiKey`} text={text.fields.apiKey} />
         </div>

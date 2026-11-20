@@ -226,6 +226,10 @@ export const zh = {
     immediate: "立即生效",
     immediateHelp: "这里的操作立即执行，不经过页面底部的保存。",
     restoreDefault: "恢复默认",
+    restoreDefaultHint: (value: string) => `恢复默认（${value}）`,
+    restoreDefaultLabel: (name: string, value: string) => `恢复默认：${name}（默认 ${value}）`,
+    restoreGroupDefault: "全部恢复默认",
+    restoreGroupDefaultLabel: (group: string) => `全部恢复默认：${group}`,
     notANumber: "请填写数字。",
     notAWholeNumber: "请填写整数。",
     changes: (count: number) => `${count} 项改动未保存`,
@@ -369,7 +373,9 @@ export const zh = {
           cloudflare: "请求与 System One 相同，响应按 Workers AI 的 result 外层读取。",
         },
       },
-      /** An example of the URL for each model and protocol, as the placeholder of an empty URL; empty for none. */
+      /** Label before the example URL shown under the URL input. */
+      urlExample: "示例：",
+      /** An example of the URL for each model and protocol, shown under the URL input; empty for none. */
       urlExamples: {
         embedding: { generic: "https://api.openai.com/v1/embeddings", cloudflare: "" },
         reranker: {

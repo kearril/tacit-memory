@@ -3,15 +3,20 @@ import type { ConfigFile, ConfigKey, ConfigKeyPath, ConfigView } from "../../api
 import {
   bodyOf,
   changedPaths,
+  defaultDisplayOf,
+  differedCount,
   differsFromDefault,
   drifted,
   draftsOf,
   edit,
+  JUDGMENT_GROUPS,
   ON,
   outOfRange,
   pendingRestart,
   placeProblems,
   restoreDefault,
+  restoreDefaults,
+  RETRIEVAL,
   restartsAmong,
 } from "./form";
 
@@ -105,6 +110,40 @@ describe("differsFromDefault and restoreDefault", () => {
     expect(restored["retrieval.topK"]).toBe("5");
     expect(restored["decision.samePage.certain"]).toBe("0.85");
     expect(differsFromDefault(view(), restored, "decision.samePage")).toBe(false);
+  });
+
+  it("shows concrete defaults only for restorable settings, and excludes user-supplied addresses and notes", () => {
+    const base = general();
+    base.defaults.machine = { name: "dev-box", description: null };
+
+    expect(defaultDisplayOf(base, "retrieval.topK")).toBe("5");
+    expect(defaultDisplayOf(base, "decision.samePage")).toBe("0.85 / 0.25");
+    expect(defaultDisplayOf(base, "machine.name")).toBe("dev-box");
+    expect(defaultDisplayOf(base, "backup.webdav.file")).toBe("tacit-backup.zip");
+
+    expect(defaultDisplayOf(base, "server.host")).toBeNull();
+    expect(defaultDisplayOf(base, "machine.description")).toBeNull();
+    expect(defaultDisplayOf(base, "backup.webdav.url")).toBeNull();
+    expect(defaultDisplayOf(base, "backup.webdav.username")).toBeNull();
+    expect(defaultDisplayOf(base, "sync.remote")).toBeNull();
+  });
+
+  it("counts differed entries in a group and restores the whole group at once", () => {
+    const base = view();
+    let drafts = edit(draftsOf(base), "retrieval.candidates", "50");
+    expect(differedCount(base, drafts, RETRIEVAL)).toBe(2);
+
+    drafts = restoreDefaults(base, drafts, RETRIEVAL);
+    expect(differedCount(base, drafts, RETRIEVAL)).toBe(0);
+    expect(drafts["retrieval.candidates"]).toBe("30");
+    expect(drafts["retrieval.topK"]).toBe("5");
+
+    let pairs = edit(draftsOf(base), "decision.sameTopic.certain", "0.95");
+    expect(differedCount(base, pairs, JUDGMENT_GROUPS)).toBe(2);
+    pairs = restoreDefaults(base, pairs, JUDGMENT_GROUPS);
+    expect(differedCount(base, pairs, JUDGMENT_GROUPS)).toBe(0);
+    expect(pairs["decision.samePage.certain"]).toBe("0.85");
+    expect(pairs["decision.sameTopic.certain"]).toBe("0.85");
   });
 });
 

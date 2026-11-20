@@ -47,6 +47,7 @@ import {
   placeProblems,
   restartsAmong,
   restoreDefault,
+  restoreDefaults,
 } from "./form";
 import { AdvancedSection } from "./AdvancedSection";
 import { BackupSection } from "./BackupSection";
@@ -223,6 +224,10 @@ function SettingsEditor({
     restore: (path) => {
       setDrafts((current) => restoreDefault(view, current, path));
       setProblems((current) => current.filter((problem) => !touches(problem.path, path)));
+    },
+    restoreMany: (paths) => {
+      setDrafts((current) => restoreDefaults(view, current, paths));
+      setProblems((current) => current.filter((problem) => !paths.some((path) => touches(problem.path, path))));
     },
   };
 
