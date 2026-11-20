@@ -20,10 +20,18 @@ export const en = {
   dismiss: "Dismiss",
   notifications: "Notifications ({hotkey})",
   connection: {
-    local: "This computer",
-    localNote: "No login needed",
-    remote: "Another device",
-    remoteNote: "Logged in with the access password",
+    local: "This computer · no login needed",
+    remote: "Remote · logged in",
+  },
+  appearance: {
+    label: "Appearance",
+    palette: "Palette",
+    paletteOf: (name) => `Palette: ${name}`,
+    toDark: "Switch to dark",
+    toLight: "Switch to light",
+    following: "following the system",
+    pinned: "pinned",
+    followSystem: "Follow the system's light and dark",
   },
   datePicker: {
     placeholder: "Pick a date",

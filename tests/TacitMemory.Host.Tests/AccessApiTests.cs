@@ -151,6 +151,8 @@ public sealed class AccessApiTests : IAsyncLifetime
         Assert.False(session.PasswordSet);
         Assert.Equal(MemoryLanguage.Zh, session.Language);
         Assert.False(string.IsNullOrWhiteSpace(session.Version));
+        Assert.Null(session.MachineName);
+        Assert.Null(session.MachineDescription);
     }
 
     [Fact]
@@ -163,6 +165,7 @@ public sealed class AccessApiTests : IAsyncLifetime
         Assert.True(session.Local);
         Assert.True(session.PasswordSet);
         Assert.False(session.LoggedIn);
+        Assert.False(string.IsNullOrWhiteSpace(session.MachineName));
     }
 
     [Fact]
@@ -170,7 +173,7 @@ public sealed class AccessApiTests : IAsyncLifetime
     {
         var reply = await Remote(HttpMethod.Get, "/api/session");
 
-        Assert.Equal(["language", "local", "loggedIn", "passwordSet", "version"], JsonDocument.Parse(reply.Text).RootElement.EnumerateObject().Select(p => p.Name).Order());
+        Assert.Equal(["language", "local", "loggedIn", "machineDescription", "machineName", "passwordSet", "version"], JsonDocument.Parse(reply.Text).RootElement.EnumerateObject().Select(p => p.Name).Order());
     }
 
     // ---- Login ----------------------------------------------------------------------------------------------------
@@ -197,6 +200,7 @@ public sealed class AccessApiTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, reply.Status);
         Assert.True(reply.Session.LoggedIn);
+        Assert.False(string.IsNullOrWhiteSpace(reply.Session.MachineName));
         var cookie = Assert.IsType<string>(reply.SetCookieValue);
         Assert.Equal(HttpStatusCode.OK, (await Remote(HttpMethod.Get, "/api/status", cookie: cookie)).Status);
         Assert.Equal(HttpStatusCode.OK, (await Remote(HttpMethod.Get, "/api/openapi.json", cookie: cookie)).Status);

@@ -5637,7 +5637,9 @@
           "loggedIn",
           "passwordSet",
           "language",
-          "version"
+          "version",
+          "machineName",
+          "machineDescription"
         ],
         "type": "object",
         "properties": {
@@ -5655,6 +5657,18 @@
           },
           "version": {
             "type": "string"
+          },
+          "machineName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "machineDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

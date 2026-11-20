@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, call } from "./client";
 import type { Affects } from "./effects";
+import { SESSION_QUERY_KEY } from "./session";
 import { STATUS_QUERY_KEY } from "./status";
 import type { components } from "./schema";
 
@@ -44,5 +45,8 @@ export function saveConfig(
   return call(api.PUT("/api/config", { body: { hash, config, secrets } }));
 }
 
-/** A save changes the config file and what the status reports of the models and the pending restarts. */
-export const SAVE_CONFIG_AFFECTS: Affects = [CONFIG_QUERY_KEY, STATUS_QUERY_KEY];
+/**
+ * A save changes the config file, what the status reports of the models and the pending restarts, and the machine's name
+ * and description that the session carries.
+ */
+export const SAVE_CONFIG_AFFECTS: Affects = [CONFIG_QUERY_KEY, STATUS_QUERY_KEY, SESSION_QUERY_KEY];

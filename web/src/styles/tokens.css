@@ -1,16 +1,22 @@
 /*
- * Design tokens. The values here are the first pass of the soft look: a misty canvas, white cards with large radii and
- * soft tinted shadows, and an indigo accent. Components and pages refer to the tokens by name, and never write a colour,
- * size, space, radius, shadow, duration or layer value of their own.
+ * Design tokens. The values here are the soft look: a misty canvas, white cards with large radii and soft tinted
+ * shadows. Components and pages refer to the tokens by name, and never write a colour, size, space, radius, shadow,
+ * duration or layer value of their own.
  *
- * Colours come in light/dark pairs via `light-dark()`. By default the page follows the system colour scheme; setting
- * `data-theme="light"` or `data-theme="dark"` on `:root` locks the scheme to that side. Derived tokens (soft
- * backgrounds, heatmap levels, shadows) follow whichever scheme applies.
+ * Colours come in light/dark pairs via `light-dark()`. The page follows the system colour scheme unless the
+ * `<meta name="color-scheme">` in the document head says `light` or `dark`; the interface writes it when the person
+ * picks a scheme, and the rule at the end maps it onto `color-scheme`, so with no script the page still follows the
+ * system. Derived tokens (soft backgrounds, heatmap levels, shadows) follow whichever scheme applies.
+ *
+ * The base colours come in palettes. `data-palette` on `:root` picks the one the page shows; the Default palette is
+ * also what `:root` has without it. Every palette sets every base colour, and the derived tokens are worked out from
+ * them, so a palette changes nothing else. A palette's selector matches any element, so a swatch can show a palette
+ * other than the page's by carrying its own `data-palette`.
  */
 
-:root {
-  color-scheme: light dark;
-
+/* Default: slate and indigo. */
+:root,
+[data-palette="default"] {
   --tk-color-canvas: light-dark(#f1f5f9, #0f141c);
   --tk-color-surface: light-dark(#ffffff, #1a2231);
   --tk-color-surface-raised: light-dark(#f6f8fb, #222b3b);
@@ -22,9 +28,11 @@
   --tk-color-accent: light-dark(#4f46e5, #9d9ef8);
   --tk-color-on-accent: light-dark(#ffffff, #11131c);
   --tk-color-success: light-dark(#047857, #34d399);
-  --tk-color-warning: light-dark(#a64b07, #fbbf24);
-  --tk-color-danger: light-dark(#c2410c, #fb923c);
+  --tk-color-warning: light-dark(#b45309, #fbbf24);
+  --tk-color-danger: light-dark(#d92223, #f87171);
   --tk-color-info: light-dark(#0369a1, #38bdf8);
+  /* The mark of a consolidation day on the heatmap: a corner tab that reads on every heat level; never the warning hue */
+  --tk-color-consolidation: var(--tk-color-success);
   --tk-color-scrim: light-dark(rgb(15 23 42 / 0.32), rgb(0 0 0 / 0.55));
   --tk-color-shadow: light-dark(rgb(100 116 139), rgb(0 0 0));
   --tk-color-heat-0: light-dark(#eef1f6, #222a38);
@@ -34,6 +42,11 @@
   --tk-color-syntax-comment: light-dark(#15803d, #86efac);
   --tk-color-syntax-code: light-dark(#be185d, #f9a8d4);
   --tk-color-syntax-link: light-dark(#0369a1, #7dd3fc);
+}
+
+:root {
+  color-scheme: light dark;
+
   --tk-mix-soft-light: 8%;
   --tk-mix-soft-dark: 14%;
   --tk-mix-heat-1-light: 22%;
@@ -159,6 +172,8 @@
   /* Motion */
   --tk-duration-fast: 150ms;
   --tk-duration-base: 240ms;
+  /* How long a new colour scheme or palette takes to grow over the old one */
+  --tk-duration-reveal: 360ms;
   --tk-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
   /* Layering */
@@ -176,12 +191,122 @@
   --tk-scale-pressed: 0.98;
 }
 
-/* Explicit theme locks override the system colour scheme for `light-dark()`. */
-:root[data-theme="light"] {
+/* Catppuccin: Latte (light) and Mocha (dark). Colours used for text are darkened in Latte to read on white. */
+[data-palette="catppuccin"] {
+  --tk-color-canvas: light-dark(#eff1f5, #11111b);
+  --tk-color-surface: light-dark(#ffffff, #1e1e2e);
+  --tk-color-surface-raised: light-dark(#e6e9ef, #313244);
+  --tk-color-line: light-dark(#ccd0da, #45475a);
+  --tk-color-line-strong: light-dark(#bcc0cc, #585b70);
+  --tk-color-scrollbar: light-dark(#8c8fa1, #6c7086);
+  --tk-color-ink: light-dark(#4c4f69, #cdd6f4);
+  --tk-color-ink-muted: light-dark(#65687e, #a6adc8);
+  --tk-color-accent: light-dark(#8839ef, #cba6f7);
+  --tk-color-on-accent: light-dark(#ffffff, #11111b);
+  --tk-color-success: light-dark(#1e8300, #a6e3a1);
+  --tk-color-warning: light-dark(#ab5e00, #f9e2af);
+  --tk-color-danger: light-dark(#d20f39, #f38ba8);
+  --tk-color-info: light-dark(#1b63f2, #89b4fa);
+  --tk-color-consolidation: var(--tk-color-success);
+  --tk-color-scrim: light-dark(rgb(76 79 105 / 0.28), rgb(17 17 27 / 0.6));
+  --tk-color-shadow: light-dark(rgb(108 111 133), rgb(0 0 0));
+  --tk-color-heat-0: light-dark(#e6e9ef, #313244);
+  --tk-color-syntax-heading: light-dark(#8737ee, #cba6f7);
+  --tk-color-syntax-mark: light-dark(#c72d00, #fab387);
+  --tk-color-syntax-comment: light-dark(#0c7a00, #a6e3a1);
+  --tk-color-syntax-code: light-dark(#ab3c91, #f5c2e7);
+  --tk-color-syntax-link: light-dark(#145deb, #89b4fa);
+}
+
+/* Nord: Snow Storm (light) and Polar Night (dark), with Frost for the accent and Aurora for the states. */
+[data-palette="nord"] {
+  --tk-color-canvas: light-dark(#eceff4, #242933);
+  --tk-color-surface: light-dark(#f8f9fc, #2e3440);
+  --tk-color-surface-raised: light-dark(#e5e9f0, #3b4252);
+  --tk-color-line: light-dark(#d8dee9, #434c5e);
+  --tk-color-line-strong: light-dark(#b9c3d4, #4c566a);
+  --tk-color-scrollbar: light-dark(#7b889c, #616e88);
+  --tk-color-ink: light-dark(#2e3440, #eceff4);
+  --tk-color-ink-muted: light-dark(#4c566a, #aeb8c9);
+  --tk-color-accent: light-dark(#4c6e98, #88c0d0);
+  --tk-color-on-accent: light-dark(#ffffff, #242933);
+  --tk-color-success: light-dark(#477649, #a3be8c);
+  --tk-color-warning: light-dark(#966112, #ebcb8b);
+  --tk-color-danger: light-dark(#b14953, #ef8c94);
+  --tk-color-info: light-dark(#3c728d, #90b0d1);
+  --tk-color-consolidation: var(--tk-color-success);
+  --tk-color-scrim: light-dark(rgb(46 52 64 / 0.3), rgb(0 0 0 / 0.55));
+  --tk-color-shadow: light-dark(rgb(76 86 106), rgb(0 0 0));
+  --tk-color-heat-0: light-dark(#e5e9f0, #3b4252);
+  --tk-color-syntax-heading: light-dark(#486b94, #91b1d2);
+  --tk-color-syntax-mark: light-dark(#a55031, #e79c84);
+  --tk-color-syntax-comment: light-dark(#447346, #a3be8c);
+  --tk-color-syntax-code: light-dark(#86597e, #c9a2c1);
+  --tk-color-syntax-link: light-dark(#396f8b, #88c0d0);
+}
+
+/* Everforest: warm paper (light) and forest (dark). Its accent is green, so success shares it and the consolidation
+   mark takes the palette's purple to stand out on the green heat levels. */
+[data-palette="everforest"] {
+  --tk-color-canvas: light-dark(#f2eddc, #232a2e);
+  --tk-color-surface: light-dark(#fdfaf0, #2d353b);
+  --tk-color-surface-raised: light-dark(#eae3ce, #343f44);
+  --tk-color-line: light-dark(#ddd5bd, #475258);
+  --tk-color-line-strong: light-dark(#c5bca0, #56635f);
+  --tk-color-scrollbar: light-dark(#8a9280, #68736a);
+  --tk-color-ink: light-dark(#434f4c, #d3c6aa);
+  --tk-color-ink-muted: light-dark(#5c6860, #9faba2);
+  --tk-color-accent: light-dark(#507818, #a7c080);
+  --tk-color-on-accent: light-dark(#fdfaf0, #232a2e);
+  --tk-color-success: light-dark(#507818, #a7c080);
+  --tk-color-warning: light-dark(#9b5f00, #dbbc7f);
+  --tk-color-danger: light-dark(#c03e3d, #f98f91);
+  --tk-color-info: light-dark(#317584, #86b5d8);
+  --tk-color-consolidation: light-dark(#d860b2, #d699b6);
+  --tk-color-scrim: light-dark(rgb(67 79 76 / 0.28), rgb(0 0 0 / 0.55));
+  --tk-color-shadow: light-dark(rgb(108 102 82), rgb(0 0 0));
+  --tk-color-heat-0: light-dark(#e9e2cd, #3a454a);
+  --tk-color-syntax-heading: light-dark(#994b77, #d699b6);
+  --tk-color-syntax-mark: light-dark(#a34d00, #e69875);
+  --tk-color-syntax-comment: light-dark(#486f0a, #a7c080);
+  --tk-color-syntax-code: light-dark(#b73636, #f48a8c);
+  --tk-color-syntax-link: light-dark(#296e7c, #7fbbb3);
+}
+
+/* Rosé Pine: Dawn (light) and Moon (dark). Pine is success and Iris both the accent and info, so success and info
+   never look alike. */
+[data-palette="rosepine"] {
+  --tk-color-canvas: light-dark(#f2e9e1, #191724);
+  --tk-color-surface: light-dark(#fffaf3, #232136);
+  --tk-color-surface-raised: light-dark(#f6efe8, #2a273f);
+  --tk-color-line: light-dark(#e4ddd5, #393552);
+  --tk-color-line-strong: light-dark(#cecacd, #56526e);
+  --tk-color-scrollbar: light-dark(#9893a5, #6e6a86);
+  --tk-color-ink: light-dark(#575279, #e0def4);
+  --tk-color-ink-muted: light-dark(#6a6683, #918dab);
+  --tk-color-accent: light-dark(#7a6298, #c4a7e7);
+  --tk-color-on-accent: light-dark(#fffaf3, #191724);
+  --tk-color-success: light-dark(#286983, #9ccfd8);
+  --tk-color-warning: light-dark(#a25d00, #f6c177);
+  --tk-color-danger: light-dark(#a4556c, #ee7294);
+  --tk-color-info: light-dark(#7a6298, #c4a7e7);
+  --tk-color-consolidation: var(--tk-color-success);
+  --tk-color-scrim: light-dark(rgb(87 82 121 / 0.28), rgb(0 0 0 / 0.58));
+  --tk-color-shadow: light-dark(rgb(121 117 147), rgb(0 0 0));
+  --tk-color-heat-0: light-dark(#f2e9e1, #322e48);
+  --tk-color-syntax-heading: light-dark(#7b6399, #c4a7e7);
+  --tk-color-syntax-mark: light-dark(#aa5855, #ea9a97);
+  --tk-color-syntax-comment: light-dark(#286983, #9ccfd8);
+  --tk-color-syntax-code: light-dark(#a7576e, #eb6f92);
+  --tk-color-syntax-link: light-dark(#3a7883, #4a9abb);
+}
+
+/* A scheme the person picked, as the head's colour-scheme meta says it, overrides the system's for `light-dark()`. */
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
   color-scheme: light;
 }
 
-:root[data-theme="dark"] {
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
   color-scheme: dark;
 }
 

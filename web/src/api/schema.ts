@@ -3333,6 +3333,8 @@ export interface components {
             passwordSet: boolean;
             language: components["schemas"]["MemoryLanguage"];
             version: string;
+            machineName: null | string;
+            machineDescription: null | string;
         };
         SourceCommentView: {
             comment: string;

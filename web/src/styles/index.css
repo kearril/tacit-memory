@@ -185,3 +185,75 @@
     var(--tk-color-surface) var(--tk-radius-md)
   );
 }
+
+/* The mark of a consolidation day on a heatmap cell, or on a cell-like tile in the legend and the day's badge: a
+   triangle in the cell's top right corner in the consolidation colour, set off from the cell by a thin gap of the
+   surface, so it reads on every heat level and does not hang on colour alone. Forced colours keep it in system
+   colours, since they would otherwise drop the backgrounds that draw it. */
+@utility consolidation-mark {
+  position: relative;
+  overflow: hidden;
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    pointer-events: none;
+  }
+  &::before {
+    width: 54%;
+    height: 54%;
+    background: var(--tk-color-surface);
+  }
+  &::after {
+    width: 40%;
+    height: 40%;
+    background: var(--tk-color-consolidation);
+  }
+  @media (forced-colors: active) {
+    &::before,
+    &::after {
+      forced-color-adjust: none;
+    }
+    &::before {
+      background: Canvas;
+    }
+    &::after {
+      background: CanvasText;
+    }
+  }
+}
+
+/* A palette's swatch, for picking a palette: a disc split between the palette's accent, its consolidation mark and its
+   canvas, in whichever scheme the page shows. The element carries the palette in `data-palette`. Forced colours leave
+   it in its own colours, since the colours are what it shows. */
+@utility palette-swatch {
+  border-radius: var(--tk-radius-full);
+  box-shadow: inset 0 0 0 var(--tk-border-thin) var(--tk-color-line-strong);
+  background: conic-gradient(
+    var(--tk-color-accent) 0 50%,
+    var(--tk-color-consolidation) 0 72%,
+    var(--tk-color-canvas) 0
+  );
+  forced-color-adjust: none;
+}
+
+/* While the scheme or palette changes, the new look grows over the old one as a circle (the script animates its clip
+   path), so the default cross-fade is turned off and nothing in the new look runs its own colour transition. */
+:root.appearance-reveal::view-transition-old(root),
+:root.appearance-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root.appearance-reveal::view-transition-new(root) {
+  z-index: 1;
+}
+
+:root.appearance-reveal *,
+:root.appearance-reveal *::before,
+:root.appearance-reveal *::after {
+  transition: none;
+}

@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <script>
+      // The colour scheme and palette the person picked, applied before the first paint; the interface keeps them
+      // afterwards. Kept as small as can be: without storage the page simply follows the system.
+      try {
+        const scheme = localStorage.getItem("tacit.colorScheme");
+        if (scheme === "light" || scheme === "dark") {
+          document.querySelector('meta[name="color-scheme"]').content = scheme;
+        }
+        const palette = localStorage.getItem("tacit.palette");
+        if (palette) {
+          document.documentElement.dataset.palette = palette;
+        }
+      } catch {}
+    </script>
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/src/assets/app-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
