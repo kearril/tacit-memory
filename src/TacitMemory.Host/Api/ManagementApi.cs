@@ -69,7 +69,13 @@ public sealed record ConfigSave(string Hash, ConfigFile Config, IReadOnlyDiction
 /// What <c>/api/session</c> and the access-password endpoints answer: whether the caller is a local connection, whether the
 /// caller holds a valid session, whether an access password is set, the memory language and the service version.
 /// </summary>
-public sealed record SessionStatus(bool Local, bool LoggedIn, bool PasswordSet, MemoryLanguage Language, string Version);
+/// <param name="MachineName">
+/// The name of the machine the service runs on, which the interface shows as who it is talking to; <c>null</c> for a remote
+/// caller that has not logged in, so the login page tells nothing about the machine.
+/// </param>
+/// <param name="MachineDescription">The machine's description, under the same rule; <c>null</c> also when none is set.</param>
+public sealed record SessionStatus(
+    bool Local, bool LoggedIn, bool PasswordSet, MemoryLanguage Language, string Version, string? MachineName, string? MachineDescription);
 
 /// <summary>The body of <c>POST /api/session</c>: the access password to log in with.</summary>
 public sealed record PasswordBody
@@ -588,8 +594,11 @@ internal static class ManagementApi
     private const string SessionCookie = "tacit_session";
 
     /// <summary>What the session endpoints and the access-password endpoints answer about the caller and the service.</summary>
-    private static SessionStatus SessionOf(MemoryService service, bool local, bool loggedIn) =>
-        new(local, loggedIn, service.Access.PasswordSet, service.Language, service.Version);
+    private static SessionStatus SessionOf(MemoryService service, bool local, bool loggedIn)
+    {
+        var machine = local || loggedIn ? service.Config.Machine : null;
+        return new(local, loggedIn, service.Access.PasswordSet, service.Language, service.Version, machine?.Name, machine?.Description);
+    }
 
     /// <summary>The session cookie the request carries, if any.</summary>
     private static string? Cookie(HttpContext context) => context.Request.Cookies[SessionCookie];
