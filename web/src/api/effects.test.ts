@@ -71,8 +71,8 @@ describe("afterCommand", () => {
     expect(await invalidatedBy(PROBE_AFFECTS)).toEqual(["status"]);
   });
 
-  it("invalidates only the config and the status after a settings save", async () => {
-    expect(await invalidatedBy(SAVE_CONFIG_AFFECTS)).toEqual(["config", "status"]);
+  it("invalidates the config, the session and the status after a settings save", async () => {
+    expect(await invalidatedBy(SAVE_CONFIG_AFFECTS)).toEqual(["config", "session", "status"]);
   });
 
   it("invalidates the backups and the status after a backup", async () => {

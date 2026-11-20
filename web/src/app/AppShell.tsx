@@ -22,8 +22,10 @@ import { logout, SESSION_QUERY_KEY } from "../api/session";
 import { AppIcon } from "../components/app-icon";
 import { Button } from "../components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "../components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { useSectionNav } from "../pages/settings/section-nav";
 import { scrollBehavior } from "../lib/motion";
+import { AppearanceControls } from "./AppearanceControls";
 import { useDictionary, useSessionStatus } from "./session-context";
 import {
   DASHBOARD_PATH,
@@ -56,10 +58,8 @@ const navItems: readonly {
 /**
  * The frame of every page once the session allows it: a sidebar on the left with the brand, the five navigation items
  * (on the settings page, the list of its sections under its name; on the prompts page, the list of its documents; on the
- * memory page, the list of its views) and who
- * the connection is, and the page centred in the
- * space to its right. On a narrow screen the sidebar becomes a drawer
- * that a menu button in the page header opens.
+ * memory page, the list of its views), the appearance controls and who the connection is, and the page centred in the
+ * space to its right. On a narrow screen the sidebar becomes a drawer that a menu button in the page header opens.
  */
 export function AppShell() {
   const dictionary = useDictionary();
@@ -141,7 +141,10 @@ function SidebarBody({ onNavigate }: { readonly onNavigate: () => void }) {
           ))}
         </ul>
       </nav>
-      <Connection />
+      <div className="grid gap-xs">
+        <AppearanceControls />
+        <Connection />
+      </div>
     </div>
   );
 }
@@ -338,7 +341,10 @@ function Brand() {
   );
 }
 
-/** Who the connection is: this computer, which needs no login, or another device that has logged in and can log out. */
+/**
+ * Who the interface is talking to: the machine's name, with its description on hover when it has one, and how this
+ * connection reaches it: this computer, which needs no login, or another device that has logged in and can log out.
+ */
 function Connection() {
   const dictionary = useDictionary();
   const session = useSessionStatus();
@@ -354,17 +360,23 @@ function Connection() {
   });
 
   const Icon = session.local ? Monitor : MonitorSmartphone;
+  const name = <span className="truncate font-mono text-sm font-medium">{session.machineName}</span>;
   return (
     <div className="flex items-center gap-sm rounded-md bg-surface-raised p-sm">
       <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-sm bg-surface text-ink-muted">
         <Icon aria-hidden className="size-(--tk-font-size-base)" />
       </span>
       <span className="grid min-w-0 flex-1 leading-(--tk-line-height-tight)">
-        <span className="truncate text-sm font-medium">
-          {session.local ? dictionary.connection.local : dictionary.connection.remote}
-        </span>
+        {session.machineDescription == null ? (
+          name
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>{name}</TooltipTrigger>
+            <TooltipContent side="top">{session.machineDescription}</TooltipContent>
+          </Tooltip>
+        )}
         <span className="truncate text-xs text-ink-muted">
-          {session.local ? dictionary.connection.localNote : dictionary.connection.remoteNote}
+          {session.local ? dictionary.connection.local : dictionary.connection.remote}
         </span>
       </span>
       {session.local ? null : (

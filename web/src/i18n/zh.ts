@@ -31,11 +31,21 @@ export const zh = {
   logout: "退出登录",
   dismiss: "关闭",
   notifications: "通知（{hotkey}）",
+  /** The second line of the identity card under the machine's name: how this connection reaches the service. */
   connection: {
-    local: "本机",
-    localNote: "免登录",
-    remote: "其他设备",
-    remoteNote: "已凭访问密码登录",
+    local: "本机 · 免登录",
+    remote: "远程访问 · 已登录",
+  },
+  /** The sidebar's colour scheme switch and palette menu. */
+  appearance: {
+    label: "外观",
+    palette: "调色盘",
+    paletteOf: (name: string) => `调色盘：${name}`,
+    toDark: "切换到深色",
+    toLight: "切换到浅色",
+    following: "当前跟随系统",
+    pinned: "当前已固定",
+    followSystem: "明暗跟随系统",
   },
   /** What the date field says. */
   datePicker: {

@@ -1,4 +1,3 @@
-import { Star } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useActivity } from "../../api/activity";
@@ -189,12 +188,10 @@ function Heatmap({
                   onFocus={() => setSelected(index)}
                   onMouseEnter={() => setHovered(index)}
                   style={{ gridColumn: column + 2, gridRow: row + 2 }}
-                  className={`grid aspect-square w-full cursor-pointer place-items-center rounded-xs transition-shadow outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
+                  className={`aspect-square w-full cursor-pointer rounded-xs transition-shadow outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent ${
                     HEAT_LEVEL_CLASS[dayLevel(day.total)]
-                  } ${isSelected ? "ring-(length:--tk-border-thick) ring-ink" : "hover:ring-(length:--tk-border-thin) hover:ring-ink-muted"}`}
-                >
-                  {day.consolidated ? <ConsolidationStar /> : null}
-                </button>
+                  } ${day.consolidated ? "consolidation-mark" : ""} ${isSelected ? "ring-(length:--tk-border-thick) ring-ink" : "hover:ring-(length:--tk-border-thin) hover:ring-ink-muted"}`}
+                />
               );
             }),
           )}
@@ -237,8 +234,8 @@ function DayDetail({ day, locale }: { readonly day: HeatDay; readonly locale: st
       <span className="font-medium">{dateText(day.date, locale)}</span>
       <span className="text-ink-muted">{day.total === 0 ? text.none : text.activities(day.total)}</span>
       {day.consolidated ? (
-        <Badge tone="success">
-          <Star aria-hidden fill="currentColor" strokeWidth={0} />
+        <Badge>
+          <ConsolidationTile className="size-(--tk-font-size-sm)" />
           {text.consolidated}
         </Badge>
       ) : null}
@@ -284,16 +281,14 @@ function Legend() {
         {text.more}
       </span>
       <span className="flex items-center gap-xs">
-        <span className="grid size-(--tk-size-heat-cell) place-items-center rounded-xs bg-heat-0">
-          <ConsolidationStar />
-        </span>
+        <ConsolidationTile className="size-(--tk-size-heat-cell)" />
         {text.consolidated}
       </span>
     </div>
   );
 }
 
-/** The mark of a consolidation day inside a cell: a small filled star in the success colour. */
-function ConsolidationStar() {
-  return <Star aria-hidden fill="currentColor" strokeWidth={0} className="size-3/4 text-success" />;
+/** A cell-like tile carrying the consolidation mark, for the legend and the day's badge. */
+function ConsolidationTile({ className }: { readonly className: string }) {
+  return <span aria-hidden className={`consolidation-mark shrink-0 rounded-xs bg-heat-2 ${className}`} />;
 }
