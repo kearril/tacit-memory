@@ -64,8 +64,11 @@ export function AppearanceControls() {
           <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem
             checked={override === null}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={(checked) => setColorScheme(checked ? null : shown)}
+            onSelect={(event) => {
+              // Stays open, so the check can be seen to change.
+              event.preventDefault();
+              setColorScheme(override === null ? shown : null, originOf(event.currentTarget as Element));
+            }}
           >
             {text.followSystem}
           </DropdownMenuCheckboxItem>

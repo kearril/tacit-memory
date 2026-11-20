@@ -79,7 +79,16 @@ function DropdownMenuRadioGroup({ ...props }: React.ComponentProps<typeof Dropdo
   return <DropdownMenuPrimitive.RadioGroup data-slot="dropdown-menu-radio-group" {...props} />;
 }
 
-/** One choice of a radio group; the chosen one ends with a check in the accent colour. */
+/** The check that ends a chosen radio item or an option that is on, in the accent colour. */
+function ItemCheck() {
+  return (
+    <DropdownMenuPrimitive.ItemIndicator className="ml-auto pl-md text-accent">
+      <Check aria-hidden />
+    </DropdownMenuPrimitive.ItemIndicator>
+  );
+}
+
+/** One choice of a radio group; the chosen one ends with a check. */
 function DropdownMenuRadioItem({
   className,
   children,
@@ -92,14 +101,12 @@ function DropdownMenuRadioItem({
       {...props}
     >
       {children}
-      <DropdownMenuPrimitive.ItemIndicator className="ml-auto pl-md text-accent">
-        <Check aria-hidden />
-      </DropdownMenuPrimitive.ItemIndicator>
+      <ItemCheck />
     </DropdownMenuPrimitive.RadioItem>
   );
 }
 
-/** An option that is on or off; when on it ends with a check in the accent colour. */
+/** An option that is on or off; when on it ends with a check. */
 function DropdownMenuCheckboxItem({
   className,
   children,
@@ -112,9 +119,7 @@ function DropdownMenuCheckboxItem({
       {...props}
     >
       {children}
-      <DropdownMenuPrimitive.ItemIndicator className="ml-auto pl-md text-accent">
-        <Check aria-hidden />
-      </DropdownMenuPrimitive.ItemIndicator>
+      <ItemCheck />
     </DropdownMenuPrimitive.CheckboxItem>
   );
 }
