@@ -45,13 +45,17 @@ const SCHEME_META = 'meta[name="color-scheme"]';
 
 const darkQuery = () => window.matchMedia("(prefers-color-scheme: dark)");
 
+function isColorScheme(value: string | null | undefined): value is ColorScheme {
+  return value === "light" || value === "dark";
+}
+
 function isPalette(value: string | null | undefined): value is Palette {
   return (PALETTES as readonly (string | null | undefined)[]).includes(value);
 }
 
 function read(): Appearance {
   const content = document.querySelector<HTMLMetaElement>(SCHEME_META)?.content;
-  const override = content === "light" || content === "dark" ? content : null;
+  const override = isColorScheme(content) ? content : null;
   const system: ColorScheme = darkQuery().matches ? "dark" : "light";
   const palette = document.documentElement.dataset.palette;
   return { override, system, shown: override ?? system, palette: isPalette(palette) ? palette : "default" };
@@ -81,7 +85,8 @@ function store(key: string, value: string | null) {
 let snapshot: Appearance | undefined;
 const listeners = new Set<() => void>();
 
-function changed() {
+/** Reads the look from the document again and tells every subscriber. */
+function refresh() {
   snapshot = read();
   for (const listener of listeners) {
     listener();
@@ -95,20 +100,20 @@ function onStorage(event: StorageEvent) {
   }
   const scheme = event.storageArea?.getItem(SCHEME_KEY) ?? null;
   const palette = event.storageArea?.getItem(PALETTE_KEY) ?? null;
-  apply(scheme === "light" || scheme === "dark" ? scheme : null, isPalette(palette) ? palette : "default");
-  changed();
+  apply(isColorScheme(scheme) ? scheme : null, isPalette(palette) ? palette : "default");
+  refresh();
 }
 
 function subscribe(listener: () => void) {
   if (listeners.size === 0) {
-    darkQuery().addEventListener("change", changed);
+    darkQuery().addEventListener("change", refresh);
     window.addEventListener("storage", onStorage);
   }
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) {
-      darkQuery().removeEventListener("change", changed);
+      darkQuery().removeEventListener("change", refresh);
       window.removeEventListener("storage", onStorage);
     }
   };
@@ -124,19 +129,15 @@ export function useAppearance(): Appearance {
 }
 
 /**
- * Runs a change of look. Where the browser has view transitions and motion is not reduced, the new look grows as a circle
- * from `origin` over the old one; otherwise it changes at once.
+ * Runs a change of look. Where the browser has view transitions, the new look grows as a circle from `origin` over the
+ * old one, or cross-fades with reduced motion asked for (the styles pick which); otherwise it changes at once.
  */
-function reveal(origin: Origin | undefined, change: () => void) {
+function reveal(origin: Origin, change: () => void) {
   const run = () => {
     change();
-    flushSync(changed);
+    flushSync(refresh);
   };
-  if (
-    origin === undefined ||
-    typeof document.startViewTransition !== "function" ||
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
+  if (typeof document.startViewTransition !== "function") {
     run();
     return;
   }
@@ -144,20 +145,16 @@ function reveal(origin: Origin | undefined, change: () => void) {
   const root = document.documentElement;
   const { x, y } = origin;
   const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-  const style = getComputedStyle(root);
+  root.style.setProperty("--reveal-x", `${x}px`);
+  root.style.setProperty("--reveal-y", `${y}px`);
+  root.style.setProperty("--reveal-radius", `${radius}px`);
   root.classList.add("appearance-reveal");
-  const transition = document.startViewTransition(run);
-  void transition.ready.then(() => {
-    root.animate(
-      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-      {
-        duration: Number.parseFloat(style.getPropertyValue("--tk-duration-reveal")),
-        easing: style.getPropertyValue("--tk-ease-standard"),
-        pseudoElement: "::view-transition-new(root)",
-      },
-    );
+  void document.startViewTransition(run).finished.finally(() => {
+    root.classList.remove("appearance-reveal");
+    for (const name of ["--reveal-x", "--reveal-y", "--reveal-radius"]) {
+      root.style.removeProperty(name);
+    }
   });
-  void transition.finished.finally(() => root.classList.remove("appearance-reveal"));
 }
 
 /**
@@ -171,18 +168,18 @@ export function toggledOverride(shown: ColorScheme, system: ColorScheme): ColorS
 }
 
 /** Pins the scheme, or with `null` follows the system again. */
-export function setColorScheme(override: ColorScheme | null, origin?: Origin) {
+export function setColorScheme(override: ColorScheme | null, origin: Origin) {
   store(SCHEME_KEY, override);
   reveal(origin, () => apply(override, read().palette));
 }
 
 /** Switches between light and dark from what is on screen. */
-export function toggleColorScheme(origin?: Origin) {
+export function toggleColorScheme(origin: Origin) {
   const now = read();
   setColorScheme(toggledOverride(now.shown, now.system), origin);
 }
 
-export function setPalette(palette: Palette, origin?: Origin) {
+export function setPalette(palette: Palette, origin: Origin) {
   if (read().palette === palette) {
     return;
   }

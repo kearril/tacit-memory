@@ -360,7 +360,7 @@ function Connection() {
   });
 
   const Icon = session.local ? Monitor : MonitorSmartphone;
-  const name = <span className="truncate font-mono text-sm font-medium">{session.machineName}</span>;
+  const nameClass = "truncate font-mono text-sm font-medium";
   return (
     <div className="flex items-center gap-sm rounded-md bg-surface-raised p-sm">
       <span className="grid size-(--tk-size-control) shrink-0 place-items-center rounded-sm bg-surface text-ink-muted">
@@ -368,10 +368,18 @@ function Connection() {
       </span>
       <span className="grid min-w-0 flex-1 leading-(--tk-line-height-tight)">
         {session.machineDescription == null ? (
-          name
+          <span className={nameClass}>{session.machineName}</span>
         ) : (
+          // A button, so the description can be reached from the keyboard as well as by hovering.
           <Tooltip>
-            <TooltipTrigger asChild>{name}</TooltipTrigger>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className={`${nameClass} rounded-sm text-left outline-none focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent`}
+              >
+                {session.machineName}
+              </button>
+            </TooltipTrigger>
             <TooltipContent side="top">{session.machineDescription}</TooltipContent>
           </Tooltip>
         )}

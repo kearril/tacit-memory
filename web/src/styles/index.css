@@ -240,16 +240,28 @@
   forced-color-adjust: none;
 }
 
-/* While the scheme or palette changes, the new look grows over the old one as a circle (the script animates its clip
-   path), so the default cross-fade is turned off and nothing in the new look runs its own colour transition. */
-:root.appearance-reveal::view-transition-old(root),
-:root.appearance-reveal::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
+/* While the scheme or palette changes, the new look grows over the old one as a circle from where the change was asked
+   for; the script sets the centre and the radius on the root. With reduced motion asked for, the browser's own
+   cross-fade runs instead. Either way nothing in the new look runs its own colour transition. */
+@keyframes appearance-reveal {
+  from {
+    clip-path: circle(0 at var(--reveal-x) var(--reveal-y));
+  }
+  to {
+    clip-path: circle(var(--reveal-radius) at var(--reveal-x) var(--reveal-y));
+  }
 }
 
-:root.appearance-reveal::view-transition-new(root) {
-  z-index: 1;
+@media (prefers-reduced-motion: no-preference) {
+  :root.appearance-reveal::view-transition-old(root) {
+    animation: none;
+  }
+
+  :root.appearance-reveal::view-transition-new(root) {
+    z-index: 1;
+    mix-blend-mode: normal;
+    animation: appearance-reveal var(--tk-duration-reveal) var(--tk-ease-standard);
+  }
 }
 
 :root.appearance-reveal *,
