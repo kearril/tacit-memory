@@ -137,7 +137,7 @@ flowchart LR
 | `src/api/` | 类型化客户端 `client.ts`（路径与参数写错即类型检查失败）与按端点分的查询和命令；每个命令在旁边声明它让哪些查询失效（`*_AFFECTS`），页面只调用 `afterCommand` |
 | `src/app/` | 根布局（会话与登录跳转）、外壳（侧边栏）、路由表 |
 | `src/pages/<页面>/` | 每个页面一个目录；不含界面的逻辑放在同目录的纯函数模块里并带测试。其他页面不从某个页面的目录导入 |
-| `src/lib/` | 跨页面的纯函数。`routes.ts` 构建与解析界面的所有地址，路由表、侧栏与站内链接都由它生成，页面不手拼地址 |
+| `src/lib/` | 跨页面的纯函数与浏览器状态。`routes.ts` 构建与解析界面的所有地址，路由表、侧栏与站内链接都由它生成，页面不手拼地址；`appearance.ts` 读写明暗与调色盘偏好（在页头的 color-scheme meta、根元素的 `data-palette` 与 `localStorage` 里，不经服务），并负责切换时的圆形展开 |
 | `src/components/` | 跨页面的部件：查询结果的四态、命令失败的分类、吸顶条（发布条下边界 `--sticky-bar-bottom`，页面不自己测量）等；`ui/` 是由 shadcn/ui 生成后改用令牌的基础组件 |
 | `src/i18n/` | 中英两份字典。中文字典是类型基准，英文以 `satisfies` 对齐，多键少键都编译失败；字典不导入页面 |
 | `src/styles/` | 设计令牌与只映射令牌的 Tailwind 主题，界面只能使用令牌（见 `docs/dev/ui-design.md`） |
