@@ -42,7 +42,7 @@ internal static class PeerClients
             socket.Dispose();
             throw new InvalidOperationException(
                 $"{RemoteAddress} is not a local address here. macOS has only 127.0.0.1 on lo0 by default; add the other one with "
-                + $"'sudo ifconfig lo0 alias {RemoteAddress} up' (see docs/dev/testing.md).", e);
+                + $"'sudo ifconfig lo0 alias {RemoteAddress} up' (see docs/development.md).", e);
         }
         catch
         {

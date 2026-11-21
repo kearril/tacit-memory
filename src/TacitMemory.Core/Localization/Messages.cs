@@ -21,8 +21,8 @@ internal static class Messages
         "补上的骨架文件未提交，请在记忆仓库中自行提交。",
         "The added skeleton files are not committed; commit them in the memory repository yourself.");
     public static readonly Localized InitNextSteps = new(
-        "下一步：按需在 {0} 中填写 models 一节（可省略，格式见 docs/reference/configuration.md），然后用 tacit connect --client <名称> --context <文件> --skills <目录> 绑定客户端，最后执行 tacit serve。",
-        "Next: fill in the models section of {0} if you want models (optional; the format is in docs/reference/configuration.md), then bind a client with tacit connect --client <name> --context <file> --skills <folder>, and run tacit serve.");
+        "下一步：按需在 {0} 中填写 models 一节（可省略，格式见 docs/configuration.md），然后用 tacit connect --client <名称> --context <文件> --skills <目录> 绑定客户端，最后执行 tacit serve。",
+        "Next: fill in the models section of {0} if you want models (optional; the format is in docs/configuration.md), then bind a client with tacit connect --client <name> --context <file> --skills <folder>, and run tacit serve.");
     public static readonly Localized InitWebInterface = new(
         "启动服务后，可在浏览器打开 Web 界面继续配置：http://127.0.0.1:{0}/",
         "Once the service is running, continue the setup in the Web interface: http://127.0.0.1:{0}/");

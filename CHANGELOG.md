@@ -1,16 +1,7 @@
-# 变更记录
+# Changelog
 
-本文件记录每个版本中用户可见的变化，从首个公开版本起逐条记录，之前的版本不补记。推送 `v*` tag 时，发布工作流取该版本的一节作为 Release 正文。
+All user-visible changes are recorded here starting from `1.0.0`. When a `v*` tag is pushed, the release workflow extracts the matching version section as the GitHub Release notes.
 
-格式：每个版本一节，标题为 `## <版本号> - <日期>`（版本号不带 `v`），尚未发布的变化记在 `## 未发布` 下，发版时改为版本号与日期。
+Format: each release has a `## <version> - <date>` heading (without the `v` prefix), with English above and Chinese below. Upcoming changes live under `## Unreleased`.
 
-## 未发布
-
-### 修复
-
-- 终端不报告尺寸时（如 Linux 与 macOS 上的 `TERM=dumb`），`reindex`、`restore --yes` 等显示进度的命令不再以退出码 1 失败。
-- 记忆页面的文件问题提示不再产生 HTML 嵌套警告。
-
-### 发布
-
-- 每个发行包附带构建来源证明，可用 `gh attestation verify <发行包> --repo kearril/tacit-memory` 验证出自本仓库的发布工作流。
+## Unreleased
