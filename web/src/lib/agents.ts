@@ -2,8 +2,10 @@ import antigravityIcon from "@lobehub/icons-static-svg/icons/antigravity-color.s
 import claudeCodeIcon from "@lobehub/icons-static-svg/icons/claudecode-color.svg?url";
 import codexIcon from "@lobehub/icons-static-svg/icons/codex-color.svg?url";
 import cursorIcon from "@lobehub/icons-static-svg/icons/cursor.svg?url";
-import geminiCliIcon from "@lobehub/icons-static-svg/icons/geminicli-color.svg?url";
+import deepseekIcon from "@lobehub/icons-static-svg/icons/deepseek-color.svg?url";
+import hermesIcon from "@lobehub/icons-static-svg/icons/hermesagent.svg?url";
 import openCodeIcon from "@lobehub/icons-static-svg/icons/opencode.svg?url";
+import piIcon from "@lobehub/icons-static-svg/icons/pi.svg?url";
 import ompIcon from "../assets/agents/omp.svg?url";
 
 /** The logo of an agent: a file of its own colours, or a one-colour shape that takes the colour of the text around it. */
@@ -26,12 +28,14 @@ export interface KnownAgent {
  */
 export const KNOWN_AGENTS: readonly KnownAgent[] = [
   { label: "Claude Code", icon: { url: claudeCodeIcon, monochrome: false }, names: ["claude"] },
-  { label: "Antigravity", icon: { url: antigravityIcon, monochrome: false }, names: ["agy", "antigravity"] },
-  { label: "Oh My Pi", icon: { url: ompIcon, monochrome: false }, names: ["omp"] },
   { label: "Codex", icon: { url: codexIcon, monochrome: false }, names: ["codex"] },
-  { label: "Gemini CLI", icon: { url: geminiCliIcon, monochrome: false }, names: ["gemini"] },
-  { label: "Cursor", icon: { url: cursorIcon, monochrome: true }, names: ["cursor"] },
   { label: "OpenCode", icon: { url: openCodeIcon, monochrome: true }, names: ["opencode"] },
+  { label: "Pi", icon: { url: piIcon, monochrome: true }, names: ["pi"] },
+  { label: "Oh My Pi", icon: { url: ompIcon, monochrome: false }, names: ["omp"] },
+  { label: "Antigravity", icon: { url: antigravityIcon, monochrome: false }, names: ["agy", "antigravity"] },
+  { label: "DeepSeek Harness", icon: { url: deepseekIcon, monochrome: false }, names: ["dsh", "deepseek"] },
+  { label: "Hermes", icon: { url: hermesIcon, monochrome: true }, names: ["hermes"] },
+  { label: "Cursor", icon: { url: cursorIcon, monochrome: true }, names: ["cursor"] },
 ];
 
 /** Whether `name` is `stem` or starts with `stem` and a hyphen, so "claude-code" goes with "claude" but "claudia" does not. */

@@ -6,8 +6,13 @@ import type { ConnectRequest } from "../../api/bindings";
  */
 export const PRESETS: readonly ConnectRequest[] = [
   { client: "claude", contextFile: "~/.claude/CLAUDE.md", skillsFolder: "~/.claude/skills" },
+  { client: "codex", contextFile: "~/.codex/AGENTS.md", skillsFolder: "~/.agents/skills" },
+  { client: "opencode", contextFile: "~/.config/opencode/AGENTS.md", skillsFolder: "~/.config/opencode/skills" },
+  { client: "pi", contextFile: "~/.pi/agent/AGENTS.md", skillsFolder: "~/.pi/agent/skills" },
   { client: "omp", contextFile: "~/.omp/agent/AGENTS.md", skillsFolder: "~/.omp/agent/skills" },
   { client: "agy", contextFile: "~/.gemini/config/AGENTS.md", skillsFolder: "~/.gemini/config/skills" },
+  { client: "dsh", contextFile: "~/.dsh/AGENTS.md", skillsFolder: "~/.agents/skills" },
+  { client: "hermes", contextFile: "~/.hermes/SOUL.md", skillsFolder: "~/.hermes/skills" },
 ];
 
 /** An empty form. */

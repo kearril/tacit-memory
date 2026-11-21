@@ -3,11 +3,28 @@ import { complete, EMPTY, presetsLeft } from "./bindings";
 
 describe("binding presets", () => {
   it("offers every preset while nothing is bound", () => {
-    expect(presetsLeft([]).map((preset) => preset.client)).toEqual(["claude", "omp", "agy"]);
+    expect(presetsLeft([]).map((preset) => preset.client)).toEqual([
+      "claude",
+      "codex",
+      "opencode",
+      "pi",
+      "omp",
+      "agy",
+      "dsh",
+      "hermes",
+    ]);
   });
 
   it("leaves out a preset whose client is bound, whatever its letter case", () => {
-    expect(presetsLeft(["OMP", "other"]).map((preset) => preset.client)).toEqual(["claude", "agy"]);
+    expect(presetsLeft(["OMP", "other"]).map((preset) => preset.client)).toEqual([
+      "claude",
+      "codex",
+      "opencode",
+      "pi",
+      "agy",
+      "dsh",
+      "hermes",
+    ]);
   });
 
   it("fills in all three of the form", () => {
