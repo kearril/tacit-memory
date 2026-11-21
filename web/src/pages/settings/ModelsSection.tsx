@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Activity, ChevronDown } from "lucide-react";
 import { useState } from "react";
@@ -6,6 +5,7 @@ import { afterCommand } from "../../api/effects";
 import { PROBE_AFFECTS, runProbe } from "../../api/probe";
 import { useDictionary } from "../../app/session-context";
 import { Button } from "../../components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { errorTextOf } from "../../i18n/messages";
 import { BusyIcon } from "../../components/ui/busy-icon";
 import { ProbeLine } from "../../components/probe-line";
@@ -30,8 +30,29 @@ export function ModelsSection({ form }: { readonly form: SettingsForm }) {
   const [open, setOpen] = useState<Model | null>(null);
   const dirty = form.changed.size > 0;
 
+  const probeButton = (
+    <Button type="button" variant="ghost" disabled={dirty || probe.isPending} onClick={() => probe.mutate()}>
+      <BusyIcon busy={probe.isPending} icon={Activity} />
+      {dictionary.probe.button}
+    </Button>
+  );
+
   return (
-    <SettingsSection section="models" summary={text.summary}>
+    <SettingsSection
+      section="models"
+      action={
+        dirty ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">{probeButton}</span>
+            </TooltipTrigger>
+            <TooltipContent>{text.probeDirty}</TooltipContent>
+          </Tooltip>
+        ) : (
+          probeButton
+        )
+      }
+    >
       <Rows>
         {MODELS.map((model) => (
           <ModelItem
@@ -49,12 +70,6 @@ export function ModelsSection({ form }: { readonly form: SettingsForm }) {
           {dictionary.probe.failedTitle}：{errorTextOf(probe.error, dictionary)}
         </p>
       ) : null}
-      <CardActions note={dirty ? text.probeDirty : text.probeNote}>
-        <Button type="button" variant="outline" disabled={dirty || probe.isPending} onClick={() => probe.mutate()}>
-          <BusyIcon busy={probe.isPending} icon={Activity} />
-          {dictionary.probe.button}
-        </Button>
-      </CardActions>
     </SettingsSection>
   );
 }
@@ -86,7 +101,6 @@ function ModelItem({
   const formId = `${inputIdOf(path)}-settings`;
   const urlPath = `${path}.url`;
   const urlExample = text.urlExamples[model][providerOf(form, model)];
-  const urlExampleId = `${inputIdOf(urlPath)}-example`;
 
   return (
     <section aria-labelledby={`${inputIdOf(path)}-name`} className="grid gap-md">
@@ -115,23 +129,15 @@ function ModelItem({
       </div>
       {open ? (
         <div id={formId} className="grid gap-md rounded-md bg-canvas p-md">
-          {on ? null : <p className="text-xs text-ink-muted">{text.offHint}</p>}
           <Provider form={form} model={model} />
           <Setting
             form={form}
             path={urlPath}
             text={text.fields.url}
-            describedBy={urlExample === "" ? undefined : urlExampleId}
+            placeholder={urlExample === "" ? undefined : urlExample}
             required
             wide
-          >
-            {urlExample === "" ? null : (
-              <p id={urlExampleId} className="text-xs text-ink-muted">
-                {text.urlExample}
-                <code className="font-mono break-all">{urlExample}</code>
-              </p>
-            )}
-          </Setting>
+          />
           <Setting form={form} path={`${path}.model`} text={text.fields.model} required />
           <SecretField form={form} path={`${path}.apiKey`} text={text.fields.apiKey} />
         </div>
@@ -251,18 +257,5 @@ function Switch({
         }`}
       />
     </button>
-  );
-}
-
-/**
- * The action bar at the bottom of a settings section that runs commands, under a divider; a short note can stand on the
- * left of the buttons.
- */
-export function CardActions({ note, children }: { readonly note?: string; readonly children: ReactNode }) {
-  return (
-    <footer className="mt-auto flex flex-wrap items-center justify-end gap-sm border-t-(length:--tk-border-thin) border-line pt-md">
-      {note === undefined ? null : <span className="mr-auto text-xs text-ink-muted">{note}</span>}
-      {children}
-    </footer>
   );
 }

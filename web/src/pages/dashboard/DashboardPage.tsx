@@ -28,9 +28,10 @@ import { targetOf, type Todo, todosOf } from "./todos";
 /**
  * The dashboard. On a wide screen it is a bento grid of twelve columns: the overview (the status sentence and the to-dos)
  * and the memory activity each across the whole width, then a row of four small cards (models, backups, index and
- * consolidation, logs), and last the service's addresses with the sync under them, beside the clients with their
- * bindings. On a narrower screen the cards stack in one column in the order of the markup, which puts what to act on (the
- * to-dos, models and backups) before the activity.
+ * consolidation, logs), then the service's addresses beside the sync (six columns each), and last the clients across
+ * the whole width so their card never stretches empty beside taller neighbours and expands cleanly as clients grow. On
+ * a narrower screen the cards stack in one column in the order of the markup, which puts what to act on (the to-dos,
+ * models and backups) before the activity.
  * The status report is fetched every 30 seconds, the activity and the backups when the window regains focus; when a fetch
  * fails, the cards keep what they last had and a notice at the top says so, with the time of the oldest data shown.
  */
@@ -84,11 +85,9 @@ export function DashboardPage() {
             <LogsCard report={report} className="" />
           </CardGroup>
           <HeatmapCard className="xl:col-span-12 xl:row-start-2" />
-          <div className="grid content-start gap-lg xl:col-span-4">
-            <ServiceCard report={report} className="" />
-            <SyncCard report={report} locale={locale} className="" />
-          </div>
-          <ClientsCard report={report} locale={locale} className="xl:col-span-8" />
+          <ServiceCard report={report} className="xl:col-span-6" />
+          <SyncCard report={report} locale={locale} className="xl:col-span-6" />
+          <ClientsCard report={report} locale={locale} className="xl:col-span-12" />
         </div>
       )}
     </div>

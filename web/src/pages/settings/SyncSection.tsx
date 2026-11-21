@@ -10,7 +10,7 @@ export function SyncSection({ form }: { readonly form: SettingsForm }) {
   const text = dictionary.settings.sync;
 
   return (
-    <SettingsSection section="sync" summary={text.summary}>
+    <SettingsSection section="sync">
       <SettingsGroup>
         <Setting form={form} path="sync.remote" text={text.fields.remote} placeholder={text.remoteDefault} wide />
         <Setting form={form} path="sync.pullMinutes" text={text.fields.pullMinutes} />

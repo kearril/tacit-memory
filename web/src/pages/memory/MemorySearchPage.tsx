@@ -627,20 +627,17 @@ function ResultsCard({
       ) : report.results.length === 0 ? (
         <p className="text-sm text-ink-muted">{text.noResults}</p>
       ) : (
-        <>
-          <p className="text-xs text-ink-muted">{text.linkHint}</p>
-          <ol className="grid gap-sm">
-            {report.results.map((result) => (
-              <ResultItem
-                key={result.number}
-                result={result}
-                listed={result.page === null ? undefined : listed.get(result.page)}
-                lit={lit === result.number}
-                onLight={onLight}
-              />
-            ))}
-          </ol>
-        </>
+        <ol className="grid gap-sm">
+          {report.results.map((result) => (
+            <ResultItem
+              key={result.number}
+              result={result}
+              listed={result.page === null ? undefined : listed.get(result.page)}
+              lit={lit === result.number}
+              onLight={onLight}
+            />
+          ))}
+        </ol>
       )}
       <p className="text-xs text-ink-muted">
         {text.timing(

@@ -1,3 +1,4 @@
+import { Info } from "lucide-react";
 import { useDictionary } from "../../app/session-context";
 import {
   defaultDisplayOf,
@@ -35,7 +36,7 @@ export function JudgmentSection({ form }: { readonly form: SettingsForm }) {
   const thresholdDiffers = differedCount(form.view, form.drafts, JUDGMENT_GROUPS) >= 2;
 
   return (
-    <SettingsSection section="judgment" summary={text.summary}>
+    <SettingsSection section="judgment">
       <SettingsGroup
         title={text.retrieval}
         action={
@@ -54,7 +55,13 @@ export function JudgmentSection({ form }: { readonly form: SettingsForm }) {
       </SettingsGroup>
       <SettingsGroup
         title={text.thresholds}
-        note={`${text.thresholdsHelp} ${text.calibration}`}
+        aside={
+          <Explaining help={`${text.thresholdsHelp} ${text.calibration}`}>
+            <span tabIndex={0} aria-label={text.thresholds} className={`inline-flex text-ink-muted ${EXPLAIN_FOCUS}`}>
+              <Info aria-hidden className="size-(--tk-font-size-sm)" />
+            </span>
+          </Explaining>
+        }
         action={
           thresholdDiffers ? (
             <RestoreGroupButton

@@ -11,7 +11,6 @@ export function ConsolidationSection({ form }: { readonly form: SettingsForm }) 
   return (
     <SettingsSection
       section="consolidation"
-      summary={text.summary}
       action={
         groupDiffers ? (
           <RestoreGroupButton

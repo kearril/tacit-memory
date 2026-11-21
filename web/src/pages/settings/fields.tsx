@@ -64,18 +64,16 @@ const SECTION_ICONS: Readonly<Record<SectionId, LucideIcon>> = {
 };
 
 /**
- * One section of the settings page, as an outline card: its icon on a soft tile and its name set into the top border, a
- * line on what it is for, then its content. A section whose actions happen at once, without the save bar, says so beside its name.
+ * One section of the settings page, as an outline card: its icon on a soft tile and its name set into the top border,
+ * then its content. A section whose actions happen at once, without the save bar, says so beside its name.
  */
 export function SettingsSection({
   section,
-  summary,
   immediate = false,
   action,
   children,
 }: {
   readonly section: SectionId;
-  readonly summary: string;
   readonly immediate?: boolean;
   readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
@@ -88,7 +86,7 @@ export function SettingsSection({
       id={id}
       aria-labelledby={`${id}-title`}
       variant="outline"
-      className="scroll-mt-lg gap-xl"
+      className="scroll-mt-lg gap-lg"
       label={
         <>
           <IconTile icon={Icon} />
@@ -99,10 +97,7 @@ export function SettingsSection({
         </>
       }
     >
-      <div className="flex flex-wrap items-center justify-between gap-sm">
-        <p className="min-w-0 text-sm text-ink-muted">{summary}</p>
-        {action}
-      </div>
+      {action === undefined || action === null ? null : <div className="flex justify-end">{action}</div>}
       {children}
     </Card>
   );
@@ -397,7 +392,7 @@ export function SettingInput({
 }) {
   const changed = form.changed.has(path);
   const kind = FIELDS.find((field) => field.path === path)?.kind;
-  const descriptions = [`${id}-help`, describedBy, errors.length > 0 ? errorId : undefined]
+  const descriptions = [help !== "" ? `${id}-help` : undefined, describedBy, errors.length > 0 ? errorId : undefined]
     .filter((item): item is string => item !== undefined)
     .join(" ");
   return (
@@ -409,16 +404,18 @@ export function SettingInput({
         spellCheck={false}
         aria-label={label}
         aria-invalid={errors.length > 0}
-        aria-describedby={descriptions}
+        aria-describedby={descriptions === "" ? undefined : descriptions}
         placeholder={placeholder}
         disabled={disabled}
         className={`tabular-nums ${mono ? "font-mono sm:text-sm" : ""} ${changed ? "border-accent" : ""}`}
         value={form.drafts[path] ?? ""}
         onChange={(event) => form.edit(path, event.target.value)}
       />
-      <span id={`${id}-help`} className="sr-only">
-        {help}
-      </span>
+      {help === "" ? null : (
+        <span id={`${id}-help`} className="sr-only">
+          {help}
+        </span>
+      )}
     </>
   );
 }
@@ -496,12 +493,15 @@ export function Explaining({
   readonly keyPath?: string;
   readonly children: React.ReactNode;
 }) {
+  if (help === "" && keyPath === undefined) {
+    return children;
+  }
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>
         <span className="grid gap-xs">
-          <span>{help}</span>
+          {help === "" ? null : <span>{help}</span>}
           {keyPath === undefined ? null : <code className="font-mono text-xs">{keyPath}</code>}
         </span>
       </TooltipContent>

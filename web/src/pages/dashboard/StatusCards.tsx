@@ -3,6 +3,7 @@ import {
   Activity,
   Archive,
   ArrowDownUp,
+  ArrowUpRight,
   CalendarClock,
   ChevronDown,
   CircleCheck,
@@ -65,6 +66,7 @@ import { IconTile } from "../../components/ui/icon-tile";
 import { type Dictionary, errorTextOf } from "../../i18n/messages";
 import { type AgentRow, agentsOf } from "./agents";
 import { clockOf, dayText, fileNameOf, remainingOf, sizeOf, timeText, versionText } from "../../lib/format";
+import { RELEASES_URL, useUpdateCheck } from "../../lib/update-check";
 import { classifyFailure, type TitledFailure } from "../../components/command-failure";
 import { QueryResult } from "../../components/query-result";
 import { BusyIcon } from "../../components/ui/busy-icon";
@@ -778,11 +780,26 @@ function Address({
   );
 }
 
+/** Shared pill geometry for the service card header's version, update, and check-update controls. */
+const SERVICE_PILL_BASE =
+  "inline-flex shrink-0 items-center gap-xs rounded-full px-sm py-xs text-xs leading-(--tk-line-height-tight) font-medium whitespace-nowrap [&_svg]:size-(--tk-font-size-sm) [&_svg]:shrink-0";
+
 /** The service: its version in the head, the MCP and web addresses, each with a copy button, and the extra listener. */
 export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
   const dictionary = useDictionary();
   const text = dictionary.dashboard.service;
   const service = report.service;
+  const showToast = useToast();
+  const { available, checking, checkNow } = useUpdateCheck(service?.version);
+
+  async function handleCheckUpdate() {
+    try {
+      const found = await checkNow();
+      showToast(found === null ? text.upToDate : text.updateFound(found.version));
+    } catch {
+      showToast(text.checkUpdateFailed);
+    }
+  }
 
   return (
     <Card aria-labelledby="service-title" className={className}>
@@ -792,8 +809,37 @@ export function ServiceCard({ report, className }: Omit<CardProps, "locale">) {
         title={dictionary.dashboard.cards.service}
         badge={
           service?.version == null ? null : (
-            <span title={service.version} className="truncate text-xs text-ink-muted">
-              {text.version(versionText(service.version))}
+            <span className="flex shrink-0 flex-wrap items-center gap-xs">
+              <a
+                href={RELEASES_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={service.version}
+                className={`${SERVICE_PILL_BASE} bg-surface-raised text-ink-muted transition-colors hover:bg-accent-soft hover:text-accent`}
+              >
+                {text.version(versionText(service.version))}
+                <ArrowUpRight aria-hidden />
+              </a>
+              {available === null ? null : (
+                <a
+                  href={available.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${SERVICE_PILL_BASE} bg-accent-soft text-accent transition-opacity hover:opacity-85`}
+                >
+                  {text.updateAvailable(available.version)}
+                  <ArrowUpRight aria-hidden />
+                </a>
+              )}
+              <button
+                type="button"
+                disabled={checking}
+                onClick={() => void handleCheckUpdate()}
+                className={`${SERVICE_PILL_BASE} cursor-pointer bg-surface-raised text-ink-muted transition-colors hover:bg-accent-soft hover:text-accent disabled:pointer-events-none disabled:opacity-50`}
+              >
+                <BusyIcon busy={checking} icon={RefreshCw} />
+                {text.checkUpdate}
+              </button>
             </span>
           )
         }
@@ -868,7 +914,7 @@ function StateDot({ state }: { readonly state: ClientState }) {
 /**
  * The clients: every binding and every client that connected, merged into one chip per agent with its logo and name, the
  * bound ones first and then those that only connected, the most recent first. A dot on the chip tells the binding's
- * state, and a legend under the chips names the states that occur; the state and when the client last connected are in
+ * state, and a legend in the heading names the states that occur; the state and when the client last connected are in
  * the chip's tooltip and read out with it. Past twelve, the last chip counts the rest and leads to the bindings in the
  * settings, as does the link in the head. With no binding, a line says what that means and a button leads there. When
  * the bindings cannot be read, the chips have no dot and a line says so, rather than showing every client as not bound.
@@ -889,6 +935,21 @@ export function ClientsCard({ report, locale, className }: CardProps) {
         id="clients-title"
         icon={Users}
         title={text.title}
+        badge={
+          states.length === 0 ? null : (
+            <ul
+              aria-label={text.legend}
+              className="flex flex-wrap items-center gap-x-md gap-y-xs text-xs text-ink-muted"
+            >
+              {states.map((state) => (
+                <li key={state} className="flex items-center gap-xs">
+                  <StateDot state={state} />
+                  {stateText[state]}
+                </li>
+              ))}
+            </ul>
+          )
+        }
         actions={
           rows.length === 0 ? undefined : (
             <IconAction asChild label={text.manage}>
@@ -936,16 +997,6 @@ export function ClientsCard({ report, locale, className }: CardProps) {
                   </Link>
                 </li>
               ) : null}
-            </ul>
-          )}
-          {states.length === 0 ? null : (
-            <ul aria-label={text.legend} className="flex flex-wrap gap-x-md gap-y-xs text-xs text-ink-muted">
-              {states.map((state) => (
-                <li key={state} className="flex items-center gap-xs">
-                  <StateDot state={state} />
-                  {stateText[state]}
-                </li>
-              ))}
             </ul>
           )}
           {known ? null : <p className="text-sm text-ink-muted">{text.bindingsUnreadable}</p>}

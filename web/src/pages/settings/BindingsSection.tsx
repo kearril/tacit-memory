@@ -53,7 +53,7 @@ export function BindingsSection() {
   const [shown, setShown] = useState<string | null>(null);
 
   return (
-    <SettingsSection section="bindings" summary={text.summary} immediate>
+    <SettingsSection section="bindings" immediate>
       <QueryResult query={bindings} title={dictionary.settings.loadFailed} skeleton={null}>
         {() => (
           <ul className={LOGO_TILES}>

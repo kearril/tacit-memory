@@ -11,7 +11,7 @@ export function BackupSection({ form }: { readonly form: SettingsForm }) {
   const text = dictionary.settings.backup;
 
   return (
-    <SettingsSection section="backup" summary={text.summary}>
+    <SettingsSection section="backup">
       <SettingsGroup title={text.local}>
         <Setting form={form} path="backup.keep" text={text.fields.keep} />
       </SettingsGroup>

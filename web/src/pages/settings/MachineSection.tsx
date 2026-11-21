@@ -10,7 +10,7 @@ export function MachineSection({ form }: { readonly form: SettingsForm }) {
   const text = dictionary.settings.machine;
 
   return (
-    <SettingsSection section="machine" summary={text.summary}>
+    <SettingsSection section="machine">
       <Setting form={form} path="machine.name" text={text.fields.name} />
       <Setting
         form={form}

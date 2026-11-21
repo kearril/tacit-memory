@@ -1,3 +1,4 @@
+import githubIcon from "@lobehub/icons-static-svg/icons/github.svg?url";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -21,7 +22,8 @@ import {
   toggleColorScheme,
   useAppearance,
 } from "../lib/appearance";
-import { useDictionary } from "./session-context";
+import { REPOSITORY_URL, useUpdateCheck } from "../lib/update-check";
+import { useDictionary, useSessionStatus } from "./session-context";
 
 /**
  * The sidebar's appearance row, above the identity card: a palette button that opens a menu of the palettes and the
@@ -29,9 +31,12 @@ import { useDictionary } from "./session-context";
  */
 export function AppearanceControls() {
   const text = useDictionary().appearance;
+  const { version } = useSessionStatus();
+  const { available } = useUpdateCheck(version);
   const { override, shown, palette } = useAppearance();
   const paletteLabel = text.paletteOf(PALETTE_NAMES[palette]);
   const schemeLabel = shown === "dark" ? text.toLight : text.toDark;
+  const githubLabel = available === null ? text.github : text.updateAvailable(available.version);
 
   return (
     <div className="flex items-center gap-xs pl-sm">
@@ -88,6 +93,28 @@ export function AppearanceControls() {
         <TooltipContent side="top">
           {schemeLabel} · {override === null ? text.following : text.pinned}
         </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <a
+              href={available === null ? REPOSITORY_URL : available.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={githubLabel}
+            >
+              <span
+                aria-hidden
+                className="size-(--tk-font-size-lg) bg-current"
+                style={{ mask: `url("${githubIcon}") center / contain no-repeat` }}
+              />
+              {available === null ? null : (
+                <span aria-hidden className="top-1.5 right-1.5 size-1.5 absolute rounded-full bg-accent" />
+              )}
+            </a>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">{githubLabel}</TooltipContent>
       </Tooltip>
     </div>
   );

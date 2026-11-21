@@ -95,7 +95,7 @@ export function RemoteAccessSection({ form: settings }: { readonly form: Setting
   };
 
   return (
-    <SettingsSection section="access" summary={text.summary}>
+    <SettingsSection section="access">
       <SettingsGroup
         title={text.password}
         aside={
