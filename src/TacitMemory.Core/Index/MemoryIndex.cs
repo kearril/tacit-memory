@@ -581,7 +581,7 @@ internal sealed class MemoryIndex : IDisposable
     {
         lock (_gate)
             return _connection.Query<(string Code, long Count)>(
-                "SELECT code AS Code, returns AS Count FROM units WHERE kind = @kind AND code IS NOT NULL",
+                "SELECT code AS Code, SUM(returns) AS Count FROM units WHERE kind = @kind AND code IS NOT NULL GROUP BY code",
                 new { kind = UnitKinds.Activity })
                 .ToDictionary(row => row.Code, row => row.Count, StringComparer.Ordinal);
     }

@@ -152,4 +152,16 @@ public sealed class MemoryActivityTests : IDisposable
         Assert.Equal(1, counts[code]);
         Assert.Equal(0, counts[otherCode]);
     }
+
+    [Fact]
+    public async Task Identical_activity_text_across_months_does_not_fail_activity_browse()
+    {
+        WriteMonth("2026-10", "## 2026-10-15\n- [my-app] 复核备份校验清单\n");
+        WriteMonth("2026-11", "## 2026-11-15\n- [my-app] 复核备份校验清单\n");
+        await _service.Maintenance.ReindexAsync();
+
+        var month = await _service.Browse.ActivityMonthAsync("2026-11");
+
+        Assert.Equal("复核备份校验清单", Assert.Single(Assert.Single(month.Days).Activities).Text);
+    }
 }
