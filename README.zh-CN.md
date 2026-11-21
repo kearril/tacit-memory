@@ -118,7 +118,7 @@ TacitMemory 可接入三类轻量级辅助模型（均经 HTTP 调用且**全部
 ### 推荐搭配方案
 
 - **本地检索 + 云端决策（推荐）**：本地通过 `llama.cpp`、vLLM 等推理服务运行千问家族的 **`Qwen3-Embedding`**（如 `Qwen3-Embedding-0.6B` / `4B`）与 **`Qwen3-Reranker`**（如 `Qwen3-Reranker-0.6B` / `4B`），兼顾低延迟、数据不出本机以及优秀的中英文与代码检索表现；决策模型接入 **TypeSafe `jev-latest`**（内置判断阈值基于该模型标定，误拒率最低）。
-- **零自部署云端方案**：不想本地部署模型时，可直接利用内置的 **Cloudflare Workers AI** 适配一站配齐——嵌入 `@cf/baai/bge-m3`（OpenAI 兼容端点）、重排 `@cf/baai/bge-reranker-base`（`provider: cloudflare`）、决策 `@cf/cloudflare/clef` 或 `@cf/cloudflare/clef-flash`（`provider: cloudflare`）；也可按需混搭其他 OpenAI / Cohere / Jina / TypeSafe 兼容接口。
+- **零自部署云端方案**：不想本地部署模型时，可直接利用内置的 **Cloudflare Workers AI** 适配一站配齐（其 Free 方案提供每日免费额度，个人日常使用通常足够，具体以 Cloudflare 官方政策为准）——嵌入 `@cf/baai/bge-m3`（OpenAI 兼容端点）、重排 `@cf/baai/bge-reranker-base`（`provider: cloudflare`）、决策 `@cf/cloudflare/clef` 或 `@cf/cloudflare/clef-flash`（`provider: cloudflare`）；也可按需混搭其他 OpenAI / Cohere / Jina / TypeSafe 兼容接口。
 - **零配置先试跑**：三者全部留空即可启动使用；后续补配嵌入模型后，执行一次 `tacit reindex` 即可为历史记忆补全向量。
 
 > `url` 须填写完整接口请求地址，程序原样请求、不自动拼接路径。内置判断阈值基于 TypeSafe `jev-latest` 标定，换用其他决策模型（如 Cloudflare Clef 系列）前请参阅 [`docs/configuration.md`](docs/configuration.md) 按需核对阈值。
