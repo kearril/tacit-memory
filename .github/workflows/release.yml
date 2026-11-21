@@ -100,8 +100,9 @@ jobs:
           tag=$GITHUB_REF_NAME
           version=${tag#v}
           arguments=("$tag" packages/* --title "$version" --verify-tag)
-          # A version's notes are optional: .github/release-notes/<tag>.md when it exists, otherwise none.
-          notes=.github/release-notes/$tag.md
-          if [ -f "$notes" ]; then arguments+=(--notes-file "$notes"); else arguments+=(--notes ''); fi
+          # The notes are the version's section of CHANGELOG.md, headed "## <version> - <date>"; a version without one gets none.
+          notes=$RUNNER_TEMP/notes.md
+          awk -v version="$version" '/^## / { if (found) exit; found = ($2 == version); next } found' CHANGELOG.md > "$notes"
+          if [ -s "$notes" ]; then arguments+=(--notes-file "$notes"); else arguments+=(--notes ''); fi
           if [[ $version == *-* ]]; then arguments+=(--prerelease); fi
           gh release create "${arguments[@]}"
