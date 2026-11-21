@@ -106,3 +106,107 @@ jobs:
           if [ -s "$notes" ]; then arguments+=(--notes-file "$notes"); else arguments+=(--notes ''); fi
           if [[ $version == *-* ]]; then arguments+=(--prerelease); fi
           gh release create "${arguments[@]}"
+
+      - name: Update Homebrew tap and Scoop bucket
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          PACKAGE_REPOS_TOKEN: ${{ secrets.PACKAGE_REPOS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PACKAGE_REPOS_TOKEN" ]; then
+            echo "PACKAGE_REPOS_TOKEN is not set; skipping Homebrew/Scoop update."
+            exit 0
+          fi
+          tag=$GITHUB_REF_NAME
+          version=${tag#v}
+          osx_sha=$(cut -d ' ' -f 1 "packages/tacit-${version}-osx-arm64.tar.gz.sha256")
+          linux_sha=$(cut -d ' ' -f 1 "packages/tacit-${version}-linux-x64.tar.gz.sha256")
+          win_sha=$(cut -d ' ' -f 1 "packages/tacit-${version}-win-x64.zip.sha256")
+
+          work=$RUNNER_TEMP/package-repos
+          mkdir -p "$work"
+
+          git clone "https://x-access-token:${PACKAGE_REPOS_TOKEN}@github.com/kearril/homebrew-tap.git" "$work/homebrew-tap"
+          mkdir -p "$work/homebrew-tap/Formula"
+          cat <<EOF > "$work/homebrew-tap/Formula/tacit.rb"
+          class Tacit < Formula
+            desc "Local-first, transparent personal memory system for AI coding clients over MCP"
+            homepage "https://github.com/kearril/tacit-memory"
+            version "${version}"
+            license "Apache-2.0"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/kearril/tacit-memory/releases/download/${tag}/tacit-${version}-osx-arm64.tar.gz"
+                sha256 "${osx_sha}"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/kearril/tacit-memory/releases/download/${tag}/tacit-${version}-linux-x64.tar.gz"
+                sha256 "${linux_sha}"
+              end
+            end
+
+            def install
+              libexec.install Dir["*"]
+              bin.install_symlink libexec/"tacit"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/tacit --version")
+            end
+          end
+          EOF
+          (
+            cd "$work/homebrew-tap"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Formula/tacit.rb
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(tacit): update formula to ${version}"
+              git push origin main
+            fi
+          )
+
+          git clone "https://x-access-token:${PACKAGE_REPOS_TOKEN}@github.com/kearril/scoop-bucket.git" "$work/scoop-bucket"
+          mkdir -p "$work/scoop-bucket/bucket"
+          cat <<EOF > "$work/scoop-bucket/bucket/tacit.json"
+          {
+              "version": "${version}",
+              "description": "Local-first, transparent personal memory system for AI coding clients over MCP.",
+              "homepage": "https://github.com/kearril/tacit-memory",
+              "license": "Apache-2.0",
+              "architecture": {
+                  "64bit": {
+                      "url": "https://github.com/kearril/tacit-memory/releases/download/${tag}/tacit-${version}-win-x64.zip",
+                      "hash": "${win_sha}"
+                  }
+              },
+              "bin": "tacit.exe",
+              "checkver": {
+                  "github": "https://github.com/kearril/tacit-memory"
+              },
+              "autoupdate": {
+                  "architecture": {
+                      "64bit": {
+                          "url": "https://github.com/kearril/tacit-memory/releases/download/v\$version/tacit-\$version-win-x64.zip",
+                          "hash": {
+                              "url": "\$url.sha256"
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+          (
+            cd "$work/scoop-bucket"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add bucket/tacit.json
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(tacit): update manifest to ${version}"
+              git push origin main
+            fi
+          )
