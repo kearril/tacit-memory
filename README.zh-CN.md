@@ -19,11 +19,17 @@
 
 ## 为什么做 TacitMemory
 
-**工具可以随时换，记忆不该每次归零。**
+**记忆属于你，不该被锁在某一家厂商或客户端里。**
 
-AI 模型与 Agent 客户端迭代极快——今天在用 Claude Code，明天换到 Codex、OpenCode 或 Pi，后天又迁往新工具，甚至曾经顺手的客户端某天停止维护。每次切换，最耗心力的往往不是重新装环境，而是把你的协作规则、习惯偏好、踩过的坑与推进中的项目，对着一个从零开始的「新同事」再讲一遍。
+越来越多 AI 平台与 Agent 工具开始内置记忆功能，但记忆一旦沉淀在单一厂商的云端或私有结构中，就会形成隐形的厂商锁定——无论是同时混用多家模型与客户端，还是日后迁往更合适的工具，你积累下来的协作规则、习惯偏好、排错经验与项目上下文往往带不走，只能在新环境里从零讲起。
 
-TacitMemory 将个人记忆从具体客户端中彻底剥离：以纯 Markdown 与 Git 存成属于你的白盒资产，仅依靠上下文文件、skill 与本地 HTTP MCP 接入任意 Agent。**新客户端一连上，就能延续先前的默契继续协作。**
+TacitMemory 将个人记忆从具体厂商与客户端中彻底解耦：以纯 Markdown 与 Git 存成完全归你掌控的白盒资产，仅依靠上下文文件、skill 与本地 HTTP MCP 接入任意 Agent。**无论选择哪家模型或客户端，都能共享同一份可迁移、可审计的长期记忆。**
+
+| 维度 | 厂商 / 客户端内置记忆 | 后台 LLM + 数据库记忆 | **TacitMemory** |
+| :--- | :--- | :--- | :--- |
+| **存储与审计** | 厂商云端或客户端私有存储 | 数据库为主存储，难直接编辑 | **纯白盒 Markdown + Git 历史**，随时可读、可手改、可回溯 |
+| **可控与可视化** | 自动写入，过程不易观察 | 后台自动抽取合并，决策过程黑盒 | **人工拍板整理提案** + 内置 Web 界面与同口径检索追踪 |
+| **归属与后台成本** | 锁定在单一厂商或客户端 | 可跨端，但后台持续消耗生成 Token | **无厂商锁定、跨端共享**，零后台生成式 LLM 成本 |
 
 ## 核心特点
 
@@ -41,6 +47,8 @@ TacitMemory 将个人记忆从具体客户端中彻底剥离：以纯 Markdown �
 - **记忆质量取决于主会话模型**：服务本身不运行后台生成式 LLM，何时调用 `recall`、记录什么结论以及整理提案的质量，均取决于你当前对话所使用的主 Agent 模型对规则的遵循能力；作为回报，服务不会产生额外对话 Token 消耗，也不会在后台擅自改写旧记忆。
 - **非「装完就忘」的全自动黑盒，需要轻量人工配合**：不接入客户端钩子做会话后自动抽取，日常建议在压缩上下文或结束任务前触发 `tacit-remember`，每隔一段时间（或收到定时整理提醒时）花一两分钟批量回复一次 `tacit-consolidate` 的提案清单；换来的是长期记忆零幻觉污染、每一条都经你把关。
 - **多端共享需要留意跨机与跨客户端串味**：多台设备与多个 Agent 共用同一套记忆时，若将单机环境细节或某个客户端的私有配置混入全局画像，会对其他环境造成干扰。TacitMemory 通过显式机器标识（`on <机器名>`）、作用域分层（全局 / 领域 / 主线）与写入规范加以隔离，但日常写入与整理时仍需留意区分「通用个人习惯」与「单机 / 单客户端细节」。
+
+如果你把个人记忆看作一份可迁移、可审计的长期个人资产，这些投入就是自然代价——有价值的资产需要维护，不会凭空得来，就像你不能指望一座从不修剪的花园自己一直井然有序。
 
 ## 界面一览
 
@@ -76,6 +84,15 @@ TacitMemory 将个人记忆从具体客户端中彻底剥离：以纯 Markdown �
 | **活动记录** | 一行一条的会话结论（按月归档），整理时生成周/月汇总 | 最近 7 天随服务端说明下发，更早记录按需检索 |
 | **细节页** | 按主题组织的 Markdown 页面（`incident`、`decision`、`entity`、`work`） | 由 Agent 通过 `recall` 按需检索 |
 
+### MCP 能力面与 Skill
+
+为了尽量降低对 Agent 上下文与工具列表的占用，服务只暴露极简接口：
+
+- **4 个 MCP 工具**：`recall`（混合检索、读整页、主线简报与画像/规则读取）、`write_page`（按小节创建或更新细节页）、`write_recent`（写入或改写当日活动结论）、`write_persona`（写入画像条目或提交候选）。
+- **1 个 MCP 资源**：`tacit://consolidation-report`（整理时现场计算两段式报告，不占工具槽位，也不会被模型擅自调用）。
+- **3 个内置 Skill**：`tacit-memory` 由 Agent 在写入前按需读取；**`tacit-remember` 与 `tacit-consolidate` 需要由用户手动调用触发**（不依赖客户端钩子自动运行）。
+- **本地安全边界**：写入前在本地通过正则拦截常见密钥与凭据（不向外部模型外发原文），`/mcp` 端点严格仅监听本机回环地址。
+
 ### 工作流程
 
 ```mermaid
@@ -88,17 +105,42 @@ flowchart LR
     Mem -->|recall 检索| Session
 ```
 
-## 前置要求
+## 辅助模型
 
-- **Git**：命令行可直接调用。
-- **辅助模型**（可选，但建议配齐）：支持嵌入模型（OpenAI Embeddings）、reranker（Cohere / Jina Rerank）与决策模型（System One），内置提供方适配另支持 Cloudflare Workers AI（reranker、决策模型与嵌入模型）。三者均不强制配置，缺省或不可用时自动降级。内置判断阈值基于 TypeSafe `jev-latest` 标定，更换决策模型前请参阅 [`docs/configuration.md`](docs/configuration.md)。
+TacitMemory 可接入三类轻量级辅助模型（均经 HTTP 调用且**全部可选**）：缺省或故障时自动降级，不阻塞写入；配齐三者可显著提升语义召回精度、精排效果，以及写入与整理时的自动判重与冲突检测质量。
+
+| 模型 | 职责 | 支持协议与提供方 | 缺省或不可用时的降级 |
+| :--- | :--- | :--- | :--- |
+| **嵌入模型（Embedding）** | 生成文本向量，用于语义检索与判断前近邻筛选 | **OpenAI Embeddings**（兼容 OpenAI、Ollama、vLLM、`llama.cpp`、Cloudflare Workers AI 等） | 退回纯 SQLite FTS5 全文检索（支持中文） |
+| **重排模型（Reranker）** | 对全文 + 向量 RRF 融合结果精排与低分过滤 | **Cohere / Jina Rerank**；内置 `provider: cloudflare` 适配 Cloudflare Workers AI | 直接按 RRF 融合排序返回 |
+| **决策模型（Decision）** | 回答四类结构化选择题（重复页、同日同主题、同一偏好、画像冲突），仅对选项输出概率、不生成自由文本，按双阈值分为「确定 / 不确定 / 否定」 | **System One** 协议（面向结构化决策的概率打分接口，如 TypeSafe `jev-latest`）；内置 `provider: cloudflare` 适配 Cloudflare Workers AI | 所有判断按「不确定」放行，留待整理阶段由主会话 Agent 复核 |
+
+### 推荐搭配方案
+
+- **本地检索 + 云端决策（推荐）**：本地通过 `llama.cpp`、vLLM 等推理服务运行千问家族的 **`Qwen3-Embedding`**（如 `Qwen3-Embedding-0.6B` / `4B`）与 **`Qwen3-Reranker`**（如 `Qwen3-Reranker-0.6B` / `4B`），兼顾低延迟、数据不出本机以及优秀的中英文与代码检索表现；决策模型接入 **TypeSafe `jev-latest`**（内置判断阈值基于该模型标定，误拒率最低）。
+- **零自部署云端方案**：不想本地部署模型时，可直接利用内置的 **Cloudflare Workers AI** 适配一站配齐——嵌入 `@cf/baai/bge-m3`（OpenAI 兼容端点）、重排 `@cf/baai/bge-reranker-base`（`provider: cloudflare`）、决策 `@cf/cloudflare/clef` 或 `@cf/cloudflare/clef-flash`（`provider: cloudflare`）；也可按需混搭其他 OpenAI / Cohere / Jina / TypeSafe 兼容接口。
+- **零配置先试跑**：三者全部留空即可启动使用；后续补配嵌入模型后，执行一次 `tacit reindex` 即可为历史记忆补全向量。
+
+> `url` 须填写完整接口请求地址，程序原样请求、不自动拼接路径。内置判断阈值基于 TypeSafe `jev-latest` 标定，换用其他决策模型（如 Cloudflare Clef 系列）前请参阅 [`docs/configuration.md`](docs/configuration.md) 按需核对阈值。
 
 ## 安装
+
+运行时仅需本机 `PATH` 中有 **`git`**。Homebrew、Scoop 与 GitHub Releases 提供的均为**自包含预编译包，无需预装 .NET 11 运行时或 Bun**（仅从源码构建时需要）。预编译包覆盖 `win-x64`、`osx-arm64` 与 `linux-x64`，其他架构请从源码构建。
+
+### 交由 AI Agent 自动安装与配置
+
+如果本地已有支持终端命令的 AI Agent，可直接将下方提示词发给它，由它读取本仓库文档完成安装、初始化、后台常驻与当前客户端的接入：
+
+```text
+请阅读 https://github.com/kearril/tacit-memory 的文档，在当前机器上为我安装并初始化 TacitMemory，配置后台常驻运行，并完成你当前客户端的绑定与本地 HTTP MCP 接入。涉及记忆语言选择、辅助模型或多机 Git 同步配置时，先向我确认再执行。
+```
 
 ### Homebrew（macOS Apple Silicon / Linux x64）
 
 ```bash
 brew install kearril/tap/tacit
+# 升级（升级前请先停止 tacit serve）
+brew upgrade kearril/tap/tacit
 ```
 
 ### Scoop（Windows x64）
@@ -106,6 +148,8 @@ brew install kearril/tap/tacit
 ```powershell
 scoop bucket add kearril https://github.com/kearril/scoop-bucket
 scoop install tacit
+# 升级（升级前请先停止 tacit serve）
+scoop update tacit
 ```
 
 ### 手动下载预编译包
@@ -159,19 +203,46 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 
 3. **绑定客户端并接入 MCP**
 
-   在 Web 界面的 **「设置 → 绑定」** 中选择常用客户端预设（已内置 Claude Code、Codex、OpenCode、Pi 等路径模板）一键绑定，随后将页面显示的本地 HTTP MCP 端点（`http://127.0.0.1:18888/mcp`）添加到客户端的 MCP 配置中。
-
-   偏好命令行也可直接执行：
+   在 Web 界面的 **「设置 → 绑定」** 中选择内置客户端预设（已内置 Claude Code、Codex、OpenCode、Pi、Oh My Pi、Antigravity、DeepSeek Harness、Hermes）一键绑定，随后将本地 HTTP MCP 端点（`http://127.0.0.1:18888/mcp`）添加到客户端的 MCP 配置中。任何支持上下文文件、skill 与本地 HTTP MCP 的客户端也可通过命令行自定义绑定：
 
    ```bash
    tacit connect --client my-agent --context ~/.my-agent/AGENTS.md --skills ~/.my-agent/skills
    ```
 
-   绑定会在上下文文件写入常驻区块，并在 skill 目录建立 `tacit-memory`、`tacit-remember`、`tacit-consolidate` 三个链接。新建客户端会话即可生效。
+   绑定会在上下文文件写入常驻区块，并在 skill 目录建立 `tacit-memory`、`tacit-remember`、`tacit-consolidate` 三个链接。
+
+   通用 HTTP MCP 配置参考（具体字段名以各客户端格式为准）：
+
+   ```json
+   {
+     "mcpServers": {
+       "tacit": {
+         "url": "http://127.0.0.1:18888/mcp"
+       }
+     }
+   }
+   ```
+
+   完成绑定与 MCP 配置后，新建客户端会话即可生效。
 
 4. **配置三个辅助模型**（可选，但强烈推荐）
 
    在 Web 界面的 **「设置 → 模型」** 中填写嵌入、重排与决策三个辅助模型的端点与密钥，保存后点击卡片右上角 **探测** 验证连通性。
+
+<details>
+<summary>多机 Git 同步与备份</summary>
+
+**多机 Git 同步**（仅同步记忆仓库，配置、提示词、绑定与备份留在各自机器）：
+
+1. 准备一个**空**的私有 Git 仓库（自建裸仓库 `git init --bare` 或代码托管平台的空私有仓，不要勾选初始化 README）。
+2. 第一台机器在 Web 界面的 **「设置 → 同步」** 填写 `sync.remote`（并建议为每台机器设置不同的 `machine.name`），执行 `tacit sync` 推送初始历史；之后服务会在写入前后与定时自动拉推。
+3. 其他机器运行 `tacit init --remote <仓库地址>` 克隆同一份记忆仓库，随后照常绑定客户端与启动服务。
+
+同步采用线性 rebase，并对只追加文件（`recent/*.md`、`candidates.md`）自动启用 `merge=union`；遇冲突或历史分叉时自动暂停同步等待人工处理，不丢失本地数据。详见 [`docs/operations.md`](docs/operations.md)。
+
+**备份与恢复**：每日首次写入后自动在 `~/.tacit/backups/` 生成本地备份（默认保留 7 份），另支持 `tacit backup` 手动备份与 WebDAV 云端快照；`tacit restore` 恢复前会先预览确认并自动生成保险备份。
+
+</details>
 
 <details>
 <summary>跨设备访问 Web 界面</summary>
@@ -201,7 +272,8 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 - [`docs/memory-files.md`](docs/memory-files.md) — 记忆仓库目录结构与 Markdown 格式
 - [`docs/operations.md`](docs/operations.md) — 备份恢复、Git 同步、排障与发布流程
 - [`docs/development.md`](docs/development.md) — 代码架构、测试接缝与本地构建
+- [`CHANGELOG.md`](CHANGELOG.md) — 版本更新记录
 
-## 许可
+## 许可与反馈
 
-采用 [Apache License 2.0](LICENSE) 开源许可发布。发行包中附带的第三方许可声明见包内 `THIRD-PARTY-NOTICES.txt`。
+采用 [Apache License 2.0](LICENSE) 开源许可发布。发行包中附带的第三方许可声明见包内 `THIRD-PARTY-NOTICES.txt`。欢迎通过 [GitHub Issues](https://github.com/kearril/tacit-memory/issues) 提交问题、建议或使用反馈。
