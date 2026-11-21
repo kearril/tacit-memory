@@ -1,5 +1,7 @@
-# Build, the whole test suite, the format checks and the web checks. Runs when main moves and on demand; branch pushes do
-# not run it. The release workflow calls it before it packages anything.
+# Build, the whole test suite on Linux, Windows and macOS, the format checks and the web checks. Runs when main moves,
+# on pull requests into main and on demand; other branch pushes do not run it. The release workflow calls it before it
+# packages anything. Third-party actions are pinned to a commit, with the release they are at in a comment; Dependabot
+# moves both.
 name: CI
 
 on:
@@ -10,41 +12,77 @@ on:
       - "**/*.md"
       - LICENSE
       - NOTICE
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - LICENSE
+      - NOTICE
   workflow_dispatch:
   workflow_call:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  check:
-    # Linux runs the suite cheapest and fastest, and takes the code paths macOS shares with it. The release workflow runs
-    # the suite on Windows as well before it packages anything.
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v7
+      # The tests start thousands of git processes and write thousands of temporary files, and the real-time scan checks
+      # each. The runner is thrown away after the job. Only a speed-up, so a runner that refuses it still runs the tests.
+      - name: Turn off real-time scanning
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
+      # The Host and CLI tests connect from 127.0.0.2 to stand for another device. Linux and Windows treat all of
+      # 127.0.0.0/8 as this machine; macOS has only 127.0.0.1 until the alias is added.
+      - name: Add the 127.0.0.2 loopback alias
+        if: runner.os == 'macOS'
+        run: sudo ifconfig lo0 alias 127.0.0.2 up
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # MinVer reads the version from the tags in the history.
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 11.0.x
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Tests
+        run: dotnet test TacitMemory.slnx -c Release
+
+  # The format and web checks give the same answer on every platform, so they run once, on Linux.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 11.0.x
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
 
       - name: C# format
         run: dotnet format --verify-no-changes TacitMemory.slnx
-
-      - name: Tests
-        run: dotnet test TacitMemory.slnx -c Release
 
       - name: Web checks
         working-directory: web
