@@ -95,6 +95,21 @@ flowchart LR
 
 ## 安装
 
+### Homebrew（macOS Apple Silicon / Linux x64）
+
+```bash
+brew install kearril/tap/tacit
+```
+
+### Scoop（Windows x64）
+
+```powershell
+scoop bucket add kearril https://github.com/kearril/scoop-bucket
+scoop install tacit
+```
+
+### 手动下载预编译包
+
 从 [GitHub Releases](https://github.com/kearril/tacit-memory/releases) 下载对应平台的发行包并解压至空目录：
 
 | 平台 | 发行包 |

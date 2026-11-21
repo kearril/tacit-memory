@@ -95,6 +95,21 @@ flowchart LR
 
 ## Installation
 
+### Homebrew (macOS Apple Silicon / Linux x64)
+
+```bash
+brew install kearril/tap/tacit
+```
+
+### Scoop (Windows x64)
+
+```powershell
+scoop bucket add kearril https://github.com/kearril/scoop-bucket
+scoop install tacit
+```
+
+### Manual download
+
 Download the release archive for your platform from [GitHub Releases](https://github.com/kearril/tacit-memory/releases) and extract it into an empty directory:
 
 | Platform | Archive |
