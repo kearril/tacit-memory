@@ -62,7 +62,7 @@
 通用退出码：`0` 成功，`1` 运行失败，`2` 用法错误，`3` 配置无效，`4` 服务未运行。
 
 - **定位入口**：任何异常先跑 `tacit status`。
-- **升级后报未知配置键**：删除 `config.yaml` 中已移除的旧键后重启服务。
+- **配置报未知键**：检查 `config.yaml` 中的键名拼写，或移除已废弃的键后重启服务。
 - **忘记访问密码 / `serve` 因缺少密码拒绝启动**：先从 `config.yaml` 移除 `server.host` 并重启服务；本机调用 `DELETE /api/access-password` 或停服删除 `TACIT_HOME/access.json` 清除密码，重设后再恢复 `server.host`。
 - **辅助模型连不上**：执行 `tacit probe` 检查 `url`（完整请求地址）、`model`、`provider` 与密钥。修改环境变量后须重启终端与服务。
 - **客户端调用工具失败**：确认 `tacit serve` 正在运行，且在绑定后开启了新会话。
@@ -70,21 +70,18 @@
 
 ## 6. 升级与发布
 
-### 校验与升级发行包
+### 升级与校验
 
-校验下载文件（另可用 `gh attestation verify <发行包> --repo kearril/tacit-memory` 验证构建来源）：
+升级不会影响 `~/.tacit` 数据目录。升级前请先停止当前运行的 `tacit serve`，完成后重新启动并执行 `tacit status` 核对版本。
+
+- **Homebrew（macOS / Linux）**：`brew upgrade kearril/tap/tacit`
+- **Scoop（Windows）**：`scoop update tacit`
+- **手动下载发行包**：先校验下载文件（另可用 `gh attestation verify <发行包> --repo kearril/tacit-memory` 验证构建来源），再**清空安装目录**（避免残留旧版文件）并解压新版发行包：
 
 ```bash
 sha256sum -c tacit-<版本>-<平台>.<扩展名>.sha256        # Linux / Git Bash
 shasum -a 256 -c tacit-<版本>-osx-arm64.tar.gz.sha256   # macOS
 ```
-
-升级步骤（不影响 `~/.tacit` 数据目录）：
-
-1. 停止当前运行的 `tacit serve`；
-2. **清空安装目录**（避免残留旧版文件）；
-3. 将新版发行包解压至安装目录；
-4. 启动服务并执行 `tacit status` 核对版本。
 
 ### 本地打包与源码构建
 
@@ -101,4 +98,4 @@ build/smoke.sh <输出目录>/tacit
 dotnet publish src/TacitMemory.Cli -c Release -o <输出目录>
 ```
 
-不需要 Web 界面时可加 `/p:TacitSkipWebBuild=true`（跳过 Bun 构建，访问 `/ui` 将提示未构建）。推送 `v*` tag 至 GitHub 时，发布工作流会自动在三平台完成测试、打包、冒烟、来源证明并截取 `CHANGELOG.md` 对应章节创建 Release。
+不需要 Web 界面时可加 `/p:TacitSkipWebBuild=true`（跳过 Bun 构建，访问 `/ui` 将提示未构建）。推送 `v*` tag 至 GitHub 时，发布工作流会自动在三平台完成测试、打包、冒烟、来源证明并截取 `CHANGELOG.md` 对应章节创建 Release；正式版 tag（不含 `-` 预发布后缀）还会自动更新 Homebrew tap 与 Scoop bucket。

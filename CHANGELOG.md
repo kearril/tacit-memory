@@ -21,7 +21,7 @@ First public release of TacitMemory, a local-first personal memory system for AI
 
 TacitMemory 首个正式公开版本，面向 AI 编码客户端的本地优先、白盒个人记忆系统。
 
-- **结构化 Markdown 记忆**：基于 `~/.tacit/memory` 纯文本 Git 仓库，分层维护画像、工作流、主题页与按月活动记录。
+- **结构化 Markdown 记忆**：基于 `~/.tacit/memory` 纯文本 Git 仓库，分层维护画像、主线、细节页与按月活动记录。
 - **跨客户端 MCP 服务**：单个本地常驻 HTTP 服务支持多客户端并发读写，内置主流客户端一键绑定与 Skill 生成。
 - **混合检索与整理**：结合全文、向量与重排的本地混合检索，配合辅助模型判断与定期整理流程。
 - **Web 管理界面**：内置仪表盘、检索追踪、记忆浏览、提示词编辑与可视化配置页。
