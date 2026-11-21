@@ -93,8 +93,8 @@ internal static class RecentFile
     /// <summary>One activity: a <c>- </c> line under a <c>## yyyy-MM-dd</c> heading.</summary>
     /// <param name="Line">The line's index in the file.</param>
     /// <param name="Day">The day of the heading the line sits under.</param>
-    /// <param name="Workstream">The workstream label, or <c>null</c> when the line has none.</param>
-    /// <param name="Body">The activity text without the label.</param>
+    /// <param name="Workstream">The activity's workstream, or <c>null</c> when the line has none.</param>
+    /// <param name="Body">The activity text without the <c>[workstream]</c> prefix.</param>
     /// <param name="Code">The activity's short code, as <see cref="CodeAt"/> gives it.</param>
     /// <param name="Machine">
     /// The machine its source comment names, as written; <c>null</c> when it has none, as activities written before machines
@@ -102,7 +102,7 @@ internal static class RecentFile
     /// </param>
     public sealed record Activity(int Line, DateOnly Day, string? Workstream, string Body, string Code, string? Machine)
     {
-        /// <summary>The activity's text with its workstream label in front, as the log shows it.</summary>
+        /// <summary>The activity's text with its <c>[workstream]</c> prefix in front, as the log shows it.</summary>
         public string Labeled => Label(Workstream) + Body;
 
         /// <summary>The machine as agents read it after the date, <c>(dev-box) </c>, or nothing when it has none.</summary>

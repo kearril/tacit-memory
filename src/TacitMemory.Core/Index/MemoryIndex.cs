@@ -18,7 +18,7 @@ namespace TacitMemory.Core.Index;
 /// <param name="Kind">The unit's kind, one of the values in <see cref="UnitKinds"/>.</param>
 /// <param name="Section">The section name, or for a persona unit the name of the persona section it belongs to; <c>week</c> or <c>month</c> for a summary; for an activity the machine its source comment names; <c>null</c> for the title and aliases and for an activity without a machine.</param>
 /// <param name="Text">The indexed text of the unit: a section's name and body, the title and aliases, or an activity's body.</param>
-/// <param name="Workstream">The unit's workstream; empty when an activity has no workstream label.</param>
+/// <param name="Workstream">The unit's workstream; empty when an activity has none.</param>
 /// <param name="Date">An activity's day as yyyy-MM-dd; <c>null</c> for pages.</param>
 /// <param name="Code">An activity's short code; <c>null</c> for pages.</param>
 /// <param name="Passage">

@@ -20,8 +20,8 @@ public sealed record ActivityDayView(string Date, IReadOnlyList<ActivityItemView
 
 /// <summary>An activity.</summary>
 /// <param name="Code">The short code <c>write_recent</c> takes to replace it.</param>
-/// <param name="Workstream">Its workstream label; <c>null</c> when it has none.</param>
-/// <param name="Text">Its text without the label.</param>
+/// <param name="Workstream">Its workstream; <c>null</c> when it has none.</param>
+/// <param name="Text">Its text without the <c>[workstream]</c> prefix.</param>
 /// <param name="Machine">The machine it was written on, as its source comment names it; <c>null</c> when it names none.</param>
 /// <param name="Lines">The indented lines under it that are not comments, trimmed, in order.</param>
 /// <param name="Sources">Its source comments, which keep the user's words, in order.</param>

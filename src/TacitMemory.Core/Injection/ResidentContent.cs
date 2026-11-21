@@ -60,7 +60,7 @@ internal sealed record ResidentContent(
     }
 
     /// <summary>
-    /// The newest activity day not after <paramref name="today"/> of each workstream label in the activity log. A day after
+    /// The newest activity day not after <paramref name="today"/> of each workstream in the activity log. A day after
     /// today is left out, so a mistyped future date neither hides the real activity nor moves the workstream up the order.
     /// </summary>
     private static Dictionary<string, DateOnly> LatestActivityDays(string memoryPath, DateOnly today)

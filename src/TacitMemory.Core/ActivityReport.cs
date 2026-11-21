@@ -18,11 +18,11 @@ public sealed record ActivityReport(
     IReadOnlyList<string> SkippedFiles,
     bool HistoryUnreadable);
 
-/// <summary>The activities of one day: the count for each workstream label as written, and the count without a label.</summary>
+/// <summary>The activities of one day: the count for each workstream as written, and the count of those with no workstream.</summary>
 /// <param name="Day">The day of the heading the activities sit under.</param>
 /// <param name="Workstreams">The count per workstream, most first, then by name.</param>
-/// <param name="Unlabeled">The activities without a workstream label.</param>
+/// <param name="Unlabeled">The activities with no workstream.</param>
 public sealed record ActivityDay(DateOnly Day, IReadOnlyList<WorkstreamCount> Workstreams, int Unlabeled);
 
-/// <summary>How many activities of a day carry one workstream label.</summary>
+/// <summary>How many activities of a day belong to one workstream.</summary>
 public sealed record WorkstreamCount(string Workstream, int Count);

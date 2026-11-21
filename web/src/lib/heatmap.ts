@@ -9,7 +9,7 @@ export interface HeatDay {
   /** The day as `yyyy-MM-dd`. */
   readonly date: string;
   readonly total: number;
-  /** The count per workstream label, most first, as the service gives it. */
+  /** The count per workstream, most first, as the service gives it. */
   readonly workstreams: readonly WorkstreamCount[];
   readonly unlabeled: number;
   /** Whether a consolidation happened that day. */

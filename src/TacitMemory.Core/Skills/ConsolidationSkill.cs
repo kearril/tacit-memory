@@ -105,7 +105,7 @@ internal static class ConsolidationSkill
         text.Append("   - \"").Append(ConsolidationTitles.WorkstreamProposals)
             .Append("\": skip standalone one-off activities without a workstream. Draft proposals only for meaningful workstream changes: ")
             .Append("a new workstream (its name, a background line, a recent line, and the detail pages it takes into its folder), ")
-            .Append("an unestablished name merged into an existing workstream or its label dropped, a split of a workstream, or a merge of two. ")
+            .Append("an unestablished name merged into an existing workstream or given up, a split of a workstream, or a merge of two. ")
             .Append("Each proposal names the pages it moves. Topic pages under a listed prefix may form a new workstream when they belong together; otherwise they stay in topics.\n");
         text.Append("   Hard rule: when a proposal other than a shorter wording merges, splits, moves or rewrites pages or entries, keep every fact of the original in the result. ")
             .Append("If it would drop a fact, including text a pointer replaces, list each dropped fact under that item so the user decides.\n");
@@ -126,7 +126,7 @@ internal static class ConsolidationSkill
         text.Append("   - a confirmed workstream item is carried out by editing the entries in workstreams.md (add, remove or change one), moving the detail pages into their new folder and fixing the related lines of other pages that name them. ")
             .Append("For a merge, also move the entries of the merged workstream's scope block in persona.md into the target's block and set their scope to the target. ")
             .Append("Remove an emptied old workstream folder or an emptied merged workstream block in persona.md when nothing remains in it. ")
-            .Append("Leave the labels of past activities as they are.\n");
+            .Append("Leave the workstreams written on past activities as they are.\n");
         text.Append("   Whatever the item, make only the change it proposes: drop no fact of a page, persona entry or workstream entry that the item does not list.\n");
         text.Append("5. Confirm the applied changes to the user, and show the final summaries or workstream entries that step 4 adjusted.\n");
         text.Append("6. Commit in the memory repository. The message starts with `consolidate:` only when the last report you read says `Complete: yes` and the user did not narrow the pass; ")
