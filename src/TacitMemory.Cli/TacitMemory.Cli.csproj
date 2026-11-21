@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>tacit</AssemblyName>
     <RootNamespace>TacitMemory.Cli</RootNamespace>
-    <!-- Drawn from the web interface's icon, web/src/assets/app-icon.svg. -->
+    <!-- Drawn from the web interface's icon, web/src/assets/app-icon.png. -->
     <ApplicationIcon>tacit.ico</ApplicationIcon>
   </PropertyGroup>
 
