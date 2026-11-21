@@ -96,7 +96,7 @@ public sealed record WritePageRequest
 /// </summary>
 public sealed record WriteRecentRequest
 {
-    /// <summary>The activity's text: one line, without the workstream label.</summary>
+    /// <summary>The activity's text: one line, without a <c>[workstream]</c> prefix.</summary>
     public string? Text { get; init; }
 
     /// <summary>The workstream the activity belongs to; lowercased before it is checked.</summary>

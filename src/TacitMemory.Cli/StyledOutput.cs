@@ -73,6 +73,10 @@ internal static class StyledOutput
     public static async Task<T> WithIndicatorAsync<T>(TextWriter writer, Func<Task<T>> call)
     {
         var console = Create(writer, interactive: true);
+        // A terminal that reports no size, such as TERM=dumb on Linux and macOS, reads as height 0, and the live display
+        // then fails while it crops to that height. Spectre's own fallback of 24 rows is used instead.
+        if (console.Profile.Height < 1)
+            console.Profile.Height = 24;
         T? result = default;
         Exception? failure = null;
         await console.Progress()

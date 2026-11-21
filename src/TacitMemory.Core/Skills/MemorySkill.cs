@@ -95,7 +95,7 @@ internal static class MemorySkill
         - An activity is one conclusion with one reason or decision, in a single sentence. Put the details in the detail page and leave them out of the activity.
         - Describe the result and the thinking, not the files that changed or the steps taken.
         - One activity belongs to one workstream. Set the workstream to a name listed in `<user_memory>`, spelled exactly as listed. When no listed name fits, leave the workstream out: never invent a name.
-        - A matter that fits no workstream gets a topic page (a page with no workstream), not a label on the activity.
+        - A matter that fits no workstream gets a topic page (a page with no workstream), and its activity gets no workstream.
         - To revise an activity already written for the same matter, write the revised sentence with replaces set to that activity's short code. Only today's activities can be revised; an earlier day's or an expired code is refused.
 
         The workstream is the `workstream` argument of `write_recent`, not part of the text. In each pair below, Bad lists the steps; Good states the same event as one conclusion with its reason. The examples are invented.

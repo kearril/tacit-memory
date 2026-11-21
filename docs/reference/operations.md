@@ -155,7 +155,7 @@ shasum -a 256 -c tacit-<版本>-osx-arm64.tar.gz.sha256   # macOS
 
 ### 打包与发布流程
 
-推送到 `main` 时，GitHub Actions 在 Linux 运行器上运行格式检查、全量测试与前端检查，只改文档的推送不运行，也可以手动触发；其他分支的推送不运行。推送 `v*` tag 后，先在 Linux 与 Windows 上各运行一遍全量测试（Windows 上测试频繁启动 git 进程，所以先关闭运行器上的实时扫描，运行器用完即弃），再在三个平台各自的运行器上用 `build/package.sh` 打包、用 `build/smoke.sh` 冒烟。mac 包必须在 macOS 上构建，只有在那里构建时可执行文件才会被签名。三个包都通过冒烟后，由一个作业创建 Release，附全部发行包与各自的 SHA-256，不会出现只含部分平台的 Release；手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。发布说明可选：`.github/release-notes/<tag>.md` 存在时作为 Release 正文。
+推送到 `main` 与指向 `main` 的拉取请求由 GitHub Actions 检查：Linux、Windows 与 macOS 上各运行一遍全量测试（Windows 上测试频繁启动 git 进程，所以先关闭运行器上的实时扫描；macOS 上先加 `127.0.0.2` 回环别名，运行器用完即弃），格式检查与前端检查只在 Linux 上运行；只改文档的推送与拉取请求不运行，也可以手动触发，其他分支的推送不运行。第三方 action 固定到提交哈希，由 Dependabot 每周提出 action、NuGet 与前端依赖的更新。推送 `v*` tag 后，先运行同一套检查，再在三个平台各自的运行器上用 `build/package.sh` 打包、用 `build/smoke.sh` 冒烟。mac 包必须在 macOS 上构建，只有在那里构建时可执行文件才会被签名。三个包都通过冒烟后，由一个作业为每个发行包生成构建来源证明，再创建 Release，附全部发行包与各自的 SHA-256，不会出现只含部分平台的 Release；下载者可用 `gh attestation verify <发行包> --repo <owner>/<repo>` 验证发行包出自本仓库的发布工作流。手动触发发布工作流时只打包与冒烟，产物作为工作流构件保留，不创建 Release。tag 带预发布后缀（如 `v0.2.0-rc.1`）时 Release 标为预发布。Release 正文取 `CHANGELOG.md` 中该版本的一节（标题 `## <版本号> - <日期>`），没有这一节时正文为空；发版前把「未发布」一节改为版本号与日期。
 
 在本机打包（需要 .NET 11 SDK、Bun、`jq` 与 bash；Windows 上用 Git Bash）。包要在它所针对的平台上打：macOS 只在本机构建时给可执行文件签名，Apple 芯片不运行未签名的程序。
 

@@ -1,0 +1,31 @@
+# Weekly update pull requests for the workflow actions, the NuGet packages and the web packages, each ecosystem's minor
+# and patch updates grouped into one pull request.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      nuget-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: bun
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web-minor:
+        update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 drops the JS API that typescript-eslint and openapi-typescript still use.
+      - dependency-name: typescript
+        versions: [">= 7"]

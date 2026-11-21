@@ -142,11 +142,13 @@ internal sealed partial class TestHome : IDisposable
 
     /// <summary>
     /// Runs <c>git</c> in <paramref name="directory"/> and returns its standard output. A commit gets the same author the
-    /// service uses, so a test never depends on the identity configured on the machine it runs on.
+    /// service uses, so a test never depends on the identity configured on the machine it runs on. A <c>GIT_EDITOR</c>
+    /// from the environment is dropped, since it outranks the <c>core.editor</c> a test passes.
     /// </summary>
     public static string Git(string directory, params string[] args)
     {
         var start = new ProcessStartInfo("git") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8 };
+        start.Environment.Remove("GIT_EDITOR");
         foreach (var arg in (string[])["-c", "core.quotepath=off", "-c", "user.name=tacit", "-c", "user.email=tacit@localhost", .. args])
             start.ArgumentList.Add(arg);
         using var process = Process.Start(start)!;

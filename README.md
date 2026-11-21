@@ -38,7 +38,13 @@ macOS 发行包仅采用 ad-hoc 签名，未经 Apple 公证。通过浏览器�
 xattr -dr com.apple.quarantine <安装目录>
 ```
 
-校验下载文件与升级步骤请参阅 [`docs/reference/operations.md`](docs/reference/operations.md)「发布」。
+Windows 发行包未做代码签名，首次运行 `tacit.exe` 时 SmartScreen 可能提示「Windows 已保护你的电脑」：点击「更多信息」→「仍要运行」即可。也可以在解压前解除下载标记：
+
+```powershell
+Unblock-File tacit-<版本>-win-x64.zip
+```
+
+每个发行包附 SHA-256 与构建来源证明，可用 `gh attestation verify <发行包> --repo kearril/tacit-memory` 确认它由本仓库的发布工作流构建。升级步骤请参阅 [`docs/reference/operations.md`](docs/reference/operations.md)「发布」。
 
 ### 从源码构建
 

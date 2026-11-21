@@ -38,7 +38,7 @@ internal sealed class RecentTools(TacitOptions options, TacitConfig config, Choi
         var text = request.Text.Trim();
         if (text.StartsWith('['))
             return ToolText.Refuse(
-                "Text must not start with '['; the workstream label comes from the workstream parameter.",
+                "Text must not start with '['; the activity's workstream comes from the workstream parameter.",
                 "Call write_recent again with the workstream parameter instead of a [workstream] prefix in text.");
 
         var problems = new List<string>();

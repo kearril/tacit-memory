@@ -53,8 +53,9 @@ function AlertTitle({ className, ...props }: React.ComponentProps<"p">) {
   return <p data-slot="alert-title" className={cn("font-medium", className)} {...props} />;
 }
 
-function AlertDescription({ className, ...props }: React.ComponentProps<"p">) {
-  return <p data-slot="alert-description" className={cn("col-start-2", className)} {...props} />;
+// A div, as in shadcn/ui, so a description can hold a list as well as a sentence.
+function AlertDescription({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="alert-description" className={cn("col-start-2", className)} {...props} />;
 }
 
 export { Alert, AlertDescription, AlertTitle };

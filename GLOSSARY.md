@@ -439,7 +439,7 @@ _Avoid_: 哈希、ID
 
 **主线参数**（`workstream`）：
 所属主线的名称，统一小写；`recall` 中用于筛选，`write_page` 中构成页面标识的第一段（专题用 `_topics`），`write_recent` 中为活动标注。
-_Avoid_: 项目参数、仓库名、标签
+_Avoid_: 项目参数、仓库名、标签、workstream label
 
 **类型参数**（`kind`）：
 `recall` 的取值：`pages`（只检索细节页）、`activities`（只检索活动，含汇总）、`rules`（领域规则）或 `persona`（整份画像）；缺省时两者都检索。后两者不检索，每条附短码。

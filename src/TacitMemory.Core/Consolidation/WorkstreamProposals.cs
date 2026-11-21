@@ -7,9 +7,9 @@ namespace TacitMemory.Core.Consolidation;
 
 /// <summary>
 /// The "Workstream proposal material" category of part B, computed without a model. It lists three things the agent drafts
-/// its workstream proposals from: the names that are not established yet (page folders and activity labels that
+/// its workstream proposals from: the names that are not established yet (page folders and activity workstreams that
 /// <c>workstreams.md</c> does not write), the topic pages whose slugs share a prefix, and, as increments since the baseline,
-/// the activities since the baseline that carry no workstream label. Nothing here decides anything; the user confirms each
+/// the activities since the baseline that have no workstream. Nothing here decides anything; the user confirms each
 /// proposal.
 /// </summary>
 internal static class WorkstreamProposals

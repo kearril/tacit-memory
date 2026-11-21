@@ -13,7 +13,7 @@ namespace TacitMemory.Core.Consolidation;
 /// </summary>
 internal static class SummaryMaterial
 {
-    /// <summary>The group of the activities that have no workstream label.</summary>
+    /// <summary>The group of the activities that have no workstream.</summary>
     private const string OtherGroup = "Other";
 
     /// <summary>Each completed week that lacks a summary, oldest first, with all of its activities grouped by workstream.</summary>
