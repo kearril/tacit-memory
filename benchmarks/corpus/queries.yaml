@@ -285,3 +285,336 @@ queries:
     query: "GPU CUDA 显存碎片整理与 vLLM 张量并行启动参数"
     negative: true
     targets: []
+
+  # --- distractor (10) ---
+  - id: dist-01
+    category: distractor
+    query: "PgBouncer 连接池为什么改用 transaction 模式而不是 session 模式，连接数上限怎么设的"
+    negative: false
+    targets:
+      - page: "ops-infra/pgbouncer-pool-tuning"
+        section: "池模式选择"
+
+  - id: dist-02
+    category: distractor
+    query: "PostgreSQL 误删表后如何通过 WAL 归档和 pgBackRest 演练任意时间点恢复"
+    negative: false
+    targets:
+      - page: "ops-infra/postgres-pitr-wal-archive"
+        section: "时间点演练流程"
+
+  - id: dist-03
+    category: distractor
+    query: "Caddy 内网管理接口如何配置 mTLS 双向客户端证书校验以及私有 CA 信任池"
+    negative: false
+    targets:
+      - page: "ops-infra/caddy-mtls-internal-ca"
+        section: "双向认证架构"
+
+  - id: dist-04
+    category: distractor
+    query: "Restic 定时 prune 被 OOM 杀掉后仓库残留独占锁报错怎么解锁和限制重打包体积"
+    negative: false
+    targets:
+      - page: "ops-infra/restic-prune-lock-incident"
+        section: "处置与加固"
+
+  - id: dist-05
+    category: distractor
+    query: "Webhook 通知为什么先写 outbox_messages 事务发件箱表再由后台协程认领投递"
+    negative: false
+    targets:
+      - page: "my-app/webhook-idempotency-outbox"
+        section: "事务发件箱落盘"
+
+  - id: dist-06
+    category: distractor
+    query: "异步作业遇到上游 503 或 429 瞬态失败时如何做带抖动的指数退避重试，最多重试几次"
+    negative: false
+    targets:
+      - page: "my-app/async-retry-dead-letter"
+        section: "退避策略与错误分级"
+
+  - id: dist-07
+    category: distractor
+    query: "控制台切换子域后写请求全部报 403 Invalid CSRF token 是怎么排查出同名 Cookie 遮蔽的"
+    negative: false
+    targets:
+      - page: "my-app/session-cookie-csrf-incident"
+        section: "根因定位"
+
+  - id: dist-08
+    category: distractor
+    query: "微批写入产生大量 Parquet 小文件导致 DuckDB 聚合退化到 6 分钟，夜间 Compaction 怎么合并治理的"
+    negative: false
+    targets:
+      - page: "data-pipeline/parquet-small-files-compaction"
+        section: "治理与合并方案"
+
+  - id: dist-09
+    category: distractor
+    query: "超过 6 小时常规窗口的跨天迟到 CDC 退款记录如何标记 dirty_partitions 并触发局部重物化"
+    negative: false
+    targets:
+      - page: "data-pipeline/cdc-late-arriving-events"
+        section: "脏分区标记与重物化"
+
+  - id: dist-10
+    category: distractor
+    query: "桌面端本地全文搜索的 SQLite FTS5 虚表结构与中文 trigram 分词是怎么设计的"
+    negative: false
+    targets:
+      - page: "desktop-tool/sqlite-fts-local-index"
+        section: "索引表结构与分词选择"
+
+  # --- temporal (10) ---
+  - id: temp-01
+    category: temporal
+    query: "现在线上缓存用什么方案，为什么放弃了最初的单机内存方案"
+    negative: false
+    targets:
+      - page: "my-app/valkey-shared-cache-decision"
+      - page: "my-app/in-memory-cache-decision"
+        section: "Overturned"
+
+  - id: temp-02
+    category: temporal
+    query: "7 月最初定下的 ETL 定时触发方案后来为什么被推翻"
+    negative: false
+    targets:
+      - page: "data-pipeline/crontab-shell-runner"
+
+  - id: temp-03
+    category: temporal
+    query: "目前有效的数据流水线编排与分区回填方案是什么"
+    negative: false
+    targets:
+      - page: "data-pipeline/dag-orchestrator-migration"
+
+  - id: temp-04
+    category: temporal
+    query: "8 月那次缓存雪崩事故和 9 月迁移到 Valkey 之间有什么因果教训"
+    negative: false
+    targets:
+      - page: "my-app/cache-stampede-incident"
+        section: "Lesson"
+      - page: "my-app/valkey-shared-cache-decision"
+
+  - id: temp-05
+    category: temporal
+    query: "桌面端令牌存储现在改成了什么，旧的明文配置是怎么过渡的"
+    negative: false
+    targets:
+      - page: "desktop-tool/os-keychain-storage"
+      - page: "desktop-tool/plaintext-config-migration"
+
+  - id: temp-06
+    category: temporal
+    query: "build-node 清理历史悬空容器镜像释放 42GB 根分区空间是哪天做的"
+    negative: false
+    targets:
+      - activity: "2026-07-24"
+        contains: "42GB"
+
+  - id: temp-07
+    category: temporal
+    query: "七月各主线一期过渡方案落地情况的月度总结"
+    from: "2026-07-01"
+    to: "2026-07-31"
+    kind: "activities"
+    negative: false
+    targets:
+      - summary: "2026-07-01"
+        contains: "2026-07"
+
+  - id: temp-08
+    category: temporal
+    query: "八月下旬扩容双副本爆发缓存击穿与配置脏读事故的日期记录"
+    workstream: "my-app"
+    from: "2026-08-15"
+    to: "2026-08-25"
+    kind: "activities"
+    negative: false
+    targets:
+      - activity: "2026-08-19"
+        contains: "缓存击穿"
+
+  - id: temp-09
+    category: temporal
+    query: "八月整体完成的核心改造以及推动架构演进立项的月度总结"
+    kind: "activities"
+    negative: false
+    targets:
+      - summary: "2026-08-01"
+        contains: "2026-08"
+
+  - id: temp-10
+    category: temporal
+    query: "九月三条架构演进集中替换一期过渡方案的月汇总"
+    from: "2026-09-01"
+    to: "2026-09-30"
+    kind: "activities"
+    negative: false
+    targets:
+      - summary: "2026-09-01"
+        contains: "2026-09"
+
+  # --- multi-hop (6) ---
+  - id: mhop-01
+    category: multi-hop
+    query: "往外推送回调通知既怕业务库改成功了消息没发出去，又怕对端黑洞超时拖死工作线程，这两层怎么配合兜底"
+    negative: false
+    targets:
+      - page: "my-app/webhook-idempotency-outbox"
+      - page: "_topics/http-client-resilience"
+
+  - id: mhop-02
+    category: multi-hop
+    query: "服务打日志的统一字段格式、链路追踪透传以及防止调试日志把宿主机根分区写满是怎么配套规范的"
+    negative: false
+    targets:
+      - page: "_topics/structured-logging-convention"
+      - page: "ops-infra/container-compose-layout"
+
+  - id: mhop-03
+    category: multi-hop
+    query: "批处理既要兜住晚来几天的历史订单订正，又要能按指定日期切片安全回填不污染别的分区，整套机制怎么衔接"
+    negative: false
+    targets:
+      - page: "data-pipeline/cdc-late-arriving-events"
+      - page: "data-pipeline/dag-orchestrator-migration"
+
+  - id: mhop-04
+    category: multi-hop
+    query: "数据库层面既要靠连接复用扛住多副本短连接并发，又要防大表缺索引和外部排序把连接占满，两边各怎么配的"
+    negative: false
+    targets:
+      - page: "ops-infra/pgbouncer-pool-tuning"
+      - page: "ops-infra/postgres-slow-query"
+
+  - id: mhop-05
+    category: multi-hop
+    query: "桌面程序既要在本地做即时全文检索，又不能让磁盘写入或异步锁竞争把主窗口冻住，索引和线程隔离怎么配合的"
+    negative: false
+    targets:
+      - page: "desktop-tool/sqlite-fts-local-index"
+      - page: "desktop-tool/tauri-ipc-locking"
+
+  - id: mhop-06
+    category: multi-hop
+    query: "容器部署既要保证哪天重拉镜像也不会偷偷换版本漂移，又要规范数据卷挂载和内网隔离，是怎么定规矩的"
+    negative: false
+    targets:
+      - page: "ops-infra/container-image-pinning"
+      - page: "ops-infra/container-compose-layout"
+
+  # --- exact-code supplement (2) ---
+  - id: exact-07
+    category: exact-code
+    query: "PooledConnectionLifetime SocketsHttpHandler ConnectTimeout"
+    negative: false
+    targets:
+      - page: "_topics/http-client-resilience"
+        section: "连接池与超时分层"
+
+  - id: exact-08
+    category: exact-code
+    query: "pgbackrest archive-get recovery_target_time recovery.signal"
+    negative: false
+    targets:
+      - page: "ops-infra/postgres-pitr-wal-archive"
+        section: "时间点演练流程"
+
+  # --- paraphrase-zh supplement (2) ---
+  - id: para-08
+    category: paraphrase-zh
+    query: "极简 Linux 桌面没装钥匙串守护进程的时候，客户端存同步凭证会不会直接崩溃"
+    negative: false
+    targets:
+      - page: "desktop-tool/os-keychain-storage"
+        section: "兼容迁移与无头环境降级"
+
+  - id: para-09
+    category: paraphrase-zh
+    query: "为了防止容器重新拉镜像时悄悄换了底层版本，Compose 文件写镜像地址有什么硬性规矩"
+    negative: false
+    targets:
+      - page: "ops-infra/container-image-pinning"
+        section: "摘要锁定规则"
+
+  # --- bilingual supplement (2) ---
+  - id: bi-07
+    category: bilingual
+    query: "NDJSON structured logging mandatory fields trace_id and REDACTED sensitive field masking"
+    negative: false
+    targets:
+      - page: "_topics/structured-logging-convention"
+
+  - id: bi-08
+    category: bilingual
+    query: "PgBouncer transaction pooling max_prepared_statements and Npgsql No Reset On Close"
+    negative: false
+    targets:
+      - page: "ops-infra/pgbouncer-pool-tuning"
+        section: "预处理语句与驱动兼容"
+
+  # --- negative supplement (10) ---
+  - id: neg-08
+    category: negative
+    query: "ops-infra PostgreSQL 逻辑复制槽 WAL 膨胀与 pg_drop_replication_slot 清理"
+    negative: true
+    targets: []
+
+  - id: neg-09
+    category: negative
+    query: "my-app Redis Cluster 分片迁移与 Hash Slot 重平衡"
+    negative: true
+    targets: []
+
+  - id: neg-10
+    category: negative
+    query: "desktop-tool Electron BrowserWindow 预加载脚本 contextBridge 隔离"
+    negative: true
+    targets: []
+
+  - id: neg-11
+    category: negative
+    query: "data-pipeline Apache Iceberg 分区演化与 Time Travel 快照回滚"
+    negative: true
+    targets: []
+
+  - id: neg-12
+    category: negative
+    query: "my-app gRPC HTTP/2 Keepalive 超时与 Protobuf 向前兼容规范"
+    negative: true
+    targets: []
+
+  - id: neg-13
+    category: negative
+    query: "ops-infra WireGuard 内核模块 MTU 调优与端口转发"
+    negative: true
+    targets: []
+
+  - id: neg-14
+    category: negative
+    query: "desktop-tool macOS Universal Binary 胖二进制 lipo 打包流程"
+    negative: true
+    targets: []
+
+  - id: neg-15
+    category: negative
+    query: "data-pipeline ClickHouse ReplacingMergeTree 去重延迟排查"
+    negative: true
+    targets: []
+
+  - id: neg-16
+    category: negative
+    query: "ops-infra Prometheus Alertmanager 静默规则与 PagerDuty 升级策略"
+    negative: true
+    targets: []
+
+  - id: neg-17
+    category: negative
+    query: "my-app OAuth2 PKCE 第三方社交登录回调状态校验"
+    negative: true
+    targets: []
