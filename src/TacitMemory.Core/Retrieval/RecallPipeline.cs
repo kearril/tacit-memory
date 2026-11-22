@@ -214,8 +214,11 @@ internal sealed class RecallPipeline(
 
         if (scores is null)
         {
+            var rrfByUnit = keptEntries.ToDictionary(entry => entry.Hit, entry => entry.Rrf);
+            var workingRrf = new Dictionary<IndexHit, double>(rrfByUnit);
+            ApplyReplacementInheritance(kept, rrfByUnit, workingRrf, activeReplacements, floor: 0.0, factor: 0.95);
             foreach (var entry in keptEntries)
-                finalScoreOf[entry.Hit] = entry.Rrf * AdjustmentMultiplier(entry.Hit, pageInfos, generalSearch, currentDay);
+                finalScoreOf[entry.Hit] = workingRrf[entry.Hit] * AdjustmentMultiplier(entry.Hit, pageInfos, generalSearch, currentDay);
             passedUnits = kept.OrderByDescending(unit => finalScoreOf[unit]).ToList();
         }
         else
@@ -227,7 +230,7 @@ internal sealed class RecallPipeline(
                 workingScoreOf[kept[i]] = scores[i];
             }
 
-            ApplyReplacementInheritance(kept, rawScoreOf, workingScoreOf, activeReplacements, floor);
+            ApplyReplacementInheritance(kept, rawScoreOf, workingScoreOf, activeReplacements, floor, ReplacementInheritanceFactor);
 
             foreach (var unit in kept)
                 finalScoreOf[unit] = workingScoreOf[unit] * AdjustmentMultiplier(unit, pageInfos, generalSearch, currentDay);
@@ -419,8 +422,14 @@ internal sealed class RecallPipeline(
             }
         }
 
-        // 2. Bounded 1-hop related neighbor expansion (clue + first matching section per neighbor).
-        var relatedPages = index.RelatedNeighborsOf(seedPages);
+        // 2. Bounded 1-hop related neighbor expansion (only pages not already present in the candidate pool).
+        var keptPages = kept
+            .Where(entry => !IsActivityUnit(entry.Hit))
+            .Select(entry => entry.Hit.Source)
+            .ToHashSet(StringComparer.Ordinal);
+        var relatedPages = index.RelatedNeighborsOf(seedPages)
+            .Where(neighbor => !keptPages.Contains(neighbor))
+            .ToList();
         if (relatedPages.Count > 0)
         {
             var minDirectRrf = kept.Min(entry => entry.Rrf);
@@ -465,10 +474,11 @@ internal sealed class RecallPipeline(
     /// </summary>
     private static void ApplyReplacementInheritance(
         List<IndexHit> kept,
-        Dictionary<IndexHit, double> rawScoreOf,
+        Dictionary<IndexHit, double> baseScoreOf,
         Dictionary<IndexHit, double> workingScoreOf,
         IReadOnlyDictionary<string, IReadOnlyList<string>> activeReplacements,
-        double floor)
+        double floor,
+        double factor)
     {
         if (activeReplacements.Count == 0)
             return;
@@ -479,7 +489,7 @@ internal sealed class RecallPipeline(
         {
             if (IsActivityUnit(unit))
                 continue;
-            var raw = rawScoreOf[unit];
+            var raw = baseScoreOf[unit];
             if (!bestRawByPage.TryGetValue(unit.Source, out var currentBest) || raw > currentBest)
             {
                 bestRawByPage[unit.Source] = raw;
@@ -491,7 +501,7 @@ internal sealed class RecallPipeline(
         {
             if (!bestRawByPage.TryGetValue(oldPage, out var scoreA) || scoreA < floor)
                 continue;
-            var inherited = scoreA * ReplacementInheritanceFactor;
+            var inherited = scoreA * factor;
             foreach (var replacement in replacements)
             {
                 if (bestUnitByPage.TryGetValue(replacement, out var bestUnit) && inherited > workingScoreOf[bestUnit])
@@ -572,7 +582,8 @@ internal sealed class RecallPipeline(
             for (var i = 0; i < readable.Count; i++)
             {
                 var item = readable[i];
-                if (rerankerAnswered && i > 0 && item.Group.Score < relativeThreshold)
+                // Only apply multiplicative relative cutoff on positive scores so negative-logit rerankers do not invert the threshold.
+                if (rerankerAnswered && bestScore > 0 && i > 0 && item.Group.Score < relativeThreshold)
                 {
                     belowRelative.UnionWith(item.Group.Units);
                     continue;
@@ -694,7 +705,13 @@ internal sealed class RecallPipeline(
             if (neighbor.Overturned)
                 meta.Add("overturned");
             var suffix = meta.Count == 0 ? "" : $" ({string.Join(", ", meta)})";
-            entries.Add($"{neighbor.Direction} {neighbor.Page}{suffix}");
+            var directionLabel = neighbor.Direction switch
+            {
+                PageLinkDirection.SupersededBy => "superseded by",
+                PageLinkDirection.Supersedes => "supersedes",
+                _ => "related",
+            };
+            entries.Add($"{directionLabel} {neighbor.Page}{suffix}");
             if (entries.Count == MaxLinkHints)
                 break;
         }

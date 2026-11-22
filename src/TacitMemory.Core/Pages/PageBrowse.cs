@@ -61,12 +61,8 @@ internal static class PageBrowse
         var changes = index.SectionChanges(id);
         var returns = index.SectionReturns(id);
         var uses = index.PageUsages().FirstOrDefault(row => row.Page == id.ToString())?.Count ?? 0;
-        var related = header.Related
-            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(MemoryLayout.Full(config.MemoryPath, target.RelativePath))))
-            .ToList();
-        var supersedes = header.Supersedes
-            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(MemoryLayout.Full(config.MemoryPath, target.RelativePath))))
-            .ToList();
+        var related = ResolveLinks(config.MemoryPath, header.Related);
+        var supersedes = ResolveLinks(config.MemoryPath, header.Supersedes);
         var supersededBy = index.SupersededBy(id.ToString())
             .Select(entry => new RelatedPage(entry, true))
             .ToList();
@@ -93,6 +89,11 @@ internal static class PageBrowse
             .OfType<PageId>()
             .OrderBy(id => id.ToString(), StringComparer.Ordinal);
     }
+
+    private static List<RelatedPage> ResolveLinks(string memoryPath, IReadOnlyList<string> entries) =>
+        entries
+            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(MemoryLayout.Full(memoryPath, target.RelativePath))))
+            .ToList();
 
     private static string? Day(DateOnly? day) => day?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }

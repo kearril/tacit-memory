@@ -706,7 +706,7 @@ export const en = {
       },
       graphOrigins: { supersedes: "Supersedes", related: "Related" },
       overturned: "Overturned",
-      supersededBy: (pages) => `Superseded by ${pages}`,
+      supersededBy: "Superseded by:",
       shownSummary: (units, results) => `${units} units → ${results} results`,
       unitCount: (count) => (count === 1 ? "1 unit" : `${count} units`),
       notReranked: "not sent to the reranker",

@@ -711,7 +711,7 @@ export const zh = {
       },
       graphOrigins: { supersedes: "替代追踪", related: "关联扩展" },
       overturned: "已推翻",
-      supersededBy: (pages: string) => `已被 ${pages} 取代`,
+      supersededBy: "已被取代：",
       shownSummary: (units: number, results: number) => `${units} 个单元 → ${results} 条结果`,
       unitCount: (count: number) => `${count} 个单元`,
       notReranked: "未送 reranker",

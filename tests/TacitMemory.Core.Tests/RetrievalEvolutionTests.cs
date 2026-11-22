@@ -259,4 +259,72 @@ public sealed class RetrievalEvolutionTests : IDisposable
         Assert.Equal("my-app/old-auth", trace.Results[1].Page);
         Assert.DoesNotContain(trace.Units, u => u.Fate is UnitFate.BelowThreshold or UnitFate.BelowRelativeFloor);
     }
+
+    [Fact]
+    public async Task Graph_expansion_respects_date_range_and_kind_filters_and_skips_pages_already_in_candidates()
+    {
+        await CreatePage("my-app/old-plan", ToolValues.PageTypes.Decision, "早期计划",
+            sections: [("决定", "早期采用单机批处理脚本。")]);
+        await CreatePage("my-app/already-matched", ToolValues.PageTypes.Work, "关联已命中页",
+            related: ["my-app/old-plan"],
+            sections: [("产出", "单机批处理脚本的压测指标。"), ("补充", "额外压测说明。")]);
+
+        GoTo(_day.AddDays(30));
+        await CreatePage("my-app/new-plan", ToolValues.PageTypes.Decision, "新版编排计划",
+            supersedes: ["my-app/old-plan"],
+            related: ["my-app/old-plan"],
+            sections: [("决定", "改用新版编排引擎。")]);
+
+        _models.EmbeddingDown = true;
+        _models.Score = (_, _) => 0.85;
+
+        // Date filter ending before new-plan was created must prevent supersedes expansion from leaking new-plan.
+        var earlyOnly = await Service.Browse.TraceRecallAsync(new RecallTraceRequest(
+            "单机批处理脚本",
+            To: TestHome.Today.AddDays(10).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
+        Assert.DoesNotContain(earlyOnly.Units, u => u.Source == "my-app/new-plan");
+
+        // already-matched is already present in the direct candidate pool, so related expansion must not re-inject its other units.
+        Assert.DoesNotContain(earlyOnly.Units, u => u.Source == "my-app/already-matched" && u.GraphOrigin == GraphOrigin.Related);
+
+        // kind=activities disables page graph expansion completely.
+        await WriteActivity("单机批处理脚本调整了日志级别。", workstream: "my-app");
+        var activitiesOnly = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("单机批处理脚本", Kind: ToolValues.RecallKinds.Activities));
+        Assert.All(activitiesOnly.Units, u => Assert.Equal(GraphOrigin.None, u.GraphOrigin));
+    }
+
+    [Fact]
+    public async Task Degraded_mode_still_promotes_active_replacement_already_present_with_weaker_rrf()
+    {
+        await CreatePage("my-app/legacy-queue", ToolValues.PageTypes.Decision, "旧队列轮询",
+            sections: [("决定", "旧队列轮询机制每五秒扫描队列任务表。")]);
+        await CreatePage("my-app/event-queue", ToolValues.PageTypes.Decision, "事件驱动队列",
+            supersedes: ["my-app/legacy-queue"],
+            sections: [("决定", "采用通道推送替代轮询。")]);
+
+        _models.EmbeddingDown = true;
+        _models.RerankDown = true;
+
+        // Query hits legacy-queue strongly and event-queue weakly (both already in direct candidates).
+        var trace = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("旧队列轮询 轮询"));
+
+        Assert.Equal("my-app/event-queue", trace.Results[0].Page);
+        Assert.Equal("my-app/legacy-queue", trace.Results[1].Page);
+    }
+
+    [Fact]
+    public async Task Zero_score_top_result_with_zero_floor_does_not_drop_tied_matches_via_relative_cutoff()
+    {
+        await CreatePage("my-app/first", ToolValues.PageTypes.Decision, "零分重排甲",
+            sections: [("决定", "零分重排测试甲。")]);
+        await CreatePage("my-app/second", ToolValues.PageTypes.Decision, "零分重排乙",
+            sections: [("决定", "零分重排测试乙。")]);
+
+        _models.Score = (_, _) => 0.0;
+
+        var trace = await Service.Browse.TraceRecallAsync(new RecallTraceRequest("零分重排", MinRerankScore: 0.0));
+
+        Assert.Equal(2, trace.Results.Count);
+        Assert.DoesNotContain(trace.Units, u => u.Fate == UnitFate.BelowRelativeFloor);
+    }
 }

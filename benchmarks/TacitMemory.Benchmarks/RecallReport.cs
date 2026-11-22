@@ -46,7 +46,9 @@ internal sealed record StageFunnel(
     int MissedBeyondCandidates,
     int MissedBelowThreshold,
     int MissedBeyondTopK,
-    int MissedUnreadable);
+    int MissedUnreadable,
+    int MissedBelowRelativeFloor = 0,
+    int MissedBeyondActivityCap = 0);
 
 internal sealed record ResultScoreSummary(
     int Rank,
@@ -57,7 +59,9 @@ internal sealed record ResultScoreSummary(
     double? CosineSimilarity,
     int? FullTextRank,
     int? VectorRank,
-    double? Rrf);
+    double? Rrf,
+    double? FinalScore = null,
+    string? GraphOrigin = null);
 
 internal sealed record QueryOutcome(
     string Id,
@@ -175,26 +179,26 @@ internal static class RecallEvaluation
         foreach (var result in trace.Results.Take(5))
         {
             unitsByResult.TryGetValue(result.Number, out var units);
-            var bestRerank = units?.Where(u => u.RerankScore is not null).Select(u => u.RerankScore!.Value).DefaultIfEmpty().Max();
-            var hasRerank = units?.Any(u => u.RerankScore is not null) == true;
-            var bestDist = units?.Where(u => u.Distance is not null).Select(u => u.Distance!.Value).DefaultIfEmpty().Min();
-            var hasDist = units?.Any(u => u.Distance is not null) == true;
-            var bestFt = units?.Where(u => u.FullTextRank is not null).Select(u => u.FullTextRank!.Value).DefaultIfEmpty().Min();
-            var hasFt = units?.Any(u => u.FullTextRank is not null) == true;
-            var bestVec = units?.Where(u => u.VectorRank is not null).Select(u => u.VectorRank!.Value).DefaultIfEmpty().Min();
-            var hasVec = units?.Any(u => u.VectorRank is not null) == true;
+            var bestRerank = units?.Max(u => u.RerankScore);
+            var bestFinal = units?.Max(u => u.FinalScore);
+            var bestDist = units?.Min(u => u.Distance);
+            var bestFt = units?.Min(u => u.FullTextRank);
+            var bestVec = units?.Min(u => u.VectorRank);
             var bestRrf = units?.Max(u => u.Rrf);
+            var origin = units?.Select(u => u.GraphOrigin).FirstOrDefault(o => o != GraphOrigin.None);
             var isTarget = !query.Negative && query.Targets.Any(target => target.MatchesResult(result));
             summaries.Add(new ResultScoreSummary(
                 result.Number,
                 DescribeResult(result),
                 result.Kind,
                 isTarget,
-                hasRerank ? bestRerank : null,
-                hasDist ? 1.0 - bestDist : null,
-                hasFt ? bestFt : null,
-                hasVec ? bestVec : null,
-                bestRrf));
+                bestRerank,
+                bestDist is { } d ? 1.0 - d : null,
+                bestFt,
+                bestVec,
+                bestRrf,
+                bestFinal,
+                origin is { } g && g != GraphOrigin.None ? g.ToString().ToLowerInvariant() : null));
         }
 
         return summaries;
@@ -232,7 +236,9 @@ internal static class RecallEvaluation
             MissedBeyondCandidates: positives.Count(outcome => outcome.MissFate == FateBeyondCandidates),
             MissedBelowThreshold: positives.Count(outcome => outcome.MissFate == FateBelowThreshold),
             MissedBeyondTopK: positives.Count(outcome => outcome.MissFate == FateBeyondTopK),
-            MissedUnreadable: positives.Count(outcome => outcome.MissFate == FateUnreadable));
+            MissedUnreadable: positives.Count(outcome => outcome.MissFate == FateUnreadable),
+            MissedBelowRelativeFloor: positives.Count(outcome => outcome.MissFate == FateBelowRelativeFloor),
+            MissedBeyondActivityCap: positives.Count(outcome => outcome.MissFate == FateBeyondActivityCap));
 
         var categories = outcomes
             .GroupBy(outcome => outcome.Category, StringComparer.Ordinal)
@@ -279,7 +285,7 @@ internal static class RecallEvaluation
         output.WriteLine();
         output.WriteLine("=== Stage Funnel (Positive Queries) ===");
         output.WriteLine($"FullText: {f.FullTextHits}/{f.PositiveCount} | Vector: {f.VectorHits}/{f.PositiveCount} | Fused: {f.FusedHits}/{f.PositiveCount} | Shown: {f.RerankedHits}/{f.PositiveCount}");
-        output.WriteLine($"Misses:   not_recalled={f.MissedNotRecalled} | beyond_candidates={f.MissedBeyondCandidates} | below_threshold={f.MissedBelowThreshold} | beyond_top_k={f.MissedBeyondTopK} | unreadable={f.MissedUnreadable}");
+        output.WriteLine($"Misses:   not_recalled={f.MissedNotRecalled} | beyond_candidates={f.MissedBeyondCandidates} | below_threshold={f.MissedBelowThreshold} | below_relative={f.MissedBelowRelativeFloor} | activity_cap={f.MissedBeyondActivityCap} | beyond_top_k={f.MissedBeyondTopK} | unreadable={f.MissedUnreadable}");
 
         output.WriteLine();
         output.WriteLine("=== By Category ===");

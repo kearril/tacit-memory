@@ -81,9 +81,16 @@ internal sealed record PageGraphInfo(string Page, string? PageType, bool HasOver
     public bool Overturned => HasOverturned || SupersededBy.Count > 0;
 }
 
+/// <summary>The relationship direction of a direct page neighbor shown in the <c>Links:</c> footer.</summary>
+internal enum PageLinkDirection
+{
+    SupersededBy,
+    Supersedes,
+    Related,
+}
+
 /// <summary>A direct neighbor of a detail page for the <c>Links:</c> footer.</summary>
-/// <param name="Direction"><c>superseded by</c>, <c>supersedes</c>, or <c>related</c>.</param>
-internal sealed record PageNeighbor(string Page, string Direction, string? PageType, bool Overturned);
+internal sealed record PageNeighbor(string Page, PageLinkDirection Direction, string? PageType, bool Overturned);
 
 /// <summary>The kinds of source the index holds.</summary>
 internal static class SourceKinds
@@ -355,15 +362,22 @@ internal sealed class MemoryIndex : IDisposable
         lock (_gate)
         {
             var list = pages.Distinct(StringComparer.Ordinal).ToList();
-            var rows = _connection.Query<(string Id, string? PageType, long HasOverturned)>(
-                "SELECT id AS Id, page_type AS PageType, has_overturned AS HasOverturned FROM sources WHERE kind = @sourceKind AND id IN @ids",
-                new { sourceKind = SourceKinds.Page, ids = list }).ToList();
-            var incoming = _connection.Query<(string ToPage, string FromPage)>(
-                "SELECT l.to_page AS ToPage, l.from_page AS FromPage FROM page_links l JOIN sources s ON s.id = l.from_page "
-                + "WHERE l.kind = @kind AND s.kind = @sourceKind AND l.to_page IN @ids ORDER BY l.from_page",
-                new { kind = PageLinkKinds.Supersedes, sourceKind = SourceKinds.Page, ids = list })
+            var rows = QueryInChunks<(string Id, string? PageType, long HasOverturned)>(
+                list,
+                chunk => _connection.Query<(string Id, string? PageType, long HasOverturned)>(
+                    "SELECT id AS Id, page_type AS PageType, has_overturned AS HasOverturned FROM sources WHERE kind = @sourceKind AND id IN @ids",
+                    new { sourceKind = SourceKinds.Page, ids = chunk }));
+            var incoming = QueryInChunks<(string ToPage, string FromPage)>(
+                list,
+                chunk => _connection.Query<(string ToPage, string FromPage)>(
+                    "SELECT l.to_page AS ToPage, l.from_page AS FromPage FROM page_links l JOIN sources s ON s.id = l.from_page "
+                    + "WHERE l.kind = @kind AND s.kind = @sourceKind AND l.to_page IN @ids ORDER BY l.from_page",
+                    new { kind = PageLinkKinds.Supersedes, sourceKind = SourceKinds.Page, ids = chunk }))
                 .GroupBy(row => row.ToPage, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)group.Select(row => row.FromPage).ToList(), StringComparer.Ordinal);
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<string>)group.Select(row => row.FromPage).Order(StringComparer.Ordinal).ToList(),
+                    StringComparer.Ordinal);
 
             var result = new Dictionary<string, PageGraphInfo>(rows.Count, StringComparer.Ordinal);
             foreach (var row in rows)
@@ -451,12 +465,14 @@ internal sealed class MemoryIndex : IDisposable
         {
             var seeds = seedPages.Distinct(StringComparer.Ordinal).ToList();
             var seedSet = seeds.ToHashSet(StringComparer.Ordinal);
-            var edges = _connection.Query<(string FromPage, string ToPage)>(
-                "SELECT l.from_page AS FromPage, l.to_page AS ToPage FROM page_links l "
-                + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
-                + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
-                + "WHERE l.kind = @kind AND (l.from_page IN @seeds OR l.to_page IN @seeds)",
-                new { sourceKind = SourceKinds.Page, kind = PageLinkKinds.Related, seeds }).ToList();
+            var edges = QueryInChunks<(string FromPage, string ToPage)>(
+                seeds,
+                chunk => _connection.Query<(string FromPage, string ToPage)>(
+                    "SELECT l.from_page AS FromPage, l.to_page AS ToPage FROM page_links l "
+                    + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
+                    + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
+                    + "WHERE l.kind = @kind AND (l.from_page IN @seeds OR l.to_page IN @seeds)",
+                    new { sourceKind = SourceKinds.Page, kind = PageLinkKinds.Related, seeds = chunk }));
             if (edges.Count == 0)
                 return [];
 
@@ -493,8 +509,9 @@ internal sealed class MemoryIndex : IDisposable
     }
 
     /// <summary>
-    /// Direct existing neighbors of each page in <paramref name="pages"/>, prioritized as <c>superseded by</c>,
-    /// <c>supersedes</c>, then bidirectional <c>related</c>, with each neighbor's page type and effective overturned status.
+    /// Direct existing neighbors of each page in <paramref name="pages"/>, prioritized as <see cref="PageLinkDirection.SupersededBy"/>,
+    /// <see cref="PageLinkDirection.Supersedes"/>, then bidirectional <see cref="PageLinkDirection.Related"/>, with each
+    /// neighbor's page type and effective overturned status.
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<PageNeighbor>> DirectLinksOf(IReadOnlyCollection<string> pages)
     {
@@ -503,12 +520,14 @@ internal sealed class MemoryIndex : IDisposable
         lock (_gate)
         {
             var list = pages.Distinct(StringComparer.Ordinal).ToList();
-            var edges = _connection.Query<(string FromPage, string ToPage, string Kind)>(
-                "SELECT l.from_page AS FromPage, l.to_page AS ToPage, l.kind AS Kind FROM page_links l "
-                + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
-                + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
-                + "WHERE l.from_page IN @ids OR l.to_page IN @ids",
-                new { sourceKind = SourceKinds.Page, ids = list }).ToList();
+            var edges = QueryInChunks<(string FromPage, string ToPage, string Kind)>(
+                list,
+                chunk => _connection.Query<(string FromPage, string ToPage, string Kind)>(
+                    "SELECT l.from_page AS FromPage, l.to_page AS ToPage, l.kind AS Kind FROM page_links l "
+                    + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
+                    + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
+                    + "WHERE l.from_page IN @ids OR l.to_page IN @ids",
+                    new { sourceKind = SourceKinds.Page, ids = chunk }));
             if (edges.Count == 0)
                 return new Dictionary<string, IReadOnlyList<PageNeighbor>>(StringComparer.Ordinal);
 
@@ -564,7 +583,7 @@ internal sealed class MemoryIndex : IDisposable
 
                 var neighbors = new List<PageNeighbor>();
                 var seen = new HashSet<string>(StringComparer.Ordinal) { page };
-                void Append(List<string> targets, string direction)
+                void Append(List<string> targets, PageLinkDirection direction)
                 {
                     foreach (var target in targets)
                     {
@@ -575,9 +594,9 @@ internal sealed class MemoryIndex : IDisposable
                     }
                 }
 
-                Append(bucket.SupersededBy, "superseded by");
-                Append(bucket.Supersedes, "supersedes");
-                Append(bucket.Related, "related");
+                Append(bucket.SupersededBy, PageLinkDirection.SupersededBy);
+                Append(bucket.Supersedes, PageLinkDirection.Supersedes);
+                Append(bucket.Related, PageLinkDirection.Related);
                 if (neighbors.Count > 0)
                     result[page] = neighbors;
             }
@@ -593,14 +612,34 @@ internal sealed class MemoryIndex : IDisposable
             return [];
         lock (_gate)
         {
-            var rows = _connection.Query<ScoredRow>($"""
-                SELECT {HitColumns}, 0.0 AS Score
-                FROM units u
-                WHERE u.source_id IN @pages AND {Filters}
-                ORDER BY u.source_id, u.ordinal
-                """, Parameters(filter, 0, new { pages = pages.Distinct(StringComparer.Ordinal).ToList() }));
+            var distinct = pages.Distinct(StringComparer.Ordinal).ToList();
+            var rows = QueryInChunks<ScoredRow>(
+                distinct,
+                chunk => _connection.Query<ScoredRow>($"""
+                    SELECT {HitColumns}, 0.0 AS Score
+                    FROM units u
+                    WHERE u.source_id IN @pages AND {Filters}
+                    ORDER BY u.source_id, u.ordinal
+                    """, Parameters(filter, 0, new { pages = chunk })));
             return rows.Select(row => row.ToHit().Hit).ToList();
         }
+    }
+
+    /// <summary>Runs a query over bounded chunks of string keys so SQLite's parameter limit is never exceeded even when a query binds the chunk twice.</summary>
+    private static List<TRow> QueryInChunks<TRow>(List<string> keys, Func<IReadOnlyList<string>, IEnumerable<TRow>> query)
+    {
+        const int chunkSize = 400;
+        if (keys.Count <= chunkSize)
+            return query(keys).ToList();
+
+        var results = new List<TRow>();
+        for (var offset = 0; offset < keys.Count; offset += chunkSize)
+        {
+            var count = Math.Min(chunkSize, keys.Count - offset);
+            results.AddRange(query(keys.GetRange(offset, count)));
+        }
+
+        return results;
     }
 
     /// <summary>Whether the index has any page in the same workstream as <paramref name="except"/> other than <paramref name="except"/> itself.</summary>

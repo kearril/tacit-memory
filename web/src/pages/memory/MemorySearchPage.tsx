@@ -49,19 +49,22 @@ import { scrollBehavior } from "../../lib/motion";
 import { sectionLabel } from "./pages";
 import { CodePill, PageTypeBadge, WorkstreamPill } from "./parts";
 import { requestOf } from "./search";
-import { scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
+import { graphOriginLabel, optionalScoreText, scoreText, type Segment, type SegmentFate, segmentsOf } from "./trace";
 import { activityPathOf, pagePathOf, type SearchFields, searchFieldsOf, searchParamsOf } from "../../lib/routes";
 
-/** Each fate's icon and colour: the label beside it says the fate, so the colour is never the only sign. */
+/** Each fate's icon, colour and fold behaviour: the label beside it says the fate, so colour is never the only sign. */
 const FATE_STYLES: Readonly<
-  Record<SegmentFate, { readonly icon: LucideIcon; readonly text: string; readonly bar: string }>
+  Record<
+    SegmentFate,
+    { readonly icon: LucideIcon; readonly text: string; readonly bar: string; readonly foldable: boolean }
+  >
 > = {
-  shown: { icon: CircleCheck, text: "text-success", bar: "bg-success" },
-  beyondTopK: { icon: SkipForward, text: "text-warning", bar: "bg-warning" },
-  belowRelativeFloor: { icon: TrendingDown, text: "text-warning", bar: "bg-heat-4" },
-  beyondActivityCap: { icon: Layers, text: "text-info", bar: "bg-info" },
-  belowThreshold: { icon: CircleSlash, text: "text-ink-muted", bar: "bg-heat-3" },
-  beyondCandidates: { icon: Ban, text: "text-ink-muted", bar: "bg-heat-1" },
+  shown: { icon: CircleCheck, text: "text-success", bar: "bg-success", foldable: false },
+  beyondTopK: { icon: SkipForward, text: "text-warning", bar: "bg-warning", foldable: false },
+  belowRelativeFloor: { icon: TrendingDown, text: "text-warning", bar: "bg-warning", foldable: true },
+  beyondActivityCap: { icon: Layers, text: "text-info", bar: "bg-info", foldable: true },
+  belowThreshold: { icon: CircleSlash, text: "text-ink-muted", bar: "bg-heat-3", foldable: true },
+  beyondCandidates: { icon: Ban, text: "text-ink-muted", bar: "bg-heat-1", foldable: true },
 };
 
 /** How many units the two long segments show before the rest is unfolded. */
@@ -711,7 +714,18 @@ function ResultItem({
           </Link>
           {result.supersededBy !== null && result.supersededBy !== undefined && result.supersededBy.length > 0 ? (
             <p className="flex flex-wrap items-center gap-xs text-xs text-warning">
-              <span>{text.supersededBy(result.supersededBy.join(", "))}</span>
+              <span>{text.supersededBy}</span>
+              {result.supersededBy.map((target, index) => (
+                <span key={target} className="inline-flex items-center gap-xs">
+                  {index > 0 ? <span aria-hidden>,</span> : null}
+                  <Link
+                    to={pagePathOf(target)}
+                    className="font-mono underline-offset-2 outline-none hover:underline focus-visible:underline"
+                  >
+                    {target}
+                  </Link>
+                </span>
+              ))}
             </p>
           ) : null}
           {result.sections.length === 0 ? null : (
@@ -795,12 +809,7 @@ function SegmentBlock({
   const text = useDictionary().memory.search;
   const [unfolded, setUnfolded] = useState(false);
   const style = FATE_STYLES[segment.fate];
-  const foldable =
-    segment.fate === "belowRelativeFloor" ||
-    segment.fate === "beyondActivityCap" ||
-    segment.fate === "belowThreshold" ||
-    segment.fate === "beyondCandidates";
-  const hidden = foldable && !unfolded ? Math.max(0, segment.units.length - FOLDED_UNITS) : 0;
+  const hidden = style.foldable && !unfolded ? Math.max(0, segment.units.length - FOLDED_UNITS) : 0;
   const listed = hidden > 0 ? segment.units.slice(0, FOLDED_UNITS) : segment.units;
   const percent = Math.round(segment.share * 100);
   const title = fateTitleOf(segment, report, text);
@@ -865,12 +874,7 @@ function UnitRow({
   const text = useDictionary().memory.search;
   const [main, sub] = unitLabelOf(unit, text.unitKinds);
   const number = (value: number | null) => (value === null ? "—" : String(value));
-  const originLabel =
-    unit.graphOrigin === "supersedes"
-      ? text.graphOrigins.supersedes
-      : unit.graphOrigin === "related"
-        ? text.graphOrigins.related
-        : null;
+  const originLabel = graphOriginLabel(unit.graphOrigin, text.graphOrigins);
   return (
     <li
       title={unit.text}
@@ -903,10 +907,10 @@ function UnitRow({
       <span className="text-right font-mono text-xs text-ink-muted tabular-nums">{number(unit.fullTextRank)}</span>
       <span className="text-right font-mono text-xs text-ink-muted tabular-nums">{number(unit.vectorRank)}</span>
       <span className="text-right font-mono text-xs text-ink-muted tabular-nums">
-        {unit.rerankScore === null ? "—" : scoreText(unit.rerankScore)}
+        {optionalScoreText(unit.rerankScore)}
       </span>
       <span className="text-right font-mono text-xs font-medium tabular-nums">
-        {unit.finalScore === null || unit.finalScore === undefined ? "—" : scoreText(unit.finalScore)}
+        {optionalScoreText(unit.finalScore)}
       </span>
     </li>
   );

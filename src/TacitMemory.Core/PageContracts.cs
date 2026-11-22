@@ -88,7 +88,7 @@ public sealed record PageView(
     IReadOnlyList<RelatedPage> SupersededBy,
     bool Overturned);
 
-/// <summary>A page the header's <c>related</c> lists, and whether it exists.</summary>
+/// <summary>A linked page ID (used by <c>related</c>, <c>supersedes</c>, and <c>supersededBy</c>) and whether it exists.</summary>
 public sealed record RelatedPage(string Id, bool Exists);
 
 /// <summary>A section of a page.</summary>

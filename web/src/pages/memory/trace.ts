@@ -1,4 +1,4 @@
-import type { TraceUnit, UnitFate } from "../../api/memory";
+import type { GraphOrigin, TraceUnit, UnitFate } from "../../api/memory";
 
 /** The fates a trace view lists, in the order the pipeline decides them. */
 export const SEGMENT_FATES = [
@@ -37,4 +37,24 @@ function segmentOf(fate: UnitFate): SegmentFate {
 /** A score in two significant digits, as small scores need: 0.91, 0.041, 0.0012; below 0.001 in exponent form, 6.6e-5. */
 export function scoreText(score: number): string {
   return score !== 0 && Math.abs(score) < 0.001 ? score.toExponential(1) : String(Number(score.toPrecision(2)));
+}
+
+/** Formats an optional score (such as `rerankScore` or `finalScore`) for a table cell, returning an em dash when absent. */
+export function optionalScoreText(score: number | null | undefined): string {
+  return score === null || score === undefined ? "—" : scoreText(score);
+}
+
+/** Label for a non-direct graph-expansion origin, or `null` when the unit matched directly. */
+export function graphOriginLabel(
+  origin: GraphOrigin | undefined,
+  labels: { readonly supersedes: string; readonly related: string },
+): string | null {
+  switch (origin) {
+    case "supersedes":
+      return labels.supersedes;
+    case "related":
+      return labels.related;
+    default:
+      return null;
+  }
 }

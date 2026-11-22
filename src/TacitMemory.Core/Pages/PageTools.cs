@@ -379,42 +379,30 @@ internal sealed class PageTools(
         return sections;
     }
 
-    private List<string> CheckRelated(PageId self, IReadOnlyList<string> raw, List<string> problems)
+    private List<string> CheckRelated(PageId self, IReadOnlyList<string> raw, List<string> problems) =>
+        CheckPageLinks(self, raw, "related", checkCycles: false, problems);
+
+    private List<string> CheckSupersedes(PageId self, IReadOnlyList<string> raw, List<string> problems) =>
+        CheckPageLinks(self, raw, "supersedes", checkCycles: true, problems);
+
+    private List<string> CheckPageLinks(PageId self, IReadOnlyList<string> raw, string field, bool checkCycles, List<string> problems)
     {
-        var related = new List<string>();
+        var validated = new List<string>();
         foreach (var item in raw.Select(item => item.Trim()).Where(item => item.Length > 0))
         {
             if (!PageId.TryParse(item, out var id, out var problem))
-                problems.Add($"related: {problem}");
+                problems.Add($"{field}: {problem}");
             else if (id == self)
-                problems.Add($"related: {id} is this page itself.");
+                problems.Add($"{field}: {id} is this page itself.");
             else if (!File.Exists(PathOf(id)))
-                problems.Add($"related: page {id} does not exist.");
-            else if (!related.Contains(id.ToString()))
-                related.Add(id.ToString());
+                problems.Add($"{field}: page {id} does not exist.");
+            else if (checkCycles && PageDocument.CreatesSupersedesCycle(config.MemoryPath, self, id))
+                problems.Add($"{field}: adding {id} creates a supersedes cycle back to {self}.");
+            else if (!validated.Contains(id.ToString()))
+                validated.Add(id.ToString());
         }
 
-        return related;
-    }
-
-    private List<string> CheckSupersedes(PageId self, IReadOnlyList<string> raw, List<string> problems)
-    {
-        var supersedes = new List<string>();
-        foreach (var item in raw.Select(item => item.Trim()).Where(item => item.Length > 0))
-        {
-            if (!PageId.TryParse(item, out var id, out var problem))
-                problems.Add($"supersedes: {problem}");
-            else if (id == self)
-                problems.Add($"supersedes: {id} is this page itself.");
-            else if (!File.Exists(PathOf(id)))
-                problems.Add($"supersedes: page {id} does not exist.");
-            else if (PageDocument.CreatesSupersedesCycle(config.MemoryPath, self, id))
-                problems.Add($"supersedes: adding {id} creates a supersedes cycle back to {self}.");
-            else if (!supersedes.Contains(id.ToString()))
-                supersedes.Add(id.ToString());
-        }
-
-        return supersedes;
+        return validated;
     }
 
     /// <summary>The page, or the refusal to give when it is missing or not UTF-8.</summary>

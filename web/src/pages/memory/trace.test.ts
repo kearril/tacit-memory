@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TraceUnit, UnitFate } from "../../api/memory";
-import { scoreText, segmentsOf } from "./trace";
+import { graphOriginLabel, optionalScoreText, scoreText, segmentsOf } from "./trace";
 
 function unit(fate: UnitFate, fusedRank: number): TraceUnit {
   return {
@@ -87,5 +87,24 @@ describe("scoreText", () => {
       "1",
       "0",
     ]);
+  });
+});
+
+describe("optionalScoreText", () => {
+  it("renders an em dash for missing scores and delegates numbers to scoreText", () => {
+    expect(optionalScoreText(null)).toBe("—");
+    expect(optionalScoreText(undefined)).toBe("—");
+    expect(optionalScoreText(0.765)).toBe("0.77");
+  });
+});
+
+describe("graphOriginLabel", () => {
+  const labels = { supersedes: "替代追踪", related: "关联扩展" };
+
+  it("maps graph origins to badges and hides direct matches", () => {
+    expect(graphOriginLabel("supersedes", labels)).toBe("替代追踪");
+    expect(graphOriginLabel("related", labels)).toBe("关联扩展");
+    expect(graphOriginLabel("none", labels)).toBeNull();
+    expect(graphOriginLabel(undefined, labels)).toBeNull();
   });
 });
