@@ -6,6 +6,22 @@ Format: each release has a `## <version> - <date>` heading (without the `v` pref
 
 ## Unreleased
 
+## 1.1.0 - 2026-11-22
+
+- **Explicit page evolution (`supersedes`) and 1-hop graph recall**: Detail pages now support an optional `supersedes` header field via `write_page` (`create` / `update_header`) with cycle checks and consolidation format validation. Superseded pages are automatically treated as overturned in retrieval and workstream briefs, and `recall` performs bounded 1-hop expansion along `supersedes` and `related` links while surfacing status headers (`overturned -> <replacement>`) and concise `Links:` hints.
+- **Better ranking for current decisions and detail pages**: Active replacements rank ahead of overturned decisions (even on legacy-phrased queries) without hiding historical rationale when queried directly. General searches prioritize detail pages over older single-line activities with gentle recency decay on activities only; explicit `kind=activities` searches remain unaffected.
+- **Two-layer adaptive gating**: Raised the default `retrieval.minRerankScore` floor from `0.001` to `0.20` and added adaptive `topK` truncation (relative-to-best score cutoff and activity slot caps in general searches) so focused queries return concise results and out-of-corpus queries abstain cleanly.
+- **Transparent Recall Trace & page evolution UI**: Recall Trace now displays graph-expansion badges, overturned states, raw vs. adjusted final scores, and adaptive cutoff fates (`BelowRelativeFloor`, `BeyondActivityCap`); detail page views now show `Superseded by`, `Supersedes`, and `Related` links alongside an overturned badge.
+- **Expanded 92-query benchmark suite**: Added `current-state`, `activity-vs-page`, and `graph-hop` stress queries and `supersedes` chains, raising 92-query `Qwen3-0.6B` reference results from 94.7% → 100.0% Recall@5, 0.885 → 0.967 MRR, and 0% → 52.9% negative abstention.
+
+---
+
+- **显式页面演进（`supersedes`）与 1-hop 图扩展检索**：细节页新增可选 `supersedes` 页头字段，`write_page`（`create` / `update_header`）支持写入并校验存在性与无环约束，整理报告自动检查失效或成环引用；被取代的页面在检索与主线简报中自动视为已推翻，`recall` 沿 `supersedes` 与 `related` 执行有界 1-hop 扩展，并在结果中标注状态（`overturned -> <替代页>`）与精简 `Links:` 提示。
+- **现行决定与细节页优先排序**：活跃替代页在现状提问与旧术语查询中自动排在已推翻旧页之前，直接追问历史原因时旧页仍可完整召回；通用检索中细节页优先于单行活动，仅对活动施加温和时间衰减（细节页零衰减），显式 `kind=activities` 检索不受影响。
+- **两层自适应门控**：`retrieval.minRerankScore` 默认值由 `0.001` 提高至 `0.20`，并引入相对最佳分截断与通用检索活动槽位上限，减少无关尾项与低分误召回。
+- **透明检索追踪与演进浏览界面**：Web 检索追踪新增图扩展来源徽标、已推翻标注、原始重排分与最终分对照及新增截断去向；细节页新增「被以下页面取代」「取代的页面」链接分组与已推翻徽标。
+- **92 条查询基准扩展与提升**：扩充现状、活动与页面竞争及跨页关联压力查询并在内置语料中接入 `supersedes` 链，本地 `Qwen3-0.6B` 组合实测 Recall@5 由 94.7% 升至 100.0%，MRR 由 0.885 升至 0.967，负例拒答率由 0% 升至 52.9%。
+
 ## 1.0.1 - 2026-11-22
 
 - **Faster local vector search & indexing**: Streamed zero-copy vector scanning with SIMD cosine distance, bounded top-K selection, and batched full-index sync—cutting 10,000-unit vector search latency by ~4× (to ~7.7 ms P50) and per-query allocations from ~46 MB to ~33 KB.

@@ -273,7 +273,7 @@ Local indexing and hybrid search run directly inside the single process over SQL
 | 2,000 | 95.6 ms | 5.4 ms | 0.23 ms | 1.60 ms / 33.2 KB | 2.64 ms |
 | 10,000 | 544.5 ms | 34.6 ms | 0.74 ms | 7.66 ms / 33.4 KB | 9.95 ms |
 
-The repository ships a reproducible benchmark suite (`benchmarks/TacitMemory.Benchmarks`) with both `perf` and `recall` modes—including a built-in 38-page / 92-query de-personalized corpus and local response caching—so you can benchmark your own embedding/reranker models or private corpus. See [`docs/benchmarks.md`](docs/benchmarks.md) for usage and recall reference numbers.
+The repository ships a reproducible benchmark suite (`benchmarks/TacitMemory.Benchmarks`) with both `perf` and `recall` modes—including a built-in 38-page / 92-query de-personalized corpus and local response caching—so you can benchmark your own embedding/reranker models or private corpus. With local `Qwen3-Embedding-0.6B` + `Qwen3-Reranker-0.6B` under default settings, the 92-query suite achieves **100.0% Recall@5**, **93.3% Hit@1**, **100.0% All@5**, **0.967 MRR**, and **52.9% negative abstention**. See [`docs/benchmarks.md`](docs/benchmarks.md) for usage and full category breakdowns.
 
 ## Documentation
 

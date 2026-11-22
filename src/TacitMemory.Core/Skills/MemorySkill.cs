@@ -37,6 +37,7 @@ internal static class MemorySkill
         - Narrow a search by kind, workstream or date when the question is about one of them.
         - Read a whole page for its overall picture, such as before updating it; when a search already returned the section you need in full, use that.
         - Every section shows the date it last changed. Judge a section that describes the current state by that date.
+        - When a result marks a page `overturned -> <page>`, follow the active replacement page for current guidance; use the `Links:` line at the bottom of a result to fetch directly linked pages with `recall page=<id>` when needed.
 
         ## Detail pages
         - A page covers one matter: update the page that already covers it instead of starting a second page for the same matter.

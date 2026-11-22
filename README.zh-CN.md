@@ -274,7 +274,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 | 2,000 | 95.6 ms | 5.4 ms | 0.23 ms | 1.60 ms / 33.2 KB | 2.64 ms |
 | 10,000 | 544.5 ms | 34.6 ms | 0.74 ms | 7.66 ms / 33.4 KB | 9.95 ms |
 
-仓库内置可复现的 `perf` 与 `recall` 基准工具（`benchmarks/TacitMemory.Benchmarks`），自带 38 页 / 92 查询脱敏语料与本地模型缓存代理，可用于横评不同嵌入/重排模型或测试私有语料库。详细命令与召回参考见 [`docs/benchmarks.md`](docs/benchmarks.md)。
+仓库内置可复现的 `perf` 与 `recall` 基准工具（`benchmarks/TacitMemory.Benchmarks`），自带 38 页 / 92 查询脱敏语料与本地模型缓存代理，可用于横评不同嵌入/重排模型或测试私有语料库。在默认配置与本地 `Qwen3-Embedding-0.6B` + `Qwen3-Reranker-0.6B` 组合下，92 条查询实测达到 **Recall@5 100.0%**、**Hit@1 93.3%**、**All@5 100.0%**、**MRR 0.967** 与 **52.9% 负例拒答率**。详细命令与分类参考见 [`docs/benchmarks.md`](docs/benchmarks.md)。
 
 ## 文档导航
 
