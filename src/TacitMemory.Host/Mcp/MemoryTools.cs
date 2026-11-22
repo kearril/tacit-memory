@@ -38,13 +38,13 @@ internal sealed class MemoryTools(ServiceTools tools)
     [McpServerTool(Name = "write_page", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description("""
         Write a detail page: one page per matter, organized in ## sections.
-        op=create: page, title, type, aliases and sections; related is optional.
+        op=create: page, title, type, aliases and sections; related and supersedes are optional.
         op=upsert_section: page, section and body; hash (the section's short code from recall) when the section exists.
         op=delete_section: page, section and hash (the section's short code from recall).
-        op=update_header: page and at least one of title, type, add_aliases, related; related replaces the whole list ([] clears it).
+        op=update_header: page and at least one of title, type, add_aliases, related, supersedes; related and supersedes each replace their whole list ([] clears it).
         type, by what the page records (keep the named English sections as written so the service recognizes them):
         - incident: a fault, its cause and its fix (English section Lesson for reusable takeaways).
-        - decision: one decision and the reasons for it (English section Overturned when superseded).
+        - decision: one decision and the reasons for it (English section Overturned for revocation reasons or standalone abandonment; use supersedes on a replacement page to link evolutions).
         - entity: a standing system or tool, as pointers to its documentation, the user's stance and open to-dos.
         - work: one unit of work such as a feature or release (English section Leftovers for open items surfaced in the brief).
         Record where a credential is kept, never its value.
@@ -61,6 +61,7 @@ internal sealed class MemoryTools(ServiceTools tools)
         [Description("Other names the user might call this by: spoken phrasings, alternate or bilingual names, nicknames. At least {minAliases}.")] string[]? aliases = null,
         [Description("The page's sections in order; each has a name (the ## heading, without '##') and a Markdown body.")] PageSectionInput[]? sections = null,
         [Description("Page IDs of related pages; each must exist.")] string[]? related = null,
+        [Description("Page IDs of older pages this page replaces; each must exist and stay acyclic.")] string[]? supersedes = null,
         [Description("The section's name: its ## heading text, without '##'; one line.")] string? section = null,
         [Description("The section's Markdown body; no '#' or '##' headings, use '###' or deeper.")] string? body = null,
         [Description("Short code in brackets from the latest recall; required to replace or delete an existing section.")] string? hash = null,
@@ -76,6 +77,7 @@ internal sealed class MemoryTools(ServiceTools tools)
             Aliases = aliases,
             Sections = sections,
             Related = related,
+            Supersedes = supersedes,
             Section = section,
             Body = body,
             Hash = hash,

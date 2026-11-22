@@ -235,7 +235,7 @@ public sealed class RecallTraceTests : IDisposable
         Assert.Equal(2, report.Settings.TopK.Value);
         Assert.NotEqual(report.Settings.TopK.Value, report.Settings.TopK.Configured);
         Assert.Equal(report.Settings.Candidates.Configured, report.Settings.Candidates.Value);
-        Assert.Equal(0.001, report.Settings.MinRerankScore.Configured);
+        Assert.Equal(0.20, report.Settings.MinRerankScore.Configured);
     }
 
     [Fact]

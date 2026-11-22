@@ -63,8 +63,9 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
             return null;
 
         // Overturned decisions are identifiers only: they are never listed as entries, so truncation does not touch them.
-        var entries = pages.Where(entry => !IsOverturned(entry)).ToList();
-        var overturned = pages.Where(IsOverturned).Select(entry => entry.Id).ToList();
+        var superseded = index.SupersededPages();
+        var entries = pages.Where(entry => !IsOverturned(entry, superseded)).ToList();
+        var overturned = pages.Where(entry => IsOverturned(entry, superseded)).Select(entry => entry.Id).ToList();
         var recent = activities.AsEnumerable().Reverse().OrderByDescending(activity => activity.Day).Take(ListedActivities).ToList();
         return new Parts(
             workstream, established?.Background, established?.Recent, Conventions(workstream), OpenItems(pages), entries, overturned, recent,
@@ -158,9 +159,10 @@ internal sealed class WorkstreamBrief(TacitConfig config, MemoryIndex index)
             .Where(item => item.Lines.Count > 0)
             .ToList();
 
-    /// <summary>Whether a decision page names the page that replaced it: its "overturned" section is not blank.</summary>
-    private static bool IsOverturned(Entry entry) =>
-        entry.Document.Header.Type == ToolValues.PageTypes.Decision && entry.Document.Overturned is { } section && Lines(section.Body).Count > 0;
+    /// <summary>Whether a decision page is overturned: its <c>Overturned</c> section is not blank or another page supersedes it.</summary>
+    private static bool IsOverturned(Entry entry, HashSet<string> superseded) =>
+        entry.Document.Header.Type == ToolValues.PageTypes.Decision
+        && (entry.Document.HasOverturnedSection || superseded.Contains(entry.Id.ToString()));
 
     /// <summary>The group a page is listed under; a page with no valid type is untyped.</summary>
     private static string GroupOf(PageDocument document) => document.Header.Type switch

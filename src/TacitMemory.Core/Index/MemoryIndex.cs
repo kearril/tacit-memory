@@ -68,6 +68,23 @@ internal sealed record IndexCounts(int Files, int Units, int Vectors);
 /// <summary>A page with the total of its units' returns and the last day one was returned, as yyyy-MM-dd or <c>null</c>.</summary>
 internal sealed record PageUsageRow(string Page, long Count, string? Last);
 
+/// <summary>The kinds of directed edge stored in <c>page_links</c>.</summary>
+internal static class PageLinkKinds
+{
+    public const string Related = "related";
+    public const string Supersedes = "supersedes";
+}
+
+/// <summary>Indexed metadata of a detail page: its valid type, whether its own <c>## Overturned</c> section is non-empty, and existing pages that supersede it.</summary>
+internal sealed record PageGraphInfo(string Page, string? PageType, bool HasOverturned, IReadOnlyList<string> SupersededBy)
+{
+    public bool Overturned => HasOverturned || SupersededBy.Count > 0;
+}
+
+/// <summary>A direct neighbor of a detail page for the <c>Links:</c> footer.</summary>
+/// <param name="Direction"><c>superseded by</c>, <c>supersedes</c>, or <c>related</c>.</param>
+internal sealed record PageNeighbor(string Page, string Direction, string? PageType, bool Overturned);
+
 /// <summary>The kinds of source the index holds.</summary>
 internal static class SourceKinds
 {
@@ -120,7 +137,7 @@ internal static class UnitKinds
 internal sealed class MemoryIndex : IDisposable
 {
     /// <summary>Bump when the tables change; an index with another version is deleted and rebuilt.</summary>
-    private const string SchemaVersion = "12";
+    private const string SchemaVersion = "13";
 
     // Persona units serve judgments only: no search returns them.
     private const string Filters = $"""
@@ -306,6 +323,283 @@ internal sealed class MemoryIndex : IDisposable
                 Remove(id.RelativePath);
                 _skipped.Remove(id.RelativePath);
             }
+        }
+    }
+
+    /// <summary>Existing pages whose header lists <paramref name="page"/> in <c>supersedes</c>, ordered by ID.</summary>
+    public IReadOnlyList<string> SupersededBy(string page)
+    {
+        lock (_gate)
+            return _connection.Query<string>(
+                "SELECT l.from_page FROM page_links l JOIN sources s ON s.id = l.from_page "
+                + "WHERE l.to_page = @page AND l.kind = @kind AND s.kind = @sourceKind ORDER BY l.from_page",
+                new { page, kind = PageLinkKinds.Supersedes, sourceKind = SourceKinds.Page }).ToList();
+    }
+
+    /// <summary>Every page ID that is listed in <c>supersedes</c> by at least one existing page.</summary>
+    public HashSet<string> SupersededPages()
+    {
+        lock (_gate)
+            return _connection.Query<string>(
+                "SELECT DISTINCT l.to_page FROM page_links l JOIN sources s ON s.id = l.from_page "
+                + "WHERE l.kind = @kind AND s.kind = @sourceKind",
+                new { kind = PageLinkKinds.Supersedes, sourceKind = SourceKinds.Page })
+                .ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>Indexed metadata and effective overturned status for each existing page in <paramref name="pages"/>.</summary>
+    public IReadOnlyDictionary<string, PageGraphInfo> PageInfos(IReadOnlyCollection<string> pages)
+    {
+        if (pages.Count == 0)
+            return new Dictionary<string, PageGraphInfo>(StringComparer.Ordinal);
+        lock (_gate)
+        {
+            var list = pages.Distinct(StringComparer.Ordinal).ToList();
+            var rows = _connection.Query<(string Id, string? PageType, long HasOverturned)>(
+                "SELECT id AS Id, page_type AS PageType, has_overturned AS HasOverturned FROM sources WHERE kind = @sourceKind AND id IN @ids",
+                new { sourceKind = SourceKinds.Page, ids = list }).ToList();
+            var incoming = _connection.Query<(string ToPage, string FromPage)>(
+                "SELECT l.to_page AS ToPage, l.from_page AS FromPage FROM page_links l JOIN sources s ON s.id = l.from_page "
+                + "WHERE l.kind = @kind AND s.kind = @sourceKind AND l.to_page IN @ids ORDER BY l.from_page",
+                new { kind = PageLinkKinds.Supersedes, sourceKind = SourceKinds.Page, ids = list })
+                .GroupBy(row => row.ToPage, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)group.Select(row => row.FromPage).ToList(), StringComparer.Ordinal);
+
+            var result = new Dictionary<string, PageGraphInfo>(rows.Count, StringComparer.Ordinal);
+            foreach (var row in rows)
+                result[row.Id] = new PageGraphInfo(row.Id, row.PageType, row.HasOverturned != 0, incoming.GetValueOrDefault(row.Id) ?? []);
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Resolves active (non-overturned) terminal replacement pages for each superseded page in <paramref name="pages"/>,
+    /// walking incoming <c>supersedes</c> edges with cycle protection.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> ActiveReplacementsOf(IReadOnlyCollection<string> pages)
+    {
+        if (pages.Count == 0)
+            return new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        lock (_gate)
+        {
+            var hasOverturned = _connection.Query<string>(
+                "SELECT id FROM sources WHERE kind = @sourceKind AND has_overturned <> 0",
+                new { sourceKind = SourceKinds.Page }).ToHashSet(StringComparer.Ordinal);
+            var edges = _connection.Query<(string FromPage, string ToPage)>(
+                "SELECT l.from_page AS FromPage, l.to_page AS ToPage FROM page_links l "
+                + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
+                + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
+                + "WHERE l.kind = @kind ORDER BY l.from_page",
+                new { sourceKind = SourceKinds.Page, kind = PageLinkKinds.Supersedes }).ToList();
+            if (edges.Count == 0)
+                return new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+
+            var incoming = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var (from, to) in edges)
+            {
+                if (!incoming.TryGetValue(to, out var list))
+                    incoming[to] = list = [];
+                list.Add(from);
+            }
+
+            var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            foreach (var page in pages.Distinct(StringComparer.Ordinal))
+            {
+                if (!incoming.ContainsKey(page))
+                    continue;
+                var visited = new HashSet<string>(StringComparer.Ordinal) { page };
+                var queue = new Queue<string>();
+                queue.Enqueue(page);
+                var active = new List<string>();
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    if (!incoming.TryGetValue(current, out var replacers))
+                        continue;
+                    foreach (var next in replacers)
+                    {
+                        if (!visited.Add(next))
+                            continue;
+                        var nextIsOverturned = hasOverturned.Contains(next) || incoming.ContainsKey(next);
+                        if (!nextIsOverturned)
+                            active.Add(next);
+                        else
+                            queue.Enqueue(next);
+                    }
+                }
+
+                if (active.Count > 0)
+                {
+                    active.Sort(StringComparer.Ordinal);
+                    result[page] = active;
+                }
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Bidirectional 1-hop <c>related</c> neighbors of <paramref name="seedPages"/> that exist in the index and are not
+    /// among the seeds themselves, ordered by seed priority then neighbor ID.
+    /// </summary>
+    public IReadOnlyList<string> RelatedNeighborsOf(IReadOnlyCollection<string> seedPages)
+    {
+        if (seedPages.Count == 0)
+            return [];
+        lock (_gate)
+        {
+            var seeds = seedPages.Distinct(StringComparer.Ordinal).ToList();
+            var seedSet = seeds.ToHashSet(StringComparer.Ordinal);
+            var edges = _connection.Query<(string FromPage, string ToPage)>(
+                "SELECT l.from_page AS FromPage, l.to_page AS ToPage FROM page_links l "
+                + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
+                + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
+                + "WHERE l.kind = @kind AND (l.from_page IN @seeds OR l.to_page IN @seeds)",
+                new { sourceKind = SourceKinds.Page, kind = PageLinkKinds.Related, seeds }).ToList();
+            if (edges.Count == 0)
+                return [];
+
+            var adjacent = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            void Add(string a, string b)
+            {
+                if (!adjacent.TryGetValue(a, out var list))
+                    adjacent[a] = list = [];
+                list.Add(b);
+            }
+
+            foreach (var (from, to) in edges)
+            {
+                Add(from, to);
+                Add(to, from);
+            }
+
+            var ordered = new List<string>();
+            var seen = new HashSet<string>(seedSet, StringComparer.Ordinal);
+            foreach (var seed in seeds)
+            {
+                if (!adjacent.TryGetValue(seed, out var neighbors))
+                    continue;
+                neighbors.Sort(StringComparer.Ordinal);
+                foreach (var neighbor in neighbors)
+                {
+                    if (seen.Add(neighbor))
+                        ordered.Add(neighbor);
+                }
+            }
+
+            return ordered;
+        }
+    }
+
+    /// <summary>
+    /// Direct existing neighbors of each page in <paramref name="pages"/>, prioritized as <c>superseded by</c>,
+    /// <c>supersedes</c>, then bidirectional <c>related</c>, with each neighbor's page type and effective overturned status.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<PageNeighbor>> DirectLinksOf(IReadOnlyCollection<string> pages)
+    {
+        if (pages.Count == 0)
+            return new Dictionary<string, IReadOnlyList<PageNeighbor>>(StringComparer.Ordinal);
+        lock (_gate)
+        {
+            var list = pages.Distinct(StringComparer.Ordinal).ToList();
+            var edges = _connection.Query<(string FromPage, string ToPage, string Kind)>(
+                "SELECT l.from_page AS FromPage, l.to_page AS ToPage, l.kind AS Kind FROM page_links l "
+                + "JOIN sources sf ON sf.id = l.from_page AND sf.kind = @sourceKind "
+                + "JOIN sources st ON st.id = l.to_page AND st.kind = @sourceKind "
+                + "WHERE l.from_page IN @ids OR l.to_page IN @ids",
+                new { sourceKind = SourceKinds.Page, ids = list }).ToList();
+            if (edges.Count == 0)
+                return new Dictionary<string, IReadOnlyList<PageNeighbor>>(StringComparer.Ordinal);
+
+            var pageSet = list.ToHashSet(StringComparer.Ordinal);
+            var perPage = new Dictionary<string, (List<string> SupersededBy, List<string> Supersedes, List<string> Related)>(StringComparer.Ordinal);
+            (List<string> SupersededBy, List<string> Supersedes, List<string> Related) Bucket(string page)
+            {
+                if (!perPage.TryGetValue(page, out var bucket))
+                    perPage[page] = bucket = ([], [], []);
+                return bucket;
+            }
+
+            var neighborIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var (from, to, kind) in edges)
+            {
+                if (kind == PageLinkKinds.Supersedes)
+                {
+                    if (pageSet.Contains(to))
+                    {
+                        Bucket(to).SupersededBy.Add(from);
+                        neighborIds.Add(from);
+                    }
+
+                    if (pageSet.Contains(from))
+                    {
+                        Bucket(from).Supersedes.Add(to);
+                        neighborIds.Add(to);
+                    }
+                }
+                else if (kind == PageLinkKinds.Related)
+                {
+                    if (pageSet.Contains(from))
+                    {
+                        Bucket(from).Related.Add(to);
+                        neighborIds.Add(to);
+                    }
+
+                    if (pageSet.Contains(to))
+                    {
+                        Bucket(to).Related.Add(from);
+                        neighborIds.Add(from);
+                    }
+                }
+            }
+
+            var meta = PageInfos(neighborIds);
+            var result = new Dictionary<string, IReadOnlyList<PageNeighbor>>(perPage.Count, StringComparer.Ordinal);
+            foreach (var (page, bucket) in perPage)
+            {
+                bucket.SupersededBy.Sort(StringComparer.Ordinal);
+                bucket.Supersedes.Sort(StringComparer.Ordinal);
+                bucket.Related.Sort(StringComparer.Ordinal);
+
+                var neighbors = new List<PageNeighbor>();
+                var seen = new HashSet<string>(StringComparer.Ordinal) { page };
+                void Append(List<string> targets, string direction)
+                {
+                    foreach (var target in targets)
+                    {
+                        if (!seen.Add(target))
+                            continue;
+                        var info = meta.GetValueOrDefault(target);
+                        neighbors.Add(new PageNeighbor(target, direction, info?.PageType, info?.Overturned ?? false));
+                    }
+                }
+
+                Append(bucket.SupersededBy, "superseded by");
+                Append(bucket.Supersedes, "supersedes");
+                Append(bucket.Related, "related");
+                if (neighbors.Count > 0)
+                    result[page] = neighbors;
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>Indexed units belonging to <paramref name="pages"/> that satisfy <paramref name="filter"/>, ordered by page and ordinal.</summary>
+    public IReadOnlyList<IndexHit> UnitsForPages(IReadOnlyCollection<string> pages, IndexFilter filter)
+    {
+        if (pages.Count == 0)
+            return [];
+        lock (_gate)
+        {
+            var rows = _connection.Query<ScoredRow>($"""
+                SELECT {HitColumns}, 0.0 AS Score
+                FROM units u
+                WHERE u.source_id IN @pages AND {Filters}
+                ORDER BY u.source_id, u.ordinal
+                """, Parameters(filter, 0, new { pages = pages.Distinct(StringComparer.Ordinal).ToList() }));
+            return rows.Select(row => row.ToHit().Hit).ToList();
         }
     }
 
@@ -911,10 +1205,14 @@ internal sealed class MemoryIndex : IDisposable
             var transaction = own ?? batch!.Ensure();
             RemoveRows(id.RelativePath, transaction);
             var header = document.Header;
+            var pageType = PageDocument.IsPageType(header.Type) ? header.Type : null;
+            var hasOverturned = document.HasOverturnedSection ? 1 : 0;
             _connection.Execute(
-                "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
-                new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
+                "INSERT INTO sources (id, kind, path, hash, page_type, has_overturned) VALUES (@id, @kind, @path, @hash, @pageType, @hasOverturned)",
+                new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash, pageType, hasOverturned },
                 transaction);
+            AddPageLinks(source, id, header.Related, PageLinkKinds.Related, transaction);
+            AddPageLinks(source, id, header.Supersedes, PageLinkKinds.Supersedes, transaction);
             var scope = new UnitScope(id.Workstream, DateText(header.First), DateText(header.Last));
             AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction, carried: carried);
             for (var i = 0; i < document.Sections.Count; i++)
@@ -1205,6 +1503,20 @@ internal sealed class MemoryIndex : IDisposable
         transaction.Commit();
     }
 
+    private void AddPageLinks(string source, PageId self, IReadOnlyList<string> targets, string kind, SqliteTransaction transaction)
+    {
+        foreach (var entry in targets)
+        {
+            if (PageId.TryParse(entry, out var target, out _) && target != self)
+            {
+                _connection.Execute(
+                    "INSERT OR IGNORE INTO page_links (from_page, to_page, kind) VALUES (@from, @to, @kind)",
+                    new { from = source, to = target.ToString(), kind },
+                    transaction);
+            }
+        }
+    }
+
     private void RemoveRows(string relativePath, SqliteTransaction transaction)
     {
         var source = _connection.QuerySingleOrDefault<string>("SELECT id FROM sources WHERE path = @relativePath", new { relativePath }, transaction);
@@ -1213,6 +1525,7 @@ internal sealed class MemoryIndex : IDisposable
         _connection.Execute("DELETE FROM units_fts WHERE rowid IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
         _connection.Execute("DELETE FROM units_vectors WHERE id IN (SELECT id FROM units WHERE source_id = @source)", new { source }, transaction);
         _connection.Execute("DELETE FROM units WHERE source_id = @source", new { source }, transaction);
+        _connection.Execute("DELETE FROM page_links WHERE from_page = @source", new { source }, transaction);
         _connection.Execute("DELETE FROM sources WHERE id = @source", new { source }, transaction);
     }
 
@@ -1276,7 +1589,9 @@ internal sealed class MemoryIndex : IDisposable
         var fresh = Connect();
         fresh.Execute($"""
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL);
+            CREATE TABLE sources (id TEXT PRIMARY KEY, kind TEXT NOT NULL, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL, page_type TEXT, has_overturned INTEGER NOT NULL DEFAULT 0);
+            CREATE TABLE page_links (from_page TEXT NOT NULL, to_page TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (from_page, to_page, kind));
+            CREATE INDEX page_links_to ON page_links (to_page, kind);
             CREATE TABLE units (id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, kind TEXT NOT NULL, section TEXT, ordinal INTEGER NOT NULL, workstream TEXT NOT NULL, first TEXT, last TEXT, raw TEXT NOT NULL, passage TEXT NOT NULL, code TEXT, hash TEXT, changed TEXT, returns INTEGER NOT NULL DEFAULT 0, returned TEXT, scope TEXT);
             CREATE INDEX units_source ON units (source_id);
             CREATE VIRTUAL TABLE units_fts USING fts5 (text, tokenize = 'unicode61');

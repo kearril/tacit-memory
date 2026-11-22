@@ -18,10 +18,10 @@ internal sealed class PageTools(
     /// <summary>The parameters each op takes; any other parameter given with an op is refused rather than ignored.</summary>
     private static readonly Dictionary<string, string[]> OpParameters = new()
     {
-        [ToolValues.WritePageOps.Create] = ["title", "type", "aliases", "sections", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.Create] = ["title", "type", "aliases", "sections", "related", "supersedes", "confirm_no_secret"],
         [ToolValues.WritePageOps.UpsertSection] = ["section", "body", "hash", "confirm_no_secret"],
         [ToolValues.WritePageOps.DeleteSection] = ["section", "hash"],
-        [ToolValues.WritePageOps.UpdateHeader] = ["title", "type", "aliases", "add_aliases", "related", "confirm_no_secret"],
+        [ToolValues.WritePageOps.UpdateHeader] = ["title", "type", "aliases", "add_aliases", "related", "supersedes", "confirm_no_secret"],
     };
 
     private static readonly string Ops = string.Join(", ", OpParameters.Keys);
@@ -75,6 +75,7 @@ internal sealed class PageTools(
         var aliases = CheckAliases(request.Aliases ?? [], problems);
         var sections = CheckSections(request.Sections ?? [], problems);
         var related = CheckRelated(id, request.Related ?? [], problems);
+        var supersedes = CheckSupersedes(id, request.Supersedes ?? [], problems);
         if (problems.Count > 0)
             return ToolText.Refuse(problems, $"Fix these and call write_page op=create again with type set to one of: {PageDocument.PageTypeList}.");
 
@@ -83,7 +84,7 @@ internal sealed class PageTools(
             var (existing, refusal) = Load(id);
             return refusal ?? ToolText.Refuse(
                 $"Page {id} already exists.",
-                "Update it instead: write_page op=upsert_section for a section, op=update_header for its title, aliases or related pages.",
+                "Update it instead: write_page op=upsert_section for a section, op=update_header for its title, aliases, related or supersedes pages.",
                 SectionList(existing!));
         }
 
@@ -91,7 +92,7 @@ internal sealed class PageTools(
             return secret;
 
         var today = options.Today;
-        var header = new PageHeader(title, aliases, today, today, related, type);
+        var header = new PageHeader(title, aliases, today, today, related, type, supersedes);
         var check = await duplicates.RunAsync(id, header, sections, cancellationToken);
         if (check.Duplicate is { } duplicate)
         {
@@ -177,9 +178,9 @@ internal sealed class PageTools(
             return ToolText.Refuse(
                 "update_header does not replace aliases; pass add_aliases to add some.",
                 "Call write_page op=update_header again with add_aliases instead of aliases.");
-        if (request.Title is null && request.AddAliases is null && request.Related is null && request.Type is null)
+        if (request.Title is null && request.AddAliases is null && request.Related is null && request.Supersedes is null && request.Type is null)
             return ToolText.Refuse(
-                "Give at least one of title, type, add_aliases or related.",
+                "Give at least one of title, type, add_aliases, related or supersedes.",
                 "Call write_page op=update_header again with the header field to change.");
 
         var problems = new List<string>();
@@ -191,6 +192,7 @@ internal sealed class PageTools(
             CheckType(type, problems);
         var added = request.AddAliases is null ? [] : CheckAddedAliases(request.AddAliases, problems);
         var related = request.Related is null ? null : CheckRelated(id, request.Related, problems);
+        var supersedes = request.Supersedes is null ? null : CheckSupersedes(id, request.Supersedes, problems);
         if (problems.Count > 0)
             return ToolText.Refuse(problems, $"Fix these and call write_page op=update_header again{(type is null ? "" : $" with type set to one of: {PageDocument.PageTypeList}")}.");
 
@@ -218,6 +220,8 @@ internal sealed class PageTools(
             changes.Add(("aliases", PageDocument.AliasBlock(header.Aliases.Concat(newAliases).ToList())));
         if (related is not null && !related.SequenceEqual(header.Related))
             changes.Add(("related", PageDocument.RelatedBlock(related)));
+        if (supersedes is not null && !supersedes.SequenceEqual(header.Supersedes))
+            changes.Add(("supersedes", PageDocument.SupersedesBlock(supersedes)));
 
         var changed = document.WithHeaderBlocks(changes);
         return await SaveAsync(id, document, changed, $"pages: header {id}", $"Updated the header of page {id}.", cancellationToken);
@@ -305,6 +309,7 @@ internal sealed class PageTools(
             ("aliases", request.Aliases is not null),
             ("sections", request.Sections is not null),
             ("related", request.Related is not null),
+            ("supersedes", request.Supersedes is not null),
             ("section", request.Section is not null),
             ("body", request.Body is not null),
             ("hash", request.Hash is not null),
@@ -392,6 +397,26 @@ internal sealed class PageTools(
         return related;
     }
 
+    private List<string> CheckSupersedes(PageId self, IReadOnlyList<string> raw, List<string> problems)
+    {
+        var supersedes = new List<string>();
+        foreach (var item in raw.Select(item => item.Trim()).Where(item => item.Length > 0))
+        {
+            if (!PageId.TryParse(item, out var id, out var problem))
+                problems.Add($"supersedes: {problem}");
+            else if (id == self)
+                problems.Add($"supersedes: {id} is this page itself.");
+            else if (!File.Exists(PathOf(id)))
+                problems.Add($"supersedes: page {id} does not exist.");
+            else if (PageDocument.CreatesSupersedesCycle(config.MemoryPath, self, id))
+                problems.Add($"supersedes: adding {id} creates a supersedes cycle back to {self}.");
+            else if (!supersedes.Contains(id.ToString()))
+                supersedes.Add(id.ToString());
+        }
+
+        return supersedes;
+    }
+
     /// <summary>The page, or the refusal to give when it is missing or not UTF-8.</summary>
     public (PageDocument? Document, ToolResult? Refusal) Load(PageId id)
     {
@@ -404,7 +429,7 @@ internal sealed class PageTools(
     }
 
     /// <summary>A page as the agent reads it: header facts, then every section with its short code.</summary>
-    public static string Format(PageId id, PageDocument document, IReadOnlyDictionary<string, DateOnly> changed)
+    public static string Format(PageId id, PageDocument document, IReadOnlyDictionary<string, DateOnly> changed, IReadOnlyList<string>? supersededBy = null)
     {
         var header = document.Header;
         var text = new StringBuilder();
@@ -417,6 +442,10 @@ internal sealed class PageTools(
             text.Append(CultureInfo.InvariantCulture, $"Dates: {first:yyyy-MM-dd} to {last:yyyy-MM-dd}\n");
         if (header.Related.Count > 0)
             text.Append($"Related: {string.Join(", ", header.Related)}\n");
+        if (header.Supersedes.Count > 0)
+            text.Append($"Supersedes: {string.Join(", ", header.Supersedes)}\n");
+        if (supersededBy is { Count: > 0 })
+            text.Append($"Superseded by: {string.Join(", ", supersededBy)}\n");
         if (header.Type is { } type)
             text.Append($"Type: {type}\n");
         text.Append("Short codes in brackets identify sections for write_page.\n");

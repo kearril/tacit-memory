@@ -29,6 +29,20 @@ internal static class PageFormatCheck
                 issues.Add(new FormatIssue("", document.LocationOf("related"), "related",
                     $"related lists \"{related}\", which is not an existing page.", FormatHandling.FixDirectly));
         }
+
+        foreach (var superseded in document.Header.Supersedes)
+        {
+            if (!PageId.TryParse(superseded, out var target, out _) || !File.Exists(MemoryLayout.Full(memoryPath, target.RelativePath)))
+                issues.Add(new FormatIssue("", document.LocationOf("supersedes"), "supersedes",
+                    $"supersedes lists \"{superseded}\", which is not an existing page.", FormatHandling.FixDirectly));
+            else if (named && target == id)
+                issues.Add(new FormatIssue("", document.LocationOf("supersedes"), "supersedes",
+                    $"supersedes lists \"{superseded}\", which is this page itself.", FormatHandling.FixDirectly));
+            else if (named && PageDocument.CreatesSupersedesCycle(memoryPath, id, target))
+                issues.Add(new FormatIssue("", document.LocationOf("supersedes"), "supersedes",
+                    $"supersedes lists \"{superseded}\", which creates a supersedes cycle.", FormatHandling.FixDirectly));
+        }
+
         return issues;
     }
 

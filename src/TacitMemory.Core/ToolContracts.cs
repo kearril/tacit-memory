@@ -66,6 +66,9 @@ public sealed record WritePageRequest
     /// <summary>Page IDs of related pages; every one must exist.</summary>
     public IReadOnlyList<string>? Related { get; init; }
 
+    /// <summary>Page IDs of older pages this page replaces; every one must exist and stay acyclic.</summary>
+    public IReadOnlyList<string>? Supersedes { get; init; }
+
     /// <summary>The section to write, by name: for <c>upsert_section</c> and <c>delete_section</c>.</summary>
     public string? Section { get; init; }
 

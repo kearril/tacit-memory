@@ -183,7 +183,7 @@ public sealed class ModelProtocolTests : IDisposable
         await CreatePage("ops/rollback", "部署回滚方案", "部署失败时先回滚到上一个版本。");
         await CreatePage("ops/noise", "部署杂谈", "部署这个词在这里只是顺口提到。");
         _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9
-            : document.Contains("健康", StringComparison.Ordinal) ? 0.2 : 0.0005;
+            : document.Contains("健康", StringComparison.Ordinal) ? 0.4 : 0.05;
 
         var result = await Service.Tools.RecallAsync(new RecallRequest { Query = "部署" });
 

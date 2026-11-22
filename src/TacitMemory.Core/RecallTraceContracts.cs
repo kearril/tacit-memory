@@ -80,6 +80,9 @@ public sealed record TraceCounts(int FullText, int Vector, int Fused, int Rerank
 /// <param name="Workstream">The workstream; empty when an activity has none.</param>
 /// <param name="Sections">The sections of the page the text shows; empty for an activity or a summary.</param>
 /// <param name="Text">The activity's or summary's text; <c>null</c> for a page.</param>
+/// <param name="PageType">The page's valid type; <c>null</c> for an activity, summary, or untyped page.</param>
+/// <param name="Overturned">Whether a page result is effectively overturned or superseded.</param>
+/// <param name="SupersededBy">Active replacement page IDs when a page result is superseded; empty otherwise.</param>
 public sealed record TraceResult(
     int Number,
     string Kind,
@@ -90,7 +93,10 @@ public sealed record TraceResult(
     string? Period,
     string Workstream,
     IReadOnlyList<TraceSection> Sections,
-    string? Text);
+    string? Text,
+    PageType? PageType = null,
+    bool Overturned = false,
+    IReadOnlyList<string>? SupersededBy = null);
 
 /// <summary>A section of a page a result shows.</summary>
 /// <param name="Recognized">Which recognized section it is, for the page to label it; <c>null</c> for any other.</param>
@@ -107,8 +113,12 @@ public sealed record TraceSection(string Name, RecognizedSection? Recognized);
 /// <param name="Bm25">The BM25 value, lower is better; <c>null</c> when full text did not return the unit.</param>
 /// <param name="Distance">The cosine distance to the query; <c>null</c> when the vector search did not return the unit.</param>
 /// <param name="Rrf">The reciprocal rank fusion score.</param>
-/// <param name="RerankScore">The reranker's score; <c>null</c> when the unit was not scored.</param>
+/// <param name="RerankScore">The reranker's raw score; <c>null</c> when the unit was not scored.</param>
+/// <param name="Fate">What became of the unit in this search.</param>
 /// <param name="Result">The number of the result the unit is shown in; <c>null</c> unless it is shown.</param>
+/// <param name="GraphOrigin">How the unit entered the candidate pool (direct search vs. 1-hop graph expansion).</param>
+/// <param name="FinalScore">The adjusted score used for gating and final ordering; <c>null</c> when not evaluated.</param>
+/// <param name="Overturned">Whether the unit belongs to an effectively overturned or superseded page.</param>
 public sealed record TraceUnit(
     string Kind,
     string Source,
@@ -125,4 +135,7 @@ public sealed record TraceUnit(
     int FusedRank,
     double? RerankScore,
     UnitFate Fate,
-    int? Result);
+    int? Result,
+    GraphOrigin GraphOrigin = GraphOrigin.None,
+    double? FinalScore = null,
+    bool Overturned = false);

@@ -250,7 +250,7 @@ public sealed partial class PageTests : IDisposable
         var withoutOp = await _service.Tools.WritePageAsync(new WritePageRequest { Page = "tacit-memory/db-upgrade", UnknownParameters = ["content"] });
 
         Assert.Contains("Call write_page again with only the parameters for op upsert_section: page, section, body, hash, confirm_no_secret.", withOp.Text);
-        Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, type, aliases, sections, related, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
+        Assert.Contains("Call write_page again with op set to one of: create, upsert_section, delete_section, update_header; its parameters are: op, page, title, type, aliases, sections, related, supersedes, confirm_no_secret, section, body, hash, add_aliases.", withoutOp.Text);
     }
 
     [Fact]
@@ -594,7 +594,7 @@ public sealed partial class PageTests : IDisposable
         var replace = await _service.Tools.WritePageAsync(Header(page) with { Aliases = ["别名一", "别名二"] });
 
         Assert.True(empty.IsError);
-        Assert.Contains("Give at least one of title, type, add_aliases or related.", empty.Text);
+        Assert.Contains("Give at least one of title, type, add_aliases, related or supersedes.", empty.Text);
         Assert.True(replace.IsError);
         Assert.Contains("update_header does not replace aliases; pass add_aliases to add some.", replace.Text);
         Assert.Equal(before, PageText(page));
