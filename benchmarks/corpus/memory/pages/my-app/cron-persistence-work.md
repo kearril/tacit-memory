@@ -3,6 +3,7 @@ title: 定时触发器持久化与休眠补偿
 aliases: [Cron 持久化改造, 定时任务防漏跑, misfire 补偿]
 dates: { first: 2026-09-18, last: 2026-10-14 }
 related: [my-app/job-scheduler-migration, _topics/sqlite-wal-tuning]
+supersedes: [my-app/job-scheduler-migration]
 type: work
 ---
 

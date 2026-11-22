@@ -48,6 +48,17 @@ internal sealed record StageFunnel(
     int MissedBeyondTopK,
     int MissedUnreadable);
 
+internal sealed record ResultScoreSummary(
+    int Rank,
+    string Label,
+    string Kind,
+    bool IsTarget,
+    double? RerankScore,
+    double? CosineSimilarity,
+    int? FullTextRank,
+    int? VectorRank,
+    double? Rrf);
+
 internal sealed record QueryOutcome(
     string Id,
     string Category,
@@ -67,13 +78,16 @@ internal sealed record QueryOutcome(
     double ElapsedMs,
     double? EmbeddingMs,
     double? RerankerMs,
-    IReadOnlyList<string> ReturnedTop);
+    IReadOnlyList<string> ReturnedTop,
+    IReadOnlyList<ResultScoreSummary>? TopScores = null);
 
 internal static class RecallEvaluation
 {
     private const string FateNotRecalled = "not_recalled";
     private const string FateBeyondCandidates = "beyond_candidates";
     private const string FateBelowThreshold = "below_threshold";
+    private const string FateBelowRelativeFloor = "below_relative_floor";
+    private const string FateBeyondActivityCap = "beyond_activity_cap";
     private const string FateBeyondTopK = "beyond_top_k";
     private const string FateUnreadable = "unreadable";
     private const string FateFalsePositive = "false_positive";
@@ -88,6 +102,7 @@ internal static class RecallEvaluation
     public static QueryOutcome EvaluateQuery(QueryCase query, RecallTraceReport trace, double elapsedMs)
     {
         var returnedTop = trace.Results.Take(5).Select(DescribeResult).ToList();
+        var topScores = BuildTopScores(query, trace);
         if (query.Negative)
         {
             return new QueryOutcome(
@@ -100,7 +115,8 @@ internal static class RecallEvaluation
                 ElapsedMs: elapsedMs,
                 EmbeddingMs: trace.Embedding.Milliseconds,
                 RerankerMs: trace.Reranker.Milliseconds,
-                ReturnedTop: returnedTop);
+                ReturnedTop: returnedTop,
+                TopScores: topScores);
         }
 
         var top5 = trace.Results.Take(5).ToList();
@@ -145,7 +161,43 @@ internal static class RecallEvaluation
             ElapsedMs: elapsedMs,
             EmbeddingMs: trace.Embedding.Milliseconds,
             RerankerMs: trace.Reranker.Milliseconds,
-            ReturnedTop: returnedTop);
+            ReturnedTop: returnedTop,
+            TopScores: topScores);
+    }
+
+    private static List<ResultScoreSummary> BuildTopScores(QueryCase query, RecallTraceReport trace)
+    {
+        var unitsByResult = trace.Units
+            .Where(unit => unit.Result is not null)
+            .GroupBy(unit => unit.Result!.Value)
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var summaries = new List<ResultScoreSummary>();
+        foreach (var result in trace.Results.Take(5))
+        {
+            unitsByResult.TryGetValue(result.Number, out var units);
+            var bestRerank = units?.Where(u => u.RerankScore is not null).Select(u => u.RerankScore!.Value).DefaultIfEmpty().Max();
+            var hasRerank = units?.Any(u => u.RerankScore is not null) == true;
+            var bestDist = units?.Where(u => u.Distance is not null).Select(u => u.Distance!.Value).DefaultIfEmpty().Min();
+            var hasDist = units?.Any(u => u.Distance is not null) == true;
+            var bestFt = units?.Where(u => u.FullTextRank is not null).Select(u => u.FullTextRank!.Value).DefaultIfEmpty().Min();
+            var hasFt = units?.Any(u => u.FullTextRank is not null) == true;
+            var bestVec = units?.Where(u => u.VectorRank is not null).Select(u => u.VectorRank!.Value).DefaultIfEmpty().Min();
+            var hasVec = units?.Any(u => u.VectorRank is not null) == true;
+            var bestRrf = units?.Max(u => u.Rrf);
+            var isTarget = !query.Negative && query.Targets.Any(target => target.MatchesResult(result));
+            summaries.Add(new ResultScoreSummary(
+                result.Number,
+                DescribeResult(result),
+                result.Kind,
+                isTarget,
+                hasRerank ? bestRerank : null,
+                hasDist ? 1.0 - bestDist : null,
+                hasFt ? bestFt : null,
+                hasVec ? bestVec : null,
+                bestRrf));
+        }
+
+        return summaries;
     }
 
     public static RecallBenchmarkReport Summarize(
@@ -312,7 +364,9 @@ internal static class RecallEvaluation
 
     private static (int Order, string Label) FateRank(UnitFate fate) => fate switch
     {
-        UnitFate.BeyondTopK => (4, FateBeyondTopK),
+        UnitFate.BeyondTopK => (6, FateBeyondTopK),
+        UnitFate.BeyondActivityCap => (5, FateBeyondActivityCap),
+        UnitFate.BelowRelativeFloor => (4, FateBelowRelativeFloor),
         UnitFate.BelowThreshold => (3, FateBelowThreshold),
         UnitFate.BeyondCandidates => (2, FateBeyondCandidates),
         UnitFate.Unreadable => (1, FateUnreadable),

@@ -3,6 +3,7 @@ title: 桌面端认证令牌接入系统钥匙串并保留无头降级机制
 aliases: [系统钥匙串存储, OS Keychain 改造, 现行桌面端密钥存储]
 dates: { first: 2026-09-08, last: 2026-09-22 }
 related: [desktop-tool/plaintext-config-migration, desktop-tool/tauri-ipc-locking]
+supersedes: [desktop-tool/plaintext-config-migration]
 type: decision
 ---
 

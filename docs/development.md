@@ -50,7 +50,7 @@ flowchart LR
 - **`MemoryService`**：分为进程级外壳（读写锁 `MaintenanceGate`、访问控制、客户端记录、派生产物维护 `DerivedUpkeep`、重载生命周期）与配置级运行时（索引、辅助模型、工具、备份、同步、文件监听），启动与重载走同一构建路径。
 - **配置与布局**：所有配置键在 `Configuration/ConfigKeys` 单一声明并派生加载、写出、设置页 schema 与密钥处理；仓库文件路径由 `MemoryLayout` 统一管理。
 - **写入流**：工具经 `MemoryService.Tools` 取写锁 → 开启同步时先拉取 → 参数校验、凭据检测、短码核对与 `ChoiceJudge` 判断 → `MemoryWriter` 按行改文件并单文件提交 → 同步索引 → 通知 `DerivedUpkeep` 刷新服务端说明、常驻区块与后台推送/自动备份。调用 `git` 一律加 `-c core.quotepath=off` 并以 UTF-8 读取。
-- **检索流**：`RecallPipeline` 按主线与日期筛选 → FTS5 全文与 C# 余弦向量召回 → RRF 融合 → Reranker 精排与截取。读取入口 `MemoryReader` 要求显式声明是否计入使用统计。
+- **检索流**：`RecallPipeline` 按主线与日期筛选 → FTS5 全文与 C# 零拷贝 SIMD 余弦向量召回 → RRF 融合 → 有界 1-hop 派生页图扩展（`supersedes` 活跃替代追踪 + `related` 关联邻居）→ Reranker 精排 → 白盒调分（替代继承、已推翻降权、通用搜索活动先验与温和衰减）→ 两层通用门控与格式化。读取入口 `MemoryReader` 要求显式声明是否计入使用统计。
 - **外部变化**：`FileSourceWatch` 监听记忆仓库与 `prompts/`，经 `DerivedUpkeep` 300 ms 去抖刷新；失败重试 5 次后将索引标为可能过期，下次检索前全量兜底。
 
 ### 主要依赖

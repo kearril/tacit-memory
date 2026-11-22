@@ -3,6 +3,7 @@ title: 数据流水线迁至轻量 DAG 编排器并支持分区级回填
 aliases: [现行 ETL 编排方案, DAG 依赖调度与回填, 替代 crontab 的流水线编排]
 dates: { first: 2026-09-15, last: 2026-09-28 }
 related: [data-pipeline/crontab-shell-runner, data-pipeline/incremental-watermark, data-pipeline/parquet-small-files-compaction, data-pipeline/cdc-late-arriving-events]
+supersedes: [data-pipeline/crontab-shell-runner]
 type: decision
 ---
 

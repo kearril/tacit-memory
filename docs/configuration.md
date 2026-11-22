@@ -80,7 +80,7 @@ sync: { remote: …, pullMinutes: 30 }
   - `maxConcurrency`（默认 `5`）：模型判断并发上限。
   - `hintEntryLength`（默认 `200`）与 `hintResidentLength`（默认 `6000`）：整理报告篇幅提示阈值，仅提示不拒写。
 - `decision`：四项判断各自的 `certain` / `unlikely` 阈值。内置默认值基于 TypeSafe `jev-latest` 标定；更换其他决策模型前请核对并调整。
-- `retrieval`：`candidates`（默认 `30`，全文与向量各自候选数）、`topK`（默认 `5`，最终返回条数）、`minRerankScore`（默认 `0.001`，reranker 最低分阈值）。
+- `retrieval`：`candidates`（默认 `30`，全文与向量各自候选数）、`topK`（默认 `5`，最终返回条数上限）、`minRerankScore`（默认 `0.20`，reranker 最低分阈值）。
 
 ### `backup` 与 `sync`
 
