@@ -5,8 +5,12 @@
     <Project Path="src/TacitMemory.Host/TacitMemory.Host.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/TacitMemory.Benchmarks.Tests/TacitMemory.Benchmarks.Tests.csproj" />
     <Project Path="tests/TacitMemory.Cli.Tests/TacitMemory.Cli.Tests.csproj" />
     <Project Path="tests/TacitMemory.Core.Tests/TacitMemory.Core.Tests.csproj" />
     <Project Path="tests/TacitMemory.Host.Tests/TacitMemory.Host.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/TacitMemory.Benchmarks/TacitMemory.Benchmarks.csproj" />
   </Folder>
 </Solution>

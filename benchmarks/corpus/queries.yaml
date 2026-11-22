@@ -1,0 +1,287 @@
+queries:
+  # --- exact-code (6) ---
+  - id: exact-01
+    category: exact-code
+    query: "ERR_CERT_AUTHORITY_INVALID fullchain.pem"
+    negative: false
+    targets:
+      - page: "ops-infra/reverse-proxy-tls"
+
+  - id: exact-02
+    category: exact-code
+    query: "NODE_OPTIONS --max-old-space-size"
+    negative: false
+    targets:
+      - page: "my-app/frontend-build-oom"
+        section: "排查与解决"
+
+  - id: exact-03
+    category: exact-code
+    query: "tokio::sync::RwLock spawn_blocking"
+    negative: false
+    targets:
+      - page: "desktop-tool/tauri-ipc-locking"
+
+  - id: exact-04
+    category: exact-code
+    query: "WAL_CHECKPOINT_TRUNCATE busy_timeout"
+    negative: false
+    targets:
+      - page: "_topics/sqlite-wal-tuning"
+
+  - id: exact-05
+    category: exact-code
+    query: "env.ps1 --frozen-lockfile"
+    negative: false
+    targets:
+      - page: "_topics/ci-env-bootstrap"
+
+  - id: exact-06
+    category: exact-code
+    query: "pg_stat_statements statement_timeout work_mem"
+    negative: false
+    targets:
+      - page: "ops-infra/postgres-slow-query"
+
+  # --- paraphrase-zh (7) ---
+  - id: para-01
+    category: paraphrase-zh
+    query: "电脑睡了一觉起来，原本定好点要跑的作业会不会漏掉或者连着触发好几次"
+    negative: false
+    targets:
+      - page: "my-app/cron-persistence-work"
+
+  - id: para-02
+    category: paraphrase-zh
+    query: "界面点同步按钮直接冻住没反应，最后查出来是什么原因"
+    negative: false
+    targets:
+      - page: "desktop-tool/tauri-ipc-locking"
+
+  - id: para-03
+    category: paraphrase-zh
+    query: "为什么不直接把数据盘挂成匿名卷，服务目录平时怎么摆"
+    negative: false
+    targets:
+      - page: "ops-infra/container-compose-layout"
+        section: "目录划分"
+
+  - id: para-04
+    category: paraphrase-zh
+    query: "客户端下完新版安装包会不会马上把人踢重启打断干活"
+    negative: false
+    targets:
+      - page: "desktop-tool/auto-update-signing"
+        section: "更新体验策略"
+
+  - id: para-05
+    category: paraphrase-zh
+    query: "上游接口突然把数字改成文字把夜间任务搞挂了，后来怎么兜底的"
+    negative: false
+    targets:
+      - page: "data-pipeline/schema-drift-incident"
+
+  - id: para-06
+    category: paraphrase-zh
+    query: "代码合进主干前要整理提交，合并时又想留个节点方便整块撤回，是怎么约定的"
+    negative: false
+    targets:
+      - page: "_topics/git-rebase-workflow"
+
+  - id: para-07
+    category: paraphrase-zh
+    query: "新买回来的硬盘通电检测坏扇区和健康监控是什么时候弄的"
+    negative: false
+    targets:
+      - activity: "2026-10-12"
+        contains: "SMART"
+
+  # --- bilingual (6) ---
+  - id: bi-01
+    category: bilingual
+    query: "How do we rotate JWT signing keys and handle access token expiration in my-app?"
+    negative: false
+    targets:
+      - page: "my-app/rbac-audit-architecture"
+        section: "密钥轮换流程"
+      - page: "my-app/rbac-audit-architecture"
+        section: "会话与令牌生命周期"
+
+  - id: bi-02
+    category: bilingual
+    query: "Why did we switch offline ETL aggregation from Pandas to DuckDB Parquet partitions?"
+    negative: false
+    targets:
+      - page: "data-pipeline/duckdb-parquet-engine"
+        section: "选型依据"
+
+  - id: bi-03
+    category: bilingual
+    query: "data-pipeline 的 data quality 异常拦截和 null ratio 告警阈值是多少"
+    negative: false
+    targets:
+      - page: "data-pipeline/dq-validation-rules"
+        section: "波动告警阈值"
+
+  - id: bi-04
+    category: bilingual
+    query: "login endpoint brute-force rate limiting and 429 Retry-After policy"
+    negative: false
+    targets:
+      - page: "my-app/rbac-audit-architecture"
+        section: "限流与防暴力破解"
+
+  - id: bi-05
+    category: bilingual
+    query: "SyncScheduler 事件驱动改造里，为什么当初没选 Quartz 或 Hangfire，后来又推翻了什么"
+    negative: false
+    targets:
+      - page: "my-app/job-scheduler-migration"
+
+  - id: bi-06
+    category: bilingual
+    query: "hardware security key SSH login setup and old key cleanup"
+    negative: false
+    targets:
+      - activity: "2026-10-16"
+        contains: "硬件安全密钥"
+
+  # --- cross-field (5) ---
+  - id: cross-01
+    category: cross-field
+    query: "云端快照定时备份 抽样核验数据块完整性"
+    negative: false
+    targets:
+      - page: "ops-infra/cloud-snapshot-backup"
+        section: "增量传输与校验步骤"
+
+  - id: cross-02
+    category: cross-field
+    query: "增量水位线改造 原子重命名推进游标"
+    negative: false
+    targets:
+      - page: "data-pipeline/incremental-watermark"
+        section: "进度状态表设计"
+
+  - id: cross-03
+    category: cross-field
+    query: "Linux Wayland 全局快捷键 D-Bus session_handle 置顶聚焦"
+    negative: false
+    targets:
+      - page: "desktop-tool/global-hotkey-wayland"
+        section: "桌面门户接入实现"
+
+  - id: cross-04
+    category: cross-field
+    query: "控制台操作审计日志 JSONL 落盘字段 trace_id"
+    negative: false
+    targets:
+      - page: "my-app/rbac-audit-architecture"
+        section: "审计日志落盘格式"
+
+  - id: cross-05
+    category: cross-field
+    query: "异地冷备策略 限速上传 S3 远端桶"
+    negative: false
+    targets:
+      - page: "ops-infra/cloud-snapshot-backup"
+        section: "增量传输与校验步骤"
+
+  # --- filtered (5) ---
+  - id: filt-01
+    category: filtered
+    query: "连接池 慢查询 索引"
+    workstream: "ops-infra"
+    kind: "pages"
+    negative: false
+    targets:
+      - page: "ops-infra/postgres-slow-query"
+
+  - id: filt-02
+    category: filtered
+    query: "容器日志轮转 json-file 磁盘"
+    workstream: "ops-infra"
+    from: "2026-10-10"
+    to: "2026-10-15"
+    kind: "activities"
+    negative: false
+    targets:
+      - activity: "2026-10-12"
+        contains: "json-file"
+
+  - id: filt-03
+    category: filtered
+    query: "本周慢查询故障与字段漂移死信分流进展"
+    from: "2026-10-05"
+    to: "2026-10-11"
+    kind: "activities"
+    negative: false
+    targets:
+      - summary: "2026-10-05"
+        contains: "2026-W41"
+
+  - id: filt-04
+    category: filtered
+    query: "本周容器日志轮转 休眠补偿验收 游标原子提交"
+    from: "2026-10-12"
+    to: "2026-10-18"
+    kind: "activities"
+    negative: false
+    targets:
+      - summary: "2026-10-12"
+        contains: "2026-W42"
+
+  - id: filt-05
+    category: filtered
+    query: "Leftovers 还没做的遗留项"
+    workstream: "desktop-tool"
+    from: "2026-10-01"
+    to: "2026-10-31"
+    kind: "pages"
+    negative: false
+    targets:
+      - page: "desktop-tool/global-hotkey-wayland"
+        section: "Leftovers"
+
+  # --- negative (7) ---
+  - id: neg-01
+    category: negative
+    query: "Kubernetes Helm chart Ingress Controller 自动扩缩容 HPA 配置"
+    negative: true
+    targets: []
+
+  - id: neg-02
+    category: negative
+    query: "my-app 接入 GraphQL Federation 与 Apollo Router 网关方案"
+    negative: true
+    targets: []
+
+  - id: neg-03
+    category: negative
+    query: "Apache Kafka Consumer Group 消费积压与分区再均衡排查"
+    negative: true
+    targets: []
+
+  - id: neg-04
+    category: negative
+    query: "macOS App Store 公证 notarization 与 Apple Developer 证书续期"
+    negative: true
+    targets: []
+
+  - id: neg-05
+    category: negative
+    query: "Elasticsearch 倒排索引分片数规划与 IK 中文分词词典热更新"
+    negative: true
+    targets: []
+
+  - id: neg-06
+    category: negative
+    query: "iOS SwiftUI CoreData CloudKit 同步冲突处理"
+    negative: true
+    targets: []
+
+  - id: neg-07
+    category: negative
+    query: "GPU CUDA 显存碎片整理与 vLLM 张量并行启动参数"
+    negative: true
+    targets: []

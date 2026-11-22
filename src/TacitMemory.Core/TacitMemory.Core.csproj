@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="TacitMemory.Core.Tests" />
+    <InternalsVisibleTo Include="TacitMemory.Benchmarks" />
   </ItemGroup>
 
 </Project>

@@ -20,3 +20,7 @@ agents/
 
 # Third-party licenses the web build records for the release notices
 web/licenses/
+
+# Local benchmark caches and run outputs
+benchmarks/.cache/
+benchmarks/results/

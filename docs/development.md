@@ -75,6 +75,7 @@ flowchart LR
 1. **`tests/TacitMemory.Core.Tests`（门面接缝）**：通过 `Core` 公开门面测试，每个用例使用独立的临时 `TestHome` 与真实 `git`；异步刷新通过 internal 入口 `SettledAsync` 与测试时钟 `TestHome.Clock` 确定性推进。
 2. **`tests/TacitMemory.Host.Tests`（MCP 与 API 接缝）**：进程内启动真实 HTTP `ServiceHost`，以 `127.0.0.2` 模拟其他设备连接。
 3. **`tests/TacitMemory.Cli.Tests`（CLI 接缝）**：进程内经 `CommandLine.RunAsync` 与 `CliConsole` 执行命令；因静态状态限制，测试类均须标注 `[Collection(CliCollection.Name)]`。
+4. **`benchmarks/TacitMemory.Benchmarks` 与 `tests/TacitMemory.Benchmarks.Tests`（检索与性能基准）**：独立控制台工具（不进发行包），`recall` 严格经 `Core` 公开门面 `TraceRecallAsync` 评测召回率与四阶段漏斗，`perf` 经 `InternalsVisibleTo` 拆测派生索引与端到端性能；配套测试统一经进程内 CLI 入口与 `ModelDouble` 验证内置脱敏语料、指标口径、细粒度缓存代理与性能冒烟。
 
 > **macOS 本地运行 Host / CLI 测试**：macOS 默认仅有 `127.0.0.1` 回环地址，需先添加别名（重启后失效）：
 > ```bash
