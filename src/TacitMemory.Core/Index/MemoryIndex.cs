@@ -1,10 +1,13 @@
+using System.Buffers;
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
 using TacitMemory.Core.Injection;
 using TacitMemory.Core.Pages;
 using TacitMemory.Core.Persona;
@@ -141,6 +144,9 @@ internal sealed class MemoryIndex : IDisposable
 
     /// <summary>Set when a background sync gave up; the next search syncs every file first.</summary>
     private volatile bool _possiblyStale;
+
+    /// <summary>Set whenever a unit is added or vectors are dropped; cleared once a check confirms every unit has a vector.</summary>
+    private bool _possiblyPendingVectors = true;
     private readonly HashSet<string> _skipped = new(StringComparer.Ordinal);
     private readonly Func<DateOnly> _today;
     private readonly Func<IReadOnlyDictionary<string, DateOnly>> _commitDays;
@@ -208,14 +214,23 @@ internal sealed class MemoryIndex : IDisposable
             var pages = PageFiles().ToDictionary(file => file.Id.RelativePath);
             var months = RecentFile.MonthFiles(_memoryPath).ToDictionary(file => file.RelativePath, file => file.FullPath);
             var known = _connection.Query<(string Path, string Hash)>("SELECT path, hash FROM sources").ToDictionary(row => row.Path, row => row.Hash);
-            foreach (var path in known.Keys.Where(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path)))
-                Remove(path);
-            foreach (var (path, file) in pages)
-                Sync(file.Id, file.FullPath, known.GetValueOrDefault(path));
-            foreach (var (path, fullPath) in months)
-                SyncActivity(path, fullPath, known.GetValueOrDefault(path));
-            SyncJudgments();
-            _skipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
+            var nextSkipped = new HashSet<string>(_skipped, StringComparer.Ordinal);
+            using (var batch = new LazyBatchTransaction(_connection))
+            {
+                foreach (var path in known.Keys.Where(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path)))
+                    RemoveRows(path, batch.Ensure());
+                foreach (var (path, file) in pages)
+                    Sync(file.Id, file.FullPath, known.GetValueOrDefault(path), nextSkipped, batch);
+                foreach (var (path, fullPath) in months)
+                    SyncActivity(path, fullPath, known.GetValueOrDefault(path), nextSkipped, batch);
+                SyncJudgment(MemoryLayout.Persona, SourceKinds.Persona, known.GetValueOrDefault(MemoryLayout.Persona), PersonaUnits, nextSkipped, batch);
+                SyncJudgment(MemoryLayout.Candidates, SourceKinds.Candidates, known.GetValueOrDefault(MemoryLayout.Candidates), CandidateUnits, nextSkipped, batch);
+                batch.Commit();
+            }
+
+            nextSkipped.RemoveWhere(path => !pages.ContainsKey(path) && !months.ContainsKey(path) && !IsJudgmentFile(path));
+            _skipped.Clear();
+            _skipped.UnionWith(nextSkipped);
             _fullBuild = false;
             _commitDayCache = null;
             // Cleared only once every file is in step: a sync that meets a held file leaves the mark for the next search.
@@ -328,17 +343,34 @@ internal sealed class MemoryIndex : IDisposable
     /// </summary>
     public IReadOnlyList<ScoredHit> SearchVector(float[] vector, IndexFilter filter, int limit)
     {
+        if (limit <= 0)
+            return [];
         lock (_gate)
         {
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
-            var rows = _connection.Query<ScoredRow>($"""
-                SELECT {HitColumns}, v.embedding AS Embedding
+            var sql = $"""
+                SELECT v.id, v.embedding
                 FROM units_vectors v JOIN units u ON u.id = v.id
                 WHERE {Filters}
                 ORDER BY u.id
-                """, Parameters(filter, limit, new { }));
-            return Nearest(rows, row => row.Embedding, vector, limit).Select(nearest => nearest.Row.ToHit() with { Score = nearest.Distance }).ToList();
+                """;
+            var top = NearestIds(sql, stmt => BindFilterParameters(stmt, filter), vector, limit);
+            if (top.Length == 0)
+                return [];
+
+            var ids = new long[top.Length];
+            for (var i = 0; i < top.Length; i++)
+                ids[i] = top[i].Id;
+            var byId = HydrateById<ScoredRow>($"SELECT {HitColumns} FROM units u WHERE u.id IN @ids", ids, row => row.Id);
+            var hits = new List<ScoredHit>(top.Length);
+            foreach (var (id, distance) in top)
+            {
+                if (byId.TryGetValue(id, out var row))
+                    hits.Add(row.ToHit() with { Score = distance });
+            }
+
+            return hits;
         }
     }
 
@@ -355,54 +387,256 @@ internal sealed class MemoryIndex : IDisposable
         IReadOnlyCollection<string>? unitKinds = null,
         IReadOnlyCollection<PersonaScope>? scopes = null)
     {
+        var effectiveUnitKinds = unitKinds ?? JudgmentKinds;
+        if (limit <= 0 || sourceKinds.Count == 0 || effectiveUnitKinds.Count == 0 || scopes?.Count == 0)
+            return [];
         lock (_gate)
         {
             if (Meta("dimension") != vector.Length.ToString(CultureInfo.InvariantCulture))
                 return [];
-            var scopeFilter = scopes is null ? "" : "AND u.scope IN @scopes";
-            var rows = _connection.Query<JudgmentRow>($"""
-                SELECT u.kind AS Kind, u.section AS Section, u.raw AS Text, u.scope AS Scope, v.embedding AS Embedding
+            var scopeValues = scopes?.Select(scope => scope.ToString()).ToList();
+            var sourceClause = InPlaceholders("sk", sourceKinds.Count);
+            var unitClause = InPlaceholders("uk", effectiveUnitKinds.Count);
+            var scopeClause = scopeValues is null ? "" : $"AND u.scope IN ({InPlaceholders("sc", scopeValues.Count)})";
+            var sql = $"""
+                SELECT v.id, v.embedding
                 FROM units_vectors v JOIN units u ON u.id = v.id JOIN sources s ON s.id = u.source_id
-                WHERE s.kind IN @sourceKinds AND u.kind IN @unitKinds {scopeFilter}
+                WHERE s.kind IN ({sourceClause}) AND u.kind IN ({unitClause}) {scopeClause}
                 ORDER BY u.id
-                """,
-                new
+                """;
+            var top = NearestIds(
+                sql,
+                stmt =>
                 {
-                    sourceKinds = sourceKinds.ToList(),
-                    unitKinds = (unitKinds ?? JudgmentKinds).ToList(),
-                    scopes = scopes?.Select(scope => scope.ToString()).ToList(),
-                });
-            return Nearest(rows, row => row.Embedding, vector, limit)
-                .Select(nearest => nearest.Row)
-                .Select(row => new JudgmentHit(row.Kind, PersonaSectionNamed(row.Section), row.Text, PersonaScope.Stored(row.Scope ?? "global")))
-                .ToList();
+                    BindInValues(stmt, "sk", sourceKinds);
+                    BindInValues(stmt, "uk", effectiveUnitKinds);
+                    if (scopeValues is not null)
+                        BindInValues(stmt, "sc", scopeValues);
+                },
+                vector,
+                limit);
+            if (top.Length == 0)
+                return [];
+
+            var ids = new long[top.Length];
+            for (var i = 0; i < top.Length; i++)
+                ids[i] = top[i].Id;
+            var byId = HydrateById<JudgmentRow>(
+                "SELECT u.id AS Id, u.kind AS Kind, u.section AS Section, u.raw AS Text, u.scope AS Scope FROM units u WHERE u.id IN @ids",
+                ids,
+                row => row.Id);
+            var hits = new List<JudgmentHit>(top.Length);
+            foreach (var (id, _) in top)
+            {
+                if (byId.TryGetValue(id, out var row))
+                    hits.Add(new JudgmentHit(row.Kind, PersonaSectionNamed(row.Section), row.Text, PersonaScope.Stored(row.Scope ?? "global")));
+            }
+
+            return hits;
         }
     }
 
-    /// <summary>A judgment unit as a search reads it: its kind, its stored section and scope names, its text and its vector.</summary>
-    private sealed record JudgmentRow(string Kind, string? Section, string Text, string? Scope, byte[] Embedding);
+    /// <summary>A judgment unit as a search reads it: its ID, kind, stored section and scope names, and text.</summary>
+    private sealed record JudgmentRow(long Id, string Kind, string? Section, string Text, string? Scope);
 
     /// <summary>
-    /// The <paramref name="limit"/> rows whose stored vector is nearest to <paramref name="vector"/> by cosine distance, nearest
-    /// first; rows at the same distance keep their order. Every vector search goes through here.
+    /// Streams <c>(id, embedding)</c> rows directly from SQLite (ordered by <c>u.id</c>) using zero-copy BLOB spans and
+    /// keeps only the <paramref name="limit"/> nearest IDs by cosine distance, best first; equal distances keep ascending ID order.
     /// </summary>
-    private static IEnumerable<(T Row, double Distance)> Nearest<T>(IEnumerable<T> rows, Func<T, byte[]> embedding, float[] vector, int limit) =>
-        rows.Select(row => (Row: row, Distance: CosineDistance(MemoryMarshal.Cast<byte, float>(embedding(row)), vector)))
-            .OrderBy(nearest => nearest.Distance)
-            .Take(limit);
-
-    /// <summary>One minus the cosine similarity; vectors need not be normalized. A zero vector is at distance 1 from any other.</summary>
-    private static double CosineDistance(ReadOnlySpan<float> stored, ReadOnlySpan<float> query)
+    private (long Id, double Distance)[] NearestIds(string sql, Action<sqlite3_stmt> bind, float[] query, int limit)
     {
-        double dot = 0, storedNorm = 0, queryNorm = 0;
-        for (var i = 0; i < stored.Length; i++)
+        var db = _connection.Handle ?? throw new InvalidOperationException("Index database connection is not open.");
+        var rc = raw.sqlite3_prepare_v2(db, sql, out var stmt);
+        SqliteException.ThrowExceptionForRC(rc, db);
+        using (stmt)
         {
-            dot += (double)stored[i] * query[i];
-            storedNorm += (double)stored[i] * stored[i];
-            queryNorm += (double)query[i] * query[i];
+            bind(stmt);
+
+            double queryNormSq = 0;
+            for (var i = 0; i < query.Length; i++)
+                queryNormSq += (double)query[i] * query[i];
+
+            if (queryNormSq == 0 || !double.IsFinite(queryNormSq))
+            {
+                var equidistant = new List<(long Id, double Distance)>(Math.Min(limit, 64));
+                while (equidistant.Count < limit)
+                {
+                    rc = raw.sqlite3_step(stmt);
+                    if (rc == raw.SQLITE_ROW)
+                        equidistant.Add((raw.sqlite3_column_int64(stmt, 0), 1.0));
+                    else if (rc == raw.SQLITE_DONE)
+                        break;
+                    else
+                        SqliteException.ThrowExceptionForRC(rc, db);
+                }
+
+                return equidistant.ToArray();
+            }
+
+            var invQueryNorm = 1.0 / Math.Sqrt(queryNormSq);
+            var queryUnitBuffer = ArrayPool<float>.Shared.Rent(query.Length);
+            try
+            {
+                var queryUnit = queryUnitBuffer.AsSpan(0, query.Length);
+                for (var i = 0; i < query.Length; i++)
+                    queryUnit[i] = (float)(query[i] * invQueryNorm);
+
+                var heap = new PriorityQueue<(long Id, double Distance), (double Distance, long Id)>(
+                    Math.Min(limit, 1024),
+                    WorstFirstComparer.Instance);
+                while (true)
+                {
+                    rc = raw.sqlite3_step(stmt);
+                    if (rc == raw.SQLITE_DONE)
+                        break;
+                    if (rc != raw.SQLITE_ROW)
+                        SqliteException.ThrowExceptionForRC(rc, db);
+
+                    var id = raw.sqlite3_column_int64(stmt, 0);
+                    var blob = raw.sqlite3_column_blob(stmt, 1);
+                    var stored = MemoryMarshal.Cast<byte, float>(blob[..(blob.Length & ~3)]);
+                    var distance = CosineDistanceWithUnitQuery(stored, queryUnit);
+                    if (heap.Count < limit)
+                    {
+                        heap.Enqueue((id, distance), (distance, id));
+                    }
+                    else
+                    {
+                        var worst = heap.Peek();
+                        if (distance < worst.Distance || (distance == worst.Distance && id < worst.Id))
+                            heap.EnqueueDequeue((id, distance), (distance, id));
+                    }
+                }
+
+                var top = new (long Id, double Distance)[heap.Count];
+                for (var i = top.Length - 1; i >= 0; i--)
+                    top[i] = heap.Dequeue();
+                return top;
+            }
+            finally
+            {
+                ArrayPool<float>.Shared.Return(queryUnitBuffer);
+            }
+        }
+    }
+
+    /// <summary>Orders larger distance (or larger ID on tie) first so a min-heap keeps the worst retained entry at its root.</summary>
+    private sealed class WorstFirstComparer : IComparer<(double Distance, long Id)>
+    {
+        public static readonly WorstFirstComparer Instance = new();
+
+        public int Compare((double Distance, long Id) x, (double Distance, long Id) y)
+        {
+            var byDistance = y.Distance.CompareTo(x.Distance);
+            return byDistance != 0 ? byDistance : y.Id.CompareTo(x.Id);
+        }
+    }
+
+    /// <summary>
+    /// One minus the cosine similarity between an unnormalized stored vector and a unit-length query vector.
+    /// A zero stored vector is at distance 1. Falls back to scalar double accumulation if float32 squaring overflows.
+    /// </summary>
+    private static double CosineDistanceWithUnitQuery(ReadOnlySpan<float> stored, ReadOnlySpan<float> queryUnit)
+    {
+        var length = Math.Min(stored.Length, queryUnit.Length);
+        var i = 0;
+        double dot = 0, storedNormSq = 0;
+        if (Vector.IsHardwareAccelerated && length >= Vector<float>.Count)
+        {
+            var width = Vector<float>.Count;
+            var vDot = Vector<float>.Zero;
+            var vNorm = Vector<float>.Zero;
+            var simdLimit = length - width;
+            for (; i <= simdLimit; i += width)
+            {
+                var s = new Vector<float>(stored.Slice(i, width));
+                var q = new Vector<float>(queryUnit.Slice(i, width));
+                vDot += s * q;
+                vNorm += s * s;
+            }
+
+            dot = Vector.Sum(vDot);
+            storedNormSq = Vector.Sum(vNorm);
         }
 
-        return storedNorm == 0 || queryNorm == 0 ? 1 : 1 - dot / Math.Sqrt(storedNorm * queryNorm);
+        for (; i < length; i++)
+        {
+            var s = (double)stored[i];
+            dot += s * queryUnit[i];
+            storedNormSq += s * s;
+        }
+
+        // Also fall back to double precision on float32 squaring underflow so tiny non-zero vectors keep exact distance.
+        if (!double.IsFinite(storedNormSq) || !double.IsFinite(dot) || (storedNormSq < 1e-30 && (storedNormSq > 0 || dot != 0)))
+            return CosineDistanceScalarDouble(stored[..length], queryUnit[..length]);
+        return storedNormSq == 0 ? 1 : 1 - dot / Math.Sqrt(storedNormSq);
+    }
+
+    private static double CosineDistanceScalarDouble(ReadOnlySpan<float> stored, ReadOnlySpan<float> queryUnit)
+    {
+        double dot = 0, storedNormSq = 0;
+        for (var i = 0; i < stored.Length; i++)
+        {
+            var s = (double)stored[i];
+            dot += s * queryUnit[i];
+            storedNormSq += s * s;
+        }
+
+        return storedNormSq == 0 || !double.IsFinite(storedNormSq) || !double.IsFinite(dot)
+            ? 1
+            : 1 - dot / Math.Sqrt(storedNormSq);
+    }
+
+    /// <summary>Hydrates unit rows by ID in bounded chunks so large <c>limit</c> values never hit SQLite's parameter limit.</summary>
+    private Dictionary<long, TRow> HydrateById<TRow>(string sql, long[] ids, Func<TRow, long> idOf)
+    {
+        const int chunkSize = 500;
+        var byId = new Dictionary<long, TRow>(ids.Length);
+        for (var offset = 0; offset < ids.Length; offset += chunkSize)
+        {
+            var count = Math.Min(chunkSize, ids.Length - offset);
+            var chunk = offset == 0 && count == ids.Length ? ids : ids.AsSpan(offset, count).ToArray();
+            foreach (var row in _connection.Query<TRow>(sql, new { ids = chunk }))
+                byId[idOf(row)] = row;
+        }
+
+        return byId;
+    }
+
+    private void BindFilterParameters(sqlite3_stmt stmt, IndexFilter filter)
+    {
+        BindTextOrNull(stmt, "@workstream", filter.Workstream);
+        BindTextOrNull(stmt, "@from", filter.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        BindTextOrNull(stmt, "@to", filter.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        BindBoolOrNull(stmt, "@activities", filter.Activities);
+    }
+
+    private void BindTextOrNull(sqlite3_stmt stmt, string name, string? value)
+    {
+        var index = raw.sqlite3_bind_parameter_index(stmt, name);
+        if (index == 0)
+            throw new InvalidOperationException($"SQL parameter '{name}' was not found in prepared statement.");
+        var rc = value is null ? raw.sqlite3_bind_null(stmt, index) : raw.sqlite3_bind_text(stmt, index, value);
+        SqliteException.ThrowExceptionForRC(rc, _connection.Handle);
+    }
+
+    private void BindBoolOrNull(sqlite3_stmt stmt, string name, bool? value)
+    {
+        var index = raw.sqlite3_bind_parameter_index(stmt, name);
+        if (index == 0)
+            throw new InvalidOperationException($"SQL parameter '{name}' was not found in prepared statement.");
+        var rc = value is { } flag ? raw.sqlite3_bind_int(stmt, index, flag ? 1 : 0) : raw.sqlite3_bind_null(stmt, index);
+        SqliteException.ThrowExceptionForRC(rc, _connection.Handle);
+    }
+
+    private static string InPlaceholders(string prefix, int count) =>
+        string.Join(", ", Enumerable.Range(0, count).Select(i => $"@{prefix}{i}"));
+
+    private void BindInValues(sqlite3_stmt stmt, string prefix, IEnumerable<string> values)
+    {
+        var index = 0;
+        foreach (var value in values)
+            BindTextOrNull(stmt, $"@{prefix}{index++}", value);
     }
 
     /// <summary>The persona section a stored section name stands for; <c>null</c> when it is none of the four.</summary>
@@ -437,14 +671,32 @@ internal sealed class MemoryIndex : IDisposable
                 new { cacheKey, probabilities = JsonSerializer.Serialize(probabilities.ToDictionary(), CoreJson.Default.DictionaryStringDouble), written = writtenAt.ToString("O", CultureInfo.InvariantCulture) });
     }
 
+    /// <summary>Whether any indexed unit still needs a vector; avoids scanning the index once every unit has one.</summary>
+    public bool HasPendingVectors()
+    {
+        lock (_gate)
+        {
+            if (!_possiblyPendingVectors)
+                return false;
+            var hasPending = _connection.ExecuteScalar<long>(
+                "SELECT EXISTS (SELECT 1 FROM units u WHERE NOT EXISTS (SELECT 1 FROM units_vectors v WHERE v.id = u.id))") > 0;
+            if (!hasPending)
+                _possiblyPendingVectors = false;
+            return hasPending;
+        }
+    }
+
     /// <summary>Up to <paramref name="limit"/> units that still need a vector.</summary>
     public IReadOnlyList<PendingUnit> PendingUnits(int limit)
     {
         lock (_gate)
         {
-            return _connection.Query<PendingUnit>(
-                "SELECT id AS Id, passage AS Passage FROM units WHERE id NOT IN (SELECT id FROM units_vectors) ORDER BY id LIMIT @limit",
+            var pending = _connection.Query<PendingUnit>(
+                "SELECT u.id AS Id, u.passage AS Passage FROM units u WHERE NOT EXISTS (SELECT 1 FROM units_vectors v WHERE v.id = u.id) ORDER BY u.id LIMIT @limit",
                 new { limit }).ToList();
+            if (pending.Count == 0 && limit > 0)
+                _possiblyPendingVectors = false;
+            return pending;
         }
     }
 
@@ -615,28 +867,36 @@ internal sealed class MemoryIndex : IDisposable
         return parameters;
     }
 
-    /// <summary>A vector as stored: its float32s in the machine's byte order, read back by <see cref="Nearest"/>.</summary>
+    /// <summary>A vector as stored: its float32s in the machine's byte order, read back by <see cref="NearestIds"/>.</summary>
     private static byte[] Blob(float[] vector) => MemoryMarshal.AsBytes(vector.AsSpan()).ToArray();
 
-    private void Sync(PageId id, string fullPath, string? knownHash)
+    private void Sync(PageId id, string fullPath, string? knownHash, HashSet<string>? skipped = null, LazyBatchTransaction? batch = null)
     {
         var bytes = TextFile.ReadSharedBytes(fullPath);
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         if (hash == knownHash)
             return;
 
-        if (TextFile.Read(fullPath) is not { } read)
+        var skippedSet = skipped ?? _skipped;
+        if (TextFile.Decode(bytes) is not { } read)
         {
-            Remove(id.RelativePath);
-            _skipped.Add(id.RelativePath);
+            if (knownHash is not null)
+            {
+                if (batch is not null)
+                    RemoveRows(id.RelativePath, batch.Ensure());
+                else
+                    Remove(id.RelativePath);
+            }
+
+            skippedSet.Add(id.RelativePath);
             return;
         }
 
-        _skipped.Remove(id.RelativePath);
+        skippedSet.Remove(id.RelativePath);
         var document = PageDocument.Parse(read.Text, read.HasBom, id.Slug);
         var source = id.ToString();
-        var previous = SectionStates(source);
-        var carried = UsageStates(source);
+        var previous = SectionStates(source, batch?.Current);
+        var carried = UsageStates(source, batch?.Current);
         // A section a full build meets first is dated by its file's last commit; any other new or changed section is today's.
         var firstSeen = _today();
         if (_fullBuild && knownHash is null)
@@ -645,37 +905,46 @@ internal sealed class MemoryIndex : IDisposable
             firstSeen = _commitDayCache.GetValueOrDefault(id.RelativePath, firstSeen);
         }
 
-        using var transaction = _connection.BeginTransaction();
-        RemoveRows(id.RelativePath, transaction);
-        var header = document.Header;
-        _connection.Execute(
-            "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
-            new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
-            transaction);
-        var scope = new UnitScope(id.Workstream, DateText(header.First), DateText(header.Last));
-        AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction, carried: carried);
-        for (var i = 0; i < document.Sections.Count; i++)
+        var own = batch is null ? _connection.BeginTransaction() : null;
+        try
         {
-            var section = document.Sections[i];
-            var raw = section.Name + "\n" + section.Body;
-            // Trailing whitespace is not content, so a newline at the end of a file does not make its last section changed.
-            var contentHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw.TrimEnd())));
-            var unchanged = previous.TryGetValue(section.Name, out var before) && before.Hash == contentHash && before.Changed is not null;
-            var changed = unchanged ? before!.Changed! : DateText(firstSeen)!;
-            AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed, carried: carried,
-                passage: header.Title + "\n" + raw);
-        }
+            var transaction = own ?? batch!.Ensure();
+            RemoveRows(id.RelativePath, transaction);
+            var header = document.Header;
+            _connection.Execute(
+                "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
+                new { id = source, kind = SourceKinds.Page, path = id.RelativePath, hash },
+                transaction);
+            var scope = new UnitScope(id.Workstream, DateText(header.First), DateText(header.Last));
+            AddUnit(source, UnitKinds.Clue, null, 0, string.Join('\n', [header.Title, .. header.Aliases]), scope, transaction, carried: carried);
+            for (var i = 0; i < document.Sections.Count; i++)
+            {
+                var section = document.Sections[i];
+                var raw = section.Name + "\n" + section.Body;
+                // Trailing whitespace is not content, so a newline at the end of a file does not make its last section changed.
+                var contentHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw.TrimEnd())));
+                var unchanged = previous.TryGetValue(section.Name, out var before) && before.Hash == contentHash && before.Changed is not null;
+                var changed = unchanged ? before!.Changed! : DateText(firstSeen)!;
+                AddUnit(source, UnitKinds.Section, section.Name, i + 1, raw, scope, transaction, hash: contentHash, changed: changed, carried: carried,
+                    passage: header.Title + "\n" + raw);
+            }
 
-        transaction.Commit();
+            own?.Commit();
+        }
+        finally
+        {
+            own?.Dispose();
+        }
     }
 
     /// <summary>The content hash and last changed date each section of a page had when last synced, by section name.</summary>
-    private Dictionary<string, (string Hash, string? Changed)> SectionStates(string source)
+    private Dictionary<string, (string Hash, string? Changed)> SectionStates(string source, SqliteTransaction? transaction = null)
     {
         var states = new Dictionary<string, (string Hash, string? Changed)>(StringComparer.Ordinal);
         foreach (var row in _connection.Query<(string Section, string Hash, string? Changed)>(
             "SELECT section AS Section, hash AS Hash, changed AS Changed FROM units WHERE source_id = @source AND kind = @kind",
-            new { source, kind = UnitKinds.Section }))
+            new { source, kind = UnitKinds.Section },
+            transaction))
             states[row.Section] = (row.Hash, row.Changed);
         return states;
     }
@@ -684,13 +953,14 @@ internal sealed class MemoryIndex : IDisposable
     /// The usage counts each unit of a source holds, keyed by <see cref="UsageKey"/>, so a re-sync can carry them over.
     /// Usage is derived state: only a reindex or a restore clears it, never an edit of the file.
     /// </summary>
-    private Dictionary<string, UsageState> UsageStates(string source)
+    private Dictionary<string, UsageState> UsageStates(string source, SqliteTransaction? transaction = null)
     {
         var states = new Dictionary<string, UsageState>(StringComparer.Ordinal);
         foreach (var row in _connection.Query<UsageRow>(
             "SELECT kind AS Kind, section AS Section, code AS Code, first AS First, last AS Last, returns AS Returns, returned AS Returned "
             + "FROM units WHERE source_id = @source AND (returns > 0 OR returned IS NOT NULL)",
-            new { source }))
+            new { source },
+            transaction))
             states[UsageKey(row.Kind, row.Section, row.Code, row.First, row.Last)] = new UsageState(row.Returns, row.Returned);
         return states;
     }
@@ -707,7 +977,6 @@ internal sealed class MemoryIndex : IDisposable
         _ => kind,
     };
 
-    /// <summary>A unit's usage counts as <see cref="UsageStates"/> reads them.</summary>
     /// <summary>
     /// A search row: the hit's columns and the score the search ordered by. Mapped by property, because SQLite reports no type
     /// for a computed column of an empty result, so no constructor would match.
@@ -724,90 +993,148 @@ internal sealed class MemoryIndex : IDisposable
         public string? Code { get; init; }
         public string Passage { get; init; } = "";
         public double Score { get; init; }
-        public byte[] Embedding { get; init; } = [];
 
         public ScoredHit ToHit() => new(new IndexHit(Id, Source, Kind, Section, Text, Workstream, Date, Code, Passage), Score);
     }
 
+    private sealed class LazyBatchTransaction(SqliteConnection connection) : IDisposable
+    {
+        public SqliteTransaction? Current { get; private set; }
+
+        public SqliteTransaction Ensure() => Current ??= connection.BeginTransaction();
+
+        public void Commit() => Current?.Commit();
+
+        public void Dispose() => Current?.Dispose();
+    }
+
+    /// <summary>A unit's usage counts as <see cref="UsageStates"/> reads them.</summary>
     private sealed record UsageState(long Returns, string? Returned);
 
     /// <summary>A unit's identity and usage counts, as <see cref="UsageStates"/> reads them.</summary>
     private sealed record UsageRow(string Kind, string? Section, string? Code, string? First, string? Last, long Returns, string? Returned);
 
-    private void SyncActivity(string relativePath, string fullPath, string? knownHash)
+    private void SyncActivity(string relativePath, string fullPath, string? knownHash, HashSet<string>? skipped = null, LazyBatchTransaction? batch = null)
     {
-        var hash = Convert.ToHexStringLower(SHA256.HashData(TextFile.ReadSharedBytes(fullPath)));
+        var bytes = TextFile.ReadSharedBytes(fullPath);
+        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         if (hash == knownHash)
             return;
 
-        if (TextFile.Read(fullPath) is not { } read)
+        var skippedSet = skipped ?? _skipped;
+        if (TextFile.Decode(bytes) is not { } read)
         {
-            Remove(relativePath);
-            _skipped.Add(relativePath);
+            if (knownHash is not null)
+            {
+                if (batch is not null)
+                    RemoveRows(relativePath, batch.Ensure());
+                else
+                    Remove(relativePath);
+            }
+
+            skippedSet.Add(relativePath);
             return;
         }
 
-        _skipped.Remove(relativePath);
-        var carried = UsageStates(relativePath);
-        using var transaction = _connection.BeginTransaction();
-        RemoveRows(relativePath, transaction);
-        _connection.Execute(
-            "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
-            new { id = relativePath, kind = SourceKinds.ActivityRecord, path = relativePath, hash },
-            transaction);
-        foreach (var activity in RecentFile.Activities(read.Text))
+        skippedSet.Remove(relativePath);
+        var carried = UsageStates(relativePath, batch?.Current);
+        var own = batch is null ? _connection.BeginTransaction() : null;
+        try
         {
-            // An activity has no section; the column holds the machine it was written on, so recall can show it.
-            var day = DateText(activity.Day);
-            AddUnit(relativePath, UnitKinds.Activity, activity.Machine, activity.Line, activity.Labeled, new UnitScope(activity.Workstream ?? "", day, day), transaction, activity.Code, carried: carried);
-        }
+            var transaction = own ?? batch!.Ensure();
+            RemoveRows(relativePath, transaction);
+            _connection.Execute(
+                "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
+                new { id = relativePath, kind = SourceKinds.ActivityRecord, path = relativePath, hash },
+                transaction);
+            foreach (var activity in RecentFile.Activities(read.Text))
+            {
+                // An activity has no section; the column holds the machine it was written on, so recall can show it.
+                var day = DateText(activity.Day);
+                AddUnit(relativePath, UnitKinds.Activity, activity.Machine, activity.Line, activity.Labeled, new UnitScope(activity.Workstream ?? "", day, day), transaction, activity.Code, carried: carried);
+            }
 
-        foreach (var summary in SummaryLines.All(read.Text))
+            foreach (var summary in SummaryLines.All(read.Text))
+            {
+                var kind = summary.Kind == SummaryKind.Week ? "week" : "month";
+                AddUnit(relativePath, UnitKinds.Summary, kind, summary.Line, summary.Text, new UnitScope("", DateText(summary.First), DateText(summary.Last)), transaction, carried: carried);
+            }
+
+            own?.Commit();
+        }
+        finally
         {
-            var kind = summary.Kind == SummaryKind.Week ? "week" : "month";
-            AddUnit(relativePath, UnitKinds.Summary, kind, summary.Line, summary.Text, new UnitScope("", DateText(summary.First), DateText(summary.Last)), transaction, carried: carried);
+            own?.Dispose();
         }
-
-        transaction.Commit();
     }
 
     /// <summary>
     /// Brings a persona file in line with its file: its units are rebuilt when the hash changed. A missing file leaves
     /// no units; a file that is not UTF-8 is skipped, as the other indexed files are.
     /// </summary>
-    private void SyncJudgment(string relativePath, string sourceKind, string? knownHash, Func<string, IReadOnlyList<JudgmentUnit>> unitsOf)
+    private void SyncJudgment(
+        string relativePath,
+        string sourceKind,
+        string? knownHash,
+        Func<string, IReadOnlyList<JudgmentUnit>> unitsOf,
+        HashSet<string>? skipped = null,
+        LazyBatchTransaction? batch = null)
     {
+        var skippedSet = skipped ?? _skipped;
         var fullPath = MemoryLayout.Full(_memoryPath, relativePath);
         if (!File.Exists(fullPath))
         {
-            Remove(relativePath);
-            _skipped.Remove(relativePath);
+            if (knownHash is not null)
+            {
+                if (batch is not null)
+                    RemoveRows(relativePath, batch.Ensure());
+                else
+                    Remove(relativePath);
+            }
+
+            skippedSet.Remove(relativePath);
             return;
         }
 
-        var hash = Convert.ToHexStringLower(SHA256.HashData(TextFile.ReadSharedBytes(fullPath)));
+        var bytes = TextFile.ReadSharedBytes(fullPath);
+        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
         if (hash == knownHash)
             return;
 
-        if (TextFile.Read(fullPath) is not { } read)
+        if (TextFile.Decode(bytes) is not { } read)
         {
-            Remove(relativePath);
-            _skipped.Add(relativePath);
+            if (knownHash is not null)
+            {
+                if (batch is not null)
+                    RemoveRows(relativePath, batch.Ensure());
+                else
+                    Remove(relativePath);
+            }
+
+            skippedSet.Add(relativePath);
             return;
         }
 
-        _skipped.Remove(relativePath);
+        skippedSet.Remove(relativePath);
         var units = unitsOf(read.Text);
-        using var transaction = _connection.BeginTransaction();
-        RemoveRows(relativePath, transaction);
-        _connection.Execute(
-            "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
-            new { id = relativePath, kind = sourceKind, path = relativePath, hash },
-            transaction);
-        var scope = new UnitScope("", null, null);
-        for (var i = 0; i < units.Count; i++)
-            AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction, judgmentScope: units[i].Scope.ToString());
-        transaction.Commit();
+        var own = batch is null ? _connection.BeginTransaction() : null;
+        try
+        {
+            var transaction = own ?? batch!.Ensure();
+            RemoveRows(relativePath, transaction);
+            _connection.Execute(
+                "INSERT INTO sources (id, kind, path, hash) VALUES (@id, @kind, @path, @hash)",
+                new { id = relativePath, kind = sourceKind, path = relativePath, hash },
+                transaction);
+            var scope = new UnitScope("", null, null);
+            for (var i = 0; i < units.Count; i++)
+                AddUnit(relativePath, units[i].Kind, units[i].Section.ToString(), i + 1, units[i].Text, scope, transaction, judgmentScope: units[i].Scope.ToString());
+            own?.Commit();
+        }
+        finally
+        {
+            own?.Dispose();
+        }
     }
 
     /// <summary>
@@ -866,6 +1193,7 @@ internal sealed class MemoryIndex : IDisposable
             },
             transaction);
         _connection.Execute("INSERT INTO units_fts (rowid, text) VALUES (@unit, @text)", new { unit, text = IndexText.ForIndex(raw) }, transaction);
+        _possiblyPendingVectors = true;
     }
 
     private static string? DateText(DateOnly? date) => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -894,6 +1222,7 @@ internal sealed class MemoryIndex : IDisposable
     private void DropVectors()
     {
         _connection.Execute("DELETE FROM units_vectors; DELETE FROM meta WHERE key = 'dimension';");
+        _possiblyPendingVectors = true;
     }
 
     private string? Meta(string key) => _connection.QuerySingleOrDefault<string?>("SELECT value FROM meta WHERE key = @key", new { key });
@@ -941,6 +1270,7 @@ internal sealed class MemoryIndex : IDisposable
     private SqliteConnection Create()
     {
         _fullBuild = true;
+        _possiblyPendingVectors = true;
         foreach (var suffix in (string[])["", "-wal", "-shm", "-journal"])
             File.Delete(_databasePath + suffix);
         var fresh = Connect();
@@ -964,7 +1294,7 @@ internal sealed class MemoryIndex : IDisposable
         connection.Open();
         try
         {
-            connection.Execute("PRAGMA journal_mode = WAL;");
+            connection.Execute("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 30000;");
             return connection;
         }
         catch

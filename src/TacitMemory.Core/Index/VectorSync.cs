@@ -47,7 +47,7 @@ internal sealed class VectorSync(MemoryIndex index, EmbeddingModel model)
     {
         if (index.Dimension is { } stored && stored != dimension)
             index.ResetVectors();
-        if (index.PendingUnits(1).Count > 0)
+        if (index.HasPendingVectors())
             await FillAsync(cancellationToken);
     }
 

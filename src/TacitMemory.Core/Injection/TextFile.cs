@@ -16,15 +16,16 @@ internal static class TextFile
     public static readonly char[] LineBreaks = ['\r', '\n', '\u2028', '\u2029', '\u0085'];
 
     /// <summary>The text and whether it had a BOM; <c>null</c> when the file is not valid UTF-8. A missing file reads as empty.</summary>
-    public static (string Text, bool HasBom)? Read(string path)
+    public static (string Text, bool HasBom)? Read(string path) =>
+        File.Exists(path) ? Decode(ReadSharedBytes(path)) : ("", false);
+
+    /// <summary>Decodes strict UTF-8 bytes and reports whether they had a BOM; <c>null</c> when the bytes are not valid UTF-8.</summary>
+    public static (string Text, bool HasBom)? Decode(byte[] bytes)
     {
-        if (!File.Exists(path))
-            return ("", false);
-        var bytes = ReadSharedBytes(path);
         var hasBom = bytes.AsSpan().StartsWith(Bom);
         try
         {
-            return (StrictUtf8.GetString(hasBom ? bytes[3..] : bytes), hasBom);
+            return (StrictUtf8.GetString(hasBom ? bytes.AsSpan(3) : bytes), hasBom);
         }
         catch (DecoderFallbackException)
         {
