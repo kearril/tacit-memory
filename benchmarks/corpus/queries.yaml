@@ -618,3 +618,108 @@ queries:
     query: "my-app OAuth2 PKCE 第三方社交登录回调状态校验"
     negative: true
     targets: []
+
+  # --- current-state (6): ask for the active design without time words, competing with Overturned pages ---
+  - id: curr-01
+    category: current-state
+    query: "my-app 缓存是怎么做的"
+    negative: false
+    targets:
+      - page: "my-app/valkey-shared-cache-decision"
+
+  - id: curr-02
+    category: current-state
+    query: "my-app 热点权限矩阵和配置读取怎么缓存的"
+    negative: false
+    targets:
+      - page: "my-app/valkey-shared-cache-decision"
+
+  - id: curr-03
+    category: current-state
+    query: "data-pipeline 夜间跑批和 ETL 定时任务怎么调度的"
+    negative: false
+    targets:
+      - page: "data-pipeline/dag-orchestrator-migration"
+
+  - id: curr-04
+    category: current-state
+    query: "desktop-tool 同步认证令牌存在哪里"
+    negative: false
+    targets:
+      - page: "desktop-tool/os-keychain-storage"
+
+  - id: curr-05
+    category: current-state
+    query: "my-app 周期性 Cron 定时任务怎么防止漏跑"
+    negative: false
+    targets:
+      - page: "my-app/cron-persistence-work"
+
+  - id: curr-06
+    category: current-state
+    query: "build-node 夜间 ETL 怎么防止重跑出问题"
+    negative: false
+    targets:
+      - page: "data-pipeline/dag-orchestrator-migration"
+
+  # --- activity-vs-page (4): authoritative detail page competing with shorter 1-line activity logs ---
+  - id: avp-01
+    category: activity-vs-page
+    query: "pg_stat_statements 排查 event_logs 全表扫描和联合索引"
+    negative: false
+    targets:
+      - page: "ops-infra/postgres-slow-query"
+
+  - id: avp-02
+    category: activity-vs-page
+    query: "pat_live_ 个人访问令牌前缀校验和只读范围限制"
+    negative: false
+    targets:
+      - page: "my-app/rbac-audit-architecture"
+
+  - id: avp-03
+    category: activity-vs-page
+    query: "GNOME 46 和 KDE Plasma 6 上 Wayland 全局快捷键 Portal 唤起主窗口"
+    negative: false
+    targets:
+      - page: "desktop-tool/global-hotkey-wayland"
+
+  - id: avp-04
+    category: activity-vs-page
+    query: "上游 latency_ms 字段类型漂移 Pandera 契约校验和死信分流"
+    negative: false
+    targets:
+      - page: "data-pipeline/schema-drift-incident"
+
+  # --- graph-hop (4): cross-page evolution and related-page recall ---
+  - id: ghop-01
+    category: graph-hop
+    query: "my-app 扩容双实例后权限矩阵内存缓存出过什么事故，现在换成什么了"
+    negative: false
+    targets:
+      - page: "my-app/cache-stampede-incident"
+      - page: "my-app/valkey-shared-cache-decision"
+
+  - id: ghop-02
+    category: graph-hop
+    query: "桌面端在 Linux 下调系统钥匙串阻塞主线程怎么和异步 IPC 锁隔离配合的"
+    negative: false
+    targets:
+      - page: "desktop-tool/os-keychain-storage"
+      - page: "desktop-tool/tauri-ipc-locking"
+
+  - id: ghop-03
+    category: graph-hop
+    query: "crontab 串行脚本补跑覆盖生产目录之后，新编排器和 Parquet 小文件治理怎么一起防住的"
+    negative: false
+    targets:
+      - page: "data-pipeline/dag-orchestrator-migration"
+      - page: "data-pipeline/parquet-small-files-compaction"
+
+  - id: ghop-04
+    category: graph-hop
+    query: "Caddy 内网 mTLS 双向认证和公网反向代理 TLS 完整链分别是怎么配的"
+    negative: false
+    targets:
+      - page: "ops-infra/caddy-mtls-internal-ca"
+      - page: "ops-infra/reverse-proxy-tls"

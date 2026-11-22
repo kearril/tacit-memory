@@ -168,6 +168,50 @@ public sealed class MemoryApiTests : IAsyncLifetime
         Assert.Contains(code, await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Pages_and_page_detail_expose_supersedes_superseded_by_and_overturned()
+    {
+        var oldCreated = await _service.Tools.WritePageAsync(new WritePageRequest
+        {
+            Op = ToolValues.WritePageOps.Create,
+            Type = ToolValues.PageTypes.Decision,
+            Page = "ops/old-cache",
+            Title = "旧缓存方案",
+            Aliases = ["旧缓存", "进程内缓存"],
+            Sections = [new PageSectionInput("决定", "使用进程内缓存。")],
+        });
+        Assert.False(oldCreated.IsError, oldCreated.Text);
+
+        var newCreated = await _service.Tools.WritePageAsync(new WritePageRequest
+        {
+            Op = ToolValues.WritePageOps.Create,
+            Type = ToolValues.PageTypes.Decision,
+            Page = "ops/new-cache",
+            Title = "新缓存方案",
+            Aliases = ["新缓存", "共享缓存"],
+            Supersedes = ["ops/old-cache"],
+            Sections = [new PageSectionInput("决定", "使用共享缓存。")],
+        });
+        Assert.False(newCreated.IsError, newCreated.Text);
+
+        var list = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/pages")))!;
+        var oldItem = list["pages"]!.AsArray().Single(p => p!["id"]!.GetValue<string>() == "ops/old-cache")!;
+        var newItem = list["pages"]!.AsArray().Single(p => p!["id"]!.GetValue<string>() == "ops/new-cache")!;
+        Assert.True(oldItem["overturned"]!.GetValue<bool>());
+        Assert.False(newItem["overturned"]!.GetValue<bool>());
+
+        var oldDetail = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/pages/ops/old-cache")))!;
+        Assert.True(oldDetail["overturned"]!.GetValue<bool>());
+        Assert.Empty(oldDetail["supersedes"]!.AsArray());
+        Assert.Equal("ops/new-cache", oldDetail["supersededBy"]![0]!["id"]!.GetValue<string>());
+        Assert.True(oldDetail["supersededBy"]![0]!["exists"]!.GetValue<bool>());
+
+        var newDetail = JsonNode.Parse(await _local.GetStringAsync(Url("/api/memory/pages/ops/new-cache")))!;
+        Assert.False(newDetail["overturned"]!.GetValue<bool>());
+        Assert.Equal("ops/old-cache", newDetail["supersedes"]![0]!["id"]!.GetValue<string>());
+        Assert.Empty(newDetail["supersededBy"]!.AsArray());
+    }
+
     [Theory]
     [InlineData("/api/memory/persona")]
     [InlineData("/api/memory/pages")]

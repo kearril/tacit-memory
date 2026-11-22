@@ -13,7 +13,7 @@ namespace TacitMemory.Core.Pages;
 /// page that has none, and may hold a value outside the page types on a page written by hand.
 /// </summary>
 internal sealed record PageHeader(
-    string Title, IReadOnlyList<string> Aliases, DateOnly? First, DateOnly? Last, IReadOnlyList<string> Related, string? Type);
+    string Title, IReadOnlyList<string> Aliases, DateOnly? First, DateOnly? Last, IReadOnlyList<string> Related, string? Type, IReadOnlyList<string> Supersedes);
 
 /// <summary>A <c>##</c> section: lines <see cref="HeadingLine"/> up to, not including, <see cref="EndLine"/>.</summary>
 internal sealed record PageSection(string Name, string Body, string Code, int HeadingLine, int EndLine);
@@ -132,6 +132,9 @@ internal sealed partial class PageDocument
     /// <summary>The "Overturned" section, which a decision page names the page that replaced it under; null when it has none.</summary>
     public PageSection? Overturned => SectionNamed(RecognizedSection.Overturned);
 
+    /// <summary>Whether the page has an <c>Overturned</c> section with non-whitespace content.</summary>
+    public bool HasOverturnedSection => Overturned is { } section && section.Body.Split('\n').Any(line => line.Trim().Length > 0);
+
     /// <summary>The "Lesson" section, which an incident page states its rule under; null when it has none.</summary>
     public PageSection? Lesson => SectionNamed(RecognizedSection.Lesson);
 
@@ -180,7 +183,7 @@ internal sealed partial class PageDocument
         }
 
         var sections = ReadSections(lines, headerEnd);
-        return new PageDocument(lines, newline, hasBom, header ?? new PageHeader(fallbackTitle, [], null, null, [], null),
+        return new PageDocument(lines, newline, hasBom, header ?? new PageHeader(fallbackTitle, [], null, null, [], null, []),
             header is null, headerEnd, sections, endsWithNewline);
     }
 
@@ -203,6 +206,8 @@ internal sealed partial class PageDocument
             lines.AddRange(DatesBlock(first, last));
         if (RelatedBlock(header.Related) is { } related)
             lines.AddRange(related);
+        if (SupersedesBlock(header.Supersedes) is { } supersedes)
+            lines.AddRange(supersedes);
         if (header.Type is { } type)
             lines.AddRange(TypeBlock(type));
         lines.Add(Fence);
@@ -225,6 +230,40 @@ internal sealed partial class PageDocument
     /// <summary>The header line for <c>related</c>; null when there is nothing to relate, so the key is dropped.</summary>
     public static IReadOnlyList<string>? RelatedBlock(IReadOnlyList<string> related) =>
         related.Count == 0 ? null : ["related: " + FlowList(related)];
+
+    /// <summary>The header line for <c>supersedes</c>; null when empty, so the key is dropped.</summary>
+    public static IReadOnlyList<string>? SupersedesBlock(IReadOnlyList<string> supersedes) =>
+        supersedes.Count == 0 ? null : ["supersedes: " + FlowList(supersedes)];
+
+    /// <summary>
+    /// Whether adding a <c>supersedes</c> edge from <paramref name="from"/> to <paramref name="target"/> creates a cycle
+    /// in the <c>supersedes</c> graph on disk.
+    /// </summary>
+    public static bool CreatesSupersedesCycle(string memoryPath, PageId from, PageId target)
+    {
+        if (from == target)
+            return true;
+        var visited = new HashSet<PageId> { target };
+        var queue = new Queue<PageId>();
+        queue.Enqueue(target);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (TryLoad(memoryPath, current) is not { } document)
+                continue;
+            foreach (var entry in document.Header.Supersedes)
+            {
+                if (!PageId.TryParse(entry, out var next, out _))
+                    continue;
+                if (next == from)
+                    return true;
+                if (visited.Add(next))
+                    queue.Enqueue(next);
+            }
+        }
+
+        return false;
+    }
 
     private static string Day(DateOnly day) => day.ToString(DateFormat, CultureInfo.InvariantCulture);
 
@@ -345,7 +384,8 @@ internal sealed partial class PageDocument
             dates is null ? null : Date(dates, "first"),
             dates is null ? null : Date(dates, "last"),
             List(root, "related"),
-            ScalarOf(root, "type"));
+            ScalarOf(root, "type"),
+            List(root, "supersedes"));
     }
 
     /// <summary>Indices of the lines from <paramref name="start"/> that are neither a code fence nor inside one.</summary>

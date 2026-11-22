@@ -46,7 +46,8 @@ internal static class RecallTraceRun
         var fullText = trace.Units.Count(unit => unit.FullTextRank is not null);
         var vector = trace.Units.Count(unit => unit.VectorRank is not null);
         var reranked = trace.Units.Count(unit => unit.RerankScore is not null);
-        var passed = trace.Units.Count(unit => unit.Fate is UnitFate.Shown or UnitFate.BeyondTopK or UnitFate.Unreadable);
+        var passed = trace.Units.Count(unit => unit.Fate is
+            UnitFate.Shown or UnitFate.BeyondTopK or UnitFate.BelowRelativeFloor or UnitFate.BeyondActivityCap or UnitFate.Unreadable);
         return new RecallTraceReport(
             settings,
             trace.FullText,
@@ -67,10 +68,11 @@ internal static class RecallTraceRun
         var sample = result.Units[0];
         return sample.Kind switch
         {
-            UnitKinds.Activity => new TraceResult(result.Number, "activity", null, null, sample.Date, sample.Code, null, sample.Workstream, [], sample.Text),
-            UnitKinds.Summary => new TraceResult(result.Number, "summary", null, null, sample.Date, null, sample.Section, sample.Workstream, [], sample.Text),
+            UnitKinds.Activity => new TraceResult(result.Number, "activity", null, null, sample.Date, sample.Code, null, sample.Workstream, [], sample.Text, null, false, []),
+            UnitKinds.Summary => new TraceResult(result.Number, "summary", null, null, sample.Date, null, sample.Section, sample.Workstream, [], sample.Text, null, false, []),
             _ => new TraceResult(result.Number, "page", sample.Source, result.Title, null, null, null, sample.Workstream,
-                [.. (result.Sections ?? []).Select(name => new TraceSection(name, PageDocument.RecognizedOf(name)))], null),
+                [.. (result.Sections ?? []).Select(name => new TraceSection(name, PageDocument.RecognizedOf(name)))], null,
+                PageDocument.PageTypeOf(result.PageType), result.Overturned, result.SupersededBy ?? []),
         };
     }
 
@@ -90,6 +92,9 @@ internal static class RecallTraceRun
         unit.FusedRank,
         unit.RerankScore,
         unit.Fate,
-        unit.Result);
+        unit.Result,
+        unit.GraphOrigin,
+        unit.FinalScore,
+        unit.Overturned);
 
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TraceUnit, UnitFate } from "../../api/memory";
-import { scoreText, segmentsOf } from "./trace";
+import { graphOriginLabel, optionalScoreText, scoreText, segmentsOf } from "./trace";
 
 function unit(fate: UnitFate, fusedRank: number): TraceUnit {
   return {
@@ -20,25 +20,32 @@ function unit(fate: UnitFate, fusedRank: number): TraceUnit {
     rerankScore: null,
     fate,
     result: fate === "shown" ? 1 : null,
+    graphOrigin: "none",
+    finalScore: null,
+    overturned: false,
   };
 }
 
 describe("segmentsOf", () => {
-  it("lists the four fates in pipeline order with their units, even when a fate has none", () => {
+  it("lists the six fates in pipeline order with their units, even when a fate has none", () => {
     const segments = segmentsOf([
-      unit("beyondCandidates", 4),
+      unit("beyondCandidates", 6),
       unit("shown", 1),
-      unit("belowThreshold", 3),
+      unit("belowRelativeFloor", 3),
+      unit("beyondActivityCap", 4),
+      unit("belowThreshold", 5),
       unit("shown", 2),
     ]);
 
     expect(segments.map((segment) => segment.fate)).toEqual([
       "shown",
       "beyondTopK",
+      "belowRelativeFloor",
+      "beyondActivityCap",
       "belowThreshold",
       "beyondCandidates",
     ]);
-    expect(segments.map((segment) => segment.units.length)).toEqual([2, 0, 1, 1]);
+    expect(segments.map((segment) => segment.units.length)).toEqual([2, 0, 1, 1, 1, 1]);
     expect(segments[0]?.units.map((item) => item.fusedRank)).toEqual([1, 2]);
   });
 
@@ -50,7 +57,7 @@ describe("segmentsOf", () => {
       unit("beyondCandidates", 4),
     ]);
 
-    expect(segments.map((segment) => segment.share)).toEqual([0.25, 0, 0.5, 0.25]);
+    expect(segments.map((segment) => segment.share)).toEqual([0.25, 0, 0, 0, 0.5, 0.25]);
   });
 
   it("counts a unit whose page could not be read with those beyond topK", () => {
@@ -60,7 +67,7 @@ describe("segmentsOf", () => {
   });
 
   it("has no share when there are no units", () => {
-    expect(segmentsOf([]).map((segment) => segment.share)).toEqual([0, 0, 0, 0]);
+    expect(segmentsOf([]).map((segment) => segment.share)).toEqual([0, 0, 0, 0, 0, 0]);
   });
 
   it("does not mutate the input array", () => {
@@ -80,5 +87,24 @@ describe("scoreText", () => {
       "1",
       "0",
     ]);
+  });
+});
+
+describe("optionalScoreText", () => {
+  it("renders an em dash for missing scores and delegates numbers to scoreText", () => {
+    expect(optionalScoreText(null)).toBe("—");
+    expect(optionalScoreText(undefined)).toBe("—");
+    expect(optionalScoreText(0.765)).toBe("0.77");
+  });
+});
+
+describe("graphOriginLabel", () => {
+  const labels = { supersedes: "替代追踪", related: "关联扩展" };
+
+  it("maps graph origins to badges and hides direct matches", () => {
+    expect(graphOriginLabel("supersedes", labels)).toBe("替代追踪");
+    expect(graphOriginLabel("related", labels)).toBe("关联扩展");
+    expect(graphOriginLabel("none", labels)).toBeNull();
+    expect(graphOriginLabel(undefined, labels)).toBeNull();
   });
 });

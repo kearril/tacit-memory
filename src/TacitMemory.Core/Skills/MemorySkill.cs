@@ -37,6 +37,7 @@ internal static class MemorySkill
         - Narrow a search by kind, workstream or date when the question is about one of them.
         - Read a whole page for its overall picture, such as before updating it; when a search already returned the section you need in full, use that.
         - Every section shows the date it last changed. Judge a section that describes the current state by that date.
+        - When a result marks a page `overturned -> <page>`, follow the active replacement page for current guidance; use the `Links:` line at the bottom of a result to fetch directly linked pages with `recall page=<id>` when needed.
 
         ## Detail pages
         - A page covers one matter: update the page that already covers it instead of starting a second page for the same matter.
@@ -45,12 +46,13 @@ internal static class MemorySkill
         - Title a page with the name the matter is known by; list the other names the user uses for it as aliases.
         - Organize a page into sections by facet, and put each new fact into the section it belongs to.
         - A section that describes the current state needs no date of its own; write the date of each event in a timeline or log. Where the wording matters, quote the user's own words rather than a paraphrase.
-        - Link a page to related pages, so a reader can move from one matter to the next.
+        - Link a page to related pages with `related` (associative links between matters), so a reader can move from one matter to the next.
+        - When a new page replaces an earlier page, list the older page ID(s) in `supersedes` on the new page (via `create` or `update_header`); any superseded page is automatically treated as overturned in retrieval and workstream briefs.
         - When something in a section has changed, replace that text; do not add a note that contradicts it.
         - Where the environment already records a fact (a config file, a repository document, an infrastructure note), write a pointer to it, not a copy.
         - Name sections in the memory language, except three the service finds by name and that keep their English names in every language: Lesson, Overturned and Leftovers.
         - incident: one fault, its cause and its fix. Sections: Symptom, Cause, Fix, Lesson. The lesson is the rule the next session can apply.
-        - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page overturns the decision, add a line under Overturned naming that page; the brief then stops listing the decision as current.
+        - decision: one decision and its reasons. Sections: Decision, Reasons, Overturned. When a later page replaces the decision, declare it with `supersedes` on the new page (and optionally note the reason under `## Overturned`); when a decision is abandoned with no replacement page, record the reason under `## Overturned`. Both stop the brief from listing it as active and demote it behind active replacements in retrieval.
         - entity: a standing system or tool, kept to a table of contents: pointers to its documentation, the user's stance and open to-dos. Write each fault and each decision on its own page and link it back here. Sections: Status, Stance, To-do.
         - work: one unit of work and its record, such as a feature or a release, written once for the whole unit. Sections: Output, Leftovers. The leftovers are the open items the brief lists for the workstream.
 

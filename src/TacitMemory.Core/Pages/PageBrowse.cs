@@ -16,19 +16,28 @@ internal static class PageBrowse
     public static PageList List(TacitConfig config, MemoryIndex index)
     {
         var uses = index.PageUsages().ToDictionary(row => row.Page, row => row.Count, StringComparer.Ordinal);
-        var pages = new List<PageListItem>();
-        foreach (var id in PageIds(config.MemoryPath))
+        var ids = PageIds(config.MemoryPath).ToList();
+        var loaded = new List<(PageId Id, PageDocument? Document)>(ids.Count);
+        foreach (var id in ids)
         {
             var document = PageDocument.TryLoad(config.MemoryPath, id);
             if (document is not null)
                 index.SyncPage(id);
-            var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null);
+            loaded.Add((id, document));
+        }
+
+        var superseded = index.SupersededPages();
+        var pages = new List<PageListItem>(loaded.Count);
+        foreach (var (id, document) in loaded)
+        {
+            var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null, []);
             var changes = document is null ? null : index.SectionChanges(id);
             var changed = changes is { Count: > 0 } ? changes.Values.Max() : header.Last;
             var (type, written) = PageDocument.BrowseTypeOf(header.Type);
+            var overturned = (document?.HasOverturnedSection ?? false) || superseded.Contains(id.ToString());
             pages.Add(new PageListItem(
                 id.ToString(), id.Workstream, header.Title, header.Aliases, type, written, Day(header.First), Day(header.Last), Day(changed),
-                uses.GetValueOrDefault(id.ToString())));
+                uses.GetValueOrDefault(id.ToString()), overturned));
         }
 
         return new PageList(pages);
@@ -48,13 +57,16 @@ internal static class PageBrowse
             throw new TacitException(TacitError.MemoryNotFound, RequestMessages.PageNotFound.Format(config.Language, raw));
 
         var document = reader.Page(id, Usage.NotCounted).Document;
-        var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null);
+        var header = document?.Header ?? new PageHeader(id.Slug, [], null, null, [], null, []);
         var changes = index.SectionChanges(id);
         var returns = index.SectionReturns(id);
         var uses = index.PageUsages().FirstOrDefault(row => row.Page == id.ToString())?.Count ?? 0;
-        var related = header.Related
-            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(MemoryLayout.Full(config.MemoryPath, target.RelativePath))))
+        var related = ResolveLinks(config.MemoryPath, header.Related);
+        var supersedes = ResolveLinks(config.MemoryPath, header.Supersedes);
+        var supersededBy = index.SupersededBy(id.ToString())
+            .Select(entry => new RelatedPage(entry, true))
             .ToList();
+        var overturned = (document?.HasOverturnedSection ?? false) || supersededBy.Count > 0;
         var sections = (document?.Sections ?? [])
             .Select(section => new PageSectionView(
                 section.Name, section.Code, Day(changes.TryGetValue(section.Name, out var day) ? day : null), returns.GetValueOrDefault(section.Name), section.Body,
@@ -63,7 +75,7 @@ internal static class PageBrowse
         var (type, written) = PageDocument.BrowseTypeOf(header.Type);
         return new PageView(
             id.ToString(), id.Workstream, header.Title, header.Aliases, type, written, Day(header.First), Day(header.Last), related,
-            MemoryFileReport.Of(config, id.RelativePath), uses, sections);
+            MemoryFileReport.Of(config, id.RelativePath), uses, sections, supersedes, supersededBy, overturned);
     }
 
     private static IEnumerable<PageId> PageIds(string memoryPath)
@@ -77,6 +89,11 @@ internal static class PageBrowse
             .OfType<PageId>()
             .OrderBy(id => id.ToString(), StringComparer.Ordinal);
     }
+
+    private static List<RelatedPage> ResolveLinks(string memoryPath, IReadOnlyList<string> entries) =>
+        entries
+            .Select(entry => new RelatedPage(entry, PageId.TryParse(entry, out var target, out _) && File.Exists(MemoryLayout.Full(memoryPath, target.RelativePath))))
+            .ToList();
 
     private static string? Day(DateOnly? day) => day?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }

@@ -124,6 +124,7 @@ title: 数据库升级后扩展丢失
 aliases: [全文检索插件失效, 升级后搜索不到中文]
 dates: { first: 2026-10-21, last: 2026-10-25 }
 related: [my-app/backup-script, _topics/pgroonga]
+supersedes: [my-app/legacy-search-decision]
 type: incident
 ---
 
@@ -140,6 +141,7 @@ type: incident
 | `aliases` | 至少 2 个，覆盖口语说法、中英文名与别称 |
 | `dates` | 首次与最近一次经服务写入的日期（由服务维护） |
 | `related` | 关联页面的页面标识（`<主线>/<slug>`），指向不存在的页时拒绝写入 |
+| `supersedes` | 可选，当前页取代的旧页面标识列表；目标须存在且不能形成环，缺省不写出 |
 | `type` | 必填，取 `incident`、`decision`、`entity`、`work` 之一 |
 
 - `slug` 匹配 `^[a-z0-9]+(-[a-z0-9]+)*$`，主线内唯一，创建后不改名。

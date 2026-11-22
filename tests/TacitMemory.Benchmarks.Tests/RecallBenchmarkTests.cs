@@ -34,17 +34,18 @@ public sealed class RecallBenchmarkTests : IDisposable
             Score = (query, doc) =>
             {
                 if (query.Contains("完全不存在的话题", StringComparison.Ordinal))
-                    return 0.0001; // Abstained negative query
+                    return 0.05; // Abstained negative query
                 if (query.Contains("误触发负例", StringComparison.Ordinal))
                     return 0.4; // False positive negative query
+                if (query.Contains("构建缓存", StringComparison.Ordinal))
+                    return doc.Contains("构建缓存", StringComparison.Ordinal) ? 0.7
+                        : doc.Contains("pgroonga", StringComparison.OrdinalIgnoreCase) ? 0.9 : 0.1; // Rank 2 (tests MRR=0.5, Hit@1=0)
+                if (query.Contains("死信队列", StringComparison.Ordinal))
+                    return doc.Contains("死信队列", StringComparison.Ordinal) ? 0.5 : 0.9; // BeyondTopK when topK=1
                 if (query.Contains("pgroonga", StringComparison.OrdinalIgnoreCase))
                     return doc.Contains("pgroonga", StringComparison.OrdinalIgnoreCase) ? 0.95 : 0.1; // Rank 1
-                if (query.Contains("构建缓存", StringComparison.Ordinal))
-                    return doc.Contains("构建缓存", StringComparison.Ordinal) ? 0.5 : 0.9; // Rank 2 (tests MRR=0.5, Hit@1=0)
                 if (query.Contains("TLS", StringComparison.OrdinalIgnoreCase))
-                    return 0.0001; // BelowThreshold
-                if (query.Contains("死信队列", StringComparison.Ordinal))
-                    return doc.Contains("死信队列", StringComparison.Ordinal) ? 0.2 : 0.9; // BeyondTopK when topK=1
+                    return 0.05; // BelowThreshold
                 return 0.05;
             },
         };

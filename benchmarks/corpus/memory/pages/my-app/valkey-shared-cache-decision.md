@@ -3,6 +3,7 @@ title: 线上共享缓存迁至 Valkey 并引入 singleflight 防击穿
 aliases: [Valkey 共享缓存方案, 现行缓存架构, 分布式缓存与防击穿]
 dates: { first: 2026-09-04, last: 2026-09-12 }
 related: [my-app/in-memory-cache-decision, my-app/cache-stampede-incident, ops-infra/container-compose-layout]
+supersedes: [my-app/in-memory-cache-decision]
 type: decision
 ---
 

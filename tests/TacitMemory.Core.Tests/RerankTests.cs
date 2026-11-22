@@ -46,7 +46,7 @@ public sealed class RerankTests : IDisposable
     {
         await Create("ops/health", "部署健康检查", new PageSectionInput("检查", "部署后检查健康状况。"));
         await Create("ops/rollback", "部署回滚方案", new PageSectionInput("回滚", "部署失败时先回滚到上一个版本。"));
-        _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9 : 0.2;
+        _models.Score = (_, document) => document.Contains("回滚", StringComparison.Ordinal) ? 0.9 : 0.4;
 
         var result = await Recall("部署");
 
@@ -55,11 +55,11 @@ public sealed class RerankTests : IDisposable
     }
 
     [Fact]
-    public async Task Units_scored_below_the_default_floor_of_0_001_are_dropped()
+    public async Task Units_scored_below_the_default_floor_of_0_20_are_dropped()
     {
         await Create("ops/relevant", "部署流程", new PageSectionInput("步骤", "部署前先备份数据库。"));
         await Create("ops/noise", "部署杂谈", new PageSectionInput("闲聊", "部署这个词在这里只是顺口提到。"));
-        _models.Score = (_, document) => document.Contains("备份", StringComparison.Ordinal) ? 0.5 : 0.0005;
+        _models.Score = (_, document) => document.Contains("备份", StringComparison.Ordinal) ? 0.5 : 0.15;
 
         var result = await Recall("部署");
 

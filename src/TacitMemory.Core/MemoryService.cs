@@ -157,7 +157,7 @@ public sealed class MemoryService : IDisposable
             new SamePreferenceCheck(config, _index, _models.Embedding, _vectors, judge),
             new RuleConflictCheck(config, _index, _models.Embedding, _vectors, judge),
             writer);
-        _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors);
+        _pipeline = new RecallPipeline(config, _index, _models.Embedding, _models.Reranker, _vectors, () => _options.Today);
         _reader = new MemoryReader(_index, _pages, _pipeline, new WorkstreamBrief(config, _index));
         _recall = new RecallTool(config, _index, _reader);
         _backup = new AutomaticBackup(_options, config, _log, _gate);

@@ -45,6 +45,7 @@ public sealed record PageList(IReadOnlyList<PageListItem> Pages);
 /// <param name="Last">The last date, written yyyy-MM-dd; <c>null</c> when the page has none.</param>
 /// <param name="Changed">The latest day a section changed, or the last date when no section has one; <c>null</c> when neither is known.</param>
 /// <param name="Uses">How often <c>recall</c> has returned the page's units.</param>
+/// <param name="Overturned">Whether the page has a non-empty <c>## Overturned</c> section or is superseded by another page.</param>
 public sealed record PageListItem(
     string Id,
     string Workstream,
@@ -55,7 +56,8 @@ public sealed record PageListItem(
     string? First,
     string? Last,
     string? Changed,
-    long Uses);
+    long Uses,
+    bool Overturned = false);
 
 /// <summary>
 /// A detail page as the memory page shows it. A page that is not valid UTF-8, or whose header cannot be read, is returned
@@ -66,6 +68,9 @@ public sealed record PageListItem(
 /// <param name="File">The page file: its path and the problems consolidation reports for it.</param>
 /// <param name="Uses">How often <c>recall</c> has returned the page's units.</param>
 /// <param name="Sections">The <c>##</c> sections in file order.</param>
+/// <param name="Supersedes">Pages listed in this page's <c>supersedes</c> header field, with whether each exists.</param>
+/// <param name="SupersededBy">Existing pages whose header lists this page in <c>supersedes</c>.</param>
+/// <param name="Overturned">Whether the page has a non-empty <c>## Overturned</c> section or is superseded by another page.</param>
 public sealed record PageView(
     string Id,
     string Workstream,
@@ -78,9 +83,12 @@ public sealed record PageView(
     IReadOnlyList<RelatedPage> Related,
     MemoryFileInfo File,
     long Uses,
-    IReadOnlyList<PageSectionView> Sections);
+    IReadOnlyList<PageSectionView> Sections,
+    IReadOnlyList<RelatedPage> Supersedes,
+    IReadOnlyList<RelatedPage> SupersededBy,
+    bool Overturned);
 
-/// <summary>A page the header's <c>related</c> lists, and whether it exists.</summary>
+/// <summary>A linked page ID (used by <c>related</c>, <c>supersedes</c>, and <c>supersededBy</c>) and whether it exists.</summary>
 public sealed record RelatedPage(string Id, bool Exists);
 
 /// <summary>A section of a page.</summary>

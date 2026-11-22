@@ -13,6 +13,7 @@ const page = (id: string, title: string, aliases: string[] = [], type: PageType 
   last: null,
   changed: null,
   uses: 0,
+  overturned: false,
 });
 
 const PAGES = [

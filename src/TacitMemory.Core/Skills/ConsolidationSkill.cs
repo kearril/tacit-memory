@@ -123,7 +123,7 @@ internal static class ConsolidationSkill
             .Append("For a proposed candidate rejection or any other item, leave it unchanged.\n");
         text.Append("   - change: apply the version the user gave, and treat it as confirmed.\n");
         text.Append("   - defer, or no reply: leave the item exactly as it is. A candidate stays in candidates.md and comes back at the next consolidation; any other item comes back only when it changes again.\n");
-        text.Append("   - a confirmed workstream item is carried out by editing the entries in workstreams.md (add, remove or change one), moving the detail pages into their new folder and fixing the related lines of other pages that name them. ")
+        text.Append("   - a confirmed workstream item is carried out by editing the entries in workstreams.md (add, remove or change one), moving the detail pages into their new folder and fixing the related and supersedes lines of other pages that name them. ")
             .Append("For a merge, also move the entries of the merged workstream's scope block in persona.md into the target's block and set their scope to the target. ")
             .Append("Remove an emptied old workstream folder or an emptied merged workstream block in persona.md when nothing remains in it. ")
             .Append("Leave the workstreams written on past activities as they are.\n");

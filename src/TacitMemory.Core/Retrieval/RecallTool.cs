@@ -132,7 +132,7 @@ internal sealed class RecallTool(TacitConfig config, MemoryIndex index, MemoryRe
         if (!PageId.TryParse(raw, out var id, out var problem))
             return ToolText.Refuse(problem, "Call recall again with a valid page ID.");
         var read = reader.Page(id, Usage.Counted);
-        return read.Refusal ?? ToolText.Ok(PageTools.Format(id, read.Document!, index.SectionChanges(id)));
+        return read.Refusal ?? ToolText.Ok(PageTools.Format(id, read.Document!, index.SectionChanges(id), index.SupersededBy(id.ToString())));
     }
 
     /// <summary>

@@ -46,7 +46,22 @@ internal sealed record StageFunnel(
     int MissedBeyondCandidates,
     int MissedBelowThreshold,
     int MissedBeyondTopK,
-    int MissedUnreadable);
+    int MissedUnreadable,
+    int MissedBelowRelativeFloor = 0,
+    int MissedBeyondActivityCap = 0);
+
+internal sealed record ResultScoreSummary(
+    int Rank,
+    string Label,
+    string Kind,
+    bool IsTarget,
+    double? RerankScore,
+    double? CosineSimilarity,
+    int? FullTextRank,
+    int? VectorRank,
+    double? Rrf,
+    double? FinalScore = null,
+    string? GraphOrigin = null);
 
 internal sealed record QueryOutcome(
     string Id,
@@ -67,13 +82,16 @@ internal sealed record QueryOutcome(
     double ElapsedMs,
     double? EmbeddingMs,
     double? RerankerMs,
-    IReadOnlyList<string> ReturnedTop);
+    IReadOnlyList<string> ReturnedTop,
+    IReadOnlyList<ResultScoreSummary>? TopScores = null);
 
 internal static class RecallEvaluation
 {
     private const string FateNotRecalled = "not_recalled";
     private const string FateBeyondCandidates = "beyond_candidates";
     private const string FateBelowThreshold = "below_threshold";
+    private const string FateBelowRelativeFloor = "below_relative_floor";
+    private const string FateBeyondActivityCap = "beyond_activity_cap";
     private const string FateBeyondTopK = "beyond_top_k";
     private const string FateUnreadable = "unreadable";
     private const string FateFalsePositive = "false_positive";
@@ -88,6 +106,7 @@ internal static class RecallEvaluation
     public static QueryOutcome EvaluateQuery(QueryCase query, RecallTraceReport trace, double elapsedMs)
     {
         var returnedTop = trace.Results.Take(5).Select(DescribeResult).ToList();
+        var topScores = BuildTopScores(query, trace);
         if (query.Negative)
         {
             return new QueryOutcome(
@@ -100,7 +119,8 @@ internal static class RecallEvaluation
                 ElapsedMs: elapsedMs,
                 EmbeddingMs: trace.Embedding.Milliseconds,
                 RerankerMs: trace.Reranker.Milliseconds,
-                ReturnedTop: returnedTop);
+                ReturnedTop: returnedTop,
+                TopScores: topScores);
         }
 
         var top5 = trace.Results.Take(5).ToList();
@@ -145,7 +165,43 @@ internal static class RecallEvaluation
             ElapsedMs: elapsedMs,
             EmbeddingMs: trace.Embedding.Milliseconds,
             RerankerMs: trace.Reranker.Milliseconds,
-            ReturnedTop: returnedTop);
+            ReturnedTop: returnedTop,
+            TopScores: topScores);
+    }
+
+    private static List<ResultScoreSummary> BuildTopScores(QueryCase query, RecallTraceReport trace)
+    {
+        var unitsByResult = trace.Units
+            .Where(unit => unit.Result is not null)
+            .GroupBy(unit => unit.Result!.Value)
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var summaries = new List<ResultScoreSummary>();
+        foreach (var result in trace.Results.Take(5))
+        {
+            unitsByResult.TryGetValue(result.Number, out var units);
+            var bestRerank = units?.Max(u => u.RerankScore);
+            var bestFinal = units?.Max(u => u.FinalScore);
+            var bestDist = units?.Min(u => u.Distance);
+            var bestFt = units?.Min(u => u.FullTextRank);
+            var bestVec = units?.Min(u => u.VectorRank);
+            var bestRrf = units?.Max(u => u.Rrf);
+            var origin = units?.Select(u => u.GraphOrigin).FirstOrDefault(o => o != GraphOrigin.None);
+            var isTarget = !query.Negative && query.Targets.Any(target => target.MatchesResult(result));
+            summaries.Add(new ResultScoreSummary(
+                result.Number,
+                DescribeResult(result),
+                result.Kind,
+                isTarget,
+                bestRerank,
+                bestDist is { } d ? 1.0 - d : null,
+                bestFt,
+                bestVec,
+                bestRrf,
+                bestFinal,
+                origin is { } g && g != GraphOrigin.None ? g.ToString().ToLowerInvariant() : null));
+        }
+
+        return summaries;
     }
 
     public static RecallBenchmarkReport Summarize(
@@ -180,7 +236,9 @@ internal static class RecallEvaluation
             MissedBeyondCandidates: positives.Count(outcome => outcome.MissFate == FateBeyondCandidates),
             MissedBelowThreshold: positives.Count(outcome => outcome.MissFate == FateBelowThreshold),
             MissedBeyondTopK: positives.Count(outcome => outcome.MissFate == FateBeyondTopK),
-            MissedUnreadable: positives.Count(outcome => outcome.MissFate == FateUnreadable));
+            MissedUnreadable: positives.Count(outcome => outcome.MissFate == FateUnreadable),
+            MissedBelowRelativeFloor: positives.Count(outcome => outcome.MissFate == FateBelowRelativeFloor),
+            MissedBeyondActivityCap: positives.Count(outcome => outcome.MissFate == FateBeyondActivityCap));
 
         var categories = outcomes
             .GroupBy(outcome => outcome.Category, StringComparer.Ordinal)
@@ -227,7 +285,7 @@ internal static class RecallEvaluation
         output.WriteLine();
         output.WriteLine("=== Stage Funnel (Positive Queries) ===");
         output.WriteLine($"FullText: {f.FullTextHits}/{f.PositiveCount} | Vector: {f.VectorHits}/{f.PositiveCount} | Fused: {f.FusedHits}/{f.PositiveCount} | Shown: {f.RerankedHits}/{f.PositiveCount}");
-        output.WriteLine($"Misses:   not_recalled={f.MissedNotRecalled} | beyond_candidates={f.MissedBeyondCandidates} | below_threshold={f.MissedBelowThreshold} | beyond_top_k={f.MissedBeyondTopK} | unreadable={f.MissedUnreadable}");
+        output.WriteLine($"Misses:   not_recalled={f.MissedNotRecalled} | beyond_candidates={f.MissedBeyondCandidates} | below_threshold={f.MissedBelowThreshold} | below_relative={f.MissedBelowRelativeFloor} | activity_cap={f.MissedBeyondActivityCap} | beyond_top_k={f.MissedBeyondTopK} | unreadable={f.MissedUnreadable}");
 
         output.WriteLine();
         output.WriteLine("=== By Category ===");
@@ -312,7 +370,9 @@ internal static class RecallEvaluation
 
     private static (int Order, string Label) FateRank(UnitFate fate) => fate switch
     {
-        UnitFate.BeyondTopK => (4, FateBeyondTopK),
+        UnitFate.BeyondTopK => (6, FateBeyondTopK),
+        UnitFate.BeyondActivityCap => (5, FateBeyondActivityCap),
+        UnitFate.BelowRelativeFloor => (4, FateBelowRelativeFloor),
         UnitFate.BelowThreshold => (3, FateBelowThreshold),
         UnitFate.BeyondCandidates => (2, FateBeyondCandidates),
         UnitFate.Unreadable => (1, FateUnreadable),

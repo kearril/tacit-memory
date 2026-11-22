@@ -67,12 +67,17 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
         var result = json["results"]!.AsArray()[0]!;
         Assert.Equal("page", result["kind"]!.GetValue<string>());
         Assert.Equal("ops/rollback", result["page"]!.GetValue<string>());
+        Assert.Equal("work", result["pageType"]!.GetValue<string>());
+        Assert.False(result["overturned"]!.GetValue<bool>());
         var shown = result["sections"]!.AsArray()[0]!;
         Assert.Equal("回滚步骤", shown["name"]!.GetValue<string>());
         Assert.Null(shown["recognized"]);
         Assert.Contains("ops/rollback", json["text"]!.GetValue<string>());
         var unit = json["units"]!.AsArray().First(unit => unit!["section"]?.GetValue<string>() == "回滚步骤")!;
         Assert.Equal("shown", unit["fate"]!.GetValue<string>());
+        Assert.Equal("none", unit["graphOrigin"]!.GetValue<string>());
+        Assert.NotNull(unit["finalScore"]);
+        Assert.False(unit["overturned"]!.GetValue<bool>());
         Assert.Equal(1, unit["result"]!.GetValue<int>());
         Assert.NotNull(unit["fusedRank"]);
         var report = JsonSerializer.Deserialize<RecallTraceReport>(json.ToJsonString(), ManagementApiJson.Options)!;
@@ -122,6 +127,9 @@ public sealed class RecallTraceApiTests : IAsyncLifetime
         Assert.NotNull(post["requestBody"]);
         Assert.NotNull(post["responses"]?["400"]);
         Assert.NotNull(document["components"]?["schemas"]?["RecallTraceReport"]);
-        Assert.NotNull(document["components"]?["schemas"]?["UnitFate"]);
+        var fates = document["components"]?["schemas"]?["UnitFate"]?["enum"]?.AsArray().Select(item => item!.GetValue<string>()).ToArray() ?? [];
+        Assert.Contains("belowRelativeFloor", fates);
+        Assert.Contains("beyondActivityCap", fates);
+        Assert.NotNull(document["components"]?["schemas"]?["GraphOrigin"]);
     }
 }

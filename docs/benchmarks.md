@@ -4,7 +4,7 @@
 
 ## 1. 两种评测模式
 
-- **`recall`（召回与精排质量）**：在隔离临时目录中复刻语料库，严格经由 `TacitMemory.Core` 公开门面 `TraceRecallAsync` 跑完与 Agent 一致的完整检索管线，输出 `Recall@5`、`Hit@1`、`All@5`、`MRR`、负例误召回与拒答率、四阶段漏斗（`FullText` → `Vector` → `Fused` → `Shown`）以及未命中归因（`not_recalled` / `beyond_candidates` / `below_threshold` / `beyond_top_k` / `unreadable`）。
+- **`recall`（召回与精排质量）**：在隔离临时目录中复刻语料库，严格经由 `TacitMemory.Core` 公开门面 `TraceRecallAsync` 跑完与 Agent 一致的完整检索管线，输出 `Recall@5`、`Hit@1`、`All@5`、`MRR`、负例误召回与拒答率、四阶段漏斗（`FullText` → `Vector` → `Fused` → `Shown`）以及未命中归因（`not_recalled` / `beyond_candidates` / `below_threshold` / `below_relative_floor` / `beyond_activity_cap` / `beyond_top_k` / `unreadable`）。
   - 内置回环缓存代理：将模型响应按 `(model, text)` / `(model, query, passage)` 缓存于本地 `benchmarks/.cache/model-cache.db`（已忽略提交），离线复跑与调参时只转发未命中条目，支持 `--no-cache` 强制直连。
 - **`perf`（索引与本地检索性能）**：按指定规模（默认 `500` / `2000` / `10000` 检索单元，`1024` 维向量）确定性生成合成语料，使用零延迟回环模型替身，分别测量冷建同步（`SyncCold`）、无变更增量同步（`SyncInc`）、`FTS5` 全文检索、本地向量检索与端到端管线的 P50/P95 延迟及托管堆分配。
 
@@ -35,7 +35,7 @@ dotnet run -c Release --project benchmarks/TacitMemory.Benchmarks -- recall \
 
 ## 3. 内置语料设计
 
-`benchmarks/corpus/` 为完全脱敏的中文为主、混合英文技术术语与代码标识的语料库（38 篇细节页、跨 4 个月的 47 条活动与 11 条周/月汇总、78 条查询，通过 `--strict-corpus` 零格式告警校验），覆盖 9 类检索场景：
+`benchmarks/corpus/` 为完全脱敏的中文为主、混合英文技术术语与代码标识的语料库（38 篇细节页，含 4 条 `supersedes` 演进链、跨 4 个月的 47 条活动与 11 条周/月汇总、92 条查询，通过 `--strict-corpus` 零格式告警校验），覆盖 12 类检索场景：
 
 | 类别 | 数量 | 评测目标 |
 | :--- | ---: | :--- |
@@ -45,11 +45,14 @@ dotnet run -c Release --project benchmarks/TacitMemory.Benchmarks -- recall \
 | `cross-field` | 5 | 标题与小节正文跨字段组合匹配 |
 | `filtered` | 5 | `workstream`、`from`/`to`、`kind` 联合筛选与周汇总命中 |
 | `distractor` | 10 | 同主线高混淆近邻页面间的精准排序区分 |
-| `temporal` | 10 | 跨月演进、已推翻决策（`Overturned`）与现行方案区分、历史活动/月汇总定位 |
+| `temporal` | 10 | 跨月演进、已推翻决策（`Overturned`）与历史原因追溯、历史活动/月汇总定位 |
+| `current-state` | 6 | 泛化现状提问下现行替代页须压过旧版 `Overturned` 页与历史活动 |
+| `activity-vs-page` | 4 | 通用检索中权威细节页须压过同主题单行活动记录 |
+| `graph-hop` | 4 | 借助 `supersedes` 与 `related` 关联跨页召回演进链与因果页 |
 | `multi-hop` | 6 | 需同时召回两篇关联细节页的复合问题（检验 `All@5`） |
 | `negative` | 17 | 仓库未记录的主题与同技术栈近邻陷阱（检验误召回与拒答边界） |
 
-## 4. 参考基线（`v1.0.1`）
+## 4. 参考基线（`v1.1.0`）
 
 ### 本地索引与检索性能
 
@@ -63,14 +66,13 @@ dotnet run -c Release --project benchmarks/TacitMemory.Benchmarks -- recall \
 
 向量检索采用零拷贝流式扫描、SIMD 余弦计算与有界 Top-K 堆回表，单次查询内存分配随语料规模保持恒定（~33 KB）。
 
-### 召回参考（本地 `Qwen3-0.6B` 组合）
+### 召回参考（本地 `Qwen3-0.6B` 组合，92 条查询）
 
-内置 78 条查询（61 正例 + 17 负例），使用本地 `Qwen3-Embedding-0.6B` + `Qwen3-Reranker-0.6B`：
+使用本地 `Qwen3-Embedding-0.6B` + `Qwen3-Reranker-0.6B` 与默认配置（`minRerankScore = 0.20`），对比 `v1.0.1` 同一 92 条查询基线：
 
-| `minRerankScore` | `Recall@5` | `Hit@1` | `All@5` | `MRR` | 负例拒答率 |
-| ---: | ---: | ---: | ---: | ---: | ---: |
-| `0.001`（默认） | 100.0% | 95.1% | 100.0% | 0.975 | 0.0% (0/17) |
-| `0.30` | 100.0% | 95.1% | 100.0% | 0.975 | 64.7% (11/17) |
-| `0.50` | 100.0% | 95.1% | 100.0% | 0.975 | 64.7% (11/17) |
+| 版本 | `Recall@5` | `Hit@1` | `All@5` | `MRR` | `current-state` MRR | `activity-vs-page` MRR | `graph-hop` MRR | 负例拒答率 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `v1.0.1` | 94.7% | 82.7% | 93.3% | 0.885 | 0.144 (50.0%) | 0.750 (100.0%) | 0.750 (75.0%) | 0.0% (0/17) |
+| `v1.1.0` | **100.0%** | **93.3%** | **100.0%** | **0.967** | **0.833 (100.0%)** | **1.000 (100.0%)** | **1.000 (100.0%)** | **52.9% (9/17)** |
 
-不同重排模型的分数分布差异较大；如需压低无关结果的噪声，可结合实际使用的重排模型用 `recall --min-rerank-score <值>` 实测后在 `config.yaml` 中调整 `retrieval.minRerankScore`。
+不同重排模型的分数分布差异较大；如需结合所用模型进一步微调全局最低分阈值，可用 `recall --min-rerank-score <值>` 实测后在 `config.yaml` 中调整 `retrieval.minRerankScore`。
