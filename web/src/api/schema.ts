@@ -2939,6 +2939,11 @@ export interface components {
         };
         /** @enum {unknown} */
         FullTextMethod: "phrase" | "none";
+        /**
+         * @default none
+         * @enum {unknown}
+         */
+        GraphOrigin: "none" | "supersedes" | "related";
         LimitsFile: {
             /** Format: int32 */
             brief?: null | number;
@@ -3032,6 +3037,8 @@ export interface components {
             changed: null | string;
             /** Format: int64 */
             uses: number;
+            /** @default false */
+            overturned: boolean;
         };
         PageSectionView: {
             name: string;
@@ -3059,6 +3066,9 @@ export interface components {
             /** Format: int64 */
             uses: number;
             sections: components["schemas"]["PageSectionView"][];
+            supersedes: components["schemas"]["RelatedPage"][];
+            supersededBy: components["schemas"]["RelatedPage"][];
+            overturned: boolean;
         };
         PasswordBody: {
             password: string;
@@ -3447,6 +3457,10 @@ export interface components {
             workstream: string;
             sections: components["schemas"]["TraceSection"][];
             text: null | string;
+            pageType?: null | components["schemas"]["PageType"];
+            /** @default false */
+            overturned: boolean;
+            supersededBy?: null | string[];
         };
         TraceSection: {
             name: string;
@@ -3488,9 +3502,14 @@ export interface components {
             fate: components["schemas"]["UnitFate"];
             /** Format: int32 */
             result: null | number;
+            graphOrigin?: components["schemas"]["GraphOrigin"];
+            /** Format: double */
+            finalScore?: null | number;
+            /** @default false */
+            overturned: boolean;
         };
         /** @enum {unknown} */
-        UnitFate: "shown" | "beyondTopK" | "belowThreshold" | "beyondCandidates" | "unreadable";
+        UnitFate: "shown" | "beyondTopK" | "belowRelativeFloor" | "beyondActivityCap" | "belowThreshold" | "beyondCandidates" | "unreadable";
         WebDavFile: {
             url: null | string;
             username: null | string;

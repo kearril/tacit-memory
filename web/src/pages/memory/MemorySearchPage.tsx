@@ -7,11 +7,14 @@ import {
   ChevronRight,
   CircleCheck,
   CircleSlash,
+  GitBranch,
+  Layers,
   ListFilter,
   type LucideIcon,
   Search,
   SkipForward,
   SlidersHorizontal,
+  TrendingDown,
 } from "lucide-react";
 import { type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
@@ -55,6 +58,8 @@ const FATE_STYLES: Readonly<
 > = {
   shown: { icon: CircleCheck, text: "text-success", bar: "bg-success" },
   beyondTopK: { icon: SkipForward, text: "text-warning", bar: "bg-warning" },
+  belowRelativeFloor: { icon: TrendingDown, text: "text-warning", bar: "bg-heat-4" },
+  beyondActivityCap: { icon: Layers, text: "text-info", bar: "bg-info" },
   belowThreshold: { icon: CircleSlash, text: "text-ink-muted", bar: "bg-heat-3" },
   beyondCandidates: { icon: Ban, text: "text-ink-muted", bar: "bg-heat-1" },
 };
@@ -68,8 +73,8 @@ const OVERRIDES = ["minRerankScore", "topK", "candidates"] as const;
 /** The conditions besides the query, counted on the button that unfolds them while the bar is stuck. */
 const CONDITIONS = ["workstream", "kind", "from", "to", ...OVERRIDES] as const;
 
-/** The columns of a unit row: what it is, then the two searches' ranks and the reranker's score. */
-const UNIT_COLUMNS = "grid-cols-[minmax(0,1fr)_auto_auto_auto]";
+/** The columns of a unit row: what it is, then the two searches' ranks, the raw rerank score and the adjusted final score. */
+const UNIT_COLUMNS = "grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]";
 
 /**
  * Whether the pointer itself moved: a page scrolled under a still pointer also reports it over a new row, which must not
@@ -445,6 +450,10 @@ function fateTitleOf(
       return text.fates.shown;
     case "beyondTopK":
       return text.fates.beyondTopK;
+    case "belowRelativeFloor":
+      return text.fates.belowRelativeFloor;
+    case "beyondActivityCap":
+      return text.fates.beyondActivityCap;
     case "belowThreshold":
       return text.fates.belowThreshold(scoreText(report.settings.minRerankScore.value));
     default:
@@ -681,7 +690,10 @@ function ResultItem({
           {result.number}
         </span>
         {pageId !== null ? (
-          <PageTypeBadge type={listed?.type ?? null} written={listed?.writtenType} />
+          <>
+            <PageTypeBadge type={result.pageType ?? listed?.type ?? null} written={listed?.writtenType} />
+            {result.overturned ? <Badge tone="warning">{text.overturned}</Badge> : null}
+          </>
         ) : (
           <Badge>{result.kind === "activity" ? text.unitKinds.activity : text.unitKinds.summary}</Badge>
         )}
@@ -697,6 +709,11 @@ function ResultItem({
           >
             {result.title ?? pageId}
           </Link>
+          {result.supersededBy !== null && result.supersededBy !== undefined && result.supersededBy.length > 0 ? (
+            <p className="flex flex-wrap items-center gap-xs text-xs text-warning">
+              <span>{text.supersededBy(result.supersededBy.join(", "))}</span>
+            </p>
+          ) : null}
           {result.sections.length === 0 ? null : (
             <p className="flex flex-wrap gap-xs">
               {result.sections.map((section) => (
@@ -744,12 +761,13 @@ function UnitsCard({
       <div className={cn("grid gap-x-md", UNIT_COLUMNS)}>
         <div
           aria-hidden
-          className="col-span-4 grid grid-cols-subgrid border-b-(length:--tk-border-thin) border-line px-sm pb-xs text-xs text-ink-muted"
+          className="col-span-5 grid grid-cols-subgrid border-b-(length:--tk-border-thin) border-line px-sm pb-xs text-xs text-ink-muted"
         >
           <span />
           <span className="text-right">{text.columns.fullText}</span>
           <span className="text-right">{text.columns.vector}</span>
           <span className="text-right">{text.columns.reranker}</span>
+          <span className="text-right">{text.columns.finalScore}</span>
         </div>
         {segmentsOf(report.units).map((segment) => (
           <SegmentBlock key={segment.fate} segment={segment} report={report} lit={lit} onLight={onLight} />
@@ -760,8 +778,8 @@ function UnitsCard({
 }
 
 /**
- * One fate's segment: its name with icon, how many units met it and their share, then the units in fused order. The two
- * segments that can run long show their first few units and unfold the rest on request.
+ * One fate's segment: its name with icon, how many units met it and their share, then the units in fused order. Long
+ * non-shown segments show their first few units and unfold the rest on request.
  */
 function SegmentBlock({
   segment,
@@ -777,7 +795,11 @@ function SegmentBlock({
   const text = useDictionary().memory.search;
   const [unfolded, setUnfolded] = useState(false);
   const style = FATE_STYLES[segment.fate];
-  const foldable = segment.fate === "belowThreshold" || segment.fate === "beyondCandidates";
+  const foldable =
+    segment.fate === "belowRelativeFloor" ||
+    segment.fate === "beyondActivityCap" ||
+    segment.fate === "belowThreshold" ||
+    segment.fate === "beyondCandidates";
   const hidden = foldable && !unfolded ? Math.max(0, segment.units.length - FOLDED_UNITS) : 0;
   const listed = hidden > 0 ? segment.units.slice(0, FOLDED_UNITS) : segment.units;
   const percent = Math.round(segment.share * 100);
@@ -790,8 +812,8 @@ function SegmentBlock({
         : text.unitCount(segment.units.length);
 
   return (
-    <section aria-label={title} className="col-span-4 grid grid-cols-subgrid">
-      <div id={fateAnchor(segment.fate)} className="col-span-4 flex flex-wrap items-center gap-sm px-sm pt-md pb-xs">
+    <section aria-label={title} className="col-span-5 grid grid-cols-subgrid">
+      <div id={fateAnchor(segment.fate)} className="col-span-5 flex flex-wrap items-center gap-sm px-sm pt-md pb-xs">
         <span className={cn("flex items-center gap-xs text-sm font-semibold", style.text)}>
           <style.icon aria-hidden className="size-(--tk-font-size-base)" />
           {title}
@@ -807,7 +829,7 @@ function SegmentBlock({
         </span>
       </div>
       {listed.length === 0 ? null : (
-        <ul className="col-span-4 grid grid-cols-subgrid">
+        <ul className="col-span-5 grid grid-cols-subgrid">
           {listed.map((unit) => (
             <UnitRow key={unit.fusedRank} unit={unit} lit={lit !== null && unit.result === lit} onLight={onLight} />
           ))}
@@ -817,7 +839,7 @@ function SegmentBlock({
         <Button
           type="button"
           variant="ghost"
-          className="col-span-4 justify-self-start"
+          className="col-span-5 justify-self-start"
           onClick={() => setUnfolded(true)}
         >
           {text.unfold(hidden)}
@@ -829,7 +851,7 @@ function SegmentBlock({
 
 /**
  * One unit: the number of the result it became part of, what it is and where it comes from, then its full-text rank,
- * vector rank and reranker score. Its whole text is its tooltip.
+ * vector rank, raw reranker score and adjusted final score. Its whole text is its tooltip.
  */
 function UnitRow({
   unit,
@@ -843,17 +865,23 @@ function UnitRow({
   const text = useDictionary().memory.search;
   const [main, sub] = unitLabelOf(unit, text.unitKinds);
   const number = (value: number | null) => (value === null ? "—" : String(value));
+  const originLabel =
+    unit.graphOrigin === "supersedes"
+      ? text.graphOrigins.supersedes
+      : unit.graphOrigin === "related"
+        ? text.graphOrigins.related
+        : null;
   return (
     <li
       title={unit.text}
       data-lit={lit ? "" : undefined}
       onPointerMove={(event) => moved(event) && onLight(unit.result)}
       className={cn(
-        "col-span-4 grid grid-cols-subgrid items-baseline rounded-sm px-sm py-xs text-sm transition-colors",
+        "col-span-5 grid grid-cols-subgrid items-baseline rounded-sm px-sm py-xs text-sm transition-colors",
         lit ? "bg-accent-soft" : "hover:bg-surface-raised",
       )}
     >
-      <span className="flex min-w-0 items-baseline gap-sm">
+      <span className="flex min-w-0 flex-wrap items-center gap-xs">
         {unit.result === null ? null : (
           <span
             aria-label={text.partOf(unit.result)}
@@ -864,11 +892,21 @@ function UnitRow({
         )}
         <span className="truncate font-mono text-xs">{main}</span>
         {sub === "" ? null : <span className="shrink-0 text-xs text-ink-muted">{sub}</span>}
+        {originLabel === null ? null : (
+          <Badge tone="info">
+            <GitBranch aria-hidden />
+            {originLabel}
+          </Badge>
+        )}
+        {unit.overturned ? <Badge tone="warning">{text.overturned}</Badge> : null}
       </span>
       <span className="text-right font-mono text-xs text-ink-muted tabular-nums">{number(unit.fullTextRank)}</span>
       <span className="text-right font-mono text-xs text-ink-muted tabular-nums">{number(unit.vectorRank)}</span>
       <span className="text-right font-mono text-xs text-ink-muted tabular-nums">
         {unit.rerankScore === null ? "—" : scoreText(unit.rerankScore)}
+      </span>
+      <span className="text-right font-mono text-xs font-medium tabular-nums">
+        {unit.finalScore === null || unit.finalScore === undefined ? "—" : scoreText(unit.finalScore)}
       </span>
     </li>
   );

@@ -6,6 +6,7 @@ import { type PageListItem, usePages } from "../../api/memory";
 import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { StickyBar } from "../../components/ui/sticky-bar";
+import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Select } from "../../components/ui/select";
@@ -209,7 +210,10 @@ function PageTable({
               <span className="hidden md:block">
                 <PageTypeBadge type={page.type} written={page.writtenType} />
               </span>
-              <span className="min-w-0 truncate">{page.title}</span>
+              <span className="flex min-w-0 items-center gap-xs">
+                <span className="truncate">{page.title}</span>
+                {page.overturned ? <Badge tone="warning">{text.overturned}</Badge> : null}
+              </span>
               <span className="hidden max-w-(--tk-size-setting-name) truncate text-xs text-ink-muted md:block">
                 {nameOf(page.workstream)}
               </span>

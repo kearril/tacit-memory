@@ -3928,6 +3928,14 @@
           "none"
         ]
       },
+      "GraphOrigin": {
+        "enum": [
+          "none",
+          "supersedes",
+          "related"
+        ],
+        "default": "none"
+      },
       "LimitsFile": {
         "type": "object",
         "properties": {
@@ -4339,6 +4347,10 @@
           "uses": {
             "type": "integer",
             "format": "int64"
+          },
+          "overturned": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -4412,7 +4424,10 @@
           "related",
           "file",
           "uses",
-          "sections"
+          "sections",
+          "supersedes",
+          "supersededBy",
+          "overturned"
         ],
         "type": "object",
         "properties": {
@@ -4477,6 +4492,21 @@
             "items": {
               "$ref": "#/components/schemas/PageSectionView"
             }
+          },
+          "supersedes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelatedPage"
+            }
+          },
+          "supersededBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelatedPage"
+            }
+          },
+          "overturned": {
+            "type": "boolean"
           }
         }
       },
@@ -6237,6 +6267,29 @@
               "null",
               "string"
             ]
+          },
+          "pageType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageType"
+              }
+            ]
+          },
+          "overturned": {
+            "type": "boolean",
+            "default": false
+          },
+          "supersededBy": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -6401,6 +6454,20 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "graphOrigin": {
+            "$ref": "#/components/schemas/GraphOrigin"
+          },
+          "finalScore": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "overturned": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -6408,6 +6475,8 @@
         "enum": [
           "shown",
           "beyondTopK",
+          "belowRelativeFloor",
+          "beyondActivityCap",
           "belowThreshold",
           "beyondCandidates",
           "unreadable"

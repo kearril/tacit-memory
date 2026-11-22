@@ -1,11 +1,19 @@
 import { cn } from "cn";
-import { ChevronRight, Link2, TriangleAlert } from "lucide-react";
+import { ChevronRight, GitBranch, History, Link2, TriangleAlert } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { Link, useParams } from "react-router";
-import { type PageListItem, type PageSectionView, type PageView, usePage, usePages } from "../../api/memory";
+import {
+  type PageListItem,
+  type PageSectionView,
+  type PageView,
+  type RelatedPage,
+  usePage,
+  usePages,
+} from "../../api/memory";
 import { QueryResult } from "../../components/query-result";
 import { useDictionary } from "../../app/session-context";
 import { useScrollToHash } from "../../app/use-scroll-to-hash";
+import { Badge } from "../../components/ui/badge";
 import { BELOW_BARS } from "../../components/ui/sticky";
 import { StickyBar } from "../../components/ui/sticky-bar";
 import { Card, CardTitle } from "../../components/ui/card";
@@ -99,6 +107,7 @@ function PageHead({ page }: { readonly page: PageView }) {
       <div className="grid gap-sm">
         <div className="flex flex-wrap items-center gap-sm">
           <PageTypeBadge type={page.type} written={page.writtenType} />
+          {page.overturned ? <Badge tone="warning">{text.overturned}</Badge> : null}
           <h1 id="page-title" className="text-xl leading-(--tk-line-height-tight) font-semibold">
             {page.title}
           </h1>
@@ -176,46 +185,79 @@ function Section({ section, number }: { readonly section: PageSectionView; reado
 }
 
 /**
- * The related pages by title, each with its type and workstream, read from the list of pages; one that does not exist
- * keeps its identifier in a dashed box with a warning.
+ * Evolution and associative links (`Superseded by`, `Supersedes`, `Related`) shown as flat cards reusing one grid.
  */
 function Related({ page }: { readonly page: PageView }) {
   const dictionary = useDictionary();
   const text = dictionary.memory.pages;
   const list = usePages();
-  if (page.related.length === 0) {
+  if (page.supersededBy.length === 0 && page.supersedes.length === 0 && page.related.length === 0) {
     return null;
   }
   const items = new Map<string, PageListItem>((list.data?.pages ?? []).map((item) => [item.id, item]));
   return (
-    <Card variant="flat" aria-labelledby="page-related">
+    <>
+      <LinkGroup
+        id="page-superseded-by"
+        title={text.supersededBy}
+        icon={GitBranch}
+        links={page.supersededBy}
+        items={items}
+      />
+      <LinkGroup id="page-supersedes" title={text.supersedes} icon={History} links={page.supersedes} items={items} />
+      <LinkGroup id="page-related" title={text.related} icon={Link2} links={page.related} items={items} />
+    </>
+  );
+}
+
+function LinkGroup({
+  id,
+  title,
+  icon: Icon,
+  links,
+  items,
+}: {
+  readonly id: string;
+  readonly title: string;
+  readonly icon: typeof Link2;
+  readonly links: readonly RelatedPage[];
+  readonly items: ReadonlyMap<string, PageListItem>;
+}) {
+  const dictionary = useDictionary();
+  const text = dictionary.memory.pages;
+  if (links.length === 0) {
+    return null;
+  }
+  return (
+    <Card variant="flat" aria-labelledby={id}>
       <div className="flex items-center gap-sm">
-        <Link2 aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-ink-muted" />
-        <CardTitle id="page-related">{text.related}</CardTitle>
+        <Icon aria-hidden className="size-(--tk-font-size-lg) shrink-0 text-ink-muted" />
+        <CardTitle id={id}>{title}</CardTitle>
       </div>
       <ul className="grid gap-sm md:grid-cols-2">
-        {page.related.map((related) => {
-          const item = items.get(related.id);
+        {links.map((entry) => {
+          const item = items.get(entry.id);
           return (
-            <li key={related.id} className="grid">
-              {related.exists ? (
+            <li key={entry.id} className="grid">
+              {entry.exists ? (
                 <Link
-                  to={pagePathOf(related.id)}
+                  to={pagePathOf(entry.id)}
                   className="grid content-start gap-xs rounded-md bg-surface-raised px-md py-sm outline-none hover:ring-(length:--tk-border-thin) hover:ring-accent focus-visible:ring-(length:--tk-border-thick) focus-visible:ring-accent"
                 >
                   <span className="flex flex-wrap items-center gap-sm text-xs text-ink-muted">
                     <PageTypeBadge type={item?.type ?? null} written={item?.writtenType} />
+                    {item?.overturned ? <Badge tone="warning">{text.overturned}</Badge> : null}
                     {item === undefined
                       ? null
                       : item.workstream === TOPICS
                         ? dictionary.memory.parts.topics
                         : item.workstream}
                   </span>
-                  <span className="text-sm font-medium">{item?.title ?? related.id}</span>
+                  <span className="text-sm font-medium">{item?.title ?? entry.id}</span>
                 </Link>
               ) : (
                 <span className={cn(entryBox({ tone: "warning" }), "grid gap-xs")}>
-                  <span className="font-mono text-xs text-ink-muted">{related.id}</span>
+                  <span className="font-mono text-xs text-ink-muted">{entry.id}</span>
                   <span className="flex items-center gap-xs text-xs text-warning">
                     <TriangleAlert aria-hidden className="size-(--tk-font-size-xs)" />
                     {text.missing}

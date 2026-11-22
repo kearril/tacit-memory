@@ -1,7 +1,14 @@
 import type { TraceUnit, UnitFate } from "../../api/memory";
 
 /** The fates a trace view lists, in the order the pipeline decides them. */
-export const SEGMENT_FATES = ["shown", "beyondTopK", "belowThreshold", "beyondCandidates"] as const;
+export const SEGMENT_FATES = [
+  "shown",
+  "beyondTopK",
+  "belowRelativeFloor",
+  "beyondActivityCap",
+  "belowThreshold",
+  "beyondCandidates",
+] as const;
 export type SegmentFate = (typeof SEGMENT_FATES)[number];
 
 /** One segment of the trace view: the units that met one fate, in fused order, and their share of all units. */
