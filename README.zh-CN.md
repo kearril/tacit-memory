@@ -264,6 +264,18 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 - **直接编辑记忆文件**：可用任意编辑器直接修改 `~/.tacit/memory` 下的 Markdown，服务会监听变更并自动同步索引。
 - **升级后同步 skill**：新增或更新内置 skill 后，用相同参数重跑一次 `tacit connect` 即可补齐链接。
 
+## 性能与基准测试
+
+本地索引与混合检索在单进程内基于 SQLite（FTS5 + 零拷贝 SIMD 余弦扫描）直接完成，向量检索的单次查询内存分配保持 `O(K)` 恒定。Apple Silicon 参考实测数据（Release 构建、`1024` 维向量，不含外部模型推理耗时）：
+
+| 检索单元数 | 冷建同步 | 增量同步 | FTS5 P50 | Vector P50 / 分配 | End-to-End P50 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | 53.6 ms | 2.1 ms | 0.17 ms | 0.50 ms / 33.1 KB | 1.42 ms |
+| 2,000 | 95.6 ms | 5.4 ms | 0.23 ms | 1.60 ms / 33.2 KB | 2.64 ms |
+| 10,000 | 544.5 ms | 34.6 ms | 0.74 ms | 7.66 ms / 33.4 KB | 9.95 ms |
+
+仓库内置可复现的 `perf` 与 `recall` 基准工具（`benchmarks/TacitMemory.Benchmarks`），自带 38 页 / 78 查询脱敏语料与本地模型缓存代理，可用于横评不同嵌入/重排模型或测试私有语料库。详细命令与召回参考见 [`docs/benchmarks.md`](docs/benchmarks.md)。
+
 ## 文档导航
 
 - [`docs/design.md`](docs/design.md) — 系统行为、记忆规则、Web 界面与安全边界
@@ -272,6 +284,7 @@ dotnet publish src/TacitMemory.Cli -c Release -o <安装目录>
 - [`docs/memory-files.md`](docs/memory-files.md) — 记忆仓库目录结构与 Markdown 格式
 - [`docs/operations.md`](docs/operations.md) — 备份恢复、Git 同步、排障与发布流程
 - [`docs/development.md`](docs/development.md) — 代码架构、测试接缝与本地构建
+- [`docs/benchmarks.md`](docs/benchmarks.md) — 检索召回与索引性能基准指南
 - [`CHANGELOG.md`](CHANGELOG.md) — 版本更新记录
 
 ## 许可与反馈

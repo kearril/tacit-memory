@@ -263,6 +263,18 @@ The `/mcp` endpoint always accepts loopback connections only. The service does n
 - **Direct editing**: Edit any Markdown file under `~/.tacit/memory` in your own editor; the service watches for changes and reindexes automatically.
 - **Syncing skills after upgrades**: When built-in skills are added or updated, re-run `tacit connect` with the same flags to refresh links.
 
+## Performance & Benchmarks
+
+Local indexing and hybrid search run directly inside the single process over SQLite (FTS5 + zero-copy SIMD cosine scan), with constant `O(K)` per-query allocation for vector search regardless of corpus size. Reference measurements on Apple Silicon (Release build, `1024`-dim vectors, excluding external model inference):
+
+| Indexed Units | Cold Sync | Incremental Sync | FTS5 P50 | Vector P50 / Alloc | End-to-End P50 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | 53.6 ms | 2.1 ms | 0.17 ms | 0.50 ms / 33.1 KB | 1.42 ms |
+| 2,000 | 95.6 ms | 5.4 ms | 0.23 ms | 1.60 ms / 33.2 KB | 2.64 ms |
+| 10,000 | 544.5 ms | 34.6 ms | 0.74 ms | 7.66 ms / 33.4 KB | 9.95 ms |
+
+The repository ships a reproducible benchmark suite (`benchmarks/TacitMemory.Benchmarks`) with both `perf` and `recall` modes—including a built-in 38-page / 78-query de-personalized corpus and local response caching—so you can benchmark your own embedding/reranker models or private corpus. See [`docs/benchmarks.md`](docs/benchmarks.md) for usage and recall reference numbers.
+
 ## Documentation
 
 > Note: Detailed reference docs under `docs/` are currently written in Simplified Chinese.
@@ -273,6 +285,7 @@ The `/mcp` endpoint always accepts loopback connections only. The service does n
 - [`docs/memory-files.md`](docs/memory-files.md) — Memory repository layout and Markdown file formats
 - [`docs/operations.md`](docs/operations.md) — Backup/restore, Git sync, troubleshooting, and release packaging
 - [`docs/development.md`](docs/development.md) — Codebase map, testing seams, and local builds
+- [`docs/benchmarks.md`](docs/benchmarks.md) — Retrieval recall and index performance benchmark guide
 - [`CHANGELOG.md`](CHANGELOG.md) — Release notes and version history
 
 ## License & Feedback

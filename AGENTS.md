@@ -12,6 +12,7 @@
 | `docs/memory-files.md` | 记忆仓库目录结构与 Markdown 文件格式 | 改动文件读写或解析格式 |
 | `docs/operations.md` | 备份恢复、Git 同步、日志、排障与发布 | 改动运维行为或发布脚本 |
 | `docs/development.md` | 代码地图、程序集边界、测试接缝与运行方式 | 改动模块职责、接口依赖或编写测试 |
+| `docs/benchmarks.md` | 检索召回与索引性能基准套件用法、语料口径与参考基线 | 改动基准工具、内置语料或更新参考数据 |
 
 管理 API 的端点与字段以 `/api/openapi.json`（快照 `web/openapi.json`）为准，命令用法以 `tacit --help` 为准，MCP 工具说明以 `tacit show tools` 为准，不另写文档。
 
