@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/logo.png" width="88" alt="TacitMemory" />
   <h1>TacitMemory</h1>
-  <p>A personal, white-box memory system shared across AI agent clients and machines. Stored as plain Markdown in Git and served over local HTTP MCP on macOS, Windows, and Linux.</p>
+  <p>A client-agnostic, white-box personal memory system for AI agents, shared across clients and machines. Stored as plain Markdown in a local Git repository and connected over local HTTP MCP on macOS, Windows, and Linux.</p>
   <p>
     <a href="https://github.com/kearril/tacit-memory/releases"><img src="https://img.shields.io/github/v/release/kearril/tacit-memory?include_prereleases&label=version&color=4C566A" alt="Version" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-5E81AC" alt="License" /></a>
@@ -21,9 +21,9 @@
 
 **Your memory belongs to you, not to a single vendor or client.**
 
-More AI platforms and coding assistants now ship built-in memory, yet once your working rules, preferences, troubleshooting notes, and project context live inside a vendor's cloud or proprietary format, they are hard to take with you when using multiple tools side by side or moving to a different platform—forcing you to explain the same background from scratch.
+More AI platforms and agent clients now ship built-in memory, yet once your preferences, working rules, past decisions, and ongoing context live inside a vendor's cloud or proprietary format, they are hard to take with you when using multiple tools side by side or switching platforms—forcing you to explain the same background from scratch.
 
-TacitMemory decouples personal memory from any specific vendor or client: everything is stored as plain Markdown in your local Git repository and connected to any agent through a context file, skills, and a local HTTP MCP endpoint. Different models and clients share the same white-box, portable, auditable long-term memory.
+TacitMemory is a client-agnostic personal memory layer built for long-term collaboration and continuity of work, organizing memory around you and your ongoing workstreams: everything is stored as plain Markdown in a local Git repository and connected to any agent through a context file, skills, and a local HTTP MCP endpoint, so different models and clients share one white-box, portable, auditable memory.
 
 | Dimension | Vendor / Client Built-in Memory | Background LLM + Database Memory | **TacitMemory** |
 | :--- | :--- | :--- | :--- |
@@ -32,15 +32,15 @@ TacitMemory decouples personal memory from any specific vendor or client: everyt
 | **Ownership & overhead** | Locked to one vendor or client | Cross-client, but burns ongoing background LLM tokens | **Zero vendor lock-in, cross-client**, zero background generative LLM cost |
 
 - **White-box Markdown + Git design**: Every memory is human-readable, editable in any text editor, and auto-committed to Git on write. The SQLite full-text and vector index is strictly a derived cache that can be deleted and rebuilt at any time, paired with a built-in Web UI and pipeline-matched **Recall Trace** showing why every result ranked where it did.
-- **Cross-client & multi-machine sharing**: Works across MCP-compatible clients such as Claude Code, Codex, OpenCode, Pi, Antigravity, and DeepSeek Harness, supporting concurrent multi-agent reads and writes. Sync across machines through your own private Git repository.
+- **Client-agnostic & multi-machine sharing**: Connects to any compatible agent through a context file, skills, and local HTTP MCP—spanning general personal agents and developer clients (built-in presets for Hermes, Claude Code, Codex, OpenCode, Pi, Antigravity, and DeepSeek Harness, plus custom paths)—with concurrent multi-agent reads and writes and automatic multi-machine sync via your private Git repository.
 - **Zero background generative LLMs**: Understanding, summarizing, and drafting consolidation proposals are performed by the main-session agent that already holds the full conversation context. The background service never silently rewrites past memories and incurs zero extra chat token cost.
 - **Layered memory with progressive disclosure**: Global persona stays resident, domain rules and detail pages load on demand, and ongoing work condenses into workstream briefings—balancing low context noise with cross-session continuity.
 - **Lightweight deployment with graceful degradation**: Runs in a single process at ~20 MB resident memory with no external database. The full experience is designed and tuned around three lightweight auxiliary models (strongly recommended for daily use), while degrading gracefully when omitted so you can trial it with zero model setup.
 
 ## Daily Workflow
 
-1. **Automatic context at session start**: Global red lines, working rules, preferences, and active workstream background and recent progress load automatically—no need to re-introduce them each session.
-2. **On-demand recall and in-session writes**: During a conversation, the agent queries past troubleshooting notes or decisions via `recall` and records durable conclusions or new rules following the write guidelines.
+1. **Automatic context at session start**: Global red lines, working rules, preferences, and active workstream (ongoing effort) background and recent progress load automatically—no need to re-introduce them each session.
+2. **On-demand recall and in-session writes**: During a conversation, the agent queries prior context, past decisions, or troubleshooting notes via `recall` and records durable conclusions or new rules following the write guidelines.
 3. **Manual wrap-up capture (`tacit-remember`)**: Triggered manually by the user (no client hooks). Models with strong instruction-following typically handle memory writes and wrap-ups autonomously even across long-running tasks; weaker models generally recall memory reliably but may be less proactive about writing and summarizing, in which case running `tacit-remember` before compacting context or ending a task prompts them to capture session outcomes.
 4. **Manual periodic consolidation (`tacit-consolidate`)**: Also triggered manually by the user. Run periodically or when notified that consolidation is due: the agent first auto-fixes formatting, writes weekly/monthly summaries, and updates workstream recents, then presents decisions as a numbered list for one-reply batch approval.
 5. **Direct browsing and editing**: Inspect or search memories in the built-in Web UI, or edit any Markdown file under `~/.tacit/memory` directly in your own editor—the service watches for changes and reindexes automatically.
@@ -171,7 +171,7 @@ The `/mcp` endpoint always accepts loopback connections only. The service does n
 | Layer | What it holds | How it enters context |
 | :--- | :--- | :--- |
 | **Persona** | Red lines, working rules, preferences, and profile (scoped globally, by domain, or by workstream) | Global entries and the domain index stay resident; domain rules and workstream rules are fetched on demand |
-| **Workstreams** | Ongoing efforts (projects, ops, etc.) with a stable background and recent summary | Resident in the context file (recent summary included for workstreams active in the last 28 days); full briefing fetched in one call on entry |
+| **Workstreams** | Ongoing efforts (research, planning, ops, software projects, etc.) with a stable background and recent summary | Resident in the context file (recent summary included for workstreams active in the last 28 days); full briefing fetched in one call on entry |
 | **Activities** | One-line session outcomes archived monthly, plus weekly and monthly summaries | Last 7 days delivered via MCP server instructions; older entries retrieved on demand |
 | **Pages** | Topic-focused Markdown pages (`incident`, `decision`, `entity`, `work`) | Retrieved on demand by the agent via `recall`, with explicit `supersedes` evolution links |
 
